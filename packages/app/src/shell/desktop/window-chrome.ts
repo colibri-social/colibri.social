@@ -67,10 +67,13 @@ const tauriWindow = async () => {
 	return getCurrentWindow();
 };
 
-const tauriInvoke = async <T>(command: string) => {
+const tauriInvoke = async <T>(
+	command: string,
+	args?: Record<string, unknown>,
+) => {
 	if (!isNativeShell()) throw new Error("No native shell");
 	const { invoke } = await import("@tauri-apps/api/core");
-	return invoke<T>(command);
+	return invoke<T>(command, args);
 };
 
 export const nativeWindow = {
@@ -87,9 +90,7 @@ export const nativeWindow = {
 			.then((current) => current.close())
 			.catch(() => {}),
 	setTitle: (value: string) =>
-		tauriWindow()
-			.then((current) => current.setTitle(value))
-			.catch(() => {}),
+		tauriInvoke("titlebar_set_title", { title: value }).catch(() => {}),
 	isMaximized: () =>
 		tauriWindow()
 			.then((current) => current.isMaximized())

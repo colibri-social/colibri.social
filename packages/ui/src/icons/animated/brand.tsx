@@ -1,4 +1,13 @@
-import { createUniqueId, For, type JSX, splitProps } from "solid-js";
+import { createUniqueId, For, type JSX, Show, splitProps } from "solid-js";
+import {
+	anisotaMark,
+	type BrandMark,
+	blackskyMark,
+	muMark,
+	northskyGradient,
+	northskyMark,
+	witchskyMark,
+} from "../brand/bluesky-clients";
 import {
 	atmosphereAt,
 	atmosphereRing,
@@ -197,3 +206,80 @@ export const GifGlyph = (props: LogoProps) => (
 		/>
 	</StaticLogo>
 );
+
+export type BlueskyClientLogoId =
+	| "anisota"
+	| "blacksky"
+	| "bluesky"
+	| "mu"
+	| "northsky"
+	| "witchsky";
+
+const blueskyMark: BrandMark = {
+	viewBox: BLUESKY_VIEWBOX,
+	paths: [{ d: blueskyButterfly.d }],
+};
+
+const BLUESKY_CLIENT_MARKS: Record<BlueskyClientLogoId, BrandMark> = {
+	anisota: anisotaMark,
+	blacksky: blackskyMark,
+	bluesky: blueskyMark,
+	mu: muMark,
+	northsky: northskyMark,
+	witchsky: witchskyMark,
+};
+
+export const BLUESKY_CLIENT_LOGO_IDS = Object.keys(
+	BLUESKY_CLIENT_MARKS,
+) as BlueskyClientLogoId[];
+
+export const isBlueskyClientLogoId = (id: string): id is BlueskyClientLogoId =>
+	id in BLUESKY_CLIENT_MARKS;
+
+const MarkPaths = (props: { mark: BrandMark; fill: string }) => (
+	<For each={props.mark.paths}>
+		{(path) => <path d={path.d} transform={path.transform} fill={props.fill} />}
+	</For>
+);
+
+export type BlueskyClientLogoProps = LogoProps & {
+	client: BlueskyClientLogoId;
+};
+
+export const BlueskyClientLogo = (props: BlueskyClientLogoProps) => {
+	const [local, rest] = splitProps(props, ["client"]);
+	const gradientId = `bluesky-client-gradient-${createUniqueId()}`;
+	const mark = () => BLUESKY_CLIENT_MARKS[local.client];
+	return (
+		<StaticLogo
+			{...rest}
+			viewBox={mark().viewBox}
+			data-bluesky-client={local.client}
+		>
+			<MarkPaths mark={mark()} fill="currentColor" />
+			<Show when={local.client === "northsky"}>
+				<defs>
+					<linearGradient
+						id={gradientId}
+						x1={northskyGradient.x1}
+						y1={northskyGradient.y1}
+						x2={northskyGradient.x2}
+						y2={northskyGradient.y2}
+						gradientUnits="userSpaceOnUse"
+						gradientTransform={northskyGradient.transform}
+					>
+						<For each={northskyGradient.stops}>
+							{(stop) => <stop offset={stop.offset} stop-color={stop.color} />}
+						</For>
+					</linearGradient>
+				</defs>
+				<g
+					data-bluesky-client-hover=""
+					class="opacity-0 group-hover/brand-link:opacity-100 group-focus-visible/brand-link:opacity-100"
+				>
+					<MarkPaths mark={mark()} fill={`url(#${gradientId})`} />
+				</g>
+			</Show>
+		</StaticLogo>
+	);
+};

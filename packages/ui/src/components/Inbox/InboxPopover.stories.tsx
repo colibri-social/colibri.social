@@ -163,11 +163,17 @@ export const Default: Story = {
 		const first = focusedCell();
 		await expect(first).not.toBeNull();
 		await expect(first).toHaveAttribute("tabindex", "0");
+		await expect(first?.closest("[data-inbox-row]")).not.toHaveAttribute(
+			"data-keyboard-focus",
+		);
 
 		await userEvent.keyboard("{ArrowDown}");
 		const second = focusedCell();
 		await expect(second?.closest("[data-inbox-row]")).not.toBe(
 			first?.closest("[data-inbox-row]"),
+		);
+		await expect(second?.closest("[data-inbox-row]")).toHaveAttribute(
+			"data-keyboard-focus",
 		);
 		await userEvent.keyboard("{ArrowUp}");
 		await expect(focusedCell()).toBe(first);
@@ -198,7 +204,10 @@ export const Default: Story = {
 		await expect(
 			within(dialog).getByText("You're all caught up"),
 		).toBeInTheDocument();
-		await expect(markAll).toBeDisabled();
+		await expect(markAll.isConnected).toBe(false);
+		await expect(
+			within(dialog).queryByRole("button", { name: /^Mark .* as read$/ }),
+		).toBeNull();
 		await expect(
 			canvasElement.querySelector("[data-inbox-rail-count]"),
 		).toBeNull();
@@ -233,7 +242,7 @@ export const SpaceView: Story = {
 			}),
 		).toBeInTheDocument();
 		await userEvent.click(markSpace);
-		await waitFor(() => expect(markSpace).toBeDisabled());
+		await waitFor(() => expect(markSpace.isConnected).toBe(false));
 		await waitFor(() =>
 			expect(dialog.querySelector("[data-inbox-list]")).toBeNull(),
 		);
@@ -298,43 +307,50 @@ export const MarkCategoryRead: Story = {
 		const views = within(dialog).getByRole("navigation", {
 			name: "Inbox views",
 		});
+		const bar = () =>
+			dialog.querySelector<HTMLElement>("[data-inbox-view-bar]") as HTMLElement;
+		await expect(
+			within(views).queryByRole("button", { name: /^Mark .* as read$/ }),
+		).toBeNull();
 		const kinds = () => listRows(dialog).map((row) => row.dataset.inboxKind);
 		const replies = kinds().filter((kind) => kind === "reply").length;
 		await expect(replies).toBeGreaterThan(0);
 		await expect(kinds().length).toBeGreaterThan(replies);
 
 		await userEvent.click(
-			within(views).getByRole("button", { name: "Mark mentions as read" }),
+			within(views).getByRole("button", { name: /^Mentions/ }),
+		);
+		await expect(within(bar()).getByText("Mentions")).toBeInTheDocument();
+		await userEvent.click(
+			within(bar()).getByRole("button", { name: "Mark mentions as read" }),
 		);
 		await waitFor(() =>
-			expect(
-				dialog.querySelectorAll(
-					"[data-inbox-list] [data-inbox-row]:not([data-inbox-kind='reply'])",
-				),
-			).toHaveLength(0),
+			expect(dialog.querySelector("[data-inbox-list]")).toBeNull(),
 		);
-		await expect(kinds()).toHaveLength(replies);
 		await expect(
-			within(views).queryByRole("button", { name: "Mark mentions as read" }),
+			within(bar()).queryByRole("button", { name: /^Mark .* as read$/ }),
 		).toBeNull();
 		await expect(dialog.contains(document.activeElement)).toBe(true);
+
+		await userEvent.click(within(views).getByRole("button", { name: /^All/ }));
+		await waitFor(() => expect(kinds()).toHaveLength(replies));
+		await expect(
+			within(bar()).getByRole("button", { name: "Mark all as read" }),
+		).toBeInTheDocument();
 
 		await userEvent.click(
 			within(views).getByRole("button", { name: /^Replies/ }),
 		);
 		await userEvent.click(
-			within(views).getByRole("button", { name: "Mark replies as read" }),
+			within(bar()).getByRole("button", { name: "Mark replies as read" }),
 		);
 		await waitFor(() =>
 			expect(dialog.querySelector("[data-inbox-list]")).toBeNull(),
 		);
 		await expect(within(dialog).getByText("No replies")).toBeInTheDocument();
 		await expect(
-			within(views).queryByRole("button", { name: "Mark replies as read" }),
+			within(dialog).queryByRole("button", { name: /^Mark .* as read$/ }),
 		).toBeNull();
-		await expect(
-			within(dialog).getByRole("button", { name: "Mark all as read" }),
-		).toBeDisabled();
 		await expect(dialog.contains(document.activeElement)).toBe(true);
 	},
 };
@@ -347,8 +363,8 @@ export const Empty: Story = {
 			within(dialog).getByText("You're all caught up"),
 		).toBeInTheDocument();
 		await expect(
-			within(dialog).getByRole("button", { name: "Mark all as read" }),
-		).toBeDisabled();
+			within(dialog).queryByRole("button", { name: /^Mark .* as read$/ }),
+		).toBeNull();
 		onOpenSettings.mockClear();
 		await userEvent.click(
 			within(dialog).getByRole("button", {

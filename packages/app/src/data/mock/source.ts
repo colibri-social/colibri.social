@@ -25,7 +25,9 @@ import type {
 	ThreadView,
 	UnreadStatus,
 } from "../types";
+import { EMBEDS_SUPPRESSED_LABEL } from "../types";
 import { createMockAccess } from "./access";
+import { findBlueskyPost } from "./bluesky";
 import { createBridgeStore } from "./bridges";
 import {
 	createCommunityRecord,
@@ -1257,6 +1259,57 @@ export const createMockSource = (
 				});
 				return next;
 			}),
+		setSuppressedEmbeds: (input) =>
+			withLatency(() => {
+				const { list, index, message } = findMessage(input.channel, input.rkey);
+				const next: MessageView = { ...message };
+				if (input.uris.length > 0) {
+					next.suppressedEmbeds = [
+						...new Set(input.uris),
+					] as MessageView["suppressedEmbeds"];
+				} else {
+					delete next.suppressedEmbeds;
+				}
+				list[index] = next;
+				emit({
+					$type: "messageEvent",
+					event: "update",
+					channel: input.channel,
+					message: next,
+				});
+				return next;
+			}),
+		setModeratedEmbeds: (input) =>
+			withLatency(() => {
+				const { list, index, message } = findMessage(input.channel, input.rkey);
+				const others = message.labels.filter(
+					(label) => label.val !== EMBEDS_SUPPRESSED_LABEL,
+				);
+				const next: MessageView = {
+					...message,
+					labels:
+						input.uris.length > 0
+							? [
+									...others,
+									{
+										src: MANAGING_APP,
+										val: EMBEDS_SUPPRESSED_LABEL,
+										scope: [...new Set(input.uris)],
+										createdAt: asDatetime(Date.now()),
+									} as MessageView["labels"][number],
+								]
+							: others,
+				};
+				list[index] = next;
+				emit({
+					$type: "messageEvent",
+					event: "update",
+					channel: input.channel,
+					message: next,
+				});
+				return next;
+			}),
+		getBlueskyPost: (url) => withLatency(() => findBlueskyPost(url, now)),
 		markRead: (channel) =>
 			withLatency(() => {
 				const record = channelRecord(channel);

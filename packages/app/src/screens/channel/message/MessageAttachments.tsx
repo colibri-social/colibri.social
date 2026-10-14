@@ -1,27 +1,69 @@
 import {
 	AudioAttachment,
+	BlueskyPostEmbed,
+	BlueskyPostEmbedSkeleton,
 	FileAttachment,
 	Lightbox,
 	type LightboxAuthor,
 	LinkEmbed,
 	MediaGrid,
 	type MediaItem,
+	type RichTextExternalLink,
 } from "@colibri-social/ui";
-import { createSignal, For, type JSX, Show } from "solid-js";
+import {
+	createResource,
+	createSignal,
+	For,
+	type JSX,
+	Match,
+	Show,
+	Switch,
+} from "solid-js";
 import {
 	type SplitAttachments,
 	toLinkEmbedProps,
 } from "../../../data/adapters/attachments";
-import type { LinkEmbed as LinkEmbedView } from "../../../data/types";
+import {
+	parseBlueskyPostUrl,
+	toBlueskyPost,
+} from "../../../data/adapters/bluesky-post";
+import { blueskyClient } from "../../../data/bluesky-client";
+import type {
+	BlueskyPostView,
+	LinkEmbed as LinkEmbedView,
+} from "../../../data/types";
+import { externalAnchorOf } from "../../../native/open-external";
+
+const routeEmbedLink = (
+	event: MouseEvent,
+	onExternalLink?: (href: string, link: RichTextExternalLink) => void,
+) => {
+	if (!onExternalLink || event.defaultPrevented || event.button !== 0) return;
+	const anchor = externalAnchorOf(event);
+	if (!anchor?.closest("[data-link-embed], [data-bluesky-embed]")) return;
+	event.preventDefault();
+	onExternalLink(anchor.href, {
+		label: anchor.textContent?.trim() ?? anchor.href,
+		disguised: false,
+	});
+};
+
+export type LoadBlueskyPost = (
+	url: string,
+) => Promise<BlueskyPostView | undefined>;
+
+export type RemoveEmbed = (uri: string, event: MouseEvent) => void;
 
 export const hasAttachmentContent = (
 	split: SplitAttachments,
 	embeds: readonly LinkEmbedView[],
+	blueskyLinks: readonly string[] = [],
 ) =>
 	split.media.length > 0 ||
 	split.audio.length > 0 ||
 	split.files.length > 0 ||
-	embeds.length > 0;
+	embeds.length > 0 ||
+	blueskyLinks.length > 0;
 
 export const MediaWithLightbox = (props: {
 	items: MediaItem[];
@@ -88,6 +130,7 @@ export const EmbedWithLightbox = (props: {
 	author?: LightboxAuthor;
 	timestamp?: string;
 	locale?: string;
+	onRemove?: RemoveEmbed;
 }) => {
 	const [open, setOpen] = createSignal(false);
 	const [mounted, setMounted] = createSignal(false);
@@ -96,6 +139,11 @@ export const EmbedWithLightbox = (props: {
 		<>
 			<LinkEmbed
 				{...toLinkEmbedProps(props.embed)}
+				onRemove={
+					props.onRemove
+						? (event) => props.onRemove?.(props.embed.uri, event)
+						: undefined
+				}
 				onOpenImage={
 					items().length > 0
 						? () => {
@@ -120,14 +168,100 @@ export const EmbedWithLightbox = (props: {
 	);
 };
 
-export const MessageAttachments = (props: {
-	split: SplitAttachments;
-	embeds: readonly LinkEmbedView[];
+const blueskyPostItems = (post: BlueskyPostView): MediaItem[] =>
+	(post.images ?? []).map((image) => ({
+		src: image.url,
+		kind: "image",
+		width: image.width,
+		height: image.height,
+		alt: image.alt,
+	}));
+
+export const BlueskyEmbed = (props: {
+	url: string;
+	fallback?: LinkEmbedView;
+	load?: LoadBlueskyPost;
 	author?: LightboxAuthor;
 	timestamp?: string;
 	locale?: string;
+	onRemove?: RemoveEmbed;
+}) => {
+	const [post] = createResource(
+		() => (props.load ? props.url : undefined),
+		(url) => props.load?.(url).catch(() => undefined),
+	);
+	const [open, setOpen] = createSignal(false);
+	const [mounted, setMounted] = createSignal(false);
+	const [index, setIndex] = createSignal(0);
+	const fallback = () => (
+		<Show when={props.fallback}>
+			{(embed) => (
+				<EmbedWithLightbox
+					embed={embed()}
+					author={props.author}
+					timestamp={props.timestamp}
+					locale={props.locale}
+					onRemove={props.onRemove}
+				/>
+			)}
+		</Show>
+	);
+	return (
+		<Switch fallback={fallback()}>
+			<Match when={post.loading}>
+				<BlueskyPostEmbedSkeleton />
+			</Match>
+			<Match when={post()}>
+				{(view) => (
+					<>
+						<BlueskyPostEmbed
+							post={toBlueskyPost(view(), blueskyClient())}
+							onRemove={
+								props.onRemove
+									? (event) => props.onRemove?.(props.url, event)
+									: undefined
+							}
+							onOpenImage={(next) => {
+								setIndex(next);
+								setMounted(true);
+								setOpen(true);
+							}}
+						/>
+						<Show when={mounted()}>
+							<Lightbox
+								items={blueskyPostItems(view())}
+								open={open()}
+								onOpenChange={setOpen}
+								index={index()}
+								onIndexChange={setIndex}
+								author={props.author}
+								timestamp={props.timestamp}
+								locale={props.locale}
+							/>
+						</Show>
+					</>
+				)}
+			</Match>
+		</Switch>
+	);
+};
+
+export const MessageAttachments = (props: {
+	split: SplitAttachments;
+	embeds: readonly LinkEmbedView[];
+	blueskyLinks?: readonly string[];
+	loadBlueskyPost?: LoadBlueskyPost;
+	onRemoveEmbed?: RemoveEmbed;
+	author?: LightboxAuthor;
+	timestamp?: string;
+	locale?: string;
+	onExternalLink?: (href: string, link: RichTextExternalLink) => void;
 }): JSX.Element => (
-	<div data-message-attachments="" class="flex min-w-0 flex-col gap-2">
+	<div
+		data-message-attachments=""
+		class="flex min-w-0 flex-col gap-2"
+		onClick={(event) => routeEmbedLink(event, props.onExternalLink)}
+	>
 		<Show when={props.split.media.length > 0}>
 			<MediaWithLightbox
 				items={props.split.media}
@@ -142,11 +276,39 @@ export const MessageAttachments = (props: {
 		<For each={props.split.files}>{(file) => <FileAttachment {...file} />}</For>
 		<For each={props.embeds}>
 			{(embed) => (
-				<EmbedWithLightbox
-					embed={embed}
+				<Show
+					when={props.loadBlueskyPost && parseBlueskyPostUrl(embed.uri)}
+					fallback={
+						<EmbedWithLightbox
+							embed={embed}
+							author={props.author}
+							timestamp={props.timestamp}
+							locale={props.locale}
+							onRemove={props.onRemoveEmbed}
+						/>
+					}
+				>
+					<BlueskyEmbed
+						url={embed.uri}
+						fallback={embed}
+						load={props.loadBlueskyPost}
+						author={props.author}
+						timestamp={props.timestamp}
+						locale={props.locale}
+						onRemove={props.onRemoveEmbed}
+					/>
+				</Show>
+			)}
+		</For>
+		<For each={props.blueskyLinks ?? []}>
+			{(url) => (
+				<BlueskyEmbed
+					url={url}
+					load={props.loadBlueskyPost}
 					author={props.author}
 					timestamp={props.timestamp}
 					locale={props.locale}
+					onRemove={props.onRemoveEmbed}
 				/>
 			)}
 		</For>

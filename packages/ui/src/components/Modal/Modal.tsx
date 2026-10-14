@@ -1,15 +1,24 @@
-import { Dialog } from "@kobalte/core/dialog";
+import { Dialog, useDialogContext } from "@kobalte/core/dialog";
 import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { ArrowLeftIcon } from "@solar-icons/solid/linear/arrow-left";
 import {
+	createContext,
+	createEffect,
+	createSignal,
 	For,
 	type JSX,
+	on,
 	type ParentProps,
 	Show,
 	splitProps,
 	useContext,
 } from "solid-js";
 import { cx } from "../../utils/cx";
+import {
+	createDirtyGuard,
+	type DirtyGuard,
+	DirtyGuardContext,
+} from "../../utils/dirty-guard";
 import { createHeightTransition } from "../../utils/height-transition";
 import {
 	createNestedLayers,
@@ -17,6 +26,7 @@ import {
 	NestedLayerContext,
 } from "../../utils/nested-layers";
 import { createSlot } from "../../utils/slot";
+import { Button, type ButtonProps } from "../Button/Button";
 import { IconButton } from "../IconButton/IconButton";
 
 export type ModalProps = ParentProps<{
@@ -24,22 +34,105 @@ export type ModalProps = ParentProps<{
 	onOpenChange?: (open: boolean) => void;
 	defaultOpen?: boolean;
 	modal?: boolean;
+	dirty?: boolean;
+	discardDescription?: JSX.Element;
 }>;
+
+type ModalGuard = {
+	guard: DirtyGuard;
+	description: () => JSX.Element | undefined;
+};
+
+const ModalGuardContext = createContext<ModalGuard>();
 
 export const Modal = (props: ModalProps) => {
 	const layers = createNestedLayers();
+	const guard = createDirtyGuard();
+	guard.register({ dirty: () => !!props.dirty });
+	const [uncontrolled, setUncontrolled] = createSignal(
+		props.defaultOpen ?? false,
+	);
+	const open = () => props.open ?? uncontrolled();
+	const commit = (next: boolean) => {
+		if (props.open === undefined) setUncontrolled(next);
+		props.onOpenChange?.(next);
+	};
+	const change = (next: boolean) => {
+		if (next) {
+			commit(true);
+			return;
+		}
+		guard.attempt(() => commit(false));
+	};
+	createEffect(
+		on(open, (isOpen) => {
+			if (!isOpen) guard.keep();
+		}),
+	);
 	return (
 		<Dialog
-			open={props.open}
-			onOpenChange={props.onOpenChange}
-			defaultOpen={props.defaultOpen}
+			open={open()}
+			onOpenChange={change}
 			modal={props.modal ?? true}
 			preventScroll
 		>
 			<NestedLayerContext.Provider value={layers}>
-				{props.children}
+				<DirtyGuardContext.Provider value={guard}>
+					<ModalGuardContext.Provider
+						value={{ guard, description: () => props.discardDescription }}
+					>
+						{props.children}
+					</ModalGuardContext.Provider>
+				</DirtyGuardContext.Provider>
 			</NestedLayerContext.Provider>
 		</Dialog>
+	);
+};
+
+const DISCARD_DESCRIPTION = "Your changes won't be saved.";
+
+export type DiscardChangesDialogProps = {
+	guard: Pick<DirtyGuard, "prompting" | "description" | "discard" | "keep">;
+	description?: JSX.Element;
+};
+
+export const DiscardChangesDialog = (props: DiscardChangesDialogProps) => (
+	<Modal
+		open={props.guard.prompting()}
+		onOpenChange={(next) => {
+			if (!next) props.guard.keep();
+		}}
+	>
+		<ModalContent
+			title="Discard changes?"
+			description={
+				props.description ?? props.guard.description() ?? DISCARD_DESCRIPTION
+			}
+			footer={
+				<>
+					<Button variant="secondary" onClick={() => props.guard.keep()}>
+						Cancel
+					</Button>
+					<Button variant="destructive" onClick={() => props.guard.discard()}>
+						Discard changes
+					</Button>
+				</>
+			}
+		/>
+	</Modal>
+);
+
+const ModalDiscardPrompt = () => {
+	const owner = useContext(ModalGuardContext);
+	return (
+		<Show when={owner}>
+			{(current) => (
+				<DiscardChangesDialog
+					guard={current().guard}
+					description={current().description()}
+				/>
+			)}
+		</Show>
 	);
 };
 
@@ -62,6 +155,16 @@ const useNestedLayerGuards = () => {
 };
 
 export const ModalTrigger = Dialog.Trigger;
+
+export const useModalClose = () => {
+	const dialog = useDialogContext();
+	return () => dialog.close();
+};
+
+export const ModalClose = (props: Omit<ButtonProps, "onClick">) => {
+	const close = useModalClose();
+	return <Button variant="secondary" {...props} onClick={close} />;
+};
 
 const ModalCloseButton = (props: { label?: string; class?: string }) => (
 	<Dialog.CloseButton
@@ -141,6 +244,7 @@ export const ModalContent = (props: ModalContentProps) => {
 							{footer()}
 						</div>
 					</Show>
+					<ModalDiscardPrompt />
 				</Dialog.Content>
 			</div>
 		</Dialog.Portal>
@@ -271,6 +375,7 @@ export const LargeModalContent = (props: LargeModalContentProps) => {
 							{local.children}
 						</div>
 					</div>
+					<ModalDiscardPrompt />
 				</Dialog.Content>
 			</div>
 		</Dialog.Portal>

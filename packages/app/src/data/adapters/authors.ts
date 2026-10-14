@@ -19,6 +19,11 @@ export const roleIdentityFor = (
 	return top ? roleIdentity(top) : undefined;
 };
 
+export const isOwnerMember = (
+	member: Pick<MemberView, "roles"> | undefined,
+	roles: ReadonlyMap<string, RoleView>,
+) => !!member?.roles.some((rkey) => roles.get(rkey)?.protected);
+
 export const displayNameOf = (
 	profile: Pick<ProfileView, "displayName" | "handle"> | undefined,
 	member?: Pick<MemberView, "nickname">,
@@ -40,6 +45,7 @@ export const toMessageAuthor = (
 		seed: profile.did,
 		nameColor: actor.theme?.accentColor,
 		role: roleIdentityFor(memberRoles(member, directory.roles)),
+		owner: isOwnerMember(member, directory.roles),
 	};
 };
 

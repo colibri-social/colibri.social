@@ -234,7 +234,7 @@ describe("channel drawer", () => {
 			],
 			["Duplicate", "Edit channel"],
 		]);
-		expect(buttonNamed(drawer, "Delete channel")).toBeUndefined();
+		expect(buttonNamed(drawer, "Delete channel")).toBeDefined();
 		buttonNamed(drawer, "Edit channel")?.click();
 		await openPage(root, "Channel settings");
 		await until(
@@ -352,7 +352,7 @@ describe("channel settings", () => {
 		const dialog = dialogNamed("Discard changes?") as HTMLElement;
 		await wait(300);
 		await expectNoLayoutIssues(dialog);
-		buttonNamed(dialog, "Discard")?.click();
+		buttonNamed(dialog, "Discard changes")?.click();
 		await until(() => location.pathname === `/app/c/${HQ}`);
 	});
 
@@ -491,7 +491,7 @@ describe("categories", () => {
 			["Mark as read", "Mute category"],
 			["Edit category", "Create channel"],
 		]);
-		expect(buttonNamed(drawer, "Delete category")).toBeUndefined();
+		expect(buttonNamed(drawer, "Delete category")).toBeDefined();
 		buttonNamed(drawer, "Mute category")?.click();
 		const build = (space.categories.value() ?? []).find(
 			(category) => category.rkey === "build",

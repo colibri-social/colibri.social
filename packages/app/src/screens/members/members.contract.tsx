@@ -8,6 +8,7 @@ import {
 import { createMemo, For, type JSX, Show } from "solid-js";
 import { useData } from "../../data/store";
 import { defineContract, slot } from "../../screen/define";
+import { LoadErrorState } from "../../shell/load-error";
 import { useStack } from "../../shell/stack";
 import { canInSpace } from "../admin/space-admin";
 import { ConversationUnavailable } from "../channel/conversation";
@@ -34,7 +35,9 @@ export const members = defineContract({
 			if (data.communities.loading()) return undefined;
 			const current = space();
 			if (!current) return "space";
-			if (current.channels.loading()) return undefined;
+			if (current.channels.loading() || current.channels.error()) {
+				return undefined;
+			}
 			return channel() ? undefined : "channel";
 		});
 		const muted = () => {
@@ -62,8 +65,15 @@ export const members = defineContract({
 			);
 			return groupMembers(mapped, hoistedRoles(current.roles.value() ?? []));
 		});
+		const loadError = () => {
+			const current = space();
+			return current?.members.value() ? undefined : current?.members.error();
+		};
+		const retryMembers = () => space()?.members.retry();
 		return {
 			unavailable,
+			loadError,
+			retryMembers,
 			args,
 			stack,
 			channel,
@@ -117,9 +127,9 @@ export const members = defineContract({
 		)),
 		List: slot((m, props: { variant?: "mobile" | "desktop" }) => {
 			const desktop = () => props.variant === "desktop";
-			return (
+			const loading = () => (
 				<Show
-					when={m.groups()}
+					when={m.loadError()}
 					fallback={
 						<Show
 							when={desktop()}
@@ -139,6 +149,18 @@ export const members = defineContract({
 						</Show>
 					}
 				>
+					{(error) => (
+						<LoadErrorState
+							variant="inline"
+							title="Members didn't load"
+							error={error()}
+							onRetry={m.retryMembers}
+						/>
+					)}
+				</Show>
+			);
+			return (
+				<Show when={m.groups()} fallback={loading()}>
 					{(groups) => (
 						<Show
 							when={desktop()}

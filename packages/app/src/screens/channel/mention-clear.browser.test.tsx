@@ -158,6 +158,7 @@ describe("mention badges", () => {
 		expect(chat.general.readCursor).toBe(cursor);
 		expect(chat.mentions()).toBe(1);
 		await chat.readThrough();
+		await until(() => chat.mentions() === 0).catch(() => undefined);
 		expect(chat.mentions()).toBe(0);
 	});
 });

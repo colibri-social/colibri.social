@@ -1004,3 +1004,190 @@ export const PopoverStaysPut: Story = {
 		);
 	},
 };
+
+const SCROLL_ROWS = Array.from(
+	{ length: 40 },
+	(_, index) => `Member ${index + 1}`,
+);
+
+const ScrollingListDemo = () => {
+	const [open, setOpen] = createSignal(false);
+	const [anchor, setAnchor] = createSignal<HTMLElement>();
+	const [rect, setRect] = createSignal<DOMRect>();
+	return (
+		<div class="flex min-h-[720px] w-full justify-end bg-background">
+			<div
+				data-scroll-list=""
+				class="h-[480px] w-60 overflow-y-auto border-l border-border bg-card p-2"
+			>
+				{SCROLL_ROWS.map((name) => (
+					<button
+						type="button"
+						data-scroll-row={name}
+						class="block h-11 w-full rounded-control-sm px-2 text-left"
+						onClick={(event) => {
+							setAnchor(event.currentTarget);
+							setRect(event.currentTarget.getBoundingClientRect());
+							setOpen(true);
+						}}
+					>
+						{name}
+					</button>
+				))}
+			</div>
+			<ProfilePopover
+				open={open()}
+				onOpenChange={setOpen}
+				anchor={anchor}
+				anchorRect={rect}
+				placement="left-start"
+				profile={{
+					displayName: "Lou",
+					handle: "lou.gg",
+					avatarSeed: "did:plc:lou",
+					presence: "online",
+				}}
+			/>
+		</div>
+	);
+};
+
+export const PopoverFollowsScroll: Story = {
+	name: "Popover follows a scrolling list",
+	parameters: desktop,
+	render: () => <ScrollingListDemo />,
+	play: async ({ canvasElement }) => {
+		const list = canvasElement.querySelector(
+			"[data-scroll-list]",
+		) as HTMLElement;
+		const row = canvasElement.querySelector(
+			'[data-scroll-row="Member 6"]',
+		) as HTMLElement;
+		await userEvent.click(row);
+		const popover = await screen.findByRole("dialog", {
+			name: "Lou's profile",
+		});
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		const wheel = new WheelEvent("wheel", {
+			deltaY: 40,
+			bubbles: true,
+			cancelable: true,
+		});
+		await expect(list.dispatchEvent(wheel)).toBe(true);
+		await expect(document.body.style.overflow).not.toBe("hidden");
+		const before = popover.getBoundingClientRect();
+		const rowBefore = row.getBoundingClientRect();
+		list.scrollTop = 60;
+		await waitFor(() =>
+			expect(row.getBoundingClientRect().top).toBeCloseTo(
+				rowBefore.top - 60,
+				0,
+			),
+		);
+		await waitFor(() =>
+			expect(popover.getBoundingClientRect().top).toBeCloseTo(
+				before.top - 60,
+				0,
+			),
+		);
+		await expect(screen.getByRole("dialog", { name: "Lou's profile" })).toBe(
+			popover,
+		);
+		list.scrollTop = 1000;
+		await waitFor(
+			() =>
+				expect(
+					screen.queryByRole("dialog", { name: "Lou's profile" }),
+				).toBeNull(),
+			{ timeout: 3000 },
+		);
+	},
+};
+
+const TOGGLE_MEMBERS = ["Lou", "Mia"];
+
+const AnchorToggleDemo = () => {
+	const [member, setMember] = createSignal<string>();
+	const [anchor, setAnchor] = createSignal<HTMLElement>();
+	return (
+		<div class="flex min-h-[720px] w-full justify-end bg-background">
+			<div class="flex w-60 flex-col gap-1 border-l border-border bg-card p-2">
+				{TOGGLE_MEMBERS.map((name) => (
+					<button
+						type="button"
+						data-toggle-row={name}
+						class="block w-full rounded-control-sm p-2 text-left"
+						onClick={(event) => {
+							setAnchor(event.currentTarget);
+							setMember(name);
+						}}
+					>
+						{name}
+					</button>
+				))}
+				<ProfilePopover
+					open={!!member()}
+					onOpenChange={(open) => {
+						if (!open) setMember(undefined);
+					}}
+					anchor={anchor}
+					profile={{
+						displayName: member() ?? "",
+						handle: "member.colibri.social",
+						avatarSeed: "did:plc:member",
+						presence: "online",
+					}}
+				/>
+			</div>
+		</div>
+	);
+};
+
+export const PopoverAnchorToggles: Story = {
+	name: "Popover toggles from its anchor",
+	parameters: desktop,
+	render: () => <AnchorToggleDemo />,
+	play: async ({ canvasElement, step }) => {
+		const row = (name: string) =>
+			canvasElement.querySelector<HTMLElement>(
+				`[data-toggle-row="${name}"]`,
+			) as HTMLElement;
+		const openPopover = () =>
+			document.querySelector<HTMLElement>(
+				"[data-profile-popover][data-expanded]",
+			);
+		const settle = () => new Promise((resolve) => setTimeout(resolve, 300));
+
+		await step("The same row closes the open popover", async () => {
+			await userEvent.click(row("Lou"));
+			await screen.findByRole("dialog", { name: "Lou's profile" });
+			await userEvent.click(row("Lou"));
+			await waitFor(() => expect(openPopover()).toBeNull());
+			await settle();
+			await expect(openPopover()).toBeNull();
+		});
+
+		await step("The row opens it again after closing", async () => {
+			await userEvent.click(row("Lou"));
+			await waitFor(() =>
+				expect(openPopover()).toHaveAccessibleName("Lou's profile"),
+			);
+		});
+
+		await step("A different row switches the popover", async () => {
+			await userEvent.click(row("Mia"));
+			await waitFor(() =>
+				expect(openPopover()).toHaveAccessibleName("Mia's profile"),
+			);
+			await settle();
+			await expect(openPopover()).toHaveAccessibleName("Mia's profile");
+		});
+
+		await step("The new row closes it", async () => {
+			await userEvent.click(row("Mia"));
+			await waitFor(() => expect(openPopover()).toBeNull());
+			await settle();
+			await expect(openPopover()).toBeNull();
+		});
+	},
+};

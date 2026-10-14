@@ -9,6 +9,7 @@ import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
 import { createSlot } from "../../utils/slot";
 import { IconButton, iconButtonTouchTarget } from "../IconButton/IconButton";
+import { Modal, ModalContent, ModalTrigger } from "../Modal/Modal";
 import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
 
 export type ChannelHeaderPlatform = "mobile" | "desktop";
@@ -147,6 +148,29 @@ const MobileChannelHeader = (props: ChannelHeaderProps) => {
 	);
 };
 
+const ChannelDescriptionButton = (props: {
+	name: string;
+	description: string;
+}) => (
+	<Modal>
+		<ModalTrigger
+			data-channel-description=""
+			title={props.description}
+			class="focus-ring m-0 min-w-0 flex-1 cursor-pointer truncate rounded-control-sm border-0 bg-transparent p-0 text-left text-base leading-5 text-muted-foreground transition-colors duration-150 hover:text-foreground"
+		>
+			{props.description}
+		</ModalTrigger>
+		<ModalContent
+			title={<span class="[overflow-wrap:anywhere]">{props.name}</span>}
+			description={
+				<span class="block whitespace-pre-line [overflow-wrap:anywhere]">
+					{props.description}
+				</span>
+			}
+		/>
+	</Modal>
+);
+
 const DesktopChannelHeader = (props: ChannelHeaderProps) => {
 	const icon = createSlot(() => props.icon ?? <ChatSquareDotsIcon />);
 	const actions = createSlot(() => props.actions);
@@ -175,12 +199,10 @@ const DesktopChannelHeader = (props: ChannelHeaderProps) => {
 							<span aria-hidden="true" class="shrink-0 text-muted-foreground">
 								·
 							</span>
-							<p
-								class="m-0 min-w-0 flex-1 truncate text-base leading-5 text-muted-foreground"
-								title={description()}
-							>
-								{description()}
-							</p>
+							<ChannelDescriptionButton
+								name={props.name}
+								description={description()}
+							/>
 						</>
 					)}
 				</Show>

@@ -55,9 +55,8 @@ const scroller = (canvasElement: HTMLElement) =>
 const isEmpty = (canvasElement: HTMLElement) =>
 	canvasElement.querySelector("[data-rich-editor]")?.hasAttribute("data-empty");
 
-const hardBreaks = (canvasElement: HTMLElement) =>
-	textarea(canvasElement).querySelectorAll("br:not(.ProseMirror-trailingBreak)")
-		.length;
+const lineBreaks = (canvasElement: HTMLElement) =>
+	textarea(canvasElement).querySelectorAll("p").length - 1;
 
 export const MobileEmpty: Story = {
 	render: () => (
@@ -196,7 +195,7 @@ export const MobileTyping: Story = {
 		await userEvent.click(field);
 		await userEvent.keyboard("{Enter}");
 		await expect(onSend).not.toHaveBeenCalled();
-		await waitFor(() => expect(hardBreaks(canvasElement)).toBe(1));
+		await waitFor(() => expect(lineBreaks(canvasElement)).toBe(1));
 	},
 };
 
@@ -254,7 +253,7 @@ export const DesktopSend: Story = {
 		const field = textarea(canvasElement);
 		await userEvent.click(field);
 		await userEvent.keyboard("First line{Shift>}{Enter}{/Shift}second line");
-		await expect(hardBreaks(canvasElement)).toBe(1);
+		await expect(lineBreaks(canvasElement)).toBe(1);
 		await expect(onSend).not.toHaveBeenCalled();
 		await userEvent.keyboard("{Enter}");
 		await expect(onSend).toHaveBeenCalledWith({

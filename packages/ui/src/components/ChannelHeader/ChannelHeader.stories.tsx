@@ -1,6 +1,6 @@
 import { VolumeIcon } from "@solar-icons/solid/bold/volume";
 import { createSignal, type JSX } from "solid-js";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { ChannelHeader } from "./ChannelHeader";
@@ -265,9 +265,21 @@ export const Desktop: Story = {
 		await expect(
 			canvas.getByRole("heading", { name: "Active channel" }),
 		).toBeVisible();
-		await expect(
-			canvas.getByText("This is the channel description"),
-		).toBeVisible();
+		const description = canvas.getByRole("button", {
+			name: "This is the channel description",
+		});
+		await expect(description).toBeVisible();
+		await expect(getComputedStyle(description).cursor).toBe("pointer");
+		await userEvent.click(description);
+		const info = await screen.findByRole("dialog", { name: "Active channel" });
+		await expect(info).toHaveAccessibleDescription(
+			"This is the channel description",
+		);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+		);
+		await waitFor(() => expect(description).toHaveFocus());
 		const toggles = canvas.getAllByRole("button", { name: "Show members" });
 		await expect(toggles).toHaveLength(2);
 		onToggleMembers.mockClear();
@@ -283,8 +295,13 @@ export const Desktop: Story = {
 		onMutedChange.mockClear();
 		const bell = canvas.getAllByRole("button", { name: "Mute channel" })[0];
 		const slash = () => bell.querySelector("[data-slashed]");
+		const strokesHidden = () =>
+			[...bell.querySelectorAll("[data-slash]")].every(
+				(stroke) => getComputedStyle(stroke).visibility === "hidden",
+			);
 		await expect(bell).toHaveAttribute("aria-pressed", "false");
 		await expect(slash()).toHaveAttribute("data-slashed", "off");
+		await expect(strokesHidden()).toBe(true);
 		await userEvent.click(bell);
 		await expect(onMutedChange).toHaveBeenCalledTimes(1);
 		await expect(onMutedChange).toHaveBeenCalledWith(true);
@@ -300,6 +317,7 @@ export const Desktop: Story = {
 		await expect(onMutedChange).toHaveBeenLastCalledWith(false);
 		await expect(bell).toHaveAttribute("aria-pressed", "false");
 		await expect(slash()).toHaveAttribute("data-slashed", "off");
+		await waitFor(() => expect(strokesHidden()).toBe(true));
 	},
 };
 

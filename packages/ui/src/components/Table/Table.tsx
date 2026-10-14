@@ -1,5 +1,6 @@
 import { createMemo, createSignal, For, Index, type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
+import { keyboardFocusWithin } from "../../utils/keyboard-modality";
 import { ContextMenu } from "../ContextMenu/Menu";
 import {
 	type DropdownMenuEntry,
@@ -93,7 +94,7 @@ const actionsCellClass = cx(
 
 const hoverReveal = cx(
 	"opacity-0 transition-opacity duration-(--duration-color) motion-reduce:transition-none",
-	"group-hover/row:opacity-100 group-focus-within/row:opacity-100",
+	"group-hover/row:opacity-100 group-data-keyboard-focus/row:opacity-100",
 	"group-has-[[data-expanded]]/row:opacity-100 group-data-menu-open/row:opacity-100",
 	"[@media(hover:none)]:opacity-100",
 );
@@ -168,6 +169,8 @@ export const Table = <T,>(props: TableProps<T>) => {
 		</thead>
 	);
 
+	const keyboardFocus = keyboardFocusWithin();
+
 	const Row = (rowProps: { row: T }) => {
 		const state = () => props.rowState?.(rowProps.row);
 		const isTarget = () => menuOpen() && target()?.row === rowProps.row;
@@ -176,6 +179,9 @@ export const Table = <T,>(props: TableProps<T>) => {
 				data-table-row={props.rowKey(rowProps.row)}
 				data-dimmed={state()?.dimmed || undefined}
 				data-menu-open={isTarget() || undefined}
+				onFocusIn={keyboardFocus.onFocusIn}
+				onFocusOut={keyboardFocus.onFocusOut}
+				onPointerDown={keyboardFocus.onPointerDown}
 				onContextMenu={(event) =>
 					setTarget({ row: rowProps.row, element: event.currentTarget })
 				}

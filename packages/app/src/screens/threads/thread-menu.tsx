@@ -3,6 +3,7 @@ import {
 	ConfirmDialog,
 	copyText,
 	Modal,
+	ModalClose,
 	ModalContent,
 	RadioRow,
 	RadioRowGroup,
@@ -135,6 +136,7 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 	const [dialog, setDialog] = createSignal<"rename" | "move">();
 	const [draft, setDraft] = createSignal("");
 	const [destination, setDestination] = createSignal<string>();
+	const [initialDestination, setInitialDestination] = createSignal<string>();
 	const [busy, setBusy] = createSignal(false);
 	const [failed, setFailed] = createSignal(false);
 
@@ -144,7 +146,11 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 		setFailed(false);
 		if (kind === "rename") setDraft(view.name);
 		void whenOverlaysClosed().then(() => {
-			if (kind === "move") setDestination(untrack(moveTargets)[0]?.id);
+			if (kind === "move") {
+				const first = untrack(moveTargets)[0]?.id;
+				setDestination(first);
+				setInitialDestination(first);
+			}
 			setDialog(kind);
 		});
 	};
@@ -170,6 +176,16 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 					onOpenChange={(open) => {
 						if (!open && !busy()) setDialog(undefined);
 					}}
+					dirty={
+						!busy() &&
+						((dialog() === "rename" && draft().trim() !== view().name) ||
+							(dialog() === "move" && destination() !== initialDestination()))
+					}
+					discardDescription={
+						dialog() === "move"
+							? "The thread stays where it is."
+							: "The thread keeps its current name."
+					}
 				>
 					<Show when={dialog() === "rename"}>
 						<ModalContent title="Rename thread">
@@ -195,14 +211,9 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 									}
 								/>
 								<div class="flex justify-end gap-2">
-									<Button
-										type="button"
-										variant="secondary"
-										disabled={busy()}
-										onClick={() => setDialog(undefined)}
-									>
+									<ModalClose type="button" disabled={busy()}>
 										Cancel
-									</Button>
+									</ModalClose>
 									<Button
 										type="submit"
 										loading={busy()}

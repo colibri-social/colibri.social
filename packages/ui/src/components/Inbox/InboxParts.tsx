@@ -6,6 +6,7 @@ import { ReplyIcon } from "@solar-icons/solid/bold/reply";
 import { SettingsIcon } from "@solar-icons/solid/bold/settings";
 import { createEffect, type JSX, on, onCleanup, Show } from "solid-js";
 import { cx } from "../../utils/cx";
+import { keyboardFocusWithin } from "../../utils/keyboard-modality";
 import {
 	nameColorClass,
 	nameColorStyle,
@@ -19,7 +20,7 @@ import {
 } from "../../utils/time";
 import { MentionChip, TeamBadge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
-import { MarkAllReadIcon, MarkReadIcon } from "../ContextMenu/menu-entries";
+import { MarkReadIcon } from "../ContextMenu/menu-entries";
 import { IconButton } from "../IconButton/IconButton";
 import { RoleBadge } from "../Roles/RoleBadge";
 import { Skeleton, SkeletonText } from "../Skeleton/Skeleton";
@@ -191,7 +192,7 @@ export const MarkReadButton = (props: MarkReadButtonProps) => (
 				props.onMarkRead(props.notification.id);
 			}}
 			class={cx(
-				"opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100",
+				"opacity-0 group-hover/row:opacity-100 group-data-keyboard-focus/row:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100",
 				"transition-opacity duration-[calc(120ms*var(--motion-scale))] ease-(--ease-out-quick)",
 				props.class,
 			)}
@@ -213,6 +214,7 @@ export type InboxRowProps = {
 };
 
 export const InboxRow = (props: InboxRowProps) => {
+	const keyboardFocus = keyboardFocusWithin();
 	let row: HTMLLIElement | undefined;
 	const id = props.notification.id;
 	createEffect(
@@ -239,9 +241,12 @@ export const InboxRow = (props: InboxRowProps) => {
 			data-inbox-exiting={props.exiting ? "" : undefined}
 			inert={props.exiting}
 			aria-hidden={props.exiting ? "true" : undefined}
+			onFocusIn={keyboardFocus.onFocusIn}
+			onFocusOut={keyboardFocus.onFocusOut}
+			onPointerDown={keyboardFocus.onPointerDown}
 			class={cx(
 				"group/row relative flex list-none rounded-control",
-				"hover:bg-popover-highlight focus-within:bg-popover-highlight",
+				"hover:bg-popover-highlight data-keyboard-focus:bg-popover-highlight",
 				props.class,
 			)}
 		>
@@ -314,7 +319,6 @@ export const InboxRow = (props: InboxRowProps) => {
 
 export type InboxHeaderProps = {
 	unread: number;
-	onMarkAllRead: () => void;
 	onOpenSettings?: () => void;
 	class?: string;
 };
@@ -322,7 +326,10 @@ export type InboxHeaderProps = {
 export const InboxHeader = (props: InboxHeaderProps) => (
 	<div
 		data-inbox-header=""
-		class={cx("flex shrink-0 items-center gap-2 py-2 pr-2 pl-4", props.class)}
+		class={cx(
+			"flex min-h-12 shrink-0 items-center gap-2 py-2 pr-2 pl-4",
+			props.class,
+		)}
 	>
 		<div class="flex min-w-0 flex-1 items-baseline gap-2">
 			<InboxTitle class="m-0 text-lg leading-6 font-bold text-foreground">
@@ -335,18 +342,6 @@ export const InboxHeader = (props: InboxHeaderProps) => (
 				{props.unread > 0 ? `${props.unread} unread` : "All read"}
 			</span>
 		</div>
-		<Button
-			variant="tertiary"
-			icon={<MarkAllReadIcon />}
-			disabled={props.unread === 0}
-			onClick={(event) => {
-				focusFirstRowFrom(event.currentTarget);
-				props.onMarkAllRead();
-			}}
-			class="h-8 pr-3 pl-2.5 [&_svg]:size-4"
-		>
-			Mark all as read
-		</Button>
 		<Show when={props.onOpenSettings}>
 			{(open) => (
 				<IconButton

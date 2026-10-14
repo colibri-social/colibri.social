@@ -3,8 +3,6 @@ import {
 	Button,
 	createLocalPreview,
 	ListGroup,
-	Modal,
-	ModalContent,
 	PROFILE_AVATAR_MAX_BYTES,
 	PROFILE_BANNER_MAX_BYTES,
 	ProfileImagePicker,
@@ -19,13 +17,7 @@ import {
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { GalleryAddIcon } from "@solar-icons/solid/bold/gallery-add";
 import { GalleryRemoveIcon } from "@solar-icons/solid/bold/gallery-remove";
-import {
-	createEffect,
-	createMemo,
-	createSignal,
-	onCleanup,
-	Show,
-} from "solid-js";
+import { createEffect, createMemo, createSignal, Show } from "solid-js";
 import {
 	COMMUNITY_DESCRIPTION_MAX,
 	COMMUNITY_NAME_MAX,
@@ -36,6 +28,7 @@ import { defineContract, slot } from "../../../screen/define";
 import { usePlatform } from "../../../screen/platform";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
+import { useUnsavedChanges } from "../../../shell/unsaved-changes";
 import { AdminNavHeader } from "../desktop/page-header";
 import { useAdminSpace } from "../space-admin";
 
@@ -74,7 +67,6 @@ export const spaceProfile = defineContract({
 		const [imageError, setImageError] = createSignal<string>();
 		const [saving, setSaving] = createSignal(false);
 		const [progress, setProgress] = createSignal<ImageProgress>({});
-		const [discardOpen, setDiscardOpen] = createSignal(false);
 		const [attempted, setAttempted] = createSignal(false);
 		let seeded = !!initial;
 		createEffect(() => {
@@ -125,15 +117,11 @@ export const spaceProfile = defineContract({
 						layer.space === args.space,
 				) + 1;
 
-		onCleanup(
-			stack.setPopGuard({
-				get depth() {
-					return depth();
-				},
-				blocked: () => dirty() && !saving(),
-				onBlocked: () => setDiscardOpen(true),
-			}),
-		);
+		useUnsavedChanges({
+			depth,
+			dirty: () => dirty() && !saving(),
+			description: () => "Your edits to this Space won't be saved.",
+		});
 
 		const leave = () => stack.forcePop();
 
@@ -215,12 +203,6 @@ export const spaceProfile = defineContract({
 			descriptionError,
 			save,
 			back: () => stack.pop(),
-			discardOpen,
-			setDiscardOpen,
-			discard: () => {
-				setDiscardOpen(false);
-				leave();
-			},
 		};
 	},
 	slots: {
@@ -394,27 +376,6 @@ export const spaceProfile = defineContract({
 					disabled={m.saving()}
 				/>
 			</ListGroup>
-		)),
-		Discard: slot((m) => (
-			<Modal open={m.discardOpen()} onOpenChange={m.setDiscardOpen}>
-				<ModalContent
-					title="Discard changes?"
-					description="Your edits to this Space won't be saved."
-					footer={
-						<>
-							<Button
-								variant="secondary"
-								onClick={() => m.setDiscardOpen(false)}
-							>
-								Keep editing
-							</Button>
-							<Button variant="destructive" onClick={m.discard}>
-								Discard
-							</Button>
-						</>
-					}
-				/>
-			</Modal>
 		)),
 	},
 });

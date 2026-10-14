@@ -1,6 +1,13 @@
 import { Schema } from "prosemirror-model";
+import { EditorState } from "prosemirror-state";
 import { describe, expect, it } from "vitest";
-import { codeContextAtPos, cursorLine, projectBlock } from "./block-projection";
+import {
+	codeContextAtPos,
+	cursorLine,
+	projectBlock,
+	projectDoc,
+} from "./block-projection";
+import { splitHardBreaks } from "./line-blocks";
 
 const schema = new Schema({
 	nodes: {
@@ -45,6 +52,48 @@ const docFrom = (source: string) => {
 };
 
 const posOf = (index: number) => index + 1;
+
+const docFromLines = (lines: string[]) =>
+	schema.nodes.doc.create(
+		null,
+		lines.map((line) =>
+			schema.nodes.paragraph.create(null, line ? schema.text(line) : null),
+		),
+	);
+
+describe("projectDoc", () => {
+	it("joins paragraphs with newlines mapped to the end of each block", () => {
+		const { text, positions, blocks } = projectDoc(
+			docFromLines(["ab", "", "c"]),
+		);
+
+		expect(text).toBe("ab\n\nc");
+		expect(positions).toEqual([1, 2, 3, 5, 7, 8]);
+		expect(blocks.map(({ start, end }) => [start, end])).toEqual([
+			[0, 2],
+			[3, 3],
+			[4, 5],
+		]);
+	});
+
+	it("finds a code block that spans paragraphs", () => {
+		const doc = docFromLines(["```ts", "const x = 1"]);
+
+		expect(codeContextAtPos(doc, 9)).toBe("codeblock");
+	});
+});
+
+describe("splitHardBreaks", () => {
+	it("turns every hard break into a paragraph boundary", () => {
+		const state = EditorState.create({ doc: docFrom("a\n\nb") });
+		const tr = state.tr;
+
+		expect(splitHardBreaks(tr)).toBe(true);
+		expect(tr.doc.childCount).toBe(3);
+		expect(projectDoc(tr.doc).text).toBe("a\n\nb");
+		expect(splitHardBreaks(tr)).toBe(false);
+	});
+});
 
 describe("projectBlock", () => {
 	it("maps hard breaks to newlines and leaf nodes to a placeholder", () => {

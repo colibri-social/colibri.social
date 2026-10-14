@@ -19,7 +19,6 @@ export default editProfile.view({
 			<div class="sticky -bottom-4 z-10">
 				<s.Header platform="desktop" />
 			</div>
-			<s.Discard />
 		</div>
 	),
 });

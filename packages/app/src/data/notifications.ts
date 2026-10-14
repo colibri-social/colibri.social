@@ -18,7 +18,15 @@ export const createNotificationStore = (
 	source: DataSource,
 	onSeenChange?: NotificationSeenListener,
 ) => {
-	const [items, setItems] = createSignal<readonly NotificationView[]>([]);
+	const [all, setItems] = createSignal<readonly NotificationView[]>([]);
+	const [cleared, setCleared] = createSignal<ReadonlySet<string>>(new Set());
+	const items = () => {
+		const hidden = cleared();
+		const current = all();
+		return hidden.size === 0
+			? current
+			: current.filter((entry) => !hidden.has(entry.id));
+	};
 	const [status, setStatus] = createSignal<NotificationStatus>("loading");
 
 	const load = async () => {
@@ -68,7 +76,7 @@ export const createNotificationStore = (
 		);
 
 	const markRead = async (ids: readonly string[]) => {
-		const targets = items().filter(
+		const targets = all().filter(
 			(entry) => ids.includes(entry.id) && isUnread(entry),
 		);
 		if (targets.length === 0) return;
@@ -97,7 +105,7 @@ export const createNotificationStore = (
 	};
 
 	const markAllRead = async () => {
-		const targets = items().filter(isUnread);
+		const targets = all().filter(isUnread);
 		if (targets.length === 0) return;
 		const keys = new Set(targets.map((entry) => entry.id));
 		const seenAt = new Date().toISOString() as Datetime;
@@ -112,6 +120,17 @@ export const createNotificationStore = (
 		}
 	};
 
+	const clear = async () => {
+		const previous = cleared();
+		setCleared(new Set(all().map((entry) => entry.id)));
+		try {
+			await markAllRead();
+		} catch (error) {
+			setCleared(previous);
+			throw error;
+		}
+	};
+
 	void load();
 
 	return {
@@ -121,7 +140,56 @@ export const createNotificationStore = (
 		reload: load,
 		markRead,
 		markAllRead,
+		clear,
 	};
 };
 
 export type NotificationStore = ReturnType<typeof createNotificationStore>;
+
+export type SpaceNotificationLevel = "all" | "mentionsAndReplies" | "nothing";
+
+export const DEFAULT_SPACE_NOTIFICATION_LEVEL: SpaceNotificationLevel = "all";
+
+export const createSpaceNotificationPrefs = () => {
+	const [muted, setMutedSet] = createSignal<ReadonlySet<string>>(new Set());
+	const [levels, setLevels] = createSignal<
+		Readonly<Record<string, SpaceNotificationLevel>>
+	>({});
+	return {
+		isMuted: (space: string) => muted().has(space),
+		setMuted: (space: string, next: boolean) =>
+			setMutedSet((current) => {
+				if (current.has(space) === next) return current;
+				const copy = new Set(current);
+				if (next) copy.add(space);
+				else copy.delete(space);
+				return copy;
+			}),
+		level: (space: string) =>
+			levels()[space] ?? DEFAULT_SPACE_NOTIFICATION_LEVEL,
+		setLevel: (space: string, level: SpaceNotificationLevel) =>
+			setLevels((current) => ({ ...current, [space]: level })),
+	};
+};
+
+export type SpaceNotificationPrefs = ReturnType<
+	typeof createSpaceNotificationPrefs
+>;
+
+const spacePrefsByOwner = new WeakMap<object, SpaceNotificationPrefs>();
+
+export const spaceNotificationPrefs = (owner: object) => {
+	const owned = (owner as { spaceNotifications?: SpaceNotificationPrefs })
+		.spaceNotifications;
+	if (owned) return owned;
+	const existing = spacePrefsByOwner.get(owner);
+	if (existing) return existing;
+	const created = createSpaceNotificationPrefs();
+	spacePrefsByOwner.set(owner, created);
+	return created;
+};
+
+export const mutedTotals = <T extends { hasUnread: boolean; mentions: number }>(
+	totals: T,
+	muted: boolean,
+): T => (muted ? { ...totals, hasUnread: false, mentions: 0 } : totals);

@@ -12,6 +12,7 @@ export type ContrastPair = {
 	foreground: string;
 	background: string;
 	tint?: number;
+	tintToken?: string;
 	minimum: number;
 };
 
@@ -67,6 +68,7 @@ export const COLOR_TOKENS = [
 	"overlay",
 	"shadow-color",
 	"mention",
+	"reaction-mine-foreground",
 ] as const;
 
 const TINT_STRENGTH = 0.15;
@@ -105,6 +107,21 @@ const onTint = (foreground: string): ContrastPair[] =>
 		minimum: TEXT_MINIMUM,
 	}));
 
+const REACTION_TINTS = [0.18, 0.26] as const;
+
+const onReactionTint = (foreground: string): ContrastPair[] =>
+	REACTION_TINTS.flatMap((tint) =>
+		TINT_SURFACES.map((background) => ({
+			id: `${foreground} on primary/${Math.round(tint * 100)} over ${background}`,
+			kind: "text" as const,
+			foreground,
+			background,
+			tint,
+			tintToken: "primary",
+			minimum: TEXT_MINIMUM,
+		})),
+	);
+
 export const CONTRAST_PAIRS: readonly ContrastPair[] = [
 	...onSurfaces("foreground", "text", [...SURFACES, "accent"]),
 	...onSurfaces("secondary-foreground", "text", [
@@ -125,6 +142,7 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
 	]),
 	...TINTED_TEXT.flatMap(onTint),
 	...onSurfaces("primary", "ui"),
+	...onReactionTint("reaction-mine-foreground"),
 ];
 
 const parity = (foreground: string, background: string): ParityPair => ({
@@ -221,13 +239,14 @@ const surfaceColor = (tokens: ThemeTokens, name: string) =>
 
 export const pairRatio = (
 	tokens: ThemeTokens,
-	pair: Pick<ContrastPair, "foreground" | "background" | "tint">,
+	pair: Pick<ContrastPair, "foreground" | "background" | "tint" | "tintToken">,
 ) => {
 	const foreground = token(tokens, pair.foreground);
 	let background = surfaceColor(tokens, pair.background);
 	if (pair.tint !== undefined) {
+		const tint = pair.tintToken ? token(tokens, pair.tintToken) : foreground;
 		background = composite(
-			[foreground[0], foreground[1], foreground[2], foreground[3] * pair.tint],
+			[tint[0], tint[1], tint[2], tint[3] * pair.tint],
 			background,
 		);
 	}

@@ -19,6 +19,7 @@ export default defineConfig({
 				test: {
 					name: "browser",
 					include: ["src/**/*.browser.test.tsx"],
+					setupFiles: ["src/test-setup.ts"],
 					browser: {
 						enabled: true,
 						headless: true,

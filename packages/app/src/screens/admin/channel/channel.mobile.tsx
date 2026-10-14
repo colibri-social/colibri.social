@@ -39,7 +39,6 @@ export default adminChannel.view({
 				</Show>
 			</div>
 			<s.Sheets />
-			<s.Discard />
 		</div>
 	),
 });

@@ -5,18 +5,22 @@ import {
 	type DiscoveryViewerState,
 	inviteState,
 	JoinSpaceAction,
+	ListGroup,
 	memberSummary,
 	NavHeader,
 	Skeleton,
 	SpaceProfileHeader,
 	StatusScreen,
+	ToggleRow,
 	toast,
 } from "@colibri-social/ui";
+import { BellOffIcon } from "@solar-icons/solid/bold/bell-off";
 import { ForbiddenCircleIcon } from "@solar-icons/solid/bold/forbidden-circle";
 import { UnlinkIcon } from "@solar-icons/solid/bold/unlink";
 import { createEffect, createResource, createSignal, on, Show } from "solid-js";
 import { AccessError, type InvitationPreview } from "../../data/access";
 import { spaceKey } from "../../data/ids";
+import { spaceNotificationPrefs } from "../../data/notifications";
 import { useData } from "../../data/store";
 import type { CommunityView } from "../../data/types";
 import { defineContract, slot } from "../../screen/define";
@@ -46,6 +50,8 @@ export const JOIN_COPY = {
 		title: "You can't join this Space",
 		description: "You were banned from it.",
 	},
+	mute: "Mute this Space",
+	muteDescription: "You won't get notifications from this Space.",
 	joined: (name: string) => `You joined ${name}`,
 	requested: (name: string) => `Request to join ${name} sent`,
 	failed: "You couldn't join this Space. Try again.",
@@ -84,6 +90,8 @@ export const join = defineContract({
 		const [viewer, setViewer] = createSignal<DiscoveryViewerState>("none");
 		const [problem, setProblem] = createSignal<JoinProblem>();
 		const [busy, setBusy] = createSignal(false);
+		const [muteOnJoin, setMuteOnJoin] = createSignal(false);
+		const prefs = spaceNotificationPrefs(data);
 
 		const openSpace = (community: CommunityView) => {
 			stack.popTo(0);
@@ -127,6 +135,7 @@ export const join = defineContract({
 			setBusy(true);
 			try {
 				const result = await data.access.join(community.did, args.code);
+				if (muteOnJoin()) prefs.setMuted(community.did, true);
 				if (result.status === "pending") {
 					setViewer("pending");
 					toast.success(JOIN_COPY.requested(community.name));
@@ -158,6 +167,8 @@ export const join = defineContract({
 			problem,
 			busy,
 			accept,
+			muteOnJoin,
+			setMuteOnJoin,
 			developerMode: () => data.controls().developerMode,
 			openSpace: () => {
 				const current = preview();
@@ -215,14 +226,28 @@ export const join = defineContract({
 						memberLabel={memberSummary(space())}
 						description={space().description}
 						actions={
-							<JoinSpaceAction
-								space={space()}
-								busy={m.busy()}
-								layout="stacked"
-								onJoin={() => void m.accept()}
-								onRequestJoin={() => void m.accept()}
-								onOpenSpace={m.openSpace}
-							/>
+							<>
+								<Show when={space().viewer === "none"}>
+									<ListGroup>
+										<ToggleRow
+											icon={<BellOffIcon />}
+											title={JOIN_COPY.mute}
+											description={JOIN_COPY.muteDescription}
+											checked={m.muteOnJoin()}
+											onChange={m.setMuteOnJoin}
+											disabled={m.busy()}
+										/>
+									</ListGroup>
+								</Show>
+								<JoinSpaceAction
+									space={space()}
+									busy={m.busy()}
+									layout="stacked"
+									onJoin={() => void m.accept()}
+									onRequestJoin={() => void m.accept()}
+									onOpenSpace={m.openSpace}
+								/>
+							</>
 						}
 					>
 						<Show when={m.developerMode()}>

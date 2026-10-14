@@ -1,6 +1,7 @@
 import {
 	type ChatLayer,
 	type Layer,
+	type NotFoundLayer,
 	parsePath,
 	type Root,
 	type Route,
@@ -18,6 +19,7 @@ export type DesktopRoute = {
 	overlay?: ThreadsLayer;
 	pane?: PaneLayer;
 	modal: Layer[];
+	notFound?: NotFoundLayer;
 	membersOpen?: boolean;
 };
 
@@ -76,8 +78,17 @@ export const desktopRoute = (root: Root, layers: Layer[]): DesktopRoute => {
 		}
 		route.root.space = layer.space;
 		route.modal = [];
+		route.notFound = undefined;
 	};
 	for (const layer of layers) {
+		if (layer.kind === "notFound") {
+			route.chat = undefined;
+			route.pane = undefined;
+			route.overlay = undefined;
+			route.modal = [];
+			route.notFound = layer;
+			continue;
+		}
 		if (layer.kind === "chat") {
 			enterChannel(layer);
 			route.overlay = undefined;
@@ -111,6 +122,7 @@ export const desktopRoute = (root: Root, layers: Layer[]): DesktopRoute => {
 };
 
 export const routeLayers = (route: DesktopRoute): Layer[] => [
+	...(route.notFound ? [route.notFound] : []),
 	...(route.chat ? [route.chat] : []),
 	...(route.pane ? [route.pane] : []),
 	...(route.overlay ? [route.overlay] : []),
@@ -118,6 +130,7 @@ export const routeLayers = (route: DesktopRoute): Layer[] => [
 ];
 
 export const visibleLayers = (route: DesktopRoute): Layer[] => [
+	...(route.notFound ? [route.notFound] : []),
 	...(route.overlay ? [route.overlay] : route.chat ? [route.chat] : []),
 	...(route.pane ? [route.pane] : []),
 	...route.modal.slice(-1),

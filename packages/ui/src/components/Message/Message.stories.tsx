@@ -234,18 +234,20 @@ export const Timestamps: Story = {
 	parameters: mobile,
 	render: () => <div class="min-h-dvh bg-background" />,
 	play: async () => {
-		await expect(formatMessageTime(at(14, 2), NOW, "en-GB")).toBe(
-			"Today at 14:02",
+		const plain = (value: string) => value.replace(/[\u202f\u00a0]/g, " ");
+		await expect(plain(formatMessageTime(at(14, 2), NOW, "en-US"))).toBe(
+			"2:02 PM",
 		);
-		await expect(formatMessageTime(at(9, 10, -1), NOW, "en-GB")).toBe(
+		await expect(formatMessageTime(at(14, 2), NOW, "de-DE")).toBe("14:02");
+		await expect(formatMessageTime(at(9, 10, -1), NOW, "de-DE")).toBe(
 			"Yesterday at 09:10",
 		);
 		await expect(
-			formatMessageTime(new Date(2026, 2, 12, 18, 30), NOW, "en-GB"),
-		).toBe("12 Mar at 18:30");
+			plain(formatMessageTime(new Date(2026, 2, 12, 18, 30), NOW, "en-US")),
+		).toBe("3/12/26, 6:30 PM");
 		await expect(
-			formatMessageTime(new Date(2025, 2, 12, 18, 30), NOW, "en-GB"),
-		).toBe("12 Mar 2025 at 18:30");
+			formatMessageTime(new Date(2025, 2, 12, 18, 30), NOW, "de-DE"),
+		).toBe("12.03.25, 18:30");
 	},
 };
 
@@ -893,6 +895,13 @@ export const InlineEditFailedSave: Story = {
 	},
 };
 
+const focusRowFromKeyboard = (row: HTMLElement) => {
+	document.dispatchEvent(
+		new KeyboardEvent("keydown", { key: "Tab", bubbles: true }),
+	);
+	row.focus();
+};
+
 export const ContinuationTime: Story = {
 	parameters: mobile,
 	render: () => (
@@ -936,7 +945,11 @@ export const ContinuationTime: Story = {
 		if (!row || !time) return;
 		await expect(getComputedStyle(time).opacity).toBe("0");
 		row.tabIndex = -1;
-		row.focus();
+		await userEvent.click(row);
+		await expect(document.activeElement).toBe(row);
+		await expect(getComputedStyle(time).opacity).toBe("0");
+		row.blur();
+		focusRowFromKeyboard(row);
 		await waitFor(() => expect(getComputedStyle(time).opacity).toBe("1"));
 		row.blur();
 		await waitFor(() => expect(getComputedStyle(time).opacity).toBe("0"));
@@ -992,14 +1005,51 @@ export const DesktopToolbar: Story = {
 		if (!row || !toolbar) return;
 		await expect(getComputedStyle(toolbar).visibility).toBe("hidden");
 		row.tabIndex = -1;
-		row.focus();
+		await userEvent.click(row);
+		await expect(document.activeElement).toBe(row);
+		await expect(getComputedStyle(toolbar).visibility).toBe("hidden");
+		row.blur();
+		focusRowFromKeyboard(row);
 		await waitFor(() =>
 			expect(getComputedStyle(toolbar).visibility).toBe("visible"),
 		);
-		row.blur();
+		const reply = within(toolbar).getByRole("button", { name: "Reply" });
+		reply.focus();
+		await expect(getComputedStyle(toolbar).visibility).toBe("visible");
+		await userEvent.click(reply);
 		await waitFor(() =>
 			expect(getComputedStyle(toolbar).visibility).toBe("hidden"),
 		);
+		reply.blur();
+		await waitFor(() =>
+			expect(getComputedStyle(toolbar).visibility).toBe("hidden"),
+		);
+	},
+};
+
+export const DesktopToolbarMenuOpen: Story = {
+	render: () => (
+		<div class="flex min-h-dvh flex-col bg-background px-4 py-8 text-foreground">
+			<MessageRow
+				author={{ name: "Lou" }}
+				timestamp={at(9, 4)}
+				now={NOW}
+				locale="en-GB"
+				toolbar={<ToolbarPlaceholder />}
+				toolbarOpen
+				data-testid="menu-open"
+			>
+				The toolbar stays while one of its menus is open
+			</MessageRow>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const toolbar = canvasElement.querySelector<HTMLElement>(
+			'[data-testid="menu-open"] [data-message-toolbar]',
+		);
+		await expect(toolbar).not.toBeNull();
+		if (!toolbar) return;
+		await expect(getComputedStyle(toolbar).visibility).toBe("visible");
 	},
 };
 
@@ -1414,6 +1464,19 @@ export const NameColors: Story = {
 			await expect(
 				within(header).getByRole("button", { name: "Moderators role" }),
 			).toBeVisible();
+			const time = canvasElement.querySelector(
+				'[data-testid="lou"] [data-message-header] [data-message-time]',
+			) as HTMLElement;
+			const style = getComputedStyle(time);
+			await expect(style.fontSize).toBe("11px");
+			await expect(style.fontVariantNumeric).toBe("tabular-nums");
+			const gap =
+				time.getBoundingClientRect().left -
+				header.getBoundingClientRect().right;
+			await expect(gap).toBeGreaterThanOrEqual(7.5);
+			await expect(gap).toBeLessThanOrEqual(8.5);
+			await expect(time.querySelector("time[datetime]")).not.toBeNull();
+			await expect(time.querySelector("time")?.title).not.toBe("");
 		});
 
 		await step("Replies and typing names use the same colors", async () => {
@@ -1524,5 +1587,65 @@ export const DefaultAvatarsFollowSeed: Story = {
 		await expect(illustration("b")).toBe(defaultAvatarFor(SEED_B));
 		await expect(illustration("a")).not.toBe(illustration("b"));
 		await expect(illustration("c")).toBe(illustration("a"));
+	},
+};
+
+export const OwnerCrown: Story = {
+	render: () => (
+		<div class="flex flex-col bg-background py-4">
+			<div data-testid="owner">
+				<MessageRow
+					platform="desktop"
+					author={{
+						name: "Lou with a display name long enough to truncate in the header",
+						seed: SEED_A,
+						owner: true,
+						role: {
+							id: "core",
+							name: "Core team",
+							color: "#a579ff",
+							badge: { kind: "icon", name: "shield-check" },
+						},
+					}}
+					timestamp={at(9, 30)}
+					now={NOW}
+					locale="en-GB"
+				>
+					Welcome to the Space
+				</MessageRow>
+			</div>
+			<div data-testid="member">
+				<MessageRow
+					platform="desktop"
+					author={{ name: "Tim", seed: SEED_B }}
+					timestamp={at(9, 31)}
+					now={NOW}
+					locale="en-GB"
+				>
+					Thanks!
+				</MessageRow>
+			</div>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const owner = canvasElement.querySelector(
+			'[data-testid="owner"]',
+		) as HTMLElement;
+		const crown = within(owner).getByRole("img", { name: "Owner" });
+		const header = owner.querySelector("[data-message-header]") as HTMLElement;
+		const name = owner.querySelector("[data-author-name]") as HTMLElement;
+		await expect(header.contains(crown)).toBe(true);
+		await expect(crown.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+			name.getBoundingClientRect().right,
+		);
+		await expect(crown.getBoundingClientRect().right).toBeLessThanOrEqual(
+			header.getBoundingClientRect().right,
+		);
+		const member = canvasElement.querySelector(
+			'[data-testid="member"]',
+		) as HTMLElement;
+		await expect(
+			within(member).queryByRole("img", { name: "Owner" }),
+		).toBeNull();
 	},
 };

@@ -403,6 +403,7 @@ export const RadioRow = (props: RadioRowProps) => {
 
 export type CheckboxRowProps = {
 	label: JSX.Element;
+	description?: JSX.Element;
 	leading?: JSX.Element;
 	checked?: boolean;
 	defaultChecked?: boolean;
@@ -443,6 +444,7 @@ export const CheckboxRow = (props: CheckboxRowProps) => {
 				value={props.value}
 				labelPosition="start"
 				label={<span class="font-semibold">{label()}</span>}
+				description={props.description}
 				class="min-w-0 flex-1 items-center justify-between gap-4"
 			/>
 		</div>

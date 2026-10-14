@@ -101,3 +101,87 @@ export const RolesAndMembers: Story = {
 		await expectNoLayoutIssues(canvasElement);
 	},
 };
+
+const crew: MemberIdentityData[] = ["Ada", "Ben", "Cleo", "Dev", "Eli"].map(
+	(name) => ({
+		id: `did:plc:${name.toLowerCase()}`,
+		name,
+		handle: `${name.toLowerCase()}.colibri.social`,
+		presence: "online",
+	}),
+);
+
+const StableDemo = () => {
+	const [selectedMembers, setSelectedMembers] = createSignal<string[]>([
+		"did:plc:cleo",
+	]);
+	return (
+		<div class="min-h-dvh bg-popover p-4 text-foreground">
+			<AudiencePicker
+				roles={[]}
+				members={crew}
+				selectedRoles={[]}
+				selectedMembers={selectedMembers()}
+				onRolesChange={() => {}}
+				onMembersChange={setSelectedMembers}
+				memberLimit={3}
+			/>
+		</div>
+	);
+};
+
+const memberOrder = (root: HTMLElement) =>
+	Array.from(
+		root.querySelectorAll<HTMLInputElement>(
+			'[data-section="members"] input[type="checkbox"]',
+		),
+	).map((input) => input.getAttribute("aria-label"));
+
+export const KeepsRowOrderWhileToggling: Story = {
+	render: () => <StableDemo />,
+	play: async ({ canvasElement, step }) => {
+		const canvas = within(canvasElement);
+		await step("Members checked on open come first", async () => {
+			await expect(memberOrder(canvasElement)).toEqual(["Cleo", "Ada", "Ben"]);
+		});
+		await step("Toggling a member keeps every row in place", async () => {
+			await userEvent.click(canvas.getByRole("checkbox", { name: "Ben" }));
+			await expect(canvas.getByRole("checkbox", { name: "Ben" })).toBeChecked();
+			await expect(memberOrder(canvasElement)).toEqual(["Cleo", "Ada", "Ben"]);
+			await userEvent.click(canvas.getByRole("checkbox", { name: "Cleo" }));
+			await expect(
+				canvas.getByRole("checkbox", { name: "Cleo" }),
+			).not.toBeChecked();
+			await expect(memberOrder(canvasElement)).toEqual(["Cleo", "Ada", "Ben"]);
+		});
+		await step(
+			"A member picked through search stays after unchecking",
+			async () => {
+				const search = canvas.getByRole("searchbox", {
+					name: "Search members and roles",
+				});
+				await userEvent.type(search, "eli");
+				await waitFor(() =>
+					expect(memberOrder(canvasElement)).toEqual(["Eli"]),
+				);
+				await userEvent.click(canvas.getByRole("checkbox", { name: "Eli" }));
+				await userEvent.clear(search);
+				await waitFor(() =>
+					expect(memberOrder(canvasElement)).toEqual([
+						"Cleo",
+						"Ada",
+						"Ben",
+						"Eli",
+					]),
+				);
+				await userEvent.click(canvas.getByRole("checkbox", { name: "Eli" }));
+				await expect(memberOrder(canvasElement)).toEqual([
+					"Cleo",
+					"Ada",
+					"Ben",
+					"Eli",
+				]);
+			},
+		);
+	},
+};

@@ -40,7 +40,7 @@ export const bridgeConnect = defineContract({
 			blocked: () =>
 				bridge.unavailable() ??
 				(featured() && guide() ? undefined : UNKNOWN_BRIDGE),
-			flow: createPairingFlow(bridge),
+			flow: createPairingFlow(bridge, "bridge-connect"),
 		};
 	},
 	slots: {

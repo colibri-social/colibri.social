@@ -94,14 +94,16 @@ const docToSource = (
 	const atoms: SourceFacet[] = [];
 
 	const walk = (items: DocContent): void => {
+		let previousBlock = false;
 		for (const item of items) {
 			const isBlockLevelItem =
 				item.type !== "text" &&
 				item.type !== "hardBreak" &&
 				item.type !== "mention" &&
 				item.type !== "emoji";
-			if (isBlockLevelItem && source.length > 0 && !source.endsWith("\n")) {
-				source += "\n";
+			if (isBlockLevelItem) {
+				if (previousBlock) source += "\n";
+				previousBlock = true;
 			}
 
 			if (item.type === "hardBreak") {

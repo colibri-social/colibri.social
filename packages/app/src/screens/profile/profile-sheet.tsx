@@ -15,11 +15,15 @@ import {
 	Show,
 	useContext,
 } from "solid-js";
+import { blueskyClient, buildBskyProfileUrl } from "../../data/bluesky-client";
 import { roleIdentity, rolesOf } from "../../data/roles";
 import { useData } from "../../data/store";
 import type { Did } from "../../data/types";
 import { usePlatform } from "../../screen/platform";
+import { createLinkOpener } from "../channel/message/link-opener";
 import { uiPresence } from "../members/member-adapter";
+import { linkifyBio } from "./bio-links";
+import { blueskyProfileLinks } from "./bluesky-link";
 
 type Target = { did: string; space?: string };
 
@@ -44,6 +48,16 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 	const [target, setTarget] = createSignal<Target>();
 	const [open, setOpen] = createSignal(false);
 	const platform = usePlatform();
+	const links = createLinkOpener();
+	const bioOf = (text: string | undefined) => {
+		const trimmed = text?.trim();
+		if (!trimmed) return undefined;
+		return linkifyBio(trimmed, {
+			profileHref: (handle) => buildBskyProfileUrl(blueskyClient(), handle),
+			onLink: (href, label) =>
+				links.onExternalLink(href, { label, disguised: false }),
+		});
+	};
 	const [anchor, setAnchor] = createSignal<HTMLElement>();
 	const [anchorRect, setAnchorRect] = createSignal<DOMRect>();
 	const [placement, setPlacement] = createSignal<ProfilePopoverPlacement>();
@@ -84,10 +98,11 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 			avatarSeed: actor.did,
 			presence: uiPresence(presence),
 			bannerSrc: actor.banner,
+			links: blueskyProfileLinks(actor.did),
 			status: status?.text,
 			statusEmoji: status?.emoji,
 			statusShowWhileOffline: status?.showWhileOffline,
-			bio: actor.description,
+			bio: bioOf(actor.description),
 			self: actor.did === data.viewer.did,
 			roles: roles.map((role) => {
 				const identity = roleIdentity(role);
@@ -146,6 +161,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 					loading={open() && !profile()}
 				/>
 			</Show>
+			<links.LinkWarningOutlet />
 		</ProfileSheetContext.Provider>
 	);
 };

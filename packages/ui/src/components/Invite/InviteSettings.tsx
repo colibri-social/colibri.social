@@ -2,6 +2,7 @@ import { DangerCircleIcon } from "@solar-icons/solid/bold/danger-circle";
 import { RefreshIcon } from "@solar-icons/solid/bold/refresh";
 import { createSignal, createUniqueId, type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
+import { useDirtyState } from "../../utils/dirty-guard";
 import { Button } from "../Button/Button";
 import {
 	InviteLinkPanel,
@@ -117,12 +118,25 @@ export const InviteLinkShare = (props: InviteLinkShareProps) => {
 		props.defaultSettings ?? DEFAULT_INVITE_SETTINGS,
 	);
 	const settings = () => props.settings ?? localSettings();
+	const [baseline, setBaseline] = createSignal(settings());
 
 	const changeSettings = (value: InviteSettingsValue) => {
 		setLocalSettings(value);
 		setError(undefined);
 		props.onSettingsChange?.(value);
 	};
+
+	const changed = () =>
+		open() &&
+		!generating() &&
+		JSON.stringify(settings()) !== JSON.stringify(baseline());
+	const discardDescription = "No new invite link will be created.";
+	const revert = () => changeSettings(baseline());
+
+	useDirtyState(() => platform() === "mobile" && changed(), {
+		onDiscard: revert,
+		description: () => discardDescription,
+	});
 
 	const generate = async () => {
 		if (generating()) return;
@@ -145,7 +159,13 @@ export const InviteLinkShare = (props: InviteLinkShareProps) => {
 
 	const toggle = () => {
 		setError(undefined);
+		if (!open()) setBaseline(settings());
 		setOpen((value) => !value);
+	};
+
+	const changeOpen = (next: boolean) => {
+		if (!next && changed()) revert();
+		setOpen(next);
 	};
 
 	const form = () => (
@@ -183,7 +203,12 @@ export const InviteLinkShare = (props: InviteLinkShareProps) => {
 			<Show
 				when={platform() === "mobile"}
 				fallback={
-					<Modal open={open()} onOpenChange={setOpen}>
+					<Modal
+						open={open()}
+						onOpenChange={changeOpen}
+						dirty={changed()}
+						discardDescription={discardDescription}
+					>
 						<ModalContent
 							title="Invite settings"
 							description="Choose how long the new link works and how often it can be used."

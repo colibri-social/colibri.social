@@ -37,20 +37,38 @@ export const AudiencePicker = (props: AudiencePickerProps) => {
 	const visibleRoles = createMemo(() =>
 		props.roles.filter((role) => foldText(role.name).includes(needle())),
 	);
+	const [pinnedSnapshot, setPinnedSnapshot] =
+		createSignal<ReadonlySet<string>>();
+	const [touched, setTouched] = createSignal<ReadonlySet<string>>(new Set());
+	const pinned = () => pinnedSnapshot() ?? new Set(props.selectedMembers);
+	const toggleMember = (id: string, on: boolean) => {
+		if (!pinnedSnapshot()) setPinnedSnapshot(new Set(props.selectedMembers));
+		setTouched((current) => new Set(current).add(id));
+		props.onMembersChange(toggled(props.selectedMembers, id, on));
+	};
 	const matchingMembers = createMemo(() => {
 		const matches = props.members.filter((member) =>
 			matchesMember(member, query()),
 		);
-		const selected = new Set(props.selectedMembers);
+		const first = pinned();
 		return [
-			...matches.filter((member) => selected.has(member.id)),
-			...matches.filter((member) => !selected.has(member.id)),
+			...matches.filter((member) => first.has(member.id)),
+			...matches.filter((member) => !first.has(member.id)),
 		];
 	});
 	const limit = () => props.memberLimit ?? AUDIENCE_MEMBER_LIMIT;
-	const visibleMembers = createMemo(() =>
-		matchingMembers().slice(0, Math.max(limit(), props.selectedMembers.length)),
-	);
+	const visibleMembers = createMemo(() => {
+		const first = pinned();
+		const kept = touched();
+		const selected = new Set(props.selectedMembers);
+		return matchingMembers().filter(
+			(member, index) =>
+				index < limit() ||
+				first.has(member.id) ||
+				kept.has(member.id) ||
+				selected.has(member.id),
+		);
+	});
 	const truncated = () => matchingMembers().length > visibleMembers().length;
 	const label = () => props.searchLabel ?? "Search members and roles";
 
@@ -93,11 +111,7 @@ export const AudiencePicker = (props: AudiencePickerProps) => {
 									member={member}
 									disabled={props.canSelectMember?.(member.id) === false}
 									checked={props.selectedMembers.includes(member.id)}
-									onChange={(on) =>
-										props.onMembersChange(
-											toggled(props.selectedMembers, member.id, on),
-										)
-									}
+									onChange={(on) => toggleMember(member.id, on)}
 								/>
 							)}
 						</For>

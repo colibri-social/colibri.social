@@ -45,7 +45,6 @@ export default editProfile.view({
 						<s.Sync />
 					</div>
 				</div>
-				<s.Discard />
 			</div>
 		);
 	},

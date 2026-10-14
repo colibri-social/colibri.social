@@ -10,6 +10,7 @@ import {
 	splitProps,
 } from "solid-js";
 import { cx } from "../../utils/cx";
+import { createDirtyGuard, DirtyGuardContext } from "../../utils/dirty-guard";
 import {
 	motionScale,
 	prefersReducedMotion,
@@ -24,6 +25,7 @@ import {
 } from "../../utils/nested-layers";
 import { createSlot } from "../../utils/slot";
 import { IconButton } from "../IconButton/IconButton";
+import { DiscardChangesDialog } from "../Modal/Modal";
 
 export type FullScreenSheetProps = {
 	open: boolean;
@@ -35,6 +37,8 @@ export type FullScreenSheetProps = {
 	children?: JSX.Element;
 	class?: string;
 	"aria-label"?: string;
+	dirty?: boolean;
+	discardDescription?: string;
 };
 
 export const SHEET_CLOSE_RATIO = 0.25;
@@ -53,6 +57,11 @@ type Sample = { y: number; t: number };
 export const FullScreenSheet = (props: FullScreenSheetProps) => {
 	const [local] = splitProps(props, ["children"]);
 	const layers = createNestedLayers();
+	const guard = createDirtyGuard();
+	guard.register({
+		dirty: () => !!props.dirty,
+		description: () => props.discardDescription,
+	});
 	const description = createSlot(() => props.description);
 	const footer = createSlot(() => props.footer);
 	const [present, setPresent] = createSignal(props.open);
@@ -156,6 +165,7 @@ export const FullScreenSheet = (props: FullScreenSheetProps) => {
 					setPresent(true);
 					return;
 				}
+				guard.keep();
 				if (present()) void exit();
 			},
 			{ defer: true },
@@ -164,7 +174,7 @@ export const FullScreenSheet = (props: FullScreenSheetProps) => {
 
 	const requestClose = (velocity = 0) => {
 		exitVelocity = velocity;
-		props.onOpenChange(false);
+		guard.attempt(() => props.onOpenChange(false));
 		queueMicrotask(() => {
 			if (props.open) {
 				exitVelocity = 0;
@@ -248,76 +258,79 @@ export const FullScreenSheet = (props: FullScreenSheetProps) => {
 			preventScroll
 		>
 			<NestedLayerContext.Provider value={layers}>
-				<Dialog.Portal>
-					<div
-						ref={overlay}
-						aria-hidden="true"
-						class="fixed inset-0 z-50 bg-overlay"
-					/>
-					<Dialog.Content
-						{...topLayerAttrs}
-						ref={(element: HTMLDivElement) => {
-							content = element;
-							revealLayer(element);
-							queueMicrotask(enter);
-						}}
-						aria-label={props["aria-label"]}
-						data-full-screen-sheet=""
-						tabIndex={-1}
-						onOpenAutoFocus={(event: Event) => {
-							event.preventDefault();
-							content?.focus({ preventScroll: true });
-						}}
-						onInteractOutside={(event: Event) => event.preventDefault()}
-						class={cx(
-							"fixed inset-0 z-50 flex flex-col bg-popover pt-safe text-foreground outline-none",
-							props.class,
-						)}
-					>
-						<div {...grab} class="shrink-0 touch-none select-none">
-							<div class="flex h-11 items-center px-3 py-1.5">
-								<Dialog.CloseButton
-									as={(
-										closeProps: JSX.ButtonHTMLAttributes<HTMLButtonElement>,
-									) => (
-										<IconButton
-											{...closeProps}
-											variant="ghost"
-											size="md"
-											label={props.closeLabel ?? "Close"}
-											icon={<CloseIcon />}
-											class="[&_svg]:size-5"
-										/>
-									)}
-								/>
-							</div>
-							<div class="flex flex-col items-center gap-2 px-12 pt-2.5 pb-6 text-center">
-								<Dialog.Title class="m-0 text-xl leading-tight font-bold text-balance">
-									{props.title}
-								</Dialog.Title>
-								<Show when={description.has()}>
-									<Dialog.Description class="m-0 text-sm text-balance">
-										{description()}
-									</Dialog.Description>
-								</Show>
-							</div>
-						</div>
+				<DirtyGuardContext.Provider value={guard}>
+					<Dialog.Portal>
 						<div
-							data-full-screen-sheet-body=""
-							class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-4 pb-4 [&>*]:shrink-0"
+							ref={overlay}
+							aria-hidden="true"
+							class="fixed inset-0 z-50 bg-overlay"
+						/>
+						<Dialog.Content
+							{...topLayerAttrs}
+							ref={(element: HTMLDivElement) => {
+								content = element;
+								revealLayer(element);
+								queueMicrotask(enter);
+							}}
+							aria-label={props["aria-label"]}
+							data-full-screen-sheet=""
+							tabIndex={-1}
+							onOpenAutoFocus={(event: Event) => {
+								event.preventDefault();
+								content?.focus({ preventScroll: true });
+							}}
+							onInteractOutside={(event: Event) => event.preventDefault()}
+							class={cx(
+								"fixed inset-0 z-50 flex flex-col bg-popover pt-safe text-foreground outline-none",
+								props.class,
+							)}
 						>
-							{local.children}
-						</div>
-						<Show when={footer.has()}>
-							<div
-								data-full-screen-sheet-footer=""
-								class="shrink-0 bg-popover px-4 pt-3 pb-safe-offset-4"
-							>
-								{footer()}
+							<div {...grab} class="shrink-0 touch-none select-none">
+								<div class="flex h-11 items-center px-3 py-1.5">
+									<Dialog.CloseButton
+										as={(
+											closeProps: JSX.ButtonHTMLAttributes<HTMLButtonElement>,
+										) => (
+											<IconButton
+												{...closeProps}
+												variant="ghost"
+												size="md"
+												label={props.closeLabel ?? "Close"}
+												icon={<CloseIcon />}
+												class="[&_svg]:size-5"
+											/>
+										)}
+									/>
+								</div>
+								<div class="flex flex-col items-center gap-2 px-12 pt-2.5 pb-6 text-center">
+									<Dialog.Title class="m-0 text-xl leading-tight font-bold text-balance">
+										{props.title}
+									</Dialog.Title>
+									<Show when={description.has()}>
+										<Dialog.Description class="m-0 text-sm text-balance">
+											{description()}
+										</Dialog.Description>
+									</Show>
+								</div>
 							</div>
-						</Show>
-					</Dialog.Content>
-				</Dialog.Portal>
+							<div
+								data-full-screen-sheet-body=""
+								class="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-4 pb-4 [&>*]:shrink-0"
+							>
+								{local.children}
+							</div>
+							<Show when={footer.has()}>
+								<div
+									data-full-screen-sheet-footer=""
+									class="shrink-0 bg-popover px-4 pt-3 pb-safe-offset-4"
+								>
+									{footer()}
+								</div>
+							</Show>
+							<DiscardChangesDialog guard={guard} />
+						</Dialog.Content>
+					</Dialog.Portal>
+				</DirtyGuardContext.Provider>
 			</NestedLayerContext.Provider>
 		</Dialog>
 	);

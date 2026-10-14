@@ -14,7 +14,7 @@ export const bridgeCode = defineContract({
 	id: "adminBridgeCode",
 	model: (args: AdminArgs) => {
 		const bridge = useBridgeAdmin(args);
-		return { ...bridge, flow: createPairingFlow(bridge) };
+		return { ...bridge, flow: createPairingFlow(bridge, "bridge-code") };
 	},
 	slots: {
 		Header: slot((m) => (

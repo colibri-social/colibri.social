@@ -11,6 +11,7 @@ import {
 	createForwardPicker,
 	type ForwardPickerOptions,
 } from "./ForwardPicker";
+import { type ForwardTarget, forwardChannelList } from "./forward-targets";
 
 const TEXT = "social.colibri.beta.channel.text";
 const VOICE = "social.colibri.beta.channel.voice";
@@ -117,16 +118,16 @@ const dialog = () =>
 const rowFor = (name: string) =>
 	[...dialog().querySelectorAll<HTMLElement>("[data-forward-channel]")]
 		.find((element) => element.textContent === name)
-		?.closest<HTMLElement>("[role=radio], div") ?? undefined;
+		?.closest<HTMLElement>("div") ?? undefined;
 
 const refFor = (name: string) =>
 	Object.values(channels)
 		.flat()
 		.find((entry) => entry.name === name)?.space;
 
-const radioFor = (name: string) =>
+const checkboxFor = (name: string) =>
 	dialog().querySelector<HTMLInputElement>(
-		`input[type=radio][value="${refFor(name)}"]`,
+		`input[type=checkbox][value="${refFor(name)}"]`,
 	) ?? undefined;
 
 const channelNames = () =>
@@ -135,9 +136,9 @@ const channelNames = () =>
 	);
 
 const forwardButton = () =>
-	[...dialog().querySelectorAll<HTMLButtonElement>("button")].find(
-		(button) => button.textContent?.trim() === "Forward",
-	) as HTMLButtonElement;
+	dialog()
+		.querySelector("[data-forward-submit]")
+		?.closest("button") as HTMLButtonElement;
 
 const type = (input: HTMLInputElement, value: string) => {
 	input.value = value;
@@ -145,8 +146,8 @@ const type = (input: HTMLInputElement, value: string) => {
 };
 
 const select = async (name: string) => {
-	const input = radioFor(name);
-	if (!input) throw new Error(`No radio for ${name}`);
+	const input = checkboxFor(name);
+	if (!input) throw new Error(`No checkbox for ${name}`);
 	input.click();
 	await frames();
 };
@@ -168,7 +169,7 @@ describe("forward picker", () => {
 			"showcase",
 		]);
 		expect(dialog().textContent).toContain("Current channel");
-		expect(radioFor("general")?.disabled).toBe(true);
+		expect(checkboxFor("general")?.disabled).toBe(true);
 	});
 
 	it("filters across Spaces", async () => {
@@ -208,6 +209,90 @@ describe("forward picker", () => {
 			to: ref("did:plc:owls", "showcase"),
 			text: "look at this",
 		});
+	});
+
+	it("keeps checked channels in place and counts them on the button", async () => {
+		mount(vi.fn());
+		await until(() => !!dialog());
+		await frames(6);
+		const before = channelNames();
+		expect(forwardButton().textContent?.trim()).toBe("Forward");
+		await select("showcase");
+		expect(forwardButton().textContent?.trim()).toBe("Forward to 1 channel");
+		await select("design");
+		expect(channelNames()).toEqual(before);
+		expect(forwardButton().textContent?.trim()).toBe("Forward to 2 channels");
+		await select("showcase");
+		expect(forwardButton().textContent?.trim()).toBe("Forward to 1 channel");
+		expect(checkboxFor("design")?.checked).toBe(true);
+		expect(checkboxFor("showcase")?.checked).toBe(false);
+	});
+
+	it("sends one forward per checked channel", async () => {
+		const forwardMessage = vi.fn(
+			async (_input: unknown) => ({}) as MessageView,
+		);
+		mount(forwardMessage);
+		await until(() => !!dialog());
+		await select("showcase");
+		await select("design");
+		forwardButton().click();
+		await until(() => !dialog());
+		expect(forwardMessage).toHaveBeenCalledTimes(2);
+		expect(forwardMessage.mock.calls.map(([input]) => input)).toEqual([
+			{
+				from: ref("did:plc:hq", "general"),
+				rkey: "3abc",
+				to: ref("did:plc:hq", "design"),
+			},
+			{
+				from: ref("did:plc:hq", "general"),
+				rkey: "3abc",
+				to: ref("did:plc:owls", "showcase"),
+			},
+		]);
+	});
+
+	it("keeps only the failed channels selected after a partial failure", async () => {
+		const forwardMessage = vi.fn(async (input: unknown) => {
+			if ((input as { to: string }).to === refFor("design")) {
+				throw new Error("nope");
+			}
+			return {} as MessageView;
+		});
+		mount(forwardMessage);
+		await until(() => !!dialog());
+		await select("design");
+		await select("showcase");
+		await select(LONG_NAME);
+		forwardButton().click();
+		await until(() => forwardMessage.mock.calls.length === 3);
+		await until(() => !forwardButton().disabled);
+		expect(dialog()).not.toBeNull();
+		expect(checkboxFor("design")?.checked).toBe(true);
+		expect(checkboxFor("showcase")?.checked).toBe(false);
+		expect(checkboxFor(LONG_NAME)?.checked).toBe(false);
+		expect(forwardButton().textContent?.trim()).toBe("Forward to 1 channel");
+		const failedRows = [
+			...dialog().querySelectorAll<HTMLElement>("[data-forward-failed]"),
+		];
+		expect(failedRows).toHaveLength(1);
+		expect(failedRows[0]?.textContent).toBe("Couldn't forward");
+		forwardButton().click();
+		await until(() => forwardMessage.mock.calls.length === 4);
+		expect(forwardMessage.mock.calls[3]?.[0]).toMatchObject({
+			to: refFor("design"),
+		});
+	});
+
+	it("names forwarded channels and shortens long lists", () => {
+		const targets = ["a", "b", "c", "d", "e"].map(
+			(name) => ({ channel: { name } }) as unknown as ForwardTarget,
+		);
+		expect(forwardChannelList(targets.slice(0, 1))).toBe("#a");
+		expect(forwardChannelList(targets.slice(0, 2))).toBe("#a and #b");
+		expect(forwardChannelList(targets.slice(0, 3))).toBe("#a, #b, and #c");
+		expect(forwardChannelList(targets)).toBe("#a, #b, and 3 more");
 	});
 
 	it("stays open when forwarding fails", async () => {

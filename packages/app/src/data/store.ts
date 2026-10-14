@@ -15,9 +15,14 @@ import {
 	summarizeMessage,
 } from "./channel-summary";
 import { createEmojiStore } from "./emoji-store";
+import { type ColibriError, classifyThrown, createLogger } from "./errors";
 import { channelSlug, isVoiceChannel, skeyOf, spaceKey } from "./ids";
 import { createJumpRequests } from "./jump";
-import { createNotificationStore } from "./notifications";
+import {
+	createNotificationStore,
+	createSpaceNotificationPrefs,
+} from "./notifications";
+import { readStored, writeStored } from "./persist";
 import {
 	countChange,
 	createRoleActions,
@@ -64,6 +69,10 @@ import { connectVoice } from "./voice";
 const PAGE_SIZE = 60;
 const UNREAD_SEARCH_LIMIT = 400;
 const TYPING_MS = 6000;
+const LAST_SPACE_KEY = "colibri:last-space";
+const LAST_CHANNEL_PREFIX = "colibri:last-channel:";
+
+const log = createLogger("store");
 
 export type ProfileDraft = {
 	displayName: string;
@@ -79,6 +88,8 @@ export type ProfileSaveProgress = { avatar?: number; banner?: number };
 export type Load<T> = {
 	value: Accessor<T | undefined>;
 	loading: Accessor<boolean>;
+	error: Accessor<ColibriError | undefined>;
+	retry: () => void;
 };
 
 type MutableLoad<T> = Load<T> & {
@@ -129,6 +140,8 @@ export type ChannelData = {
 	messages: Accessor<readonly MessageView[]>;
 	pending: Accessor<readonly PendingMessage[]>;
 	ready: Accessor<boolean>;
+	loadError: Accessor<ColibriError | undefined>;
+	reload: () => void;
 	hasOlder: Accessor<boolean>;
 	loadingOlder: Accessor<boolean>;
 	loadOlder: () => void;
@@ -149,7 +162,13 @@ export type ChannelData = {
 	remove: (rkey: string) => Promise<void>;
 	react: (rkey: string, emoji: string, add: boolean) => Promise<void>;
 	setHidden: (rkey: string, hidden: boolean) => Promise<void>;
+	setSuppressedEmbeds: (
+		rkey: string,
+		uris: string[],
+		as: "author" | "moderator",
+	) => Promise<void>;
 	markRead: () => void;
+	clearUnreadMarker: () => void;
 	createThread: (input: CreateThreadDraft) => Promise<ThreadView>;
 	detach: (rkeys: readonly string[]) => MessageView[];
 	attach: (messages: readonly MessageView[]) => void;
@@ -175,31 +194,68 @@ const insertSorted = (
 	return next;
 };
 
-const createLoad = <T>(fetch: () => Promise<T>): MutableLoad<T> => {
+const createLoad = <T>(
+	fetch: () => Promise<T>,
+	method: string,
+): MutableLoad<T> => {
 	const [value, setValue] = createSignal<T>();
 	const [loading, setLoading] = createSignal(true);
-	void fetch().then(
-		(result) =>
-			batch(() => {
-				setValue(() => result);
-				setLoading(false);
-			}),
-		() => setLoading(false),
-	);
+	const [error, setError] = createSignal<ColibriError>();
+	let attempt = 0;
+	const run = () => {
+		const current = ++attempt;
+		batch(() => {
+			setLoading(true);
+			setError(undefined);
+		});
+		let request: Promise<T>;
+		try {
+			request = fetch();
+		} catch (thrown) {
+			request = Promise.reject(thrown);
+		}
+		void request.then(
+			(result) => {
+				if (current !== attempt) return;
+				batch(() => {
+					setValue(() => result);
+					setLoading(false);
+				});
+			},
+			(thrown: unknown) => {
+				if (current !== attempt) return;
+				const failure = classifyThrown(thrown, { method });
+				log.warn("load failed", { method, code: failure.code });
+				batch(() => {
+					setError(failure);
+					setLoading(false);
+				});
+			},
+		);
+	};
+	run();
 	const update = (change: (current: T) => T) =>
 		setValue((current) => (current === undefined ? current : change(current)));
-	return { value, loading, update };
+	const retry = () => {
+		if (!loading()) run();
+	};
+	return { value, loading, error, retry, update };
 };
 
-const createLazyLoad = <T>(fetch: () => Promise<T>): MutableLoad<T> => {
+const createLazyLoad = <T>(
+	fetch: () => Promise<T>,
+	method: string,
+): MutableLoad<T> => {
 	let inner: MutableLoad<T> | undefined;
 	const ensure = () => {
-		inner ??= createRoot(() => createLoad(fetch));
+		inner ??= createRoot(() => createLoad(fetch, method));
 		return inner;
 	};
 	return {
 		value: () => ensure().value(),
 		loading: () => ensure().loading(),
+		error: () => ensure().error(),
+		retry: () => ensure().retry(),
 		update: (change) => inner?.update(change),
 	};
 };
@@ -214,7 +270,10 @@ export const createDataStore = (source: DataSource) =>
 		const roleLoads = new Map<Did, MutableLoad<RoleView[]>>();
 		const [controls, setControlsSignal] = createSignal(source.controls());
 		const [simulation, setSimulationSignal] = createSignal(source.simulation());
-		const communities = createLoad(() => source.listCommunities());
+		const communities = createLoad(
+			() => source.listCommunities(),
+			"community.list",
+		);
 		const spaces = new Map<Did, SpaceData>();
 		const [lastMessages, setLastMessages] = createStore<
 			Record<string, ChannelSummary | undefined>
@@ -236,7 +295,11 @@ export const createDataStore = (source: DataSource) =>
 					}
 					if (only && !seen.has(only)) setLastMessages(only, undefined);
 				},
-				() => {},
+				(thrown: unknown) =>
+					log.warn("channel summaries failed", {
+						code: classifyThrown(thrown, { method: "channel.listSummaries" })
+							.code,
+					}),
 			);
 		const syncViewer = (community: Did, viewerRoles?: readonly string[]) => {
 			const list = roleLoads.get(community)?.value();
@@ -295,9 +358,18 @@ export const createDataStore = (source: DataSource) =>
 			Record<string, Record<string, UnreadState>>
 		>({});
 		const [viewing, setViewing] = createSignal<SpaceRef>();
-		const [lastChannels, setLastChannels] = createStore<Record<string, string>>(
-			{},
-		);
+		const [lastChannels, setLastChannels] = createStore<
+			Record<string, string | undefined>
+		>({});
+		const [lastSpace, setLastSpace] = createSignal(readStored(LAST_SPACE_KEY));
+		const lastChannel = (space: string) =>
+			lastChannels[space] ?? readStored(LAST_CHANNEL_PREFIX + space);
+		const setLastChannel = (space: string, channel: string) => {
+			setLastChannels(space, channel);
+			setLastSpace(space);
+			writeStored(LAST_CHANNEL_PREFIX + space, channel);
+			writeStored(LAST_SPACE_KEY, space);
+		};
 		const [mutedChannels, setMutedChannels] = createSignal<ReadonlySet<string>>(
 			new Set(),
 		);
@@ -325,6 +397,7 @@ export const createDataStore = (source: DataSource) =>
 			});
 		});
 		const jumps = createJumpRequests();
+		const spaceNotifications = createSpaceNotificationPrefs();
 
 		const communityOfRef = (ref: SpaceRef) =>
 			ref.slice("at://".length, ref.indexOf("/space/")) as Did;
@@ -332,12 +405,21 @@ export const createDataStore = (source: DataSource) =>
 		const space = (community: CommunityView): SpaceData => {
 			const existing = spaces.get(community.did);
 			if (existing) return existing;
-			const categories = createLoad(() => source.listCategories(community.did));
-			const channelList = createLoad(() => source.listChannels(community.did));
+			const categories = createLoad(
+				() => source.listCategories(community.did),
+				"category.list",
+			);
+			const channelList = createLoad(
+				() => source.listChannels(community.did),
+				"channel.list",
+			);
 			loadSummaries(community.did);
 			categoryLoads.set(community.did, categories);
 			channelLoads.set(community.did, channelList);
-			const roles = createLoad(() => source.listRoles(community.did));
+			const roles = createLoad(
+				() => source.listRoles(community.did),
+				"role.list",
+			);
 			roleLoads.set(community.did, roles);
 			const members = createLazyLoad(async () => {
 				memberLoads.set(community.did, members);
@@ -362,17 +444,23 @@ export const createDataStore = (source: DataSource) =>
 					}),
 				);
 				return all;
-			});
-			void source.listUnreadStatus(community.did).then((statuses) => {
-				const entries: Record<string, UnreadState> = {};
-				for (const status of statuses) {
-					entries[skeyOf(status.channel)] = {
-						hasUnread: status.hasUnread,
-						mentions: status.unreadMentions,
-					};
-				}
-				setUnread(community.did, reconcile(entries));
-			});
+			}, "member.list");
+			void source.listUnreadStatus(community.did).then(
+				(statuses) => {
+					const entries: Record<string, UnreadState> = {};
+					for (const status of statuses) {
+						entries[skeyOf(status.channel)] = {
+							hasUnread: status.hasUnread,
+							mentions: status.unreadMentions,
+						};
+					}
+					setUnread(community.did, reconcile(entries));
+				},
+				(thrown: unknown) =>
+					log.warn("unread status failed", {
+						code: classifyThrown(thrown, { method: "unread.list" }).code,
+					}),
+			);
 
 			let memberIndex: Map<string, MemberView> | undefined;
 			let memberIndexSource: MemberView[] | undefined;
@@ -449,6 +537,9 @@ export const createDataStore = (source: DataSource) =>
 				unread: (slug) =>
 					unread[community.did]?.[slug] ?? { hasUnread: false, mentions: 0 },
 				totals: () => {
+					if (spaceNotifications.isMuted(community.did)) {
+						return { hasUnread: false, mentions: 0 };
+					}
 					const entries = Object.values(unread[community.did] ?? {});
 					return {
 						hasUnread: entries.some((entry) => entry.hasUnread),
@@ -496,6 +587,36 @@ export const createDataStore = (source: DataSource) =>
 		});
 
 		const threadLoads = new Map<SpaceRef, MutableLoad<ThreadView[]>>();
+		const threadsOf = (ref: SpaceRef): Load<ThreadView[]> => {
+			const existing = threadLoads.get(ref);
+			if (existing) return existing;
+			const created = createLazyLoad(
+				() => source.listThreads(ref),
+				"thread.list",
+			);
+			threadLoads.set(ref, created);
+			return created;
+		};
+		const markThreadSeen = (space: SpaceRef) => {
+			for (const load of threadLoads.values()) {
+				load.update((list) =>
+					list.some((entry) => entry.space === space && entry.viewer.hasUnread)
+						? list.map((entry) =>
+								entry.space === space
+									? {
+											...entry,
+											viewer: {
+												...entry.viewer,
+												hasUnread: false,
+												unreadMentions: 0,
+											},
+										}
+									: entry,
+							)
+						: list,
+				);
+			}
+		};
 		const channelLoads = new Map<Did, MutableLoad<ChannelView[]>>();
 		const categoryLoads = new Map<Did, MutableLoad<CategoryView[]>>();
 		const upsertThread = (thread: ThreadView) => {
@@ -570,6 +691,7 @@ export const createDataStore = (source: DataSource) =>
 					.filter((entry) => entry.thread === thread.space && !entry.seenAt)
 					.map((entry) => entry.id);
 				if (ids.length) void notifications.markRead(ids).catch(() => {});
+				channels.get(thread.space)?.clearUnreadMarker();
 				return patchThread(
 					thread,
 					{
@@ -815,7 +937,9 @@ export const createDataStore = (source: DataSource) =>
 					(await source.listChannels(community));
 				for (const view of views) {
 					if (isVoiceChannel(view)) continue;
-					channels.get(view.space)?.markRead();
+					const feed = channels.get(view.space);
+					feed?.markRead();
+					feed?.clearUnreadMarker();
 					const slug = skeyOf(view.space);
 					if (unread[community]?.[slug]?.hasUnread) {
 						setUnread(community, slug, "hasUnread", false);
@@ -834,6 +958,8 @@ export const createDataStore = (source: DataSource) =>
 			const [messages, setMessages] = createSignal<readonly MessageView[]>([]);
 			const [pending, setPending] = createSignal<readonly PendingMessage[]>([]);
 			const [ready, setReady] = createSignal(false);
+			const [openError, setOpenError] = createSignal<ColibriError>();
+			let opening = false;
 			const [cursor, setCursor] = createSignal<string>();
 			const [loadingOlder, setLoadingOlder] = createSignal(false);
 			const [unreadAfter, setUnreadAfter] = createSignal<string>();
@@ -841,8 +967,7 @@ export const createDataStore = (source: DataSource) =>
 			const typingTimers = new Map<Did, ReturnType<typeof setTimeout>>();
 			const community = communityOfRef(ref);
 			let readThrough: string | undefined;
-			const threads = createLazyLoad(() => source.listThreads(ref));
-			threadLoads.set(ref, threads);
+			const threads = threadsOf(ref);
 
 			const open = async () => {
 				const statuses = await source.listUnreadStatus(community);
@@ -882,18 +1007,49 @@ export const createDataStore = (source: DataSource) =>
 				});
 			};
 
+			const openFeed = () => {
+				if (opening) return;
+				opening = true;
+				setOpenError(undefined);
+				open().then(
+					() => {
+						opening = false;
+					},
+					(thrown: unknown) => {
+						opening = false;
+						const failure = classifyThrown(thrown, {
+							method: "channel.listMessages",
+						});
+						log.warn("channel open failed", { code: failure.code });
+						setOpenError(failure);
+					},
+				);
+			};
+
 			const loadOlder = () => {
 				const before = cursor();
 				if (!before || loadingOlder()) return;
 				setLoadingOlder(true);
 				void source
 					.listMessages({ channel: ref, limit: PAGE_SIZE, cursor: before })
-					.then((page) =>
-						batch(() => {
-							setMessages((list) => [...page.items.slice().reverse(), ...list]);
-							setCursor(page.cursor);
+					.then(
+						(page) =>
+							batch(() => {
+								setMessages((list) => [
+									...page.items.slice().reverse(),
+									...list,
+								]);
+								setCursor(page.cursor);
+								setLoadingOlder(false);
+							}),
+						(thrown: unknown) => {
+							log.warn("older messages failed", {
+								code: classifyThrown(thrown, {
+									method: "channel.listMessages",
+								}).code,
+							});
 							setLoadingOlder(false);
-						}),
+						},
 					);
 			};
 
@@ -1074,6 +1230,10 @@ export const createDataStore = (source: DataSource) =>
 				messages,
 				pending,
 				ready,
+				loadError: openError,
+				reload: () => {
+					if (!ready()) openFeed();
+				},
 				hasOlder: () => !!cursor(),
 				loadingOlder,
 				loadOlder,
@@ -1185,6 +1345,14 @@ export const createDataStore = (source: DataSource) =>
 					});
 					upsert(message);
 				},
+				setSuppressedEmbeds: async (rkey, uris, as) => {
+					const input = { channel: ref, rkey, uris };
+					const message =
+						as === "author"
+							? await source.setSuppressedEmbeds(input)
+							: await source.setModeratedEmbeds(input);
+					upsert(message);
+				},
 				react: async (rkey, emoji, add) => {
 					applyReaction(rkey, emoji, viewer.did, add);
 					await source.react({ channel: ref, rkey, emoji, add });
@@ -1201,11 +1369,12 @@ export const createDataStore = (source: DataSource) =>
 					readThrough = messages().at(-1)?.rkey ?? readThrough;
 					void source.markRead(ref);
 				},
+				clearUnreadMarker: () => setUnreadAfter(undefined),
 			};
 
 			typingStops.set(ref, stopTyping);
 			channels.set(ref, data);
-			void open();
+			openFeed();
 			return data;
 		};
 
@@ -1249,6 +1418,8 @@ export const createDataStore = (source: DataSource) =>
 					setSpeaking(event.did, event.speaking);
 					return;
 				case "seenEvent":
+					markThreadSeen(event.channel);
+					return;
 				case "notificationEvent":
 					return;
 			}
@@ -1386,8 +1557,10 @@ export const createDataStore = (source: DataSource) =>
 			setStatus,
 			setOnlineState,
 			notifications,
+			spaceNotifications,
 			jumps,
 			threads: threadActions,
+			threadsOf,
 			channels: channelActions,
 			categories: categoryActions,
 			community: communityActions,
@@ -1404,10 +1577,10 @@ export const createDataStore = (source: DataSource) =>
 			setVoice,
 			nonceFor: (rkey: string) => sentNonces.get(rkey),
 			setViewing,
-			lastChannel: (space: string) => lastChannels[space],
+			lastChannel,
+			lastSpace: () => lastSpace(),
 			lastMessage: (ref: SpaceRef) => lastMessages[ref],
-			setLastChannel: (space: string, channel: string) =>
-				setLastChannels(space, channel),
+			setLastChannel,
 			isMuted: (ref: SpaceRef) => mutedChannels().has(ref),
 			setMuted: (ref: SpaceRef, muted: boolean) =>
 				setMutedChannels((current) => {

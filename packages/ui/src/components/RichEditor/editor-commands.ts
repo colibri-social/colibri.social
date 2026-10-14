@@ -6,7 +6,7 @@ import type { EditorView } from "prosemirror-view";
 import { TIPTAP_EMOJIS } from "../../utils/emoji-data";
 import { codeContextAt } from "../../utils/rich-text/code-context";
 import { MARKDOWN_LINK_POLICY } from "../../utils/rich-text/link-safety";
-import { codeContextAtPos, cursorLine, projectBlock } from "./block-projection";
+import { codeContextAtPos, cursorLine, projectDoc } from "./block-projection";
 import { buildClipboardHtml } from "./clipboard-facets";
 import { customEmojiAttrs } from "./custom-emoji";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
@@ -38,11 +38,13 @@ type SelectionProjection = {
 
 const projectSelection = (editor: Editor): SelectionProjection | null => {
 	const { selection } = editor.state;
-	const block = selection.$from.parent;
-	if (!block.isTextblock || selection.$from.parent !== selection.$to.parent) {
+	if (
+		!selection.$from.parent.isTextblock ||
+		!selection.$to.parent.isTextblock
+	) {
 		return null;
 	}
-	const { text, positions } = projectBlock(block, selection.$from.before());
+	const { text, positions } = projectDoc(editor.state.doc);
 	const selStart = positions.indexOf(selection.from);
 	const selEnd = positions.indexOf(selection.to);
 	if (selStart === -1 || selEnd === -1) return null;
@@ -141,7 +143,7 @@ const markerContext = (editor: Editor): MarkerContext | null => {
 	if (!selection.empty || !selection.$from.parent.isTextblock) return null;
 
 	const { $from } = selection;
-	const { text, positions } = projectBlock($from.parent, $from.before());
+	const { text, positions } = projectDoc(editor.state.doc);
 	const found = cursorLine(text, positions, $from.pos);
 	if (!found) return null;
 
@@ -268,7 +270,7 @@ export const handleListContinuation = (editor: Editor) => {
 	const nextMarker = ordered
 		? `${indent}${Number.parseInt(ordered[2], 10) + 1}. `
 		: `${indent}${line.trimStart()[0]} `;
-	editor.chain().focus().setHardBreak().insertContent(nextMarker).run();
+	editor.chain().focus().splitBlock().insertContent(nextMarker).run();
 	return true;
 };
 
@@ -292,7 +294,7 @@ export const handleQuoteContinuation = (editor: Editor) => {
 		return true;
 	}
 
-	editor.chain().focus().setHardBreak().insertContent("> ").run();
+	editor.chain().focus().splitBlock().insertContent("> ").run();
 	return true;
 };
 
@@ -324,50 +326,46 @@ export const OrderedListAutoNumber = Extension.create({
 					}
 
 					const edits: Array<{ from: number; to: number; text: string }> = [];
-					newState.doc.descendants((node, pos) => {
-						if (!node.isTextblock) return;
-
-						const { text, positions } = projectBlock(node, pos);
-						const levels: Array<{ width: number; counter: number }> = [];
-						let index = 0;
-						for (const line of text.split("\n")) {
-							const item =
-								codeContextAt(text, index) === "codeblock"
-									? null
-									: listLine(line);
-							if (!item) {
-								levels.length = 0;
-								index += line.length + 1;
-								continue;
-							}
-
-							const width = item.indent.length;
-							while (levels.length && levels[levels.length - 1].width > width) {
-								levels.pop();
-							}
-							if (!levels.length || levels[levels.length - 1].width < width) {
-								levels.push({ width, counter: 0 });
-							}
-							const level = levels[levels.length - 1];
-
-							const match = item.ordered ? ORDERED_MARKER_RE.exec(line) : null;
-							if (match) {
-								level.counter += 1;
-								const expected = String(level.counter);
-								if (match[2] !== expected) {
-									const numberStart = index + match[1].length;
-									edits.push({
-										from: positions[numberStart],
-										to: positions[numberStart + match[2].length],
-										text: expected,
-									});
-								}
-							} else {
-								level.counter = 0;
-							}
+					const { text, positions } = projectDoc(newState.doc);
+					const levels: Array<{ width: number; counter: number }> = [];
+					let index = 0;
+					for (const line of text.split("\n")) {
+						const item =
+							codeContextAt(text, index) === "codeblock"
+								? null
+								: listLine(line);
+						if (!item) {
+							levels.length = 0;
 							index += line.length + 1;
+							continue;
 						}
-					});
+
+						const width = item.indent.length;
+						while (levels.length && levels[levels.length - 1].width > width) {
+							levels.pop();
+						}
+						if (!levels.length || levels[levels.length - 1].width < width) {
+							levels.push({ width, counter: 0 });
+						}
+						const level = levels[levels.length - 1];
+
+						const match = item.ordered ? ORDERED_MARKER_RE.exec(line) : null;
+						if (match) {
+							level.counter += 1;
+							const expected = String(level.counter);
+							if (match[2] !== expected) {
+								const numberStart = index + match[1].length;
+								edits.push({
+									from: positions[numberStart],
+									to: positions[numberStart + match[2].length],
+									text: expected,
+								});
+							}
+						} else {
+							level.counter = 0;
+						}
+						index += line.length + 1;
+					}
 
 					if (edits.length === 0) return null;
 					const tr = newState.tr;
@@ -441,6 +439,7 @@ const mentionMarkdown = (node: ProseMirrorNode) => {
 
 export const fragmentToMarkdown = (fragment: Fragment): string => {
 	let out = "";
+	let paragraphs = 0;
 	fragment.forEach((node) => {
 		const name = node.type.name;
 		if (node.isText) {
@@ -450,7 +449,8 @@ export const fragmentToMarkdown = (fragment: Fragment): string => {
 		} else if (name === "mention") {
 			out += mentionMarkdown(node);
 		} else if (name === "paragraph") {
-			if (out && !out.endsWith("\n")) out += "\n";
+			if (paragraphs > 0) out += "\n";
+			paragraphs += 1;
 			out += fragmentToMarkdown(node.content);
 		} else if (node.childCount) {
 			out += fragmentToMarkdown(node.content);

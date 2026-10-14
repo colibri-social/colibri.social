@@ -40,6 +40,7 @@ import { defineContract, slot } from "../../../screen/define";
 import { type Platform, usePlatform } from "../../../screen/platform";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
+import { useUnsavedChanges } from "../../../shell/unsaved-changes";
 import { isRestricted } from "../category/category-audience";
 import { AdminNavHeader } from "../desktop/page-header";
 import {
@@ -115,7 +116,6 @@ export const adminChannel = defineContract({
 		const [categoryOpen, setCategoryOpen] = createSignal(false);
 		const [saving, setSaving] = createSignal(false);
 		const [attempted, setAttempted] = createSignal(false);
-		const [discardOpen, setDiscardOpen] = createSignal(false);
 		const [deleteOpen, setDeleteOpen] = createSignal(false);
 		const [confirmation, setConfirmation] = createSignal("");
 		const [deleting, setDeleting] = createSignal(false);
@@ -214,13 +214,18 @@ export const adminChannel = defineContract({
 				get depth() {
 					return depth();
 				},
-				blocked: () => !saving() && !deleting() && (step() === 2 || dirty()),
-				onBlocked: () => {
-					if (step() === 2) setStep(1);
-					else setDiscardOpen(true);
-				},
+				blocked: () => !saving() && !deleting() && step() === 2,
+				onBlocked: () => setStep(1),
 			}),
 		);
+		useUnsavedChanges({
+			depth,
+			dirty: () => !saving() && !deleting() && dirty(),
+			description: () =>
+				creating
+					? "This channel won't be created."
+					: "Your changes to this channel won't be saved.",
+		});
 
 		const leave = () => stack.forcePop();
 
@@ -361,12 +366,6 @@ export const adminChannel = defineContract({
 			submitAudience,
 			save,
 			back: () => stack.pop(),
-			discardOpen,
-			setDiscardOpen,
-			discard: () => {
-				setDiscardOpen(false);
-				leave();
-			},
 			deleteOpen,
 			setDeleteOpen,
 			confirmation,
@@ -657,31 +656,6 @@ export const adminChannel = defineContract({
 					</DrawerContent>
 				</Drawer>
 			</>
-		)),
-		Discard: slot((m) => (
-			<Modal open={m.discardOpen()} onOpenChange={m.setDiscardOpen}>
-				<ModalContent
-					title="Discard changes?"
-					description={
-						m.creating
-							? "This channel won't be created."
-							: "Your changes to this channel won't be saved."
-					}
-					footer={
-						<>
-							<Button
-								variant="secondary"
-								onClick={() => m.setDiscardOpen(false)}
-							>
-								Keep editing
-							</Button>
-							<Button variant="destructive" onClick={m.discard}>
-								Discard
-							</Button>
-						</>
-					}
-				/>
-			</Modal>
 		)),
 	},
 });

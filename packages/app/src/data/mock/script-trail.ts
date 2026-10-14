@@ -1,3 +1,4 @@
+import { BLUESKY_POST_URL } from "./bluesky";
 import { embeds } from "./embeds";
 import { file, gif, photo } from "./media";
 import { block, fx, mark, rich } from "./rich";
@@ -58,6 +59,14 @@ export const trailScripts = (
 			gap: 15,
 		},
 		{ by: "omar", text: "Yes!! Love that", gap: 5 },
+		{
+			by: "sam",
+			text: rich(
+				"Latest from the guides: ",
+				mark(BLUESKY_POST_URL, fx.link(BLUESKY_POST_URL)),
+			),
+			gap: 10,
+		},
 		{
 			by: "trailbot",
 			text: rich(

@@ -30,6 +30,7 @@ import {
 	type Route,
 	sameLayer,
 } from "./layers";
+import { createLeaveGuard } from "./leave-guard";
 
 export const SCRIM_OPACITY = 0.42;
 const MAX_FRAME_SECONDS = 1 / 30;
@@ -55,6 +56,13 @@ export type StackOptions = {
 };
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+
+const PARKED_CLEARANCE_PX = 1;
+
+const boxSize = (node: HTMLElement) => {
+	const box = node.getBoundingClientRect();
+	return { width: box.width, height: box.height };
+};
 
 export const createStack = (options: StackOptions) => {
 	const haptics = useHaptics();
@@ -82,12 +90,15 @@ export const createStack = (options: StackOptions) => {
 	const frames = new Map<number, Frame>();
 	let popGuard: PopGuard | undefined;
 
-	const blocksPop = (next: number) => {
-		if (!popGuard || next >= popGuard.depth || !popGuard.blocked()) {
-			return false;
+	const leave = createLeaveGuard(() => target);
+
+	const blocksPop = (next: number, retry: () => void) => {
+		if (leave.bypassing()) return false;
+		if (popGuard && next < popGuard.depth && popGuard.blocked()) {
+			popGuard.onBlocked();
+			return true;
 		}
-		popGuard.onBlocked();
-		return true;
+		return leave.holds(next, retry);
 	};
 
 	const setPopGuard = (guard: PopGuard) => {
@@ -106,7 +117,7 @@ export const createStack = (options: StackOptions) => {
 		port,
 		route: committed,
 		onExternal: (navigation) => {
-			if (blocksPop(navigation.depth)) {
+			if (blocksPop(navigation.depth, () => popTo(navigation.depth))) {
 				history.sync();
 				return;
 			}
@@ -155,7 +166,11 @@ export const createStack = (options: StackOptions) => {
 			index > 0 && isSheetLayer(mounted()[index - 1]) && sheetAxis === "y";
 		const distance = sheet ? height : width;
 		const offset =
-			index === 0 ? 0 : Math.round((1 - entered) * distance * 100) / 100;
+			index === 0
+				? 0
+				: entered <= 0
+					? Math.ceil(distance) + PARKED_CLEARANCE_PX
+					: Math.round((1 - entered) * distance * 100) / 100;
 		style.transform =
 			offset === 0
 				? ""
@@ -304,14 +319,14 @@ export const createStack = (options: StackOptions) => {
 
 	const pop = () => {
 		if (target === 0) return false;
-		if (blocksPop(target - 1)) return true;
+		if (blocksPop(target - 1, () => void pop())) return true;
 		animateTo(target - 1, 0);
 		return true;
 	};
 
 	const popTo = (next: number) => {
 		if (next >= target) return;
-		if (blocksPop(next)) return;
+		if (blocksPop(next, () => popTo(next))) return;
 		animateTo(next, 0);
 	};
 
@@ -326,12 +341,14 @@ export const createStack = (options: StackOptions) => {
 	const allow = (direction: PanDirection) => {
 		if (held && depth !== Math.round(depth)) return true;
 		const top = mounted()[target - 1];
-		if (direction === "back") return target > 0 && !blocksPop(target - 1);
+		if (direction === "back") {
+			return target > 0 && !blocksPop(target - 1, () => void pop());
+		}
 		return !!forwardCandidate(top);
 	};
 
 	const startGesture = (direction: PanDirection) => {
-		if (element?.clientWidth) width = element.clientWidth;
+		if (element) width = boxSize(element).width || width;
 		sheetAxis = "x";
 		const rounded = Math.round(depth);
 		const midFlight = Math.abs(depth - rounded) > 0.001 || target !== rounded;
@@ -393,9 +410,10 @@ export const createStack = (options: StackOptions) => {
 
 	const bindSheet = (frame: HTMLElement, index: number) =>
 		bindSheetDrag(frame, {
-			enabled: () => target === index && !blocksPop(index - 1),
+			enabled: () =>
+				target === index && !blocksPop(index - 1, () => popTo(index - 1)),
 			onStart: () => {
-				if (element?.clientHeight) height = element.clientHeight;
+				if (element) height = boxSize(element).height || height;
 				sheetAxis = "y";
 				stopLoop();
 				gesture = { start: depth, min: index - 1, max: index };
@@ -426,11 +444,14 @@ export const createStack = (options: StackOptions) => {
 
 	const attach = (node: HTMLElement) => {
 		element = node;
-		width = node.clientWidth || width;
-		height = node.clientHeight || height;
+		const measure = () => {
+			const size = boxSize(node);
+			width = size.width || width;
+			height = size.height || height;
+		};
+		measure();
 		const observer = new ResizeObserver(() => {
-			width = node.clientWidth || width;
-			height = node.clientHeight || height;
+			measure();
 			render();
 		});
 		observer.observe(node);
@@ -498,6 +519,9 @@ export const createStack = (options: StackOptions) => {
 			animateTo(target - 1, 0);
 		},
 		setPopGuard,
+		registerLeave: leave.register,
+		confirmLeave: leave.confirm,
+		leaveGuard: leave.guard,
 		depth: () => target,
 		attach,
 		registerFrame,
@@ -526,6 +550,9 @@ export type Navigator = Pick<
 	| "popTo"
 	| "forcePop"
 	| "setPopGuard"
+	| "registerLeave"
+	| "confirmLeave"
+	| "leaveGuard"
 	| "depth"
 	| "top"
 	| "isVisible"

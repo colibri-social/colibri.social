@@ -1,0 +1,65 @@
+import { skeyOf } from "../../data/ids";
+import type { DataStore, SpaceData } from "../../data/store";
+import type { SpaceRef, ThreadView } from "../../data/types";
+
+export const SIDEBAR_THREAD_LIMIT = 5;
+export const SIDEBAR_ACTIVITY_WINDOW_MS = 6 * 60 * 60 * 1000;
+
+const newestFirst = (a: ThreadView, b: ThreadView) => {
+	if (a.lastActivityAt === b.lastActivityAt) return a.space < b.space ? -1 : 1;
+	return a.lastActivityAt < b.lastActivityAt ? 1 : -1;
+};
+
+export const belongsInSidebar = (
+	thread: ThreadView,
+	now: number,
+	openThread?: string,
+) => {
+	if (thread.viewer.hasUnread || thread.viewer.following) return true;
+	if (openThread === skeyOf(thread.space)) return true;
+	const at = new Date(thread.lastActivityAt).getTime();
+	return !Number.isNaN(at) && now - at <= SIDEBAR_ACTIVITY_WINDOW_MS;
+};
+
+export const sidebarThreads = (data: DataStore, channel: SpaceRef) =>
+	(data.threadsOf(channel).value() ?? []).map(
+		(thread) => data.threads.find(thread.space) ?? thread,
+	);
+
+export type SidebarThreadState = {
+	thread: ThreadView;
+	unread: boolean;
+	mentions: number;
+};
+
+export const sidebarThreadsFor = (
+	data: DataStore,
+	space: SpaceData | undefined,
+	channel: SpaceRef,
+	now: number,
+	openThread?: string,
+): SidebarThreadState[] => {
+	const unseen = data.notifications
+		.items()
+		.filter((entry) => !entry.seenAt && entry.thread);
+	return sidebarThreads(data, channel)
+		.map((thread) => {
+			const live = space?.unread(skeyOf(thread.space));
+			const pings = unseen.filter(
+				(entry) => entry.thread === thread.space,
+			).length;
+			return {
+				thread,
+				unread: thread.viewer.hasUnread || !!live?.hasUnread,
+				mentions: Math.max(thread.viewer.unreadMentions ?? 0, pings),
+			};
+		})
+		.filter(
+			(state) =>
+				state.unread ||
+				state.mentions > 0 ||
+				belongsInSidebar(state.thread, now, openThread),
+		)
+		.sort((a, b) => newestFirst(a.thread, b.thread))
+		.slice(0, SIDEBAR_THREAD_LIMIT);
+};

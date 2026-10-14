@@ -155,4 +155,37 @@ describe("bridges", () => {
 		buttonNamed(dialogNamed(/^Connect /) as HTMLElement, "Connect")?.click();
 		await until(() => !!page(root, "bridge"), 6000);
 	});
+
+	it("asks before dropping a typed pairing code", async () => {
+		const { root } = await mount(`/app/c/${HQ}/manage/bridge-new`);
+		await until(() => !!page(root, "bridge-new"));
+		buttonNamed(
+			page(root, "bridge-new") as HTMLElement,
+			"I have a code",
+		)?.click();
+		await until(() => !!page(root, "bridge-code"));
+		const view = page(root, "bridge-code") as HTMLElement;
+		typeInto(fieldLabelled(view, "Pairing Code"), "TELE2345");
+		await wait(300);
+		buttonNamed(view, "Back to New Bridge")?.click();
+		await until(() => !!dialogNamed("Discard changes?"));
+		expect(dialogNamed("Discard changes?")?.textContent).toContain(
+			"The bridge won't be connected.",
+		);
+		await wait(300);
+		buttonNamed(
+			dialogNamed("Discard changes?") as HTMLElement,
+			"Cancel",
+		)?.click();
+		await until(() => !dialogNamed("Discard changes?"));
+		expect(page(root, "bridge-code")).not.toBeNull();
+		buttonNamed(view, "Back to New Bridge")?.click();
+		await until(() => !!dialogNamed("Discard changes?"));
+		await wait(300);
+		buttonNamed(
+			dialogNamed("Discard changes?") as HTMLElement,
+			"Discard changes",
+		)?.click();
+		await until(() => location.pathname.endsWith("/manage/bridge-new"));
+	});
 });

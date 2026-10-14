@@ -15,7 +15,12 @@ import { fixtureMembers, fixtureRoles } from "../Members/fixtures";
 import { groupMembers, MemberList } from "../Members/MemberList";
 import { MessageRow } from "../Message/MessageRow";
 import { Popover, PopoverContent, PopoverTrigger } from "../Popover/Popover";
-import { AppShell } from "./AppShell";
+import {
+	AppShell,
+	DEFAULT_CHANNEL_SIDEBAR_WIDTH,
+	MAX_CHANNEL_SIDEBAR_WIDTH,
+	MIN_CHANNEL_SIDEBAR_WIDTH,
+} from "./AppShell";
 import {
 	DEFAULT_THREAD_PANE_WIDTH,
 	MIN_THREAD_PANE_WIDTH,
@@ -80,6 +85,7 @@ const Shell = (props: {
 	thread?: boolean;
 	defaultMembersOpen?: boolean;
 	onThreadWidth?: (width: number) => void;
+	onSidebarWidthCommit?: (width: number) => void;
 }) => {
 	const [membersOpen, setMembersOpen] = createSignal(
 		props.defaultMembersOpen ?? true,
@@ -134,6 +140,7 @@ const Shell = (props: {
 					) : undefined
 				}
 				onThreadWidthChange={props.onThreadWidth}
+				onSidebarWidthCommit={props.onSidebarWidthCommit}
 				header={
 					<ChannelHeader
 						platform="desktop"
@@ -343,6 +350,136 @@ export const ThreadPane: Story = {
 	},
 };
 
+const onSidebarCommit = fn();
+
+const pointer = (
+	target: EventTarget,
+	type: string,
+	clientX: number,
+	buttons = 1,
+) =>
+	target.dispatchEvent(
+		new PointerEvent(type, {
+			bubbles: true,
+			cancelable: true,
+			composed: true,
+			pointerId: 1,
+			pointerType: "mouse",
+			isPrimary: true,
+			button: 0,
+			buttons,
+			clientX,
+			clientY: 400,
+		}),
+	);
+
+export const ResizeChannelList: Story = {
+	render: () => (
+		<Shell onSidebarWidthCommit={(width) => onSidebarCommit(width)} />
+	),
+	play: async ({ canvasElement }) => {
+		onSidebarCommit.mockClear();
+		const canvas = within(canvasElement);
+		const sidebar = canvasElement.querySelector(
+			"[data-shell-sidebar]",
+		) as HTMLElement;
+		const resizer = canvas.getByRole("separator", {
+			name: "Resize channel list",
+		});
+		const width = () => Math.round(sidebar.getBoundingClientRect().width);
+		const root = document.documentElement.style;
+		await expect(width()).toBe(DEFAULT_CHANNEL_SIDEBAR_WIDTH);
+		await expect(getComputedStyle(resizer).cursor).toBe("col-resize");
+		const handleRect = resizer.getBoundingClientRect();
+		await expect(
+			Math.abs(
+				handleRect.left +
+					handleRect.width / 2 -
+					sidebar.getBoundingClientRect().right,
+			),
+		).toBeLessThanOrEqual(0.5);
+
+		resizer.focus();
+		await userEvent.keyboard("{ArrowRight}");
+		await expect(width()).toBe(DEFAULT_CHANNEL_SIDEBAR_WIDTH + 16);
+		await expect(onSidebarCommit).toHaveBeenLastCalledWith(
+			DEFAULT_CHANNEL_SIDEBAR_WIDTH + 16,
+		);
+		await userEvent.keyboard("{ArrowLeft}{ArrowLeft}");
+		await expect(width()).toBe(DEFAULT_CHANNEL_SIDEBAR_WIDTH - 16);
+		for (let step = 0; step < 10; step++)
+			await userEvent.keyboard("{ArrowLeft}");
+		await expect(resizer).toHaveAttribute(
+			"aria-valuenow",
+			String(MIN_CHANNEL_SIDEBAR_WIDTH),
+		);
+		for (let step = 0; step < 20; step++)
+			await userEvent.keyboard("{ArrowRight}");
+		await expect(resizer).toHaveAttribute(
+			"aria-valuenow",
+			String(MAX_CHANNEL_SIDEBAR_WIDTH),
+		);
+		await userEvent.keyboard("{Home}");
+		await expect(width()).toBe(DEFAULT_CHANNEL_SIDEBAR_WIDTH);
+		resizer.blur();
+
+		onSidebarCommit.mockClear();
+		const startX = sidebar.getBoundingClientRect().right;
+		pointer(resizer, "pointerdown", startX, 1);
+		await expect(resizer).toHaveAttribute("data-resizing");
+		await expect(root.userSelect).toBe("none");
+		await expect(root.cursor).toBe("col-resize");
+		for (let offset = 1; offset <= 30; offset++)
+			pointer(window, "pointermove", startX + offset);
+		await expect(width()).toBe(DEFAULT_CHANNEL_SIDEBAR_WIDTH + 30);
+		await expect(onSidebarCommit).not.toHaveBeenCalled();
+		pointer(window, "pointermove", startX + 400);
+		await expect(width()).toBe(MAX_CHANNEL_SIDEBAR_WIDTH);
+		pointer(window, "pointermove", startX - 400);
+		await expect(width()).toBe(MIN_CHANNEL_SIDEBAR_WIDTH);
+		pointer(window, "pointermove", startX + 20);
+		pointer(window, "pointerup", startX + 20, 0);
+		await expect(onSidebarCommit).toHaveBeenCalledTimes(1);
+		await expect(onSidebarCommit).toHaveBeenLastCalledWith(
+			DEFAULT_CHANNEL_SIDEBAR_WIDTH + 20,
+		);
+		await expect(resizer).not.toHaveAttribute("data-resizing");
+		await expect(root.userSelect).toBe("");
+		await expect(root.cursor).toBe("");
+		pointer(window, "pointermove", startX + 60, 0);
+		await expect(width()).toBe(DEFAULT_CHANNEL_SIDEBAR_WIDTH + 20);
+
+		const draggedX = sidebar.getBoundingClientRect().right;
+		pointer(resizer, "pointerdown", draggedX);
+		pointer(window, "pointermove", draggedX + 40);
+		await expect(width()).toBe(DEFAULT_CHANNEL_SIDEBAR_WIDTH + 60);
+		pointer(window, "pointermove", draggedX + 50, 0);
+		await expect(resizer).not.toHaveAttribute("data-resizing");
+		await expect(width()).toBe(DEFAULT_CHANNEL_SIDEBAR_WIDTH + 60);
+		await expect(onSidebarCommit).toHaveBeenLastCalledWith(
+			DEFAULT_CHANNEL_SIDEBAR_WIDTH + 60,
+		);
+
+		onSidebarCommit.mockClear();
+		pointer(resizer, "pointerdown", draggedX + 40);
+		pointer(window, "pointermove", draggedX - 40);
+		await expect(width()).toBe(DEFAULT_CHANNEL_SIDEBAR_WIDTH - 20);
+		await userEvent.keyboard("{Escape}");
+		await expect(width()).toBe(DEFAULT_CHANNEL_SIDEBAR_WIDTH + 60);
+		await expect(resizer).not.toHaveAttribute("data-resizing");
+		await expect(onSidebarCommit).not.toHaveBeenCalled();
+		pointer(window, "pointerup", draggedX - 40, 0);
+		await expect(onSidebarCommit).not.toHaveBeenCalled();
+
+		await userEvent.dblClick(resizer);
+		await expect(width()).toBe(DEFAULT_CHANNEL_SIDEBAR_WIDTH);
+		await expect(onSidebarCommit).toHaveBeenLastCalledWith(
+			DEFAULT_CHANNEL_SIDEBAR_WIDTH,
+		);
+		await expect(root.userSelect).toBe("");
+	},
+};
+
 export const WindowBars: Story = {
 	render: () => (
 		<div class="flex w-[960px] flex-col gap-4 bg-card p-4">
@@ -399,6 +536,85 @@ export const WindowBars: Story = {
 			const icon = bar.querySelector("img, canvas") as HTMLElement;
 			await expect(icon).not.toBeNull();
 		}
+	},
+};
+
+const FlushBannerShell = () => {
+	const [chrome, setChrome] = createSignal<"none" | "windows" | "macos">(
+		"none",
+	);
+	return (
+		<div class="flex flex-col gap-2">
+			<div class="flex gap-2">
+				<button
+					type="button"
+					class="text-sm"
+					onClick={() => setChrome("windows")}
+				>
+					Windows window bar
+				</button>
+				<button
+					type="button"
+					class="text-sm"
+					onClick={() => setChrome("macos")}
+				>
+					Mac window bar
+				</button>
+			</div>
+			<div style={{ width: "960px", height: "320px" }}>
+				<AppShell
+					class="h-full"
+					windowBar={
+						chrome() === "none" ? undefined : (
+							<WindowBar
+								title="Colibri Social Flock"
+								macInset={chrome() === "macos"}
+								roundedCorners={chrome() === "macos"}
+							/>
+						)
+					}
+					rail={<Rail />}
+					sidebar={<div data-banner-flush="" class="h-40 bg-secondary" />}
+				>
+					<div class="flex-1" />
+				</AppShell>
+			</div>
+		</div>
+	);
+};
+
+export const FlushBannerCorner: Story = {
+	render: () => <FlushBannerShell />,
+	play: async ({ canvasElement }) => {
+		const corner = () => {
+			const sidebar = canvasElement.querySelector(
+				"[data-shell-sidebar]",
+			) as Element;
+			const content = canvasElement.querySelector(
+				"[data-shell-sidebar-content]",
+			) as Element;
+			return [
+				getComputedStyle(sidebar).borderTopLeftRadius,
+				getComputedStyle(content).borderTopLeftRadius,
+			];
+		};
+		await expect(corner()).toEqual(["0px", "0px"]);
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Windows window bar" }),
+		);
+		await waitFor(() =>
+			expect(canvasElement.querySelector("[data-window-bar]")).not.toBeNull(),
+		);
+		await expect(corner()).toEqual(["0px", "0px"]);
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Mac window bar" }),
+		);
+		await waitFor(() =>
+			expect(
+				canvasElement.querySelector("[data-window-bar-rounded]"),
+			).not.toBeNull(),
+		);
+		await expect(corner()).toEqual(["16px", "15px"]);
 	},
 };
 

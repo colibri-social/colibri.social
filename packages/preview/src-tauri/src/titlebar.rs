@@ -1,3 +1,6 @@
+#[cfg(target_os = "macos")]
+mod macos;
+
 #[derive(Debug, Clone, Default, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ButtonLayout {
@@ -128,13 +131,30 @@ pub fn titlebar_init() -> TitlebarInfo {
     }
 }
 
+#[tauri::command]
+pub fn titlebar_set_title<R: tauri::Runtime>(
+    window: tauri::WebviewWindow<R>,
+    title: String,
+) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        macos::set_title(&window, title);
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        window.set_title(&title).map_err(|error| error.to_string())
+    }
+}
+
 #[cfg(desktop)]
 pub fn setup<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
     #[cfg(any(target_os = "linux", windows))]
     let _ = window.set_decorations(false);
 
     #[cfg(target_os = "macos")]
-    let _ = window;
+    macos::setup(window);
 }
 
 #[cfg(test)]

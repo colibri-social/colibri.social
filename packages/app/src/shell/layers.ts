@@ -73,7 +73,13 @@ export type CreateSpaceLayer = { kind: "createSpace" };
 export type DiscoverLayer = { kind: "discover" };
 export type JoinLayer = { kind: "join"; code: string };
 
-export type AppLayer = CreateSpaceLayer | DiscoverLayer | JoinLayer;
+export type NotFoundLayer = { kind: "notFound"; path: string };
+
+export type AppLayer =
+	| CreateSpaceLayer
+	| DiscoverLayer
+	| JoinLayer
+	| NotFoundLayer;
 
 const ADMIN_PARENT: Partial<Record<AdminPage, AdminPage>> = {
 	role: "roles",
@@ -172,6 +178,7 @@ export const layerPath = (layer: Layer) => {
 	if (layer.kind === "createSpace") return CREATE_SPACE_PATH;
 	if (layer.kind === "discover") return DISCOVER_PATH;
 	if (layer.kind === "join") return `/app/invite/${segment(layer.code)}`;
+	if (layer.kind === "notFound") return layer.path;
 	if (layer.kind === "admin") return adminPath(layer);
 	const chat = channelPath(layer);
 	if (layer.kind === "members") return `${chat}/members`;
@@ -197,74 +204,106 @@ export const pathAt = (route: Route, depth: number) => {
 
 const TABS: readonly Tab[] = ["inbox", "profile", "settings"];
 
-export const parsePath = (pathname: string): Route => {
-	const parts = pathname
-		.split("/")
-		.filter(Boolean)
-		.map((part) => decodeURIComponent(part));
+const decodeSegment = (part: string) => {
+	try {
+		return decodeURIComponent(part);
+	} catch {
+		return undefined;
+	}
+};
+
+export const notFoundRoute = (pathname: string): Route => ({
+	root: { tab: "spaces" },
+	layers: [{ kind: "notFound", path: pathname }],
+});
+
+const parseKnownPath = (parts: readonly string[]): Route | undefined => {
 	const [app, head, space, channelType, channel, tail, thread, anchor] = parts;
-	if (app === "invite" && head) {
+	const length = parts.length;
+	if (length === 0) return { root: { tab: "spaces" }, layers: [] };
+	if (app === "invite") {
+		if (!head || length > 2) return undefined;
 		return { root: { tab: "spaces" }, layers: [{ kind: "join", code: head }] };
 	}
-	if (app !== "app") return { root: { tab: "spaces" }, layers: [] };
-	if (head === "profile" && space === "edit") {
+	if (app !== "app") return undefined;
+	if (!head) return { root: { tab: "spaces" }, layers: [] };
+	if (head === "profile" && space === "edit" && length === 3) {
 		return { root: { tab: "profile" }, layers: [{ kind: "editProfile" }] };
 	}
-	if (head === "new" && !space) {
+	if (head === "new" && length === 2) {
 		return { root: { tab: "spaces" }, layers: [{ kind: "createSpace" }] };
 	}
-	if (head === "discover" && !space) {
+	if (head === "discover" && length === 2) {
 		return { root: { tab: "spaces" }, layers: [{ kind: "discover" }] };
 	}
-	if (head === "invite" && space) {
+	if (head === "invite") {
+		if (!space || length > 3) return undefined;
 		return {
 			root: { tab: "spaces" },
 			layers: [{ kind: "join", code: space }],
 		};
 	}
-	if (head && TABS.includes(head as Tab)) {
-		return { root: { tab: head as Tab }, layers: [] };
+	if (head === "settings" && length <= 3) {
+		return { root: { tab: "settings" }, layers: [] };
 	}
-	if (head !== "c" || !space?.startsWith("did:")) {
-		return { root: { tab: "spaces" }, layers: [] };
+	if (TABS.includes(head as Tab)) {
+		return length === 2
+			? { root: { tab: head as Tab }, layers: [] }
+			: undefined;
 	}
+	if (head !== "c" || !space?.startsWith("did:")) return undefined;
 	const root: Root = { tab: "spaces", space };
+	if (!channelType) return { root, layers: [] };
 	if (channelType === "manage") {
 		const page = (channel ?? "overview") as AdminPage;
-		if (!ADMIN_PAGES.includes(page)) return { root, layers: [] };
+		if (!ADMIN_PAGES.includes(page) || length > 6) return undefined;
 		return { root, layers: adminLayers(space, page, tail) };
 	}
-	if (!channelType || !channel) return { root, layers: [] };
+	if (!channel) return undefined;
 	const target = { space, channel, channelType };
 	const chat: ChatLayer = { kind: "chat", ...target };
+	if (!tail) return { root, layers: [chat] };
 	if (tail === "members") {
+		if (length > 6) return undefined;
 		return { root, layers: [chat, { kind: "members", ...target }] };
 	}
 	if (tail === "t" && thread === THREAD_DRAFT_SEGMENT) {
+		if (length > 8) return undefined;
 		const draft: ThreadDraftLayer = { kind: "threadDraft", ...target };
 		if (anchor) draft.anchor = anchor;
 		return { root, layers: [chat, draft] };
 	}
 	if (tail === "t" && thread) {
+		if (length > 8 || (anchor && anchor !== FULL_THREAD_SEGMENT)) {
+			return undefined;
+		}
 		const layer: ThreadLayer = { kind: "thread", ...target, thread };
 		if (anchor === FULL_THREAD_SEGMENT) layer.presentation = "full";
 		return { root, layers: [chat, layer] };
 	}
 	if (tail === "threads") {
 		const list: ThreadsLayer = { kind: "threads", ...target };
-		if (thread === "t" && anchor) {
-			return {
-				root,
-				layers: [
-					chat,
-					list,
-					{ kind: "thread", ...target, thread: anchor, via: "threads" },
-				],
-			};
-		}
-		return { root, layers: [chat, list] };
+		if (!thread) return { root, layers: [chat, list] };
+		if (thread !== "t" || !anchor || length > 8) return undefined;
+		return {
+			root,
+			layers: [
+				chat,
+				list,
+				{ kind: "thread", ...target, thread: anchor, via: "threads" },
+			],
+		};
 	}
-	return { root, layers: [chat] };
+	return undefined;
+};
+
+export const parsePath = (pathname: string): Route => {
+	const raw = pathname.split("/").filter(Boolean);
+	const parts = raw.map(decodeSegment);
+	const known = parts.every((part) => part !== undefined)
+		? parseKnownPath(parts as string[])
+		: undefined;
+	return known ?? notFoundRoute(pathname);
 };
 
 export const sameLayer = (a: Layer | undefined, b: Layer | undefined) =>

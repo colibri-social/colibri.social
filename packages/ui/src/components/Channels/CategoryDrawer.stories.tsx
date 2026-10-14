@@ -17,9 +17,14 @@ const spy = {
 	markRead: fn(),
 	edit: fn(),
 	create: fn(),
+	remove: fn(),
 };
 
-const Demo = (props: { name: string; manage: boolean }) => {
+const Demo = (props: {
+	name: string;
+	manage: boolean;
+	deletable?: boolean;
+}) => {
 	const [open, setOpen] = createSignal(false);
 	const [muted, setMuted] = createSignal(false);
 	return (
@@ -36,6 +41,7 @@ const Demo = (props: { name: string; manage: boolean }) => {
 				onMutedChange={setMuted}
 				onEdit={props.manage ? spy.edit : undefined}
 				onCreateChannel={props.manage ? spy.create : undefined}
+				onDelete={props.deletable ? spy.remove : undefined}
 				developerMode={props.manage}
 				developer={{
 					copyLabel: "Copy AT-URI",
@@ -131,5 +137,31 @@ export const Member: Story = {
 		await expect(
 			within(reopened).getByRole("button", { name: "Unmute category" }),
 		).toBeVisible();
+	},
+};
+
+export const ManagerCanDelete: Story = {
+	render: () => <Demo name="Community" manage deletable />,
+	play: async ({ canvasElement }) => {
+		spy.remove.mockClear();
+		const dialog = await openDrawer(canvasElement, "Community");
+		await expectNoLayoutIssues(dialog);
+		const groups = Array.from(dialog.querySelectorAll("section")).map((group) =>
+			Array.from(group.querySelectorAll("button")).map((button) =>
+				button.textContent?.trim(),
+			),
+		);
+		await expect(groups.slice(0, 3)).toEqual([
+			["Mark as read", "Mute category"],
+			["Edit category", "Create channel"],
+			["Delete category"],
+		]);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Delete category" }),
+		);
+		await expect(spy.remove).toHaveBeenCalledOnce();
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+		);
 	},
 };

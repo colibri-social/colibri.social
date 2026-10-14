@@ -9,6 +9,11 @@ import {
 	useContext,
 } from "solid-js";
 import { cx } from "../../utils/cx";
+import {
+	focusFollowsNavigationKey,
+	isHoverPointer,
+	useTouchModality,
+} from "../../utils/keyboard-modality";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 
@@ -35,39 +40,14 @@ const isWarm = () =>
 type TooltipState = {
 	instant: () => boolean;
 	setHoverCapable: (capable: boolean) => void;
+	setFocusSuppressed: (suppressed: boolean) => void;
 };
-
-const isHoverPointer = (event: PointerEvent) =>
-	event.pointerType !== "touch" && event.pointerType !== "pen";
 
 const TooltipStateContext = createContext<TooltipState>({
 	instant: () => false,
 	setHoverCapable: () => {},
+	setFocusSuppressed: () => {},
 });
-
-const [touchModality, setTouchModality] = createSignal(false);
-let modalityInstalled = false;
-
-const installModality = () => {
-	if (modalityInstalled || typeof document === "undefined") return;
-	modalityInstalled = true;
-	document.addEventListener(
-		"pointerdown",
-		(event) => setTouchModality(!isHoverPointer(event)),
-		{ capture: true, passive: true },
-	);
-	document.addEventListener(
-		"pointermove",
-		(event) => {
-			if (event.pointerType === "mouse") setTouchModality(false);
-		},
-		{ capture: true, passive: true },
-	);
-	document.addEventListener("keydown", () => setTouchModality(false), {
-		capture: true,
-		passive: true,
-	});
-};
 
 export type TooltipProps = ParentProps<{
 	placement?: TooltipPlacement;
@@ -81,10 +61,11 @@ export type TooltipProps = ParentProps<{
 }>;
 
 export const Tooltip = (props: TooltipProps) => {
-	installModality();
+	const touchModality = useTouchModality();
 	const overflowPadding = usePopperOverflowPadding();
 	const [instant, setInstant] = createSignal(false);
 	const [hoverCapable, setHoverCapable] = createSignal(true);
+	const [focusSuppressed, setFocusSuppressed] = createSignal(false);
 	let counted = false;
 
 	const onOpenChange = (open: boolean) => {
@@ -114,13 +95,20 @@ export const Tooltip = (props: TooltipProps) => {
 			openDelay={props.openDelay ?? TOOLTIP_OPEN_DELAY}
 			closeDelay={props.closeDelay ?? 0}
 			skipDelayDuration={TOOLTIP_SKIP_DELAY}
-			disabled={props.disabled || !hoverCapable() || touchModality()}
+			disabled={
+				props.disabled ||
+				!hoverCapable() ||
+				touchModality() ||
+				focusSuppressed()
+			}
 			open={props.open}
 			defaultOpen={props.defaultOpen}
 			onOpenChange={onOpenChange}
 			overflowPadding={overflowPadding()}
 		>
-			<TooltipStateContext.Provider value={{ instant, setHoverCapable }}>
+			<TooltipStateContext.Provider
+				value={{ instant, setHoverCapable, setFocusSuppressed }}
+			>
 				{props.children}
 			</TooltipStateContext.Provider>
 		</KobalteTooltip>
@@ -137,6 +125,7 @@ const TooltipTriggerImpl = (props: Record<string, unknown>) => {
 	const [local, rest] = splitProps(props, [
 		"onPointerEnter",
 		"onPointerDown",
+		"onFocus",
 		"onBlur",
 	]);
 	const state = useContext(TooltipStateContext);
@@ -145,14 +134,20 @@ const TooltipTriggerImpl = (props: Record<string, unknown>) => {
 			{...rest}
 			onPointerEnter={(event: PointerEvent) => {
 				state.setHoverCapable(isHoverPointer(event));
+				if (isHoverPointer(event)) state.setFocusSuppressed(false);
 				callUserHandler(local.onPointerEnter, event);
 			}}
 			onPointerDown={(event: PointerEvent) => {
 				state.setHoverCapable(isHoverPointer(event));
 				callUserHandler(local.onPointerDown, event);
 			}}
+			onFocus={(event: FocusEvent) => {
+				state.setFocusSuppressed(!focusFollowsNavigationKey());
+				callUserHandler(local.onFocus, event);
+			}}
 			onBlur={(event: FocusEvent) => {
 				state.setHoverCapable(true);
+				state.setFocusSuppressed(false);
 				callUserHandler(local.onBlur, event);
 			}}
 		/>

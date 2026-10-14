@@ -3,6 +3,7 @@ import type { ChannelSummary } from "./channel-summary";
 import type { EmojiEvent, EmojiSource } from "./emoji";
 import type {
 	AttachmentView,
+	BlueskyPostView,
 	BridgeLink,
 	BridgePairingView,
 	BridgeRegistrationView,
@@ -320,6 +321,12 @@ export type UpdateBridgeInput = BridgeTarget & {
 	mirrorModeration?: boolean;
 };
 
+export type EmbedSuppressionInput = {
+	channel: SpaceRef;
+	rkey: string;
+	uris: string[];
+};
+
 export type DataSource = AccessSource &
 	EmojiSource & {
 		viewer: () => ProfileView;
@@ -435,6 +442,9 @@ export type DataSource = AccessSource &
 		gifFavorites: () => GifView[];
 		setGifFavorite: (gif: GifView, favorite: boolean) => void;
 		forwardMessage: (input: ForwardInput) => Promise<MessageView>;
+		setSuppressedEmbeds: (input: EmbedSuppressionInput) => Promise<MessageView>;
+		setModeratedEmbeds: (input: EmbedSuppressionInput) => Promise<MessageView>;
+		getBlueskyPost: (url: string) => Promise<BlueskyPostView | undefined>;
 		simulation: () => Simulation;
 		setSimulation: (next: Partial<Simulation>) => void;
 		controls: () => ControlsPreferences;

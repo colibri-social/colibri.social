@@ -328,6 +328,9 @@ importers:
 
   packages/app:
     dependencies:
+      '@arborium/arborium':
+        specifier: ^2.18.1
+        version: 2.18.2
       '@colibri-social/ui':
         specifier: workspace:*
         version: link:../ui

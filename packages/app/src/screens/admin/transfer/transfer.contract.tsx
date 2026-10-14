@@ -19,6 +19,7 @@ import type { MemberView } from "../../../data/types";
 import { defineContract, slot } from "../../../screen/define";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
+import { useUnsavedChanges } from "../../../shell/unsaved-changes";
 import { AdminNavHeader } from "../desktop/page-header";
 import { useAdminSpace } from "../space-admin";
 
@@ -87,6 +88,19 @@ export const spaceTransfer = defineContract({
 			return pinned ? [pinned, ...found] : found;
 		});
 		const ready = () => !!selectedMember() && acknowledged() && !transferring();
+		useUnsavedChanges({
+			depth: () =>
+				stack
+					.mounted()
+					.findIndex(
+						(layer) =>
+							layer.kind === "admin" &&
+							layer.page === "transfer" &&
+							layer.space === args.space,
+					) + 1,
+			dirty: () => !transferring() && (!!selected() || acknowledged()),
+			description: () => "Ownership stays with you.",
+		});
 		const transfer = async () => {
 			const current = community();
 			const target = selectedMember();

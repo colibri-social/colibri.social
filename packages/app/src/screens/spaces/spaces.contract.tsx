@@ -7,8 +7,11 @@ import {
 	ChannelList,
 	type ChannelListCategory,
 	ChannelListHeader,
+	type ChannelListItemState,
 	type ChannelPlatform,
 	ChannelRow,
+	ChannelThreadRow,
+	ChannelThreads,
 	copyText,
 	type DeveloperModeCardProps,
 	SpaceContextMenu,
@@ -30,23 +33,30 @@ import {
 	createSignal,
 	For,
 	type JSX,
+	onCleanup,
 	Show,
 } from "solid-js";
 import { displayNameOf } from "../../data/adapters/authors";
-import { channelSlug, isVoiceChannel, spaceKey } from "../../data/ids";
+import { channelSlug, isVoiceChannel, skeyOf, spaceKey } from "../../data/ids";
+import { mutedTotals, spaceNotificationPrefs } from "../../data/notifications";
 import { type SpaceData, useData } from "../../data/store";
 import {
 	type CategoryView,
 	type ChannelView,
 	type CommunityView,
 	type Did,
+	type SpaceRef,
+	type ThreadView,
 	VOICE_CHANNEL,
 } from "../../data/types";
 import { voice } from "../../data/voice";
+import { openExternalUrl } from "../../native/open-external";
 import { defineContract, slot } from "../../screen/define";
 import { usePlatform } from "../../screen/platform";
+import { lastViewedSpace } from "../../shell/cold-start";
 import { useOptionalDesktopShell } from "../../shell/desktop/context";
 import { channelPath, NEW_ENTRY } from "../../shell/layers";
+import { LoadErrorState } from "../../shell/load-error";
 import { useStack } from "../../shell/stack";
 import { newEntryId } from "../admin/channel/channel-target";
 import { createInviteDrawer } from "../admin/invites/invite-drawer";
@@ -54,8 +64,13 @@ import { createLeaveSpace } from "../admin/overview/leave-space";
 import { SPACE_PERMISSIONS } from "../admin/space-admin";
 import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 import { useProfileSheet } from "../profile/profile-sheet";
+import { createThreadMenu } from "../threads/thread-menu";
 import { clickVoiceChannel } from "../voice/voice-click";
 import { openVoicePrompt } from "../voice/voice-prompt";
+import { createCategoryCollapse } from "./category-collapse";
+import { createDeleteDialogs } from "./delete-dialogs";
+import NotificationSettingsScreen from "./notification-settings/notification-settings.screen";
+import { sidebarThreadsFor } from "./sidebar-threads";
 
 export type SpacesArgs = { slug?: string };
 
@@ -82,7 +97,8 @@ export const spaces = defineContract({
 		const communities = () => data.communities.value() ?? [];
 		const community = createMemo<CommunityView | undefined>(() => {
 			const list = communities();
-			return args.slug ? data.spaceByKey(args.slug) : list[0];
+			if (args.slug) return data.spaceByKey(args.slug);
+			return lastViewedSpace(data, list) ?? list[0];
 		});
 		const missing = () =>
 			!!args.slug && !data.communities.loading() && !community();
@@ -154,19 +170,45 @@ export const spaces = defineContract({
 		};
 		const joinedVoice = (channel: ChannelView) =>
 			voice.current()?.channel === channel.space;
-		const categories = createMemo((): ChannelListCategory<ChannelView>[] =>
-			(space()?.categories.value() ?? []).map((category) => ({
+		const collapse = createCategoryCollapse();
+		const categories = createMemo((): ChannelListCategory<ChannelView>[] => {
+			const did = community()?.did ?? "";
+			return (space()?.categories.value() ?? []).map((category) => ({
 				id: category.rkey,
 				name: category.name,
 				channels: category.channels,
-			})),
-		);
+				collapsed: collapse.collapsed(did, category.rkey),
+			}));
+		});
+		const setCategoryCollapsed = (rkey: string, collapsed: boolean) => {
+			const current = community();
+			if (current) collapse.setCollapsed(current.did, rkey, collapsed);
+		};
 		const uncategorized = createMemo(() =>
 			(space()?.channels.value() ?? []).filter((channel) => !channel.category),
 		);
-		const [mutedSpaces, setMutedSpaces] = createSignal<ReadonlySet<string>>(
-			new Set(),
-		);
+		const prefs = spaceNotificationPrefs(data);
+		const spaceMuted = (target?: CommunityView) =>
+			!!target && prefs.isMuted(target.did);
+		const [notificationTarget, setNotificationTarget] =
+			createSignal<CommunityView>();
+		const [notificationOpen, setNotificationOpen] = createSignal(false);
+		const openNotificationSettings = (target: CommunityView) => {
+			setNotificationTarget(target);
+			void whenOverlaysClosed().then(() => setNotificationOpen(true));
+		};
+		const [now, setNow] = createSignal(Date.now());
+		const clock = setInterval(() => setNow(Date.now()), 60_000);
+		onCleanup(() => clearInterval(clock));
+		const openThreadRef = () => {
+			const layer = stack
+				.mounted()
+				.findLast((entry) => entry.kind === "thread");
+			if (layer?.kind !== "thread") return undefined;
+			return layer.thread;
+		};
+		const sidebarThreads = (channel: ChannelView) =>
+			sidebarThreadsFor(data, space(), channel.space, now(), openThreadRef());
 		const [reorderMode, setReorderMode] = createSignal(false);
 		const [held, setHeld] = createSignal<ChannelView>();
 		const [drawerOpen, setDrawerOpen] = createSignal(false);
@@ -230,7 +272,11 @@ export const spaces = defineContract({
 			stack.push({ kind: "threadDraft", ...target });
 		};
 		const markChannelRead = (channel: ChannelView) => {
-			data.channel(channel.space).markRead();
+			const feed = data.channel(channel.space);
+			const loaded = feed.ready();
+			feed.markRead();
+			feed.clearUnreadMarker();
+			if (!loaded) void data.source.markRead(channel.space).catch(() => {});
 			const ids = data.notifications
 				.items()
 				.filter(
@@ -302,12 +348,36 @@ export const spaces = defineContract({
 			void copyText(url).then(() => toast.success("Channel link copied"));
 		};
 		const setSpaceMuted = (did: string, muted: boolean) =>
-			setMutedSpaces((current) => {
-				const next = new Set(current);
-				if (muted) next.add(did);
-				else next.delete(did);
-				return next;
-			});
+			prefs.setMuted(did, muted);
+		const deleteDialogs = createDeleteDialogs({
+			onChannelDeleted: (view) => {
+				const chat = stack.mounted().find((layer) => layer.kind === "chat");
+				if (chat?.kind === "chat" && chat.channel === channelSlug(view)) {
+					stack.popTo(0);
+				}
+			},
+		});
+		const deleteChannel = (channel: ChannelView) =>
+			deleteDialogs.requestChannel(channel);
+		const deleteCategory = (rkey: string) => {
+			const current = community();
+			const category = space()
+				?.categories.value()
+				?.find((entry) => entry.rkey === rkey);
+			if (current && category)
+				deleteDialogs.requestCategory(current.did, category);
+		};
+		const openThread = (channel: ChannelView, thread: ThreadView) => {
+			const current = community();
+			if (!current) return;
+			const target = {
+				space: spaceKey(current),
+				channel: channelSlug(channel),
+				channelType: channel.type,
+			};
+			stack.push({ kind: "chat", ...target });
+			stack.push({ kind: "thread", ...target, thread: skeyOf(thread.space) });
+		};
 		const leaveSpace = createLeaveSpace();
 		const inviteDrawer = createInviteDrawer();
 		const spaceMenu = (target: CommunityView): SpaceMenuActions => {
@@ -319,10 +389,9 @@ export const spaces = defineContract({
 				},
 				onCopyAtUri: () =>
 					void copyText(target.did).then(() => toast.success("DID copied")),
-				onShowOnPdsls: () =>
-					window.open(pdslsUrl(target.did), "_blank", "noopener"),
+				onShowOnPdsls: () => openExternalUrl(pdslsUrl(target.did)),
 				get muted() {
-					return mutedSpaces().has(target.did);
+					return prefs.isMuted(target.did);
 				},
 				onMutedChange: (muted) => setSpaceMuted(target.did, muted),
 				onReorderChannels: allowed("channel.update", () => {
@@ -342,7 +411,7 @@ export const spaces = defineContract({
 								page: "overview",
 							})
 					: undefined,
-				onOpenNotificationSettings: comingSoon("Notification settings"),
+				onOpenNotificationSettings: () => openNotificationSettings(target),
 				onMarkAsRead: () =>
 					void data.community.markRead(target.did).catch(() => {}),
 				onCreateChannel: allowed("channel.create", () =>
@@ -406,8 +475,19 @@ export const spaces = defineContract({
 			openParticipant,
 			joinedVoice,
 			categories,
+			setCategoryCollapsed,
 			uncategorized,
 			comingSoon,
+			spaceMuted,
+			notificationTarget,
+			notificationOpen,
+			setNotificationOpen,
+			deleteChannel,
+			deleteCategory,
+			deleteDialogs,
+			sidebarThreads,
+			openThreadRef,
+			openThread,
 		};
 	},
 	slots: {
@@ -434,7 +514,11 @@ export const spaces = defineContract({
 				<>
 					<For each={m.communities()}>
 						{(community) => {
-							const totals = () => m.data.space(community).totals();
+							const totals = () =>
+								mutedTotals(
+									m.data.space(community).totals(),
+									m.spaceMuted(community),
+								);
 							const item = () => (
 								<SpaceRailItem
 									name={community.name}
@@ -461,6 +545,13 @@ export const spaces = defineContract({
 					</For>
 					<m.leaveSpace.Dialog />
 					<m.inviteDrawer.Overlay />
+					<NotificationSettingsScreen
+						args={{
+							space: m.notificationTarget(),
+							open: m.notificationOpen(),
+							onOpenChange: m.setNotificationOpen,
+						}}
+					/>
 					<Show when={!desktop() && m.heldSpace()}>
 						{(community) => (
 							<SpaceDrawer
@@ -499,17 +590,19 @@ export const spaces = defineContract({
 		Channels: slot((m, props: { platform?: ChannelPlatform }) => {
 			const desktop = () => props.platform === "desktop";
 			const platform = () => props.platform ?? "mobile";
+			const density = () =>
+				m.data.controls().showMessagePreviews ? "default" : "compact";
 			const developer = (ref: string) => ({
 				developerMode: m.data.controls().developerMode,
 				onCopyAtUri: () =>
 					void copyText(ref).then(() => toast.success("AT-URI copied")),
-				onShowOnPdsls: () =>
-					window.open(`https://pdsls.dev/${ref}`, "_blank", "noopener"),
+				onShowOnPdsls: () => openExternalUrl(`https://pdsls.dev/${ref}`),
 			});
 			const voiceRow = (channel: ChannelView) => (
 				<VoiceChannelRow
 					name={channel.name}
 					platform={platform()}
+					density={density()}
 					private={channel.private}
 					joined={m.joinedVoice(channel)}
 					active={desktop() && m.activeChannel() === channelSlug(channel)}
@@ -525,7 +618,8 @@ export const spaces = defineContract({
 			);
 			const textRow = (channel: ChannelView) => {
 				const slug = channelSlug(channel);
-				const unread = () => m.space()?.unread(slug);
+				const unread = () =>
+					m.spaceMuted(m.community()) ? undefined : m.space()?.unread(slug);
 				const summary = () =>
 					m.data.controls().showMessagePreviews
 						? m.data.lastMessage(channel.space)
@@ -534,11 +628,12 @@ export const spaces = defineContract({
 					<ChannelRow
 						name={channel.name}
 						platform={platform()}
+						density={density()}
 						private={channel.private}
 						active={m.activeChannel() === slug}
 						unread={unread()?.hasUnread}
 						mentions={unread()?.mentions || undefined}
-						muted={desktop() ? m.data.isMuted(channel.space) : undefined}
+						muted={m.data.isMuted(channel.space)}
 						preview={(() => {
 							const current = summary();
 							return current
@@ -574,6 +669,11 @@ export const spaces = defineContract({
 						onEdit={
 							m.can("channel.update") ? () => m.editChannel(channel) : undefined
 						}
+						onDelete={
+							m.can("channel.delete")
+								? () => m.deleteChannel(channel)
+								: undefined
+						}
 						{...developer(channel.space)}
 					>
 						{voiceRow(channel)}
@@ -597,14 +697,107 @@ export const spaces = defineContract({
 						onEdit={
 							m.can("channel.update") ? () => m.editChannel(channel) : undefined
 						}
+						onDelete={
+							m.can("channel.delete")
+								? () => m.deleteChannel(channel)
+								: undefined
+						}
 						{...developer(channel.space)}
 					>
 						{textRow(channel)}
 					</ChannelContextMenu>
 				);
-			const renderChannel = (channel: ChannelView): JSX.Element => {
-				if (desktop()) return desktopChannel(channel);
-				return isVoiceChannel(channel) ? voiceRow(channel) : textRow(channel);
+			const threadRows = (channel: ChannelView) => {
+				const current = m.community();
+				if (!current) return undefined;
+				const menu = createThreadMenu({
+					space: spaceKey(current),
+					channel: channelSlug(channel),
+					channelType: channel.type,
+				});
+				const states = () => m.sidebarThreads(channel);
+				const refs = createMemo(
+					() => states().map((state) => state.thread.space),
+					undefined,
+					{
+						equals: (a, b) =>
+							a.length === b.length && a.every((ref, at) => ref === b[at]),
+					},
+				);
+				const stateOf = (ref: SpaceRef) =>
+					states().find((state) => state.thread.space === ref);
+				return (
+					<Show when={refs().length > 0}>
+						<ChannelThreads>
+							<For each={refs()}>
+								{(ref) => (
+									<Show when={stateOf(ref)}>
+										{(state) => {
+											const row = () => (
+												<ChannelThreadRow
+													name={state().thread.name}
+													platform={platform()}
+													private={state().thread.private}
+													active={
+														desktop() &&
+														m.activeChannel() === channelSlug(channel) &&
+														m.openThreadRef() === skeyOf(ref)
+													}
+													unread={
+														!m.spaceMuted(m.community()) && state().unread
+													}
+													mentions={
+														m.spaceMuted(m.community())
+															? undefined
+															: state().mentions || undefined
+													}
+													muted={m.data.isMuted(ref)}
+													onClick={() => m.openThread(channel, state().thread)}
+													onLongPress={
+														desktop()
+															? undefined
+															: () => menu.open(state().thread)
+													}
+												/>
+											);
+											return (
+												<Show when={desktop()} fallback={row()}>
+													<menu.ContextMenu thread={state().thread}>
+														{row()}
+													</menu.ContextMenu>
+												</Show>
+											);
+										}}
+									</Show>
+								)}
+							</For>
+						</ChannelThreads>
+						<menu.Overlay />
+					</Show>
+				);
+			};
+			const withThreads = (
+				channel: ChannelView,
+				row: JSX.Element,
+				state: ChannelListItemState,
+			) => (
+				<div data-channel-entry="" class="flex min-w-0 flex-col gap-0.5">
+					{row}
+					<Show when={!state.reorderMode()}>{threadRows(channel)}</Show>
+				</div>
+			);
+			const renderChannel = (
+				channel: ChannelView,
+				state: ChannelListItemState,
+			): JSX.Element => {
+				if (isVoiceChannel(channel)) {
+					return desktop() ? desktopChannel(channel) : voiceRow(channel);
+				}
+				return withThreads(
+					channel,
+					desktop() ? desktopChannel(channel) : textRow(channel),
+					state,
+				);
 			};
 			const categoryOf = (rkey: string) =>
 				m
@@ -642,18 +835,41 @@ export const spaces = defineContract({
 						onEdit={
 							m.can("category.update") ? () => m.editCategory(rkey) : undefined
 						}
+						onDelete={
+							m.can("category.delete")
+								? () => m.deleteCategory(rkey)
+								: undefined
+						}
 						{...developer(categoryUri(rkey))}
 					>
 						{header}
 					</CategoryContextMenu>
 				);
 			};
+			const listError = () =>
+				m.space()?.channels.error() ?? m.space()?.categories.error();
+			const retryList = () => {
+				const current = m.space();
+				if (!current) return;
+				if (current.channels.error()) current.channels.retry();
+				if (current.categories.error()) current.categories.retry();
+			};
 			return (
 				<>
+					<Show when={listError()}>
+						{(error) => (
+							<LoadErrorState
+								variant="inline"
+								error={error()}
+								onRetry={retryList}
+							/>
+						)}
+					</Show>
 					<ChannelList
 						categories={m.categories()}
 						uncategorized={m.uncategorized()}
 						getId={(channel) => channel.space}
+						density={density()}
 						reorderMode={m.reorderMode()}
 						onReorderModeChange={m.setReorderMode}
 						canReorder={m.reorderMode()}
@@ -674,6 +890,7 @@ export const spaces = defineContract({
 								: undefined
 						}
 						wrapCategoryHeader={desktop() ? categoryMenu : undefined}
+						onCollapsedChange={m.setCategoryCollapsed}
 						haptics={m.haptics}
 						channelName={(channel) => channel.name}
 						renderChannel={renderChannel}
@@ -734,6 +951,11 @@ export const spaces = defineContract({
 										? () => m.editChannel(channel())
 										: undefined
 								}
+								onDelete={
+									m.can("channel.delete")
+										? () => m.deleteChannel(channel())
+										: undefined
+								}
 								developerMode={m.data.controls().developerMode}
 								developer={{
 									copyLabel: "Copy AT-URI",
@@ -771,6 +993,11 @@ export const spaces = defineContract({
 										? () => m.editCategory(category().rkey)
 										: undefined
 								}
+								onDelete={
+									m.can("category.delete")
+										? () => m.deleteCategory(category().rkey)
+										: undefined
+								}
 								developerMode={m.data.controls().developerMode}
 								developer={{
 									copyLabel: "Copy AT-URI",
@@ -780,6 +1007,7 @@ export const spaces = defineContract({
 							/>
 						)}
 					</Show>
+					<m.deleteDialogs.Dialogs />
 				</>
 			);
 		}),

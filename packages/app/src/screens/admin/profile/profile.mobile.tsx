@@ -24,7 +24,6 @@ export default spaceProfile.view({
 					</div>
 				</Show>
 			</div>
-			<s.Discard />
 		</div>
 	),
 });

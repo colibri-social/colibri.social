@@ -69,6 +69,12 @@ describe("own profile popover", () => {
 		await page.viewport(1440, 900);
 		history.replaceState(null, "", `/app/c/${HQ}`);
 		const store = createDataStore(createMockSource({ live: false }));
+		await until(() => !!store.communities.value());
+		const hq = store.spaceByKey(HQ);
+		if (!hq) throw new Error("hq missing");
+		const hqSpace = store.space(hq);
+		await until(() => !!hqSpace.members.value() && !!hqSpace.roles.value());
+		await hqSpace.setMemberRoles(store.viewer.did, ["owner", "core"]);
 		stops.push(
 			render(
 				() => (
@@ -100,6 +106,11 @@ describe("own profile popover", () => {
 			)
 			.toBe(3);
 		const app = describePopover(appPopover.element() as HTMLElement);
+		const appRoles = appPopover
+			.element()
+			.querySelector('[data-profile-section="Space roles"]')?.textContent;
+		expect(appRoles).toContain("Core team");
+		expect(appRoles).not.toContain("Owner");
 		await userEvent.keyboard("{Escape}");
 		await expect
 			.poll(() => document.querySelector('[role="dialog"]'))

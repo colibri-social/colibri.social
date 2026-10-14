@@ -1,10 +1,12 @@
 import { batch, createSignal } from "solid-js";
+import { readStored, writeStored } from "../../data/persist";
 import {
 	browserHistory,
 	createHistorySync,
 	type HistoryPort,
 } from "../history-sync";
 import { type Layer, type Root, sameLayer } from "../layers";
+import { createLeaveGuard } from "../leave-guard";
 import type { Navigator, PopGuard } from "../stack";
 import {
 	type DesktopRoute,
@@ -16,13 +18,7 @@ import {
 
 const MEMBERS_KEY = "colibri:desktop-members-open";
 
-const storedMembersOpen = () => {
-	try {
-		return localStorage.getItem(MEMBERS_KEY) !== "false";
-	} catch {
-		return true;
-	}
-};
+const storedMembersOpen = () => readStored(MEMBERS_KEY) !== "false";
 
 const reuse = <T extends Layer>(
 	previous: T | undefined,
@@ -37,6 +33,7 @@ const keepIdentity = (
 	chat: reuse(previous.chat, next.chat),
 	pane: reuse(previous.pane, next.pane),
 	overlay: reuse(previous.overlay, next.overlay),
+	notFound: reuse(previous.notFound, next.notFound),
 	modal: next.modal.map(
 		(layer, index) => reuse(previous.modal[index], layer) ?? layer,
 	),
@@ -62,17 +59,18 @@ export const createDesktopStack = (
 
 	const setMembersOpen = (open: boolean) => {
 		setMembersOpenSignal(open);
-		try {
-			localStorage.setItem(MEMBERS_KEY, String(open));
-		} catch {}
+		writeStored(MEMBERS_KEY, String(open));
 	};
 
-	const blocksPop = (next: number) => {
-		if (!popGuard || next >= popGuard.depth || !popGuard.blocked()) {
-			return false;
+	const leave = createLeaveGuard(() => layers().length);
+
+	const blocksPop = (next: number, retry: () => void) => {
+		if (leave.bypassing()) return false;
+		if (popGuard && next < popGuard.depth && popGuard.blocked()) {
+			popGuard.onBlocked();
+			return true;
 		}
-		popGuard.onBlocked();
-		return true;
+		return leave.holds(next, retry);
 	};
 
 	const history = createHistorySync({
@@ -80,7 +78,7 @@ export const createDesktopStack = (
 		parse: parseDesktopPath,
 		route: () => ({ root: route().root, layers: layers() }),
 		onExternal: (navigation) => {
-			if (blocksPop(navigation.depth)) {
+			if (blocksPop(navigation.depth, () => popTo(navigation.depth))) {
 				history.sync();
 				return;
 			}
@@ -118,14 +116,14 @@ export const createDesktopStack = (
 	const popTo = (next: number, force = false) => {
 		const list = layers();
 		if (next >= list.length) return;
-		if (!force && blocksPop(next)) return;
+		if (!force && blocksPop(next, () => popTo(next))) return;
 		apply(list.slice(0, Math.max(0, next)));
 	};
 
 	const pop = () => {
 		const list = layers();
 		if (list.length === 0) return false;
-		if (blocksPop(list.length - 1)) return true;
+		if (blocksPop(list.length - 1, () => void pop())) return true;
 		apply(list.slice(0, -1));
 		return true;
 	};
@@ -138,6 +136,11 @@ export const createDesktopStack = (
 		}
 		if (next.tab !== "spaces") return;
 		if (next.space === current.root.space) return;
+		if (current.notFound && !current.root.space) {
+			apply(layers(), next);
+			return;
+		}
+		if (blocksPop(0, () => setRoot(next))) return;
 		commit(desktopRoute({ tab: "spaces", space: next.space }, []));
 	};
 
@@ -165,6 +168,9 @@ export const createDesktopStack = (
 		popTo: (next: number) => popTo(next),
 		forcePop: () => popTo(layers().length - 1, true),
 		setPopGuard,
+		registerLeave: leave.register,
+		confirmLeave: leave.confirm,
+		leaveGuard: leave.guard,
 		top: () => layers().at(-1),
 		isVisible: (match) => visibleLayers(route()).some(match),
 	};

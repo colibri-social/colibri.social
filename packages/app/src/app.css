@@ -1,4 +1,7 @@
 @import "@colibri-social/ui/index.css";
+@import "@arborium/arborium/themes/base.css";
+@import "@arborium/arborium/themes/github-light.css";
+@import "@arborium/arborium/themes/tokyo-night.css";
 
 @source "./";
 

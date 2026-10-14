@@ -93,6 +93,7 @@ export type WindowBarProps = {
 	leading?: JSX.Element;
 	controls?: JSX.Element;
 	macInset?: boolean;
+	roundedCorners?: boolean;
 	dragRegion?: boolean;
 	onContextMenu?: (event: MouseEvent) => void;
 	class?: string;
@@ -124,6 +125,7 @@ export const WindowBar = (props: WindowBarProps) => {
 	return (
 		<div
 			data-window-bar=""
+			data-window-bar-rounded={props.roundedCorners ? "" : undefined}
 			data-tauri-drag-region={props.dragRegion ? "deep" : undefined}
 			onContextMenu={(event) => props.onContextMenu?.(event)}
 			class={cx(

@@ -19,7 +19,13 @@ import { SidebarNavItem, SidebarNavSection } from "../List/List";
 import { SpaceCard } from "../Space/SpaceCard";
 import { StatusField } from "../StatusField/StatusField";
 import { SearchField, TextField } from "../TextField/TextField";
-import { LargeModalContent, Modal, ModalContent, ModalTrigger } from "./Modal";
+import {
+	LargeModalContent,
+	Modal,
+	ModalClose,
+	ModalContent,
+	ModalTrigger,
+} from "./Modal";
 
 const meta = {
 	title: "Overlays/Modal",
@@ -463,5 +469,111 @@ export const NestedPages: Story = {
 		await expect(
 			within(dialog).queryByRole("button", { name: "Back" }),
 		).toBeNull();
+	},
+};
+
+export const UnsavedChanges: Story = {
+	render: () => {
+		const [open, setOpen] = createSignal(false);
+		const [name, setName] = createSignal("Moderators");
+		return (
+			<>
+				<Button onClick={() => setOpen(true)}>Edit role</Button>
+				<Modal
+					open={open()}
+					onOpenChange={setOpen}
+					dirty={name() !== "Moderators"}
+				>
+					<ModalContent
+						title="Edit role"
+						footer={
+							<>
+								<ModalClose>Cancel</ModalClose>
+								<Button>Save</Button>
+							</>
+						}
+					>
+						<TextField label="Name" value={name()} onChange={setName} />
+					</ModalContent>
+				</Modal>
+			</>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Edit role" }),
+		);
+		await screen.findByRole("dialog", { name: "Edit role" });
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+		);
+
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Edit role" }),
+		);
+		const reopened = await screen.findByRole("dialog", { name: "Edit role" });
+		await userEvent.type(within(reopened).getByLabelText("Name"), "!");
+		const ask = async () =>
+			screen.findByRole(
+				"dialog",
+				{ name: "Discard changes?" },
+				{ timeout: 3000 },
+			);
+
+		await userEvent.keyboard("{Escape}");
+		let prompt = await ask();
+		await userEvent.click(
+			within(prompt).getByRole("button", { name: "Cancel" }),
+		);
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Discard changes?" }),
+			).not.toBeInTheDocument(),
+		);
+		await expect(reopened).toBeInTheDocument();
+
+		await userEvent.click(
+			await waitFor(
+				() => within(reopened).getByRole("button", { name: "Cancel" }),
+				{ timeout: 3000 },
+			),
+		);
+		prompt = await ask();
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Discard changes?" }),
+			).not.toBeInTheDocument(),
+		);
+		await expect(reopened).toBeInTheDocument();
+
+		const overlay = document.querySelector<HTMLElement>(".bg-overlay");
+		if (overlay) {
+			await userEvent.click(overlay);
+			prompt = await ask();
+			await userEvent.click(
+				within(prompt).getByRole("button", { name: "Cancel" }),
+			);
+			await waitFor(() =>
+				expect(
+					screen.queryByRole("dialog", { name: "Discard changes?" }),
+				).not.toBeInTheDocument(),
+			);
+		}
+
+		const close = await waitFor(
+			() => within(reopened).getByRole("button", { name: "Close" }),
+			{ timeout: 3000 },
+		);
+		await userEvent.click(close);
+		prompt = await ask();
+		await waitFor(() => expectNoLayoutIssues(prompt), { timeout: 3000 });
+		await userEvent.click(
+			within(prompt).getByRole("button", { name: "Discard changes" }),
+		);
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+		);
 	},
 };

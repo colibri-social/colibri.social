@@ -4,7 +4,7 @@ import type { Node as ProseMirrorNode } from "prosemirror-model";
 import { Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import { MARKDOWN_LINK_POLICY } from "../../utils/rich-text/link-safety";
-import { projectBlock } from "./block-projection";
+import { projectDoc } from "./block-projection";
 import type { CodeHighlighter, HighlightSpan } from "./types";
 
 type SpanCacheEntry = HighlightSpan[] | null | "loading";
@@ -135,74 +135,71 @@ export const MarkdownDecorations = Extension.create<MarkdownDecorationsOptions>(
 			const computeDecorations = (doc: ProseMirrorNode): DecorationSet => {
 				const decorations: Decoration[] = [];
 
-				doc.descendants((node, pos) => {
-					if (!node.isTextblock) return;
+				const { text, positions, blocks } = projectDoc(doc);
+				const tokens = tokenizeMarkdown(text).filter(
+					(token) =>
+						token.kind !== "link" ||
+						MARKDOWN_LINK_POLICY.allowLink(
+							text.slice(token.content[0], token.content[1]),
+							token.uri ?? "",
+						),
+				);
 
-					const { text, positions } = projectBlock(node, pos);
-					const tokens = tokenizeMarkdown(text).filter(
-						(token) =>
-							token.kind !== "link" ||
-							MARKDOWN_LINK_POLICY.allowLink(
-								text.slice(token.content[0], token.content[1]),
-								token.uri ?? "",
-							),
-					);
-
-					const subtextLineStarts = new Set(
-						tokens
-							.filter((token) => token.kind === "subtext")
-							.map((token) => token.markers[0][0]),
-					);
-					if (subtextLineStarts.size > 0) {
-						let lineStart = 0;
-						const allSubtext = text.split("\n").every((line) => {
-							const isSubtext = subtextLineStarts.has(lineStart);
-							lineStart += line.length + 1;
-							return isSubtext;
-						});
+				const subtextLineStarts = new Set(
+					tokens
+						.filter((token) => token.kind === "subtext")
+						.map((token) => token.markers[0][0]),
+				);
+				if (subtextLineStarts.size > 0) {
+					for (const block of blocks) {
+						let lineStart = block.start;
+						const allSubtext = text
+							.slice(block.start, block.end)
+							.split("\n")
+							.every((line) => {
+								const isSubtext = subtextLineStarts.has(lineStart);
+								lineStart += line.length + 1;
+								return isSubtext;
+							});
 						if (allSubtext) {
 							decorations.push(
-								Decoration.node(pos, pos + node.nodeSize, {
+								Decoration.node(block.pos, block.pos + block.node.nodeSize, {
 									class: "subtext-block",
 								}),
 							);
 						}
 					}
+				}
 
-					for (const token of tokens) {
-						if (token.kind === "codeblock") {
-							highlightCodeblock(decorations, token, text, positions);
-							continue;
-						}
-
-						const markerClass =
-							token.kind === "subtext"
-								? `${MARKER_CLASS} text-xs`
-								: MARKER_CLASS;
-						for (const [markerStart, markerEnd] of token.markers) {
-							if (markerStart === markerEnd) continue;
-							decorations.push(
-								Decoration.inline(
-									positions[markerStart],
-									positions[markerEnd],
-									{ class: markerClass },
-								),
-							);
-						}
-
-						const contentClass = CONTENT_CLASS[token.kind];
-						const [contentStart, contentEnd] = token.content;
-						if (contentClass && contentEnd > contentStart) {
-							decorations.push(
-								Decoration.inline(
-									positions[contentStart],
-									positions[contentEnd],
-									{ class: contentClass },
-								),
-							);
-						}
+				for (const token of tokens) {
+					if (token.kind === "codeblock") {
+						highlightCodeblock(decorations, token, text, positions);
+						continue;
 					}
-				});
+
+					const markerClass =
+						token.kind === "subtext" ? `${MARKER_CLASS} text-xs` : MARKER_CLASS;
+					for (const [markerStart, markerEnd] of token.markers) {
+						if (markerStart === markerEnd) continue;
+						decorations.push(
+							Decoration.inline(positions[markerStart], positions[markerEnd], {
+								class: markerClass,
+							}),
+						);
+					}
+
+					const contentClass = CONTENT_CLASS[token.kind];
+					const [contentStart, contentEnd] = token.content;
+					if (contentClass && contentEnd > contentStart) {
+						decorations.push(
+							Decoration.inline(
+								positions[contentStart],
+								positions[contentEnd],
+								{ class: contentClass },
+							),
+						);
+					}
+				}
 
 				return DecorationSet.create(doc, decorations);
 			};

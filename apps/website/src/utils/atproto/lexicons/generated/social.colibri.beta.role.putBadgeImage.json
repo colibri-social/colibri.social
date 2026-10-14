@@ -1,0 +1,91 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.role.putBadgeImage",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Sets a role's badge to an uploaded image. The bytes are uploaded to the community's own repo, which is why this goes through the AppView: a space record must reference a blob living in the repo that holds the record. Replaces whatever badge was there before. Use social.colibri.beta.role.update with removeBadge to clear it.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"role"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community the role belongs to."
+					},
+					"role": {
+						"type": "string",
+						"format": "record-key",
+						"description": "The role's record key."
+					}
+				}
+			},
+			"input": {
+				"encoding": "image/*",
+				"description": "The raw image bytes, at most 256 KB. The content type must be one of image/jpeg, image/png, image/gif or image/webp, and is sniffed rather than trusted."
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"role"
+					],
+					"properties": {
+						"role": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#roleView",
+							"description": "The role with the new badge resolved."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the role.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "RoleNotFound",
+					"description": "No role exists at the given record key."
+				},
+				{
+					"name": "RoleProtected",
+					"description": "The role is marked protected and cannot be modified."
+				},
+				{
+					"name": "RoleHierarchy",
+					"description": "The role is at or above the caller's highest role position."
+				},
+				{
+					"name": "UnsupportedImage",
+					"description": "The bytes are not one of the accepted image types."
+				},
+				{
+					"name": "ImageTooLarge",
+					"description": "The image exceeds 256 KB."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS or third-party call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

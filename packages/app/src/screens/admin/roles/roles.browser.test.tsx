@@ -122,18 +122,17 @@ const hqSpace = (store: ReturnType<typeof createDataStore>) => {
 };
 
 describe("roles", () => {
-	it("lists roles in rank order and locks the owner role", async () => {
+	it("lists roles in rank order and hides the owner role", async () => {
 		const { root } = await mount(`/app/c/${HQ}/manage/roles`);
-		await until(() => roleRows(root).length === 5);
+		await until(() => roleRows(root).length === 4);
 		expect(roleRows(root).map((row) => row.textContent)).toEqual([
-			expect.stringContaining("Owner"),
 			expect.stringContaining("Core team"),
 			expect.stringContaining("Moderators"),
 			expect.stringContaining("Testers"),
 			expect.stringContaining("Bots"),
 		]);
 		expect(rowNamed(root, "Testers")?.textContent).not.toContain("members");
-		expect(rowNamed(root, "Owner")?.hasAttribute("data-locked")).toBe(true);
+		expect(rowNamed(root, "Owner")).toBeUndefined();
 		expect(rowNamed(root, "Core team")?.tagName).toBe("BUTTON");
 		expect(buttonNamed(root, "Create role")).toBeTruthy();
 		expect(buttonNamed(root, "Reorder")).toBeTruthy();
@@ -164,7 +163,7 @@ describe("roles", () => {
 
 	it("creates a role and lands on it", async () => {
 		const { root, store } = await mount(`/app/c/${HQ}/manage/roles`);
-		await until(() => roleRows(root).length === 5);
+		await until(() => roleRows(root).length === 4);
 		buttonNamed(root, "Create role")?.click();
 		await until(() => location.pathname.endsWith("/manage/role/new"));
 		await until(() => !!nameField(root));
@@ -221,7 +220,10 @@ describe("roles", () => {
 		buttonNamed(activeScreen(root), "Back to roles")?.click();
 		await until(() => !!dialogNamed("Discard changes?"));
 		await wait(300);
-		buttonNamed(document.body, "Keep editing")?.click();
+		buttonNamed(
+			dialogNamed("Discard changes?") as HTMLElement,
+			"Cancel",
+		)?.click();
 		await until(() => !dialogNamed("Discard changes?"));
 		expect(location.pathname.includes("/manage/role/testers")).toBe(true);
 		buttonNamed(activeScreen(root), "Save")?.click();
@@ -345,7 +347,7 @@ describe("roles", () => {
 
 	it("saves a new order through the store and shows it", async () => {
 		const { root, store } = await mount(`/app/c/${HQ}/manage/roles`);
-		await until(() => roleRows(root).length === 5);
+		await until(() => roleRows(root).length === 4);
 		await hqSpace(store).reorderRoles([
 			"owner",
 			"testers",
@@ -354,7 +356,7 @@ describe("roles", () => {
 			"bots",
 		]);
 		await until(
-			() => roleRows(root)[1]?.textContent?.includes("Testers") === true,
+			() => roleRows(root)[0]?.textContent?.includes("Testers") === true,
 		);
 		const positions = hqSpace(store)
 			.roles.value()
@@ -370,7 +372,7 @@ describe("roles", () => {
 
 	it("lifts a held role and moves it to where it's dropped", async () => {
 		const { root, store } = await mount(`/app/c/${HQ}/manage/roles`);
-		await until(() => roleRows(root).length === 5);
+		await until(() => roleRows(root).length === 4);
 		expect(root.querySelector('[data-role-hold="owner"]')).toBeNull();
 		const held = root.querySelector<HTMLElement>(
 			'[data-role-hold="testers"]',
@@ -404,7 +406,7 @@ describe("roles", () => {
 			new PointerEvent("pointerup", point(startY - box.height)),
 		);
 		await until(
-			() => roleRows(root)[2]?.textContent?.includes("Testers") === true,
+			() => roleRows(root)[1]?.textContent?.includes("Testers") === true,
 		);
 		expect(root.querySelector("[data-lifted]")).toBeNull();
 		await until(
@@ -414,6 +416,16 @@ describe("roles", () => {
 					?.map((role) => role.rkey)
 					.join(",") === "owner,core,testers,mods,bots",
 		);
+	});
+
+	it("treats the owner role as unavailable", async () => {
+		const { root } = await mount(`/app/c/${HQ}/manage/role/owner`);
+		await until(
+			() =>
+				activeScreen(root).textContent?.includes("doesn't exist anymore") ===
+				true,
+		);
+		expect(nameField(root)).toBeNull();
 	});
 
 	it("shows a missing role as unavailable", async () => {

@@ -9,6 +9,7 @@ import { channel } from "./channel.contract";
 import { liftToasts } from "./toast-offset";
 
 export default channel.view({
+	hidden: ["Unavailable", "LoadError"] as const,
 	render: ({ slots: s, model: m }) => {
 		const placement = usePlacement();
 		const shell = useOptionalDesktopShell();
@@ -27,26 +28,29 @@ export default channel.view({
 					</Outlet>
 				</Show>
 				<Show when={!m.unavailable()} fallback={<s.Unavailable />}>
-					<AttachmentDropzone
-						scope="zone"
-						channelName={m.options.label()}
-						disabled={
-							m.view()?.viewer.canPost === false || m.selection.active()
-						}
-						onFiles={(files) => m.attachments.addFiles(files)}
-						footer={
-							<div
-								data-chat-footer=""
-								ref={(element) => {
-									if (placement === "main") onMount(() => liftToasts(element));
-								}}
-							>
-								<s.Composer platform="desktop" />
-							</div>
-						}
-					>
-						<s.Messages platform="desktop" />
-					</AttachmentDropzone>
+					<Show when={!m.loadFailure()} fallback={<s.LoadError />}>
+						<AttachmentDropzone
+							scope="zone"
+							channelName={m.options.label()}
+							disabled={
+								m.view()?.viewer.canPost === false || m.selection.active()
+							}
+							onFiles={(files) => m.attachments.addFiles(files)}
+							footer={
+								<div
+									data-chat-footer=""
+									ref={(element) => {
+										if (placement === "main")
+											onMount(() => liftToasts(element));
+									}}
+								>
+									<s.Composer platform="desktop" />
+								</div>
+							}
+						>
+							<s.Messages platform="desktop" />
+						</AttachmentDropzone>
+					</Show>
 				</Show>
 			</div>
 		);

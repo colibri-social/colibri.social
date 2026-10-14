@@ -62,6 +62,7 @@
 	--overlay: rgb(8 8 8 / 0.75);
 	--shadow-color: rgb(0 0 0 / 0.25);
 	--mention: rgb(142 81 255 / 0.25);
+	--reaction-mine-foreground: #d7c2ff;
 
 	color-scheme: dark;
 }
@@ -97,6 +98,7 @@
 	--overlay: rgb(8 8 8 / 0.4);
 	--shadow-color: rgb(0 0 0 / 0.12);
 	--mention: rgb(142 81 255 / 0.16);
+	--reaction-mine-foreground: #392461;
 
 	color-scheme: light;
 }
@@ -121,6 +123,7 @@
 	--color-secondary-foreground: var(--secondary-foreground);
 	--color-muted: var(--muted);
 	--color-muted-foreground: var(--muted-foreground);
+	--color-reaction-mine-foreground: var(--reaction-mine-foreground);
 	--color-accent: var(--accent);
 	--color-destructive: var(--destructive);
 	--color-destructive-highlight: var(--destructive-highlight);

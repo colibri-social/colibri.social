@@ -36,7 +36,7 @@ import {
 	startReorderPress,
 } from "../Sortable/reorder-press";
 import { ChannelCategory } from "./Category";
-import { CategoryEmpty } from "./ChannelRow";
+import { CategoryEmpty, type ChannelRowDensity } from "./ChannelRow";
 import {
 	type ChannelLayout,
 	type ChannelReorder,
@@ -83,6 +83,7 @@ export type ChannelListProps<T> = {
 	onOpenCategorySettings?: (categoryId: string) => void;
 	wrapCategoryHeader?: (categoryId: string, header: JSX.Element) => JSX.Element;
 	emptyCategoryLabel?: string;
+	density?: ChannelRowDensity;
 	haptics?: Haptics;
 	class?: string;
 };
@@ -275,6 +276,7 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 	const [optimistic, setOptimistic] = createSignal<ChannelLayout>();
 	const [drag, setDrag] = createSignal<DragState>();
 	const [dragHeight, setDragHeight] = createSignal(0);
+	const compact = () => props.density === "compact";
 	const [springOpen, setSpringOpen] = createSignal<ReadonlySet<string>>(
 		new Set(),
 	);
@@ -1238,7 +1240,7 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 							if (
 								!reorderMode() &&
 								(event.target as Element | null)?.closest?.(
-									"[data-voice-participant]",
+									"[data-voice-participant], [data-channel-thread]",
 								)
 							)
 								return;
@@ -1331,6 +1333,7 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 							collapsed={isCollapsed(id)}
 							onCollapsedChange={(collapsed) => setCollapsed(id, collapsed)}
 							instant={!!drag()}
+							density={props.density}
 							onCreateChannel={
 								reorderMode() || !props.onCreateChannel
 									? undefined
@@ -1390,7 +1393,9 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 								data-list-node="slot"
 								data-drop-slot={id}
 								aria-hidden="true"
-								style={{ height: `${dragHeight() + 8}px` }}
+								style={{
+									height: `${dragHeight() + (compact() ? 0 : 8)}px`,
+								}}
 							/>
 						</Show>
 					</div>
@@ -1405,6 +1410,7 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 			data-channel-list=""
 			data-reorder-mode={reorderMode() || undefined}
 			data-dragging={drag()?.kind}
+			data-density={props.density ?? "default"}
 			class={cx("relative flex w-full flex-col", props.class)}
 		>
 			<span id={instructionsId} class="sr-only">
@@ -1439,7 +1445,8 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 				<div
 					data-list-uncategorized=""
 					class={cx(
-						"flex flex-col gap-2 px-2",
+						"flex flex-col px-2",
+						compact() ? "gap-0" : "gap-2",
 						layout().uncategorized.length > 0 && "pt-2",
 					)}
 				>

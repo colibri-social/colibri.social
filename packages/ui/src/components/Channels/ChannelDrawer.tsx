@@ -4,6 +4,7 @@ import { ChatSquareDotsIcon } from "@solar-icons/solid/bold/chat-square-dots";
 import { DocumentsIcon } from "@solar-icons/solid/bold/documents";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
 import { SettingsIcon } from "@solar-icons/solid/bold/settings";
+import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import { VolumeLoudIcon } from "@solar-icons/solid/bold/volume-loud";
 import { type JSX, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
@@ -16,7 +17,7 @@ import {
 	type DeveloperModeCardProps,
 } from "../DeveloperMode/DeveloperModeCard";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
-import { ListGroup, NavRow } from "../List/List";
+import { DestructiveRow, ListGroup, NavRow } from "../List/List";
 
 export type ChannelDrawerProps = ChannelMenuActions & {
 	open: boolean;
@@ -162,6 +163,15 @@ export const ChannelDrawer = (props: ChannelDrawerProps) => {
 								onClick={run(props.onEdit)}
 							/>
 						</Show>
+					</ListGroup>
+				</Show>
+				<Show when={props.onDelete}>
+					<ListGroup>
+						<DestructiveRow
+							icon={<TrashBinTrashIcon />}
+							label="Delete channel"
+							onClick={run(props.onDelete)}
+						/>
 					</ListGroup>
 				</Show>
 				<Show when={props.developerMode && props.developer}>

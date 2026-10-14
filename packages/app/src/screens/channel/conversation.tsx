@@ -2,17 +2,21 @@ import {
 	Button,
 	COMPOSER_TYPING_INSET,
 	Composer,
+	ComposerBar,
 	MessageList,
 	type MessageListHandle,
 	ReplyBar,
 	type RichEditorHandle,
 	type RichEditorSources,
+	type RichText,
 	StatusScreen,
 	TypingIndicator,
 	toast,
+	topEmoji,
 } from "@colibri-social/ui";
 import { ChatSquareDotsIcon } from "@solar-icons/solid/bold/chat-square-dots";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
+import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import {
 	createEffect,
 	createMemo,
@@ -25,12 +29,21 @@ import {
 } from "solid-js";
 import { authorForDid, displayNameOf } from "../../data/adapters/authors";
 import { fromComposerValue, toTextValue } from "../../data/adapters/facets";
+import { classifyThrown, createLogger } from "../../data/errors";
 import { channelSlug, skeyOf } from "../../data/ids";
+import {
+	createComposerDraft,
+	editDraftKey,
+	readEditDraft,
+	writeEditDraft,
+} from "../../data/persist-drafts";
 import { type ChannelData, useData } from "../../data/store";
 import type {
 	AttachmentView,
+	BlueskyPostView,
 	ChannelView,
 	Did,
+	GifView,
 	MemberView,
 	MessageView,
 	RoleView,
@@ -50,6 +63,7 @@ import {
 	createReactionPicker,
 	gifAttachment,
 } from "./composer/media";
+import { mediaSession } from "./composer/media/session";
 import { createAttachmentDraft } from "./composer/uploads/attachment-draft";
 import { createForwardPicker } from "./forward/ForwardPicker";
 import {
@@ -78,6 +92,13 @@ export type ConversationOptions = {
 };
 
 const MAX_JUMP_PAGES = 12;
+
+export const DELETED_PING_COPY = "The message that pinged you was deleted.";
+const QUICK_REACTION_COUNT = 4;
+
+const log = createLogger("conversation");
+
+const blueskyPosts = new Map<string, Promise<BlueskyPostView | undefined>>();
 const SEEN_RATIO = 0.6;
 const SEEN_THRESHOLDS = [0, 0.25, 0.5, SEEN_RATIO, 0.8, 1];
 
@@ -151,7 +172,9 @@ export const createConversation = (options: ConversationOptions) => {
 			if (data.communities.loading()) return undefined;
 			const current = space();
 			if (!current) return "space";
-			if (current.channels.loading()) return undefined;
+			if (current.channels.loading() || current.channels.error()) {
+				return undefined;
+			}
 			return view() ? undefined : "channel";
 		},
 	);
@@ -170,6 +193,40 @@ export const createConversation = (options: ConversationOptions) => {
 		if (ref) data.setMuted(ref, next);
 	};
 	let list: MessageListHandle | undefined;
+	const [deletedPing, setDeletedPing] = createSignal(false);
+	const handledOrphans = new Set<string>();
+	createEffect(
+		on(options.target, () => {
+			setDeletedPing(false);
+			handledOrphans.clear();
+		}),
+	);
+	createEffect(() => {
+		const ref = options.target();
+		const current = feed();
+		if (!ref || !current?.ready()) return;
+		const messages = current.messages();
+		const oldest = messages[0]?.rkey;
+		const newest = messages.at(-1)?.rkey;
+		if (!newest) return;
+		const present = new Set(messages.map((message) => message.rkey));
+		const complete = !current.hasOlder();
+		const orphans = data.notifications.items().filter((entry) => {
+			const rkey = entry.message?.rkey;
+			if (!rkey || entry.seenAt || handledOrphans.has(entry.id)) return false;
+			if ((entry.thread ?? entry.channel) !== ref) return false;
+			if (present.has(rkey) || rkey > newest) return false;
+			return complete || (!!oldest && rkey > oldest);
+		});
+		if (orphans.length === 0) return;
+		for (const entry of orphans) handledOrphans.add(entry.id);
+		untrack(() => {
+			setDeletedPing(true);
+			void data.notifications
+				.markRead(orphans.map((entry) => entry.id))
+				.catch(() => {});
+		});
+	});
 
 	const isActive = options.isActive;
 
@@ -271,7 +328,10 @@ export const createConversation = (options: ConversationOptions) => {
 			if (current.messages().some((message) => message.rkey === rkey)) {
 				continue;
 			}
-			if (!current.hasOlder()) break;
+			if (!current.hasOlder()) {
+				setDeletedPing(true);
+				return;
+			}
 			current.loadOlder();
 			while (current.loadingOlder()) await nextFrame();
 		}
@@ -462,6 +522,14 @@ export const createConversation = (options: ConversationOptions) => {
 		desktop,
 	});
 
+	const inlineEditKey = () => {
+		const target = editing();
+		const channel = feed()?.channel;
+		return desktop() && channel && target?.rkey
+			? editDraftKey(channel, target.rkey)
+			: undefined;
+	};
+
 	const threadMenu = createThreadMenu({
 		space: options.space,
 		channel: options.channel,
@@ -471,8 +539,23 @@ export const createConversation = (options: ConversationOptions) => {
 		viewer: () => data.viewer.did,
 		platform,
 		editingKey: () => editing()?.key,
-		onSaveEdit: (value) => saveEdit(value),
+		editDraft: () => {
+			const key = inlineEditKey();
+			return key ? readEditDraft(key) : undefined;
+		},
+		onEditChange: (value) => {
+			const key = inlineEditKey();
+			if (key) writeEditDraft(key, value);
+		},
+		onSaveEdit: async (value) => {
+			const key = inlineEditKey();
+			const saved = await saveEdit(value);
+			if (saved && key) writeEditDraft(key, undefined);
+			return saved;
+		},
 		onCancelEdit: () => {
+			const key = inlineEditKey();
+			if (key) writeEditDraft(key, undefined);
 			setEditing(undefined);
 			editor?.focus();
 		},
@@ -533,6 +616,47 @@ export const createConversation = (options: ConversationOptions) => {
 		},
 		controls: data.controls,
 		locale: "en-GB",
+		quickReactions: () =>
+			topEmoji(mediaSession().usage(), QUICK_REACTION_COUNT),
+		onRecordEmoji: (emoji) => mediaSession().recordEmoji(emoji),
+		canPost: () => view()?.viewer.canPost !== false,
+		developerMode: () => data.controls().developerMode,
+		viewerRoles: () => memberMap().get(data.viewer.did)?.roles ?? [],
+		linkEmbedsEnabled: () =>
+			(view()?.linkEmbeds ?? community()?.linkEmbeds) !== false,
+		gifSaved: (gif) => media.favorites().some((entry) => entry.url === gif.url),
+		onToggleGif: (gif, save) => {
+			const saved = media.favorites().find((entry) => entry.url === gif.url);
+			media.setFavorite((saved as GifView | undefined) ?? gif, save);
+			toast.success(save ? "Saved GIF" : "Removed saved GIF");
+		},
+		onSetEmbeds: async (message, uris, as) => {
+			const current = feed();
+			if (!current || !message.rkey) return;
+			const method =
+				as === "author" ? "setSuppressedEmbeds" : "setModeratedEmbeds";
+			try {
+				await current.setSuppressedEmbeds(message.rkey, uris, as);
+			} catch (error) {
+				log.error("updating link previews failed", {
+					code: classifyThrown(error, { method }).code,
+				});
+				toast.error("Couldn't update link previews");
+			}
+		},
+		loadBlueskyPost: (url) => {
+			const cached = blueskyPosts.get(url);
+			if (cached) return cached;
+			const request = data.source.getBlueskyPost(url).catch((error) => {
+				blueskyPosts.delete(url);
+				log.warn("loading a Bluesky post failed", {
+					code: classifyThrown(error, { method: "getBlueskyPost" }).code,
+				});
+				return undefined;
+			});
+			blueskyPosts.set(url, request);
+			return request;
+		},
 		onReply: (message) => {
 			setEditing(undefined);
 			setReplyTo(message);
@@ -651,7 +775,7 @@ export const createConversation = (options: ConversationOptions) => {
 		},
 		roles: () =>
 			[...roleMap().values()]
-				.filter((role) => role.mentionable)
+				.filter((role) => role.mentionable && !role.protected)
 				.map((role) => ({ id: role.rkey, name: role.name, color: role.color })),
 		channels: () =>
 			[...channelMap().entries()].map(([skey, entry]) => ({
@@ -800,6 +924,8 @@ export const createConversation = (options: ConversationOptions) => {
 		},
 		laterRound,
 		selection,
+		deletedPing,
+		setDeletedPing,
 	};
 };
 
@@ -873,6 +999,69 @@ export const ConversationComposer = (props: {
 				? event.currentTarget
 				: undefined,
 		);
+	const draftKey = () => m.feed()?.channel;
+	const mobileEdit = () => (desktop() ? undefined : m.editing());
+	const draft = createComposerDraft({
+		key: draftKey,
+		paused: () => !!mobileEdit(),
+		attachments: {
+			files: () => m.attachments.items().map((item) => item.file),
+			add: (files) => m.attachments.addFiles(files),
+		},
+	});
+	let editor: RichEditorHandle | undefined;
+	const editKey = (target: ChatMessage) => {
+		const channel = draftKey();
+		return channel && target.rkey
+			? editDraftKey(channel, target.rkey)
+			: undefined;
+	};
+	const editing = createMemo(() => {
+		const target = mobileEdit();
+		if (!target) return undefined;
+		const key = editKey(target);
+		const finish = () => {
+			if (key) writeEditDraft(key, undefined);
+		};
+		return {
+			value: toTextValue(target.text, target.facets),
+			preview: target.text,
+			onSave: async (value: Parameters<typeof m.saveEdit>[0]) => {
+				const saved = await m.saveEdit(value);
+				if (saved) finish();
+				return saved;
+			},
+			onCancel: () => {
+				finish();
+				m.setEditing(undefined);
+			},
+		};
+	});
+	createEffect(
+		on(editing, (edit) => {
+			const target = mobileEdit();
+			const key = target && editKey(target);
+			const stored = key ? readEditDraft(key) : undefined;
+			if (!edit || !stored) return;
+			requestAnimationFrame(() => {
+				if (editing() === edit) editor?.setValue(stored);
+			});
+		}),
+	);
+	const onChange = (value: RichText) => {
+		const target = mobileEdit();
+		if (!target) {
+			draft.changed();
+			return;
+		}
+		const key = editKey(target);
+		if (key) writeEditDraft(key, value);
+	};
+	const send = async (value: Parameters<typeof m.send>[0]) => {
+		const sent = await m.send(value);
+		if (sent) draft.clear();
+		return sent;
+	};
 	return (
 		<Show when={m.view()}>
 			{(current) => (
@@ -886,8 +1075,9 @@ export const ConversationComposer = (props: {
 						onEditLast={desktop() ? m.editLast : undefined}
 						channelName={m.options.label()}
 						sources={m.sources}
-						onSend={m.send}
+						onSend={send}
 						onInput={m.onInput}
+						onChange={onChange}
 						onUpload={() => m.attachments.pick()}
 						onPasteFiles={(files) => m.attachments.addFiles(files)}
 						hasAttachments={m.attachments.hasAttachments()}
@@ -899,13 +1089,27 @@ export const ConversationComposer = (props: {
 							anchorMedia(event);
 							m.media.openGif();
 						}}
-						editorRef={m.setEditor}
+						editorRef={(handle) => {
+							editor = handle;
+							m.setEditor(handle);
+							draft.bind(handle);
+						}}
 						disabled={current().viewer.canPost === false}
 						disabledReason="You can't post in this channel."
 						typing={<TypingIndicator size="sm" users={m.typingUsers()} />}
 						top={
 							<>
 								<m.attachments.Tray />
+								<ComposerBar
+									open={m.deletedPing()}
+									tone="warning"
+									kind="deleted-ping"
+									icon={<TrashBinTrashIcon />}
+									cancelLabel="Dismiss"
+									onCancel={() => m.setDeletedPing(false)}
+								>
+									{DELETED_PING_COPY}
+								</ComposerBar>
 								<ReplyBar
 									open={!!m.replyTo()}
 									name={m.replyTo() ? m.nameOf(m.replyTo()?.author ?? "") : ""}
@@ -913,16 +1117,7 @@ export const ConversationComposer = (props: {
 								/>
 							</>
 						}
-						editing={(() => {
-							const target = m.editing();
-							if (!target || desktop()) return undefined;
-							return {
-								value: toTextValue(target.text, target.facets),
-								preview: target.text,
-								onSave: m.saveEdit,
-								onCancel: () => m.setEditing(undefined),
-							};
-						})()}
+						editing={editing()}
 					/>
 				</Show>
 			)}

@@ -5,12 +5,14 @@ import { BannerSkeleton, ChipSkeleton } from "../Skeleton/Skeletons";
 import {
 	SPACE_RAIL_METRICS,
 	type SpaceRailPlatform,
+	spaceRailDesktopEdgeFade,
 } from "../SpaceRail/SpaceRail";
 import type { ChannelPlatform } from "./ChannelRow";
 
 export type ChannelRowSkeletonProps = {
 	preview?: boolean;
 	density?: "default" | "compact";
+	platform?: ChannelPlatform;
 	nameWidth?: number | string;
 	class?: string;
 };
@@ -21,7 +23,8 @@ export const ChannelRowSkeleton = (props: ChannelRowSkeletonProps) => (
 		data-channel-row-skeleton=""
 		class={cx(
 			"flex w-full flex-col justify-center gap-1 px-2 py-1.5",
-			props.density === "compact" && "h-8",
+			props.density === "compact" &&
+				(props.platform === "desktop" ? "h-10" : "h-11"),
 			props.class,
 		)}
 	>
@@ -70,6 +73,9 @@ export const VoiceChannelRowSkeleton = (
 
 export type CategorySkeletonProps = {
 	rows?: number;
+	preview?: boolean;
+	density?: "default" | "compact";
+	platform?: ChannelPlatform;
 	class?: string;
 };
 
@@ -86,11 +92,23 @@ export const CategoryHeaderSkeleton = (props: { class?: string }) => (
 export const CategorySkeleton = (props: CategorySkeletonProps) => (
 	<div
 		aria-hidden="true"
-		class={cx("flex w-full flex-col gap-2 p-2", props.class)}
+		data-category-skeleton=""
+		data-density={props.density ?? "default"}
+		class={cx(
+			"flex w-full flex-col p-2",
+			props.density === "compact" ? "gap-0" : "gap-2",
+			props.class,
+		)}
 	>
 		<CategoryHeaderSkeleton />
 		<For each={Array.from({ length: props.rows ?? 3 })}>
-			{() => <ChannelRowSkeleton />}
+			{() => (
+				<ChannelRowSkeleton
+					preview={props.preview}
+					density={props.density}
+					platform={props.platform}
+				/>
+			)}
 		</For>
 	</div>
 );
@@ -165,6 +183,7 @@ export const SpaceRailSkeleton = (props: SpaceRailSkeletonProps) => {
 				width: `${metrics().width}px`,
 				gap: `${metrics().gap}px`,
 				"padding-top": `${metrics().paddingTop}px`,
+				...(props.platform === "desktop" ? spaceRailDesktopEdgeFade : {}),
 			}}
 		>
 			<Show when={props.leading ?? true}>

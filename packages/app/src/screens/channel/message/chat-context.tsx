@@ -29,6 +29,7 @@ import type { ControlsPreferences } from "../../../data/source";
 import type {
 	ChannelView,
 	CommunityView,
+	GifView,
 	MemberView,
 	Presence,
 	RoleView,
@@ -36,7 +37,11 @@ import type {
 } from "../../../data/types";
 import { toListMember } from "../../members/member-adapter";
 import type { MessageSelection } from "../selection/selection";
+import { highlightCode } from "./code-highlight";
+import type { LoadBlueskyPost } from "./MessageAttachments";
 import type { ChatMessage } from "./types";
+
+export type EmbedEditor = "author" | "moderator";
 
 export type ChatPlatform = "mobile" | "desktop";
 
@@ -44,6 +49,8 @@ export type ChatContextValue = {
 	viewer: Accessor<string>;
 	platform?: Accessor<ChatPlatform>;
 	editingKey?: Accessor<string | undefined>;
+	editDraft?: () => RichText | undefined;
+	onEditChange?: (value: RichText) => void;
 	onSaveEdit?: (value: RichText) => unknown;
 	onCancelEdit?: () => void;
 	editSources?: RichEditorSources;
@@ -71,6 +78,19 @@ export type ChatContextValue = {
 	now?: Accessor<Date>;
 	locale?: string;
 	quickReactions?: Accessor<string[]>;
+	onRecordEmoji?: (emoji: string) => void;
+	canPost?: Accessor<boolean>;
+	developerMode?: Accessor<boolean>;
+	viewerRoles?: Accessor<readonly string[]>;
+	linkEmbedsEnabled?: Accessor<boolean>;
+	gifSaved?: (gif: GifView) => boolean;
+	onToggleGif?: (gif: GifView, save: boolean) => void;
+	onSetEmbeds?: (
+		message: ChatMessage,
+		uris: string[],
+		as: EmbedEditor,
+	) => Promise<void>;
+	loadBlueskyPost?: LoadBlueskyPost;
 	onReply: (message: ChatMessage) => void;
 	onEdit: (message: ChatMessage) => void;
 	onDelete: (message: ChatMessage) => void;
@@ -184,6 +204,7 @@ export const createChatRichTextResolvers = (
 		chat.onOpenChannel(skey);
 	},
 	bridgePlatformName,
+	highlight: highlightCode,
 	onExternalLink: chat.onExternalLink,
 	customEmoji: chat.customEmoji,
 	customEmojiFeature: chat.customEmojiFeature,

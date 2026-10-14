@@ -143,6 +143,16 @@ export const ThreadDrawer = (props: ThreadDrawerProps) => {
 		void submit(() => props.onMove?.(next));
 	};
 
+	const dirty = () =>
+		props.open &&
+		!busy() &&
+		((view() === "rename" && trimmed() !== props.name) ||
+			(view() === "move" && target() !== props.moveTargets?.[0]?.id));
+	const discardDescription = () =>
+		view() === "move"
+			? "The thread stays where it is."
+			: "The thread keeps its current name.";
+
 	const hasNotifications = () =>
 		!!(props.onFollowingChange || props.onMarkAsRead || props.onMutedChange);
 	const hasManage = () =>
@@ -157,6 +167,8 @@ export const ThreadDrawer = (props: ThreadDrawerProps) => {
 			open={props.open}
 			onOpenChange={props.onOpenChange}
 			initialFocus="content"
+			dirty={dirty()}
+			discardDescription={discardDescription()}
 		>
 			<DrawerContent
 				aria-label={`${props.name} options`}

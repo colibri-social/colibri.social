@@ -33,6 +33,30 @@ const Demo = () => {
 	);
 };
 
+const DirtyDemo = () => {
+	const [open, setOpen] = createSignal(false);
+	const [name, setName] = createSignal("");
+	return (
+		<div class="min-h-dvh bg-background p-4">
+			<Button onClick={() => setOpen(true)}>Open sheet</Button>
+			<output data-testid="state">{open() ? "open" : "closed"}</output>
+			<FullScreenSheet
+				open={open()}
+				onOpenChange={(next) => {
+					setOpen(next);
+					if (!next) setName("");
+				}}
+				title="Create your Space"
+				dirty={name().length > 0}
+				discardDescription="This Space won't be created."
+				footer={<Button block>Create Space</Button>}
+			>
+				<TextField label="Space name" value={name()} onChange={setName} />
+			</FullScreenSheet>
+		</div>
+	);
+};
+
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const openSheet = async (canvasElement: HTMLElement) => {
@@ -189,5 +213,52 @@ export const LongContentKeepsCardsWhole: Story = {
 			preview.clientHeight + 1,
 		);
 		await expectNoLayoutIssues(dialog);
+	},
+};
+
+export const AsksBeforeDiscarding: Story = {
+	render: () => <DirtyDemo />,
+	play: async ({ canvasElement }) => {
+		const dialog = await openSheet(canvasElement);
+		await userEvent.type(within(dialog).getByLabelText("Space name"), "Hive");
+		const state = () => within(canvasElement).getByTestId("state");
+		const prompt = () =>
+			screen.findByRole(
+				"dialog",
+				{ name: "Discard changes?" },
+				{ timeout: 3000 },
+			);
+		const closed = () =>
+			waitFor(() =>
+				expect(
+					screen.queryByRole("dialog", { name: "Discard changes?" }),
+				).toBeNull(),
+			);
+
+		await drag(grabArea(dialog), 400, 4, 8);
+		let ask = await prompt();
+		await expect(ask).toHaveTextContent("This Space won't be created.");
+		await expect(state()).toHaveTextContent("open");
+		await userEvent.click(within(ask).getByRole("button", { name: "Cancel" }));
+		await closed();
+		await waitFor(() => expect(dialog.style.transform).toBe(""));
+		await expect(state()).toHaveTextContent("open");
+
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Close" }),
+		);
+		ask = await prompt();
+		await waitFor(() => expectNoLayoutIssues(ask), { timeout: 3000 });
+		await userEvent.click(
+			within(ask).getByRole("button", { name: "Discard changes" }),
+		);
+		await waitFor(() => expect(state()).toHaveTextContent("closed"));
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), {
+			timeout: 1500,
+		});
+		await waitFor(
+			() => expect(canvasElement.closest("[aria-hidden='true']")).toBeNull(),
+			{ timeout: 3000 },
+		);
 	},
 };

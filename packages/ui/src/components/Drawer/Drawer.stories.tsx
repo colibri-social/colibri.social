@@ -7,6 +7,7 @@ import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import { createSignal, For, type JSX, Show } from "solid-js";
 import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import {
 	hasIntermediate,
 	recordHeightTransitions,
@@ -398,5 +399,119 @@ export const HandoffToAnotherDrawer: Story = {
 		await expect(
 			screen.queryByRole("dialog", { name: "First drawer" }),
 		).toBeNull();
+	},
+};
+
+const UnsavedDrawer = () => {
+	const [open, setOpen] = createSignal(false);
+	const [nickname, setNickname] = createSignal("");
+	return (
+		<>
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Edit nickname
+			</Button>
+			<Drawer
+				open={open()}
+				onOpenChange={setOpen}
+				dirty={nickname() !== ""}
+				discardDescription="Your nickname won't be saved."
+			>
+				<DrawerContent title="Nickname">
+					<label class="flex flex-col gap-1 text-sm">
+						Nickname
+						<input
+							value={nickname()}
+							onInput={(event) => setNickname(event.currentTarget.value)}
+							class="h-10 rounded-control border border-border bg-secondary px-3"
+						/>
+					</label>
+				</DrawerContent>
+			</Drawer>
+		</>
+	);
+};
+
+const drawerContent = () =>
+	document.querySelector<HTMLElement>("[data-corvu-drawer-content]");
+
+const discardDialog = () =>
+	screen.queryByRole("dialog", { name: "Discard changes?" });
+
+export const GuardsUnsavedChanges: Story = {
+	render: () => <UnsavedDrawer />,
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Edit nickname" }),
+		);
+		const field = await screen.findByRole("textbox", { name: "Nickname" });
+		await userEvent.type(field, "Wren");
+		await userEvent.keyboard("{Escape}");
+		const prompt = await screen.findByRole("dialog", {
+			name: "Discard changes?",
+		});
+		await expect(prompt).toHaveTextContent("Your nickname won't be saved.");
+		await expectNoLayoutIssues(prompt);
+		await expect(drawerContent()).not.toBeNull();
+		await userEvent.click(
+			within(prompt).getByRole("button", { name: "Cancel" }),
+		);
+		await waitFor(() => expect(discardDialog()).toBeNull());
+		await expect(field).toHaveValue("Wren");
+
+		const content = drawerContent() as HTMLElement;
+		await waitFor(
+			async () => {
+				const before = content.getBoundingClientRect().top;
+				await new Promise((resolve) => setTimeout(resolve, 120));
+				expect(content.getBoundingClientRect().top).toBe(before);
+			},
+			{ timeout: 3000 },
+		);
+		const box = content.getBoundingClientRect();
+		const at = (y: number) => ({
+			bubbles: true,
+			pointerId: 7,
+			pointerType: "mouse",
+			isPrimary: true,
+			clientX: box.left + box.width / 2,
+			clientY: y,
+		});
+		content.dispatchEvent(new PointerEvent("pointerdown", at(box.top + 8)));
+		for (let step = 1; step <= 10; step += 1) {
+			await new Promise((resolve) => requestAnimationFrame(resolve));
+			content.dispatchEvent(
+				new PointerEvent("pointermove", at(box.top + 8 + step * 60)),
+			);
+		}
+		content.dispatchEvent(new PointerEvent("pointerup", at(box.top + 608)));
+		const dragPrompt = await screen.findByRole("dialog", {
+			name: "Discard changes?",
+		});
+		await userEvent.click(
+			within(dragPrompt).getByRole("button", { name: "Cancel" }),
+		);
+		await waitFor(() => expect(discardDialog()).toBeNull());
+		await waitFor(
+			() =>
+				expect(
+					Math.abs(
+						(drawerContent() as HTMLElement).getBoundingClientRect().top -
+							box.top,
+					),
+				).toBeLessThan(1),
+			{ timeout: 3000 },
+		);
+
+		await userEvent.keyboard("{Escape}");
+		const last = await screen.findByRole("dialog", {
+			name: "Discard changes?",
+		});
+		await userEvent.click(
+			within(last).getByRole("button", { name: "Discard changes" }),
+		);
+		await waitFor(() => expect(drawerContent()).toBeNull(), { timeout: 4000 });
+		await waitFor(() =>
+			expect(document.body.style.pointerEvents).not.toBe("none"),
+		);
 	},
 };

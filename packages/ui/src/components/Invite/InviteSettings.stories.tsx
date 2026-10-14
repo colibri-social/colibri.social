@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { Button } from "../Button/Button";
 import { Drawer, DrawerContent, DrawerTrigger } from "../Drawer/Drawer";
 import { InviteLinkShare, type InviteLinkShareProps } from "./InviteSettings";
@@ -254,5 +255,128 @@ export const DesktopNeverExpires: Story = {
 		);
 		await waitFor(() => expect(generated).toHaveBeenCalledTimes(1));
 		await expect(generated.mock.calls[0][0]).toEqual({});
+	},
+};
+
+const discardPrompt = () =>
+	screen.findByRole("dialog", { name: "Discard changes?" }, { timeout: 3000 });
+
+export const MobileGuardsChangedSettings: Story = {
+	parameters: iphone,
+	args: { url: FIRST, onGenerate: () => {} },
+	render: () => <MobileDrawer />,
+	play: async ({ canvasElement }) => {
+		generated.mockClear();
+		const { dialog, settings } = await openDrawer(canvasElement);
+		await userEvent.click(settings);
+		const region = await within(dialog).findByRole("region", {
+			name: "Invite settings",
+		});
+		await userEvent.click(
+			within(region).getByRole("button", { name: /Expires after/ }),
+		);
+		const sheet = await screen.findByRole(
+			"dialog",
+			{ name: /Expires after/ },
+			{ timeout: 3000 },
+		);
+		await userEvent.click(within(sheet).getByRole("radio", { name: "1 day" }));
+		await waitFor(
+			() =>
+				expect(
+					screen.queryByRole("dialog", { name: /Expires after/ }),
+				).toBeNull(),
+			{ timeout: 3000 },
+		);
+		await userEvent.keyboard("{Escape}");
+		const prompt = await discardPrompt();
+		await expect(prompt).toHaveTextContent(
+			"No new invite link will be created.",
+		);
+		await expectNoLayoutIssues(prompt);
+		await userEvent.click(
+			within(prompt).getByRole("button", { name: "Cancel" }),
+		);
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Discard changes?" }),
+			).toBeNull(),
+		);
+		await expect(
+			within(region).getByRole("button", { name: /Expires after/ }),
+		).toHaveTextContent("1 day");
+		await userEvent.keyboard("{Escape}");
+		await userEvent.click(
+			within(await discardPrompt()).getByRole("button", {
+				name: "Discard changes",
+			}),
+		);
+		await waitFor(
+			() =>
+				expect(
+					screen.queryByRole("dialog", {
+						name: "Invite people to Awesome Space",
+					}),
+				).toBeNull(),
+			{ timeout: 3000 },
+		);
+		await expect(generated).not.toHaveBeenCalled();
+	},
+};
+
+export const DesktopGuardsChangedSettings: Story = {
+	args: { url: FIRST, onGenerate: () => {} },
+	render: () => (
+		<div class="w-[400px]">
+			<InviteHarness platform="desktop" />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		generated.mockClear();
+		const settings = within(canvasElement).getByRole("button", {
+			name: "Invite settings",
+		});
+		await userEvent.click(settings);
+		const modal = await screen.findByRole(
+			"dialog",
+			{ name: "Invite settings" },
+			{ timeout: 3000 },
+		);
+		const uses = () => within(modal).getByRole("button", { name: /Max uses/ });
+		const initial = uses().textContent;
+		await userEvent.click(uses());
+		const listbox = await screen.findByRole("listbox");
+		await userEvent.click(
+			within(listbox).getByRole("option", { name: "10 uses" }),
+		);
+		await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
+		await waitFor(() => expect(uses()).toHaveTextContent("10 uses"));
+		await waitFor(() =>
+			expect(modal.contains(document.activeElement)).toBe(true),
+		);
+		await userEvent.keyboard("{Escape}");
+		const prompt = await discardPrompt();
+		await expect(prompt).toHaveTextContent(
+			"No new invite link will be created.",
+		);
+		await userEvent.click(
+			within(prompt).getByRole("button", { name: "Discard changes" }),
+		);
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), {
+			timeout: 3000,
+		});
+		await waitFor(() =>
+			expect(document.body.style.pointerEvents).not.toBe("none"),
+		);
+		await userEvent.click(settings);
+		const reopened = await screen.findByRole(
+			"dialog",
+			{ name: "Invite settings" },
+			{ timeout: 3000 },
+		);
+		await expect(
+			within(reopened).getByRole("button", { name: /Max uses/ }),
+		).toHaveTextContent(initial ?? "");
+		await expect(generated).not.toHaveBeenCalled();
 	},
 };

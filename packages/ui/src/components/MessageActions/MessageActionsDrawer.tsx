@@ -3,9 +3,11 @@ import { CopyIcon } from "@solar-icons/solid/bold/copy";
 import { EyeIcon } from "@solar-icons/solid/bold/eye";
 import { ForbiddenCircleIcon } from "@solar-icons/solid/bold/forbidden-circle";
 import { ForwardIcon } from "@solar-icons/solid/bold/forward";
+import { LinkIcon } from "@solar-icons/solid/bold/link";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { ReplyIcon } from "@solar-icons/solid/bold/reply";
 import { SmileCircleIcon } from "@solar-icons/solid/bold/smile-circle";
+import { StarIcon } from "@solar-icons/solid/bold/star";
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import { ArrowLeftIcon } from "@solar-icons/solid/linear/arrow-left";
 import {
@@ -21,6 +23,7 @@ import {
 import { ThreadIcon } from "../../icons/custom";
 import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
+import type { MessageMenuGif } from "../ContextMenu/MessageMenu";
 import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import {
@@ -110,6 +113,8 @@ export type MessageActionsDrawerProps = {
 	onOpenThread?: () => void;
 	onSelect?: () => void;
 	onCopyText?: () => void;
+	gif?: MessageMenuGif;
+	onLinkPreviews?: () => void;
 	hidden?: boolean;
 	onHide?: () => void;
 	onUnhide?: () => void;
@@ -194,6 +199,8 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 		event.stopPropagation();
 		setView("actions");
 	};
+	const hasUtility = () =>
+		!!(props.onCopyText || props.gif || props.onLinkPreviews);
 	const hasModeration = () =>
 		!!(props.hidden ? props.onUnhide : props.onHide) || !!props.onDelete;
 
@@ -286,13 +293,35 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 							</Show>
 						</ListGroup>
 					</Show>
-					<Show when={props.onCopyText}>
+					<Show when={hasUtility()}>
 						<ListGroup>
-							<ActionRow
-								icon={<CopyIcon />}
-								label="Copy text"
-								onClick={run(props.onCopyText)}
-							/>
+							<Show when={props.onCopyText}>
+								<ActionRow
+									icon={<CopyIcon />}
+									label="Copy text"
+									onClick={run(props.onCopyText)}
+								/>
+							</Show>
+							<Show when={props.gif}>
+								{(gif) => (
+									<ActionRow
+										icon={
+											<StarIcon
+												class={gif().saved ? "text-warning" : undefined}
+											/>
+										}
+										label={gif().saved ? "Remove saved GIF" : "Save GIF"}
+										onClick={run(gif().onToggle)}
+									/>
+								)}
+							</Show>
+							<Show when={props.onLinkPreviews}>
+								<ActionRow
+									icon={<LinkIcon />}
+									label="Link previews"
+									onClick={run(props.onLinkPreviews)}
+								/>
+							</Show>
 						</ListGroup>
 					</Show>
 					<Show when={hasModeration()}>

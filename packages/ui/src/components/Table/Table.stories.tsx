@@ -297,6 +297,14 @@ export const RowActions: Story = {
 		const hidden = within(hover).getAllByRole("button")[0];
 		const wrapper = hidden.parentElement as HTMLElement;
 		await expect(Number(getComputedStyle(wrapper).opacity)).toBe(0);
+		document.dispatchEvent(
+			new PointerEvent("pointerdown", { pointerType: "mouse" }),
+		);
+		hidden.focus();
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		await expect(Number(getComputedStyle(wrapper).opacity)).toBe(0);
+		hidden.blur();
+		document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
 		hidden.focus();
 		await waitFor(() =>
 			expect(Number(getComputedStyle(wrapper).opacity)).toBe(1),

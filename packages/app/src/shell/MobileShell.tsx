@@ -3,6 +3,7 @@ import {
 	AnimatedProfileIcon,
 	AnimatedSettingsIcon,
 	AnimatedUsersGroupTwoRoundedIcon,
+	DiscardChangesDialog,
 	TabBar,
 	TabBarItem,
 } from "@colibri-social/ui";
@@ -12,6 +13,7 @@ import {
 	Match,
 	onCleanup,
 	onMount,
+	Show,
 	Suspense,
 	Switch,
 } from "solid-js";
@@ -22,9 +24,12 @@ import { ProfileSheetProvider } from "../screens/profile/profile-sheet";
 import SpacesScreen from "../screens/spaces/spaces.screen";
 import VoiceScreen from "../screens/voice/voice.screen";
 import { CallPillHost } from "./CallPillHost";
+import { restoreLastViewed } from "./cold-start";
 import { installFlingGuard } from "./fling-guard";
+import { installKeyboardInset } from "./keyboard-inset";
 import { LayerStack } from "./LayerStack";
 import type { Layer, Tab } from "./layers";
+import { LoadErrorState, NotFoundScreen } from "./load-error";
 import { installOverlayBack } from "./overlay-back";
 import { AdminScreen, AppScreen } from "./registry";
 import { createStack } from "./stack";
@@ -70,6 +75,8 @@ export const MobileShell = () => {
 	onCleanup(installOverlayBack());
 	onCleanup(installTapGuard());
 	onCleanup(installFlingGuard());
+	let shell: HTMLDivElement | undefined;
+	onCleanup(installKeyboardInset({ shell: () => shell }));
 	const stack = createStack({
 		canForward: (top) =>
 			!messageSelectionActive() &&
@@ -87,11 +94,30 @@ export const MobileShell = () => {
 		stack.setRoot({ ...current, tab: tab as Tab });
 	};
 
+	restoreLastViewed(data, stack);
+
+	const communitiesFailed = () =>
+		data.communities.value() ? undefined : data.communities.error();
+
 	const base = (): JSX.Element => (
 		<>
 			<Switch>
 				<Match when={stack.root().tab === "spaces"}>
-					<SpacesScreen args={{ slug: stack.root().space }} />
+					<Show
+						when={communitiesFailed()}
+						keyed
+						fallback={<SpacesScreen args={{ slug: stack.root().space }} />}
+					>
+						{(error) => (
+							<div class="flex min-h-0 flex-1 flex-col bg-background pt-safe">
+								<LoadErrorState
+									title="Your Spaces didn't load"
+									error={error}
+									onRetry={data.communities.retry}
+								/>
+							</div>
+						)}
+					</Show>
 				</Match>
 				<Match when={stack.root().tab === "inbox"}>
 					<Suspense>
@@ -208,16 +234,26 @@ export const MobileShell = () => {
 				<Match when={layer.kind === "join" && layer}>
 					{(join) => <AppScreen name="join" args={{ code: join().code }} />}
 				</Match>
+				<Match when={layer.kind === "notFound" && layer}>
+					{(missing) => (
+						<NotFoundScreen path={missing().path} platform="mobile" />
+					)}
+				</Match>
 			</Switch>
 		</Suspense>
 	);
 
 	return (
-		<div class="h-[calc(100dvh-var(--keyboard-inset,0px))] w-full bg-background font-sans text-foreground">
+		<div
+			ref={shell}
+			data-mobile-shell=""
+			class="h-[calc(100dvh-var(--keyboard-inset,0px))] w-full bg-background font-sans text-foreground"
+		>
 			<ProfileSheetProvider>
 				<MemberMenuProvider>
 					<LayerStack stack={stack} base={base()} renderLayer={renderLayer} />
 					<CallPillHost />
+					<DiscardChangesDialog guard={stack.leaveGuard} />
 				</MemberMenuProvider>
 			</ProfileSheetProvider>
 		</div>

@@ -1,4 +1,5 @@
 import {
+	Button,
 	Card,
 	collapseOut,
 	countFor,
@@ -52,11 +53,20 @@ import { groupBySpace, groupSummary } from "./inbox-groups";
 
 export type InboxArgs = Record<string, never>;
 
-const FILTERS: { value: InboxFilter; label: string }[] = [
-	{ value: "all", label: "All" },
-	{ value: "mentions", label: "Mentions" },
-	{ value: "replies", label: "Replies" },
-];
+const FILTERS: { value: InboxFilter; label: string; markReadLabel: string }[] =
+	[
+		{ value: "all", label: "All", markReadLabel: "Mark all as read" },
+		{
+			value: "mentions",
+			label: "Mentions",
+			markReadLabel: "Mark mentions as read",
+		},
+		{
+			value: "replies",
+			label: "Replies",
+			markReadLabel: "Mark replies as read",
+		},
+	];
 
 const GroupExit = (props: { exiting: boolean; children: JSX.Element }) => {
 	let element: HTMLDivElement | undefined;
@@ -185,7 +195,6 @@ export const inbox = defineContract({
 		);
 		const groupFor = (id: string) =>
 			groups().find((group) => group.space.id === id);
-		const unread = () => store.unreadCount();
 
 		const failed = () => toast.error("Couldn't mark as read");
 		const markRead = (ids: readonly string[]) =>
@@ -217,6 +226,13 @@ export const inbox = defineContract({
 				.filter((entry) => !entry.read && match(entry))
 				.map((entry) => entry.id);
 
+		const markAllRead = () => void store.markAllRead().catch(failed);
+		const markFilterRead = () => {
+			const current = filter();
+			if (current === "all") markAllRead();
+			else markRead(unreadIds((entry) => matchesFilter(entry, current)));
+		};
+
 		return {
 			store,
 			spaceList: () => [...spaces().values()],
@@ -229,7 +245,8 @@ export const inbox = defineContract({
 			groupIds,
 			groupFor,
 			presence,
-			unread,
+			filterUnread: () => countFor(notifications(), filter()),
+			markFilterRead,
 			open,
 			markRead,
 			markSpaceRead: (spaceId: string) =>
@@ -238,7 +255,9 @@ export const inbox = defineContract({
 						.filter((entry) => entry.spaceId === spaceId && !entry.read)
 						.map((entry) => entry.id),
 				),
-			markAllRead: () => void store.markAllRead().catch(failed),
+			markAllRead,
+			clearInbox: () =>
+				void store.clear().catch(() => toast.error("Couldn't clear Inbox")),
 		};
 	},
 	slots: {
@@ -256,6 +275,7 @@ export const inbox = defineContract({
 				onOpenNotification={m.open}
 				onMarkRead={(id) => m.markRead([id])}
 				onMarkAllRead={m.markAllRead}
+				onClearInbox={m.clearInbox}
 				onMarkCategoryRead={(category) =>
 					m.markRead(m.unreadIds((entry) => matchesFilter(entry, category)))
 				}
@@ -265,15 +285,18 @@ export const inbox = defineContract({
 				onRetry={() => void m.store.reload()}
 			/>
 		)),
-		MarkAll: slot((m) => (
-			<IconButton
-				variant="ghost"
-				size="md"
-				label="Mark all as read"
-				icon={<MarkAllReadIcon />}
-				disabled={m.unread() === 0}
-				onClick={() => m.markAllRead()}
-			/>
+		MarkRead: slot((m) => (
+			<Show when={m.filterUnread() > 0}>
+				<Button
+					variant="tertiary"
+					icon={<MarkAllReadIcon />}
+					data-inbox-mark-filter-read=""
+					onClick={() => m.markFilterRead()}
+					class="h-11 self-end pr-4 pl-3 [&_svg]:size-4"
+				>
+					{FILTERS.find((entry) => entry.value === m.filter())?.markReadLabel}
+				</Button>
+			</Show>
 		)),
 		Filters: slot((m) => (
 			<SegmentedControl

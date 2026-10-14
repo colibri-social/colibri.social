@@ -53,3 +53,30 @@ export type Datetime = MessageView["createdAt"];
 
 export const TEXT_CHANNEL = "social.colibri.beta.channel.text";
 export const VOICE_CHANNEL = "social.colibri.beta.channel.voice";
+
+export type BlueskyPostImage = {
+	url: string;
+	alt?: string;
+	width?: number;
+	height?: number;
+};
+
+export type BlueskyPostView = {
+	url: string;
+	author: {
+		did: Did;
+		handle: string;
+		displayName?: string;
+		avatar?: string;
+		verified?: boolean;
+	};
+	text: string;
+	createdAt: Datetime;
+	replyTo?: string;
+	images?: BlueskyPostImage[];
+	replyCount?: number;
+	repostCount?: number;
+	likeCount?: number;
+};
+
+export const EMBEDS_SUPPRESSED_LABEL = "embeds-suppressed";

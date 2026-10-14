@@ -1,7 +1,12 @@
-import { AppShell, StatusScreen } from "@colibri-social/ui";
+import {
+	AppShell,
+	DiscardChangesDialog,
+	StatusScreen,
+} from "@colibri-social/ui";
 import { ChatSquareDotsIcon } from "@solar-icons/solid/bold/chat-square-dots";
 import {
 	createEffect,
+	createMemo,
 	createSignal,
 	type JSX,
 	lazy,
@@ -18,7 +23,9 @@ import { MemberMenuProvider } from "../../screens/members/member-menu";
 import { ProfileSheetProvider } from "../../screens/profile/profile-sheet";
 import SpacesScreen from "../../screens/spaces/spaces.screen";
 import VoiceScreen from "../../screens/voice/voice.screen";
+import { lastViewedSpace } from "../cold-start";
 import type { Layer } from "../layers";
+import { LoadErrorState, NotFoundScreen } from "../load-error";
 import { StackContext } from "../stack";
 import {
 	DesktopShellContext,
@@ -29,6 +36,12 @@ import { Dock } from "./Dock";
 import { isModalLayer } from "./desktop-route";
 import { createDesktopStack } from "./desktop-stack";
 import { ModalHost } from "./modal-areas";
+import {
+	storedSidebarWidth,
+	storedThreadWidth,
+	storeSidebarWidth,
+	storeThreadWidth,
+} from "./sidebar-width";
 import { TitleBar } from "./TitleBar";
 
 const ChannelScreen = lazy(
@@ -45,6 +58,8 @@ const ThreadDraftScreen = lazy(
 	() => import("../../screens/thread-draft/thread-draft.screen"),
 );
 const VoiceStage = lazy(() => import("../../screens/voice/desktop-stage"));
+
+const THREAD_WIDTH_SAVE_MS = 250;
 
 const NoChannel = () => (
 	<StatusScreen
@@ -68,13 +83,33 @@ export const DesktopShell = () => {
 	const route = stack.route;
 	const navigator = stack.navigator;
 
+	const [threadWidth, setThreadWidth] = createSignal(storedThreadWidth());
+	let threadWidthTimer: ReturnType<typeof setTimeout> | undefined;
+	const saveThreadWidth = () => {
+		threadWidthTimer = undefined;
+		const width = threadWidth();
+		if (width !== undefined) storeThreadWidth(width);
+	};
+	const changeThreadWidth = (width: number) => {
+		setThreadWidth(width);
+		if (threadWidthTimer !== undefined) clearTimeout(threadWidthTimer);
+		threadWidthTimer = setTimeout(saveThreadWidth, THREAD_WIDTH_SAVE_MS);
+	};
+	onCleanup(() => {
+		if (threadWidthTimer === undefined) return;
+		clearTimeout(threadWidthTimer);
+		saveThreadWidth();
+	});
+
 	createEffect(() => {
 		const current = route();
-		if (current.chat) return;
+		if (current.chat || current.notFound) return;
 		const key = current.root.space;
+		const list = data.communities.value();
+		if (!list) return;
 		const community = key
 			? data.spaceByKey(key)
-			: data.communities.value()?.[0];
+			: (lastViewedSpace(data, list) ?? list[0]);
 		if (!community) return;
 		const space = data.space(community);
 		const channels = space.channels.value();
@@ -111,9 +146,52 @@ export const DesktopShell = () => {
 	const splitPane = () => (fullThread() ? undefined : route().pane);
 	const isVoice = () => chat()?.channelType === VOICE_CHANNEL;
 
+	const loadFailure = createMemo(() => {
+		if (!data.communities.value()) {
+			const error = data.communities.error();
+			return error
+				? {
+						error,
+						title: "Your Spaces didn't load",
+						retry: data.communities.retry,
+					}
+				: undefined;
+		}
+		const key = route().root.space;
+		const community = key ? data.spaceByKey(key) : undefined;
+		if (!community) return undefined;
+		const space = data.space(community);
+		const error = space.channels.value() ? undefined : space.channels.error();
+		return error
+			? {
+					error,
+					title: "Channels didn't load",
+					retry: () => {
+						space.channels.retry();
+						space.categories.retry();
+					},
+				}
+			: undefined;
+	});
+
+	const idle = (): JSX.Element => (
+		<Show when={loadFailure()} keyed fallback={<NoChannel />}>
+			{(failure) => (
+				<LoadErrorState
+					title={failure.title}
+					error={failure.error}
+					onRetry={failure.retry}
+				/>
+			)}
+		</Show>
+	);
+
 	const main = (): JSX.Element => (
 		<div class="relative flex min-h-0 flex-1 flex-col">
-			<Show when={chat()} keyed fallback={<NoChannel />}>
+			<Show when={route().notFound} keyed>
+				{(missing) => <NotFoundScreen path={missing.path} platform="desktop" />}
+			</Show>
+			<Show when={chat()} keyed fallback={route().notFound ? null : idle()}>
 				{(current) => (
 					<Suspense>
 						<Show
@@ -229,6 +307,8 @@ export const DesktopShell = () => {
 					<MemberMenuProvider>
 						<AppShell
 							windowBar={<TitleBar />}
+							defaultSidebarWidth={storedSidebarWidth()}
+							onSidebarWidthCommit={storeSidebarWidth}
 							rail={
 								<div
 									ref={(node) => outletSignal("rail")[1](node)}
@@ -263,11 +343,14 @@ export const DesktopShell = () => {
 								stack.membersOpen() && !!chat() && !isVoice() && !splitPane()
 							}
 							thread={pane()}
+							threadWidth={threadWidth()}
+							onThreadWidthChange={changeThreadWidth}
 						>
 							{main()}
 						</AppShell>
 						<ModalHost layers={modalLayers()} depth={modalDepth()} />
 						<VoiceScreen args={{}} />
+						<DiscardChangesDialog guard={navigator.leaveGuard} />
 					</MemberMenuProvider>
 				</ProfileSheetProvider>
 			</StackContext.Provider>

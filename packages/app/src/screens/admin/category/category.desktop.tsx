@@ -29,7 +29,6 @@ export default adminCategory.view({
 					</Show>
 				</Show>
 			</Show>
-			<s.Discard />
 		</>
 	),
 });

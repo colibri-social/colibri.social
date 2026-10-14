@@ -5,8 +5,6 @@ import {
 	createLocalPreview,
 	DisplayNameField,
 	ListGroup,
-	Modal,
-	ModalContent,
 	NavHeader,
 	PROFILE_AVATAR_MAX_BYTES,
 	PROFILE_BANNER_MAX_BYTES,
@@ -19,7 +17,7 @@ import {
 } from "@colibri-social/ui";
 import { GalleryAddIcon } from "@solar-icons/solid/bold/gallery-add";
 import { GalleryRemoveIcon } from "@solar-icons/solid/bold/gallery-remove";
-import { createMemo, createSignal, onCleanup, Show } from "solid-js";
+import { createMemo, createSignal, Show } from "solid-js";
 import { bioError, displayNameError } from "../../data/profile-limits";
 import type { ProfileTheme } from "../../data/source";
 import {
@@ -29,7 +27,8 @@ import {
 } from "../../data/store";
 import { defineContract, slot } from "../../screen/define";
 import { useStack } from "../../shell/stack";
-import { type LeaveReason, usePageHost } from "./page-host";
+import { useUnsavedChanges } from "../../shell/unsaved-changes";
+import { usePageHost } from "./page-host";
 
 type Platform = { platform?: "mobile" | "desktop" };
 
@@ -79,7 +78,6 @@ export const editProfile = defineContract({
 		const [imageError, setImageError] = createSignal<string>();
 		const [saving, setSaving] = createSignal(false);
 		const [progress, setProgress] = createSignal<ProfileSaveProgress>({});
-		const [discardOpen, setDiscardOpen] = createSignal(false);
 		const [attempted, setAttempted] = createSignal(false);
 
 		const avatar = createLocalPreview(() =>
@@ -111,23 +109,14 @@ export const editProfile = defineContract({
 				: stack.mounted().findIndex((layer) => layer.kind === "editProfile") +
 					1;
 
-		const blocked = () => dirty() && !saving();
-		const onBlocked = () => setDiscardOpen(true);
+		useUnsavedChanges({
+			depth,
+			dirty: () => dirty() && !saving(),
+			description: () => "Your edits to your profile won't be saved.",
+		});
 
-		onCleanup(
-			stack.setPopGuard({
-				get depth() {
-					return depth();
-				},
-				blocked,
-				onBlocked,
-			}),
-		);
-		if (host) onCleanup(host.register({ blocked, onBlocked }));
-
-		const leave = (reason: LeaveReason) => {
-			if (host) host.proceed(reason);
-			else stack.forcePop();
+		const leave = () => {
+			if (!host) stack.forcePop();
 		};
 
 		const reset = () => {
@@ -148,7 +137,7 @@ export const editProfile = defineContract({
 			setAttempted(true);
 			if (!valid() || saving()) return;
 			if (!dirty()) {
-				leave("saved");
+				leave();
 				return;
 			}
 			const draft: ProfileDraft = {
@@ -166,7 +155,7 @@ export const editProfile = defineContract({
 				setAvatarFile(undefined);
 				setBannerFile(undefined);
 				toast.success("Profile updated");
-				leave("saved");
+				leave();
 			} catch {
 				toast.error("Couldn't update your profile");
 			} finally {
@@ -212,13 +201,6 @@ export const editProfile = defineContract({
 			descriptionError,
 			save,
 			back: () => stack.pop(),
-			discardOpen,
-			setDiscardOpen,
-			discard: () => {
-				setDiscardOpen(false);
-				if (host) reset();
-				leave("discard");
-			},
 			dirty,
 			reset,
 		};
@@ -428,27 +410,6 @@ export const editProfile = defineContract({
 					onChange={m.setSyncBluesky}
 				/>
 			</ListGroup>
-		)),
-		Discard: slot((m) => (
-			<Modal open={m.discardOpen()} onOpenChange={m.setDiscardOpen}>
-				<ModalContent
-					title="Discard changes?"
-					description="Your edits to your profile won't be saved."
-					footer={
-						<>
-							<Button
-								variant="secondary"
-								onClick={() => m.setDiscardOpen(false)}
-							>
-								Keep editing
-							</Button>
-							<Button variant="destructive" onClick={m.discard}>
-								Discard
-							</Button>
-						</>
-					}
-				/>
-			</Modal>
 		)),
 	},
 });

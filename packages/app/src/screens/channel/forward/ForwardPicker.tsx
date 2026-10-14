@@ -1,10 +1,11 @@
 import {
 	Button,
+	CheckboxRow,
 	FullScreenSheet,
+	ListGroup,
 	Modal,
+	ModalClose,
 	ModalContent,
-	RadioRow,
-	RadioRowGroup,
 	SearchField,
 	SpaceIcon,
 	TextField,
@@ -25,6 +26,7 @@ import { usePlatform } from "../../../screen/platform";
 import {
 	type ForwardTarget,
 	filterForwardGroups,
+	forwardChannelList,
 	forwardGroups,
 } from "./forward-targets";
 import { whenOverlaysClosed } from "./overlay-wait";
@@ -42,6 +44,8 @@ export type ForwardPickerOptions = {
 		channelType: string,
 	) => void;
 };
+
+const DISCARD_NOTE = "Your message won't be forwarded.";
 
 export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 	const [request, setRequest] = createSignal<ForwardRequest>();
@@ -62,7 +66,10 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 		const platform = usePlatform();
 		const desktop = () => platform() === "desktop";
 		const [query, setQuery] = createSignal("");
-		const [selected, setSelected] = createSignal<string>();
+		const [selected, setSelected] = createSignal<ReadonlySet<string>>(
+			new Set(),
+		);
+		const [failed, setFailed] = createSignal<ReadonlySet<string>>(new Set());
 		const [note, setNote] = createSignal("");
 		const [sending, setSending] = createSignal(false);
 
@@ -80,22 +87,39 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 			),
 		);
 		const visible = createMemo(() => filterForwardGroups(groups(), query()));
-		const target = createMemo<ForwardTarget | undefined>(() => {
-			const key = selected();
-			if (!key) return undefined;
-			for (const group of groups()) {
-				const found = group.targets.find((entry) => entry.key === key);
-				if (found) return found;
-			}
-			return undefined;
+		const targets = createMemo<ForwardTarget[]>(() => {
+			const keys = selected();
+			return groups()
+				.flatMap((group) => group.targets)
+				.filter((entry) => !entry.current && keys.has(entry.key));
 		});
+
+		const without = (set: ReadonlySet<string>, key: string) => {
+			if (!set.has(key)) return set;
+			const next = new Set(set);
+			next.delete(key);
+			return next;
+		};
+
+		const toggle = (key: string, checked: boolean) => {
+			setSelected((previous) => {
+				if (!checked) return without(previous, key);
+				const next = new Set(previous);
+				next.add(key);
+				return next;
+			});
+			if (!checked) setFailed((previous) => without(previous, key));
+		};
 
 		const reset = () => {
 			setQuery("");
-			setSelected(undefined);
+			setSelected(new Set<string>());
+			setFailed(new Set<string>());
 			setNote("");
 			setSending(false);
 		};
+
+		const unsent = () => !sending() && note().trim().length > 0;
 
 		const onOpenChange = (next: boolean) => {
 			if (sending()) return;
@@ -103,49 +127,87 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 			if (!next) reset();
 		};
 
-		const forward = async () => {
-			const current = request();
-			const destination = target();
-			if (!current || !destination || sending()) return;
-			setSending(true);
-			try {
-				const text = note().trim();
-				await data.source.forwardMessage({
-					from: current.channel,
-					rkey: current.rkey,
-					to: destination.channel.space,
-					...(text ? { text } : {}),
-				});
-				setSending(false);
-				setOpen(false);
-				reset();
-				toast.success(`Forwarded to #${destination.channel.name}`, {
+		const announceSent = (sent: readonly ForwardTarget[]) => {
+			const [only] = sent;
+			if (sent.length === 1 && only) {
+				toast.success(`Forwarded to #${only.channel.name}`, {
 					action: options.onOpenChannel
 						? {
 								label: "Open",
 								onClick: () =>
 									options.onOpenChannel?.(
-										destination.space.did,
-										destination.skey,
-										destination.channel.type,
+										only.space.did,
+										only.skey,
+										only.channel.type,
 									),
 							}
 						: undefined,
 				});
-			} catch {
-				setSending(false);
-				toast.error("Couldn't forward this message. Try again.");
+				return;
 			}
+			toast.success(`Forwarded to ${sent.length} channels`, {
+				description: forwardChannelList(sent),
+			});
+		};
+
+		const forward = async () => {
+			const current = request();
+			const destinations = targets();
+			if (!current || destinations.length === 0 || sending()) return;
+			setSending(true);
+			const text = note().trim();
+			const results = await Promise.allSettled(
+				destinations.map((destination) =>
+					Promise.resolve().then(() =>
+						data.source.forwardMessage({
+							from: current.channel,
+							rkey: current.rkey,
+							to: destination.channel.space,
+							...(text ? { text } : {}),
+						}),
+					),
+				),
+			);
+			setSending(false);
+			const sent = destinations.filter(
+				(_, index) => results[index]?.status === "fulfilled",
+			);
+			const missed = destinations.filter(
+				(_, index) => results[index]?.status !== "fulfilled",
+			);
+			if (missed.length === 0) {
+				setOpen(false);
+				reset();
+				announceSent(sent);
+				return;
+			}
+			const retry = new Set(missed.map((entry) => entry.key));
+			setSelected(retry);
+			setFailed(retry);
+			toast.error(`Couldn't forward to ${forwardChannelList(missed)}`, {
+				description:
+					sent.length > 0
+						? `Forwarded to ${forwardChannelList(sent)}. The rest stay selected so you can try again.`
+						: "They stay selected so you can try again.",
+			});
+		};
+
+		const forwardLabel = () => {
+			const count = targets().length;
+			if (count === 0) return "Forward";
+			return `Forward to ${count} ${count === 1 ? "channel" : "channels"}`;
 		};
 
 		const forwardButton = (block: boolean) => (
 			<Button
 				block={block}
-				disabled={!target()}
+				disabled={targets().length === 0}
 				loading={sending()}
 				onClick={() => void forward()}
 			>
-				Forward
+				<span data-forward-submit="" class="tabular-nums">
+					{forwardLabel()}
+				</span>
 			</Button>
 		);
 
@@ -180,47 +242,65 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 				>
 					<For each={visible()}>
 						{(group) => (
-							<RadioRowGroup
+							<fieldset
 								aria-label={`Channels in ${group.space.name}`}
-								label={
-									<span class="inline-flex min-w-0 items-center gap-1.5 align-top">
-										<SpaceIcon
-											name={group.space.name}
-											src={group.space.picture}
-											size={20}
-										/>
-										<span class="truncate">{group.space.name}</span>
-									</span>
-								}
-								value={
-									group.targets.some((entry) => entry.key === selected())
-										? selected()
-										: ""
-								}
-								onChange={setSelected}
+								class="m-0 min-w-0 border-0 p-0"
 							>
-								<For each={group.targets}>
-									{(entry) => (
-										<RadioRow
-											value={entry.key}
-											disabled={entry.current}
-											icon={<ChatSquareDotsIcon />}
-											title={
-												<span
-													data-forward-channel=""
-													class="block min-w-0 truncate"
-												>
-													{entry.channel.name}
-												</span>
-											}
-											description={
-												entry.current ? "Current channel" : entry.category
-											}
-											class="min-w-0"
-										/>
-									)}
-								</For>
-							</RadioRowGroup>
+								<ListGroup
+									label={
+										<span class="inline-flex min-w-0 items-center gap-1.5 align-top">
+											<SpaceIcon
+												name={group.space.name}
+												src={group.space.picture}
+												size={20}
+											/>
+											<span class="truncate">{group.space.name}</span>
+										</span>
+									}
+								>
+									<For each={group.targets}>
+										{(entry) => (
+											<CheckboxRow
+												value={entry.key}
+												checked={!entry.current && selected().has(entry.key)}
+												onChange={(checked) => toggle(entry.key, checked)}
+												disabled={entry.current || sending()}
+												leading={
+													<span
+														aria-hidden="true"
+														class="flex size-6 items-center justify-center text-foreground [&>svg]:size-6"
+													>
+														<ChatSquareDotsIcon />
+													</span>
+												}
+												label={
+													<span
+														data-forward-channel=""
+														class="block min-w-0 truncate"
+													>
+														{entry.channel.name}
+													</span>
+												}
+												description={
+													entry.current ? (
+														"Current channel"
+													) : failed().has(entry.key) ? (
+														<span
+															data-forward-failed=""
+															class="text-destructive"
+														>
+															Couldn't forward
+														</span>
+													) : (
+														entry.category
+													)
+												}
+												class="min-w-0 gap-2"
+											/>
+										)}
+									</For>
+								</ListGroup>
+							</fieldset>
 						)}
 					</For>
 				</Show>
@@ -244,8 +324,10 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 					<FullScreenSheet
 						open={open()}
 						onOpenChange={onOpenChange}
+						dirty={unsent()}
+						discardDescription={DISCARD_NOTE}
 						title="Forward message"
-						description="Pick a channel to share this message in."
+						description="Pick the channels to share this message in."
 						closeLabel="Cancel forwarding"
 						footer={<div data-forward-actions="">{forwardButton(true)}</div>}
 					>
@@ -255,20 +337,19 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 					</FullScreenSheet>
 				}
 			>
-				<Modal open={open()} onOpenChange={onOpenChange}>
+				<Modal
+					open={open()}
+					onOpenChange={onOpenChange}
+					dirty={unsent()}
+					discardDescription={DISCARD_NOTE}
+				>
 					<ModalContent
 						title="Forward message"
-						description="Pick a channel to share this message in."
+						description="Pick the channels to share this message in."
 						closeLabel="Cancel forwarding"
 						footer={
 							<>
-								<Button
-									variant="secondary"
-									disabled={sending()}
-									onClick={() => onOpenChange(false)}
-								>
-									Cancel
-								</Button>
+								<ModalClose disabled={sending()}>Cancel</ModalClose>
 								{forwardButton(false)}
 							</>
 						}

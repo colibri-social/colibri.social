@@ -144,6 +144,18 @@ describe("profile tab", () => {
 		type(input, "Shipping the profile editor before the weekend 🚀");
 		await wait(400);
 		await expectNoLayoutIssues(sheet);
+		input.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+		);
+		await until(() => !!dialog("Discard changes?"));
+		const prompt = dialog("Discard changes?") as HTMLElement;
+		expect(prompt.textContent).toContain("Your new status won't be saved.");
+		button("Cancel", prompt)?.click();
+		await until(() => !dialog("Discard changes?"));
+		expect(dialog("Set your status")).toBe(sheet);
+		expect(input.value).toBe(
+			"Shipping the profile editor before the weekend 🚀",
+		);
 		button("Save", sheet)?.click();
 		await until(
 			() =>
@@ -174,14 +186,14 @@ describe("profile tab", () => {
 		await wait(400);
 		expect(window.location.pathname).toBe("/app/profile/edit");
 		await expectNoLayoutIssues(dialog("Discard changes?") as HTMLElement);
-		button("Keep editing")?.click();
+		button("Cancel")?.click();
 		await until(() => !dialog("Discard changes?"));
 		expect((fieldByLabel("Display name") as HTMLInputElement).value).toBe(
 			"Someone else",
 		);
 		button(/^Back$|^Go back$/)?.click();
 		await until(() => !!dialog("Discard changes?"));
-		button("Discard")?.click();
+		button("Discard changes")?.click();
 		await until(() => window.location.pathname === "/app/profile");
 	});
 

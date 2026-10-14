@@ -26,7 +26,13 @@ import { CategoryHeader, ChannelCategory } from "./Category";
 import { ChannelDrawer as ChannelDrawerComponent } from "./ChannelDrawer";
 import { ChannelList, type ChannelListCategory } from "./ChannelList";
 import { ChannelListHeader } from "./ChannelListHeader";
-import { CategoryEmpty, ChannelRow, VoiceChannelRow } from "./ChannelRow";
+import {
+	CategoryEmpty,
+	ChannelRow,
+	ChannelThreadRow,
+	ChannelThreads,
+	VoiceChannelRow,
+} from "./ChannelRow";
 import {
 	CategoryHeaderSkeleton,
 	CategorySkeleton,
@@ -855,7 +861,7 @@ export const CompactList: Story = {
 		await expect(rows.length).toBe(4);
 		for (const row of rows) {
 			await expect(row.querySelector("[data-channel-preview]")).toBeNull();
-			await expect(row.getBoundingClientRect().height).toBe(32);
+			await expect(row.getBoundingClientRect().height).toBe(40);
 		}
 	},
 };
@@ -1010,7 +1016,9 @@ export const SpaceDrawerForMembers: Story = {
 	},
 };
 
-const ChannelDrawerDemo = (props: { name: string }) => {
+const removeChannel = fn();
+
+const ChannelDrawerDemo = (props: { name: string; deletable?: boolean }) => {
 	const [open, setOpen] = createSignal(false);
 	const [muted, setMuted] = createSignal(false);
 	return (
@@ -1030,6 +1038,7 @@ const ChannelDrawerDemo = (props: { name: string }) => {
 				onCopyLink={() => {}}
 				onDuplicate={() => {}}
 				onEdit={() => {}}
+				onDelete={props.deletable ? removeChannel : undefined}
 				developerMode
 				developer={{
 					copyLabel: "Copy AT-URI",
@@ -1110,6 +1119,29 @@ export const ChannelDrawer: Story = {
 		await expect(
 			within(reopened).getByRole("button", { name: "Unmute channel" }),
 		).toBeInTheDocument();
+	},
+};
+
+export const ChannelDrawerWithDelete: Story = {
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => <ChannelDrawerDemo name="general" deletable />,
+	play: async ({ canvasElement }) => {
+		removeChannel.mockClear();
+		const dialog = await openChannelDrawer(canvasElement, "general");
+		await expectNoLayoutIssues(dialog);
+		const groups = Array.from(dialog.querySelectorAll("section")).map((group) =>
+			Array.from(group.querySelectorAll("button")).map((button) =>
+				button.textContent?.trim(),
+			),
+		);
+		await expect(groups[2]).toEqual(["Delete channel"]);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Delete channel" }),
+		);
+		await expect(removeChannel).toHaveBeenCalledOnce();
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+		);
 	},
 };
 
@@ -1229,6 +1261,120 @@ export const MobileActiveRow: Story = {
 	},
 };
 
+const openThread = fn();
+
+const NestedThreads = (props: { platform: "mobile" | "desktop" }) => (
+	<ChannelCategory name="Hangout">
+		<div class="flex min-w-0 flex-col gap-0.5">
+			<ChannelRow
+				name="general"
+				platform={props.platform}
+				unread
+				preview={{ author: "Lou", text: "Who is coming on Saturday?" }}
+			/>
+			<ChannelThreads>
+				<ChannelThreadRow
+					name="Saturday route planning and the ferry timetable for the islands"
+					platform={props.platform}
+					unread
+					onClick={openThread}
+				/>
+				<ChannelThreadRow
+					name="Kingfisher sightings"
+					platform={props.platform}
+					mentions={2}
+				/>
+				<ChannelThreadRow
+					name="Quiet thread"
+					platform={props.platform}
+					muted
+					private
+				/>
+				<ChannelThreadRow name="Open thread" platform={props.platform} active />
+			</ChannelThreads>
+		</div>
+		<ChannelRow name="photos" platform={props.platform} />
+	</ChannelCategory>
+);
+
+const checkNestedThreads = async (canvasElement: HTMLElement) => {
+	openThread.mockClear();
+	const rows = Array.from(
+		canvasElement.querySelectorAll<HTMLElement>("[data-channel-thread]"),
+	);
+	await expect(rows.map((row) => row.dataset.state)).toEqual([
+		"unread",
+		"mentions",
+		"read",
+		"read",
+	]);
+	await expect(rows[0]?.querySelector("[data-thread-unread]")).not.toBeNull();
+	await expect(
+		rows[1]?.querySelector("[data-thread-mentions]"),
+	).toHaveTextContent("2");
+	await expect(rows[2]).toHaveAttribute("data-muted");
+	const channel = canvasElement.querySelector(
+		"[data-channel-row] [data-channel-name]",
+	) as HTMLElement;
+	const firstName = rows[0]?.querySelector("[data-thread-name]") as HTMLElement;
+	await expect(firstName.getBoundingClientRect().left).toBeGreaterThan(
+		channel.getBoundingClientRect().left,
+	);
+	for (const row of rows) {
+		const box = row.getBoundingClientRect();
+		await expect(box.right).toBeLessThanOrEqual(
+			(canvasElement.firstElementChild as HTMLElement).getBoundingClientRect()
+				.right + 0.5,
+		);
+	}
+	await expect(firstName.scrollWidth).toBeGreaterThan(firstName.clientWidth);
+	await userEvent.click(
+		within(canvasElement).getByRole("button", {
+			name: /^Saturday route planning/,
+		}),
+	);
+	await expect(openThread).toHaveBeenCalledOnce();
+	await expect(
+		within(canvasElement).getByRole("button", {
+			name: /Kingfisher sightings.*2 mentions/,
+		}),
+	).toBeInTheDocument();
+	await expect(
+		within(canvasElement).getByRole("button", { name: /^Open thread/ }),
+	).toHaveAttribute("aria-current", "page");
+};
+
+export const NestedThreadsMobile: Story = {
+	render: () => (
+		<Panel class="px-0">
+			<NestedThreads platform="mobile" />
+		</Panel>
+	),
+	play: async ({ canvasElement }) => {
+		await checkNestedThreads(canvasElement);
+		const row = canvasElement.querySelector(
+			"[data-channel-thread] > *",
+		) as HTMLElement;
+		await expect(Math.round(row.getBoundingClientRect().height)).toBe(40);
+	},
+};
+
+export const NestedThreadsDesktop: Story = {
+	parameters: desktop,
+	render: () => (
+		<div class="w-72 bg-background py-2 text-foreground">
+			<NestedThreads platform="desktop" />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await checkNestedThreads(canvasElement);
+		const row = canvasElement.querySelector(
+			"[data-channel-thread] > *",
+		) as HTMLElement;
+		await expect(Math.round(row.getBoundingClientRect().height)).toBe(32);
+	},
+};
+
 const openParticipant = fn();
 
 export const VoiceParticipants: Story = {
@@ -1327,6 +1473,20 @@ export const Skeletons: Story = {
 					<ChannelRow name="Photos" preview={{ author: "Lis", text: "Look" }} />
 				</ChannelCategory>
 			</div>
+			<div data-pair="category-no-preview" class="flex flex-col gap-2">
+				<CategorySkeleton rows={2} preview={false} />
+				<ChannelCategory name="Quiet corner">
+					<ChannelRow name="General" />
+					<ChannelRow name="Photos" />
+				</ChannelCategory>
+			</div>
+			<div data-pair="category-compact" class="flex flex-col gap-2">
+				<CategorySkeleton rows={2} density="compact" platform="desktop" />
+				<ChannelCategory name="Compact corner" density="compact">
+					<ChannelRow name="General" density="compact" platform="desktop" />
+					<ChannelRow name="Photos" density="compact" platform="desktop" />
+				</ChannelCategory>
+			</div>
 			<div data-pair="category-header" class="flex flex-col gap-2 px-2">
 				<CategoryHeaderSkeleton />
 				<CategoryHeader name="Hangout" />
@@ -1340,6 +1500,8 @@ export const Skeletons: Story = {
 			"compact",
 			"voice",
 			"category",
+			"category-no-preview",
+			"category-compact",
 			"category-header",
 		]) {
 			const box = canvasElement.querySelector(

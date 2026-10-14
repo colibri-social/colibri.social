@@ -1,7 +1,7 @@
 import type { AudienceRole, MemberIdentityData } from "@colibri-social/ui";
 import { createMemo } from "solid-js";
 import { rankOf } from "../../../data/member-permissions";
-import { roleIdentity } from "../../../data/roles";
+import { isVisibleRole, roleIdentity } from "../../../data/roles";
 import type { SpaceData } from "../../../data/store";
 import { useData } from "../../../data/store";
 import type { CommunityView, Did } from "../../../data/types";
@@ -57,12 +57,17 @@ export const createAudienceOptions = (
 		rankOf(community()?.viewer.roles ?? [], roles(), isOwner()),
 	);
 	const roleOptions = createMemo((): AudienceRole[] =>
-		roles().map((role) => ({ ...roleIdentity(role), id: role.rkey })),
+		roles()
+			.filter(isVisibleRole)
+			.map((role) => ({ ...roleIdentity(role), id: role.rkey })),
 	);
 	const memberOptions = createMemo((): MemberIdentityData[] =>
 		(space()?.members.value() ?? []).map((member) => {
 			const colored = roles().find(
-				(role) => member.roles.includes(role.rkey) && !!role.color,
+				(role) =>
+					member.roles.includes(role.rkey) &&
+					isVisibleRole(role) &&
+					!!role.color,
 			);
 			return {
 				id: member.actor.did,

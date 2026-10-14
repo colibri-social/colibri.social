@@ -155,12 +155,14 @@ const Playground = (props: {
 	failSaves?: boolean;
 	height?: string;
 	withMenu?: boolean;
+	previews?: boolean;
 }) => {
 	const [space, setSpace] = createSignal(initialSpace());
 	const [mode, setMode] = createSignal(!!props.reorderMode);
 	const [failing, setFailing] = createSignal(!!props.failSaves);
 	const [active, setActive] = createSignal("general");
 	const desktop = props.platform === "desktop";
+	const density = desktop || props.previews === false ? "compact" : "default";
 
 	const onReorder = (change: ChannelReorder) => {
 		props.args.onReorder(change);
@@ -236,6 +238,7 @@ const Playground = (props: {
 					categories={space().categories}
 					getId={(entry) => entry.id}
 					channelName={(entry) => entry.name}
+					density={density}
 					canReorder={props.canReorder ?? true}
 					reorderMode={mode()}
 					onReorderModeChange={setMode}
@@ -258,17 +261,18 @@ const Playground = (props: {
 							<VoiceChannelRow
 								name={entry.name}
 								platform={props.platform}
+								density={density}
 								participants={entry.participants}
 							/>
 						) : (
 							<ChannelRow
 								name={entry.name}
 								platform={props.platform}
-								density={desktop ? "compact" : "default"}
+								density={density}
 								active={active() === entry.id}
 								unread={entry.unread}
 								mentions={entry.mentions}
-								preview={desktop ? undefined : entry.preview}
+								preview={density === "compact" ? undefined : entry.preview}
 								onClick={() => setActive(entry.id)}
 							/>
 						)
@@ -712,6 +716,97 @@ export const TouchHoldToDrag: Story = {
 			to: { categoryId: "hangout", index: 1 },
 		});
 		await expect(args.onChannelLongPress).not.toHaveBeenCalled();
+	},
+};
+
+const expectFlushRows = async (
+	root: HTMLElement,
+	ids: string[],
+	height: number,
+) => {
+	const nodes = ids.map((id) => nodeOf(root, id));
+	for (const node of nodes) {
+		const target = node.querySelector<HTMLElement>(
+			"[data-channel-row] > :is(a, button), [data-voice-row] > :is(a, button)",
+		);
+		await expect(target?.getBoundingClientRect().height).toBe(height);
+	}
+	for (let index = 1; index < nodes.length; index++)
+		await expect(nodes[index].getBoundingClientRect().top).toBe(
+			nodes[index - 1].getBoundingClientRect().bottom,
+		);
+	const first = nodes[0].getBoundingClientRect();
+	const last = nodes[nodes.length - 1].getBoundingClientRect();
+	const x = first.left + first.width / 2;
+	for (let y = Math.ceil(first.top); y < last.bottom; y++)
+		await expect(
+			document.elementFromPoint(x, y)?.closest("[data-list-node]"),
+		).not.toBeNull();
+};
+
+const categoryGap = (root: HTMLElement, lastId: string, nextId: string) =>
+	(
+		root.querySelector(
+			`[data-list-category="${nextId}"] [data-category-header]`,
+		) as HTMLElement
+	).getBoundingClientRect().top -
+	nodeOf(root, lastId).getBoundingClientRect().bottom;
+
+export const WithoutPreviews: Story = {
+	render: (args) => (
+		<Playground args={args} platform="mobile" previews={false} />
+	),
+	play: async ({ canvasElement, args }) => {
+		await expect(
+			canvasElement.querySelector("[data-channel-preview]"),
+		).toBeNull();
+		await expectFlushRows(canvasElement, ["general", "photos", "files"], 44);
+		await expect(
+			nodeOf(canvasElement, "lounge")
+				.querySelector("[data-voice-row] > button")
+				?.getBoundingClientRect().height,
+		).toBe(44);
+		await expect(categoryGap(canvasElement, "files", "voice")).toBe(16);
+
+		const general = nodeOf(canvasElement, "general");
+		const photos = nodeOf(canvasElement, "photos");
+		const start = centerOf(general);
+		const hold = { pointerType: "touch", pointerId: ++pointerSeed };
+		pointer(general, "pointerdown", start, hold);
+		await wait(500);
+		await expect(
+			document.querySelector("[data-reorder-overlay]"),
+		).not.toBeNull();
+		const target = { x: start.x, y: centerOf(photos).y + 8 };
+		await glide(general, start, target, hold);
+		await waitFor(() =>
+			expect(orderIn(canvasElement, "hangout")).toEqual([
+				"photos",
+				"general",
+				"files",
+			]),
+		);
+		pointer(general, "pointerup", target, hold);
+		await settled(canvasElement);
+		await expect(lastChange(args)).toMatchObject({
+			id: "general",
+			to: { categoryId: "hangout", index: 1 },
+		});
+		await expectFlushRows(canvasElement, ["photos", "general", "files"], 44);
+	},
+};
+
+export const DesktopWithoutPreviews: Story = {
+	parameters: desktop,
+	render: (args) => <Playground args={args} platform="desktop" />,
+	play: async ({ canvasElement }) => {
+		await expectFlushRows(canvasElement, ["general", "photos", "files"], 40);
+		await expect(
+			nodeOf(canvasElement, "lounge")
+				.querySelector("[data-voice-row] > button")
+				?.getBoundingClientRect().height,
+		).toBe(40);
+		await expect(categoryGap(canvasElement, "files", "voice")).toBe(16);
 	},
 };
 

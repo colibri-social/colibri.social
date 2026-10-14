@@ -59,6 +59,7 @@ import {
 	facetsToProseMirror,
 	flattenLegacyEmoji,
 } from "./facets-to-prosemirror";
+import { LineBlocks } from "./line-blocks";
 import { MarkdownDecorations } from "./markdown-decorations";
 import { proseMirrorToFacets } from "./prosemirror-to-facets";
 import { SuggestionList, suggestionOptionId } from "./SuggestionPanel";
@@ -511,12 +512,12 @@ export const RichEditor = (props: RichEditorProps) => {
 								if (
 									codeContextAtPos(doc, selection.$from.pos) === "codeblock"
 								) {
-									return this.editor.commands.setHardBreak();
+									return this.editor.commands.splitBlock();
 								}
 								if (!submitOnEnter()) {
 									if (handleQuoteContinuation(this.editor)) return true;
 									if (handleListContinuation(this.editor)) return true;
-									return this.editor.commands.setHardBreak();
+									return this.editor.commands.splitBlock();
 								}
 								submit();
 								return true;
@@ -560,12 +561,13 @@ export const RichEditor = (props: RichEditorProps) => {
 							"Shift-Enter": () => {
 								if (handleQuoteContinuation(this.editor)) return true;
 								if (handleListContinuation(this.editor)) return true;
-								return this.editor.commands.setHardBreak();
+								return this.editor.commands.splitBlock();
 							},
-							"Mod-Enter": () => this.editor.commands.setHardBreak(),
+							"Mod-Enter": () => this.editor.commands.splitBlock(),
 						};
 					},
 				}).configure({ keepMarks: false }),
+				LineBlocks,
 				MarkdownDecorations.configure({
 					highlightCode: () => sources().highlightCode,
 				}),

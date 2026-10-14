@@ -2,6 +2,7 @@ import { type ProfileData, RoleBadge } from "@colibri-social/ui";
 import { roleIdentity, rolesOf } from "../../data/roles";
 import type { DataStore } from "../../data/store";
 import { uiPresence } from "../members/member-adapter";
+import { blueskyProfileLinks } from "./bluesky-link";
 
 export const ownProfileData = (
 	data: DataStore,
@@ -24,6 +25,7 @@ export const ownProfileData = (
 		presence: uiPresence(presence),
 		bannerSrc: viewer.banner,
 		bannerColor: viewer.theme?.bannerColor,
+		links: blueskyProfileLinks(viewer.did),
 		status: status?.text || undefined,
 		statusEmoji: status?.emoji,
 		statusShowWhileOffline: status?.showWhileOffline,

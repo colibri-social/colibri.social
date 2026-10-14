@@ -99,6 +99,12 @@ export const Reactions: Story = {
 		const canvas = within(canvasElement);
 		const bird = canvas.getByRole("button", { name: "🐦 3" });
 		await expect(bird).toHaveAttribute("aria-pressed", "false");
+		for (const chip of canvasElement.querySelectorAll("[data-reaction]")) {
+			await expect(getComputedStyle(chip).color).toMatch(/^rgba?\(/);
+		}
+		await expect(
+			canvasElement.querySelectorAll('[data-reaction] [data-emoji="unicode"]'),
+		).toHaveLength(3);
 		const others = ["👀", "🔥"].map(
 			(emoji) =>
 				canvasElement.querySelector(
@@ -1206,5 +1212,65 @@ export const MoreReactionsInPlace: Story = {
 			canvas.getByTestId("picked").textContent?.length,
 		).toBeGreaterThan(0);
 		await expect(canvas.getByTestId("picked").textContent).not.toContain(",");
+	},
+};
+
+const drawerGifToggle = fn();
+const drawerLinkPreviews = fn();
+
+const UtilityDrawer = (props: { saved: boolean }) => (
+	<div class="min-h-screen bg-background py-4">
+		<MessageActionsDrawer
+			open
+			onOpenChange={() => {}}
+			quickReactions={["👍", "❤️", "😂", "🐦"]}
+			onReact={fn()}
+			onReply={fn()}
+			onCopyText={fn()}
+			gif={{
+				saved: props.saved,
+				onToggle: () => drawerGifToggle(!props.saved),
+			}}
+			onLinkPreviews={drawerLinkPreviews}
+			onHide={fn()}
+		/>
+	</div>
+);
+
+export const DrawerUtilityRows: Story = {
+	render: () => <UtilityDrawer saved={false} />,
+	parameters: iphone,
+	play: async () => {
+		drawerLinkPreviews.mockClear();
+		const dialog = await screen.findByRole("dialog", {
+			name: "Message actions",
+		});
+		await waitFor(() =>
+			expect(
+				within(dialog).getByRole("button", { name: "Save GIF" }),
+			).toBeVisible(),
+		);
+		await expectNoLayoutIssues(dialog);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Link previews" }),
+		);
+		await expect(drawerLinkPreviews).toHaveBeenCalledTimes(1);
+	},
+};
+
+export const DrawerSavedGif: Story = {
+	render: () => <UtilityDrawer saved />,
+	parameters: iphone,
+	play: async () => {
+		drawerGifToggle.mockClear();
+		const dialog = await screen.findByRole("dialog", {
+			name: "Message actions",
+		});
+		const remove = await within(dialog).findByRole("button", {
+			name: "Remove saved GIF",
+		});
+		await waitFor(() => expect(remove).toBeVisible());
+		await userEvent.click(remove);
+		await expect(drawerGifToggle).toHaveBeenCalledWith(false);
 	},
 };

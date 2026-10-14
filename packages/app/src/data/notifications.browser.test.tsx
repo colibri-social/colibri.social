@@ -62,4 +62,42 @@ describe("notification store", () => {
 		const page = await source.listNotifications({ limit: 100 });
 		expect(page.items.every((entry) => !!entry.seenAt)).toBe(true);
 	});
+
+	it("clears the inbox until new notifications arrive", async () => {
+		const { source, store } = await setup();
+		const sample = store.notifications.items()[0];
+		if (!sample) throw new Error("no notifications");
+		await store.notifications.clear();
+		expect(store.notifications.items()).toHaveLength(0);
+		expect(store.notifications.unreadCount()).toBe(0);
+		const page = await source.listNotifications({ limit: 100 });
+		expect(page.items.every((entry) => !!entry.seenAt)).toBe(true);
+		await store.notifications.reload();
+		expect(store.notifications.items()).toHaveLength(0);
+		const live = {
+			...sample,
+			id: "live:cleared",
+			indexedAt: new Date().toISOString(),
+		};
+		delete (live as { seenAt?: string }).seenAt;
+		source.emit({ $type: "notificationEvent", notification: live as never });
+		expect(store.notifications.items().map((entry) => entry.id)).toEqual([
+			"live:cleared",
+		]);
+		expect(store.notifications.unreadCount()).toBe(1);
+	});
+
+	it("restores the inbox when clearing fails", async () => {
+		const { source, store } = await setup();
+		const before = store.notifications.items().length;
+		const unread = store.notifications.unreadCount();
+		source.updateSeen = async () => {
+			throw new Error("offline");
+		};
+		const clearing = store.notifications.clear();
+		expect(store.notifications.items()).toHaveLength(0);
+		await expect(clearing).rejects.toThrow("offline");
+		expect(store.notifications.items()).toHaveLength(before);
+		expect(store.notifications.unreadCount()).toBe(unread);
+	});
 });

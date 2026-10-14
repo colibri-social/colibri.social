@@ -13,6 +13,11 @@ import {
 	useContext,
 } from "solid-js";
 import { cx } from "../../utils/cx";
+import {
+	createDirtyGuard,
+	type DirtyGuard,
+	DirtyGuardContext,
+} from "../../utils/dirty-guard";
 import { createHeightTransition } from "../../utils/height-transition";
 import {
 	revealLayer,
@@ -20,6 +25,7 @@ import {
 	useParentLayers,
 } from "../../utils/nested-layers";
 import { createSlot } from "../../utils/slot";
+import { Button } from "../Button/Button";
 
 export type DrawerProps = ParentProps<{
 	open?: boolean;
@@ -28,6 +34,8 @@ export type DrawerProps = ParentProps<{
 	modal?: boolean;
 	initialFocus?: "first-focusable" | "content";
 	initialFocusEl?: HTMLElement;
+	dirty?: boolean;
+	discardDescription?: JSX.Element;
 }>;
 
 const DrawerContentRef = createContext<(element: HTMLElement) => void>();
@@ -177,32 +185,101 @@ export const Drawer = (props: DrawerProps) => {
 		);
 	};
 
-	const onOpenChange = (next: boolean) => {
+	const guard = createDirtyGuard();
+	guard.register({ dirty: () => !!props.dirty });
+	const [promptMounted, setPromptMounted] = createSignal(false);
+	createEffect(() => {
+		if (guard.prompting()) setPromptMounted(true);
+	});
+	createEffect(
+		on(open, (isOpen) => {
+			if (!isOpen) guard.keep();
+		}),
+	);
+
+	const commit = (next: boolean) => {
 		if (!next) tuneCloseMotion();
 		if (props.open === undefined) apply(next);
 		props.onOpenChange?.(next);
 	};
 
+	const [snapPoint, setSnapPoint] = createSignal<number | `${number}px`>(0);
+
+	const onOpenChange = (next: boolean) => {
+		if (next) {
+			commit(true);
+			return;
+		}
+		if (guard.hold(() => commit(false))) setSnapPoint(1);
+		else commit(false);
+	};
+
 	return (
-		<CorvuDrawer
-			open={open()}
-			onOpenChange={onOpenChange}
-			modal={props.modal ?? true}
-			side="bottom"
-			closeOnOutsidePointerStrategy="pointerdown"
-			closeOnOutsideFocus={false}
-			velocityFunction={velocityFunction}
-			breakPoints={[CLOSE_BREAKPOINT]}
-			initialFocusEl={initialFocusEl()}
-		>
-			{() => (
-				<DrawerContentRef.Provider value={setContentElement}>
-					{props.children}
-				</DrawerContentRef.Provider>
-			)}
-		</CorvuDrawer>
+		<>
+			<CorvuDrawer
+				open={open()}
+				onOpenChange={onOpenChange}
+				modal={props.modal ?? true}
+				side="bottom"
+				closeOnOutsidePointerStrategy="pointerdown"
+				closeOnOutsideFocus={false}
+				velocityFunction={velocityFunction}
+				breakPoints={[CLOSE_BREAKPOINT]}
+				activeSnapPoint={snapPoint()}
+				onActiveSnapPointChange={setSnapPoint}
+				initialFocusEl={initialFocusEl()}
+			>
+				{() => (
+					<DrawerContentRef.Provider value={setContentElement}>
+						<DirtyGuardContext.Provider value={guard}>
+							{props.children}
+						</DirtyGuardContext.Provider>
+					</DrawerContentRef.Provider>
+				)}
+			</CorvuDrawer>
+			<Show when={promptMounted()}>
+				<DiscardChangesDrawer
+					guard={guard}
+					description={props.discardDescription}
+				/>
+			</Show>
+		</>
 	);
 };
+
+const DISCARD_DESCRIPTION = "Your changes won't be saved.";
+
+const DiscardChangesDrawer = (props: {
+	guard: DirtyGuard;
+	description?: JSX.Element;
+}) => (
+	<Drawer
+		open={props.guard.prompting()}
+		onOpenChange={(next) => {
+			if (!next) props.guard.keep();
+		}}
+	>
+		<DrawerContent
+			title="Discard changes?"
+			description={
+				props.description ?? props.guard.description() ?? DISCARD_DESCRIPTION
+			}
+		>
+			<div data-discard-actions="" class="grid grid-cols-2 gap-2">
+				<Button variant="secondary" block onClick={() => props.guard.keep()}>
+					Cancel
+				</Button>
+				<Button
+					variant="destructive"
+					block
+					onClick={() => props.guard.discard()}
+				>
+					Discard changes
+				</Button>
+			</div>
+		</DrawerContent>
+	</Drawer>
+);
 
 export const DrawerTrigger = CorvuDrawer.Trigger;
 export const DrawerClose = CorvuDrawer.Close;

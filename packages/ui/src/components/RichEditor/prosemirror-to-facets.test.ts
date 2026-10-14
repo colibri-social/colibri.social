@@ -12,6 +12,21 @@ const paragraph = (text: string): Doc =>
 		content: [{ type: "paragraph", content: [{ type: "text", text }] }],
 	}) as unknown as Doc;
 
+describe("paragraph lines", () => {
+	it("keeps blank lines between paragraphs", () => {
+		const doc = {
+			type: "doc",
+			content: [
+				{ type: "paragraph", content: [{ type: "text", text: "a" }] },
+				{ type: "paragraph", content: [] },
+				{ type: "paragraph", content: [{ type: "text", text: "b" }] },
+			],
+		} as unknown as Doc;
+
+		expect(proseMirrorToFacets(doc).text).toBe("a\n\nb");
+	});
+});
+
 const linksIn = (input: string): Array<{ uri: string; covers: string }> => {
 	const { text, facets } = proseMirrorToFacets(paragraph(input));
 	const bytes = encoder.encode(text);

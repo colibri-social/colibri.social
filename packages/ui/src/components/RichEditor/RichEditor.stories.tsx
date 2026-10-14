@@ -670,6 +670,81 @@ export const MobileEnterAddsLine: Story = {
 	},
 };
 
+export const SubtextCaretHeight: Story = {
+	render: () => <Harness platform="desktop" />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const editor = field(canvasElement);
+		await userEvent.click(editor);
+		await userEvent.keyboard("-# quiet note");
+		const lineHeightOf = (element: Element) =>
+			Number.parseFloat(getComputedStyle(element).lineHeight);
+		const paragraphWith = (text: string) =>
+			[...editor.querySelectorAll("p")].find((paragraph) =>
+				paragraph.textContent?.includes(text),
+			);
+		await waitFor(() =>
+			expect(paragraphWith("quiet note")).toHaveClass("subtext-block"),
+		);
+		const subtext = paragraphWith("quiet note");
+		if (!subtext) throw new Error("subtext paragraph missing");
+		await expect(lineHeightOf(subtext)).toBeLessThan(lineHeightOf(editor));
+		await expect(lineHeightOf(subtext)).toBeCloseTo(
+			Number.parseFloat(getComputedStyle(subtext).fontSize) / 0.75,
+		);
+
+		await userEvent.keyboard("{Shift>}{Enter}{/Shift}loud line");
+		await waitFor(() =>
+			expect(paragraphWith("loud line")).not.toHaveClass("subtext-block"),
+		);
+		const mixed = paragraphWith("loud line");
+		if (!mixed) throw new Error("plain paragraph missing");
+		await expect(lineHeightOf(mixed)).toBe(lineHeightOf(editor));
+	},
+};
+
+export const SubtextLineAfterText: Story = {
+	render: () => <Harness platform="desktop" />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const editor = field(canvasElement);
+		await userEvent.click(editor);
+		await userEvent.keyboard("loud line{Shift>}{Enter}{/Shift}-# quiet note");
+		const paragraphWith = (text: string) =>
+			[...editor.querySelectorAll("p")].find((paragraph) =>
+				paragraph.textContent?.includes(text),
+			);
+		await waitFor(() =>
+			expect(paragraphWith("quiet note")).toHaveClass("subtext-block"),
+		);
+		const loud = paragraphWith("loud line");
+		const quiet = paragraphWith("quiet note");
+		if (!loud || !quiet) throw new Error("line paragraphs missing");
+		await expect(loud).not.toBe(quiet);
+		await expect(loud).not.toHaveClass("subtext-block");
+		await expect(
+			editor.querySelectorAll("br:not(.ProseMirror-trailingBreak)"),
+		).toHaveLength(0);
+
+		const lineHeight = (element: Element) =>
+			Number.parseFloat(getComputedStyle(element).lineHeight);
+		const quietBox = quiet.getBoundingClientRect();
+		await expect(quietBox.height).toBeCloseTo(lineHeight(quiet), 0);
+		await expect(lineHeight(quiet)).toBeLessThan(lineHeight(loud));
+
+		const selection = window.getSelection();
+		if (!selection?.rangeCount) throw new Error("no caret");
+		const caret = selection.getRangeAt(0).getBoundingClientRect();
+		await expect(caret.top).toBeGreaterThanOrEqual(quietBox.top - 0.5);
+		await expect(caret.bottom).toBeLessThanOrEqual(quietBox.bottom + 0.5);
+
+		await userEvent.keyboard("{Enter}");
+		await expect(onSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({ text: "loud line\nquiet note" }),
+		);
+	},
+};
+
 const editedFacets: ColibriRichTextFacet[] = [
 	{
 		index: { byteStart: 0, byteEnd: 5 },

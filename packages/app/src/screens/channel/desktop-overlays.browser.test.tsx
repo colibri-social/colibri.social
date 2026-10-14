@@ -79,7 +79,7 @@ it("forwards a message from a small modal", async () => {
 	await until(() => !!label());
 	await userEvent.click(label() as HTMLElement);
 	const forward = Array.from(dialog.querySelectorAll("button")).find(
-		(button) => button.textContent?.trim() === "Forward",
+		(button) => button.textContent?.trim() === "Forward to 1 channel",
 	) as HTMLButtonElement;
 	await until(() => !forward.disabled);
 	await userEvent.click(forward);

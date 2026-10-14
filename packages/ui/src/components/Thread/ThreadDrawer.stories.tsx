@@ -289,6 +289,37 @@ export const MoveToChannel: Story = {
 	},
 };
 
+export const MoveGuardsUnsavedChoice: Story = {
+	render: () => <ThreadDrawerDemo manage />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const dialog = await openDrawer(canvasElement, "Crow whispering");
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Move to channel" }),
+		);
+		const group = await within(dialog).findByRole("radiogroup", {
+			name: "Destination channel",
+		});
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		await userEvent.click(within(group).getByText("#dev"));
+		await userEvent.click(
+			document.querySelector("[data-corvu-drawer-overlay]") as HTMLElement,
+		);
+		const prompt = await screen.findByRole(
+			"dialog",
+			{ name: "Discard changes?" },
+			{ timeout: 3000 },
+		);
+		await expect(prompt).toHaveTextContent("The thread stays where it is.");
+		await expectNoLayoutIssues(prompt);
+		await userEvent.click(
+			within(prompt).getByRole("button", { name: "Discard changes" }),
+		);
+		await waitForDrawerClosed("Crow whispering");
+		await expect(spy.move).not.toHaveBeenCalled();
+	},
+};
+
 let pointerSeed = 0;
 
 export const RowHoldOpensMenu: Story = {

@@ -4,6 +4,7 @@ import {
 	type RichTextExternalLink,
 } from "@colibri-social/ui";
 import { createRoot, createSignal } from "solid-js";
+import { openExternalUrl } from "../../../native/open-external";
 import { usePlatform } from "../../../screen/platform";
 
 const DEFAULT_TRUSTED = ["colibri.social", "next.colibri.social", "bsky.app"];
@@ -26,9 +27,6 @@ export const isTrustedHost = (host: string) => trustedHosts.has(host);
 
 export const trustHost = (host: string) => trustedHosts.add(host);
 
-const openInNewTab = (url: string) =>
-	window.open(url, "_blank", "noopener,noreferrer");
-
 export const createLinkOpener = () => {
 	const platform = usePlatform();
 	const [pending, setPending] = createSignal<{
@@ -41,7 +39,7 @@ export const createLinkOpener = () => {
 		const host = linkWarningHost(url);
 		if (!host) return;
 		if (!link.disguised && isTrustedHost(host)) {
-			openInNewTab(url);
+			openExternalUrl(url);
 			return;
 		}
 		setPending({ url, disguised: link.disguised });
@@ -59,7 +57,7 @@ export const createLinkOpener = () => {
 				const current = pending();
 				if (!current) return;
 				if (trust) trustHost(linkWarningHost(current.url));
-				openInNewTab(current.url);
+				openExternalUrl(current.url);
 			}}
 		/>
 	);

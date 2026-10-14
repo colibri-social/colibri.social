@@ -1,5 +1,7 @@
 import { Popover as KobaltePopover } from "@kobalte/core/popover";
 import { createSignal, type JSX, Show, type ValidComponent } from "solid-js";
+import { createAnchorScroll } from "../../utils/anchor-scroll";
+import { createAnchorToggle } from "../../utils/anchor-toggle";
 import { cx } from "../../utils/cx";
 import { createExitHold } from "../../utils/exit-hold";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
@@ -78,6 +80,18 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 		props.onOpenChange?.(next);
 	};
 
+	const anchorScroll = createAnchorScroll({
+		active: open,
+		snapshot: () => props.anchorRect?.(),
+		onLeave: () => setOpen(false),
+	});
+
+	const toggleFromAnchor = createAnchorToggle({
+		anchor: () => props.anchor?.(),
+		open,
+		close: () => setOpen(false),
+	});
+
 	const shown = createExitHold(
 		() => ({ profile: props.profile, loading: props.loading }),
 		open,
@@ -99,13 +113,11 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 			placement={props.placement ?? "left"}
 			gutter={8}
 			flip
-			preventScroll
+			preventScroll={false}
 			modal={false}
 			overflowPadding={overflowPadding()}
 			anchorRef={props.anchor}
-			getAnchorRect={(element?: HTMLElement) =>
-				props.anchorRect?.() ?? element?.getBoundingClientRect()
-			}
+			getAnchorRect={anchorScroll.rect}
 		>
 			<Show when={props.renderTrigger}>
 				{(render) => render()(KobaltePopover.Trigger)}
@@ -139,6 +151,7 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 					}}
 					tabIndex={-1}
 					onContextMenu={(event: MouseEvent) => event.stopPropagation()}
+					onInteractOutside={toggleFromAnchor}
 					onOpenAutoFocus={(event: Event) => {
 						event.preventDefault();
 						(event.currentTarget as HTMLElement).focus({ preventScroll: true });

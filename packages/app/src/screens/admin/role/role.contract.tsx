@@ -4,8 +4,6 @@ import {
 	ConfirmDialog,
 	DeveloperModeCard,
 	ListGroup,
-	Modal,
-	ModalContent,
 	NavRow,
 	NavRowSkeleton,
 	ROLE_COLOR_PRESETS,
@@ -29,12 +27,14 @@ import {
 	untrack,
 } from "solid-js";
 import { createStore } from "solid-js/store";
+import { isVisibleRole } from "../../../data/roles";
 import type { MemberView } from "../../../data/types";
 import { defineContract, slot } from "../../../screen/define";
 import { usePlatform } from "../../../screen/platform";
 import { NEW_ENTRY } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
+import { useUnsavedChanges } from "../../../shell/unsaved-changes";
 import { uiPresence } from "../../members/member-adapter";
 import { AdminNavHeader } from "../desktop/page-header";
 import { useRoleAccess } from "../roles/role-access";
@@ -73,7 +73,9 @@ export const adminRole = defineContract({
 		const role = createMemo(() =>
 			isNew
 				? undefined
-				: access.roles().find((entry) => entry.rkey === args.id),
+				: access
+						.roles()
+						.find((entry) => entry.rkey === args.id && isVisibleRole(entry)),
 		);
 		const [deleted, setDeleted] = createSignal(false);
 		const missing = () =>
@@ -129,7 +131,6 @@ export const adminRole = defineContract({
 
 		const [saving, setSaving] = createSignal(false);
 		const [attempted, setAttempted] = createSignal(false);
-		const [discardOpen, setDiscardOpen] = createSignal(false);
 		const [deleteOpen, setDeleteOpen] = createSignal(false);
 		const nameError = () =>
 			attempted() ? roleNameError(form.name) : undefined;
@@ -143,15 +144,14 @@ export const adminRole = defineContract({
 						layer.page === "role" &&
 						layer.id === args.id,
 				) + 1;
-		onCleanup(
-			stack.setPopGuard({
-				get depth() {
-					return depth();
-				},
-				blocked: () => editable() && dirty() && !saving() && !deleted(),
-				onBlocked: () => setDiscardOpen(true),
-			}),
-		);
+		useUnsavedChanges({
+			depth,
+			dirty: () => editable() && dirty() && !saving() && !deleted(),
+			description: () =>
+				isNew
+					? "This role won't be created."
+					: "Your edits to this role won't be saved.",
+		});
 
 		const pendingImage = () =>
 			form.badge?.kind === "image"
@@ -299,12 +299,6 @@ export const adminRole = defineContract({
 			saving,
 			save,
 			nameError,
-			discardOpen,
-			setDiscardOpen,
-			discard: () => {
-				setDiscardOpen(false);
-				stack.forcePop();
-			},
 			deleteOpen,
 			setDeleteOpen,
 			remove,
@@ -384,9 +378,8 @@ export const adminRole = defineContract({
 					data-role-locked=""
 					class="m-0 rounded-control bg-secondary px-3 py-2 text-sm text-pretty text-muted-foreground"
 				>
-					{m.role()?.protected
-						? "This role belongs to the Space owner and can't be changed."
-						: "This role is at or above your own highest role, so you can't change it."}
+					This role is at or above your own highest role, so you can't change
+					it.
 				</p>
 			</Show>
 		)),
@@ -491,29 +484,6 @@ export const adminRole = defineContract({
 		)),
 		Dialogs: slot((m) => (
 			<>
-				<Modal open={m.discardOpen()} onOpenChange={m.setDiscardOpen}>
-					<ModalContent
-						title="Discard changes?"
-						description={
-							m.isNew
-								? "This role won't be created."
-								: "Your edits to this role won't be saved."
-						}
-						footer={
-							<>
-								<Button
-									variant="secondary"
-									onClick={() => m.setDiscardOpen(false)}
-								>
-									Keep editing
-								</Button>
-								<Button variant="destructive" onClick={m.discard}>
-									Discard
-								</Button>
-							</>
-						}
-					/>
-				</Modal>
 				<Switch>
 					<Match when={m.role()}>
 						{(current) => (

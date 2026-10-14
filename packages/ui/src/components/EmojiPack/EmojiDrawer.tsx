@@ -16,13 +16,14 @@ import {
 	Switch,
 } from "solid-js";
 import { cx } from "../../utils/cx";
+import { createDirtyGuard } from "../../utils/dirty-guard";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { Button } from "../Button/Button";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { IconButton } from "../IconButton/IconButton";
 import { DestructiveRow, ListGroup, NavRow } from "../List/List";
-import { Modal, ModalContent } from "../Modal/Modal";
+import { DiscardChangesDialog, Modal, ModalContent } from "../Modal/Modal";
 import { TextField } from "../TextField/TextField";
 import {
 	EMOJI_NAME_MAX,
@@ -144,6 +145,15 @@ const createEmojiEditor = (props: EmojiDrawerProps) => {
 			setBusy(false);
 		}
 	};
+	const dirty = () =>
+		props.open &&
+		view() === "rename" &&
+		!busy() &&
+		(directRename() || normalizeEmojiName(draft()) !== props.name);
+	const discardDescription = () =>
+		directRename()
+			? "This emoji won't be uploaded."
+			: "The new name won't be saved.";
 	const title = () => props.renameTitle ?? "Rename emoji";
 	const label = () =>
 		view() === "rename" ? title() : `:${props.name}: options`;
@@ -194,7 +204,17 @@ const createEmojiEditor = (props: EmojiDrawerProps) => {
 		</form>
 	);
 
-	return { view, setView, back, run, header, renameForm, label };
+	return {
+		view,
+		setView,
+		back,
+		run,
+		header,
+		renameForm,
+		label,
+		dirty,
+		discardDescription,
+	};
 };
 
 export const EmojiDrawer = (props: EmojiDrawerProps) => {
@@ -205,6 +225,8 @@ export const EmojiDrawer = (props: EmojiDrawerProps) => {
 			open={props.open}
 			onOpenChange={props.onOpenChange}
 			initialFocus="content"
+			dirty={editor.dirty()}
+			discardDescription={editor.discardDescription()}
 		>
 			<DrawerContent
 				aria-label={editor.label()}
@@ -288,6 +310,20 @@ export type EmojiPopoverProps = EmojiDrawerProps & {
 
 export const EmojiPopover = (props: EmojiPopoverProps) => {
 	const editor = createEmojiEditor(props);
+	const guard = createDirtyGuard();
+	guard.register({ dirty: editor.dirty });
+	createEffect(
+		on(
+			() => props.open,
+			(isOpen) => {
+				if (!isOpen) guard.keep();
+			},
+		),
+	);
+	const change = (next: boolean) => {
+		if (next) props.onOpenChange(true);
+		else guard.attempt(() => props.onOpenChange(false));
+	};
 	const overflowPadding = usePopperOverflowPadding(16);
 	let lastRect: DOMRect | undefined;
 	const anchorRect = (anchor?: HTMLElement) => {
@@ -301,7 +337,7 @@ export const EmojiPopover = (props: EmojiPopoverProps) => {
 	return (
 		<KobaltePopover
 			open={props.open}
-			onOpenChange={props.onOpenChange}
+			onOpenChange={change}
 			anchorRef={() => props.anchor}
 			getAnchorRect={anchorRect}
 			placement="bottom-end"
@@ -368,6 +404,10 @@ export const EmojiPopover = (props: EmojiPopoverProps) => {
 					</Switch>
 				</KobaltePopover.Content>
 			</KobaltePopover.Portal>
+			<DiscardChangesDialog
+				guard={guard}
+				description={editor.discardDescription()}
+			/>
 		</KobaltePopover>
 	);
 };
@@ -456,6 +496,7 @@ export const EmojiUploadModal = (props: EmojiUploadModalProps) => {
 				if (!next && busy()) return;
 				props.onOpenChange(next);
 			}}
+			dirty={!busy() && (step() !== "image" || edited())}
 		>
 			<ModalContent
 				title="Upload emoji"

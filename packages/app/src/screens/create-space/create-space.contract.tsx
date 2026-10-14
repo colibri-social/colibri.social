@@ -18,6 +18,7 @@ import { useData } from "../../data/store";
 import { defineContract, slot } from "../../screen/define";
 import { usePlatform } from "../../screen/platform";
 import { useStack } from "../../shell/stack";
+import { useUnsavedChanges } from "../../shell/unsaved-changes";
 
 export type CreateSpaceArgs = Record<string, string>;
 
@@ -101,6 +102,15 @@ export const createSpace = defineContract({
 				onBlocked: () => {},
 			}),
 		);
+		let created = false;
+		useUnsavedChanges({
+			depth,
+			dirty: () =>
+				!created &&
+				!creating() &&
+				(trimmedName().length > 0 || !!picture.file()),
+			description: () => "This Space won't be created.",
+		});
 
 		const close = () => {
 			if (!creating()) stack.pop();
@@ -117,6 +127,7 @@ export const createSpace = defineContract({
 				if (result.imagesFailed) toast.info(IMAGES_NOT_SAVED);
 				toast.success(`${result.community.name} is ready`);
 				setCreating(false);
+				created = true;
 				stack.setRoot({ tab: "spaces", space: spaceKey(result.community) });
 				stack.popTo(0);
 			} catch (error) {

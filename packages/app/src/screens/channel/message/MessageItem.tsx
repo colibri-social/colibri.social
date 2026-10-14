@@ -1,6 +1,8 @@
 import {
 	ConfirmDialog,
+	copyMessageToClipboard,
 	copyText,
+	DeveloperModeCard,
 	Emoji,
 	EmojiPickerPopover,
 	ForwardedMessage,
@@ -12,11 +14,15 @@ import {
 	type MessageHighlight,
 	type MessageListEntry,
 	MessageMenuItems,
+	type MessageMenuLink,
 	type MessageReply,
 	MessageRow,
 	MessageSelectFrame,
 	MessageToolbar,
+	Modal,
+	ModalContent,
 	MovedFromLine,
+	pdslsHrefFor,
 	ReactionBar,
 	ReactionsViewer,
 	type RichText,
@@ -24,6 +30,7 @@ import {
 	SwipeToReply,
 	ThreadCard,
 	toast,
+	useShiftHeld,
 } from "@colibri-social/ui";
 import {
 	type Accessor,
@@ -34,6 +41,9 @@ import {
 	Show,
 } from "solid-js";
 import {
+	embedSuppression,
+	gifOfAttachments,
+	isEmbedSuppressed,
 	splitAttachments,
 	visibleEmbeds,
 } from "../../../data/adapters/attachments";
@@ -42,8 +52,11 @@ import {
 	toMessageAuthor,
 	viaLabel,
 } from "../../../data/adapters/authors";
+import { parseBlueskyPostUrl } from "../../../data/adapters/bluesky-post";
 import {
+	linkUris,
 	mentionsDid,
+	mentionsRole,
 	previewText,
 	toTextValue,
 } from "../../../data/adapters/facets";
@@ -60,7 +73,8 @@ import { formatAge } from "../../../data/adapters/time";
 import type { ProfileView } from "../../../data/types";
 import { mediaSession } from "../composer/media/session";
 import { whenOverlaysClosed } from "../forward/overlay-wait";
-import { useChat } from "./chat-context";
+import { type EmbedEditor, useChat } from "./chat-context";
+import { LinkPreviewsDialog } from "./link-previews";
 import {
 	hasAttachmentContent,
 	MediaWithLightbox,
@@ -74,6 +88,22 @@ import {
 } from "./types";
 
 const DEFAULT_QUICK_REACTIONS = ["👍", "❤️", "😂", "😮"];
+
+export const HIDE_CONFIRM_COPY = {
+	title: "Hide message?",
+	description:
+		"Members won't see this message anymore. You and other moderators can still see and unhide it. Hold Shift while hiding to skip this confirmation.",
+	confirm: "Hide message",
+} as const;
+
+export const DELETE_CONFIRM_COPY = {
+	title: "Delete message?",
+	description:
+		"This permanently deletes the message. Hold Shift while deleting to skip this confirmation.",
+	confirm: "Delete message",
+} as const;
+
+const isWebLink = (href: string) => /^https?:\/\//i.test(href);
 
 const unknownProfile = (did: string): ProfileView =>
 	({
@@ -131,9 +161,38 @@ export const MessageItem = (props: MessageItemProps) => {
 			view() ? undefined : message().uploadProgress,
 		),
 	);
+	const suppression = createMemo(() => embedSuppression(view()));
+	const embedsOn = () => chat.linkEmbedsEnabled?.() !== false;
 	const embeds = createMemo(() =>
-		visibleEmbeds(view()?.embeds, view()?.suppressedEmbeds),
+		embedsOn() ? visibleEmbeds(view()?.embeds, suppression()) : [],
 	);
+	const blueskyLinks = createMemo(() => {
+		if (!chat.loadBlueskyPost || !embedsOn()) return [];
+		const covered = new Set<string>(
+			(view()?.embeds ?? []).map((embed) => embed.uri),
+		);
+		return linkUris(message().facets).filter(
+			(uri) =>
+				!covered.has(uri) &&
+				!!parseBlueskyPostUrl(uri) &&
+				!isEmbedSuppressed(suppression(), uri),
+		);
+	});
+	const embedUris = createMemo(() => {
+		const uris: string[] = [];
+		const add = (uri: string) => {
+			if (!uris.includes(uri)) uris.push(uri);
+		};
+		for (const embed of view()?.embeds ?? []) add(embed.uri);
+		for (const uri of linkUris(message().facets)) {
+			if (parseBlueskyPostUrl(uri)) add(uri);
+		}
+		for (const uri of suppression().author) add(uri);
+		for (const uri of suppression().moderator) add(uri);
+		return uris;
+	});
+	const attachmentContent = () =>
+		hasAttachmentContent(split(), embeds(), blueskyLinks());
 	const forward = createMemo(() => {
 		const value = view()?.forward;
 		if (!value) return undefined;
@@ -202,13 +261,17 @@ export const MessageItem = (props: MessageItemProps) => {
 		const viewer = chat.viewer();
 		const parent = message().parent;
 		if (mentionsDid(message().facets, viewer)) return "mention";
+		if (mentionsRole(message().facets, chat.viewerRoles?.() ?? []))
+			return "mention";
 		if (isVisibleParent(parent) && parent.author.did === viewer)
 			return "mention";
 		return undefined;
 	};
 
-	const react = (emoji: string, add: boolean) =>
+	const react = (emoji: string, add: boolean) => {
+		if (add && !emoji.startsWith(":")) chat.onRecordEmoji?.(emoji);
 		chat.onReact(message(), emoji, add);
+	};
 
 	const toggleQuick = (emoji: string) => {
 		const existing = reactions().find((reaction) => reaction.emoji === emoji);
@@ -216,7 +279,10 @@ export const MessageItem = (props: MessageItemProps) => {
 	};
 
 	const copy = async () => {
-		const copied = await copyText(message().text);
+		const copied = await copyMessageToClipboard(
+			message().text,
+			message().facets as Parameters<typeof copyMessageToClipboard>[1],
+		);
 		if (copied) toast.success("Copied text");
 		else toast.error("Couldn't copy text");
 	};
@@ -314,6 +380,7 @@ export const MessageItem = (props: MessageItemProps) => {
 					if (rkey) selection()?.begin(rkey);
 				}
 			: undefined;
+	const shiftHeld = useShiftHeld();
 	const editAction = () =>
 		own() && !anchor() ? () => chat.onEdit(message()) : undefined;
 	const deleteAction = () =>
@@ -321,17 +388,155 @@ export const MessageItem = (props: MessageItemProps) => {
 	const [confirmingDelete, setConfirmingDelete] = createSignal(false);
 	const confirmDeleteAction = () =>
 		own() && !anchor()
-			? () => void whenOverlaysClosed().then(() => setConfirmingDelete(true))
+			? () => {
+					if (desktop() && shiftHeld()) {
+						chat.onDelete(message());
+						return;
+					}
+					void whenOverlaysClosed().then(() => setConfirmingDelete(true));
+				}
 			: undefined;
+	const canReply = () => !anchor() && chat.canPost?.() !== false;
 	const replyAction = () =>
-		anchor() ? undefined : () => chat.onReply(message());
+		canReply() ? () => chat.onReply(message()) : undefined;
+	const canModerate = () => !!chat.canModerate?.() && !anchor();
 	const hideAction = () =>
-		chat.canModerate?.() && !anchor() && !hidden()
+		canModerate() && !hidden()
 			? () => chat.onSetHidden?.(message(), true)
 			: undefined;
+	const [confirmingHide, setConfirmingHide] = createSignal(false);
+	const confirmHideAction = () =>
+		canModerate() && !hidden()
+			? () => {
+					if (desktop() && shiftHeld()) {
+						chat.onSetHidden?.(message(), true);
+						return;
+					}
+					void whenOverlaysClosed().then(() => setConfirmingHide(true));
+				}
+			: undefined;
 	const unhideAction = () =>
-		chat.canModerate?.() && !anchor() && hidden()
+		canModerate() && hidden()
 			? () => chat.onSetHidden?.(message(), false)
+			: undefined;
+
+	const [contextLink, setContextLink] = createSignal<HTMLAnchorElement>();
+	const captureContextLink = (event: MouseEvent) => {
+		const target = event.target;
+		const anchorElement =
+			target instanceof Element
+				? target.closest<HTMLAnchorElement>("a[href]")
+				: null;
+		setContextLink(anchorElement ?? undefined);
+	};
+	const attachRow = (element: HTMLDivElement) => {
+		seenTarget = element;
+		element.addEventListener("contextmenu", captureContextLink, true);
+	};
+	const openLink = (anchorElement: HTMLAnchorElement) => {
+		const href = anchorElement.href;
+		if (isWebLink(href) && chat.onExternalLink) {
+			chat.onExternalLink(href, {
+				label: anchorElement.textContent?.trim() || href,
+				disguised: anchorElement.dataset.disguised !== undefined,
+			});
+			return;
+		}
+		anchorElement.click();
+	};
+	const linkActions = (): MessageMenuLink | undefined => {
+		const anchorElement = contextLink();
+		if (!anchorElement) return undefined;
+		return {
+			onOpen: () => openLink(anchorElement),
+			onCopy: async () => {
+				const copied = await copyText(anchorElement.href);
+				if (copied) toast.success("Copied link");
+				else toast.error("Couldn't copy link");
+			},
+		};
+	};
+
+	const gif = createMemo(() => {
+		const value = gifOfAttachments(view()?.attachments);
+		if (!value || !chat.onToggleGif) return undefined;
+		return value;
+	});
+	const gifAction = () => {
+		const value = gif();
+		if (!value) return undefined;
+		const saved = chat.gifSaved?.(value) ?? false;
+		return {
+			saved,
+			onToggle: () => chat.onToggleGif?.(value, !saved),
+		};
+	};
+
+	const embedEditor = (): EmbedEditor | undefined => {
+		if (!sent() || anchor() || !message().rkey || !chat.onSetEmbeds) {
+			return undefined;
+		}
+		if (own()) return "author";
+		return chat.canModerate?.() ? "moderator" : undefined;
+	};
+	const hiddenByMe = () =>
+		embedEditor() === "author"
+			? [...suppression().author]
+			: [...suppression().moderator];
+	const embedLockedBy = (uri: string) => {
+		if (embedEditor() === "author") {
+			return suppression().moderator.includes(uri) ? "moderator" : undefined;
+		}
+		return suppression().author.includes(uri) ? "author" : undefined;
+	};
+	const [previewsOpen, setPreviewsOpen] = createSignal(false);
+	const [previewsMounted, setPreviewsMounted] = createSignal(false);
+	const [previewSeed, setPreviewSeed] = createSignal<string[]>([]);
+	const saveEmbeds = (uris: string[]) => {
+		const editor = embedEditor();
+		if (!editor) return Promise.resolve();
+		return chat.onSetEmbeds?.(message(), uris, editor) ?? Promise.resolve();
+	};
+	const openPreviews = (seed?: string) => {
+		const base = hiddenByMe();
+		setPreviewSeed(seed && !base.includes(seed) ? [...base, seed] : base);
+		setPreviewsMounted(true);
+		void whenOverlaysClosed().then(() => setPreviewsOpen(true));
+	};
+	const linkPreviewsAction = () =>
+		embedEditor() && embedUris().length > 0 ? () => openPreviews() : undefined;
+	const removeEmbed = () =>
+		embedEditor()
+			? (uri: string, event: MouseEvent) => {
+					if (event.shiftKey) {
+						const base = hiddenByMe();
+						if (!base.includes(uri)) void saveEmbeds([...base, uri]);
+						return;
+					}
+					openPreviews(uri);
+				}
+			: undefined;
+
+	const developer = () => {
+		const uri = view()?.uri;
+		if (!uri || !chat.developerMode?.()) return undefined;
+		return {
+			atUri: uri,
+			pdslsHref: pdslsHrefFor(uri),
+		};
+	};
+	const [debugOpen, setDebugOpen] = createSignal(false);
+	const [debugMounted, setDebugMounted] = createSignal(false);
+	const debugAction = () =>
+		developer()
+			? () => {
+					setDebugMounted(true);
+					void whenOverlaysClosed().then(() => setDebugOpen(true));
+				}
+			: undefined;
+	const viewReactionsAction = () =>
+		reactions().length > 0
+			? () => openReactors(reactions()[0]?.emoji ?? "")
 			: undefined;
 
 	const menuItems = () => (
@@ -342,14 +547,13 @@ export const MessageItem = (props: MessageItemProps) => {
 			onOpenThread={openThreadAction()}
 			onSelect={selectAction()}
 			onCopyText={message().text ? copy : undefined}
-			onViewReactions={
-				reactions().length > 0
-					? () => openReactors(reactions()[0]?.emoji ?? "")
-					: undefined
-			}
+			gif={gifAction()}
+			onLinkPreviews={linkPreviewsAction()}
+			onViewReactions={viewReactionsAction()}
+			onDebugInfo={debugAction()}
 			onDelete={confirmDeleteAction()}
 			hidden={hidden()}
-			onHide={hideAction()}
+			onHide={confirmHideAction()}
 			onUnhide={unhideAction()}
 		/>
 	);
@@ -357,7 +561,9 @@ export const MessageItem = (props: MessageItemProps) => {
 	const editingNow = () =>
 		desktop() && chat.editingKey?.() === message().key
 			? {
-					value: text(),
+					value: chat.editDraft?.() ?? text(),
+					baseline: text(),
+					onChange: (value: RichText) => chat.onEditChange?.(value),
 					sources: chat.editSources,
 					emoji: { packs: chat.emojiPacks?.() },
 					onSave: (value: RichText) => chat.onSaveEdit?.(value),
@@ -417,6 +623,20 @@ export const MessageItem = (props: MessageItemProps) => {
 		/>
 	);
 
+	const attachmentsView = () => (
+		<MessageAttachments
+			split={split()}
+			embeds={embeds()}
+			blueskyLinks={blueskyLinks()}
+			loadBlueskyPost={chat.loadBlueskyPost}
+			onRemoveEmbed={removeEmbed()}
+			author={author()}
+			timestamp={message().timestamp}
+			locale={chat.locale}
+			onExternalLink={chat.onExternalLink}
+		/>
+	);
+
 	const row = () => (
 		<MessageRow
 			platform={platform()}
@@ -440,15 +660,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			onAuthorClick={() => chat.onOpenProfile(message().author)}
 			onAuthorMenu={() => chat.onOpenMemberMenu(message().author)}
 			attachments={
-				!hidden() && hasAttachmentContent(split(), embeds()) ? (
-					<MessageAttachments
-						split={split()}
-						embeds={embeds()}
-						author={author()}
-						timestamp={message().timestamp}
-						locale={chat.locale}
-					/>
-				) : undefined
+				!hidden() && attachmentContent() ? attachmentsView() : undefined
 			}
 			reactions={
 				reactions().length > 0 ? (
@@ -490,15 +702,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			<Show when={hidden()} fallback={body()}>
 				<HiddenMessage reason="moderator">
 					{body()}
-					<Show when={hasAttachmentContent(split(), embeds())}>
-						<MessageAttachments
-							split={split()}
-							embeds={embeds()}
-							author={author()}
-							timestamp={message().timestamp}
-							locale={chat.locale}
-						/>
-					</Show>
+					<Show when={attachmentContent()}>{attachmentsView()}</Show>
 				</HiddenMessage>
 			</Show>
 		</MessageRow>
@@ -508,7 +712,7 @@ export const MessageItem = (props: MessageItemProps) => {
 		<SwipeToReply
 			enabled={
 				!selecting() &&
-				!anchor() &&
+				canReply() &&
 				sent() &&
 				controls().swipeLeftAction === "reply"
 			}
@@ -521,7 +725,7 @@ export const MessageItem = (props: MessageItemProps) => {
 				doubleTapAction={controls().doubleTapAction}
 				doubleTapEmoji={controls().doubleTapReactionEmoji}
 				canEdit={own() && !anchor()}
-				canReply={!anchor()}
+				canReply={canReply()}
 				onReact={toggleQuick}
 				onEdit={() => chat.onEdit(message())}
 				onReply={() => chat.onReply(message())}
@@ -534,21 +738,24 @@ export const MessageItem = (props: MessageItemProps) => {
 	const desktopRow = () => (
 		<MessageContextMenu
 			disabled={!sent() || !!editingNow()}
-			onOpenChange={setContextOpen}
+			onOpenChange={(open) => {
+				setContextOpen(open);
+				if (!open) setContextLink(undefined);
+			}}
+			link={linkActions()}
 			onEdit={editAction()}
 			onReply={replyAction()}
 			onForward={forwardMessage}
 			onOpenThread={openThreadAction()}
 			onSelect={selectAction()}
 			onCopyText={message().text ? copy : undefined}
-			onViewReactions={
-				reactions().length > 0
-					? () => openReactors(reactions()[0]?.emoji ?? "")
-					: undefined
-			}
+			gif={gifAction()}
+			onLinkPreviews={linkPreviewsAction()}
+			onViewReactions={viewReactionsAction()}
+			onDebugInfo={debugAction()}
 			onDelete={confirmDeleteAction()}
 			hidden={hidden()}
-			onHide={hideAction()}
+			onHide={confirmHideAction()}
 			onUnhide={unhideAction()}
 		>
 			{row()}
@@ -557,7 +764,7 @@ export const MessageItem = (props: MessageItemProps) => {
 
 	return (
 		<>
-			<div ref={seenTarget}>
+			<div ref={attachRow}>
 				<MessageSelectFrame
 					selecting={selecting()}
 					selected={selection()?.isSelected(message().rkey) ?? false}
@@ -578,12 +785,49 @@ export const MessageItem = (props: MessageItemProps) => {
 				<ConfirmDialog
 					open={confirmingDelete()}
 					onOpenChange={setConfirmingDelete}
-					title="Delete message?"
-					description="This permanently deletes the message. Hold Shift while deleting to skip this confirmation."
-					confirmLabel="Delete message"
+					title={DELETE_CONFIRM_COPY.title}
+					description={DELETE_CONFIRM_COPY.description}
+					confirmLabel={DELETE_CONFIRM_COPY.confirm}
 					tone="destructive"
 					onConfirm={() => chat.onDelete(message())}
 				/>
+			</Show>
+			<Show when={canModerate()}>
+				<ConfirmDialog
+					open={confirmingHide()}
+					onOpenChange={setConfirmingHide}
+					title={HIDE_CONFIRM_COPY.title}
+					description={HIDE_CONFIRM_COPY.description}
+					confirmLabel={HIDE_CONFIRM_COPY.confirm}
+					tone="destructive"
+					onConfirm={() => chat.onSetHidden?.(message(), true)}
+				/>
+			</Show>
+			<Show when={previewsMounted()}>
+				<LinkPreviewsDialog
+					open={previewsOpen()}
+					onOpenChange={setPreviewsOpen}
+					platform={platform()}
+					uris={embedUris()}
+					hidden={previewSeed()}
+					lockedBy={embedLockedBy}
+					enabled={embedsOn()}
+					moderator={embedEditor() === "moderator"}
+					onSave={saveEmbeds}
+				/>
+			</Show>
+			<Show when={debugMounted() && developer()}>
+				{(info) => (
+					<Modal open={debugOpen()} onOpenChange={setDebugOpen}>
+						<ModalContent title="Debug information">
+							<DeveloperModeCard
+								copyLabel="Copy AT-URI"
+								copyValue={info().atUri}
+								pdslsHref={info().pdslsHref}
+							/>
+						</ModalContent>
+					</Modal>
+				)}
 			</Show>
 			<Show when={pickerAnchor()}>
 				{(anchorElement) => (
@@ -601,7 +845,6 @@ export const MessageItem = (props: MessageItemProps) => {
 						packs={chat.emojiPacks?.()}
 						searchPlaceholder="Search reactions"
 						onPick={(pick) => {
-							if (pick.kind === "unicode") session.recordEmoji(pick.emoji);
 							react(
 								pick.kind === "unicode" ? pick.emoji : `:${pick.emoji.name}:`,
 								true,
@@ -624,42 +867,19 @@ export const MessageItem = (props: MessageItemProps) => {
 							true,
 						)
 					}
-					onReply={anchor() ? undefined : () => chat.onReply(message())}
-					onEdit={own() && !anchor() ? () => chat.onEdit(message()) : undefined}
+					onReply={replyAction()}
+					onEdit={editAction()}
 					onForward={forwardMessage}
-					onOpenThread={
-						thread()
-							? () => {
-									const value = thread();
-									if (value) chat.onOpenThread(value.space);
-								}
-							: chat.onStartThread &&
-									message().state === "sent" &&
-									message().rkey
-								? () => chat.onStartThread?.(message())
-								: undefined
-					}
-					onSelect={
-						selection()?.canMove() && selectable()
-							? () => {
-									const rkey = message().rkey;
-									if (rkey) selection()?.begin(rkey);
-								}
-							: undefined
-					}
+					onOpenThread={openThreadAction()}
+					onSelect={selectAction()}
 					onCopyText={message().text ? copy : undefined}
+					gif={gifAction()}
+					onLinkPreviews={linkPreviewsAction()}
 					onDelete={confirmDeleteAction()}
 					hidden={hidden()}
-					onHide={
-						chat.canModerate?.() && !anchor() && !hidden()
-							? () => chat.onSetHidden?.(message(), true)
-							: undefined
-					}
-					onUnhide={
-						chat.canModerate?.() && !anchor() && hidden()
-							? () => chat.onSetHidden?.(message(), false)
-							: undefined
-					}
+					onHide={confirmHideAction()}
+					onUnhide={unhideAction()}
+					developer={developer()}
 				/>
 			</Show>
 			<Show when={reactorsMounted()}>

@@ -26,7 +26,7 @@ const setup = async () => {
 	if (!general) throw new Error("general missing");
 	const channel = store.channel(general.space);
 	await until(() => channel.ready());
-	return { store, channel };
+	return { store, channel, hq };
 };
 
 describe("upload on send", () => {
@@ -106,5 +106,31 @@ describe("thread lists", () => {
 		expect(
 			devFeed.threads.value()?.some((thread) => thread.space === spring.space),
 		).toBe(false);
+	});
+});
+
+describe("unread marker", () => {
+	it("keeps the marker when reading by viewing", async () => {
+		const { channel } = await setup();
+		expect(channel.unreadAfter()).toBeDefined();
+		channel.markRead();
+		expect(channel.unreadAfter()).toBeDefined();
+	});
+
+	it("clears the marker when the channel is marked as read", async () => {
+		const { channel } = await setup();
+		expect(channel.unreadAfter()).toBeDefined();
+		channel.markRead();
+		channel.clearUnreadMarker();
+		expect(channel.unreadAfter()).toBeUndefined();
+		expect(channel.enter(false)).toBeUndefined();
+		expect(channel.unreadAfter()).toBeUndefined();
+	});
+
+	it("clears the open channel's marker when its Space is marked as read", async () => {
+		const { store, channel, hq } = await setup();
+		expect(channel.unreadAfter()).toBeDefined();
+		await store.community.markRead(hq.did);
+		expect(channel.unreadAfter()).toBeUndefined();
 	});
 });

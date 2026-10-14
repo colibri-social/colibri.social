@@ -46,8 +46,22 @@ export default spaces.view({
 						when={!m.space()?.categories.loading()}
 						fallback={
 							<>
-								<CategorySkeleton />
-								<CategorySkeleton />
+								<CategorySkeleton
+									platform="desktop"
+									density={
+										m.data.controls().showMessagePreviews
+											? "default"
+											: "compact"
+									}
+								/>
+								<CategorySkeleton
+									platform="desktop"
+									density={
+										m.data.controls().showMessagePreviews
+											? "default"
+											: "compact"
+									}
+								/>
 							</>
 						}
 					>

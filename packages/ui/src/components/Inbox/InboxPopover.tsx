@@ -19,8 +19,11 @@ import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { CountBadge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
+import {
+	InboxContextMenu,
+	type InboxMenuActions,
+} from "../ContextMenu/InboxMenu";
 import { MarkAllReadIcon } from "../ContextMenu/menu-entries";
-import { IconButton } from "../IconButton/IconButton";
 import { Skeleton, SkeletonText } from "../Skeleton/Skeleton";
 import { SpaceIcon } from "../Space/SpaceIcon";
 import { SpaceRailAction } from "../SpaceRail/SpaceRail";
@@ -53,6 +56,7 @@ type InboxPopoverFrameProps = {
 	onOpenChange?: (open: boolean) => void;
 	class?: string;
 	initialFocus?: (content: HTMLElement) => HTMLElement | undefined;
+	menu?: InboxMenuActions;
 	children: JSX.Element;
 };
 
@@ -79,29 +83,38 @@ const InboxPopoverFrame = (props: InboxPopoverFrameProps) => {
 
 	return (
 		<>
-			<SpaceRailAction
-				ref={(element) => {
-					button = element;
-				}}
-				label="Inbox"
-				icon={<InboxIcon />}
-				aria-haspopup="dialog"
-				aria-expanded={open()}
-				aria-controls={open() ? contentId : undefined}
-				badge={
-					<CountBadge
-						data-inbox-rail-count=""
-						count={props.unread}
-						class="shadow-[0_0_0_3px_var(--background)]"
-					/>
-				}
-				badgeLabel={
-					props.unread > 0
-						? `${props.unread} unread`
-						: "No unread notifications"
-				}
-				onClick={() => setOpen(!open())}
-			/>
+			<InboxContextMenu
+				disabled={!props.menu}
+				count={props.menu?.count}
+				unread={props.menu?.unread}
+				onClearInbox={props.menu?.onClearInbox}
+				onMarkAllRead={props.menu?.onMarkAllRead}
+				class="contents"
+			>
+				<SpaceRailAction
+					ref={(element) => {
+						button = element;
+					}}
+					label="Inbox"
+					icon={<InboxIcon />}
+					aria-haspopup="dialog"
+					aria-expanded={open()}
+					aria-controls={open() ? contentId : undefined}
+					badge={
+						<CountBadge
+							data-inbox-rail-count=""
+							count={props.unread}
+							class="shadow-[0_0_0_3px_var(--background)]"
+						/>
+					}
+					badgeLabel={
+						props.unread > 0
+							? `${props.unread} unread`
+							: "No unread notifications"
+					}
+					onClick={() => setOpen(!open())}
+				/>
+			</InboxContextMenu>
 			<KobaltePopover
 				open={open()}
 				onOpenChange={setOpen}
@@ -170,9 +183,14 @@ const FILTER_VIEWS: {
 	filter: InboxFilter;
 	label: string;
 	icon: () => JSX.Element;
-	markReadLabel?: string;
+	markReadLabel: string;
 }[] = [
-	{ filter: "all", label: "All", icon: () => <InboxIcon /> },
+	{
+		filter: "all",
+		label: "All",
+		icon: () => <InboxIcon />,
+		markReadLabel: "Mark all as read",
+	},
 	{
 		filter: "mentions",
 		label: "Mentions",
@@ -193,70 +211,33 @@ const SidebarItem = (props: {
 	count: number;
 	current: boolean;
 	onSelect: () => void;
-	markReadLabel?: string;
-	onMarkRead?: () => void;
-}) => {
-	const category = () => props.markReadLabel !== undefined;
-	const markable = () => category() && props.count > 0;
-	return (
-		<li data-inbox-row="" class="group/view relative flex list-none">
-			<button
-				type="button"
-				data-inbox-cell=""
-				data-inbox-view=""
-				tabIndex={-1}
-				aria-current={props.current ? "true" : undefined}
-				onClick={() => props.onSelect()}
-				class={cx(
-					"flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-control-sm px-2 text-left text-sm font-semibold outline-none focus-ring-inset",
-					"transition-[background-color] duration-[calc(120ms*var(--motion-scale))] ease-(--ease-out-quick)",
-					props.current
-						? "bg-secondary text-foreground"
-						: "text-muted-foreground hover:bg-popover-highlight hover:text-foreground",
-				)}
-			>
-				<span class="flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">
-					{props.icon}
-				</span>
-				<span class="min-w-0 flex-1 truncate" title={props.label}>
-					{props.label}
-				</span>
-				<CountBadge
-					count={props.count}
-					class={cx(
-						"tabular-nums",
-						markable() &&
-							"group-hover/view:opacity-0 group-focus-within/view:opacity-0",
-					)}
-				/>
-			</button>
-			<Show when={category()}>
-				<IconButton
-					data-inbox-cell=""
-					data-inbox-category-read=""
-					tabIndex={-1}
-					hidden={!markable()}
-					disabled={!markable()}
-					variant="ghost"
-					size="sm"
-					label={props.markReadLabel ?? ""}
-					icon={<MarkAllReadIcon />}
-					onClick={(event) => {
-						event.currentTarget
-							.closest<HTMLElement>("[data-inbox-row]")
-							?.querySelector<HTMLElement>("[data-inbox-view]")
-							?.focus();
-						props.onMarkRead?.();
-					}}
-					class={cx(
-						"absolute top-1 right-1 opacity-0 group-hover/view:opacity-100 group-focus-within/view:opacity-100 focus-visible:opacity-100",
-						"transition-opacity duration-[calc(120ms*var(--motion-scale))] ease-(--ease-out-quick)",
-					)}
-				/>
-			</Show>
-		</li>
-	);
-};
+}) => (
+	<li data-inbox-row="" class="flex list-none">
+		<button
+			type="button"
+			data-inbox-cell=""
+			data-inbox-view=""
+			tabIndex={-1}
+			aria-current={props.current ? "true" : undefined}
+			onClick={() => props.onSelect()}
+			class={cx(
+				"flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-control-sm px-2 text-left text-sm font-semibold outline-none focus-ring-inset",
+				"transition-[background-color] duration-[calc(120ms*var(--motion-scale))] ease-(--ease-out-quick)",
+				props.current
+					? "bg-secondary text-foreground"
+					: "text-muted-foreground hover:bg-popover-highlight hover:text-foreground",
+			)}
+		>
+			<span class="flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">
+				{props.icon}
+			</span>
+			<span class="min-w-0 flex-1 truncate" title={props.label}>
+				{props.label}
+			</span>
+			<CountBadge count={props.count} class="tabular-nums" />
+		</button>
+	</li>
+);
 
 const InboxDay = (props: {
 	label: string;
@@ -371,8 +352,25 @@ export const InboxPopover = (props: InboxPopoverProps) => {
 		setOpen(false);
 	};
 
-	const markCategoryRead = (filter: InboxFilter) => {
-		if (filter !== "all") props.onMarkCategoryRead(filter);
+	const viewUnread = () => {
+		const current = view();
+		return current.kind === "space"
+			? spaceUnread(current.spaceId)
+			: countFor(props.notifications, current.filter);
+	};
+	const markViewReadLabel = () => {
+		const current = view();
+		if (current.kind === "space") return "Mark Space as read";
+		return (
+			FILTER_VIEWS.find((entry) => entry.filter === current.filter)
+				?.markReadLabel ?? ""
+		);
+	};
+	const markViewRead = () => {
+		const current = view();
+		if (current.kind === "space") props.onMarkSpaceRead(current.spaceId);
+		else if (current.filter === "all") props.onMarkAllRead();
+		else props.onMarkCategoryRead(current.filter);
 	};
 
 	const select = (next: SplitView) => {
@@ -388,11 +386,16 @@ export const InboxPopover = (props: InboxPopoverProps) => {
 			open={open()}
 			onOpenChange={setOpen}
 			initialFocus={focusFirstRow}
+			menu={{
+				count: pending().length,
+				unread: unread(),
+				onClearInbox: props.onClearInbox,
+				onMarkAllRead: props.onMarkAllRead,
+			}}
 			class="w-[680px]"
 		>
 			<InboxHeader
 				unread={unread()}
-				onMarkAllRead={props.onMarkAllRead}
 				onOpenSettings={props.onOpenSettings}
 				class="border-b border-border"
 			/>
@@ -421,8 +424,6 @@ export const InboxPopover = (props: InboxPopoverProps) => {
 									onSelect={() =>
 										select({ kind: "filter", filter: entry.filter })
 									}
-									markReadLabel={entry.markReadLabel}
-									onMarkRead={() => markCategoryRead(entry.filter)}
 								/>
 							)}
 						</For>
@@ -480,29 +481,31 @@ export const InboxPopover = (props: InboxPopoverProps) => {
 					aria-label={`${viewTitle()} notifications`}
 					class="flex min-w-0 flex-1 flex-col"
 				>
-					<Show when={activeSpace()}>
-						{(space) => (
-							<div class="flex shrink-0 items-center gap-2 border-b border-border py-2 pr-2 pl-4">
-								<p
-									class="m-0 min-w-0 flex-1 truncate text-sm font-semibold"
-									title={space().name}
-								>
-									{space().name}
-								</p>
+					<Show when={status() === "ready"}>
+						<div
+							data-inbox-view-bar=""
+							class="flex h-12 shrink-0 items-center gap-2 border-b border-border pr-2 pl-4"
+						>
+							<p
+								class="m-0 min-w-0 flex-1 truncate text-sm font-semibold"
+								title={viewTitle()}
+							>
+								{viewTitle()}
+							</p>
+							<Show when={viewUnread() > 0}>
 								<Button
 									variant="tertiary"
 									icon={<MarkAllReadIcon />}
-									disabled={spaceUnread(space().id) === 0}
 									onClick={(event) => {
 										focusFirstRowFrom(event.currentTarget);
-										props.onMarkSpaceRead(space().id);
+										markViewRead();
 									}}
 									class="h-8 pr-3 pl-2.5 [&_svg]:size-4"
 								>
-									Mark Space as read
+									{markViewReadLabel()}
 								</Button>
-							</div>
-						)}
+							</Show>
+						</div>
 					</Show>
 					<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
 						<Switch>

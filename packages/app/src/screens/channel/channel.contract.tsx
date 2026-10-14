@@ -6,6 +6,7 @@ import {
 import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
 import { createMemo, Show } from "solid-js";
+import type { ColibriError } from "../../data/errors";
 import { isVoiceChannel } from "../../data/ids";
 import { useData } from "../../data/store";
 import { defineContract, slot } from "../../screen/define";
@@ -13,6 +14,7 @@ import {
 	type Placement,
 	useOptionalDesktopShell,
 } from "../../shell/desktop/context";
+import { LoadErrorState } from "../../shell/load-error";
 import { useStack } from "../../shell/stack";
 import {
 	type Conversation,
@@ -24,7 +26,11 @@ import {
 
 export type ChannelArgs = { space: string; channel: string };
 
-type ChannelModel = Conversation;
+type ChannelModel = Conversation & {
+	loadFailure: () => LoadFailure | undefined;
+};
+
+type LoadFailure = { error: ColibriError; retry: () => void };
 
 const channelIcon = (m: ChannelModel) => {
 	const current = m.view();
@@ -38,6 +44,9 @@ const openThreads = (m: ChannelModel) =>
 		channel: m.options.channel,
 		channelType: m.view()?.type,
 	});
+
+const threadsUnread = (m: ChannelModel) =>
+	(m.feed()?.threads.value() ?? []).some((thread) => thread.viewer.hasUnread);
 
 const MobileHeader = (props: { m: ChannelModel }) => {
 	const m = props.m;
@@ -53,6 +62,7 @@ const MobileHeader = (props: { m: ChannelModel }) => {
 			muted={m.muted()}
 			onMutedChange={m.unavailable() ? undefined : m.setMuted}
 			onOpenThreads={m.unavailable() ? undefined : () => openThreads(m)}
+			threadsUnread={threadsUnread(m)}
 			onToggleMembers={
 				m.unavailable()
 					? undefined
@@ -79,8 +89,6 @@ const DesktopHeader = (props: { m: ChannelModel; placement: Placement }) => {
 			overlay.channel === m.options.channel
 		);
 	};
-	const threadsUnread = () =>
-		(m.feed()?.threads.value() ?? []).some((thread) => thread.viewer.hasUnread);
 	return (
 		<ChannelHeader
 			platform="desktop"
@@ -90,7 +98,7 @@ const DesktopHeader = (props: { m: ChannelModel; placement: Placement }) => {
 			muted={m.muted()}
 			onMutedChange={m.unavailable() || inPane() ? undefined : m.setMuted}
 			view={threadsOpen() ? "threads" : "chat"}
-			threadsUnread={threadsUnread()}
+			threadsUnread={threadsUnread(m)}
 			onViewChange={
 				m.unavailable() || inPane()
 					? undefined
@@ -135,7 +143,7 @@ export const channel = defineContract({
 				? data.space(current).channelBySlug(args.channel)
 				: undefined;
 		});
-		return createConversation({
+		const conversation = createConversation({
 			space: args.space,
 			channel: args.channel,
 			target: () => view()?.space,
@@ -148,6 +156,26 @@ export const channel = defineContract({
 						layer.channel === args.channel,
 				),
 		});
+		const loadFailure = createMemo<LoadFailure | undefined>(() => {
+			const current = community();
+			const space = current ? data.space(current) : undefined;
+			const channelsError = space?.channels.error();
+			if (space && channelsError) {
+				return {
+					error: channelsError,
+					retry: () => {
+						space.channels.retry();
+						space.categories.retry();
+					},
+				};
+			}
+			const feed = conversation.feed();
+			const feedError = feed?.loadError();
+			if (feed && feedError) return { error: feedError, retry: feed.reload };
+			return undefined;
+		});
+		const model: ChannelModel = { ...conversation, loadFailure };
+		return model;
 	},
 	slots: {
 		Header: slot(
@@ -164,6 +192,17 @@ export const channel = defineContract({
 						kind={kind()}
 						actionLabel="Back to channels"
 						onAction={() => m.stack.pop()}
+					/>
+				)}
+			</Show>
+		)),
+		LoadError: slot((m) => (
+			<Show when={m.loadFailure()} keyed>
+				{(failure) => (
+					<LoadErrorState
+						title="This channel didn't load"
+						error={failure.error}
+						onRetry={failure.retry}
 					/>
 				)}
 			</Show>

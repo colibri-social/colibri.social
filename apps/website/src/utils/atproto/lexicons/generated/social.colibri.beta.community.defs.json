@@ -56,6 +56,10 @@
 					"type": "boolean",
 					"description": "Whether link previews are shown by default."
 				},
+				"overrideUserNameColors": {
+					"type": "boolean",
+					"description": "Whether only role colours are shown in chat. Members' own name colours are hidden, and a member without a coloured role shows the default name colour. Absent means false."
+				},
 				"labelers": {
 					"type": "array",
 					"items": {
@@ -297,6 +301,14 @@
 					"description": "Hex colour as #rrggbb.",
 					"maxLength": 7
 				},
+				"badge": {
+					"type": "union",
+					"refs": [
+						"#roleIconBadge",
+						"#roleImageBadgeView"
+					],
+					"description": "The role's badge, if it has one."
+				},
 				"permissions": {
 					"type": "array",
 					"items": {
@@ -362,6 +374,40 @@
 						"description": "A permission identifier."
 					},
 					"description": "Permissions denied here."
+				}
+			}
+		},
+		"roleIconBadge": {
+			"type": "object",
+			"description": "A role badge drawn from the client's curated icon set.",
+			"required": [
+				"icon"
+			],
+			"properties": {
+				"icon": {
+					"type": "string",
+					"minLength": 1,
+					"maxLength": 64,
+					"description": "The icon's identifier in the client's curated set, for example shield-check."
+				},
+				"color": {
+					"type": "string",
+					"maxLength": 7,
+					"description": "Hex colour as #rrggbb. Absent means the role colour, or the client's default badge colour."
+				}
+			}
+		},
+		"roleImageBadgeView": {
+			"type": "object",
+			"description": "A badge drawn from an uploaded image.",
+			"required": [
+				"image"
+			],
+			"properties": {
+				"image": {
+					"type": "string",
+					"format": "uri",
+					"description": "URL of the badge image, served by this AppView's blob proxy."
 				}
 			}
 		},

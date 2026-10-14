@@ -9,10 +9,16 @@ import {
 	toast,
 } from "@colibri-social/ui";
 import { CloseIcon } from "@solar-icons/solid/bold/close";
-import { createMemo, createSignal, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, on, Show } from "solid-js";
 import { displayNameOf } from "../../data/adapters/authors";
 import { fromComposerValue } from "../../data/adapters/facets";
 import { skeyOf } from "../../data/ids";
+import {
+	createComposerDraft,
+	readThreadNameDraft,
+	threadStartDraftKey,
+	writeThreadNameDraft,
+} from "../../data/persist-drafts";
 import type { ThreadAnchor } from "../../data/source";
 import { useData } from "../../data/store";
 import { defineContract, slot } from "../../screen/define";
@@ -62,7 +68,37 @@ export const threadDraft = defineContract({
 			label: () => parent()?.name ?? args.channel,
 			isActive: () => false,
 		});
-		const [name, setName] = createSignal("");
+		const draftKey = () => {
+			const ref = parent()?.space;
+			return ref ? threadStartDraftKey(ref, args.anchor) : undefined;
+		};
+		const draft = createComposerDraft({
+			key: draftKey,
+			attachments: {
+				files: () => conversation.attachments.items().map((item) => item.file),
+				add: (files) => conversation.attachments.addFiles(files),
+			},
+		});
+		const [name, setNameSignal] = createSignal("");
+		createEffect(
+			on(draftKey, (key) => {
+				if (key && !name()) setNameSignal(readThreadNameDraft(key));
+			}),
+		);
+		const setName = (next: string) => {
+			setNameSignal(next);
+			const key = draftKey();
+			if (key) writeThreadNameDraft(key, next);
+		};
+		const discardDraft = () => {
+			draft.clear();
+			const key = draftKey();
+			if (key) writeThreadNameDraft(key, "");
+		};
+		const discard = () => {
+			discardDraft();
+			closePane(stack);
+		};
 		const [busy, setBusy] = createSignal(false);
 		const tooLong = () => threadNameTooLong(name().trim());
 
@@ -101,6 +137,7 @@ export const threadDraft = defineContract({
 					name: chooseThreadName(name(), suggested()),
 					anchor,
 				});
+				discardDraft();
 				const converted = data.emoji.withFacets(
 					community()?.did,
 					payload.text,
@@ -143,6 +180,8 @@ export const threadDraft = defineContract({
 			busy,
 			tooLong,
 			submit,
+			draft,
+			discard,
 		};
 	},
 	slots: {
@@ -161,7 +200,7 @@ export const threadDraft = defineContract({
 								size="md"
 								label="Discard thread"
 								icon={<CloseIcon />}
-								onClick={() => closePane(m.stack)}
+								onClick={m.discard}
 							/>
 						}
 					/>
@@ -171,7 +210,7 @@ export const threadDraft = defineContract({
 					safeTop
 					kind="back"
 					navigateLabel="Discard thread"
-					onNavigate={() => m.stack.pop()}
+					onNavigate={m.discard}
 					title={
 						<span class="flex min-w-0 flex-col">
 							<span class="truncate">New thread</span>
@@ -234,6 +273,7 @@ export const threadDraft = defineContract({
 					placeholder="Enter a message to start the conversation!"
 					sources={m.conversation.sources}
 					onSend={m.submit}
+					onChange={m.draft.changed}
 					onUpload={() => m.conversation.attachments.pick()}
 					onPasteFiles={(files) => m.conversation.attachments.addFiles(files)}
 					hasAttachments={m.conversation.attachments.hasAttachments()}
@@ -253,7 +293,10 @@ export const threadDraft = defineContract({
 						);
 						m.conversation.media.openGif();
 					}}
-					editorRef={m.conversation.setEditor}
+					editorRef={(handle) => {
+						m.conversation.setEditor(handle);
+						m.draft.bind(handle);
+					}}
 					disabled={m.parent()?.viewer.canPost === false}
 					disabledReason="You can't post in this channel."
 					top={<m.conversation.attachments.Tray />}

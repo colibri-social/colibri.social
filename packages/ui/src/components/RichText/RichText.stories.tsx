@@ -90,7 +90,7 @@ const resolvers: RichTextResolvers = {
 		if (channel) return { kind: "channel", channel: channel[1] };
 		return undefined;
 	},
-	rewriteUrl: (uri) => uri.replace("https://bsky.app/", "https://deer.social/"),
+	rewriteUrl: (uri) => uri.replace("https://bsky.app/", "https://witchsky.app/"),
 	onLinkOpen,
 	onNavigate,
 	bridgePlatformName: (platform) => (platform === "chat" ? "Chat" : platform),
@@ -274,11 +274,11 @@ export const Links: Story = {
 			expect.anything(),
 		);
 		const bare = canvas.getByRole("link", {
-			name: "https://deer.social/profile/lou",
+			name: "https://witchsky.app/profile/lou",
 		});
 		await expect(bare).toHaveAttribute(
 			"href",
-			"https://deer.social/profile/lou",
+			"https://witchsky.app/profile/lou",
 		);
 		const invite = canvas.getByRole("link", { name: "Join us" });
 		await expect(invite).toHaveAttribute("href", "/app/invite/abc123");

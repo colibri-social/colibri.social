@@ -12,6 +12,7 @@ import {
 	onCleanup,
 	type ParentProps,
 	Show,
+	Suspense,
 	Switch,
 } from "solid-js";
 import { copyText } from "../../utils/clipboard";
@@ -188,12 +189,14 @@ export const CodeBlock = (props: {
 					props.lang ? "pt-1" : "pt-2",
 				)}
 			>
-				<Show
-					when={highlighted()}
-					fallback={<code class="font-mono">{props.code}</code>}
-				>
-					{(html) => <code class="font-mono" innerHTML={html()} />}
-				</Show>
+				<Suspense fallback={<code class="font-mono">{props.code}</code>}>
+					<Show
+						when={highlighted()}
+						fallback={<code class="font-mono">{props.code}</code>}
+					>
+						{(html) => <code class="font-mono" innerHTML={html()} />}
+					</Show>
+				</Suspense>
 			</pre>
 		</div>
 	);

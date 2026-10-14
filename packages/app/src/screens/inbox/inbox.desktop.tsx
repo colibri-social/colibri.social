@@ -1,6 +1,6 @@
 import { inbox } from "./inbox.contract";
 
 export default inbox.view({
-	omit: ["MarkAll", "Filters", "Groups"],
+	omit: ["MarkRead", "Filters", "Groups"],
 	render: ({ slots: s }) => <s.Popover />,
 });

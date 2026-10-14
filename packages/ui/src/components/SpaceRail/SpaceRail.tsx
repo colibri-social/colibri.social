@@ -46,6 +46,14 @@ export const SPACE_RAIL_METRICS = {
 
 export const SPACE_RAIL_FILLET = 11;
 export const SPACE_RAIL_TAB_RADIUS = 12;
+export const SPACE_RAIL_DESKTOP_FADE = 24;
+
+const desktopEdgeMask = `linear-gradient(to bottom in oklab, #000 calc(100% - ${SPACE_RAIL_DESKTOP_FADE}px), transparent)`;
+
+export const spaceRailDesktopEdgeFade = {
+	"mask-image": desktopEdgeMask,
+	"-webkit-mask-image": desktopEdgeMask,
+} as const;
 
 export const spaceRailPanelClass =
 	"rail-join relative rounded-tl-sheet border-t border-l border-muted bg-card";
@@ -276,16 +284,18 @@ const RailFrame = (
 					width: `${metrics().width}px`,
 					background:
 						"linear-gradient(to bottom, var(--background) 91.784%, var(--card))",
+					...(platform() === "desktop" ? spaceRailDesktopEdgeFade : {}),
 				}}
 			>
 				<div
 					ref={content}
 					data-rail-content=""
-					class="relative flex flex-col pb-2"
+					class="relative flex flex-col"
 					style={{
 						width: `${metrics().width}px`,
 						gap: `${metrics().gap}px`,
 						"padding-top": `${props.paddingTop ?? metrics().paddingTop}px`,
+						"padding-bottom": `${platform() === "desktop" ? SPACE_RAIL_DESKTOP_FADE : 8}px`,
 					}}
 				>
 					<ActiveTab

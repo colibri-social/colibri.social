@@ -167,6 +167,38 @@ it("opens the Inbox popover from the rail", async () => {
 		.toBeNull();
 });
 
+it("clears the Inbox from its right-click menu", async () => {
+	const store = await mount(`/app/c/${HQ}/${TEXT}/general`);
+	await expect.poll(() => store.notifications.unreadCount()).toBeGreaterThan(0);
+	const inbox = page.getByRole("button", { name: /^Inbox/ });
+	await expect.element(inbox).toBeVisible();
+	rightClick(inbox.element());
+	await expect
+		.element(page.getByRole("menu", { name: "Inbox options" }))
+		.toBeVisible();
+	await userEvent.click(page.getByRole("menuitem", { name: "Clear Inbox" }));
+	await expect.poll(() => store.notifications.items().length).toBe(0);
+	expect(store.notifications.unreadCount()).toBe(0);
+	await expect.poll(() => document.querySelector("[role=menu]")).toBeNull();
+	rightClick(inbox.element());
+	for (const name of ["Clear Inbox", "Mark everything as read"]) {
+		await expect
+			.element(page.getByRole("menuitem", { name }))
+			.toHaveAttribute("aria-disabled", "true");
+	}
+});
+
+it("marks everything read from the Inbox right-click menu", async () => {
+	const store = await mount(`/app/c/${HQ}/${TEXT}/general`);
+	await expect.poll(() => store.notifications.unreadCount()).toBeGreaterThan(0);
+	rightClick(page.getByRole("button", { name: /^Inbox/ }).element());
+	await userEvent.click(
+		page.getByRole("menuitem", { name: "Mark everything as read" }),
+	);
+	await expect.poll(() => store.notifications.unreadCount()).toBe(0);
+	expect(store.notifications.items().length).toBeGreaterThan(0);
+});
+
 it("shows the member sidebar with desktop rows, the profile popover and the member menu", async () => {
 	await mount(`/app/c/${HQ}/${TEXT}/general`);
 	await expect
@@ -231,6 +263,21 @@ it("shows live last-message previews that follow the setting", async () => {
 	await expect
 		.poll(() => sidebar().querySelectorAll("[data-channel-preview]").length)
 		.toBe(0);
+	await expect
+		.poll(() => sidebar().querySelector("[data-channel-list]"))
+		.toHaveAttribute("data-density", "compact");
+	const nodes = Array.from(
+		sidebar().querySelectorAll<HTMLElement>(
+			'[data-category-rows] > [data-list-node="channel"]',
+		),
+	);
+	expect(nodes.length).toBeGreaterThan(1);
+	for (const node of nodes)
+		expect(node.getBoundingClientRect().height).toBeGreaterThanOrEqual(40);
+	const [first, second] = nodes;
+	expect(second.getBoundingClientRect().top).toBe(
+		first.getBoundingClientRect().bottom,
+	);
 	store.setControls({ showMessagePreviews: true });
 });
 
@@ -321,7 +368,7 @@ it("keeps every desktop channel row at the list width", async () => {
 	expect(Math.max(...previews)).toBeGreaterThan(0);
 });
 
-it("draws the Space banner behind the name with a square corner", async () => {
+it("draws the Space banner behind the name inside a square corner on the web", async () => {
 	await mount(`/app/c/${HQ}/${TEXT}/general`);
 	await expect
 		.poll(() => sidebar().querySelector("[data-banner-flush]"))
@@ -335,12 +382,14 @@ it("draws the Space banner behind the name with a square corner", async () => {
 	);
 	const name = header.querySelector("[data-space-name]") as HTMLElement;
 	expect(getComputedStyle(name).textShadow).not.toBe("none");
-	for (const element of [
-		sidebar(),
-		sidebar().querySelector("[data-shell-sidebar-content]") as HTMLElement,
-	]) {
-		expect(getComputedStyle(element).borderTopLeftRadius).toBe("0px");
-	}
+	const content = sidebar().querySelector(
+		"[data-shell-sidebar-content]",
+	) as HTMLElement;
+	expect(getComputedStyle(sidebar()).borderTopLeftRadius).toBe("0px");
+	expect(getComputedStyle(content).borderTopLeftRadius).toBe("0px");
+	expect(getComputedStyle(content).overflow).toBe("hidden");
+	expect(getComputedStyle(content).isolation).toBe("isolate");
+	expect(content.contains(banner)).toBe(true);
 });
 
 it("keeps the profile popover where it opened while rows move", async () => {

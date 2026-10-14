@@ -97,6 +97,7 @@ export type ProfileHeaderLink = {
 	label: string;
 	href: string;
 	icon: JSX.Element;
+	tint?: string;
 };
 
 export type ProfileHeaderProps = {
@@ -255,7 +256,13 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 										title={link.label}
 										aria-label={link.label}
 										data-profile-link=""
-										class="flex size-6 items-center justify-center rounded-control-xs text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-ring [&>svg]:size-4 [&>img]:size-4"
+										data-tinted={link.tint ? "" : undefined}
+										style={
+											link.tint
+												? { "--profile-link-tint": link.tint }
+												: undefined
+										}
+										class="group/brand-link flex size-6 items-center justify-center rounded-control-xs text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-ring data-tinted:hover:text-(--profile-link-tint) data-tinted:focus-visible:text-(--profile-link-tint) [&>svg]:size-4 [&>img]:size-4"
 									>
 										{link.icon}
 									</a>

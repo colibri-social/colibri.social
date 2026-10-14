@@ -83,12 +83,39 @@ describe("inbox tab", () => {
 		groupButton?.click();
 		await until(() => store.notifications.unreadCount() < before);
 
-		root
-			.querySelector<HTMLElement>('button[aria-label="Mark all as read"]')
-			?.click();
+		root.querySelector<HTMLElement>("[data-inbox-mark-filter-read]")?.click();
 		await until(() => store.notifications.unreadCount() === 0);
 		await until(() => rows(root).length === 0);
 		expect(root.querySelector("[data-inbox-group-actions] button")).toBeNull();
+		expect(root.querySelector("[data-inbox-mark-filter-read]")).toBeNull();
+	});
+
+	it("marks only the current tab read from inside the tab", async () => {
+		const { store, host: root } = await mount();
+		const markAll = root.querySelector<HTMLElement>(
+			"[data-inbox-mark-filter-read]",
+		);
+		expect(markAll?.textContent).toBe("Mark all as read");
+		expect(markAll?.closest("[data-inbox-group]")).toBeNull();
+		const replies = Array.from(
+			root.querySelectorAll<HTMLElement>('[role="radio"], button, label'),
+		).find((element) => element.textContent?.trim().startsWith("Replies"));
+		replies?.click();
+		await until(
+			() =>
+				root.querySelector("[data-inbox-mark-filter-read]")?.textContent ===
+				"Mark replies as read",
+		);
+		const unreadMentions = () =>
+			store.notifications
+				.items()
+				.filter((entry) => !entry.seenAt && entry.kind !== "reply").length;
+		const mentionsBefore = unreadMentions();
+		expect(mentionsBefore).toBeGreaterThan(0);
+		root.querySelector<HTMLElement>("[data-inbox-mark-filter-read]")?.click();
+		await until(() => rows(root).length === 0);
+		expect(root.querySelector("[data-inbox-mark-filter-read]")).toBeNull();
+		expect(unreadMentions()).toBe(mentionsBefore);
 	});
 
 	it("clears the Space mention pill when a mention is marked read", async () => {
@@ -187,9 +214,7 @@ describe("inbox tab", () => {
 		await until(() =>
 			spaces.some((community) => store.space(community).totals().mentions > 0),
 		);
-		root
-			.querySelector<HTMLElement>('button[aria-label="Mark all as read"]')
-			?.click();
+		root.querySelector<HTMLElement>("[data-inbox-mark-filter-read]")?.click();
 		await until(() => store.notifications.unreadCount() === 0);
 		await wait(100);
 		const left = spaces.map(

@@ -9,7 +9,11 @@ import { VolumeLoudIcon } from "@solar-icons/solid/bold/volume-loud";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
 import { type JSX, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
-import { HeadphonesSlashIcon, MicrophoneSlashIcon } from "../../icons/custom";
+import {
+	HeadphonesSlashIcon,
+	MicrophoneSlashIcon,
+	ThreadIcon,
+} from "../../icons/custom";
 import { cx } from "../../utils/cx";
 import { createLongPress } from "../../utils/gestures";
 import { KeyedFor } from "../../utils/keyed";
@@ -29,6 +33,9 @@ export type ChannelPreview = {
 export type ChannelAttachment = "image" | "file";
 
 export type ChannelRowDensity = "default" | "compact";
+
+const compactRowHeight = (platform: ChannelPlatform | undefined) =>
+	platform === "desktop" ? "h-10" : "h-11";
 
 type RowEvents = {
 	onClick?: (event: MouseEvent) => void;
@@ -119,7 +126,7 @@ export const ChannelRow = (props: ChannelRowProps) => {
 				onContextMenu={(event: MouseEvent) => props.onContextMenu?.(event)}
 				class={cx(
 					"ripple flex w-full min-w-0 cursor-pointer flex-col justify-center gap-1 rounded-control-sm border-0 bg-transparent px-2 py-1.5 text-left no-underline select-none [-webkit-touch-callout:none]",
-					compact() && "h-8",
+					compact() && compactRowHeight(props.platform),
 					"hover:bg-popover/60",
 					rowFocus,
 					props.active &&
@@ -222,7 +229,9 @@ export const ChannelRow = (props: ChannelRowProps) => {
 				</Show>
 			</Dynamic>
 			<Show when={desktop() && props.onOpenSettings}>
-				<span class="absolute top-1 right-1 flex">
+				<span
+					class={cx("absolute right-1 flex", compact() ? "top-2" : "top-1")}
+				>
 					<SettingsButton
 						label={props.settingsLabel ?? `Settings for ${props.name}`}
 						onClick={() => props.onOpenSettings?.()}
@@ -232,6 +241,134 @@ export const ChannelRow = (props: ChannelRowProps) => {
 		</div>
 	);
 };
+
+export type ChannelThreadRowProps = Omit<
+	RowEvents,
+	"onOpenSettings" | "settingsLabel"
+> & {
+	name: string;
+	href?: string;
+	active?: boolean;
+	unread?: boolean;
+	mentions?: number;
+	muted?: boolean;
+	private?: boolean;
+	platform?: ChannelPlatform;
+	class?: string;
+};
+
+export const ChannelThreadRow = (props: ChannelThreadRowProps) => {
+	const ripple = createRipple();
+	const mentions = () => props.mentions ?? 0;
+	const lit = () =>
+		mentions() > 0 || ((!!props.unread || !!props.active) && !props.muted);
+	const desktop = () => props.platform === "desktop";
+
+	return (
+		<div
+			data-channel-thread=""
+			data-state={
+				mentions() > 0 ? "mentions" : props.unread ? "unread" : "read"
+			}
+			data-active={props.active || undefined}
+			data-muted={props.muted || undefined}
+			class={cx("relative flex w-full min-w-0", props.class)}
+		>
+			<Dynamic
+				component={props.href ? "a" : "button"}
+				ref={bindGestures(props, ripple)}
+				type={props.href ? undefined : "button"}
+				href={props.href}
+				aria-current={props.active ? "page" : undefined}
+				onClick={(event: MouseEvent) => props.onClick?.(event)}
+				onContextMenu={(event: MouseEvent) => props.onContextMenu?.(event)}
+				class={cx(
+					"ripple flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-control-sm border-0 bg-transparent px-2 text-left no-underline select-none [-webkit-touch-callout:none]",
+					desktop() ? "h-8" : "h-10",
+					"hover:bg-popover/60",
+					rowFocus,
+					props.active &&
+						(desktop()
+							? "bg-popover hover:bg-popover"
+							: "bg-muted hover:bg-muted"),
+				)}
+			>
+				<span
+					class={cx(
+						"flex size-4 shrink-0 [&>svg]:size-4",
+						lit() ? "text-foreground" : "text-muted-foreground",
+						props.muted && "opacity-60",
+					)}
+				>
+					<ThreadIcon />
+				</span>
+				<span
+					data-thread-name=""
+					class={cx(
+						"min-w-0 flex-1 truncate text-sm leading-5",
+						lit()
+							? "font-semibold text-foreground"
+							: "font-medium text-muted-foreground",
+					)}
+				>
+					{props.name}
+				</span>
+				<Show when={props.private}>
+					<span
+						role="img"
+						aria-label="Private"
+						class="flex size-3 shrink-0 text-muted-foreground [&>svg]:size-3"
+					>
+						<LockKeyholeMinimalisticIcon />
+					</span>
+				</Show>
+				<Show when={props.muted}>
+					<span
+						role="img"
+						aria-label="Muted"
+						class="flex size-3 shrink-0 text-muted-foreground [&>svg]:size-3"
+					>
+						<BellOffIcon />
+					</span>
+				</Show>
+				<Show when={mentions() > 0}>
+					<CountBadge
+						data-thread-mentions=""
+						aria-hidden="true"
+						count={mentions()}
+						max={9}
+					/>
+					<span class="sr-only">{`, ${pluralMentions(mentions())}`}</span>
+				</Show>
+				<Show when={!mentions() && props.unread}>
+					<span
+						data-thread-unread=""
+						aria-hidden="true"
+						class="size-1.5 shrink-0 rounded-full bg-foreground"
+					/>
+					<span class="sr-only">, unread</span>
+				</Show>
+			</Dynamic>
+		</div>
+	);
+};
+
+export type ChannelThreadsProps = {
+	children: JSX.Element;
+	class?: string;
+};
+
+export const ChannelThreads = (props: ChannelThreadsProps) => (
+	<div
+		data-channel-threads=""
+		class={cx(
+			"ml-4 flex min-w-0 flex-col gap-0.5 border-0 border-l border-solid border-border pt-0.5 pl-2",
+			props.class,
+		)}
+	>
+		{props.children}
+	</div>
+);
 
 export type VoiceChannelRowProps = RowEvents & {
 	name: string;
@@ -243,6 +380,7 @@ export type VoiceChannelRowProps = RowEvents & {
 	participants?: VoiceParticipant[];
 	onOpenParticipant?: (id: string) => void;
 	platform?: ChannelPlatform;
+	density?: ChannelRowDensity;
 	class?: string;
 };
 
@@ -264,10 +402,12 @@ export const VoiceChannelRow = (props: VoiceChannelRowProps) => {
 	const state = () => voiceIconState(props);
 	const participants = () => props.participants ?? [];
 	const desktop = () => props.platform === "desktop";
+	const compact = () => props.density === "compact";
 
 	return (
 		<div
 			data-voice-row=""
+			data-density={compact() ? "compact" : "default"}
 			data-state={state()}
 			data-joined={props.joined || undefined}
 			class={cx("group/channel relative flex w-full flex-col", props.class)}
@@ -281,7 +421,8 @@ export const VoiceChannelRow = (props: VoiceChannelRowProps) => {
 				onClick={(event: MouseEvent) => props.onClick?.(event)}
 				onContextMenu={(event: MouseEvent) => props.onContextMenu?.(event)}
 				class={cx(
-					"ripple flex h-8 w-full min-w-0 cursor-pointer items-center gap-2 rounded-r-control-xs border-0 border-l-2 border-solid bg-transparent p-1.5 text-left no-underline select-none [-webkit-touch-callout:none]",
+					"ripple flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-r-control-xs border-0 border-l-2 border-solid bg-transparent p-1.5 text-left no-underline select-none [-webkit-touch-callout:none]",
+					compact() ? compactRowHeight(props.platform) : "h-8",
 					rowFocus,
 					props.joined
 						? "rounded-r-control-sm border-primary"
@@ -340,7 +481,12 @@ export const VoiceChannelRow = (props: VoiceChannelRowProps) => {
 				</Show>
 			</Dynamic>
 			<Show when={desktop() && props.onOpenSettings}>
-				<span class="absolute top-1 right-1 flex h-6 items-center">
+				<span
+					class={cx(
+						"absolute right-1 flex h-6 items-center",
+						compact() ? "top-2" : "top-1",
+					)}
+				>
 					<SettingsButton
 						label={props.settingsLabel ?? `Settings for ${props.name}`}
 						onClick={() => props.onOpenSettings?.()}

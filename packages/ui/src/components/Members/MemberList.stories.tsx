@@ -377,12 +377,23 @@ export const PopoverOnVirtualRow: Story = {
 				popover.getBoundingClientRect().top - row.getBoundingClientRect().top,
 			);
 		await expect(near()).toBeLessThan(120);
+		await waitFor(() =>
+			expect(
+				popover
+					.getAnimations()
+					.every((animation) => animation.playState === "finished"),
+			).toBe(true),
+		);
+		const rowBefore = row.getBoundingClientRect().top;
+		const popoverBefore = popover.getBoundingClientRect().top;
+		await scrollTo(scroller, 2920);
+		await expect(popover).not.toHaveAttribute("data-closed");
+		const rowShift = row.getBoundingClientRect().top - rowBefore;
+		const popoverShift = popover.getBoundingClientRect().top - popoverBefore;
+		await expect(rowShift).toBeGreaterThan(40);
+		await expect(Math.abs(popoverShift - rowShift)).toBeLessThan(2);
 		await scrollTo(scroller, 12_000);
 		await expect(row.isConnected).toBe(true);
-		await scrollAndRest(scroller, 3000);
-		await expect(row.isConnected).toBe(true);
-		await expect(near()).toBeLessThan(120);
-		await userEvent.keyboard("{Escape}");
 		await waitFor(() => expect(popover).toHaveAttribute("data-closed"));
 		await expect(popover.isConnected).toBe(true);
 		await expect(popover).toHaveAccessibleName(`${name}'s profile`);

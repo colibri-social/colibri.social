@@ -1,6 +1,7 @@
 import {
 	Button,
 	Modal,
+	ModalClose,
 	ModalContent,
 	type StatusClearAfter,
 	type StatusDraft,
@@ -53,6 +54,17 @@ export const StatusEditor = (props: {
 	const [clearAfterTouched, setClearAfterTouched] = createSignal(false);
 	const [saving, setSaving] = createSignal(false);
 
+	const dirty = () => {
+		const initial = draftFrom(current());
+		const next = draft();
+		return (
+			next.text !== initial.text ||
+			(next.emoji ?? "") !== (initial.emoji ?? "") ||
+			!!next.showWhileOffline !== !!initial.showWhileOffline ||
+			clearAfterTouched()
+		);
+	};
+
 	const reset = () => {
 		setDraft(draftFrom(current()));
 		setClearAfterTouched(false);
@@ -85,18 +97,17 @@ export const StatusEditor = (props: {
 		);
 
 	return (
-		<Modal open={props.open} onOpenChange={change}>
+		<Modal
+			open={props.open}
+			onOpenChange={change}
+			dirty={!saving() && dirty()}
+			discardDescription="Your new status won't be saved."
+		>
 			<ModalContent
 				title="Set your status"
 				footer={
 					<>
-						<Button
-							variant="secondary"
-							disabled={saving()}
-							onClick={() => props.onOpenChange(false)}
-						>
-							Cancel
-						</Button>
+						<ModalClose disabled={saving()}>Cancel</ModalClose>
 						<Show when={current()}>
 							<Button
 								variant="secondary"

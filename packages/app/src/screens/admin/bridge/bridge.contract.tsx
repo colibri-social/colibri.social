@@ -31,6 +31,7 @@ import { defineContract, slot } from "../../../screen/define";
 import { usePlatform } from "../../../screen/platform";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
+import { useUnsavedChanges } from "../../../shell/unsaved-changes";
 import {
 	HISTORY_DEPTHS,
 	type HistoryDepth,
@@ -172,11 +173,28 @@ export const bridge = defineContract({
 			setDepths({});
 		};
 
+		let disconnected = false;
+		useUnsavedChanges({
+			depth: () =>
+				stack
+					.mounted()
+					.findIndex(
+						(layer) =>
+							layer.kind === "admin" &&
+							layer.page === "bridge" &&
+							layer.space === args.space &&
+							layer.id === args.id,
+					) + 1,
+			dirty: () => !disconnected && !busy() && edited(),
+			description: () => "Your link changes won't be saved.",
+		});
+
 		const disconnect = async () => {
 			const id = args.id;
 			if (!id) return;
 			try {
 				await data()?.disconnect(id);
+				disconnected = true;
 				setConfirmOpen(false);
 				toast.success("Bridge disconnected");
 				stack.pop();

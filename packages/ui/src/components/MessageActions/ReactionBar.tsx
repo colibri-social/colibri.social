@@ -117,7 +117,7 @@ export const ReactionChip = (props: ReactionChipProps) => {
 					"ripple inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-control-sm border px-2 outline-none",
 					"focus-ring disabled:cursor-not-allowed disabled:opacity-50",
 					props.mine
-						? "border-primary bg-[color-mix(in_srgb,var(--primary)_18%,transparent)] text-[color-mix(in_srgb,var(--primary)_35%,var(--foreground))] hover:bg-[color-mix(in_srgb,var(--primary)_26%,transparent)]"
+						? "border-primary bg-[color-mix(in_srgb,var(--primary)_18%,transparent)] text-reaction-mine-foreground hover:bg-[color-mix(in_srgb,var(--primary)_26%,transparent)]"
 						: "border-border bg-popover text-muted-foreground hover:bg-popover-highlight",
 					props.class,
 				)}

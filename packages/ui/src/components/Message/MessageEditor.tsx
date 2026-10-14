@@ -17,6 +17,7 @@ import type { MessagePlatform } from "./MessageRow";
 
 export type MessageEditing = {
 	value: RichText | string;
+	baseline?: RichText | string;
 	onSave: (value: RichText) => unknown;
 	onCancel: () => void;
 	onChange?: (value: RichText) => void;
@@ -49,6 +50,7 @@ const hintButton =
 
 export const MessageEditor = (props: MessageEditorProps) => {
 	const original = toRichText(props.editing.value);
+	const baseline = toRichText(props.editing.baseline ?? props.editing.value);
 	const [current, setCurrent] = createSignal<RichText>(original);
 	const [saving, setSaving] = createSignal(false);
 	const [handle, setHandle] = createSignal<RichEditorHandle>();
@@ -67,7 +69,7 @@ export const MessageEditor = (props: MessageEditorProps) => {
 
 	const save = async (value: RichText): Promise<boolean> => {
 		if (saving() || !saveable(value)) return false;
-		if (sameRichText(value, original)) {
+		if (sameRichText(value, baseline)) {
 			props.editing.onCancel();
 			return true;
 		}

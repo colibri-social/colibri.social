@@ -88,7 +88,17 @@ describe("desktop settings modal", () => {
 		expect(document.body.textContent).not.toContain("Swipe left to reply");
 		expect(modal.element().querySelector("[data-modal-back]")).toBeNull();
 		await expectNoLayoutIssues(modal.element() as HTMLElement);
-		await userEvent.click(modal.getByRole("button", { name: "Your profile" }));
+		const preview = modal
+			.element()
+			.querySelector<HTMLElement>("[data-member-row]");
+		expect(preview?.tagName).toBe("DIV");
+		expect(preview?.tabIndex).toBe(-1);
+		expect(preview?.hasAttribute("aria-label")).toBe(false);
+		expect(getComputedStyle(preview as HTMLElement).cursor).not.toBe("pointer");
+		expect(preview?.classList.contains("ripple")).toBe(false);
+		await userEvent.click(
+			modal.getByRole("button", { name: "Profile", exact: true }),
+		);
 		await expect.poll(() => location.pathname).toBe("/app/settings/profile");
 		await userEvent.keyboard("{Escape}");
 		await expect.poll(() => location.pathname).toBe(channelPath);
@@ -108,14 +118,14 @@ describe("desktop settings modal", () => {
 		const discard = page.getByRole("dialog", { name: "Discard changes?" });
 		await expect.element(discard).toBeVisible();
 		expect(location.pathname).toBe("/app/settings");
-		await userEvent.click(
-			discard.getByRole("button", { name: "Keep editing" }),
-		);
+		await userEvent.click(discard.getByRole("button", { name: "Cancel" }));
 		await expect.element(name).toHaveValue("Somebody else");
 		await userEvent.click(modal.getByRole("button", { name: "Advanced" }));
 		await expect.element(discard).toBeVisible();
 		expect(location.pathname).toBe("/app/settings");
-		await userEvent.click(discard.getByRole("button", { name: "Discard" }));
+		await userEvent.click(
+			discard.getByRole("button", { name: "Discard changes" }),
+		);
 		await expect.poll(() => location.pathname).toBe("/app/settings/advanced");
 		await userEvent.click(
 			modal.getByRole("button", { name: "Profile", exact: true }),
@@ -131,7 +141,7 @@ describe("desktop settings modal", () => {
 		await userEvent.click(
 			page
 				.getByRole("dialog", { name: "Discard changes?" })
-				.getByRole("button", { name: "Discard" }),
+				.getByRole("button", { name: "Discard changes" }),
 		);
 		await expect.poll(() => location.pathname).toBe(channelPath);
 	});
@@ -180,6 +190,8 @@ const stubNavigator = (layers: Layer[]) => {
 		popTo: calls.popTo,
 		forcePop: () => {},
 		setPopGuard: () => () => {},
+		registerLeave: () => () => {},
+		confirmLeave: (_depth: number, action: () => void) => action(),
 		depth: () => layers.length,
 		top: () => layers.at(-1),
 		isVisible: () => true,

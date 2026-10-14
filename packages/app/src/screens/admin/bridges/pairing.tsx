@@ -1,8 +1,10 @@
 import { ConfirmDialog, toast } from "@colibri-social/ui";
 import { createMemo, createSignal } from "solid-js";
 import type { BridgePairingView } from "../../../data/types";
+import type { AdminPage } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { type Navigator, useStack } from "../../../shell/stack";
+import { useUnsavedChanges } from "../../../shell/unsaved-changes";
 import { SPACE_PERMISSIONS, useAdminSpace } from "../space-admin";
 import { platformName } from "./bridge-catalog";
 
@@ -64,14 +66,31 @@ export const showBridge = (
 
 export const createPairingFlow = (
 	bridge: ReturnType<typeof useBridgeAdmin>,
+	page: AdminPage,
 ) => {
 	const [code, setCode] = createSignal("");
 	const [busy, setBusy] = createSignal(false);
 	const [error, setError] = createSignal<string>();
 	const [pairing, setPairing] = createSignal<BridgePairingView>();
 	const [confirmOpen, setConfirmOpen] = createSignal(false);
+	const [connected, setConnected] = createSignal(false);
 
 	const trimmed = () => code().trim();
+
+	useUnsavedChanges({
+		depth: () =>
+			bridge.stack
+				.mounted()
+				.findIndex(
+					(layer) =>
+						layer.kind === "admin" &&
+						layer.page === page &&
+						layer.space === bridge.args.space &&
+						layer.id === bridge.args.id,
+				) + 1,
+		dirty: () => trimmed().length > 0 && !busy() && !connected(),
+		description: () => "The bridge won't be connected.",
+	});
 
 	const submit = async () => {
 		const data = bridge.data();
@@ -93,6 +112,7 @@ export const createPairingFlow = (
 		if (!data) return;
 		try {
 			const registration = await data.connect(trimmed());
+			setConnected(true);
 			toast.success("Bridge connected");
 			setConfirmOpen(false);
 			showBridge(bridge.stack, bridge.args.space, registration.id);

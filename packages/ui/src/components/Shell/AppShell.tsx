@@ -11,6 +11,8 @@ import {
 
 export const SHELL_RAIL_WIDTH = 56;
 export const DEFAULT_CHANNEL_SIDEBAR_WIDTH = 288;
+export const MIN_CHANNEL_SIDEBAR_WIDTH = 200;
+export const MAX_CHANNEL_SIDEBAR_WIDTH = 360;
 export const MEMBER_SIDEBAR_WIDTH = 288;
 export const MIN_CHAT_WIDTH = 360;
 
@@ -29,8 +31,23 @@ export type AppShellProps = {
 	defaultThreadWidth?: number;
 	onThreadWidthChange?: (width: number) => void;
 	sidebarWidth?: number;
+	defaultSidebarWidth?: number;
+	onSidebarWidthChange?: (width: number) => void;
+	onSidebarWidthCommit?: (width: number) => void;
 	class?: string;
 };
+
+export const clampSidebarWidth = (value: unknown) =>
+	typeof value === "number" && Number.isFinite(value)
+		? clampPaneWidth(
+				value,
+				MIN_CHANNEL_SIDEBAR_WIDTH,
+				MAX_CHANNEL_SIDEBAR_WIDTH,
+			)
+		: DEFAULT_CHANNEL_SIDEBAR_WIDTH;
+
+const squareFlushCorner =
+	"[[data-app-shell]:not(:has([data-window-bar-rounded]))_&:has([data-banner-flush])]:rounded-tl-none";
 
 export const AppShell = (props: AppShellProps) => {
 	const windowBar = createSlot(() => props.windowBar);
@@ -41,10 +58,16 @@ export const AppShell = (props: AppShellProps) => {
 	const [innerThreadWidth, setInnerThreadWidth] = createSignal(
 		clampPaneWidth(props.defaultThreadWidth ?? DEFAULT_THREAD_PANE_WIDTH),
 	);
+	const [innerSidebarWidth, setInnerSidebarWidth] = createSignal(
+		clampSidebarWidth(props.defaultSidebarWidth),
+	);
 	let root: HTMLDivElement | undefined;
 
-	const sidebarWidth = () =>
-		props.sidebarWidth ?? DEFAULT_CHANNEL_SIDEBAR_WIDTH;
+	const sidebarWidth = () => props.sidebarWidth ?? innerSidebarWidth();
+	const setSidebarWidth = (width: number) => {
+		setInnerSidebarWidth(width);
+		props.onSidebarWidthChange?.(width);
+	};
 	const membersOpen = () => members.has() && props.membersOpen !== false;
 	const threadWidth = () => props.threadWidth ?? innerThreadWidth();
 	const setThreadWidth = (width: number) => {
@@ -59,6 +82,15 @@ export const AppShell = (props: AppShellProps) => {
 			MIN_CHAT_WIDTH +
 			(membersOpen() ? MEMBER_SIDEBAR_WIDTH : 0);
 		return Math.max(MIN_THREAD_PANE_WIDTH, total - used);
+	};
+	const availableSidebarMax = () => {
+		const total = root?.clientWidth ?? 0;
+		const used =
+			SHELL_RAIL_WIDTH +
+			MIN_CHAT_WIDTH +
+			(membersOpen() ? MEMBER_SIDEBAR_WIDTH : 0) +
+			(thread.has() ? threadWidth() : 0);
+		return Math.max(MIN_CHANNEL_SIDEBAR_WIDTH, total - used);
 	};
 
 	return (
@@ -92,14 +124,31 @@ export const AppShell = (props: AppShellProps) => {
 						</nav>
 						<div
 							data-shell-sidebar=""
-							class="rail-join relative flex h-full w-(--channel-sidebar-width) min-w-(--channel-sidebar-width) flex-col rounded-tl-sheet border-t border-l border-muted bg-background has-[[data-banner-flush]]:rounded-tl-none"
+							class={cx(
+								"rail-join relative flex h-full w-(--channel-sidebar-width) min-w-(--channel-sidebar-width) flex-col rounded-tl-sheet border-t border-l border-muted bg-background",
+								squareFlushCorner,
+							)}
 						>
 							<div
 								data-shell-sidebar-content=""
-								class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-tl-[calc(var(--radius-sheet)-1px)] has-[[data-banner-flush]]:rounded-tl-none"
+								class={cx(
+									"isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-tl-[calc(var(--radius-sheet)-1px)]",
+									squareFlushCorner,
+								)}
 							>
 								{props.sidebar}
 							</div>
+							<PaneResizer
+								edge="end"
+								label="Resize channel list"
+								width={sidebarWidth()}
+								onWidthChange={setSidebarWidth}
+								onWidthCommit={(width) => props.onSidebarWidthCommit?.(width)}
+								min={MIN_CHANNEL_SIDEBAR_WIDTH}
+								max={MAX_CHANNEL_SIDEBAR_WIDTH}
+								defaultWidth={DEFAULT_CHANNEL_SIDEBAR_WIDTH}
+								availableMax={availableSidebarMax}
+							/>
 						</div>
 					</div>
 					<Show when={dock.has()}>

@@ -17,7 +17,9 @@ describe("paths", () => {
 		expect(parsePath(`/app/c/${DID}/manage/channel/general`).layers).toEqual([
 			{ kind: "admin", space: DID, page: "channel", id: "general" },
 		]);
-		expect(parsePath(`/app/c/${DID}/manage/nope`).layers).toEqual([]);
+		expect(parsePath(`/app/c/${DID}/manage/nope`).layers).toEqual([
+			{ kind: "notFound", path: `/app/c/${DID}/manage/nope` },
+		]);
 		expect(
 			parsePath(`/app/c/${DID}/manage/bridge-connect/matrix`).layers.map(
 				(layer) => (layer.kind === "admin" ? layer.page : layer.kind),
@@ -126,13 +128,38 @@ describe("paths", () => {
 		expect(pathAt(route, 1)).toBe("/app/profile/edit");
 	});
 
-	it("falls back to the Spaces tab", () => {
-		expect(parsePath("/nope/x")).toEqual({
-			root: { tab: "spaces" },
-			layers: [],
-		});
-		expect(parsePath("/app/c/not-a-did")).toEqual({
-			root: { tab: "spaces" },
+	it("opens the Spaces tab at the app roots", () => {
+		for (const path of ["/", "/app", "/app/"]) {
+			expect(parsePath(path)).toEqual({ root: { tab: "spaces" }, layers: [] });
+		}
+	});
+
+	it("routes unknown paths to a not found layer that keeps the URL", () => {
+		for (const path of [
+			"/nope/x",
+			"/app/nope",
+			"/app/c/not-a-did",
+			"/app/inbox/extra",
+			"/app/new/extra",
+			"/invite/abc/extra",
+			`/app/c/${DID}/${TEXT}/general/bogus`,
+			`/app/c/${DID}/${TEXT}/general/t/abc/bogus`,
+			`/app/c/${DID}/${TEXT}/general/threads/x/abc`,
+			`/app/c/${DID}/${TEXT}`,
+			"/app/%E0%A4%A",
+		]) {
+			const route = parsePath(path);
+			expect(route).toEqual({
+				root: { tab: "spaces" },
+				layers: [{ kind: "notFound", path }],
+			});
+			expect(pathAt(route, 1)).toBe(path);
+		}
+	});
+
+	it("keeps settings sub-pages on the Settings tab", () => {
+		expect(parsePath("/app/settings/appearance")).toEqual({
+			root: { tab: "settings" },
 			layers: [],
 		});
 	});

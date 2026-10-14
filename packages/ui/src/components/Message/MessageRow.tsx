@@ -1,3 +1,4 @@
+import { CrownIcon } from "@solar-icons/solid/bold/crown";
 import { RefreshIcon } from "@solar-icons/solid/bold/refresh";
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import {
@@ -11,6 +12,7 @@ import {
 } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createMenuTrigger } from "../../utils/gestures";
+import { useKeyboardModality } from "../../utils/keyboard-modality";
 import { motionScale, prefersReducedMotion } from "../../utils/motion";
 import {
 	nameColorClass,
@@ -40,6 +42,7 @@ export type MessageAuthor = {
 	color?: string;
 	nameColor?: string;
 	role?: RoleIdentity;
+	owner?: boolean;
 };
 
 export const useAuthorNameColor = (author: () => MessageAuthor | undefined) =>
@@ -231,6 +234,8 @@ export const MessageRow = (props: MessageRowProps) => {
 	const toolbar = createSlot(() => local.toolbar);
 	const [dimmed, setDimmed] = createSignal(false);
 	const [failedMenuOpen, setFailedMenuOpen] = createSignal(false);
+	const keyboardModality = useKeyboardModality();
+	const [keyboardFocus, setKeyboardFocus] = createSignal(false);
 	const listItem = useMessageListItem();
 	const highlight = (): MessageHighlight | undefined =>
 		listItem?.jumped() ? "jumped" : local.highlight;
@@ -337,9 +342,25 @@ export const MessageRow = (props: MessageRowProps) => {
 					...chatLayoutVars(local.platform ?? "desktop"),
 					...(typeof rest.style === "object" ? rest.style : {}),
 				}}
+				data-keyboard-focus={keyboardFocus() || undefined}
 				onClick={(event) => {
 					pressFailed(event);
 					if (typeof rest.onClick === "function") rest.onClick(event);
+				}}
+				onFocusIn={(event) => {
+					setKeyboardFocus(keyboardModality());
+					if (typeof rest.onFocusIn === "function") rest.onFocusIn(event);
+				}}
+				onFocusOut={(event) => {
+					const next = event.relatedTarget as Node | null;
+					if (!next || !event.currentTarget.contains(next))
+						setKeyboardFocus(false);
+					if (typeof rest.onFocusOut === "function") rest.onFocusOut(event);
+				}}
+				onPointerDown={(event) => {
+					setKeyboardFocus(false);
+					if (typeof rest.onPointerDown === "function")
+						rest.onPointerDown(event);
 				}}
 				class={cx(
 					"group/message relative flex flex-col gap-2 pr-(--chat-row-end-padding) pl-(--chat-row-padding)",
@@ -376,7 +397,7 @@ export const MessageRow = (props: MessageRowProps) => {
 									"flex h-[21px] w-10 shrink-0 items-center justify-center text-[11px] leading-none whitespace-nowrap text-muted-foreground tabular-nums",
 									local.showTime
 										? "opacity-100"
-										: "opacity-0 group-hover/message:opacity-100 [@media(hover:hover)]:group-focus-within/message:opacity-100",
+										: "opacity-0 group-hover/message:opacity-100 [@media(hover:hover)]:group-data-keyboard-focus/message:opacity-100",
 								)}
 							>
 								<time datetime={isoTime()} title={fullTime()}>
@@ -404,7 +425,7 @@ export const MessageRow = (props: MessageRowProps) => {
 						<Show when={!headless()}>
 							<div
 								data-message-header=""
-								class="flex h-4 min-w-0 items-center gap-3"
+								class="flex h-4 min-w-0 items-center gap-2"
 							>
 								<div class="flex min-w-0 items-center gap-1.5">
 									<Show
@@ -446,6 +467,16 @@ export const MessageRow = (props: MessageRowProps) => {
 									<Show when={local.author.role?.badge && local.author.role}>
 										{(role) => <RoleBadge role={role()} />}
 									</Show>
+									<Show when={local.author.owner}>
+										<span
+											role="img"
+											aria-label="Owner"
+											data-author-owner=""
+											class="flex size-4 shrink-0 items-center justify-center text-warning [&>svg]:size-4"
+										>
+											<CrownIcon />
+										</span>
+									</Show>
 									<Show when={badge.has()}>{badge()}</Show>
 									<Show when={local.via}>
 										{(via) => (
@@ -456,8 +487,9 @@ export const MessageRow = (props: MessageRowProps) => {
 									</Show>
 								</div>
 								<span
+									data-message-time=""
 									class={cx(
-										"flex shrink-0 items-center gap-1.5 text-xs leading-4 whitespace-nowrap",
+										"flex shrink-0 items-center gap-1.5 text-[11px] leading-4 whitespace-nowrap tabular-nums",
 										failed() ? "text-destructive" : "text-muted-foreground",
 									)}
 								>
@@ -574,7 +606,7 @@ export const MessageRow = (props: MessageRowProps) => {
 							"absolute top-0 right-3 z-10 -translate-y-1/2",
 							local.toolbarOpen
 								? "visible"
-								: "invisible group-hover/message:visible [@media(hover:hover)]:group-focus-within/message:visible",
+								: "invisible group-hover/message:visible [@media(hover:hover)]:group-data-keyboard-focus/message:visible",
 						)}
 					>
 						{toolbar()}

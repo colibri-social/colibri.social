@@ -123,7 +123,11 @@ it("blocks closing the modal while a page has unsaved changes", async () => {
 		.element(page.getByRole("dialog", { name: "Discard changes?" }))
 		.toBeVisible();
 	expect(location.pathname).toBe(`/app/c/${HQ}/manage/profile`);
-	await userEvent.click(page.getByRole("button", { name: "Keep editing" }));
+	await userEvent.click(
+		page
+			.getByRole("dialog", { name: "Discard changes?" })
+			.getByRole("button", { name: "Cancel" }),
+	);
 	await expect.poll(visiblePage, SLOW).toBe("profile");
 	await userEvent.click(
 		page.getByRole("dialog").getByRole("button", { name: "Close" }).first(),
@@ -131,8 +135,36 @@ it("blocks closing the modal while a page has unsaved changes", async () => {
 	await expect
 		.element(page.getByRole("dialog", { name: "Discard changes?" }))
 		.toBeVisible();
-	await userEvent.click(page.getByRole("button", { name: "Discard" }));
+	await userEvent.click(page.getByRole("button", { name: "Discard changes" }));
 	await expect.poll(() => location.pathname.includes("/manage/")).toBe(false);
+});
+
+it("asks before switching sidebar pages with unsaved changes", async () => {
+	await mount(`/app/c/${HQ}/manage/profile`);
+	await expect.poll(visiblePage, SLOW).toBe("profile");
+	const settings = page.getByRole("dialog").first();
+	await userEvent.fill(
+		settings.getByLabelText("Name", { exact: true }),
+		"Renamed HQ",
+	);
+	await userEvent.click(settings.getByRole("button", { name: "Roles" }));
+	const prompt = page.getByRole("dialog", { name: "Discard changes?" });
+	await expect.element(prompt).toBeVisible();
+	await expect
+		.element(prompt)
+		.toHaveTextContent("Your edits to this Space won't be saved.");
+	expect(location.pathname).toBe(`/app/c/${HQ}/manage/profile`);
+	await userEvent.click(prompt.getByRole("button", { name: "Cancel" }));
+	await expect.element(prompt).not.toBeInTheDocument();
+	expect(visiblePage()).toBe("profile");
+	await userEvent.click(settings.getByRole("button", { name: "Roles" }));
+	await userEvent.click(
+		page
+			.getByRole("dialog", { name: "Discard changes?" })
+			.getByRole("button", { name: "Discard changes" }),
+	);
+	await expect.poll(visiblePage, SLOW).toBe("roles");
+	expect(location.pathname).toBe(`/app/c/${HQ}/manage/roles`);
 });
 
 it("shows channel settings with General and Permissions in the sidebar", async () => {

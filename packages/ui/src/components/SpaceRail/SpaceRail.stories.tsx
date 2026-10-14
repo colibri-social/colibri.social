@@ -7,6 +7,7 @@ import { storyImages } from "../Banner/story-images";
 import { SpaceRailSkeleton } from "../Channels/ChannelSkeletons";
 import { TOOLTIP_OPEN_DELAY } from "../Tooltip/Tooltip";
 import {
+	SPACE_RAIL_DESKTOP_FADE,
 	SPACE_RAIL_FILLET,
 	SPACE_RAIL_METRICS,
 	SpaceRail,
@@ -277,6 +278,10 @@ export const FigmaMobile: Story = {
 			),
 		);
 		near(first.top - rectOf(panel).top, 18);
+		const scroller = canvasElement.querySelector(
+			"[data-rail-scroll]",
+		) as HTMLElement;
+		await expect(scroller.style.getPropertyValue("mask-image")).toBe("");
 		const actions = Array.from(
 			canvasElement.querySelectorAll("[data-rail-action] button"),
 		).map(rectOf);
@@ -304,6 +309,43 @@ export const FigmaDesktop: Story = {
 			),
 		);
 		await waitFor(() => near(inner.width, 36));
+	},
+};
+
+export const DesktopBottomFade: Story = {
+	name: "Desktop bottom fade",
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => (
+		<div class="h-[240px] bg-background [&>div]:h-full">
+			<Rail platform="desktop" />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const scroller = canvasElement.querySelector(
+			"[data-rail-scroll]",
+		) as HTMLElement;
+		const mask =
+			scroller.style.getPropertyValue("mask-image") ||
+			scroller.style.getPropertyValue("-webkit-mask-image");
+		await expect(mask).toContain("in oklab");
+		await expect(mask).toContain("transparent");
+		const content = canvasElement.querySelector(
+			"[data-rail-content]",
+		) as HTMLElement;
+		near(
+			Number.parseFloat(getComputedStyle(content).paddingBottom),
+			SPACE_RAIL_DESKTOP_FADE,
+		);
+		scroller.scrollTop = scroller.scrollHeight;
+		await waitFor(() => expect(scroller.scrollTop).toBeGreaterThan(0));
+		const last = Array.from(
+			canvasElement.querySelectorAll("[data-rail-action] button"),
+		).map(rectOf);
+		const final = last[last.length - 1];
+		await expect(final).toBeDefined();
+		await expect(
+			rectOf(scroller).bottom - (final?.bottom ?? 0),
+		).toBeGreaterThanOrEqual(SPACE_RAIL_DESKTOP_FADE - 0.5);
 	},
 };
 
@@ -408,7 +450,18 @@ export const DesktopSkeleton: Story = {
 			<Rail platform="desktop" panel={false} />
 		</div>
 	),
-	play: async ({ canvasElement }) => skeletonMatchesRail(canvasElement),
+	play: async ({ canvasElement }) => {
+		await skeletonMatchesRail(canvasElement);
+		const skeleton = canvasElement.querySelector(
+			"[data-space-rail-skeleton]",
+		) as HTMLElement;
+		const scroller = canvasElement.querySelector(
+			"[data-rail-scroll]",
+		) as HTMLElement;
+		const mask = getComputedStyle(skeleton).maskImage;
+		await expect(mask).toContain("linear-gradient");
+		await expect(mask).toBe(getComputedStyle(scroller).maskImage);
+	},
 };
 
 type RailFrameSample = {

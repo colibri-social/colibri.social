@@ -79,3 +79,21 @@ export const filterForwardGroups = (
 			),
 		}))
 		.filter((group) => group.targets.length > 0);
+
+const channelListFormat = new Intl.ListFormat("en", {
+	style: "long",
+	type: "conjunction",
+});
+
+export const forwardChannelList = (
+	targets: readonly ForwardTarget[],
+	limit = 3,
+) => {
+	const names = targets.map((target) => `#${target.channel.name}`);
+	if (names.length <= limit) return channelListFormat.format(names);
+	const rest = names.length - (limit - 1);
+	return channelListFormat.format([
+		...names.slice(0, limit - 1),
+		`${rest} more`,
+	]);
+};

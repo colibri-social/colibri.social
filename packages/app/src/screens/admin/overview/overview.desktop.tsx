@@ -16,13 +16,15 @@ export default overview.view({
 			const pages = modal.pages();
 			if (pages.length === 1 && pages[0]?.page === page) return;
 			const base = modal.baseDepth();
-			batch(() => {
-				if (stack.depth() > base) {
-					stack.popTo(base);
-					if (stack.depth() > base) return;
-				}
-				stack.push({ kind: "admin", space: args.space, page });
-			});
+			stack.confirmLeave(base, () =>
+				batch(() => {
+					if (stack.depth() > base) {
+						stack.popTo(base);
+						if (stack.depth() > base) return;
+					}
+					stack.push({ kind: "admin", space: args.space, page });
+				}),
+			);
 		};
 		let opened = false;
 		createEffect(() => {

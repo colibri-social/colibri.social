@@ -13,6 +13,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
+		"@arborium/arborium": "^2.18.1",
 		"@colibri-social/ui": "workspace:*",
 		"@solar-icons/solid": "^2.3.2",
 		"@solid-primitives/media": "^2.3.3",

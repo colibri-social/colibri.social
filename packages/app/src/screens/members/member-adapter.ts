@@ -5,6 +5,7 @@ import {
 	rolesOf,
 	topColoredRole,
 	topHoistedRole,
+	visibleRoles,
 } from "../../data/roles";
 import type { MemberView, Presence, RoleView } from "../../data/types";
 
@@ -39,7 +40,7 @@ export const toListMember = (
 };
 
 export const hoistedRoles = (roles: readonly RoleView[]): HoistedRole[] =>
-	[...roles]
+	visibleRoles(roles)
 		.filter((role) => role.hoisted)
 		.sort((a, b) => b.position - a.position)
 		.map((role) => ({ ...roleIdentity(role), id: role.rkey }));

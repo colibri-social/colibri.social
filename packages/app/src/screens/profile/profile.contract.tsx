@@ -20,6 +20,7 @@ import type { Presence } from "../../data/types";
 import { defineContract, slot } from "../../screen/define";
 import { useStack } from "../../shell/stack";
 import { uiPresence } from "../members/member-adapter";
+import { blueskyProfileLinks } from "./bluesky-link";
 import { StatusEditor } from "./status-editor";
 
 type Platform = { platform?: "mobile" | "desktop" };
@@ -74,6 +75,7 @@ export const profile = defineContract({
 				nameColor={m.viewer.theme?.accentColor}
 				bannerSrc={m.viewer.banner}
 				bannerColor={m.viewer.theme?.bannerColor}
+				links={blueskyProfileLinks(m.viewer.did)}
 				presence={uiPresence(m.presence())}
 				status={m.status()?.text || undefined}
 				statusEmoji={m.status()?.emoji}

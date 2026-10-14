@@ -74,6 +74,7 @@ export type ChannelCategoryProps = Omit<
 	headerTrailing?: JSX.Element;
 	wrapHeader?: (header: JSX.Element) => JSX.Element;
 	instant?: boolean;
+	density?: "default" | "compact";
 	children?: JSX.Element;
 };
 
@@ -93,6 +94,7 @@ export const ChannelCategory = (props: ChannelCategoryProps) => {
 		<section
 			data-category=""
 			data-collapsed={collapsed() || undefined}
+			data-density={props.density ?? "default"}
 			aria-label={props.name}
 			class={cx("flex w-full flex-col p-2", props.class)}
 		>
@@ -128,7 +130,8 @@ export const ChannelCategory = (props: ChannelCategoryProps) => {
 					inert={collapsed() || undefined}
 					data-category-rows=""
 					class={cx(
-						"flex min-h-0 flex-col gap-2",
+						"flex min-h-0 flex-col",
+						props.density === "compact" ? "gap-0" : "gap-2",
 						props.instant && !collapsed()
 							? "overflow-visible"
 							: "overflow-hidden",

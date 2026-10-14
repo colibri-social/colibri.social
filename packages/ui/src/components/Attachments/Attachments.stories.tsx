@@ -403,7 +403,7 @@ const ContextCases = (props: { desktop?: boolean }) => (
 			name="Tim"
 			attachments={
 				<ForwardedMessage
-					time="Today at 09:10"
+					time="09:10"
 					source={{
 						channel: "general",
 						space: "Colibri Social Flock",
@@ -418,7 +418,7 @@ const ContextCases = (props: { desktop?: boolean }) => (
 		<Message
 			name="Lis"
 			attachments={
-				<ForwardedMessage time="12 Mar at 18:30">
+				<ForwardedMessage time="12.03.26, 18:30">
 					This came from somewhere private.
 				</ForwardedMessage>
 			}
@@ -570,7 +570,7 @@ export const ForwardSourceOpens: Story = {
 		return (
 			<Screen>
 				<ForwardedMessage
-					time="Today at 09:10"
+					time="09:10"
 					source={{
 						channel: "general",
 						space: "Colibri Social Flock",
@@ -579,7 +579,7 @@ export const ForwardSourceOpens: Story = {
 				>
 					Here are the photos
 				</ForwardedMessage>
-				<ForwardedMessage time="12 Mar at 18:30">
+				<ForwardedMessage time="12.03.26, 18:30">
 					This came from somewhere private.
 				</ForwardedMessage>
 				<span data-opened={opened()} />
@@ -633,6 +633,63 @@ export const LinkEmbedImageOpens: Story = {
 		await expect(
 			canvas.getByRole("link", { name: /Protocol overview/ }),
 		).toHaveAttribute("href", "https://atproto.com/guides/overview");
+	},
+};
+
+export const EmbedsRemovable: Story = {
+	render: () => {
+		const [removed, setRemoved] = createSignal<string[]>([]);
+		const record = (name: string) => (event: MouseEvent) =>
+			setRemoved((list) => [
+				...list,
+				`${name}${event.shiftKey ? "+shift" : ""}`,
+			]);
+		return (
+			<Screen desktop>
+				<Message
+					attachments={
+						<LinkEmbed
+							url="https://atproto.com/guides/overview"
+							siteName="AT Protocol"
+							title="Protocol overview with a title long enough to wrap onto a second line"
+							description="The AT Protocol is an open, decentralized network for building social applications."
+							image={fixtureImage(2, 600, 600)}
+							onRemove={record("link")}
+						/>
+					}
+				/>
+				<Message
+					name="Tim"
+					attachments={
+						<BlueskyPostEmbed post={post} onRemove={record("bluesky")} />
+					}
+				/>
+				<span data-removed={removed().join(",")} />
+			</Screen>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const removed = () =>
+			canvasElement
+				.querySelector("[data-removed]")
+				?.getAttribute("data-removed");
+		const [linkRemove, blueskyRemove] = canvas.getAllByRole("button", {
+			name: "Remove link preview",
+		});
+		const before = window.location.href;
+		await userEvent.click(linkRemove as HTMLElement);
+		await expect(removed()).toBe("link");
+		await expect(window.location.href).toBe(before);
+		blueskyRemove?.dispatchEvent(
+			new MouseEvent("click", { bubbles: true, shiftKey: true }),
+		);
+		await expect(removed()).toBe("link,bluesky+shift");
+		const frame = linkRemove?.closest("[data-link-embed]") as HTMLElement;
+		const box = frame.getBoundingClientRect();
+		const button = (linkRemove as HTMLElement).getBoundingClientRect();
+		await expect(button.right).toBeLessThanOrEqual(box.right);
+		await expect(button.top).toBeGreaterThanOrEqual(box.top);
 	},
 };
 

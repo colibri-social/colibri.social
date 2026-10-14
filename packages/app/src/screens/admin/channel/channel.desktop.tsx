@@ -30,7 +30,6 @@ export default adminChannel.view({
 					</Show>
 				</Show>
 			</Show>
-			<s.Discard />
 		</>
 	),
 });

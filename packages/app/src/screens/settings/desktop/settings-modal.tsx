@@ -16,11 +16,7 @@ import type { ModalAreaProps } from "../../../shell/desktop/modal-areas";
 import type { Layer, SettingsLayer } from "../../../shell/layers";
 import { useStack } from "../../../shell/stack";
 import EditProfileScreen from "../../edit-profile/edit-profile.screen";
-import {
-	type PageGuard,
-	type PageHost,
-	PageHostContext,
-} from "../../edit-profile/page-host";
+import { type PageHost, PageHostContext } from "../../edit-profile/page-host";
 import SettingsScreen from "../settings.screen";
 
 export const SETTINGS_PAGES = ["profile", "appearance", "advanced"] as const;
@@ -75,35 +71,11 @@ export default function SettingsModal(props: ModalAreaProps) {
 	);
 	const top = () => settingsPageOf(pages().at(-1));
 
-	let guard: PageGuard | undefined;
-	let pending: (() => void) | undefined;
-
-	const guarded = (action: () => void) => {
-		if (guard?.blocked()) {
-			pending = action;
-			guard.onBlocked();
-			return;
-		}
-		action();
-	};
+	const guarded = (action: () => void) =>
+		stack.confirmLeave(props.depth, action);
 
 	const host: PageHost = {
 		depth: () => props.depth + pages().length,
-		register: (next) => {
-			guard = next;
-			return () => {
-				if (guard === next) guard = undefined;
-			};
-		},
-		proceed: (reason) => {
-			const action = pending;
-			pending = undefined;
-			if (action) {
-				action();
-				return;
-			}
-			if (reason === "discard") stack.popTo(props.depth);
-		},
 	};
 
 	const select = (page: SettingsPage) =>
@@ -139,8 +111,6 @@ export default function SettingsModal(props: ModalAreaProps) {
 						presence={uiPresence(presence())}
 						status={presence()?.status?.text || data.viewer.handle}
 						statusShowWhileOffline
-						aria-label="Your profile"
-						onOpen={() => select("profile")}
 					/>
 					<For each={SECTIONS}>
 						{(section) => (

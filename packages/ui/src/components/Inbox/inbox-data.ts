@@ -45,6 +45,7 @@ export type InboxPopoverProps = {
 	onOpenNotification: (id: string) => void;
 	onMarkRead: (id: string) => void;
 	onMarkAllRead: () => void;
+	onClearInbox?: () => void;
 	onMarkCategoryRead: (category: InboxCategory) => void;
 	onMarkSpaceRead: (spaceId: string) => void;
 	onRetry?: () => void;

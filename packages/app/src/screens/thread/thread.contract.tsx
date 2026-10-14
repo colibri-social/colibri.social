@@ -13,6 +13,7 @@ import { useData } from "../../data/store";
 import { defineContract, slot } from "../../screen/define";
 import { useOptionalDesktopShell } from "../../shell/desktop/context";
 import type { ThreadLayer } from "../../shell/layers";
+import { LoadErrorState } from "../../shell/load-error";
 import { type Navigator, useStack } from "../../shell/stack";
 import {
 	ConversationComposer,
@@ -128,9 +129,35 @@ export const thread = defineContract({
 					(layer) => layer.kind === "thread" && layer.thread === args.thread,
 				),
 		});
+		const loadFailure = createMemo(() => {
+			const current = community();
+			const space = current ? data.space(current) : undefined;
+			const channelsError = space?.channels.value()
+				? undefined
+				: space?.channels.error();
+			if (space && channelsError) {
+				return {
+					error: channelsError,
+					retry: () => {
+						space.channels.retry();
+						space.categories.retry();
+					},
+				};
+			}
+			const ref = parent()?.space;
+			if (!ref) return undefined;
+			const threads = data.channel(ref).threads;
+			const threadsError = threads.value() ? undefined : threads.error();
+			if (threadsError) return { error: threadsError, retry: threads.retry };
+			const feed = conversation.feed();
+			const feedError = feed?.loadError();
+			if (feed && feedError) return { error: feedError, retry: feed.reload };
+			return undefined;
+		});
 		const threadUnavailable = createMemo<
 			"space" | "channel" | "thread" | undefined
 		>(() => {
+			if (loadFailure()) return undefined;
 			const base = conversation.unavailable();
 			if (base) return base;
 			const ref = parent()?.space;
@@ -153,6 +180,7 @@ export const thread = defineContract({
 		return {
 			...conversation,
 			unavailable: threadUnavailable,
+			loadFailure,
 			thread: view,
 			parent,
 			menu,
@@ -202,6 +230,17 @@ export const thread = defineContract({
 						onAction={() =>
 							kind() === "thread" ? closePane(m.stack) : m.stack.popTo(0)
 						}
+					/>
+				)}
+			</Show>
+		)),
+		LoadError: slot((m) => (
+			<Show when={m.loadFailure()} keyed>
+				{(failure) => (
+					<LoadErrorState
+						title="This thread didn't load"
+						error={failure.error}
+						onRetry={failure.retry}
 					/>
 				)}
 			</Show>

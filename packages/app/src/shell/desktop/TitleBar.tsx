@@ -146,6 +146,7 @@ export const TitleBar = (props: { mode?: ChromeMode }) => {
 				title={space()?.name}
 				iconSrc={space()?.picture}
 				macInset={mode() === "macos" && !fullscreen()}
+				roundedCorners={mode() === "macos"}
 				leading={
 					<>
 						<Show when={controlsOnLeft()}>

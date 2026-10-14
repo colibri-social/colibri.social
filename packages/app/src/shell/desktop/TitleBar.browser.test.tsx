@@ -99,25 +99,35 @@ describe("desktop title bar", () => {
 			"[data-traffic-light-inset]",
 		);
 		expect(inset?.getBoundingClientRect().width).toBe(72);
+		const barBox = element.getBoundingClientRect();
+		const barCenter = barBox.top + barBox.height / 2;
+		for (const button of element.querySelectorAll<HTMLElement>(
+			"[data-title-bar-nav] button",
+		)) {
+			const box = button.getBoundingClientRect();
+			expect(box.top + box.height / 2).toBeCloseTo(barCenter, 0);
+		}
 		expect(element.querySelector("[data-window-controls]")).toBeNull();
 		expect(element.getAttribute("data-tauri-drag-region")).toBe("deep");
 		const space = store.spaceByKey(HQ);
 		expect(element.textContent).toContain(space?.name);
 		await expect
 			.poll(() =>
-				invoke.mock.calls.find(
-					([command]) => command === "plugin:window|set_title",
-				),
+				invoke.mock.calls.find(([command]) => command === "titlebar_set_title"),
 			)
 			.toBeTruthy();
 		const call = invoke.mock.calls.find(
-			([command]) => command === "plugin:window|set_title",
+			([command]) => command === "titlebar_set_title",
 		);
 		expect(call?.[1]).toMatchObject({
-			label: "main",
-			value: expect.stringContaining(` · ${space?.name}`),
+			title: expect.stringContaining(` · ${space?.name}`),
 		});
-		expect(document.title).toBe(call?.[1]?.value);
+		expect(document.title).toBe(call?.[1]?.title);
+		expect(
+			invoke.mock.calls.some(
+				([command]) => command === "plugin:window|set_title",
+			),
+		).toBe(false);
 	});
 
 	it("draws window controls on Windows and drives the window", async () => {

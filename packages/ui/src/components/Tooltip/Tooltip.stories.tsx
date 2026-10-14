@@ -6,8 +6,11 @@ import { UsersGroupRoundedIcon } from "@solar-icons/solid/bold/users-group-round
 import { For, type JSX } from "solid-js";
 import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { Button } from "../Button/Button";
 import { IconButton } from "../IconButton/IconButton";
+import { Popover, PopoverContent, PopoverTrigger } from "../Popover/Popover";
 import {
+	TOOLTIP_OPEN_DELAY,
 	Tooltip,
 	TooltipContent,
 	type TooltipPlacement,
@@ -156,10 +159,80 @@ export const FocusAfterTouchSuppressed: Story = {
 		await new Promise((resolve) => setTimeout(resolve, 900));
 		await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 		trigger.blur();
-		await userEvent.keyboard("{Shift}");
-		trigger.focus();
+		await userEvent.tab();
+		await expect(trigger).toHaveFocus();
 		await screen.findByRole("tooltip", {}, { timeout: 2000 });
 		trigger.blur();
+	},
+};
+
+const waitPastOpenDelay = () =>
+	new Promise((resolve) => setTimeout(resolve, TOOLTIP_OPEN_DELAY + 300));
+
+export const PopoverAutoFocusSuppressed: Story = {
+	render: () => (
+		<Popover>
+			<PopoverTrigger as={Button} variant="secondary">
+				Show roles
+			</PopoverTrigger>
+			<PopoverContent aria-label="Roles">
+				<div class="flex items-center gap-1">
+					<IconTip label="Moderators" icon={<UsersGroupRoundedIcon />} />
+					<IconTip label="Pinned messages" icon={<PinIcon />} />
+				</div>
+			</PopoverContent>
+		</Popover>
+	),
+	play: async ({ canvasElement, step }) => {
+		const trigger = within(canvasElement).getByRole("button", {
+			name: "Show roles",
+		});
+
+		await step("Opening with a click shows no tooltip", async () => {
+			await userEvent.click(trigger);
+			const dialog = await screen.findByRole("dialog", { name: "Roles" });
+			const first = within(dialog).getByRole("button", { name: "Moderators" });
+			await waitFor(() => expect(first).toHaveFocus());
+			await waitPastOpenDelay();
+			await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+		});
+
+		await step("Tab reveals the next tooltip", async () => {
+			await userEvent.tab();
+			await waitFor(
+				() =>
+					expect(screen.getByRole("tooltip")).toHaveTextContent(
+						"Pinned messages",
+					),
+				{ timeout: 2000 },
+			);
+		});
+
+		await step("Escape restores focus without a tooltip", async () => {
+			await userEvent.keyboard("{Escape}");
+			await waitFor(() =>
+				expect(screen.queryByRole("tooltip")).not.toBeInTheDocument(),
+			);
+			await userEvent.keyboard("{Escape}");
+			await waitFor(() =>
+				expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+			);
+			await waitFor(() => expect(trigger).toHaveFocus());
+			await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+		});
+
+		await step("Opening with Enter shows no tooltip", async () => {
+			await userEvent.keyboard("{Enter}");
+			const dialog = await screen.findByRole("dialog", { name: "Roles" });
+			const first = within(dialog).getByRole("button", { name: "Moderators" });
+			await waitFor(() => expect(first).toHaveFocus());
+			await waitPastOpenDelay();
+			await expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+			await userEvent.keyboard("{Escape}");
+			await waitFor(() =>
+				expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+			);
+		});
 	},
 };
 

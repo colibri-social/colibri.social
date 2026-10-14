@@ -232,6 +232,9 @@ export const BadgeInfoOnProfile: Story = {
 		});
 
 		await step("Keyboard focus shows the tooltip", async () => {
+			team.ownerDocument.dispatchEvent(
+				new KeyboardEvent("keydown", { key: "Tab", bubbles: true }),
+			);
 			team.focus();
 			await waitFor(
 				() =>

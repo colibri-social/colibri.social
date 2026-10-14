@@ -9,6 +9,7 @@ import {
 import { AddIcon } from "@solar-icons/solid/bold/add";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { createMemo, createSignal, Match, Show, Switch } from "solid-js";
+import { isVisibleRole } from "../../../data/roles";
 import { defineContract, slot } from "../../../screen/define";
 import { NEW_ENTRY } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
@@ -22,7 +23,10 @@ export const adminRoles = defineContract({
 		const stack = useStack();
 		const access = useRoleAccess(() => args.space);
 		const listed = createMemo(() =>
-			access.roles().map((role) => spaceRoleOf(role, access.editable(role))),
+			access
+				.roles()
+				.filter(isVisibleRole)
+				.map((role) => spaceRoleOf(role, access.editable(role))),
 		);
 		const editableCount = () =>
 			access.roles().filter((role) => access.editable(role)).length;

@@ -51,9 +51,9 @@ afterEach(() => {
 	host?.remove();
 });
 
-const mount = (path = "/app/c/did:plc:hq") => {
+const mount = (path = "/app/c/did:plc:hq", width = "402px") => {
 	host = document.createElement("div");
-	host.style.cssText = "position:fixed;inset:0;width:402px;height:874px";
+	host.style.cssText = `position:fixed;inset:0;width:${width};height:874px`;
 	document.body.append(host);
 	const history = memoryHistory(path);
 	let stack: Stack | undefined;
@@ -151,6 +151,21 @@ describe("layered stack", () => {
 		expect(frame(root, 0).style.visibility).toBe("");
 		expect(frame(root, 0).getAttribute("aria-hidden")).toBe("true");
 		expect(frame(root, 0).hasAttribute("data-pane-active")).toBe(false);
+	});
+
+	it("parks the popped pane fully outside a fractional-width stack", async () => {
+		const { stack, root } = mount(
+			"/app/c/did:plc:hq/social.colibri.beta.channel.text/general",
+			"402.4px",
+		);
+		await until(() => !!frame(root, 1));
+		stack.pop();
+		await until(settledAt(stack, 0));
+		const parked = frame(root, 1);
+		expect(parked.style.visibility).toBe("");
+		expect(parked.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+			stackRoot(root).getBoundingClientRect().right + 1,
+		);
 	});
 
 	it("ignores taps on the pane that is leaving while layers move", async () => {

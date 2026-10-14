@@ -263,7 +263,7 @@ describe("space profile", () => {
 		await until(() => !!dialog()?.textContent?.includes("Discard changes?"));
 		await wait(300);
 		await expectNoLayoutIssues(dialog() as HTMLElement);
-		buttonNamed(dialog() as HTMLElement, "Discard")?.click();
+		buttonNamed(dialog() as HTMLElement, "Discard changes")?.click();
 		await until(() => location.pathname.endsWith(`/c/${HQ}/manage/overview`));
 	});
 
@@ -340,6 +340,27 @@ describe("transfer ownership", () => {
 		await until(() => store.spaceByKey(HQ)?.viewer.isOwner === false);
 		await until(() => location.pathname.endsWith(`/c/${HQ}/manage/overview`));
 		await until(() => !buttonNamed(root, "Transfer ownership"));
+	});
+});
+
+describe("transfer ownership guard", () => {
+	it("asks before dropping a picked member", async () => {
+		const { store, root } = await mount(`/app/c/${HQ}/manage/transfer`);
+		await until(() => !!root.textContent?.includes("New owner"));
+		await wait(300);
+		const acknowledge = Array.from(
+			topPane(root).querySelectorAll<HTMLElement>(
+				'[role="checkbox"], input[type="checkbox"]',
+			),
+		).at(-1) as HTMLElement;
+		acknowledge.click();
+		buttonNamed(topPane(root), /^Back/)?.click();
+		await until(() => !!dialog()?.textContent?.includes("Discard changes?"));
+		expect(dialog()?.textContent).toContain("Ownership stays with you.");
+		await wait(300);
+		buttonNamed(dialog() as HTMLElement, "Discard changes")?.click();
+		await until(() => location.pathname.endsWith(`/c/${HQ}/manage/overview`));
+		expect(store.spaceByKey(HQ)?.viewer.isOwner).toBe(true);
 	});
 });
 

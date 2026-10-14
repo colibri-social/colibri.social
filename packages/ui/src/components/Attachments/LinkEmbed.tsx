@@ -1,6 +1,8 @@
+import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
+import { IconButton } from "../IconButton/IconButton";
 import { Skeleton, SkeletonText } from "../Skeleton/Skeleton";
 import { createPressRipple, pressSurface } from "./shared";
 
@@ -22,8 +24,13 @@ export type LinkEmbedProps = {
 	imageStyle?: LinkEmbedImageStyle;
 	accent?: string;
 	onOpenImage?: () => void;
+	onRemove?: (event: MouseEvent) => void;
+	removeLabel?: string;
 	class?: string;
 };
+
+export const embedRemoveButtonClass =
+	"z-10 opacity-0 group-hover/embed:opacity-100 focus-visible:opacity-100 data-pressed:opacity-100 [@media(hover:none)]:opacity-100";
 
 const domainOf = (url: string) => {
 	try {
@@ -95,9 +102,27 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 		<div
 			ref={press}
 			data-link-embed=""
-			class={cx(frameClass, "hover:bg-popover", pressSurface, props.class)}
+			class={cx(
+				frameClass,
+				"group/embed hover:bg-popover",
+				pressSurface,
+				props.class,
+			)}
 		>
 			<AccentBar color={props.accent} />
+			<Show when={props.onRemove}>
+				<IconButton
+					variant="secondary"
+					size="sm"
+					label={props.removeLabel ?? "Remove link preview"}
+					icon={<CloseIcon />}
+					onClick={(event) => {
+						event.stopPropagation();
+						props.onRemove?.(event);
+					}}
+					class={cx("absolute top-1.5 right-1.5", embedRemoveButtonClass)}
+				/>
+			</Show>
 			<span class="flex gap-3">
 				<a
 					href={props.url}

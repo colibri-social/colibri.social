@@ -10,7 +10,7 @@ import {
 } from "@colibri-social/ui";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { EmojiFunnyCircleIcon } from "@solar-icons/solid/bold/emoji-funny-circle";
-import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import {
 	type EmojiPackView,
 	type EmojiView,
@@ -21,6 +21,7 @@ import { defineContract, slot } from "../../../screen/define";
 import { NEW_ENTRY } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
+import { useUnsavedChanges } from "../../../shell/unsaved-changes";
 import { AdminNavHeader } from "../desktop/page-header";
 import {
 	createEmojiOptions,
@@ -62,7 +63,6 @@ export const adminEmojiPack = defineContract({
 		);
 		const [query, setQuery] = createSignal("");
 		const [saving, setSaving] = createSignal(false);
-		const [discardOpen, setDiscardOpen] = createSignal(false);
 		const [deleteOpen, setDeleteOpen] = createSignal(false);
 
 		const toggle = (emoji: EmojiView, next: boolean) =>
@@ -148,15 +148,14 @@ export const adminEmojiPack = defineContract({
 						layer.id === args.id,
 				) + 1;
 
-		onCleanup(
-			stack.setPopGuard({
-				get depth() {
-					return depth();
-				},
-				blocked: () => dirty() && !saving(),
-				onBlocked: () => setDiscardOpen(true),
-			}),
-		);
+		useUnsavedChanges({
+			depth,
+			dirty: () => dirty() && !saving(),
+			description: () =>
+				creating
+					? "This pack hasn't been created yet."
+					: "Your changes to the pack name haven't been saved.",
+		});
 
 		const save = async () => {
 			setAttempted(true);
@@ -225,16 +224,10 @@ export const adminEmojiPack = defineContract({
 			saving,
 			canSave,
 			save,
-			discardOpen,
-			setDiscardOpen,
 			deleteOpen,
 			setDeleteOpen,
 			removePack,
 			back: () => stack.pop(),
-			discard: () => {
-				setDiscardOpen(false);
-				stack.forcePop();
-			},
 		};
 	},
 	slots: {
@@ -378,19 +371,6 @@ export const adminEmojiPack = defineContract({
 		Overlays: slot((m) => (
 			<>
 				<m.options.Overlay />
-				<ConfirmDialog
-					open={m.discardOpen()}
-					onOpenChange={m.setDiscardOpen}
-					title="Discard changes?"
-					description={
-						m.creating
-							? "This pack hasn't been created yet."
-							: "Your changes to the pack name haven't been saved."
-					}
-					confirmLabel="Discard"
-					tone="destructive"
-					onConfirm={m.discard}
-				/>
 				<ConfirmDialog
 					open={m.deleteOpen()}
 					onOpenChange={m.setDeleteOpen}

@@ -1,4 +1,5 @@
 import { ChatRoundLineIcon } from "@solar-icons/solid/bold/chat-round-line";
+import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { HeartIcon } from "@solar-icons/solid/bold/heart";
 import { RepeatIcon } from "@solar-icons/solid/bold/repeat";
 import { ReplyIcon } from "@solar-icons/solid/bold/reply";
@@ -7,7 +8,9 @@ import { type JSX, Show } from "solid-js";
 import { BlueskyLogo } from "../../icons/animated/brand";
 import { cx } from "../../utils/cx";
 import { Avatar } from "../Avatar/Avatar";
+import { IconButton } from "../IconButton/IconButton";
 import { AvatarSkeleton, Skeleton, SkeletonText } from "../Skeleton/Skeleton";
+import { embedRemoveButtonClass } from "./LinkEmbed";
 import { MediaGrid, type MediaItem } from "./MediaGrid";
 import { embedSurface, formatCompact } from "./shared";
 
@@ -98,6 +101,8 @@ const Stat = (props: { icon: JSX.Element; label: string; value: number }) => (
 export type BlueskyPostEmbedProps = {
 	post: BlueskyPost;
 	onOpenImage?: (index: number) => void;
+	onRemove?: (event: MouseEvent) => void;
+	removeLabel?: string;
 	class?: string;
 };
 
@@ -107,12 +112,23 @@ export const BlueskyPostEmbed = (props: BlueskyPostEmbedProps) => (
 		data-bluesky-embed=""
 		class={cx(
 			embedSurface,
-			"flex w-full max-w-[416px] flex-col gap-2.5 p-3",
+			"group/embed flex w-full max-w-[416px] flex-col gap-2.5 p-3",
 			props.class,
 		)}
 	>
 		<div class="flex items-start justify-between gap-2">
 			<PostHeader post={props.post} size="md" />
+			<span class="flex-1" />
+			<Show when={props.onRemove}>
+				<IconButton
+					variant="ghost"
+					size="md"
+					label={props.removeLabel ?? "Remove link preview"}
+					icon={<CloseIcon />}
+					onClick={(event) => props.onRemove?.(event)}
+					class={cx("shrink-0", embedRemoveButtonClass)}
+				/>
+			</Show>
 			<a
 				href={props.post.url ?? "https://bsky.app"}
 				target="_blank"

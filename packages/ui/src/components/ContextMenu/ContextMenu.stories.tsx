@@ -19,6 +19,7 @@ import {
 } from "../SpaceRail/SpaceRail";
 import { CategoryContextMenu } from "./CategoryMenu";
 import { ChannelContextMenu, VoiceChannelContextMenu } from "./ChannelMenu";
+import { InboxContextMenu } from "./InboxMenu";
 import { inviteMenuEntries } from "./InviteMenu";
 import { MemberContextMenu, type MemberMenuRole } from "./MemberMenu";
 import { ContextMenu, MenuItem, MenuSeparator } from "./Menu";
@@ -168,6 +169,8 @@ const spy = {
 	deleteCategory: fn(),
 	leave: fn(),
 	openChat: fn(),
+	clearInbox: fn(),
+	markInboxRead: fn(),
 };
 
 const resetSpies = () => {
@@ -186,7 +189,11 @@ const railSpaces = [
 	{ id: "canal", name: "Canal walks", iconSrc: storyImages.amberIcon() },
 ];
 
-const Sidebar = (props: { member?: boolean; developerMode?: boolean }) => {
+const Sidebar = (props: {
+	member?: boolean;
+	developerMode?: boolean;
+	inboxCount?: number;
+}) => {
 	const admin = () => !props.member;
 	const developerMode = () => props.developerMode ?? true;
 	const manage = () => (admin() ? noop : undefined);
@@ -231,7 +238,19 @@ const Sidebar = (props: { member?: boolean; developerMode?: boolean }) => {
 			<SpaceRail
 				platform="desktop"
 				leading={
-					<SpaceRailAction label="Inbox" icon={<InboxIcon />} onClick={noop} />
+					<InboxContextMenu
+						class="contents"
+						count={props.inboxCount ?? 3}
+						unread={props.inboxCount ?? 3}
+						onClearInbox={spy.clearInbox}
+						onMarkAllRead={spy.markInboxRead}
+					>
+						<SpaceRailAction
+							label="Inbox"
+							icon={<InboxIcon />}
+							onClick={noop}
+						/>
+					</InboxContextMenu>
 				}
 				onCreate={noop}
 				onDiscover={noop}
@@ -409,6 +428,8 @@ const voiceRow = (canvas: Canvas) =>
 	canvas.getByRole("button", { name: /^Birdwatch call/ });
 const categoryHeader = (canvas: Canvas) =>
 	canvas.getByRole("button", { name: "Birding" });
+const inboxAction = (canvas: Canvas) =>
+	canvas.getByRole("button", { name: "Inbox" });
 const railItem = (canvas: Canvas) =>
 	canvas.getByRole("button", { name: "Colibri Social Flock" });
 const inviteRow = (canvasElement: HTMLElement) => {
@@ -577,6 +598,49 @@ export const SpaceMenu: Story = {
 		await userEvent.click(mute);
 		await waitFor(() => expect(mute).toHaveAttribute("aria-checked", "true"));
 		await closeWithEscape();
+	},
+};
+
+export const InboxMenu: Story = {
+	render: () => <Sidebar />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const canvas = within(canvasElement);
+		const menu = await openMenu(inboxAction(canvas), "Inbox options");
+		await expect(itemNames(menu)).toEqual([
+			"Clear Inbox",
+			"Mark everything as read",
+		]);
+		await expect(menu.querySelectorAll('[role="menuitem"] svg').length).toBe(2);
+		await expectNoLayoutIssues(menu);
+		await userEvent.click(
+			within(menu).getByRole("menuitem", { name: "Mark everything as read" }),
+		);
+		await expect(spy.markInboxRead).toHaveBeenCalledTimes(1);
+		await waitForClosed();
+		const again = await openMenu(inboxAction(canvas), "Inbox options");
+		await userEvent.click(
+			within(again).getByRole("menuitem", { name: "Clear Inbox" }),
+		);
+		await expect(spy.clearInbox).toHaveBeenCalledTimes(1);
+		await waitForClosed();
+	},
+};
+
+export const InboxMenuEmpty: Story = {
+	render: () => <Sidebar inboxCount={0} />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const canvas = within(canvasElement);
+		const menu = await openMenu(inboxAction(canvas), "Inbox options");
+		for (const name of ["Clear Inbox", "Mark everything as read"]) {
+			await expect(
+				within(menu).getByRole("menuitem", { name }),
+			).toHaveAttribute("aria-disabled", "true");
+		}
+		await closeWithEscape();
+		await expect(spy.clearInbox).not.toHaveBeenCalled();
+		await expect(spy.markInboxRead).not.toHaveBeenCalled();
 	},
 };
 

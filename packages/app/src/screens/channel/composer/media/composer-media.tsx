@@ -26,6 +26,8 @@ export type ComposerMedia = {
 	openGif: () => void;
 	close: () => void;
 	open: () => MediaPickerKind | null;
+	favorites: () => Gif[];
+	setFavorite: (gif: GifView, favorite: boolean) => void;
 	Sheet: Component;
 };
 
@@ -126,6 +128,8 @@ export const createComposerMedia = (
 		openGif: () => setOpen("gif"),
 		close: () => setOpen(null),
 		open,
+		favorites,
+		setFavorite: (gif, favorite) => toggleFavorite(gif, favorite),
 		Sheet,
 	};
 };

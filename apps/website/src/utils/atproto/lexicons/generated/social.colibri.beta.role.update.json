@@ -35,6 +35,15 @@
 							"maxLength": 7,
 							"description": "Hex colour as #rrggbb."
 						},
+						"badge": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#roleIconBadge",
+							"description": "An icon badge. Image badges are set with social.colibri.beta.role.putBadgeImage. Takes precedence over removeBadge."
+						},
+						"removeBadge": {
+							"type": "boolean",
+							"description": "Removes the role's badge, whichever kind it is. Ignored when badge is also given."
+						},
 						"permissions": {
 							"type": "array",
 							"items": {

@@ -7,6 +7,7 @@ import {
 } from "@colibri-social/ui";
 import { createEffect, createMemo, createSignal, Show } from "solid-js";
 import { skeyOf } from "../../data/ids";
+import { readStored, writeStored } from "../../data/persist";
 import { useData } from "../../data/store";
 import { VOICE_CHANNEL } from "../../data/types";
 import { voice } from "../../data/voice";
@@ -21,20 +22,6 @@ const CORNER_KEY = "colibri:voice-floating-corner";
 const WIDTH_KEY = "colibri:voice-floating-width";
 
 const CORNERS: readonly FloatingCorner[] = ["tl", "tr", "bl", "br"];
-
-const readStored = (key: string) => {
-	try {
-		return localStorage.getItem(key);
-	} catch {
-		return null;
-	}
-};
-
-const writeStored = (key: string, value: string) => {
-	try {
-		localStorage.setItem(key, value);
-	} catch {}
-};
 
 const storedCorner = (): FloatingCorner => {
 	const raw = readStored(CORNER_KEY);

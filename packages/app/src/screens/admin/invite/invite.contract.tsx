@@ -17,6 +17,7 @@ import { usePlatform } from "../../../screen/platform";
 import { NEW_ENTRY } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
+import { useUnsavedChanges } from "../../../shell/unsaved-changes";
 import { SpaceMissing, toInviteSummary } from "../access-shared";
 import { AdminNavHeader } from "../desktop/page-header";
 import { SPACE_PERMISSIONS, useAdminSpace } from "../space-admin";
@@ -58,6 +59,24 @@ export const invite = defineContract({
 			);
 		};
 		const shown = () => created() ?? existing();
+		useUnsavedChanges({
+			depth: () =>
+				stack
+					.mounted()
+					.findIndex(
+						(layer) =>
+							layer.kind === "admin" &&
+							layer.page === "invite" &&
+							layer.space === args.space &&
+							layer.id === args.id,
+					) + 1,
+			dirty: () =>
+				isNew() &&
+				!created() &&
+				!generating() &&
+				JSON.stringify(settings()) !== JSON.stringify(DEFAULT_INVITE_SETTINGS),
+			description: () => "This invite link won't be created.",
+		});
 		const generate = async () => {
 			const current = community();
 			if (!current || generating()) return;

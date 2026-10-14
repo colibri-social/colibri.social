@@ -10,7 +10,6 @@ export default spaceProfile.view({
 				<s.Fields />
 				<s.Access />
 			</Show>
-			<s.Discard />
 		</>
 	),
 });

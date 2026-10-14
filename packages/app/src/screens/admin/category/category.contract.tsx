@@ -4,8 +4,6 @@ import {
 	ConfirmDialog,
 	DeveloperModeCard,
 	ListGroup,
-	Modal,
-	ModalContent,
 	NavRow,
 	StatusScreen,
 	TextField,
@@ -28,6 +26,7 @@ import { usePlatform } from "../../../screen/platform";
 import { NEW_ENTRY } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
+import { useUnsavedChanges } from "../../../shell/unsaved-changes";
 import {
 	type Audience,
 	type AudienceKind,
@@ -98,7 +97,6 @@ export const adminCategory = defineContract({
 		const [ownerOnly, setOwnerOnly] = createSignal(false);
 		const [saving, setSaving] = createSignal(false);
 		const [attempted, setAttempted] = createSignal(false);
-		const [discardOpen, setDiscardOpen] = createSignal(false);
 		const [deleteOpen, setDeleteOpen] = createSignal(false);
 
 		let seeded = creating;
@@ -162,13 +160,18 @@ export const adminCategory = defineContract({
 				get depth() {
 					return depth();
 				},
-				blocked: () => !saving() && (step() === 2 || dirty()),
-				onBlocked: () => {
-					if (step() === 2) setStep(1);
-					else setDiscardOpen(true);
-				},
+				blocked: () => !saving() && step() === 2,
+				onBlocked: () => setStep(1),
 			}),
 		);
+		useUnsavedChanges({
+			depth,
+			dirty: () => !saving() && dirty(),
+			description: () =>
+				creating
+					? "This category won't be created."
+					: "Your changes to this category won't be saved.",
+		});
 
 		const leave = () => stack.forcePop();
 
@@ -287,12 +290,6 @@ export const adminCategory = defineContract({
 			submitAudience,
 			save,
 			back: () => stack.pop(),
-			discardOpen,
-			setDiscardOpen,
-			discard: () => {
-				setDiscardOpen(false);
-				leave();
-			},
 			deleteOpen,
 			setDeleteOpen,
 			remove,
@@ -474,31 +471,6 @@ export const adminCategory = defineContract({
 					onConfirm={m.remove}
 				/>
 			</Show>
-		)),
-		Discard: slot((m) => (
-			<Modal open={m.discardOpen()} onOpenChange={m.setDiscardOpen}>
-				<ModalContent
-					title="Discard changes?"
-					description={
-						m.creating
-							? "This category won't be created."
-							: "Your changes to this category won't be saved."
-					}
-					footer={
-						<>
-							<Button
-								variant="secondary"
-								onClick={() => m.setDiscardOpen(false)}
-							>
-								Keep editing
-							</Button>
-							<Button variant="destructive" onClick={m.discard}>
-								Discard
-							</Button>
-						</>
-					}
-				/>
-			</Modal>
 		)),
 	},
 });

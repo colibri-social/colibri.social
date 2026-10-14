@@ -30,17 +30,22 @@ export const roleIdentity = (role: RoleView): RoleIdentity => ({
 	badge: roleBadge(role),
 });
 
+export const isVisibleRole = (role: RoleView) => !role.protected;
+
+export const visibleRoles = (roles: readonly RoleView[]) =>
+	roles.filter(isVisibleRole);
+
 export const rolesOf = (
 	member: MemberView | undefined,
 	roleByKey: (rkey: string) => RoleView | undefined,
 ) =>
 	(member?.roles ?? [])
 		.map((rkey) => roleByKey(rkey))
-		.filter((role): role is RoleView => !!role)
+		.filter((role): role is RoleView => !!role && isVisibleRole(role))
 		.sort((a, b) => b.position - a.position);
 
 export const topColoredRole = (roles: readonly RoleView[]) =>
-	roles.find((role) => !!role.color);
+	roles.find((role) => isVisibleRole(role) && !!role.color);
 
 export const topHoistedRole = (roles: readonly RoleView[]) =>
-	roles.find((role) => role.hoisted);
+	roles.find((role) => isVisibleRole(role) && role.hoisted);

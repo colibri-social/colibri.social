@@ -76,3 +76,36 @@ export const mentionsDid = (
 				feature.did === did,
 		),
 	);
+
+export const mentionsRole = (
+	facets: readonly Facet[] | undefined,
+	roles: readonly string[],
+) => {
+	if (roles.length === 0) return false;
+	const owned = new Set(roles);
+	return (facets ?? []).some((facet) =>
+		facet.features.some(
+			(feature) =>
+				feature.$type === "social.colibri.beta.richtext.facet#role" &&
+				"role" in feature &&
+				owned.has(feature.role as string),
+		),
+	);
+};
+
+export const linkUris = (facets: readonly Facet[] | undefined) => {
+	const uris: string[] = [];
+	for (const facet of facets ?? []) {
+		for (const feature of facet.features) {
+			if (
+				feature.$type === "social.colibri.beta.richtext.facet#link" &&
+				"uri" in feature &&
+				typeof feature.uri === "string" &&
+				!uris.includes(feature.uri)
+			) {
+				uris.push(feature.uri);
+			}
+		}
+	}
+	return uris;
+};

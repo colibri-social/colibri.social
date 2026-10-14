@@ -1,5 +1,6 @@
 import { Popover as KobaltePopover } from "@kobalte/core/popover";
 import { type JSX, Show, splitProps } from "solid-js";
+import { createAnchorToggle } from "../../utils/anchor-toggle";
 import { cx } from "../../utils/cx";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
@@ -41,6 +42,11 @@ export const AnchoredPicker = (
 	const overflowPadding = usePopperOverflowPadding(16);
 	let wrapper: HTMLSpanElement | undefined;
 	const anchorElement = () => props.anchorElement ?? wrapper;
+	const toggleFromAnchor = createAnchorToggle({
+		anchor: anchorElement,
+		open: () => props.open && (props.platform ?? "desktop") === "desktop",
+		close: () => props.onOpenChange(false),
+	});
 
 	const returnFocus = (event: Event) => {
 		event.preventDefault();
@@ -93,11 +99,7 @@ export const AnchoredPicker = (
 						{...topLayerAttrs}
 						ref={revealLayer}
 						aria-label={props.label}
-						onInteractOutside={(event) => {
-							const target = event.detail.originalEvent.target as Node | null;
-							if (target && anchorElement()?.contains(target))
-								event.preventDefault();
-						}}
+						onInteractOutside={toggleFromAnchor}
 						onCloseAutoFocus={returnFocus}
 						class={cx(popoverSurface, props.class)}
 					>

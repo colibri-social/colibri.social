@@ -283,6 +283,95 @@ export const EmojiOptionsPopover: Story = {
 	},
 };
 
+const drawerOverlay = () =>
+	document.querySelector("[data-corvu-drawer-overlay]") as HTMLElement;
+
+export const RenameDrawerGuardsDraft: Story = {
+	render: () => <DrawerDemo />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const dialog = await openDrawer(canvasElement, ":party_parrot: options");
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Rename emoji" }),
+		);
+		const field = await within(dialog).findByRole("textbox", { name: "Name" });
+		await userEvent.clear(field);
+		await userEvent.type(field, "sleepy_parrot");
+		await userEvent.click(drawerOverlay());
+		const prompt = await screen.findByRole("dialog", {
+			name: "Discard changes?",
+		});
+		await expect(prompt).toHaveTextContent("The new name won't be saved.");
+		await expectNoLayoutIssues(prompt);
+		await userEvent.click(
+			within(prompt).getByRole("button", { name: "Cancel" }),
+		);
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Discard changes?" }),
+			).toBeNull(),
+		);
+		await expect(field).toHaveValue("sleepy_parrot");
+		await userEvent.click(drawerOverlay());
+		await userEvent.click(
+			within(
+				await screen.findByRole("dialog", { name: "Discard changes?" }),
+			).getByRole("button", { name: "Discard changes" }),
+		);
+		await waitForClosed();
+		await waitFor(() =>
+			expect(document.body.style.pointerEvents).not.toBe("none"),
+		);
+		await expect(spy.rename).not.toHaveBeenCalled();
+	},
+};
+
+export const RenamePopoverGuardsDraft: Story = {
+	parameters: desktopViewport,
+	render: () => <PopoverDemo />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		await userEvent.click(
+			within(canvasElement).getByRole("button", {
+				name: "More actions for :party_parrot:",
+			}),
+		);
+		const popover = await screen.findByRole("dialog", {
+			name: ":party_parrot: options",
+		});
+		await userEvent.click(
+			within(popover).getByRole("button", { name: "Rename emoji" }),
+		);
+		const field = await within(popover).findByRole("textbox", {
+			name: "Name",
+		});
+		await userEvent.clear(field);
+		await userEvent.type(field, "sleepy_parrot");
+		await userEvent.click(document.body);
+		const prompt = await screen.findByRole("dialog", {
+			name: "Discard changes?",
+		});
+		await userEvent.click(
+			within(prompt).getByRole("button", { name: "Cancel" }),
+		);
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Discard changes?" }),
+			).toBeNull(),
+		);
+		await expect(popover).toBeInTheDocument();
+		await expect(field).toHaveValue("sleepy_parrot");
+		await userEvent.click(document.body);
+		await userEvent.click(
+			within(
+				await screen.findByRole("dialog", { name: "Discard changes?" }),
+			).getByRole("button", { name: "Discard changes" }),
+		);
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+		await expect(spy.rename).not.toHaveBeenCalled();
+	},
+};
+
 const UploadDemo = () => {
 	const [open, setOpen] = createSignal(false);
 	const [src, setSrc] = createSignal<string>();

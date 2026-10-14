@@ -4,6 +4,7 @@ import { Outlet, usePlacement } from "../../shell/desktop/context";
 import { thread } from "./thread.contract";
 
 export default thread.view({
+	hidden: ["Unavailable", "LoadError"] as const,
 	render: ({ slots: s, model: m }) => {
 		const full = usePlacement() === "main";
 		return (
@@ -18,15 +19,17 @@ export default thread.view({
 					</Outlet>
 				</Show>
 				<Show when={!m.unavailable()} fallback={<s.Unavailable />}>
-					<AttachmentDropzone
-						scope="zone"
-						channelName={m.options.label()}
-						disabled={m.selection.active()}
-						onFiles={(files) => m.attachments.addFiles(files)}
-						footer={<s.Composer platform="desktop" />}
-					>
-						<s.Messages platform="desktop" />
-					</AttachmentDropzone>
+					<Show when={!m.loadFailure()} fallback={<s.LoadError />}>
+						<AttachmentDropzone
+							scope="zone"
+							channelName={m.options.label()}
+							disabled={m.selection.active()}
+							onFiles={(files) => m.attachments.addFiles(files)}
+							footer={<s.Composer platform="desktop" />}
+						>
+							<s.Messages platform="desktop" />
+						</AttachmentDropzone>
+					</Show>
 				</Show>
 				<s.Menu />
 			</div>

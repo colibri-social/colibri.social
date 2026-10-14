@@ -145,6 +145,7 @@
 						"social.colibri.beta.role.create",
 						"social.colibri.beta.role.update",
 						"social.colibri.beta.role.delete",
+						"social.colibri.beta.role.putBadgeImage",
 						"social.colibri.beta.voice.moderate",
 						"social.colibri.beta.thread.delete",
 						"social.colibri.beta.thread.repoint",
