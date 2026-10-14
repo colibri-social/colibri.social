@@ -90,7 +90,8 @@ const resolvers: RichTextResolvers = {
 		if (channel) return { kind: "channel", channel: channel[1] };
 		return undefined;
 	},
-	rewriteUrl: (uri) => uri.replace("https://bsky.app/", "https://witchsky.app/"),
+	rewriteUrl: (uri) =>
+		uri.replace("https://bsky.app/", "https://witchsky.app/"),
 	onLinkOpen,
 	onNavigate,
 	bridgePlatformName: (platform) => (platform === "chat" ? "Chat" : platform),

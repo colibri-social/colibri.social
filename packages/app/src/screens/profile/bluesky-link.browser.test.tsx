@@ -107,9 +107,7 @@ describe("Bluesky profile link", () => {
 				profileLink()?.getAttribute("href") ===
 				`https://mu.social/profile/${other.actor.did}`,
 		);
-		expect(profileLink()?.getAttribute("aria-label")).toBe(
-			"View on Mu Social",
-		);
+		expect(profileLink()?.getAttribute("aria-label")).toBe("View on Mu Social");
 		expect(
 			profileLink()?.querySelector("svg")?.getAttribute("data-bluesky-client"),
 		).toBe("mu");
