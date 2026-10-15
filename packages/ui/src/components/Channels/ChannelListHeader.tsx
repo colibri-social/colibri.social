@@ -294,7 +294,8 @@ export const ChannelListHeader = (props: ChannelListHeaderProps) => {
 			</Show>
 			<div
 				class={cx(
-					"flex flex-col gap-2 p-4",
+					"flex flex-col gap-2",
+					desktop() && !hasSpaceBanner(props) ? "px-4 pt-0 pb-4" : "p-4",
 					desktop()
 						? "border-0 border-b border-solid border-secondary"
 						: "border-0 border-y border-solid border-secondary",
