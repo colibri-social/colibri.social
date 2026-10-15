@@ -112,6 +112,11 @@ export type ChatContextValue = {
 	onStartThread?: (message: ChatMessage) => void;
 	onOpenProfile: (did: string, anchor?: HTMLElement) => void;
 	onOpenMemberMenu: (did: string) => void;
+	memberContextMenu?: (
+		did: string,
+		trigger: JSX.Element,
+		wrapperClass?: string,
+	) => JSX.Element;
 	onOpenChannel?: (skey: string) => void;
 	onForward?: (message: ChatMessage) => void;
 	selection?: MessageSelection;
@@ -137,79 +142,92 @@ export const useChat = () => {
 
 export const createChatRichTextResolvers = (
 	chat: ChatContextValue,
-): RichTextResolvers => ({
-	get platform() {
-		return chat.platform?.() ?? "mobile";
-	},
-	member: (did) => {
-		const member = chat.members().get(did);
-		return member
-			? { did, name: displayNameOf(member.actor, member) }
-			: undefined;
-	},
-	wrapMention: (member, chip) => (
-		<ChipButton
-			label={`Open ${member.name ?? "member"}'s profile`}
-			onClick={() => chat.onOpenProfile(member.did)}
-			onMenu={() => chat.onOpenMemberMenu(member.did)}
-		>
-			{chip}
-		</ChipButton>
-	),
-	wrapRole: (role, chip) => {
-		const view = chat.roles().get(role.rkey);
-		if (!view) return chip;
-		const members = () =>
-			[...chat.members().values()]
-				.filter((member) => member.roles.includes(role.rkey))
-				.map((member) =>
-					toListMember(member, {
-						roleByKey: (rkey) => chat.roles().get(rkey),
-						presence: chat.presenceOf?.(member.actor.did),
-					}),
-				);
-		return (
-			<RoleMention
-				platform={chat.platform?.() ?? "mobile"}
-				role={roleIdentity(view)}
-				members={chat.membersLoaded?.() === false ? undefined : members()}
-				onOpenMember={(member, event) =>
-					chat.onOpenProfile(member.id, event.currentTarget as HTMLElement)
-				}
-				onMemberMenu={(member) => chat.onOpenMemberMenu(member.id)}
-			>
-				{chip}
-			</RoleMention>
-		);
-	},
-	role: (rkey) => {
-		const role = chat.roles().get(rkey);
-		return role ? { rkey, name: role.name, color: role.color } : undefined;
-	},
-	channel: (skey): RichTextChannel | undefined => {
-		const channel = chat.channels().get(skey);
-		if (!channel) return undefined;
-		if (!channel.viewer.canRead) return { state: "locked" };
-		return {
-			state: "ready",
-			name: channel.name,
-			category: channel.category
-				? chat.categoryName?.(channel.category)
-				: undefined,
-		};
-	},
-	onChannelOpen: (skey, event) => {
-		if (!chat.onOpenChannel) return;
-		event.preventDefault();
-		chat.onOpenChannel(skey);
-	},
-	bridgePlatformName,
-	highlight: highlightCode,
-	onExternalLink: chat.onExternalLink,
-	customEmoji: chat.customEmoji,
-	customEmojiFeature: chat.customEmojiFeature,
-	onCustomEmojiOpen: chat.onCustomEmojiOpen,
-});
+): RichTextResolvers => {
+	const desktopMenu = () =>
+		chat.platform?.() === "desktop" ? chat.memberContextMenu : undefined;
+	return {
+		get platform() {
+			return chat.platform?.() ?? "mobile";
+		},
+		member: (did) => {
+			const member = chat.members().get(did);
+			return member
+				? { did, name: displayNameOf(member.actor, member) }
+				: undefined;
+		},
+		wrapMention: (member, chip) => {
+			const menu = desktopMenu();
+			const button = (
+				<ChipButton
+					label={`Open ${member.name ?? "member"}'s profile`}
+					onClick={() => chat.onOpenProfile(member.did)}
+					onMenu={menu ? undefined : () => chat.onOpenMemberMenu(member.did)}
+				>
+					{chip}
+				</ChipButton>
+			);
+			return menu ? menu(member.did, button, "inline") : button;
+		},
+		wrapRole: (role, chip) => {
+			const view = chat.roles().get(role.rkey);
+			if (!view) return chip;
+			const members = () =>
+				[...chat.members().values()]
+					.filter((member) => member.roles.includes(role.rkey))
+					.map((member) =>
+						toListMember(member, {
+							roleByKey: (rkey) => chat.roles().get(rkey),
+							presence: chat.presenceOf?.(member.actor.did),
+						}),
+					);
+			return (
+				<RoleMention
+					platform={chat.platform?.() ?? "mobile"}
+					role={roleIdentity(view)}
+					members={chat.membersLoaded?.() === false ? undefined : members()}
+					onOpenMember={(member, event) =>
+						chat.onOpenProfile(member.id, event.currentTarget as HTMLElement)
+					}
+					onMemberMenu={
+						desktopMenu()
+							? undefined
+							: (member) => chat.onOpenMemberMenu(member.id)
+					}
+					wrapMember={(member, row) => desktopMenu()?.(member.id, row) ?? row}
+				>
+					{chip}
+				</RoleMention>
+			);
+		},
+		role: (rkey) => {
+			const role = chat.roles().get(rkey);
+			return role ? { rkey, name: role.name, color: role.color } : undefined;
+		},
+		channel: (skey): RichTextChannel | undefined => {
+			const channel = chat.channels().get(skey);
+			if (!channel) return undefined;
+			if (!channel.viewer.canRead) return { state: "locked" };
+			return {
+				state: "ready",
+				name: channel.name,
+				category: channel.category
+					? chat.categoryName?.(channel.category)
+					: undefined,
+			};
+		},
+		onChannelOpen: (skey, event) => {
+			if (!chat.onOpenChannel) return;
+			event.preventDefault();
+			chat.onOpenChannel(skey);
+		},
+		bridgePlatformName,
+		highlight: highlightCode,
+		onExternalLink: chat.onExternalLink,
+		customEmoji: chat.customEmoji,
+		customEmojiFeature: chat.customEmojiFeature,
+		onCustomEmojiOpen: chat.onCustomEmojiOpen,
+	};
+};
 
 export const ChatRichTextProvider = (props: ParentProps) => {
 	const chat = useChat();

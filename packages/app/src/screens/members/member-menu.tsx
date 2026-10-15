@@ -3,6 +3,8 @@ import {
 	MemberActionDialog,
 	MemberContextMenu,
 	MemberDrawer,
+	MemberDropdownMenu,
+	type MemberMenuActions,
 	type MemberMenuRole,
 	toast,
 } from "@colibri-social/ui";
@@ -29,12 +31,24 @@ type Target = { did: Did; space: string };
 
 type MemberMenuApi = {
 	open: (did: string, space: string) => void;
-	contextMenu: (did: string, space: string, row: JSX.Element) => JSX.Element;
+	contextMenu: (
+		did: string,
+		space: string,
+		row: JSX.Element,
+		wrapperClass?: string,
+	) => JSX.Element;
+	dropdown: (
+		did: string,
+		space: string,
+		trigger: JSX.Element,
+		triggerClass?: string,
+	) => JSX.Element;
 };
 
 const MemberMenuContext = createContext<MemberMenuApi>({
 	open: () => {},
 	contextMenu: (_did, _space, row) => row,
+	dropdown: (_did, _space, trigger) => trigger,
 });
 
 export const useMemberMenu = () => useContext(MemberMenuContext);
@@ -138,39 +152,70 @@ export const MemberMenuProvider = (props: ParentProps) => {
 		void whenOverlaysClosed().then(() => setConfirming(true));
 	};
 
-	const DesktopMenu = (props: { target: Target; children: JSX.Element }) => {
-		const current = createMemo(() => resolve(props.target));
+	const desktopActions = (
+		target: Target,
+	): MemberMenuActions & { name: string; disabled: boolean } => {
+		const current = createMemo(() => resolve(target));
 		const label = () => {
 			const value = current();
 			return value ? displayNameOf(value.member.actor, value.member) : "";
 		};
 		const moderate = (kind: Moderation) => {
-			setTarget(props.target);
+			setTarget(target);
 			askModeration(kind);
 		};
+		return {
+			get name() {
+				return label();
+			},
+			get disabled() {
+				return !current();
+			},
+			onViewProfile: () => profileSheet.open(target.did, target.space),
+			get roles() {
+				return menuRoles(current());
+			},
+			onRoleChange: (id, assigned) => changeRole(id, assigned, current()),
+			get onKick() {
+				return current()?.permissions.canKick
+					? () => moderate("kick")
+					: undefined;
+			},
+			get onBan() {
+				return current()?.permissions.canBan
+					? () => moderate("ban")
+					: undefined;
+			},
+			onCopyDid: () =>
+				void copyText(target.did).then(() =>
+					toast.success(`DID for ${label()} copied`),
+				),
+		};
+	};
+
+	const DesktopMenu = (props: {
+		target: Target;
+		class?: string;
+		children: JSX.Element;
+	}) => (
+		<MemberContextMenu {...desktopActions(props.target)} class={props.class}>
+			{props.children}
+		</MemberContextMenu>
+	);
+
+	const DesktopDropdown = (props: {
+		target: Target;
+		triggerClass?: string;
+		children: JSX.Element;
+	}) => {
+		const actions = desktopActions(props.target);
 		return (
-			<MemberContextMenu
-				name={label()}
-				disabled={!current()}
-				onViewProfile={() =>
-					profileSheet.open(props.target.did, props.target.space)
-				}
-				roles={menuRoles(current())}
-				onRoleChange={(id, assigned) => changeRole(id, assigned, current())}
-				onKick={
-					current()?.permissions.canKick ? () => moderate("kick") : undefined
-				}
-				onBan={
-					current()?.permissions.canBan ? () => moderate("ban") : undefined
-				}
-				onCopyDid={() =>
-					void copyText(props.target.did).then(() =>
-						toast.success(`DID for ${label()} copied`),
-					)
-				}
-			>
-				{props.children}
-			</MemberContextMenu>
+			<MemberDropdownMenu
+				{...actions}
+				trigger={props.children}
+				triggerClass={props.triggerClass}
+				triggerProps={{ disabled: actions.disabled }}
+			/>
 		);
 	};
 
@@ -179,8 +224,18 @@ export const MemberMenuProvider = (props: ParentProps) => {
 			setTarget({ did: did as Did, space });
 			void whenOverlaysClosed().then(() => setOpen(true));
 		},
-		contextMenu: (did, space, row) => (
-			<DesktopMenu target={{ did: did as Did, space }}>{row}</DesktopMenu>
+		contextMenu: (did, space, row, wrapperClass) => (
+			<DesktopMenu target={{ did: did as Did, space }} class={wrapperClass}>
+				{row}
+			</DesktopMenu>
+		),
+		dropdown: (did, space, trigger, triggerClass) => (
+			<DesktopDropdown
+				target={{ did: did as Did, space }}
+				triggerClass={triggerClass}
+			>
+				{trigger}
+			</DesktopDropdown>
 		),
 	};
 

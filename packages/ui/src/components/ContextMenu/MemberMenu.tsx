@@ -3,10 +3,12 @@ import { ShieldUserIcon } from "@solar-icons/solid/bold/shield-user";
 import { UserBlockRoundedIcon } from "@solar-icons/solid/bold/user-block-rounded";
 import { UserCircleIcon } from "@solar-icons/solid/bold/user-circle";
 import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded";
-import { createMemo, untrack } from "solid-js";
-import type {
-	DropdownMenuCheckboxEntry,
-	DropdownMenuEntry,
+import { createMemo, type JSX, untrack } from "solid-js";
+import {
+	DropdownMenu,
+	type DropdownMenuCheckboxEntry,
+	type DropdownMenuEntry,
+	type DropdownMenuPlacement,
 } from "../DropdownMenu/DropdownMenu";
 import { RoleColorDot } from "../Roles/RoleBadge";
 import {
@@ -127,7 +129,7 @@ export const memberMenuEntries = (
 export type MemberContextMenuProps = MemberMenuActions &
 	TargetContextMenuProps & { name: string };
 
-const menuShape = (props: MemberContextMenuProps) =>
+const menuShape = (props: MemberMenuActions & { name: string }) =>
 	[
 		props.name,
 		!!props.onViewProfile,
@@ -156,5 +158,34 @@ export const MemberContextMenu = (props: MemberContextMenuProps) => {
 		>
 			{props.children}
 		</EntryContextMenu>
+	);
+};
+
+export type MemberDropdownMenuProps = MemberMenuActions & {
+	name: string;
+	trigger: JSX.Element;
+	triggerClass?: string;
+	triggerProps?: Record<string, unknown>;
+	placement?: DropdownMenuPlacement;
+	onOpenChange?: (open: boolean) => void;
+};
+
+export const MemberDropdownMenu = (props: MemberDropdownMenuProps) => {
+	const shape = createMemo(() => menuShape(props));
+	const entries = createMemo(() => {
+		shape();
+		return untrack(() => memberMenuEntries(props.name, props));
+	});
+	return (
+		<DropdownMenu
+			platform="desktop"
+			label={`${props.name} options`}
+			items={entries()}
+			trigger={props.trigger}
+			triggerClass={props.triggerClass}
+			triggerProps={props.triggerProps}
+			placement={props.placement ?? "bottom-end"}
+			onOpenChange={props.onOpenChange}
+		/>
 	);
 };

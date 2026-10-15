@@ -62,7 +62,7 @@ export const MicLevelMeter = (props: MicLevelMeterProps) => {
 		<div
 			data-mic-meter=""
 			class={cx(
-				"relative flex h-6 min-w-0 flex-1 items-stretch gap-0.5",
+				"relative flex h-5 min-w-0 flex-1 items-stretch justify-between gap-0.5",
 				props.class,
 			)}
 		>
@@ -79,7 +79,7 @@ export const MicLevelMeter = (props: MicLevelMeterProps) => {
 						aria-hidden="true"
 						data-lit={index < lit() || undefined}
 						class={cx(
-							"min-w-0 flex-1 rounded-full bg-secondary",
+							"w-1 min-w-px shrink rounded-full bg-secondary",
 							index < lit() && segmentTone(index),
 						)}
 					/>

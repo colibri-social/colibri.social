@@ -96,6 +96,7 @@ export type MessageRowProps = Omit<
 	onDelete?: () => void;
 	onAuthorClick?: (event: MouseEvent) => void;
 	onAuthorMenu?: (event: Event) => void;
+	wrapAuthor?: (trigger: JSX.Element, wrapperClass: string) => JSX.Element;
 };
 
 export const JUMP_HIGHLIGHT_MS = 1500;
@@ -214,6 +215,7 @@ export const MessageRow = (props: MessageRowProps) => {
 		"onDelete",
 		"onAuthorClick",
 		"onAuthorMenu",
+		"wrapAuthor",
 		"class",
 	]);
 	const badge = createSlot(() => local.badge);
@@ -223,6 +225,8 @@ export const MessageRow = (props: MessageRowProps) => {
 			enabled: () => !!local.onAuthorMenu,
 			onMenu: (event) => local.onAuthorMenu?.(event),
 		});
+	const wrapAuthor = (trigger: JSX.Element, wrapperClass: string) =>
+		local.wrapAuthor ? local.wrapAuthor(trigger, wrapperClass) : trigger;
 	const nameColor = useAuthorNameColor(() => local.author);
 	const nameTone = () =>
 		failed()
@@ -409,18 +413,21 @@ export const MessageRow = (props: MessageRowProps) => {
 						}
 					>
 						<Show when={authorInteractive()} fallback={<AuthorAvatar />}>
-							{(_) => (
-								<button
-									type="button"
-									ref={authorMenu}
-									data-member-menu={local.onAuthorMenu ? "" : undefined}
-									aria-label={`${local.author.name}'s profile`}
-									onClick={(event) => local.onAuthorClick?.(event)}
-									class="size-10 shrink-0 cursor-pointer self-start rounded-full outline-none focus-ring"
-								>
-									<AuthorAvatar />
-								</button>
-							)}
+							{(_) =>
+								wrapAuthor(
+									<button
+										type="button"
+										ref={authorMenu}
+										data-member-menu={local.onAuthorMenu ? "" : undefined}
+										aria-label={`${local.author.name}'s profile`}
+										onClick={(event) => local.onAuthorClick?.(event)}
+										class="size-10 shrink-0 cursor-pointer self-start rounded-full outline-none focus-ring"
+									>
+										<AuthorAvatar />
+									</button>,
+									"size-10 shrink-0 self-start",
+								)
+							}
 						</Show>
 					</Show>
 					<div class="flex min-w-0 flex-1 flex-col gap-1">
@@ -447,24 +454,27 @@ export const MessageRow = (props: MessageRowProps) => {
 											</span>
 										}
 									>
-										{(_) => (
-											<button
-												type="button"
-												ref={authorMenu}
-												data-member-menu={local.onAuthorMenu ? "" : undefined}
-												onClick={(event) => local.onAuthorClick?.(event)}
-												data-author-name=""
-												class={cx(
-													"cursor-pointer truncate rounded-control-xs text-sm leading-4 font-semibold decoration-1 underline-offset-2 outline-none hover:underline focus-ring",
-													nameTone(),
-												)}
-												style={
-													failed() ? undefined : nameColorStyle(nameColor())
-												}
-											>
-												{local.author.name}
-											</button>
-										)}
+										{(_) =>
+											wrapAuthor(
+												<button
+													type="button"
+													ref={authorMenu}
+													data-member-menu={local.onAuthorMenu ? "" : undefined}
+													onClick={(event) => local.onAuthorClick?.(event)}
+													data-author-name=""
+													class={cx(
+														"max-w-full cursor-pointer truncate rounded-control-xs text-sm leading-4 font-semibold decoration-1 underline-offset-2 outline-none hover:underline focus-ring",
+														nameTone(),
+													)}
+													style={
+														failed() ? undefined : nameColorStyle(nameColor())
+													}
+												>
+													{local.author.name}
+												</button>,
+												"flex min-w-0",
+											)
+										}
 									</Show>
 									<Show when={local.author.role?.badge && local.author.role}>
 										{(role) => <RoleBadge role={role()} />}

@@ -113,10 +113,7 @@ export const desktopRoute = (root: Root, layers: Layer[]): DesktopRoute => {
 			continue;
 		}
 		if (layer.kind === "editProfile") {
-			route.modal.push(
-				{ kind: "settings", page: "profile" },
-				{ kind: "settings", page: "editProfile" },
-			);
+			route.modal.push({ kind: "settings", page: "profile" });
 			continue;
 		}
 		route.modal.push(layer);

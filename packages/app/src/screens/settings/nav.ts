@@ -2,7 +2,6 @@ import { createContext, useContext } from "solid-js";
 
 export const SETTINGS_PAGE_IDS = [
 	"profile",
-	"editProfile",
 	"deleteAccount",
 	"voiceVideo",
 	"appearance",
@@ -33,8 +32,6 @@ export const useSettingsNav = () => {
 	if (!nav) throw new Error("useSettingsNav needs a SettingsNavContext");
 	return nav;
 };
-
-export const ATMOSPHERE_ACCOUNT_URL = "https://atmosphereaccount.com/";
 
 export const settingsPage = (page: unknown): SettingsPageId =>
 	isSettingsPage(page) ? page : "profile";

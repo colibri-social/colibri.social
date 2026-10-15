@@ -26,6 +26,7 @@ export type RoleMentionProps = RoleMentionData & {
 	platform?: "mobile" | "desktop";
 	onOpenMember?: (member: Member, event: MouseEvent) => void;
 	onMemberMenu?: (member: Member, event: Event) => void;
+	wrapMember?: (member: Member, row: JSX.Element) => JSX.Element;
 	children: JSX.Element;
 };
 
@@ -67,6 +68,7 @@ export const RoleMentionMembers = (
 		variant: MemberRowVariant;
 		onOpenMember?: (member: Member, event: MouseEvent) => void;
 		onMemberMenu?: (member: Member, event: Event) => void;
+		wrapMember?: (member: Member, row: JSX.Element) => JSX.Element;
 	},
 ) => {
 	const groups = createMemo(() =>
@@ -103,6 +105,7 @@ export const RoleMentionMembers = (
 						variant={props.variant}
 						onOpen={props.onOpenMember}
 						onMemberMenu={props.onMemberMenu}
+						wrapMember={props.wrapMember}
 						class={props.variant === "desktop" ? "px-0 py-0" : undefined}
 					/>
 				</Show>
@@ -178,6 +181,7 @@ const RoleMentionPopover = (props: RoleMentionProps) => {
 							variant="desktop"
 							onOpenMember={props.onOpenMember}
 							onMemberMenu={props.onMemberMenu}
+							wrapMember={props.wrapMember}
 						/>
 					</div>
 				</KobaltePopover.Content>

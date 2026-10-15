@@ -24,7 +24,7 @@ const useMobileNav = (): SettingsNav => {
 	return {
 		open: (page) =>
 			stack.push(
-				page === "editProfile"
+				page === "profile"
 					? { kind: "editProfile" }
 					: { kind: "settings", page },
 			),

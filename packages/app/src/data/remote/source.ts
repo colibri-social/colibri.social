@@ -11,6 +11,7 @@ import {
 	typingFrame,
 	viewChannelFrame,
 } from "@colibri-social/lib";
+import { resolvePdsHost } from "../../auth/identity";
 import type { InvitationPreview, JoinResult } from "../access";
 import { type ChannelSummary, summarizeMessage } from "../channel-summary";
 import type { EmojiSource } from "../emoji";
@@ -375,6 +376,7 @@ export const createRemoteSource = async (
 		leaveCommunity: async (input) => {
 			await transport.procedure(colibri.community.leave.main, { body: input });
 		},
+		accountHost: () => resolvePdsHost(options.session.did),
 		getDeletionStatus: deletion.getDeletionStatus,
 		deleteColibriData: deletion.deleteColibriData,
 		transferOwnership: rejectNotEnabled("community.transferOwnership"),

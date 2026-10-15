@@ -15,6 +15,7 @@ import {
 	createMemo,
 	createSignal,
 	For,
+	type JSX,
 	Match,
 	type ParentProps,
 	Show,
@@ -25,6 +26,7 @@ import { displayNameOf } from "../../../data/adapters/authors";
 import { roleIdentity, rolesOf, topColoredRole } from "../../../data/roles";
 import type { Did, MemberView } from "../../../data/types";
 import { defineContract, slot } from "../../../screen/define";
+import { usePlatform } from "../../../screen/platform";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { useMemberMenu } from "../../members/member-menu";
@@ -39,6 +41,9 @@ import { AdminNavHeader } from "../desktop/page-header";
 import { SPACE_PERMISSIONS, useAdminSpace } from "../space-admin";
 
 export const MEMBER_LIMIT = 50;
+
+const MEMBER_DROPDOWN_TRIGGER =
+	"block w-full cursor-pointer text-left outline-none hover:bg-secondary-highlight focus-ring-inset data-expanded:bg-secondary-highlight";
 
 export const MEMBERS_COPY = {
 	title: "Members",
@@ -180,6 +185,12 @@ export const members = defineContract({
 			matching,
 			shown,
 			openMember: (did: Did) => memberMenu.open(did, args.space),
+			memberDropdown: (did: Did, row: JSX.Element) =>
+				memberMenu.contextMenu(
+					did,
+					args.space,
+					memberMenu.dropdown(did, args.space, row, MEMBER_DROPDOWN_TRIGGER),
+				),
 			applications,
 			showRequests,
 			pending,
@@ -327,10 +338,20 @@ export const members = defineContract({
 						<ListGroup label={MEMBERS_COPY.members} count={m.matching().length}>
 							<For each={m.shown()}>
 								{(member) => (
-									<MemberActionRow
-										member={m.identity(member)}
-										onOpen={() => m.openMember(member.actor.did)}
-									/>
+									<Show
+										when={usePlatform()() === "desktop"}
+										fallback={
+											<MemberActionRow
+												member={m.identity(member)}
+												onOpen={() => m.openMember(member.actor.did)}
+											/>
+										}
+									>
+										{m.memberDropdown(
+											member.actor.did,
+											<MemberActionRow member={m.identity(member)} />,
+										)}
+									</Show>
 								)}
 							</For>
 						</ListGroup>

@@ -9,13 +9,10 @@ import {
 import type { Component } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import type { DataStore } from "../../data/store";
+import { sellsThroughAppStore } from "../../native/app-store";
 import type { Platform } from "../../screen/platform";
-import {
-	ATMOSPHERE_ACCOUNT_URL,
-	type SettingsNav,
-	type SettingsPageId,
-} from "./nav";
-import AccountPage from "./pages/account";
+import { accountPageOf } from "./account-page";
+import type { SettingsNav, SettingsPageId } from "./nav";
 import AdvancedPage from "./pages/advanced";
 import AppearancePage from "./pages/appearance";
 import ChatPage from "./pages/chat";
@@ -37,11 +34,10 @@ type PageInfo = {
 };
 
 export const SETTINGS_PAGES: Record<SettingsPageId, PageInfo> = {
-	profile: { title: "Profile", entry: "profile", view: AccountPage },
-	editProfile: { title: "Edit profile", entry: "profile" },
+	profile: { title: "Profile", entry: "profile" },
 	deleteAccount: {
 		title: "Delete my Colibri data",
-		entry: "profile",
+		entry: "advanced",
 		view: DeleteAccountPage,
 	},
 	voiceVideo: {
@@ -126,9 +122,10 @@ export const settingsEntries = (
 	const page = (id: SettingsPageId) => ({ onSelect: () => nav.open(id) });
 	const external = (href: string) => ({ href, external: true });
 	const developer = data.preferences.client().developerMode;
+	const accountPage = accountPageOf(data);
 	return {
 		profile: page("profile"),
-		atmosphereAccount: external(ATMOSPHERE_ACCOUNT_URL),
+		...(accountPage ? { atmosphereAccount: external(accountPage) } : {}),
 		voiceVideo: page("voiceVideo"),
 		appearance: page("appearance"),
 		chat: page("chat"),
@@ -137,7 +134,7 @@ export const settingsEntries = (
 		whatsNew: page("whatsNew"),
 		feedback: external(FEEDBACK_URL),
 		documentation: external(DOCUMENTATION_URL),
-		support: page("support"),
+		...(sellsThroughAppStore() ? {} : { support: page("support") }),
 		experiments: page("experiments"),
 		...(developer
 			? {

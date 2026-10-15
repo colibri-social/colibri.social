@@ -56,6 +56,10 @@ export default function ChatPage(props: { platform: Platform }) {
 							}),
 					)
 				}
+				shareActivity={data.preferences.shareActivity()}
+				onShareActivityChange={(share) =>
+					void data.preferences.setShareActivity(share)
+				}
 				platform={props.platform}
 			/>
 			<picker.Sheet />

@@ -751,6 +751,8 @@ export const createConversation = (options: ConversationOptions) => {
 		onOpenProfile: (did, anchor) =>
 			profileSheet.open(did, options.space, { element: anchor }),
 		onOpenMemberMenu: (did) => memberMenu.open(did, options.space),
+		memberContextMenu: (did, trigger, wrapperClass) =>
+			memberMenu.contextMenu(did, options.space, trigger, wrapperClass),
 		onOpenChannel: (skey) =>
 			stack.replaceTop({ kind: "chat", space: options.space, channel: skey }),
 		selection,

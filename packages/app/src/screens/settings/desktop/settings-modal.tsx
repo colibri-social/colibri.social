@@ -22,8 +22,6 @@ import {
 import { SETTINGS_PAGES, settingsEntries } from "../registry";
 import SettingsScreen from "../settings.screen";
 
-export { ATMOSPHERE_ACCOUNT_URL } from "../nav";
-
 export const settingsPageOf = (layer: Layer | undefined): SettingsPageId =>
 	settingsPage(layer?.kind === "settings" ? layer.page : undefined);
 
@@ -101,12 +99,12 @@ export default function SettingsModal(props: ModalAreaProps) {
 				}
 			>
 				<Switch>
-					<Match when={top() === "editProfile"}>
+					<Match when={top() === "profile"}>
 						<PageHostContext.Provider value={host}>
 							<EditProfileScreen args={{}} />
 						</PageHostContext.Provider>
 					</Match>
-					<Match when={top() !== "editProfile"}>
+					<Match when={top() !== "profile"}>
 						<SettingsScreen args={{ page: top() }} />
 					</Match>
 				</Switch>

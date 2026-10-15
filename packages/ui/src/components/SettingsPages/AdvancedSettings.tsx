@@ -1,5 +1,6 @@
+import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import { For, Show } from "solid-js";
-import { ListGroup, ToggleRow } from "../List/List";
+import { DestructiveRow, ListGroup, ToggleRow } from "../List/List";
 import { SettingsEmpty, SettingsPage } from "./shared";
 
 export type AdvancedSettingsProps = {
@@ -9,6 +10,7 @@ export type AdvancedSettingsProps = {
 	onIncludeAccountInReportsChange?: (enabled: boolean) => void;
 	systemWindowControls?: boolean;
 	onSystemWindowControlsChange?: (enabled: boolean) => void;
+	onDeleteAccount?: () => void;
 	class?: string;
 };
 
@@ -41,6 +43,16 @@ export const AdvancedSettings = (props: AdvancedSettingsProps) => (
 					description="Lets your computer draw the window frame. Takes effect after a restart."
 					checked={props.systemWindowControls}
 					onChange={(checked) => props.onSystemWindowControlsChange?.(checked)}
+				/>
+			</ListGroup>
+		</Show>
+		<Show when={props.onDeleteAccount}>
+			<ListGroup label="Danger zone">
+				<DestructiveRow
+					icon={<TrashBinTrashIcon />}
+					label="Delete my Colibri data"
+					keywords={["delete account", "remove"]}
+					onClick={() => props.onDeleteAccount?.()}
 				/>
 			</ListGroup>
 		</Show>

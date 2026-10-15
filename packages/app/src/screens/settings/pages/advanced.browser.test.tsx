@@ -1,12 +1,24 @@
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
+import { type SettingsNav, SettingsNavContext } from "../nav";
 import AdvancedPage from "./advanced";
 import { cleanup, mountPage } from "./page-test-kit";
 
 afterEach(cleanup);
 
+const mountAdvanced = () => {
+	const nav: SettingsNav = { open: vi.fn(), back: vi.fn() };
+	const mounted = mountPage(() => (
+		<SettingsNavContext.Provider value={nav}>
+			<AdvancedPage platform="mobile" />
+		</SettingsNavContext.Provider>
+	));
+	return { nav, mounted };
+};
+
 it("syncs developer mode and hides options nothing can act on yet", async () => {
-	const { store } = await mountPage(() => <AdvancedPage platform="mobile" />);
+	const { mounted } = mountAdvanced();
+	const { store } = await mounted;
 	const developer = page.getByRole("switch", { name: /Developer mode/ });
 	await expect.element(developer).not.toBeChecked();
 	await userEvent.click(page.getByText("Developer mode"));
@@ -19,4 +31,14 @@ it("syncs developer mode and hides options nothing can act on yet", async () => 
 	await expect
 		.element(page.getByText("Use system window controls"))
 		.not.toBeInTheDocument();
+});
+
+it("opens data deletion from the danger zone", async () => {
+	const { nav, mounted } = mountAdvanced();
+	await mounted;
+	await expect.element(page.getByText("Danger zone")).toBeVisible();
+	await userEvent.click(
+		page.getByRole("button", { name: "Delete my Colibri data" }),
+	);
+	expect(nav.open).toHaveBeenCalledWith("deleteAccount");
 });

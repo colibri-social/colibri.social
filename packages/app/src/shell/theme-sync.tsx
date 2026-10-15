@@ -25,6 +25,14 @@ const usePrefersLight = () => {
 	return light;
 };
 
+type WindowBridge = { setLightBars: (light: boolean) => void };
+
+const setLightSystemBars = (light: boolean) => {
+	const bridge = (window as unknown as { __colibriWindow?: WindowBridge })
+		.__colibriWindow;
+	bridge?.setLightBars(light);
+};
+
 export const ThemeSync = () => {
 	const data = useData();
 	const prefersLight = usePrefersLight();
@@ -40,6 +48,7 @@ export const ThemeSync = () => {
 		document
 			.querySelector('meta[name="theme-color"]')
 			?.setAttribute("content", THEME_COLORS[resolved]);
+		setLightSystemBars(resolved === "light");
 	});
 	return null;
 };

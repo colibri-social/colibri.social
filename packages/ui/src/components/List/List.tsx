@@ -484,7 +484,7 @@ export const SidebarNavSection = (props: SidebarNavSectionProps) => {
 			<Show when={label.has()}>
 				<SectionLabel label={label()} />
 			</Show>
-			<div class="flex flex-col gap-2">{props.children}</div>
+			<div class="flex flex-col gap-0.5">{props.children}</div>
 		</div>
 	);
 };

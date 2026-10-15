@@ -14,6 +14,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsAnimationCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.ScriptHandler
@@ -46,6 +47,7 @@ class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     CallEvents.attach(webView)
     webView.addJavascriptInterface(CallBridge(), "__colibriCall")
+    webView.addJavascriptInterface(WindowBridge(), "__colibriWindow")
     ReceiveFiles(this, webView).attach()
     if (pendingOpenCall) {
       pendingOpenCall = false
@@ -169,6 +171,19 @@ class MainActivity : TauriActivity() {
       arrayOf(Manifest.permission.POST_NOTIFICATIONS),
       REQUEST_NOTIFICATIONS
     )
+  }
+
+  private fun applyLightBars(light: Boolean) {
+    val controller = WindowCompat.getInsetsController(window, window.decorView)
+    controller.isAppearanceLightStatusBars = light
+    controller.isAppearanceLightNavigationBars = light
+  }
+
+  private inner class WindowBridge {
+    @JavascriptInterface
+    fun setLightBars(light: Boolean) {
+      handler.post { applyLightBars(light) }
+    }
   }
 
   private inner class CallBridge {

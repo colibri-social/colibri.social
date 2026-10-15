@@ -313,6 +313,7 @@ const ChatStory = (props: {
 		props.client ?? "bluesky",
 	);
 	const [domain, setDomain] = createSignal("");
+	const [share, setShare] = createSignal(true);
 	const [gestures, setGestures] = createSignal<TouchGestures>({
 		swipeLeftAction: "members",
 		doubleTapEnabled: true,
@@ -336,6 +337,8 @@ const ChatStory = (props: {
 					setGestures((current) => ({ ...current, ...change }))
 				}
 				onPickReactionEmoji={fn()}
+				shareActivity={share()}
+				onShareActivityChange={setShare}
 			/>
 			<output data-testid="client">{client()}</output>
 			<output data-testid="domain">{domain()}</output>
@@ -361,6 +364,14 @@ export const Chat: Story = {
 		});
 		await step("no custom address without a custom app", async () => {
 			await expect(canvas.queryByText("Address of the app")).toBeNull();
+		});
+		await step("activity sharing toggles", async () => {
+			const share = canvas.getByRole("switch", {
+				name: /Share what I'm doing/,
+			});
+			await expect(share).toBeChecked();
+			await userEvent.click(share);
+			await expect(share).not.toBeChecked();
 		});
 		await expectNoLayoutIssues(pageRoot(canvasElement));
 	},

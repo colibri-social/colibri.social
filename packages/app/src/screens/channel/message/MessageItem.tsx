@@ -746,7 +746,15 @@ export const MessageItem = (props: MessageItemProps) => {
 				bridged() ? undefined : () => chat.onOpenProfile(message().author)
 			}
 			onAuthorMenu={
-				bridged() ? undefined : () => chat.onOpenMemberMenu(message().author)
+				bridged() || desktop()
+					? undefined
+					: () => chat.onOpenMemberMenu(message().author)
+			}
+			wrapAuthor={
+				!bridged() && desktop() && chat.memberContextMenu
+					? (trigger, wrapperClass) =>
+							chat.memberContextMenu?.(message().author, trigger, wrapperClass)
+					: undefined
 			}
 			attachments={
 				!hidden() && attachmentContent() ? attachmentsView() : undefined

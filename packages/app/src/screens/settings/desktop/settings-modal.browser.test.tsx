@@ -70,7 +70,7 @@ const openEditProfile = async () => {
 	await userEvent.click(profileTrigger());
 	const popover = page.getByRole("dialog", { name: "Your profile" });
 	await userEvent.click(popover.getByRole("button", { name: "Edit profile" }));
-	await expect.poll(() => location.pathname).toBe("/app/settings/editProfile");
+	await expect.poll(() => location.pathname).toBe("/app/settings/profile");
 	await expect.element(dialog()).toBeVisible();
 };
 
@@ -86,7 +86,7 @@ describe("desktop settings modal", () => {
 			.first();
 		await expect
 			.element(atmosphere)
-			.toHaveAttribute("href", "https://atmosphereaccount.com/");
+			.toHaveAttribute("href", "https://pds.example.com/account");
 		await expect.element(atmosphere).toHaveAttribute("target", "_blank");
 		await expect
 			.element(
@@ -94,12 +94,15 @@ describe("desktop settings modal", () => {
 			)
 			.toHaveAttribute("aria-current", "page");
 		await expect
-			.element(modal.getByRole("button", { name: /Delete my Colibri data/ }))
+			.element(modal.getByRole("textbox", { name: "Display name" }))
 			.toBeVisible();
 		await userEvent.click(modal.getByRole("button", { name: "Advanced" }));
 		await expect.poll(() => location.pathname).toBe("/app/settings/advanced");
 		await expect
 			.element(modal.getByRole("switch", { name: /Developer mode/ }))
+			.toBeVisible();
+		await expect
+			.element(modal.getByRole("button", { name: /Delete my Colibri data/ }))
 			.toBeVisible();
 		expect(document.body.textContent).not.toContain("Swipe left");
 		expect(modal.element().querySelector("[data-modal-back]")).toBeNull();
@@ -147,7 +150,7 @@ describe("desktop settings modal", () => {
 		await userEvent.keyboard("{Escape}");
 		const discard = page.getByRole("dialog", { name: "Discard changes?" });
 		await expect.element(discard).toBeVisible();
-		expect(location.pathname).toBe("/app/settings/editProfile");
+		expect(location.pathname).toBe("/app/settings/profile");
 		await userEvent.click(discard.getByRole("button", { name: "Cancel" }));
 		await expect.element(name).toHaveValue("Somebody else");
 		await userEvent.click(modal.getByRole("button", { name: "Advanced" }));
@@ -219,8 +222,8 @@ describe("settings subpages", () => {
 		await page.viewport(1440, 900);
 		const layers: Layer[] = [
 			{ kind: "chat", space: HQ, channel: "general" },
-			{ kind: "settings", page: "profile" },
 			{ kind: "settings", page: "advanced" },
+			{ kind: "settings", page: "deleteAccount" },
 		];
 		const { navigator, calls } = stubNavigator(layers);
 		const store = createDataStore(createMockSource({ live: false }));
@@ -244,12 +247,16 @@ describe("settings subpages", () => {
 			Array.from(crumbs.element().querySelectorAll("li")).map((item) =>
 				item.textContent?.replace("/", "").trim(),
 			),
-		).toEqual(["Profile", "Advanced"]);
+		).toEqual(["Advanced", "Delete my Colibri data"]);
 		await userEvent.click(page.getByRole("button", { name: "Back" }));
 		expect(calls.pop).toHaveBeenCalledTimes(1);
-		await userEvent.click(crumbs.getByRole("button", { name: "Profile" }));
+		await userEvent.click(crumbs.getByRole("button", { name: "Advanced" }));
 		expect(calls.popTo).toHaveBeenCalledWith(2);
-		await userEvent.click(page.getByRole("button", { name: "Advanced" }));
+		await userEvent.click(
+			page
+				.getByRole("navigation", { name: "Settings" })
+				.getByRole("button", { name: "Advanced" }),
+		);
 		expect(calls.popTo).toHaveBeenLastCalledWith(2);
 		expect(calls.replaceTop).toHaveBeenLastCalledWith({
 			kind: "settings",
@@ -370,9 +377,7 @@ describe("own profile popover", () => {
 		await userEvent.click(
 			popover.getByRole("button", { name: "Edit profile" }),
 		);
-		await expect
-			.poll(() => location.pathname)
-			.toBe("/app/settings/editProfile");
+		await expect.poll(() => location.pathname).toBe("/app/settings/profile");
 		await expect.element(dialog()).toBeVisible();
 		await expect
 			.element(dialog().getByRole("textbox", { name: "Display name" }))

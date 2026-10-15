@@ -460,6 +460,7 @@ export const createMockSource = (
 					community: space.view,
 				});
 			}),
+		accountHost: async () => "pds.example.com",
 		getDeletionStatus: () =>
 			withLatency(() => ({
 				soleOwned: world.spaces

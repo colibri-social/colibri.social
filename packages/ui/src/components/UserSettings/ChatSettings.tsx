@@ -1,3 +1,4 @@
+import { GamepadIcon } from "@solar-icons/solid/bold/gamepad";
 import { GlobalIcon } from "@solar-icons/solid/bold/global";
 import { createEffect, createSignal, For, type JSX, on, Show } from "solid-js";
 import { BlueskyClientLogo } from "../../icons/animated/brand";
@@ -99,6 +100,10 @@ export const CHAT_SETTINGS_COPY = {
 		"Reacts or replies without opening the long-press menu.",
 	doubleTapAction: "When I double tap",
 	reactionEmoji: "Reaction",
+	activity: "Activity",
+	shareActivity: "Share what I'm doing",
+	shareActivityDescription:
+		"Shows what you're playing or listening to on your profile and in the member list. Turning this off clears it for everyone right away.",
 } as const;
 
 export type ChatSettingsProps = {
@@ -114,6 +119,8 @@ export type ChatSettingsProps = {
 	gestures?: TouchGestures;
 	onGesturesChange?: (change: Partial<TouchGestures>) => void;
 	onPickReactionEmoji?: () => void;
+	shareActivity?: boolean;
+	onShareActivityChange?: (share: boolean) => void;
 	platform?: SelectPlatform;
 	class?: string;
 };
@@ -198,6 +205,18 @@ export const ChatSettings = (props: ChatSettingsProps) => {
 					</form>
 				</Show>
 			</section>
+			<Show when={props.shareActivity !== undefined}>
+				<ListGroup label={CHAT_SETTINGS_COPY.activity}>
+					<ToggleRow
+						icon={<GamepadIcon />}
+						title={CHAT_SETTINGS_COPY.shareActivity}
+						description={CHAT_SETTINGS_COPY.shareActivityDescription}
+						keywords={["listening", "playing", "music", "game"]}
+						checked={props.shareActivity ?? false}
+						onChange={(share) => props.onShareActivityChange?.(share)}
+					/>
+				</ListGroup>
+			</Show>
 			<Show when={props.gestures}>
 				{(gestures) => (
 					<div data-gesture-settings="" class="flex flex-col gap-6">

@@ -30,6 +30,7 @@ import { type ReleaseNoteView, WhatsNewSettings } from "./WhatsNewSettings";
 type Args = {
 	onChange?: (key: string, value: unknown) => void;
 	onDeveloperModeChange?: (value: boolean) => void;
+	onDeleteAccount?: () => void;
 	onExperimentChange?: (id: string, enabled: boolean) => void;
 	onCopyDid?: () => void;
 	onOpenDebugInformation?: () => void;
@@ -218,6 +219,14 @@ export const VoiceVideoDesktop: Story = {
 	play: async ({ canvasElement, args }) => {
 		const canvas = within(canvasElement);
 		await expect(canvas.getByText("Speaker")).toBeVisible();
+		const segments = [
+			...canvasElement.querySelectorAll<HTMLElement>("[data-mic-meter] > span"),
+		].map((segment) => segment.getBoundingClientRect());
+		await expect(segments.length).toBeGreaterThan(0);
+		for (const segment of segments) {
+			await expect(segment.width).toBeLessThanOrEqual(4);
+			await expect(segment.height).toBeGreaterThan(segment.width * 3);
+		}
 		const resolution = canvas.getByRole("button", { name: /Resolution/ });
 		const framerate = canvas.getByRole("button", { name: /Frame rate/ });
 		const resolutionBox = resolution.getBoundingClientRect();
@@ -265,6 +274,7 @@ const AdvancedStory = (props: {
 	platform: Platform;
 	windowControls?: boolean;
 	onDeveloperModeChange?: (value: boolean) => void;
+	onDeleteAccount?: () => void;
 }) => {
 	const [developer, setDeveloper] = createSignal(false);
 	const [reports, setReports] = createSignal(false);
@@ -283,6 +293,7 @@ const AdvancedStory = (props: {
 					props.windowControls ? windowControls() : undefined
 				}
 				onSystemWindowControlsChange={setWindowControls}
+				onDeleteAccount={props.onDeleteAccount ?? fn()}
 			/>
 		</Frame>
 	);
@@ -293,9 +304,10 @@ export const AdvancedMobile: Story = {
 		<AdvancedStory
 			platform="mobile"
 			onDeveloperModeChange={args.onDeveloperModeChange}
+			onDeleteAccount={args.onDeleteAccount}
 		/>
 	),
-	args: { onDeveloperModeChange: fn() },
+	args: { onDeveloperModeChange: fn(), onDeleteAccount: fn() },
 	play: async ({ canvasElement, args }) => {
 		const canvas = within(canvasElement);
 		await expect(canvas.queryByText("Use system window controls")).toBeNull();
@@ -303,6 +315,11 @@ export const AdvancedMobile: Story = {
 		await userEvent.click(developer);
 		await expect(developer).toBeChecked();
 		await expect(args.onDeveloperModeChange).toHaveBeenCalledWith(true);
+		await expect(canvas.getByText("Danger zone")).toBeVisible();
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Delete my Colibri data" }),
+		);
+		await expect(args.onDeleteAccount).toHaveBeenCalledOnce();
 		await expectNoLayoutIssues(frameOf(canvasElement));
 	},
 };
