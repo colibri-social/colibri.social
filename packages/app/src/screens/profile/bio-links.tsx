@@ -1,5 +1,9 @@
 import type { JSX } from "solid-js";
-import { blueskyClient, buildBskyProfileUrl } from "../../data/bluesky-client";
+import {
+	blueskyClientOf,
+	buildBskyProfileUrl,
+} from "../../data/bluesky-client";
+import { useData } from "../../data/store";
 import { createLinkOpener } from "../channel/message/link-opener";
 
 const LINK_PATTERN =
@@ -131,11 +135,13 @@ export const linkifyBio = (
 
 export const createBioRenderer = () => {
 	const links = createLinkOpener();
+	const data = useData();
 	const render = (text: string | undefined) => {
 		const trimmed = text?.trim();
 		if (!trimmed) return undefined;
 		return linkifyBio(trimmed, {
-			profileHref: (handle) => buildBskyProfileUrl(blueskyClient(), handle),
+			profileHref: (handle) =>
+				buildBskyProfileUrl(blueskyClientOf(data.preferences), handle),
 			onLink: (href, label) =>
 				links.onExternalLink(href, { label, disguised: false }),
 		});

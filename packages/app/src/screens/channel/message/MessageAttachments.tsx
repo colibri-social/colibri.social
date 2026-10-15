@@ -27,7 +27,8 @@ import {
 	parseBlueskyPostUrl,
 	toBlueskyPost,
 } from "../../../data/adapters/bluesky-post";
-import { blueskyClient } from "../../../data/bluesky-client";
+import { blueskyClientOf } from "../../../data/bluesky-client";
+import { useData } from "../../../data/store";
 import type {
 	BlueskyPostView,
 	LinkEmbed as LinkEmbedView,
@@ -189,6 +190,7 @@ export const BlueskyEmbed = (props: {
 	locale?: string;
 	onRemove?: RemoveEmbed;
 }) => {
+	const data = useData();
 	const [post] = createResource(
 		() => (props.load ? props.url : undefined),
 		(url) => props.load?.(url).catch(() => undefined),
@@ -218,7 +220,7 @@ export const BlueskyEmbed = (props: {
 				{(view) => (
 					<>
 						<BlueskyPostEmbed
-							post={toBlueskyPost(view(), blueskyClient())}
+							post={toBlueskyPost(view(), blueskyClientOf(data.preferences))}
 							onRemove={
 								props.onRemove
 									? (event) => props.onRemove?.(props.url, event)

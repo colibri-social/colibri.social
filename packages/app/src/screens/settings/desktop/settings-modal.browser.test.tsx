@@ -60,6 +60,20 @@ const openSettings = async () => {
 	await expect.element(dialog()).toBeVisible();
 };
 
+const profileTrigger = () =>
+	page
+		.getByRole("region", { name: "Your account" })
+		.getByRole("button")
+		.first();
+
+const openEditProfile = async () => {
+	await userEvent.click(profileTrigger());
+	const popover = page.getByRole("dialog", { name: "Your profile" });
+	await userEvent.click(popover.getByRole("button", { name: "Edit profile" }));
+	await expect.poll(() => location.pathname).toBe("/app/settings/editProfile");
+	await expect.element(dialog()).toBeVisible();
+};
+
 describe("desktop settings modal", () => {
 	it("opens from the gear on the profile page and switches pages by URL", async () => {
 		await mountShell(`/app/c/${HQ}`);
@@ -67,25 +81,27 @@ describe("desktop settings modal", () => {
 		await openSettings();
 		await expect.poll(() => location.pathname).toBe("/app/settings");
 		const modal = dialog();
-		const atmosphere = modal.getByRole("link", {
-			name: "My Atmosphere Account",
-		});
+		const atmosphere = modal
+			.getByRole("link", { name: "My Atmosphere Account" })
+			.first();
 		await expect
 			.element(atmosphere)
 			.toHaveAttribute("href", "https://atmosphereaccount.com/");
 		await expect.element(atmosphere).toHaveAttribute("target", "_blank");
 		await expect
-			.element(modal.getByRole("button", { name: "Profile", exact: true }))
+			.element(
+				modal.getByRole("button", { name: "Profile", exact: true }).first(),
+			)
 			.toHaveAttribute("aria-current", "page");
 		await expect
-			.element(modal.getByRole("textbox", { name: "Display name" }))
+			.element(modal.getByRole("button", { name: /Delete my Colibri data/ }))
 			.toBeVisible();
 		await userEvent.click(modal.getByRole("button", { name: "Advanced" }));
 		await expect.poll(() => location.pathname).toBe("/app/settings/advanced");
 		await expect
 			.element(modal.getByRole("switch", { name: /Developer mode/ }))
 			.toBeVisible();
-		expect(document.body.textContent).not.toContain("Swipe left to reply");
+		expect(document.body.textContent).not.toContain("Swipe left");
 		expect(modal.element().querySelector("[data-modal-back]")).toBeNull();
 		await expectNoLayoutIssues(modal.element() as HTMLElement);
 		const preview = modal
@@ -97,17 +113,31 @@ describe("desktop settings modal", () => {
 		expect(getComputedStyle(preview as HTMLElement).cursor).not.toBe("pointer");
 		expect(preview?.classList.contains("ripple")).toBe(false);
 		await userEvent.click(
-			modal.getByRole("button", { name: "Profile", exact: true }),
+			modal.getByRole("button", { name: "Profile", exact: true }).first(),
 		);
 		await expect.poll(() => location.pathname).toBe("/app/settings/profile");
 		await userEvent.keyboard("{Escape}");
 		await expect.poll(() => location.pathname).toBe(channelPath);
 	});
 
+	it("shows developer rows only with developer mode on", async () => {
+		const store = await mountShell(`/app/c/${HQ}`);
+		await openSettings();
+		const modal = dialog();
+		expect(modal.element().textContent).not.toContain("Debug information");
+		store.setControls({ developerMode: true });
+		await expect
+			.element(modal.getByRole("button", { name: "Debug information" }))
+			.toBeVisible();
+		await expect
+			.element(modal.getByRole("link", { name: "View account on PDSls" }))
+			.toHaveAttribute("href", `https://pdsls.dev/at://${store.viewer.did}`);
+	});
+
 	it("asks before discarding profile edits when closing or switching pages", async () => {
 		await mountShell(`/app/c/${HQ}`);
 		const channelPath = location.pathname;
-		await openSettings();
+		await openEditProfile();
 		const modal = dialog();
 		const name = modal.getByRole("textbox", { name: "Display name" });
 		await userEvent.fill(name, "Somebody else");
@@ -117,38 +147,22 @@ describe("desktop settings modal", () => {
 		await userEvent.keyboard("{Escape}");
 		const discard = page.getByRole("dialog", { name: "Discard changes?" });
 		await expect.element(discard).toBeVisible();
-		expect(location.pathname).toBe("/app/settings");
+		expect(location.pathname).toBe("/app/settings/editProfile");
 		await userEvent.click(discard.getByRole("button", { name: "Cancel" }));
 		await expect.element(name).toHaveValue("Somebody else");
 		await userEvent.click(modal.getByRole("button", { name: "Advanced" }));
 		await expect.element(discard).toBeVisible();
-		expect(location.pathname).toBe("/app/settings");
 		await userEvent.click(
 			discard.getByRole("button", { name: "Discard changes" }),
 		);
 		await expect.poll(() => location.pathname).toBe("/app/settings/advanced");
-		await userEvent.click(
-			modal.getByRole("button", { name: "Profile", exact: true }),
-		);
-		await expect
-			.element(modal.getByRole("textbox", { name: "Display name" }))
-			.not.toHaveValue("Somebody else");
-		await userEvent.fill(
-			modal.getByRole("textbox", { name: "Display name" }),
-			"Another name",
-		);
 		await userEvent.click(modal.getByRole("button", { name: "Close" }));
-		await userEvent.click(
-			page
-				.getByRole("dialog", { name: "Discard changes?" })
-				.getByRole("button", { name: "Discard changes" }),
-		);
 		await expect.poll(() => location.pathname).toBe(channelPath);
 	});
 
 	it("saves the profile page and stays open", async () => {
 		const store = await mountShell(`/app/c/${HQ}`);
-		await openSettings();
+		await openEditProfile();
 		const modal = dialog();
 		await userEvent.fill(
 			modal.getByRole("textbox", { name: "Display name" }),
@@ -243,12 +257,6 @@ describe("settings subpages", () => {
 		});
 	});
 });
-
-const profileTrigger = () =>
-	page
-		.getByRole("region", { name: "Your account" })
-		.getByRole("button")
-		.first();
 
 describe("own profile popover", () => {
 	it("changes presence and status from the user panel", async () => {
@@ -362,7 +370,9 @@ describe("own profile popover", () => {
 		await userEvent.click(
 			popover.getByRole("button", { name: "Edit profile" }),
 		);
-		await expect.poll(() => location.pathname).toBe("/app/settings/profile");
+		await expect
+			.poll(() => location.pathname)
+			.toBe("/app/settings/editProfile");
 		await expect.element(dialog()).toBeVisible();
 		await expect
 			.element(dialog().getByRole("textbox", { name: "Display name" }))

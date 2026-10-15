@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
-import { mediaSession } from "./composer/media/session";
+import { DEFAULT_COMPOSER } from "../../data/preferences/types";
 import {
 	articleWithText,
 	DEV_PATH,
@@ -253,8 +253,12 @@ describe("message menu extras", () => {
 	});
 
 	it("builds quick reactions from emoji usage", async () => {
-		for (let count = 0; count < 3; count++) mediaSession().recordEmoji("🦜");
-		await mount();
+		await mount(DEV_PATH, {
+			composer: {
+				...DEFAULT_COMPOSER,
+				emojiUsage: { "🦜": { count: 3, lastUsed: Date.now() } },
+			},
+		});
 		const article = await findArticle("Signals docs");
 		await userEvent.hover(article);
 		await until(() => !!article.querySelector("[data-message-toolbar]"));

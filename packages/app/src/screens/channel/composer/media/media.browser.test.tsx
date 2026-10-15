@@ -2,6 +2,8 @@ import { render } from "solid-js/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { expectNoLayoutIssues } from "../../../../../../ui/src/foundations/layout-test";
 import "../../../../app.css";
+import { createMockSource } from "../../../../data/mock/source";
+import { createDataStore, DataContext } from "../../../../data/store";
 import type { GifView } from "../../../../data/types";
 import { createComposerMedia } from "./composer-media";
 import type { GifData } from "./gif-source";
@@ -41,9 +43,11 @@ const fakeGifs = (): GifData => {
 
 let dispose: (() => void) | undefined;
 let host: HTMLDivElement | undefined;
+let store: ReturnType<typeof createDataStore> | undefined;
 
 afterEach(() => {
 	dispose?.();
+	store?.dispose();
 	host?.remove();
 	for (const node of document.querySelectorAll("[role=dialog]")) node.remove();
 });
@@ -51,7 +55,16 @@ afterEach(() => {
 const mount = (view: () => unknown) => {
 	host = document.createElement("div");
 	document.body.append(host);
-	dispose = render(view as () => never, host);
+	const data = createDataStore(createMockSource({ live: false }));
+	store = data;
+	dispose = render(
+		() => (
+			<DataContext.Provider value={data}>
+				{view() as never}
+			</DataContext.Provider>
+		),
+		host,
+	);
 };
 
 const until = async <T,>(read: () => T | null | undefined, timeout = 3000) => {

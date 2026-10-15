@@ -31,3 +31,6 @@ zsh.exe.stackdump
 # staged What's New entries, consumed during `pnpm ci:version`
 .changeset/.whats-new-staged.json
 whats-new-comment.md
+
+__screenshots__/
+.vitest-attachments/

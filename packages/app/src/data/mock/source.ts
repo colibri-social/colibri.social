@@ -460,6 +460,19 @@ export const createMockSource = (
 					community: space.view,
 				});
 			}),
+		getDeletionStatus: () =>
+			withLatency(() => ({
+				soleOwned: world.spaces
+					.filter((space) => space.view.viewer.isOwner)
+					.map((space) => space.view),
+				host: { name: "pds.example.com", contactEmail: "help@example.com" },
+			})),
+		deleteColibriData: (onProgress) =>
+			withLatency(() => {
+				onProgress?.({ step: "records", done: 1, total: 1 });
+				onProgress?.({ step: "server" });
+				return { incomplete: false };
+			}),
 		leaveCommunity: (input) =>
 			withLatency(() => {
 				const space = spaceOf(input.community);

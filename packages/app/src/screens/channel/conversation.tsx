@@ -64,7 +64,7 @@ import {
 	createReactionPicker,
 	gifAttachment,
 } from "./composer/media";
-import { mediaSession } from "./composer/media/session";
+import { createMediaSession } from "./composer/media/session";
 import { createAttachmentDraft } from "./composer/uploads/attachment-draft";
 import { createForwardPicker } from "./forward/ForwardPicker";
 import {
@@ -108,6 +108,7 @@ export const laterRound = (label: string) => () =>
 
 export const createConversation = (options: ConversationOptions) => {
 	const data = useData();
+	const session = createMediaSession(data.preferences);
 	const stack = useStack();
 	const platform = usePlatform();
 	const desktop = () => platform() === "desktop";
@@ -643,9 +644,8 @@ export const createConversation = (options: ConversationOptions) => {
 		},
 		controls: data.controls,
 		locale: "en-GB",
-		quickReactions: () =>
-			topEmoji(mediaSession().usage(), QUICK_REACTION_COUNT),
-		onRecordEmoji: (emoji) => mediaSession().recordEmoji(emoji),
+		quickReactions: () => topEmoji(session.usage(), QUICK_REACTION_COUNT),
+		onRecordEmoji: (emoji) => session.recordEmoji(emoji),
 		canPost: () => view()?.viewer.canPost !== false,
 		developerMode: () => data.controls().developerMode,
 		viewerRoles: () => memberMap().get(data.viewer.did)?.roles ?? [],

@@ -1,5 +1,6 @@
 import { type ColibriError, colibri } from "@colibri-social/lib";
 import { describe, expect, it } from "vitest";
+import { DEFAULT_COMPOSER } from "../preferences/types";
 import type { DataSource } from "../source";
 import type { MessageView, SpaceRef } from "../types";
 import {
@@ -983,11 +984,80 @@ describe("createRemoteSource", () => {
 				communityOrder: [],
 				shareActivity: false,
 				mutes: [],
+				spaceLevels: {},
+				client: {},
+				composer: DEFAULT_COMPOSER,
 				gifFavorites: [{ id: "gif-3", url: "https://gif.test/3.gif" }] as never,
 			},
 		});
 
 		expect(source.gifFavorites().map((gif) => gif.id)).toEqual(["gif-3"]);
+	});
+
+	it("writes only the client preferences record for a client change", async () => {
+		const empty = {
+			preferences: {
+				notificationLevel: "all",
+				communityOrder: [],
+				mutes: [],
+				gifFavorites: [],
+			},
+		};
+		const { fake, source } = await setup((fake) => {
+			fake.on("com.atproto.space.putRecord", json({ uri: "at://x", cid: "c" }));
+			fake.on(colibri.actor.putSettings.main.nsid, json(empty));
+		});
+
+		await source.preferences.setControls({ swipeLeftAction: "reply" });
+
+		const records = fake
+			.callsTo("com.atproto.space.putRecord")
+			.map((call) => call.body as any);
+		expect(records.map((record) => record.collection)).toEqual([
+			"social.colibri.beta.actor.clientPreferences",
+		]);
+		expect(records[0].rkey).toBe("self");
+		expect(records[0].record.controls).toEqual({ swipeLeftAction: "reply" });
+		const push = fake.callsTo(colibri.actor.putSettings.main.nsid).at(-1)
+			?.body as any;
+		expect(push).toEqual({
+			clientPreferences: { controls: { swipeLeftAction: "reply" } },
+		});
+	});
+
+	it("writes a Space level record keyed by the Space, then removes it", async () => {
+		const empty = {
+			preferences: {
+				notificationLevel: "all",
+				communityOrder: [],
+				mutes: [],
+				gifFavorites: [],
+			},
+		};
+		const { fake, source } = await setup((fake) => {
+			fake.on("com.atproto.space.putRecord", json({ uri: "at://x", cid: "c" }));
+			fake.on("com.atproto.space.deleteRecord", json({}));
+			fake.on(colibri.actor.putSpaceNotification.main.nsid, json(empty));
+		});
+
+		await source.preferences.setSpaceLevel(COMMUNITY, "mentionsAndReplies");
+		await source.preferences.setSpaceLevel(COMMUNITY, undefined);
+
+		const put = fake.callsTo("com.atproto.space.putRecord").at(-1)?.body as any;
+		expect(put.collection).toBe("social.colibri.beta.actor.spaceNotification");
+		expect(put.rkey).toBe(COMMUNITY);
+		expect(put.record.level).toBe("mentionsAndReplies");
+		const removed = fake.callsTo("com.atproto.space.deleteRecord").at(-1)
+			?.body as any;
+		expect(removed.rkey).toBe(COMMUNITY);
+		expect(
+			fake
+				.callsTo(colibri.actor.putSpaceNotification.main.nsid)
+				.map((call) => call.body),
+		).toEqual([
+			{ community: COMMUNITY, level: "mentionsAndReplies" },
+			{ community: COMMUNITY, removeLevel: true },
+		]);
 	});
 
 	it("searches GIFs or lists trending ones", async () => {

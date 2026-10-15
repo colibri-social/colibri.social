@@ -63,6 +63,7 @@ const create = (backend: PreferenceBackend, onScopesRejected?: () => void) =>
 		controls: DEFAULT_REMOTE_CONTROLS,
 		snapshotKey: KEY,
 		onScopesRejected,
+		composerWriteDelay: 20,
 	});
 
 describe("createPreferenceStore", () => {
@@ -70,8 +71,10 @@ describe("createPreferenceStore", () => {
 		storage.set(
 			KEY,
 			JSON.stringify({
-				preferences: prefs({ notificationLevel: "nothing" }),
-				controls: { developerMode: true },
+				preferences: prefs({
+					notificationLevel: "nothing",
+					client: { developerMode: true },
+				}),
 			}),
 		);
 		const load = deferred<Preferences>();
@@ -141,12 +144,12 @@ describe("createPreferenceStore", () => {
 		await store.setGifFavorite(GIF, true);
 
 		expect(putSettings).toHaveBeenCalledWith(
-			{
+			expect.objectContaining({
 				notificationLevel: "all",
 				communityOrder: [SPACE],
 				shareActivity: false,
 				gifFavorites: [GIF],
-			},
+			}),
 			{ gifFavorites: [GIF] },
 		);
 	});
@@ -236,6 +239,128 @@ describe("createPreferenceStore", () => {
 		await store.settled();
 		expect(memory.records()).toHaveLength(1);
 		expect(store.isMuted(subject)).toBe(true);
+	});
+});
+
+describe("client preferences", () => {
+	it("resolves defaults and maps controls onto the synced record", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const putSettings = vi.spyOn(memory.backend, "putSettings");
+		const store = create(memory.backend);
+		expect(store.client()).toMatchObject({
+			theme: "system",
+			warnOnExternalLinks: true,
+			blueskyClient: "bluesky",
+			voiceView: { showOwnCamera: true },
+		});
+
+		await store.setControls({
+			swipeLeftAction: "reply",
+			confirmVoiceJoin: true,
+		});
+		await store.setClient({ voiceView: { showOwnCamera: false } });
+
+		expect(memory.state().client).toEqual({
+			controls: { swipeLeftAction: "reply" },
+			voiceView: { confirmJoin: true, showOwnCamera: false },
+		});
+		expect(store.controls()).toMatchObject({
+			swipeLeftAction: "reply",
+			confirmVoiceJoin: true,
+		});
+		expect(putSettings.mock.lastCall?.[1]).toEqual({
+			client: memory.state().client,
+		});
+	});
+
+	it("falls back for values this client does not know", () => {
+		const store = create(createMemoryPreferenceBackend().backend);
+		store.adopt(
+			prefs({
+				client: {
+					theme: "sepia",
+					blueskyClient: "elsewhere",
+					controls: { doubleTapAction: "wave" },
+				},
+			}),
+		);
+		expect(store.client().theme).toBe("system");
+		expect(store.client().blueskyClient).toBe("bluesky");
+		expect(store.controls().doubleTapAction).toBe("react");
+	});
+});
+
+describe("composer state", () => {
+	it("batches quick changes into one write and skips echoes meanwhile", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const putSettings = vi.spyOn(memory.backend, "putSettings");
+		const store = create(memory.backend);
+
+		store.recordEmoji("🦜");
+		store.recordEmoji("🦜");
+		store.setSkinTone(3);
+		store.recordGif(GIF);
+		store.adopt(prefs());
+		expect(store.composer().skinTone).toBe(3);
+		expect(putSettings).not.toHaveBeenCalled();
+
+		await store.settled();
+		expect(putSettings).toHaveBeenCalledOnce();
+		expect(memory.state().composer).toMatchObject({
+			emojiUsage: { "🦜": { count: 2 } },
+			skinTone: 3,
+			recentGifs: [GIF],
+		});
+	});
+
+	it("writes after the delay without being asked", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const putSettings = vi.spyOn(memory.backend, "putSettings");
+		const store = create(memory.backend);
+		store.recordEmoji("🦜");
+		await vi.waitFor(() => expect(putSettings).toHaveBeenCalledOnce());
+	});
+
+	it("keeps recent GIFs unique and newest first", () => {
+		const store = create(createMemoryPreferenceBackend().backend);
+		const other = { ...GIF, id: "gif-2" };
+		store.recordGif(GIF);
+		store.recordGif(other);
+		store.recordGif(GIF);
+		expect(store.composer().recentGifs.map((gif) => gif.id)).toEqual([
+			"gif-1",
+			"gif-2",
+		]);
+	});
+});
+
+describe("Space notification levels", () => {
+	it("sets and clears a level for one Space", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const putSpaceLevel = vi.spyOn(memory.backend, "putSpaceLevel");
+		const store = create(memory.backend);
+
+		await store.setSpaceLevel(SPACE, "nothing");
+		expect(store.spaceLevel(SPACE)).toBe("nothing");
+		expect(memory.state().spaceLevels).toEqual({ [SPACE]: "nothing" });
+
+		await store.setSpaceLevel(SPACE, undefined);
+		expect(store.spaceLevel(SPACE)).toBeUndefined();
+		expect(putSpaceLevel.mock.calls).toEqual([
+			[SPACE, "nothing"],
+			[SPACE, undefined],
+		]);
+	});
+
+	it("reloads after a refused level", async () => {
+		const store = create({
+			...createMemoryPreferenceBackend().backend,
+			putSpaceLevel: async () => {
+				throw new ColibriError({ code: "Unexpected" });
+			},
+		});
+		expect(await store.setSpaceLevel(SPACE, "nothing")).toBe(false);
+		expect(store.spaceLevel(SPACE)).toBeUndefined();
 	});
 });
 

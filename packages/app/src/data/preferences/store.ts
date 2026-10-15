@@ -4,6 +4,15 @@ import { readStoredJSON, writeStoredJSON } from "../persist";
 import type { ControlsPreferences } from "../source";
 import type { Datetime, Did, GifView } from "../types";
 import {
+	clientChangeOf,
+	controlsOf,
+	mergeClient,
+	type ResolvedClient,
+	resolveClient,
+} from "./client";
+import {
+	type ClientPreferences,
+	type ComposerState,
 	DEFAULT_PREFERENCES,
 	type Mute,
 	type MuteSubject,
@@ -11,11 +20,12 @@ import {
 	type PreferenceBackend,
 	type Preferences,
 	type SettingsChange,
-	type SettingsRecord,
 } from "./types";
-import { muteKey } from "./wire";
+import { MAX_RECENT_GIFS, muteKey, pruneEmojiUsage } from "./wire";
 
 const log = createLogger("preferences");
+
+export const COMPOSER_WRITE_DELAY = 2000;
 
 export const preferencesSnapshotKey = (did: string) =>
 	`colibri:preferences:${did}`;
@@ -25,28 +35,20 @@ export type PreferenceStoreOptions = {
 	controls: ControlsPreferences;
 	snapshotKey?: string;
 	onScopesRejected?: () => void;
+	composerWriteDelay?: number;
 };
 
-type Snapshot = {
-	preferences: Partial<Preferences>;
-	controls: Partial<ControlsPreferences>;
-};
+type Snapshot = { preferences: Partial<Preferences> };
 
 const isSnapshot = (value: unknown): value is Snapshot =>
 	typeof value === "object" &&
 	value !== null &&
 	typeof (value as Snapshot).preferences === "object" &&
-	typeof (value as Snapshot).controls === "object";
-
-const settingsOf = (preferences: Preferences): SettingsRecord => ({
-	notificationLevel: preferences.notificationLevel,
-	communityOrder: preferences.communityOrder,
-	shareActivity: preferences.shareActivity,
-	gifFavorites: preferences.gifFavorites,
-});
+	(value as Snapshot).preferences !== null;
 
 export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 	const { backend } = options;
+	const composerDelay = options.composerWriteDelay ?? COMPOSER_WRITE_DELAY;
 	const stored = options.snapshotKey
 		? readStoredJSON(options.snapshotKey, isSnapshot)
 		: undefined;
@@ -54,21 +56,13 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 		...DEFAULT_PREFERENCES,
 		...stored?.preferences,
 	});
-	const [controls, setControlsSignal] = createSignal<ControlsPreferences>({
-		...options.controls,
-		...stored?.controls,
-	});
 
-	const save = () => {
-		if (!options.snapshotKey) return;
-		writeStoredJSON(options.snapshotKey, {
-			preferences: preferences(),
-			controls: controls(),
-		} satisfies Snapshot);
-	};
 	const commit = (next: Preferences) => {
 		setPreferences(next);
-		save();
+		if (options.snapshotKey)
+			writeStoredJSON(options.snapshotKey, {
+				preferences: next,
+			} satisfies Snapshot);
 	};
 
 	let writes = 0;
@@ -83,15 +77,21 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 	const refresh = async () => {
 		try {
 			adopt(await backend.load());
+			return true;
 		} catch (error) {
 			log.warn("could not load preferences", {
 				code: classifyThrown(error).code,
 			});
+			return false;
 		}
 	};
 
-	const enqueue = (what: string, run: () => Promise<Preferences>) => {
+	const enqueue = (
+		what: string,
+		run: () => Promise<Preferences>,
+	): Promise<boolean> => {
 		writes += 1;
+		let ok = true;
 		queue = queue
 			.then(run)
 			.then(
@@ -99,6 +99,7 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 					settled = result;
 				},
 				(error: unknown) => {
+					ok = false;
 					failed = true;
 					const { code } = classifyThrown(error);
 					if (code === "ScopesMissing") options.onScopesRejected?.();
@@ -112,18 +113,54 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 				settled = undefined;
 				if (failed) {
 					failed = false;
-					return refresh();
+					return refresh().then(() => undefined);
 				}
 				if (result) commit(result);
 			});
-		return queue;
+		return queue.then(() => ok);
 	};
 
-	const updateSettings = (change: SettingsChange, what: string) => {
+	const update = (change: SettingsChange, what: string) => {
 		commit({ ...preferences(), ...change });
-		return enqueue(what, () =>
-			backend.putSettings(settingsOf(preferences()), change),
+		return enqueue(what, () => backend.putSettings(preferences(), change));
+	};
+
+	let resolvedFrom: ClientPreferences | undefined;
+	let resolved: { client: ResolvedClient; controls: ControlsPreferences };
+	const resolve = () => {
+		const current = preferences().client;
+		if (current !== resolvedFrom) {
+			resolvedFrom = current;
+			const next = resolveClient(current, options.controls);
+			resolved = { client: next, controls: controlsOf(next) };
+		}
+		return resolved;
+	};
+	const client = () => resolve().client;
+	const controls = () => resolve().controls;
+	const setClient = (change: ClientPreferences) =>
+		update(
+			{ client: mergeClient(preferences().client, change) },
+			"app settings",
 		);
+
+	let composerTimer: ReturnType<typeof setTimeout> | undefined;
+	const flushComposer = () => {
+		if (!composerTimer) return Promise.resolve(true);
+		clearTimeout(composerTimer);
+		composerTimer = undefined;
+		writes -= 1;
+		return enqueue("emoji and GIF history", () =>
+			backend.putSettings(preferences(), {
+				composer: preferences().composer,
+			}),
+		);
+	};
+	const updateComposer = (next: (current: ComposerState) => ComposerState) => {
+		commit({ ...preferences(), composer: next(preferences().composer) });
+		if (composerTimer) clearTimeout(composerTimer);
+		else writes += 1;
+		composerTimer = setTimeout(() => void flushComposer(), composerDelay);
 	};
 
 	let keyedMutes: readonly Mute[] | undefined;
@@ -154,7 +191,7 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 	};
 
 	const setMuted = (subject: MuteSubject, next: boolean) => {
-		if (isMuted(subject) === next) return queue;
+		if (isMuted(subject) === next) return queue.then(() => true);
 		const key = muteKey(subject);
 		const entry: Mute = {
 			subject,
@@ -183,23 +220,40 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 		});
 	};
 
+	const setSpaceLevel = (
+		community: Did,
+		level: NotificationLevel | undefined,
+	) => {
+		const { [community]: _, ...rest } = preferences().spaceLevels;
+		commit({
+			...preferences(),
+			spaceLevels: level ? { ...rest, [community]: level } : rest,
+		});
+		return enqueue("the Space notification level", () =>
+			backend.putSpaceLevel(community, level),
+		);
+	};
+
 	return {
 		preferences,
+		client,
 		controls,
+		composer: () => preferences().composer,
 		notificationLevel: () => preferences().notificationLevel,
 		communityOrder: () => preferences().communityOrder,
 		shareActivity: () => preferences().shareActivity,
 		gifFavorites: () => preferences().gifFavorites,
-		setControls: (next: Partial<ControlsPreferences>) => {
-			setControlsSignal((current) => ({ ...current, ...next }));
-			save();
-		},
+		spaceLevel: (community: string): NotificationLevel | undefined =>
+			preferences().spaceLevels[community],
+		setClient,
+		setControls: (next: Partial<ControlsPreferences>) =>
+			setClient(clientChangeOf(next)),
 		setNotificationLevel: (level: NotificationLevel) =>
-			updateSettings({ notificationLevel: level }, "the notification level"),
+			update({ notificationLevel: level }, "the notification level"),
 		setCommunityOrder: (order: readonly Did[]) =>
-			updateSettings({ communityOrder: [...order] }, "the Space order"),
+			update({ communityOrder: [...order] }, "the Space order"),
 		setShareActivity: (share: boolean) =>
-			updateSettings({ shareActivity: share }, "activity sharing"),
+			update({ shareActivity: share }, "activity sharing"),
 		setGifFavorite: (gif: GifView, favorite: boolean) => {
 			const current = preferences().gifFavorites;
 			const known = current.some((entry) => entry.id === gif.id);
@@ -208,13 +262,43 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 				: known
 					? current.map((entry) => (entry.id === gif.id ? gif : entry))
 					: [...current, gif];
-			return updateSettings({ gifFavorites }, "GIF favorites");
+			return update({ gifFavorites }, "GIF favorites");
 		},
+		setSpaceLevel,
+		recordEmoji: (emoji: string) =>
+			updateComposer((current) => {
+				const previous = current.emojiUsage[emoji];
+				return {
+					...current,
+					emojiUsage: pruneEmojiUsage({
+						...current.emojiUsage,
+						[emoji]: {
+							count: (previous?.count ?? 0) + 1,
+							lastUsed: Date.now(),
+						},
+					}),
+				};
+			}),
+		setSkinTone: (skinTone: number) =>
+			updateComposer((current) => ({ ...current, skinTone })),
+		recordGif: (gif: GifView) =>
+			updateComposer((current) => ({
+				...current,
+				recentGifs: [
+					gif,
+					...current.recentGifs.filter((entry) => entry.id !== gif.id),
+				].slice(0, MAX_RECENT_GIFS),
+			})),
+		importSettings: (change: SettingsChange) =>
+			update(change, "imported settings"),
 		isMuted,
 		setMuted,
 		adopt,
 		refresh,
-		settled: () => queue,
+		settled: async () => {
+			await flushComposer();
+			await queue;
+		},
 	};
 };
 

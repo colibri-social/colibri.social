@@ -181,7 +181,7 @@ describe("paths", () => {
 	it("keeps settings sub-pages on the Settings tab", () => {
 		expect(parsePath("/app/settings/appearance")).toEqual({
 			root: { tab: "settings" },
-			layers: [],
+			layers: [{ kind: "settings", page: "appearance" }],
 		});
 	});
 

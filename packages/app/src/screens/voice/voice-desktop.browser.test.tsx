@@ -419,13 +419,13 @@ it("opens the voice channel without joining when confirm before joining is on", 
 	expect(voice.current()?.channel.endsWith("/standup")).toBe(true);
 });
 
-it("offers confirm before joining on the Advanced settings page", async () => {
-	await mountAt("/app/settings/advanced");
+it("offers confirm before joining on the Voice and video settings page", async () => {
+	await mountAt("/app/settings/voiceVideo");
 	await expect
-		.poll(() => document.querySelector('[data-settings-page="advanced"]'))
+		.poll(() => document.querySelector('[data-settings-page="voiceVideo"]'))
 		.not.toBeNull();
 	const page = document.querySelector(
-		'[data-settings-page="advanced"]',
+		'[data-settings-page="voiceVideo"]',
 	) as HTMLElement;
 	const row = Array.from(
 		page.querySelectorAll<HTMLElement>("[data-list-toggle-row]"),
@@ -433,7 +433,7 @@ it("offers confirm before joining on the Advanced settings page", async () => {
 		element.textContent?.includes("Confirm before joining"),
 	) as HTMLElement;
 	expect(row.textContent).toContain(
-		"Clicking a voice channel opens it without joining. Use the Join voice button to connect.",
+		"Opening a voice channel shows who's there. Press Join to connect.",
 	);
 	expect(lastStore?.controls().confirmVoiceJoin).toBe(false);
 	row.click();

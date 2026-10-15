@@ -1,14 +1,10 @@
 import {
-	AtmosphereGlyph,
 	LargeModalContent,
 	MemberRow,
-	SidebarNavItem,
-	SidebarNavSection,
+	SettingsIndex,
 } from "@colibri-social/ui";
-import { PaletteIcon } from "@solar-icons/solid/bold/palette";
-import { Tuning2Icon } from "@solar-icons/solid/bold/tuning-2";
-import { UserIdIcon } from "@solar-icons/solid/bold/user-id";
-import { createMemo, For, type JSX, Match, Switch } from "solid-js";
+import { createMemo, Match, Switch } from "solid-js";
+import { useAccountActions } from "../../../auth/account-actions";
 import { displayNameOf } from "../../../data/adapters/authors";
 import { uiPresence } from "../../../data/adapters/presence";
 import { useData } from "../../../data/store";
@@ -17,59 +13,31 @@ import type { Layer, SettingsLayer } from "../../../shell/layers";
 import { useStack } from "../../../shell/stack";
 import EditProfileScreen from "../../edit-profile/edit-profile.screen";
 import { type PageHost, PageHostContext } from "../../edit-profile/page-host";
+import {
+	type SettingsNav,
+	SettingsNavContext,
+	type SettingsPageId,
+	settingsPage,
+} from "../nav";
+import { SETTINGS_PAGES, settingsEntries } from "../registry";
 import SettingsScreen from "../settings.screen";
 
-export const SETTINGS_PAGES = ["profile", "appearance", "advanced"] as const;
+export { ATMOSPHERE_ACCOUNT_URL } from "../nav";
 
-export type SettingsPage = (typeof SETTINGS_PAGES)[number];
-
-type PageInfo = { label: string; icon: () => JSX.Element };
-
-const PAGE_INFO: Record<SettingsPage, PageInfo> = {
-	profile: { label: "Profile", icon: () => <UserIdIcon /> },
-	appearance: { label: "Appearance", icon: () => <PaletteIcon /> },
-	advanced: { label: "Advanced", icon: () => <Tuning2Icon /> },
-};
-
-export const ATMOSPHERE_ACCOUNT_URL = "https://atmosphereaccount.com/";
-
-type ExternalLink = { label: string; href: string; icon: () => JSX.Element };
-
-const SECTIONS: {
-	label: string;
-	pages: SettingsPage[];
-	links?: ExternalLink[];
-}[] = [
-	{
-		label: "Account",
-		pages: ["profile"],
-		links: [
-			{
-				label: "My Atmosphere Account",
-				href: ATMOSPHERE_ACCOUNT_URL,
-				icon: () => <AtmosphereGlyph />,
-			},
-		],
-	},
-	{ label: "App settings", pages: ["appearance", "advanced"] },
-];
-
-export const settingsPageOf = (layer: Layer | undefined): SettingsPage => {
-	const page = layer?.kind === "settings" ? layer.page : undefined;
-	return SETTINGS_PAGES.includes(page as SettingsPage)
-		? (page as SettingsPage)
-		: "profile";
-};
+export const settingsPageOf = (layer: Layer | undefined): SettingsPageId =>
+	settingsPage(layer?.kind === "settings" ? layer.page : undefined);
 
 export default function SettingsModal(props: ModalAreaProps) {
 	const stack = useStack();
 	const data = useData();
+	const account = useAccountActions();
 	const pages = createMemo(() =>
 		props.layers.filter(
 			(layer): layer is SettingsLayer => layer.kind === "settings",
 		),
 	);
 	const top = () => settingsPageOf(pages().at(-1));
+	const root = () => settingsPageOf(pages()[0]);
 
 	const guarded = (action: () => void) =>
 		stack.confirmLeave(props.depth, action);
@@ -78,82 +46,71 @@ export default function SettingsModal(props: ModalAreaProps) {
 		depth: () => props.depth + pages().length,
 	};
 
-	const select = (page: SettingsPage) =>
+	const select = (page: SettingsPageId) =>
 		guarded(() => {
 			if (pages().length === 1 && top() === page) return;
 			if (pages().length > 1) stack.popTo(props.depth + 1);
 			stack.replaceTop({ kind: "settings", page });
 		});
 
+	const nav: SettingsNav = {
+		open: (page) => stack.push({ kind: "settings", page }),
+		back: () => guarded(() => stack.pop()),
+	};
+
 	const trail = () =>
 		pages()
 			.slice(0, -1)
 			.map((layer, index) => ({
-				label: PAGE_INFO[settingsPageOf(layer)].label,
+				label: SETTINGS_PAGES[settingsPageOf(layer)].title,
 				onSelect: () => guarded(() => stack.popTo(props.depth + index + 1)),
 			}));
 
 	const presence = () =>
 		data.presenceOf(data.viewer.did) ?? data.viewer.presence;
 
+	const sidebarNav: SettingsNav = {
+		open: select,
+		back: nav.back,
+	};
+
 	return (
-		<LargeModalContent
-			title={PAGE_INFO[top()].label}
-			trail={trail()}
-			onBack={pages().length > 1 ? () => guarded(() => stack.pop()) : undefined}
-			sidebar={
-				<>
-					<MemberRow
+		<SettingsNavContext.Provider value={nav}>
+			<LargeModalContent
+				title={SETTINGS_PAGES[top()].title}
+				trail={trail()}
+				onBack={pages().length > 1 ? nav.back : undefined}
+				sidebar={
+					<SettingsIndex
 						variant="desktop"
-						name={displayNameOf(data.viewer)}
-						seed={data.viewer.did}
-						avatarSrc={data.viewer.avatar}
-						presence={uiPresence(presence())}
-						status={presence()?.status?.text || data.viewer.handle}
-						statusShowWhileOffline
+						entries={settingsEntries(data, sidebarNav)}
+						active={SETTINGS_PAGES[root()].entry}
+						onLogOut={account ? () => void account.signOut() : undefined}
+						header={
+							<MemberRow
+								variant="desktop"
+								name={displayNameOf(data.viewer)}
+								seed={data.viewer.did}
+								avatarSrc={data.viewer.avatar}
+								presence={uiPresence(presence())}
+								status={presence()?.status?.text || data.viewer.handle}
+								statusShowWhileOffline
+							/>
+						}
 					/>
-					<For each={SECTIONS}>
-						{(section) => (
-							<SidebarNavSection label={section.label}>
-								<For each={section.pages}>
-									{(page) => (
-										<SidebarNavItem
-											icon={PAGE_INFO[page].icon()}
-											label={PAGE_INFO[page].label}
-											active={top() === page}
-											onClick={() => select(page)}
-										/>
-									)}
-								</For>
-								<For each={section.links ?? []}>
-									{(link) => (
-										<SidebarNavItem
-											icon={link.icon()}
-											label={link.label}
-											href={link.href}
-											external
-										/>
-									)}
-								</For>
-							</SidebarNavSection>
-						)}
-					</For>
-				</>
-			}
-		>
-			<Switch>
-				<Match when={top() === "profile"}>
-					<PageHostContext.Provider value={host}>
-						<EditProfileScreen args={{}} />
-					</PageHostContext.Provider>
-				</Match>
-				<Match when={top() === "appearance"}>
-					<SettingsScreen args={{ page: "appearance" }} />
-				</Match>
-				<Match when={top() === "advanced"}>
-					<SettingsScreen args={{ page: "advanced" }} />
-				</Match>
-			</Switch>
-		</LargeModalContent>
+				}
+			>
+				<Switch>
+					<Match when={top() === "editProfile"}>
+						<PageHostContext.Provider value={host}>
+							<EditProfileScreen args={{}} />
+						</PageHostContext.Provider>
+					</Match>
+					<Match when={top() !== "editProfile"}>
+						<SettingsScreen args={{ page: top() }} />
+					</Match>
+				</Switch>
+			</LargeModalContent>
+		</SettingsNavContext.Provider>
 	);
 }

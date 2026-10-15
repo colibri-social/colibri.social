@@ -5,10 +5,11 @@ import {
 } from "@colibri-social/ui";
 import { ArrowRightUpIcon } from "@solar-icons/solid/linear/arrow-right-up";
 import {
-	blueskyClient,
+	blueskyClientOf,
 	buildBskyProfileUrl,
 	type ResolvedBlueskyClient,
 } from "../../data/bluesky-client";
+import type { PreferenceStore } from "../../data/preferences/store";
 
 export const blueskyProfileLink = (
 	client: ResolvedBlueskyClient,
@@ -24,6 +25,9 @@ export const blueskyProfileLink = (
 	tint: client.accentColor || undefined,
 });
 
-export const blueskyProfileLinks = (did: string): ProfileHeaderLink[] => [
-	blueskyProfileLink(blueskyClient(), did),
+export const blueskyProfileLinks = (
+	preferences: Pick<PreferenceStore, "client">,
+	did: string,
+): ProfileHeaderLink[] => [
+	blueskyProfileLink(blueskyClientOf(preferences), did),
 ];

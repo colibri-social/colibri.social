@@ -13,8 +13,7 @@ export default notificationSettings.view({
 				class="md:w-[440px]"
 			>
 				<div data-space-notification-settings="" class="flex flex-col gap-4">
-					<s.Level />
-					<s.Mute />
+					<s.Settings />
 				</div>
 			</ModalContent>
 		</Modal>

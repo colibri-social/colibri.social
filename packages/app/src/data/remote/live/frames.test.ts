@@ -320,6 +320,29 @@ describe("toLiveEvents", () => {
 						],
 						gifFavorites: [gif],
 						shareActivity: true,
+						spaceNotifications: [
+							{ community: COMMUNITY, level: "mentionsAndReplies" },
+							{ community: "did:plc:other", level: "loud" },
+						],
+						clientPreferences: {
+							$type: "social.colibri.beta.actor.defs#clientPreferences",
+							theme: "light",
+							controls: {
+								$type: "social.colibri.beta.actor.defs#controls",
+								swipeLeftAction: "reply",
+							},
+						},
+						composerState: {
+							emojiUsage: [
+								{
+									emoji: "🦜",
+									count: 2,
+									lastUsed: "2026-10-15T10:00:00.000Z",
+								},
+							],
+							skinTone: 9,
+							recentGifs: [gif],
+						},
 					},
 				}),
 			),
@@ -337,6 +360,18 @@ describe("toLiveEvents", () => {
 							createdAt: "2026-10-15T10:00:00.000Z",
 						},
 					],
+					spaceLevels: { [COMMUNITY]: "mentionsAndReplies" },
+					client: { theme: "light", controls: { swipeLeftAction: "reply" } },
+					composer: {
+						emojiUsage: {
+							"🦜": {
+								count: 2,
+								lastUsed: Date.parse("2026-10-15T10:00:00.000Z"),
+							},
+						},
+						skinTone: 0,
+						recentGifs: [gif],
+					},
 				},
 			},
 		]);

@@ -21,6 +21,7 @@ import { useData } from "../data/store";
 import { messageSelectionActive } from "../screens/channel/selection/selection";
 import { MemberMenuProvider } from "../screens/members/member-menu";
 import { ProfileSheetProvider } from "../screens/profile/profile-sheet";
+import { settingsPage } from "../screens/settings/nav";
 import SpacesScreen from "../screens/spaces/spaces.screen";
 import VoiceScreen from "../screens/voice/voice.screen";
 import { CallPillHost } from "./CallPillHost";
@@ -179,6 +180,11 @@ export const MobileShell = () => {
 						<MembersScreen
 							args={{ space: members().space, channel: members().channel }}
 						/>
+					)}
+				</Match>
+				<Match when={layer.kind === "settings" && layer}>
+					{(page) => (
+						<SettingsScreen args={{ page: settingsPage(page().page) }} />
 					)}
 				</Match>
 				<Match when={layer.kind === "editProfile"}>

@@ -250,7 +250,10 @@ const parseKnownPath = (parts: readonly string[]): Route | undefined => {
 		};
 	}
 	if (head === "settings" && length <= 3) {
-		return { root: { tab: "settings" }, layers: [] };
+		return {
+			root: { tab: "settings" },
+			layers: space ? [{ kind: "settings", page: space }] : [],
+		};
 	}
 	if (TABS.includes(head as Tab)) {
 		return length === 2

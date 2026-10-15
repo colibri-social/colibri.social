@@ -21,8 +21,7 @@ export default notificationSettings.view({
 				}
 			>
 				<div data-space-notification-settings="" class="flex flex-col gap-4">
-					<s.Level />
-					<s.Mute />
+					<s.Settings />
 				</div>
 			</DrawerContent>
 		</Drawer>

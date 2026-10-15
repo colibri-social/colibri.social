@@ -4,6 +4,7 @@ import {
 	type RichTextExternalLink,
 } from "@colibri-social/ui";
 import { createRoot, createSignal } from "solid-js";
+import { useData } from "../../../data/store";
 import { openExternalUrl } from "../../../native/open-external";
 import { usePlatform } from "../../../screen/platform";
 
@@ -29,6 +30,7 @@ export const trustHost = (host: string) => trustedHosts.add(host);
 
 export const createLinkOpener = () => {
 	const platform = usePlatform();
+	const data = useData();
 	const [pending, setPending] = createSignal<{
 		url: string;
 		disguised: boolean;
@@ -38,7 +40,8 @@ export const createLinkOpener = () => {
 	const onExternalLink = (url: string, link: RichTextExternalLink) => {
 		const host = linkWarningHost(url);
 		if (!host) return;
-		if (!link.disguised && isTrustedHost(host)) {
+		const warn = data.preferences.client().warnOnExternalLinks;
+		if (!link.disguised && (!warn || isTrustedHost(host))) {
 			openExternalUrl(url);
 			return;
 		}

@@ -89,7 +89,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 			avatarSeed: actor.did,
 			presence: uiPresence(presence),
 			bannerSrc: actor.banner,
-			links: blueskyProfileLinks(actor.did),
+			links: blueskyProfileLinks(data.preferences, actor.did),
 			status: status?.text,
 			statusEmoji: status?.emoji,
 			statusShowWhileOffline: status?.showWhileOffline,

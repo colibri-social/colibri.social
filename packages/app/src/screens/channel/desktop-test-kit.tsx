@@ -1,3 +1,4 @@
+import type { Preferences } from "../../data/preferences/types";
 import "../../app.css";
 import { render } from "solid-js/web";
 import { afterEach } from "vitest";
@@ -35,11 +36,14 @@ afterEach(() => {
 	history.replaceState(null, "", "/");
 });
 
-export const mount = async (path = DEV_PATH) => {
+export const mount = async (
+	path = DEV_PATH,
+	preferences?: Partial<Preferences>,
+) => {
 	setLatency(0);
 	await page.viewport(1440, 900);
 	history.replaceState(null, "", path);
-	const source = createMockSource({ live: false });
+	const source = createMockSource({ live: false, preferences });
 	const store = createDataStore(source);
 	const host = document.createElement("div");
 	host.style.cssText = "position:fixed;inset:0";

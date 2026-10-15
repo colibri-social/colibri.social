@@ -1,6 +1,7 @@
 import { classifyThrown, createLogger } from "@colibri-social/lib";
 import { ErrorBoundary, lazy, Match, Show, Suspense, Switch } from "solid-js";
 import { createAuth } from "./auth";
+import { AccountActionsContext } from "./auth/account-actions";
 import { LiveStatusContext } from "./data/live-context";
 import { createMockSource } from "./data/mock/source";
 import { createDataStore, DataContext, type DataStore } from "./data/store";
@@ -13,6 +14,7 @@ import { ColdStart } from "./shell/boot-gate";
 import { LaunchScreen } from "./shell/launch/LaunchScreen";
 import { StartupError } from "./shell/launch/StartupError";
 import { MobileShell } from "./shell/MobileShell";
+import { ThemeSync } from "./shell/theme-sync";
 
 const DesktopShell = lazy(() =>
 	import("./shell/desktop/DesktopShell").then((module) => ({
@@ -28,6 +30,7 @@ const Shells = (props: { store: DataStore }) => {
 	const platform = usePlatform();
 	return (
 		<DataContext.Provider value={props.store}>
+			<ThemeSync />
 			<Show when={platform() === "desktop"} fallback={<MobileShell />}>
 				<Suspense fallback={<LaunchScreen />}>
 					<DesktopShell />
@@ -91,7 +94,9 @@ const RemoteApp = () => {
 	const session = createSignedInSession(auth);
 	return (
 		<AuthGate auth={auth} platform={platform()}>
-			<SignedInApp session={session} />
+			<AccountActionsContext.Provider value={{ signOut: auth.signOut }}>
+				<SignedInApp session={session} />
+			</AccountActionsContext.Provider>
 		</AuthGate>
 	);
 };

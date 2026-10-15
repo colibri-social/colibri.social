@@ -342,6 +342,19 @@ export type EmbedSuppressionInput = {
 	uris: string[];
 };
 
+export type DeletionHost = { name?: string; contactEmail?: string };
+
+export type DeletionStatus = {
+	soleOwned: CommunityView[];
+	host: DeletionHost;
+};
+
+export type DeletionProgress =
+	| { step: "records"; done: number; total: number }
+	| { step: "server" };
+
+export type DeletionResult = { incomplete: boolean };
+
 export type DataSource = AccessSource &
 	EmojiSource & {
 		viewer: () => ProfileView;
@@ -355,6 +368,10 @@ export type DataSource = AccessSource &
 		}) => Promise<CommunityView>;
 		deleteCommunity: (input: { community: Did }) => Promise<void>;
 		leaveCommunity: (input: { community: Did }) => Promise<void>;
+		getDeletionStatus: () => Promise<DeletionStatus>;
+		deleteColibriData: (
+			onProgress?: (progress: DeletionProgress) => void,
+		) => Promise<DeletionResult>;
 		transferOwnership: (
 			input: TransferOwnershipInput,
 		) => Promise<TransferOwnershipOutput>;

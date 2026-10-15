@@ -2,10 +2,7 @@ import "../../app.css";
 import { render } from "solid-js/web";
 import { afterEach, describe, expect, it } from "vitest";
 import { page } from "vitest/browser";
-import {
-	PREFERENCES_STORAGE_KEY,
-	setBlueskyClientPreference,
-} from "../../data/bluesky-client";
+import { setBlueskyClient } from "../../data/bluesky-client";
 import { createMockSource, setLatency } from "../../data/mock/source";
 import { createDataStore, DataContext } from "../../data/store";
 import { Providers } from "../../providers";
@@ -28,8 +25,6 @@ afterEach(() => {
 	for (const stop of stops) stop();
 	stops = [];
 	document.body.replaceChildren();
-	setBlueskyClientPreference("bluesky", "");
-	localStorage.removeItem(PREFERENCES_STORAGE_KEY);
 });
 
 const host = (style: string) => {
@@ -97,11 +92,7 @@ describe("Bluesky profile link", () => {
 			})
 			.toBeGreaterThanOrEqual(24);
 
-		localStorage.setItem(
-			PREFERENCES_STORAGE_KEY,
-			JSON.stringify({ warnOnExternalLinks: false }),
-		);
-		setBlueskyClientPreference("mu");
+		void setBlueskyClient(store.preferences, "mu");
 		await until(
 			() =>
 				profileLink()?.getAttribute("href") ===
@@ -114,15 +105,11 @@ describe("Bluesky profile link", () => {
 		expect(profileLink()?.style.getPropertyValue("--profile-link-tint")).toBe(
 			"#db4aa6",
 		);
-		expect(
-			JSON.parse(localStorage.getItem(PREFERENCES_STORAGE_KEY) ?? "{}"),
-		).toEqual({
-			warnOnExternalLinks: false,
-			preferredBlueskyClient: "mu",
-			customBlueskyClientBase: "",
+		expect(store.preferences.preferences().client).toMatchObject({
+			blueskyClient: "mu",
 		});
 
-		setBlueskyClientPreference("custom", "https://MyClient.app/");
+		void setBlueskyClient(store.preferences, "custom", "https://MyClient.app/");
 		await until(
 			() =>
 				profileLink()?.getAttribute("href") ===

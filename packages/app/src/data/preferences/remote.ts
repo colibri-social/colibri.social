@@ -13,8 +13,14 @@ import {
 } from "@colibri-social/lib";
 import type { Records } from "../remote/records";
 import type { Transport } from "../remote/transport";
-import type { PreferenceBackend } from "./types";
-import { decodeMute, encodeMute, fromWire } from "./wire";
+import { type PreferenceBackend, SETTINGS_FIELDS } from "./types";
+import {
+	decodeMute,
+	encodeChange,
+	encodeComposer,
+	encodeMute,
+	fromWire,
+} from "./wire";
 
 const log = createLogger("preferences");
 
@@ -84,13 +90,50 @@ export const createRemotePreferenceBackend = (input: {
 			fromWire(
 				(await transport.query(colibri.actor.getPreferences.main)).preferences,
 			),
-		putSettings: async (settings, change) => {
-			await space.write(() =>
-				records.putInSpace(target(COLLECTIONS.settings, SELF), settings),
-			);
+		putSettings: async (current, change) => {
+			if (SETTINGS_FIELDS.some((field) => field in change)) {
+				const settings = Object.fromEntries(
+					SETTINGS_FIELDS.map((field) => [field, current[field]]),
+				);
+				await space.write(() =>
+					records.putInSpace(target(COLLECTIONS.settings, SELF), settings),
+				);
+			}
+			if (change.client)
+				await space.write(() =>
+					records.putInSpace(
+						target(COLLECTIONS.clientPreferences, SELF),
+						current.client,
+					),
+				);
+			if (change.composer)
+				await space.write(() =>
+					records.putInSpace(
+						target(COLLECTIONS.composerState, SELF),
+						encodeComposer(current.composer),
+					),
+				);
 			const result = await transport.procedure(colibri.actor.putSettings.main, {
-				body: change,
+				body: encodeChange(change),
 			});
+			return fromWire(result.preferences);
+		},
+		putSpaceLevel: async (community, level) => {
+			const record = target(COLLECTIONS.spaceNotification, community);
+			if (level)
+				await space.write(() =>
+					records.putInSpace(record, {
+						level,
+						createdAt: new Date().toISOString(),
+					}),
+				);
+			else await records.deleteInSpace(record);
+			const result = await transport.procedure(
+				colibri.actor.putSpaceNotification.main,
+				{
+					body: level ? { community, level } : { community, removeLevel: true },
+				},
+			);
 			return fromWire(result.preferences);
 		},
 		listMutes: async () => {

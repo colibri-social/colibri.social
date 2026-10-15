@@ -29,7 +29,7 @@ export const ownProfileData = (
 		presence: uiPresence(presence),
 		bannerSrc: viewer.banner,
 		bannerColor: viewer.theme?.bannerColor,
-		links: blueskyProfileLinks(viewer.did),
+		links: blueskyProfileLinks(data.preferences, viewer.did),
 		status: status?.text || undefined,
 		statusEmoji: status?.emoji,
 		statusShowWhileOffline: status?.showWhileOffline,

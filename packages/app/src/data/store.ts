@@ -43,6 +43,7 @@ import {
 } from "./notifications";
 import { readStored, writeStored } from "./persist";
 import { orderCommunities } from "./preferences/order";
+import type { MuteSubject } from "./preferences/types";
 import { type CatchUpTask, createCatchUpQueue } from "./resume";
 import {
 	countChange,
@@ -548,9 +549,6 @@ export const createDataStore = (
 			setLastSpace(space);
 			writeStored(DEVICE_KEYS.lastChannel(space), channel);
 		};
-		const [mutedThreads, setMutedThreads] = createSignal<ReadonlySet<string>>(
-			new Set(),
-		);
 		const typingListeners = new Map<SpaceRef, (did: Did) => void>();
 		const typingStops = new Map<SpaceRef, (did: Did) => void>();
 		const sentNonces = new Map<string, string>();
@@ -2302,24 +2300,9 @@ export const createDataStore = (
 			lastMessage: (ref: SpaceRef) => lastMessages[ref],
 			setLastChannel,
 			isMuted: (ref: SpaceRef) =>
-				isThreadSpace(ref)
-					? mutedThreads().has(ref)
-					: source.preferences.isMuted({ kind: "channel", channel: ref }),
+				source.preferences.isMuted(muteSubjectOf(ref)),
 			setMuted: (ref: SpaceRef, muted: boolean) => {
-				if (!isThreadSpace(ref)) {
-					void source.preferences.setMuted(
-						{ kind: "channel", channel: ref },
-						muted,
-					);
-					return;
-				}
-				setMutedThreads((current) => {
-					if (current.has(ref) === muted) return current;
-					const next = new Set(current);
-					if (muted) next.add(ref);
-					else next.delete(ref);
-					return next;
-				});
+				void source.preferences.setMuted(muteSubjectOf(ref), muted);
 			},
 			preferences: source.preferences,
 			controls: source.preferences.controls,
@@ -2342,6 +2325,11 @@ export const createDataStore = (
 export type DataStore = ReturnType<typeof createDataStore>;
 
 export const DataContext = createContext<DataStore>();
+
+const muteSubjectOf = (ref: SpaceRef): MuteSubject =>
+	isThreadSpace(ref)
+		? { kind: "thread", thread: ref }
+		: { kind: "channel", channel: ref };
 
 export const useData = () => {
 	const store = useContext(DataContext);

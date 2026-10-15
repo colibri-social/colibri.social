@@ -97,14 +97,16 @@ describe("synced preferences in the store", () => {
 		expect(store.spaceNotifications.isMuted(hq.did)).toBe(true);
 	});
 
-	it("keeps thread mutes out of the synced list", async () => {
+	it("syncs thread mutes as thread subjects", async () => {
 		const { source, store, hq } = await setup();
 		const thread =
 			`at://${hq.did}/space/social.colibri.beta.channel.thread/t1` as SpaceRef;
 		store.setMuted(thread, true);
 		await source.preferences.settled();
 		expect(store.isMuted(thread)).toBe(true);
-		expect(source.preferenceBackend.state().mutes).toEqual([]);
+		expect(
+			source.preferenceBackend.state().mutes.map((m) => m.subject),
+		).toEqual([{ kind: "thread", thread }]);
 	});
 
 	it("restores mutes and controls from the snapshot in a new store", async () => {
@@ -142,5 +144,23 @@ describe("synced preferences in the store", () => {
 		expect(store.spaceNotifications.level(hq.did)).toBe("nothing");
 		store.spaceNotifications.setLevel(hq.did, "mentionsAndReplies");
 		expect(store.spaceNotifications.level(hq.did)).toBe("mentionsAndReplies");
+		await source.preferences.settled();
+		expect(source.preferenceBackend.state().spaceLevels).toEqual({
+			[hq.did]: "mentionsAndReplies",
+		});
+
+		store.spaceNotifications.setLevel(hq.did, undefined);
+		expect(store.spaceNotifications.level(hq.did)).toBe("nothing");
+		expect(store.spaceNotifications.ownLevel(hq.did)).toBeUndefined();
+	});
+
+	it("restores emoji usage from the synced composer state", async () => {
+		const { source, store } = await setup();
+		source.preferences.recordEmoji("🦜");
+		await source.preferences.settled();
+		expect(source.preferenceBackend.state().composer.emojiUsage).toMatchObject({
+			"🦜": { count: 1 },
+		});
+		expect(store.preferences.composer().emojiUsage["🦜"]?.count).toBe(1);
 	});
 });

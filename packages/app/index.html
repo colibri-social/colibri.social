@@ -8,6 +8,16 @@
 		/>
 		<meta name="theme-color" content="#080808" />
 		<title>Colibri</title>
+		<script>
+			try {
+				const theme = localStorage.getItem("colibri:theme");
+				const light =
+					theme === "light" ||
+					(theme === "system" &&
+						matchMedia("(prefers-color-scheme: light)").matches);
+				if (light) document.documentElement.dataset.theme = "light";
+			} catch {}
+		</script>
 	</head>
 	<body>
 		<div id="root"></div>

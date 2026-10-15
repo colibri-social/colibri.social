@@ -15,8 +15,16 @@ export const createMemoryPreferenceBackend = (
 	);
 	const backend: PreferenceBackend = {
 		load: async () => state,
-		putSettings: async (_settings, change) => {
+		putSettings: async (_current, change) => {
 			state = { ...state, ...change };
+			return state;
+		},
+		putSpaceLevel: async (community, level) => {
+			const { [community]: _, ...rest } = state.spaceLevels;
+			state = {
+				...state,
+				spaceLevels: level ? { ...rest, [community]: level } : rest,
+			};
 			return state;
 		},
 		listMutes: async () => [...records].map(([rkey, mute]) => ({ rkey, mute })),

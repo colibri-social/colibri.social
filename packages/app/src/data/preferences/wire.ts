@@ -1,6 +1,12 @@
 import type { Datetime, Did, GifView, SpaceRef } from "../types";
 import {
+	type ClientPreferences,
+	type ClientPreferencesWire,
+	type ComposerState,
+	type ComposerStateWire,
+	DEFAULT_COMPOSER,
 	DEFAULT_PREFERENCES,
+	type EmojiUse,
 	type Mute,
 	type MuteSubject,
 	type MuteWire,
@@ -8,6 +14,7 @@ import {
 	type NotificationLevel,
 	type Preferences,
 	type PreferencesWire,
+	type SettingsChange,
 } from "./types";
 
 const MUTED_ACTOR = "social.colibri.beta.actor.defs#mutedActor";
@@ -58,11 +65,104 @@ export const decodeMute = (
 	};
 };
 
-const asLevel = (value: string | undefined): NotificationLevel =>
-	(NOTIFICATION_LEVELS as readonly string[]).includes(value ?? "")
-		? (value as NotificationLevel)
-		: DEFAULT_PREFERENCES.notificationLevel;
+export const MAX_EMOJI_USAGE = 50;
+export const MAX_RECENT_GIFS = 24;
 
+const isLevel = (value: unknown): value is NotificationLevel =>
+	(NOTIFICATION_LEVELS as readonly unknown[]).includes(value);
+
+const asLevel = (value: string | undefined): NotificationLevel =>
+	isLevel(value) ? value : DEFAULT_PREFERENCES.notificationLevel;
+
+const withoutType = <T extends { $type?: string }>(
+	value: T,
+): Omit<T, "$type"> => {
+	const { $type: _, ...rest } = value;
+	return rest;
+};
+
+export const decodeClient = (
+	wire: ClientPreferencesWire | undefined,
+): ClientPreferences => {
+	if (!wire || typeof wire !== "object") return {};
+	const { controls, voiceView, ...rest } = withoutType(wire);
+	return {
+		...rest,
+		...(controls ? { controls: withoutType(controls) } : {}),
+		...(voiceView ? { voiceView: withoutType(voiceView) } : {}),
+	};
+};
+
+export const pruneEmojiUsage = (
+	usage: Record<string, EmojiUse>,
+	limit = MAX_EMOJI_USAGE,
+): Record<string, EmojiUse> => {
+	const entries = Object.entries(usage);
+	if (entries.length <= limit) return usage;
+	return Object.fromEntries(
+		entries
+			.sort(([, a], [, b]) => b.count - a.count || b.lastUsed - a.lastUsed)
+			.slice(0, limit),
+	);
+};
+
+const asSkinTone = (value: unknown) =>
+	typeof value === "number" &&
+	Number.isInteger(value) &&
+	value >= 0 &&
+	value <= 5
+		? value
+		: DEFAULT_COMPOSER.skinTone;
+
+export const decodeComposer = (
+	wire: ComposerStateWire | undefined,
+): ComposerState => {
+	if (!wire || typeof wire !== "object") return DEFAULT_COMPOSER;
+	const emojiUsage: Record<string, EmojiUse> = {};
+	for (const entry of wire.emojiUsage ?? []) {
+		const lastUsed = Date.parse(entry.lastUsed);
+		if (!entry.emoji || !(entry.count >= 1)) continue;
+		emojiUsage[entry.emoji] = {
+			count: entry.count,
+			lastUsed: Number.isNaN(lastUsed) ? 0 : lastUsed,
+		};
+	}
+	return {
+		emojiUsage,
+		skinTone: asSkinTone(wire.skinTone),
+		recentGifs: [...(wire.recentGifs ?? [])] as GifView[],
+	};
+};
+
+export const encodeComposer = (composer: ComposerState) => ({
+	emojiUsage: Object.entries(pruneEmojiUsage(composer.emojiUsage)).map(
+		([emoji, use]) => ({
+			emoji,
+			count: Math.max(1, Math.round(use.count)),
+			lastUsed: new Date(use.lastUsed).toISOString() as Datetime,
+		}),
+	),
+	skinTone: asSkinTone(composer.skinTone),
+	recentGifs: composer.recentGifs.slice(0, MAX_RECENT_GIFS),
+});
+
+export const encodeChange = (change: SettingsChange) => {
+	const { client, composer, ...settings } = change;
+	return {
+		...settings,
+		...(client ? { clientPreferences: client } : {}),
+		...(composer ? { composerState: encodeComposer(composer) } : {}),
+	};
+};
+
+const decodeSpaceLevels = (
+	entries: PreferencesWire["spaceNotifications"],
+): Record<string, NotificationLevel> => {
+	const levels: Record<string, NotificationLevel> = {};
+	for (const entry of entries ?? [])
+		if (isLevel(entry.level)) levels[entry.community] = entry.level;
+	return levels;
+};
 export const fromWire = (wire: Partial<PreferencesWire>): Preferences => ({
 	notificationLevel: asLevel(wire.notificationLevel),
 	communityOrder: [...(wire.communityOrder ?? [])] as Did[],
@@ -72,4 +172,7 @@ export const fromWire = (wire: Partial<PreferencesWire>): Preferences => ({
 		const mute = decodeMute(entry);
 		return mute ? [mute] : [];
 	}),
+	spaceLevels: decodeSpaceLevels(wire.spaceNotifications),
+	client: decodeClient(wire.clientPreferences),
+	composer: decodeComposer(wire.composerState),
 });

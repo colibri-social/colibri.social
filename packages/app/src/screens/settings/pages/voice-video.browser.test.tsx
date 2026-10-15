@@ -1,0 +1,109 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
+import { DEVICE_KEYS } from "../../../data/device-prefs";
+import { cleanup, mountPage } from "./page-test-kit";
+import VoiceVideoPage from "./voice-video";
+
+const original = navigator.mediaDevices;
+
+const fakeStream = (kind: "audio" | "video") => {
+	if (kind === "video") {
+		const canvas = document.createElement("canvas");
+		canvas.width = 64;
+		canvas.height = 48;
+		canvas.getContext("2d")?.fillRect(0, 0, 64, 48);
+		return canvas.captureStream(10);
+	}
+	const context = new AudioContext();
+	const tone = context.createOscillator();
+	const out = context.createMediaStreamDestination();
+	tone.connect(out);
+	tone.start();
+	return out.stream;
+};
+
+const stubDevices = (options: { cameraDenied?: boolean } = {}) => {
+	const getUserMedia = vi.fn(async (constraints: MediaStreamConstraints) => {
+		if (constraints.video && options.cameraDenied)
+			throw new DOMException("Permission denied", "NotAllowedError");
+		return fakeStream(constraints.video ? "video" : "audio");
+	});
+	Object.defineProperty(navigator, "mediaDevices", {
+		configurable: true,
+		value: {
+			getUserMedia,
+			enumerateDevices: async () => [
+				{ deviceId: "mic-1", kind: "audioinput", label: "Desk mic" },
+				{ deviceId: "mic-2", kind: "audioinput", label: "Headset" },
+				{ deviceId: "cam-1", kind: "videoinput", label: "Webcam" },
+			],
+			addEventListener: () => {},
+			removeEventListener: () => {},
+		},
+	});
+	return getUserMedia;
+};
+
+afterEach(() => {
+	cleanup();
+	localStorage.removeItem(DEVICE_KEYS.voiceSettings);
+	Object.defineProperty(navigator, "mediaDevices", {
+		configurable: true,
+		value: original,
+	});
+});
+
+it("tests the microphone, previews the camera and syncs voice view options", async () => {
+	const getUserMedia = stubDevices();
+	const { store } = await mountPage(() => <VoiceVideoPage platform="mobile" />);
+
+	await expect
+		.poll(
+			() =>
+				document.querySelector<HTMLVideoElement>("video[data-camera-video]")
+					?.srcObject,
+		)
+		.toBeTruthy();
+
+	await userEvent.click(page.getByRole("button", { name: "Test microphone" }));
+	await expect
+		.element(page.getByRole("button", { name: "Stop test" }))
+		.toBeVisible();
+	expect(getUserMedia).toHaveBeenCalledWith(
+		expect.objectContaining({
+			audio: expect.objectContaining({ noiseSuppression: true }),
+		}),
+	);
+	await userEvent.click(page.getByRole("button", { name: "Stop test" }));
+	await expect
+		.element(page.getByRole("button", { name: "Test microphone" }))
+		.toBeVisible();
+
+	await userEvent.click(page.getByText("Noise suppression"));
+	await expect
+		.poll(() =>
+			JSON.parse(localStorage.getItem(DEVICE_KEYS.voiceSettings) ?? "{}"),
+		)
+		.toMatchObject({ noiseSuppression: false });
+
+	await userEvent.click(page.getByText("Confirm before joining"));
+	await expect
+		.poll(() => store.preferences.client().voiceView.confirmJoin)
+		.toBe(true);
+	await userEvent.click(page.getByText("Show your own camera"));
+	await expect
+		.poll(() => store.preferences.client().voiceView.showOwnCamera)
+		.toBe(false);
+});
+
+it("explains a blocked camera", async () => {
+	stubDevices({ cameraDenied: true });
+	await mountPage(() => <VoiceVideoPage platform="mobile" />);
+	await expect
+		.element(
+			page
+				.getByText("Allow access in your device settings", { exact: false })
+				.first(),
+		)
+		.toBeVisible();
+});

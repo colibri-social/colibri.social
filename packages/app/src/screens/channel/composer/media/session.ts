@@ -1,46 +1,17 @@
 import type { EmojiUsage, Gif, SkinTone } from "@colibri-social/ui";
-import { pruneEmojiUsage } from "@colibri-social/ui";
-import { createRoot, createSignal } from "solid-js";
+import type { PreferenceStore } from "../../../../data/preferences/store";
+import { useData } from "../../../../data/store";
+import type { GifView } from "../../../../data/types";
 
-const MAX_USAGE = 64;
-const MAX_RECENT_GIFS = 12;
-
-const session = createRoot(() => {
-	const [usage, setUsage] = createSignal<Record<string, EmojiUsage>>({});
-	const [skinTone, setSkinTone] = createSignal<SkinTone>(0);
-	const [recentGifs, setRecentGifs] = createSignal<Gif[]>([]);
-
-	const recordEmoji = (emoji: string) =>
-		setUsage((current) => {
-			const previous = current[emoji];
-			return pruneEmojiUsage(
-				{
-					...current,
-					[emoji]: {
-						count: (previous?.count ?? 0) + 1,
-						lastUsed: Date.now(),
-					},
-				},
-				MAX_USAGE,
-			);
-		});
-
-	const recordGif = (gif: Gif) =>
-		setRecentGifs((current) =>
-			[gif, ...current.filter((entry) => entry.id !== gif.id)].slice(
-				0,
-				MAX_RECENT_GIFS,
-			),
-		);
-
-	return {
-		usage,
-		recordEmoji,
-		skinTone,
-		setSkinTone,
-		recentGifs,
-		recordGif,
-	};
+export const createMediaSession = (preferences: PreferenceStore) => ({
+	usage: (): Record<string, EmojiUsage> => preferences.composer().emojiUsage,
+	recordEmoji: (emoji: string) => preferences.recordEmoji(emoji),
+	skinTone: () => preferences.composer().skinTone as SkinTone,
+	setSkinTone: (tone: SkinTone) => preferences.setSkinTone(tone),
+	recentGifs: (): Gif[] => preferences.composer().recentGifs,
+	recordGif: (gif: Gif) => preferences.recordGif(gif as GifView),
 });
 
-export const mediaSession = () => session;
+export type MediaSession = ReturnType<typeof createMediaSession>;
+
+export const mediaSession = () => createMediaSession(useData().preferences);

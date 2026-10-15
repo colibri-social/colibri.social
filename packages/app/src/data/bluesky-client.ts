@@ -1,7 +1,4 @@
-import { type Accessor, createMemo, createRoot, createSignal } from "solid-js";
-import { readStored, writeStored } from "./persist";
-
-export const PREFERENCES_STORAGE_KEY = "colibri:user-preferences";
+import type { PreferenceStore } from "./preferences/store";
 
 export type BlueskyClientID =
 	| "anisota"
@@ -136,84 +133,26 @@ export const buildBskyProfileUrl = (
 	identifier: string,
 ): string => `https://${client.base}/profile/${identifier}`;
 
-const parseStored = (raw: string | null): Record<string, unknown> => {
-	if (!raw) return {};
-	try {
-		const parsed: unknown = JSON.parse(raw);
-		return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-			? (parsed as Record<string, unknown>)
-			: {};
-	} catch {
-		return {};
-	}
-};
-
-export const parseBlueskyClientPreference = (
-	raw: string | null,
-): BlueskyClientPreference => {
-	const parsed = parseStored(raw);
-	const base =
-		typeof parsed.customBlueskyClientBase === "string"
-			? (normalizeBskyClientBase(parsed.customBlueskyClientBase) ?? "")
-			: "";
-	return {
-		preferredBlueskyClient: isKnownBlueskyClientID(
-			parsed.preferredBlueskyClient,
-		)
-			? parsed.preferredBlueskyClient
+export const blueskyClientOf = (
+	preferences: Pick<PreferenceStore, "client">,
+): ResolvedBlueskyClient => {
+	const client = preferences.client();
+	return resolveBlueskyClient({
+		preferredBlueskyClient: isKnownBlueskyClientID(client.blueskyClient)
+			? client.blueskyClient
 			: DEFAULT_BLUESKY_CLIENT_PREFERENCE.preferredBlueskyClient,
-		customBlueskyClientBase: base,
-	};
+		customBlueskyClientBase: client.customBlueskyClientBase,
+	});
 };
 
-export const mergeBlueskyClientPreference = (
-	raw: string | null,
-	preference: BlueskyClientPreference,
-): string => JSON.stringify({ ...parseStored(raw), ...preference });
-
-const readStorage = (): string | null =>
-	readStored(PREFERENCES_STORAGE_KEY) ?? null;
-
-const writeStorage = (preference: BlueskyClientPreference) =>
-	writeStored(
-		PREFERENCES_STORAGE_KEY,
-		mergeBlueskyClientPreference(readStorage(), preference),
-	);
-
-const store = createRoot(() => {
-	const [preference, setPreference] = createSignal(
-		parseBlueskyClientPreference(readStorage()),
-	);
-	const client = createMemo(() => resolveBlueskyClient(preference()));
-	if (typeof window !== "undefined") {
-		window.addEventListener("storage", (event) => {
-			if (event.key !== PREFERENCES_STORAGE_KEY) return;
-			setPreference(parseBlueskyClientPreference(event.newValue));
-		});
-	}
-	return { preference, setPreference, client };
-});
-
-export const blueskyClientPreference: Accessor<BlueskyClientPreference> =
-	store.preference;
-
-export const blueskyClient: Accessor<ResolvedBlueskyClient> = store.client;
-
-export const useBlueskyClient = (): Accessor<ResolvedBlueskyClient> =>
-	blueskyClient;
-
-export const setBlueskyClientPreference = (
+export const setBlueskyClient = (
+	preferences: Pick<PreferenceStore, "setClient">,
 	client: BlueskyClientID,
 	customBase?: string,
-) => {
-	const current = store.preference();
-	const next: BlueskyClientPreference = {
-		preferredBlueskyClient: client,
-		customBlueskyClientBase:
-			customBase === undefined
-				? current.customBlueskyClientBase
-				: (normalizeBskyClientBase(customBase) ?? ""),
-	};
-	store.setPreference(next);
-	writeStorage(next);
-};
+) =>
+	preferences.setClient({
+		blueskyClient: client,
+		...(customBase === undefined
+			? {}
+			: { customBlueskyClientBase: normalizeBskyClientBase(customBase) ?? "" }),
+	});

@@ -89,6 +89,7 @@ describe("desktop route", () => {
 	it("maps edit profile and the settings tabs to the settings modal", () => {
 		expect(route([{ kind: "editProfile" }]).modal).toEqual([
 			{ kind: "settings", page: "profile" },
+			{ kind: "settings", page: "editProfile" },
 		]);
 		expect(desktopRoute({ tab: "settings" }, []).modal).toEqual([
 			{ kind: "settings" },

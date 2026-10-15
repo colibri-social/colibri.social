@@ -14,6 +14,7 @@ import {
 import type { InvitationPreview, JoinResult } from "../access";
 import { type ChannelSummary, summarizeMessage } from "../channel-summary";
 import type { EmojiSource } from "../emoji";
+import { importLegacyPreferences } from "../preferences/legacy";
 import {
 	createPreferencesSpace,
 	createRemotePreferenceBackend,
@@ -42,6 +43,7 @@ import {
 	TEXT_CHANNEL,
 } from "../types";
 import { fetchBlueskyPost } from "./bluesky";
+import { createDeletion } from "./deletion";
 import {
 	createMessageIndex,
 	createMessageWrites,
@@ -150,6 +152,11 @@ export const createRemoteSource = async (
 	};
 
 	const preferencesSpace = createPreferencesSpace(transport);
+	const deletion = createDeletion({
+		transport,
+		records,
+		space: preferencesSpace,
+	});
 	const preferences = createPreferenceStore({
 		backend: createRemotePreferenceBackend({
 			transport,
@@ -161,10 +168,16 @@ export const createRemoteSource = async (
 		onScopesRejected: options.onScopesRejected,
 	});
 
+	const loadPreferences = () =>
+		preferences.refresh().then(async (loaded) => {
+			if (loaded)
+				await importLegacyPreferences(preferences, options.session.did);
+		});
+
 	let viewer: ProfileView;
 	if (options.cachedViewer) {
 		viewer = options.cachedViewer;
-		void preferences.refresh();
+		void loadPreferences();
 		void fetchProfile().then(
 			(profile) => {
 				viewer = { ...profile, presence: viewer.presence ?? profile.presence };
@@ -176,10 +189,7 @@ export const createRemoteSource = async (
 				}),
 		);
 	} else {
-		const [profile] = await Promise.all([
-			fetchProfile(),
-			preferences.refresh(),
-		]);
+		const [profile] = await Promise.all([fetchProfile(), loadPreferences()]);
 		viewer = profile;
 	}
 
@@ -365,6 +375,8 @@ export const createRemoteSource = async (
 		leaveCommunity: async (input) => {
 			await transport.procedure(colibri.community.leave.main, { body: input });
 		},
+		getDeletionStatus: deletion.getDeletionStatus,
+		deleteColibriData: deletion.deleteColibriData,
 		transferOwnership: rejectNotEnabled("community.transferOwnership"),
 		listDiscoverable: rejectNotEnabled("community.listDiscoverable"),
 
