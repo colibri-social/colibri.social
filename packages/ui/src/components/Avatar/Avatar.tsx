@@ -131,6 +131,7 @@ export type AvatarProps = Omit<
 	seed?: string;
 	fallback?: "illustration" | "initials";
 	defaultAvatars?: readonly DefaultAvatarId[];
+	play?: boolean;
 };
 
 const initialsOf = (name: string) =>
@@ -153,6 +154,7 @@ export const Avatar = (props: AvatarProps) => {
 		"seed",
 		"fallback",
 		"defaultAvatars",
+		"play",
 	]);
 	const [loaded, setLoaded] = createSignal(false);
 	const [failed, setFailed] = createSignal(false);
@@ -224,6 +226,7 @@ export const Avatar = (props: AvatarProps) => {
 							draggable={false}
 							animated={!isStaticSource(local.src)}
 							playback="demand"
+							play={local.play}
 							frameSize={pixels()}
 							onLoad={() => setLoaded(true)}
 							onError={() => setFailed(true)}

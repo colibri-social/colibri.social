@@ -58,6 +58,16 @@ const installNoise = () => {
 	);
 };
 
+let noiseScheduled = false;
+
+const scheduleNoise = () => {
+	if (noiseScheduled || noiseInstalled || typeof window === "undefined") return;
+	noiseScheduled = true;
+	if (typeof window.requestIdleCallback === "function")
+		window.requestIdleCallback(installNoise, { timeout: 2000 });
+	else setTimeout(installNoise, 300);
+};
+
 const layerFor = (host: HTMLElement) => {
 	const existing = host.querySelector<HTMLElement>(
 		":scope > [data-ripple-layer]",
@@ -75,6 +85,7 @@ export const attachRipple = (
 	options: RippleOptions & { haptics?: Haptics } = {},
 ) => {
 	const pointerTypes = options.pointerTypes ?? DEFAULT_POINTER_TYPES;
+	scheduleNoise();
 	const waves = new Set<Wave>();
 	const timers = new Set<ReturnType<typeof setTimeout>>();
 

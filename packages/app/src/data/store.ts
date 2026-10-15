@@ -3,6 +3,7 @@ import {
 	classifyThrown,
 	createLogger,
 	createLru,
+	isThreadSpace,
 	MEMORY_WINDOW_COUNT,
 	nextTid,
 	refreshMessageWindow,
@@ -30,6 +31,7 @@ import {
 	newerSummary,
 	summarizeMessage,
 } from "./channel-summary";
+import { DEVICE_KEYS, deviceString } from "./device-prefs";
 import { createEmojiStore } from "./emoji-store";
 import { channelSlug, isVoiceChannel, skeyOf, spaceKey } from "./ids";
 import { createJumpRequests } from "./jump";
@@ -40,6 +42,7 @@ import {
 	createSpaceNotificationPrefs,
 } from "./notifications";
 import { readStored, writeStored } from "./persist";
+import { orderCommunities } from "./preferences/order";
 import { type CatchUpTask, createCatchUpQueue } from "./resume";
 import {
 	countChange,
@@ -52,7 +55,6 @@ import {
 } from "./role-store";
 import {
 	type CommunityImageKind,
-	type ControlsPreferences,
 	type CreateChannelInput,
 	type DataSource,
 	type LiveEvent,
@@ -91,8 +93,6 @@ const UNREAD_SEARCH_LIMIT = 400;
 const CATCH_UP_PAGES = 4;
 const CATCH_UP_SPACING_MS = 1_000;
 const TYPING_MS = 6000;
-const LAST_SPACE_KEY = "colibri:last-space";
-const LAST_CHANNEL_PREFIX = "colibri:last-channel:";
 
 const log = createLogger("store");
 
@@ -139,6 +139,7 @@ export type PendingUpload = {
 	id: string;
 	file: File;
 	previewSrc?: string;
+	spoiler?: boolean;
 	progress: number;
 	attachment?: AttachmentView;
 	failed?: boolean;
@@ -183,7 +184,7 @@ export type ChannelData = {
 		facets?: Facet[];
 		parent?: string;
 		attachments?: AttachmentView[];
-		files?: { file: File; previewSrc?: string }[];
+		files?: { file: File; previewSrc?: string; spoiler?: boolean }[];
 	}) => Promise<void>;
 	retry: (nonce: string) => Promise<void>;
 	discard: (nonce: string) => void;
@@ -368,13 +369,22 @@ export const createDataStore = (
 		const [viewer, setViewer] = createStore<ProfileView>(source.viewer());
 		const memberLoads = new Map<Did, MutableLoad<MemberView[]>>();
 		const roleLoads = new Map<Did, MutableLoad<RoleView[]>>();
-		const [controls, setControlsSignal] = createSignal(source.controls());
 		const [simulation, setSimulationSignal] = createSignal(source.simulation());
-		const communities = createLoad(
+		const loadedCommunities = createLoad(
 			() => source.listCommunities(),
 			"community.list",
 			snapshot?.communities,
 		);
+		const orderedCommunities = createMemo(() =>
+			orderCommunities(
+				loadedCommunities.value(),
+				source.preferences.communityOrder(),
+			),
+		);
+		const communities: MutableLoad<CommunityView[]> = {
+			...loadedCommunities,
+			value: orderedCommunities,
+		};
 		persist(() => {
 			const list = communities.value();
 			if (list) spaceCache?.offerCommunities(list);
@@ -530,16 +540,15 @@ export const createDataStore = (
 		const [lastChannels, setLastChannels] = createStore<
 			Record<string, string | undefined>
 		>({});
-		const [lastSpace, setLastSpace] = createSignal(readStored(LAST_SPACE_KEY));
+		const [lastSpace, setLastSpace] = deviceString(DEVICE_KEYS.lastSpace);
 		const lastChannel = (space: string) =>
-			lastChannels[space] ?? readStored(LAST_CHANNEL_PREFIX + space);
+			lastChannels[space] ?? readStored(DEVICE_KEYS.lastChannel(space));
 		const setLastChannel = (space: string, channel: string) => {
 			setLastChannels(space, channel);
 			setLastSpace(space);
-			writeStored(LAST_CHANNEL_PREFIX + space, channel);
-			writeStored(LAST_SPACE_KEY, space);
+			writeStored(DEVICE_KEYS.lastChannel(space), channel);
 		};
-		const [mutedChannels, setMutedChannels] = createSignal<ReadonlySet<string>>(
+		const [mutedThreads, setMutedThreads] = createSignal<ReadonlySet<string>>(
 			new Set(),
 		);
 		const typingListeners = new Map<SpaceRef, (did: Did) => void>();
@@ -566,7 +575,7 @@ export const createDataStore = (
 			});
 		});
 		const jumps = createJumpRequests();
-		const spaceNotifications = createSpaceNotificationPrefs();
+		const spaceNotifications = createSpaceNotificationPrefs(source.preferences);
 
 		const communityOfRef = (ref: SpaceRef) =>
 			ref.slice("at://".length, ref.indexOf("/space/")) as Did;
@@ -1635,10 +1644,13 @@ export const createDataStore = (
 						if (upload.attachment) return upload.attachment;
 						patchUpload(entry.nonce, upload.id, { failed: false, progress: 0 });
 						try {
-							const attachment = await source.uploadBlob(upload.file, {
+							const uploaded = await source.uploadBlob(upload.file, {
 								onProgress: (progress) =>
 									patchUpload(entry.nonce, upload.id, { progress }),
 							});
+							const attachment: AttachmentView = upload.spoiler
+								? { ...uploaded, spoiler: true }
+								: uploaded;
 							patchUpload(entry.nonce, upload.id, { attachment, progress: 1 });
 							return attachment;
 						} catch {
@@ -1868,6 +1880,7 @@ export const createDataStore = (
 							id: `${index}`,
 							file: file.file,
 							previewSrc: file.previewSrc,
+							...(file.spoiler ? { spoiler: true } : {}),
 							progress: 0,
 						})),
 						createdAt: new Date().toISOString(),
@@ -2205,6 +2218,7 @@ export const createDataStore = (
 				void threadLoads.get(ref)?.refresh();
 			}
 			void communities.refresh();
+			void source.preferences.refresh();
 			for (const community of spaces.keys()) {
 				void loadUnread(community);
 				void loadSummaries(community);
@@ -2287,25 +2301,35 @@ export const createDataStore = (
 			bootReady,
 			lastMessage: (ref: SpaceRef) => lastMessages[ref],
 			setLastChannel,
-			isMuted: (ref: SpaceRef) => mutedChannels().has(ref),
-			setMuted: (ref: SpaceRef, muted: boolean) =>
-				setMutedChannels((current) => {
+			isMuted: (ref: SpaceRef) =>
+				isThreadSpace(ref)
+					? mutedThreads().has(ref)
+					: source.preferences.isMuted({ kind: "channel", channel: ref }),
+			setMuted: (ref: SpaceRef, muted: boolean) => {
+				if (!isThreadSpace(ref)) {
+					void source.preferences.setMuted(
+						{ kind: "channel", channel: ref },
+						muted,
+					);
+					return;
+				}
+				setMutedThreads((current) => {
+					if (current.has(ref) === muted) return current;
 					const next = new Set(current);
 					if (muted) next.add(ref);
 					else next.delete(ref);
 					return next;
-				}),
-			controls,
+				});
+			},
+			preferences: source.preferences,
+			controls: source.preferences.controls,
 			source,
 			simulation: () => simulation(),
 			setSimulation: (next: Partial<Simulation>) => {
 				source.setSimulation(next);
 				setSimulationSignal(source.simulation());
 			},
-			setControls: (next: Partial<ControlsPreferences>) => {
-				source.setControls(next);
-				setControlsSignal(source.controls());
-			},
+			setControls: source.preferences.setControls,
 			typing: (ref: SpaceRef) => source.typing(ref),
 			catchUp,
 			pauseCatchUp: backfill.cancel,

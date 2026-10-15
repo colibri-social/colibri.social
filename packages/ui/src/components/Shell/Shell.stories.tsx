@@ -1,6 +1,7 @@
 import { createSignal, For, type JSX } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import type { Presence } from "../Avatar/Avatar";
 import { Badge } from "../Badge/Badge";
 import { storyImages } from "../Banner/story-images";
 import { ChannelHeader } from "../ChannelHeader/ChannelHeader";
@@ -651,6 +652,72 @@ export const UserPanelParity: Story = {
 		await expect(
 			Math.round(text.getBoundingClientRect().left - face.right),
 		).toBe(8);
+	},
+};
+
+const presenceStates = [
+	{ value: "online", label: "Online" },
+	{ value: "idle", label: "Away" },
+	{ value: "dnd", label: "Do not disturb" },
+	{ value: "offline", label: "Offline" },
+] as const;
+
+export const UserPanelPresenceLabel: Story = {
+	name: "User panel presence label",
+	render: () => {
+		const [presence, setPresence] = createSignal<Presence>("online");
+		const [status, setStatus] = createSignal<string>();
+		return (
+			<div class="flex w-[312px] flex-col gap-4 bg-background p-4">
+				<UserPanel name="Lou" presence={presence()} status={status()} />
+				<div class="flex flex-wrap gap-2 text-sm text-foreground">
+					<For each={presenceStates}>
+						{(state) => (
+							<button
+								type="button"
+								aria-pressed={presence() === state.value}
+								onClick={() => setPresence(state.value)}
+							>
+								Set {state.label}
+							</button>
+						)}
+					</For>
+					<button
+						type="button"
+						aria-pressed={status() !== undefined}
+						onClick={() =>
+							setStatus((current) =>
+								current === undefined ? "Building a nest" : undefined,
+							)
+						}
+					>
+						Toggle status
+					</button>
+				</div>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const line = () =>
+			canvasElement.querySelector("[data-user-panel-status]")?.textContent;
+		await expect(line()).toBe("Online");
+		for (const state of presenceStates) {
+			await userEvent.click(
+				canvas.getByRole("button", { name: `Set ${state.label}` }),
+			);
+			await waitFor(() => expect(line()).toBe(state.label));
+		}
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Toggle status" }),
+		);
+		await waitFor(() => expect(line()).toBe("Building a nest"));
+		await userEvent.click(canvas.getByRole("button", { name: "Set Away" }));
+		await expect(line()).toBe("Building a nest");
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Toggle status" }),
+		);
+		await waitFor(() => expect(line()).toBe("Away"));
 	},
 };
 

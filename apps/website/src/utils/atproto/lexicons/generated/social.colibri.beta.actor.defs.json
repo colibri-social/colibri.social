@@ -240,7 +240,8 @@
 					"description": "Which messages produce a notification.",
 					"knownValues": [
 						"all",
-						"mentionsAndReplies"
+						"mentionsAndReplies",
+						"nothing"
 					]
 				},
 				"communityOrder": {
@@ -271,6 +272,24 @@
 				"shareActivity": {
 					"type": "boolean",
 					"description": "Whether the AppView may read what the user is listening to and show it to others."
+				},
+				"spaceNotifications": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#spaceNotification"
+					},
+					"description": "Notification levels the user set for single communities. A community without an entry follows notificationLevel."
+				},
+				"clientPreferences": {
+					"type": "ref",
+					"ref": "#clientPreferences",
+					"description": "Client settings that follow the user across devices."
+				},
+				"composerState": {
+					"type": "ref",
+					"ref": "#composerState",
+					"description": "Emoji usage, skin tone and recent GIFs."
 				}
 			}
 		},
@@ -338,6 +357,207 @@
 					"type": "string",
 					"format": "space-ref",
 					"description": "The muted thread's space."
+				}
+			}
+		},
+		"spaceNotification": {
+			"type": "object",
+			"description": "A notification level for one community.",
+			"required": [
+				"community",
+				"level"
+			],
+			"properties": {
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community."
+				},
+				"level": {
+					"type": "string",
+					"knownValues": [
+						"all",
+						"mentionsAndReplies",
+						"nothing"
+					],
+					"description": "Which messages in this community produce a notification."
+				}
+			}
+		},
+		"clientPreferences": {
+			"type": "object",
+			"description": "Client settings that follow the user across devices. Every field is optional and a client applies its own default for an absent one.",
+			"properties": {
+				"controls": {
+					"type": "ref",
+					"ref": "#controls",
+					"description": "Touch gestures in a channel."
+				},
+				"theme": {
+					"type": "string",
+					"knownValues": [
+						"system",
+						"dark",
+						"light"
+					],
+					"description": "The color theme. system follows the operating system."
+				},
+				"messagePreviews": {
+					"type": "boolean",
+					"description": "Whether the channel list shows the latest message under each channel name."
+				},
+				"linkEmbedsByDefault": {
+					"type": "boolean",
+					"description": "Whether a link in a new message gets a preview by default."
+				},
+				"warnOnExternalLinks": {
+					"type": "boolean",
+					"description": "Whether opening a link to another site asks for confirmation first."
+				},
+				"blueskyClient": {
+					"type": "string",
+					"maxLength": 64,
+					"knownValues": [
+						"anisota",
+						"blacksky",
+						"bluesky",
+						"deer",
+						"mu",
+						"northsky",
+						"witchsky",
+						"custom"
+					],
+					"description": "The client that Bluesky posts and profiles open in."
+				},
+				"customBlueskyClientBase": {
+					"type": "string",
+					"maxLength": 253,
+					"description": "The domain of the client used when blueskyClient is custom."
+				},
+				"developerMode": {
+					"type": "boolean",
+					"description": "Whether the client shows identifiers and links to inspect records."
+				},
+				"voiceView": {
+					"type": "ref",
+					"ref": "#voiceView",
+					"description": "Options for voice channels."
+				},
+				"experiments": {
+					"type": "array",
+					"maxLength": 64,
+					"items": {
+						"type": "string",
+						"maxLength": 64,
+						"description": "An experiment id."
+					},
+					"description": "The experiments the user turned on."
+				}
+			}
+		},
+		"controls": {
+			"type": "object",
+			"description": "Touch gestures in a channel.",
+			"properties": {
+				"swipeLeftAction": {
+					"type": "string",
+					"knownValues": [
+						"members",
+						"reply"
+					],
+					"description": "What swiping left on a message does."
+				},
+				"doubleTapEnabled": {
+					"type": "boolean",
+					"description": "Whether double tapping a message does anything."
+				},
+				"doubleTapAction": {
+					"type": "string",
+					"knownValues": [
+						"react",
+						"editOrReply"
+					],
+					"description": "What double tapping a message does."
+				},
+				"doubleTapReactionEmoji": {
+					"type": "string",
+					"maxLength": 64,
+					"maxGraphemes": 1,
+					"description": "The emoji a double tap reacts with."
+				}
+			}
+		},
+		"voiceView": {
+			"type": "object",
+			"description": "Options for voice channels.",
+			"properties": {
+				"confirmJoin": {
+					"type": "boolean",
+					"description": "Whether opening a voice channel waits for the user to press join."
+				},
+				"showNonVideoParticipants": {
+					"type": "boolean",
+					"description": "Whether the call grid shows participants without video."
+				},
+				"showOwnCamera": {
+					"type": "boolean",
+					"description": "Whether the call grid shows the user's own camera."
+				}
+			}
+		},
+		"composerState": {
+			"type": "object",
+			"description": "Emoji usage, skin tone and recent GIFs.",
+			"properties": {
+				"emojiUsage": {
+					"type": "array",
+					"maxLength": 50,
+					"items": {
+						"type": "ref",
+						"ref": "#emojiUse"
+					},
+					"description": "The emoji the user picks most, with counts."
+				},
+				"skinTone": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 5,
+					"description": "The skin tone for emoji that support one. 0 is the default yellow."
+				},
+				"recentGifs": {
+					"type": "array",
+					"maxLength": 24,
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.embed.defs#gifView"
+					},
+					"description": "The GIFs the user sent last, newest first, stored whole."
+				}
+			}
+		},
+		"emojiUse": {
+			"type": "object",
+			"description": "How often and how recently the user picked one emoji.",
+			"required": [
+				"emoji",
+				"count",
+				"lastUsed"
+			],
+			"properties": {
+				"emoji": {
+					"type": "string",
+					"maxLength": 512,
+					"description": "A Unicode emoji, or a custom emoji's AT URI."
+				},
+				"count": {
+					"type": "integer",
+					"minimum": 1,
+					"description": "How many times the user picked it."
+				},
+				"lastUsed": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the user last picked it."
 				}
 			}
 		}

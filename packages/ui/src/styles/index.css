@@ -36,6 +36,8 @@
 	--background: #080808;
 	--foreground: #ffffff;
 	--card: #0f0f0f;
+	--background-fade: rgb(8 8 8 / 0.7);
+	--card-fade: rgb(15 15 15 / 0.7);
 	--popover: #171717;
 	--popover-highlight: #1e1e1e;
 	--primary: #8e51ff;
@@ -72,6 +74,8 @@
 	--background: #f7f7f8;
 	--foreground: #0b0b0c;
 	--card: #ffffff;
+	--background-fade: rgb(247 247 248 / 0.7);
+	--card-fade: rgb(255 255 255 / 0.7);
 	--popover: #ffffff;
 	--popover-highlight: #f2f2f3;
 	--primary: #8e51ff;

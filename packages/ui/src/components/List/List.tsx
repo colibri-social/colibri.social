@@ -8,6 +8,7 @@ import { createSlot } from "../../utils/slot";
 import { Checkbox } from "../Checkbox/Checkbox";
 import { Radio, RadioGroup } from "../Radio/Radio";
 import { Switch } from "../Switch/Switch";
+import { TableText } from "../Table/TableText";
 import { createSearchable, createSearchGroup } from "./settings-search";
 
 const rowHighlight = "ripple hover:bg-secondary-highlight";
@@ -182,12 +183,10 @@ export const NavRow = (props: NavRowProps) => {
 			</span>
 			<Show when={local.value}>
 				{(value) => (
-					<span
-						class="max-w-[45%] truncate text-right text-xs font-semibold text-muted-foreground"
-						title={value()}
-					>
-						{value()}
-					</span>
+					<TableText
+						class="max-w-[45%] text-right text-xs font-semibold text-muted-foreground"
+						text={value()}
+					/>
 				)}
 			</Show>
 			<Show when={local.chevron !== false || local.external}>

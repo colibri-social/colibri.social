@@ -223,9 +223,22 @@ export const MentionsAndChips: Story = {
 			"rules",
 			expect.anything(),
 		);
-		await expect(
-			canvasElement.querySelector("[data-channel='foreign']"),
-		).toHaveAttribute("title", "Hummingbird Club");
+		const foreign = canvasElement.querySelector(
+			"[data-channel='foreign']",
+		) as HTMLElement;
+		await expect(foreign).not.toHaveAttribute("title");
+		await userEvent.hover(foreign);
+		await waitFor(
+			() =>
+				expect(screen.getByRole("tooltip")).toHaveTextContent(
+					"Hummingbird Club",
+				),
+			{ timeout: 2000 },
+		);
+		await userEvent.unhover(foreign);
+		await waitFor(() =>
+			expect(screen.queryByRole("tooltip")).not.toBeInTheDocument(),
+		);
 		const locked = canvas.getByRole("button", { name: "No access" });
 		locked.focus();
 		await userEvent.keyboard("{Enter}");
@@ -269,7 +282,20 @@ export const Links: Story = {
 		const docs = canvas.getByRole("link", { name: "Docs" });
 		await expect(docs).toHaveAttribute("target", "_blank");
 		await expect(docs).toHaveAttribute("rel", "noreferrer noopener");
+		await expect(docs).not.toHaveAttribute("title");
+		await userEvent.hover(docs);
+		await waitFor(
+			() =>
+				expect(screen.getByRole("tooltip")).toHaveTextContent(
+					"https://colibri.social/docs",
+				),
+			{ timeout: 2000 },
+		);
 		await userEvent.click(docs);
+		await waitFor(() =>
+			expect(screen.queryByRole("tooltip")).not.toBeInTheDocument(),
+		);
+		await userEvent.unhover(docs);
 		await expect(onLinkOpen).toHaveBeenCalledWith(
 			"https://colibri.social/docs",
 			expect.anything(),

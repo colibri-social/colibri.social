@@ -174,7 +174,7 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 			<div class="grid w-full grid-cols-4 gap-2">
 				<CallControlButton
 					label={mic.label()}
-					title={mic.title()}
+					tooltip={mic.tooltip()}
 					pressed={mic.off()}
 					tone={mic.tone()}
 					size="lg"
@@ -185,7 +185,7 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 				/>
 				<CallControlButton
 					label={deafen.label()}
-					title={deafen.title()}
+					tooltip={deafen.tooltip()}
 					pressed={deafen.off()}
 					tone={deafen.tone()}
 					size="lg"

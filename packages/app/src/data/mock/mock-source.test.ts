@@ -234,9 +234,9 @@ describe("mock source", () => {
 
 	it("updates controls in memory", () => {
 		const mock = source();
-		expect(mock.controls().swipeLeftAction).toBe("members");
-		mock.setControls({ swipeLeftAction: "reply" });
-		expect(mock.controls().swipeLeftAction).toBe("reply");
+		expect(mock.preferences.controls().swipeLeftAction).toBe("members");
+		mock.preferences.setControls({ swipeLeftAction: "reply" });
+		expect(mock.preferences.controls().swipeLeftAction).toBe("reply");
 	});
 });
 

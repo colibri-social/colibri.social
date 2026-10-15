@@ -1111,8 +1111,7 @@ const expectJumpCardGeometry = async (
 	await expect(surface.width).toBeLessThanOrEqual(448);
 	await expect(Math.round(list.bottom - surface.bottom)).toBe(12);
 	const text = card.querySelector("p") as HTMLElement;
-	if (text.scrollWidth > text.clientWidth + 1)
-		await expect(text).toHaveAttribute("title", text.textContent ?? "");
+	await expect(text).not.toHaveAttribute("title");
 	await expect(text.getBoundingClientRect().width).toBeGreaterThan(40);
 	if (minimumTarget < 44) {
 		const content = Array.from(card.children).reduce(

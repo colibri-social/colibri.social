@@ -9,6 +9,8 @@ import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { PlayTesterBadge } from "../../icons/animated/brand";
 import { contrastRatio } from "../../utils/name-color";
 import { createRipple } from "../../utils/ripple";
+import { bouncingDotGif } from "../AnimatedImage/fixtures";
+import { Avatar } from "../Avatar/Avatar";
 import { AppBadge, TeamBadge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
 import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
@@ -1188,6 +1190,76 @@ export const PopoverAnchorToggles: Story = {
 			await waitFor(() => expect(openPopover()).toBeNull());
 			await settle();
 			await expect(openPopover()).toBeNull();
+		});
+	},
+};
+
+const avatarState = (root: ParentNode | null | undefined) =>
+	root
+		?.querySelector<HTMLElement>("[data-avatar-image] img")
+		?.getAttribute("data-animated-image");
+
+const withReducedMotion = async (run: () => Promise<void>) => {
+	const root = document.documentElement;
+	const previous = root.dataset.reducedMotion;
+	root.dataset.reducedMotion = "true";
+	try {
+		await run();
+	} finally {
+		root.dataset.reducedMotion = previous ?? "false";
+	}
+};
+
+export const PopoverPlaysAvatar: Story = {
+	name: "Popover plays an animated avatar",
+	parameters: desktop,
+	render: () => (
+		<div class="flex min-h-[720px] w-full items-start justify-end gap-4 bg-background p-4">
+			<span data-testid="outside">
+				<Avatar name="Lou" size="xl" src={bouncingDotGif} />
+			</span>
+			<ProfilePopover
+				profile={lou({ avatarSrc: bouncingDotGif })}
+				triggerLabel="Lou"
+				as="button"
+			>
+				<span class="text-sm text-foreground">Lou</span>
+			</ProfilePopover>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const outside = canvasElement.querySelector('[data-testid="outside"]');
+		const popoverAvatar = () =>
+			document.querySelector("[data-profile-popover] [data-profile-avatar]");
+		await waitFor(() => expect(avatarState(outside)).toBe("hidden"), {
+			timeout: 3000,
+		});
+
+		await userEvent.click(canvas.getByRole("button", { name: "Lou" }));
+		await screen.findByRole("dialog", { name: "Lou's profile" });
+		await waitFor(
+			() => {
+				const image = popoverAvatar()?.querySelector("img");
+				expect(image?.complete && image.naturalWidth > 0).toBe(true);
+			},
+			{ timeout: 3000 },
+		);
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		await expect(avatarState(popoverAvatar())).toBe("playing");
+		await expect(avatarState(outside)).toBe("hidden");
+
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(popoverAvatar()).toBeNull());
+
+		await withReducedMotion(async () => {
+			await userEvent.click(canvas.getByRole("button", { name: "Lou" }));
+			await screen.findByRole("dialog", { name: "Lou's profile" });
+			await waitFor(() => expect(avatarState(popoverAvatar())).toBe("hidden"), {
+				timeout: 3000,
+			});
+			await userEvent.keyboard("{Escape}");
+			await waitFor(() => expect(popoverAvatar()).toBeNull());
 		});
 	},
 };

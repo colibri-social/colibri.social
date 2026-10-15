@@ -57,6 +57,7 @@ const NavButtons = () => {
 				variant="ghost"
 				size="sm"
 				label="Back"
+				tooltipPlacement="bottom"
 				icon={<AltArrowLeftIcon />}
 				disabled={!canGoBack()}
 				onClick={() => history.back()}
@@ -65,6 +66,7 @@ const NavButtons = () => {
 				variant="ghost"
 				size="sm"
 				label="Forward"
+				tooltipPlacement="bottom"
 				icon={<AltArrowRightIcon />}
 				disabled={!canGoForward()}
 				onClick={() => history.forward()}

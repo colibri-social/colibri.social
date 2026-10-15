@@ -1,6 +1,8 @@
 import { batch, createSignal } from "solid-js";
+import type { PreferenceStore } from "./preferences/store";
+import type { NotificationLevel } from "./preferences/types";
 import type { DataSource } from "./source";
-import type { Datetime, NotificationView } from "./types";
+import type { Datetime, Did, NotificationView } from "./types";
 
 const MAX_PAGES = 4;
 
@@ -187,27 +189,47 @@ export const createNotificationStore = (
 
 export type NotificationStore = ReturnType<typeof createNotificationStore>;
 
-export type SpaceNotificationLevel = "all" | "mentionsAndReplies" | "nothing";
+export type SpaceNotificationLevel = NotificationLevel;
 
 export const DEFAULT_SPACE_NOTIFICATION_LEVEL: SpaceNotificationLevel = "all";
 
-export const createSpaceNotificationPrefs = () => {
+type SpaceMuteSource = Pick<
+	PreferenceStore,
+	"isMuted" | "setMuted" | "notificationLevel"
+>;
+
+const createLocalMutes = (): SpaceMuteSource => {
 	const [muted, setMutedSet] = createSignal<ReadonlySet<string>>(new Set());
+	return {
+		isMuted: (subject) => subject.kind === "actor" && muted().has(subject.did),
+		setMuted: async (subject, next) => {
+			if (subject.kind !== "actor") return;
+			setMutedSet((current) => {
+				if (current.has(subject.did) === next) return current;
+				const copy = new Set(current);
+				if (next) copy.add(subject.did);
+				else copy.delete(subject.did);
+				return copy;
+			});
+		},
+		notificationLevel: () => DEFAULT_SPACE_NOTIFICATION_LEVEL,
+	};
+};
+
+export const createSpaceNotificationPrefs = (
+	preferences: SpaceMuteSource = createLocalMutes(),
+) => {
 	const [levels, setLevels] = createSignal<
 		Readonly<Record<string, SpaceNotificationLevel>>
 	>({});
 	return {
-		isMuted: (space: string) => muted().has(space),
-		setMuted: (space: string, next: boolean) =>
-			setMutedSet((current) => {
-				if (current.has(space) === next) return current;
-				const copy = new Set(current);
-				if (next) copy.add(space);
-				else copy.delete(space);
-				return copy;
-			}),
+		isMuted: (space: string) =>
+			preferences.isMuted({ kind: "actor", did: space as Did }),
+		setMuted: (space: string, next: boolean) => {
+			void preferences.setMuted({ kind: "actor", did: space as Did }, next);
+		},
 		level: (space: string) =>
-			levels()[space] ?? DEFAULT_SPACE_NOTIFICATION_LEVEL,
+			levels()[space] ?? preferences.notificationLevel(),
 		setLevel: (space: string, level: SpaceNotificationLevel) =>
 			setLevels((current) => ({ ...current, [space]: level })),
 	};

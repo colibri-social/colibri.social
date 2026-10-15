@@ -1,4 +1,7 @@
 import { summarizeMessage } from "../channel-summary";
+import { createMemoryPreferenceBackend } from "../preferences/memory";
+import { createPreferenceStore } from "../preferences/store";
+import type { Preferences } from "../preferences/types";
 import {
 	type ControlsPreferences,
 	type DataSource,
@@ -16,7 +19,6 @@ import type {
 	CommunityView,
 	Did,
 	Facet,
-	GifView,
 	MemberView,
 	MessageView,
 	NotificationView,
@@ -72,9 +74,22 @@ const MESSAGE_VIEW = "social.colibri.beta.channel.defs#messageView";
 export type MockSourceOptions = {
 	now?: number;
 	live?: boolean;
+	preferences?: Partial<Preferences>;
+	preferencesSnapshotKey?: string;
+};
+
+const MOCK_CONTROLS: ControlsPreferences = {
+	showMessagePreviews: true,
+	swipeLeftAction: "members",
+	doubleTapEnabled: false,
+	doubleTapAction: "react",
+	doubleTapReactionEmoji: "👍",
+	developerMode: false,
+	confirmVoiceJoin: false,
 };
 
 export type MockSource = DataSource & {
+	preferenceBackend: ReturnType<typeof createMemoryPreferenceBackend>;
 	emit: (event: LiveEvent) => void;
 	simulateMessage: (input: {
 		author: Did;
@@ -97,18 +112,15 @@ export const createMockSource = (
 	seedVoice(world);
 	const listeners = new Set<(event: LiveEvent) => void>();
 	const failures = createRandom(0x5e7d);
-	const gifFavorites = new Map<string, GifView>();
 	let sendCount = 0;
 	let stopLive: (() => void) | undefined;
-	let controls: ControlsPreferences = {
-		showMessagePreviews: true,
-		swipeLeftAction: "members",
-		doubleTapEnabled: false,
-		doubleTapAction: "react",
-		doubleTapReactionEmoji: "👍",
-		developerMode: false,
-		confirmVoiceJoin: false,
-	};
+	const preferenceBackend = createMemoryPreferenceBackend(options.preferences);
+	const preferences = createPreferenceStore({
+		backend: preferenceBackend.backend,
+		controls: MOCK_CONTROLS,
+		snapshotKey: options.preferencesSnapshotKey,
+	});
+	void preferences.refresh();
 
 	const emit = (event: LiveEvent) => {
 		for (const listener of [...listeners]) listener(event);
@@ -375,6 +387,7 @@ export const createMockSource = (
 		...access,
 		...emoji,
 		world,
+		preferenceBackend,
 		emit,
 		simulateMessage: (input) => {
 			const message = createMessage(input);
@@ -1189,10 +1202,9 @@ export const createMockSource = (
 				return next;
 			}),
 		listGifs: (query) => withLatency(() => searchGifs(query)),
-		gifFavorites: () => [...gifFavorites.values()],
+		gifFavorites: () => preferences.gifFavorites(),
 		setGifFavorite: (gif, favorite) => {
-			if (favorite) gifFavorites.set(gif.id, gif);
-			else gifFavorites.delete(gif.id);
+			void preferences.setGifFavorite(gif, favorite);
 		},
 		forwardMessage: (input) =>
 			withLatency(() => {
@@ -1401,10 +1413,7 @@ export const createMockSource = (
 				}
 			};
 		},
-		controls: () => controls,
-		setControls: (next) => {
-			controls = { ...controls, ...next };
-		},
+		preferences,
 	};
 
 	return source;

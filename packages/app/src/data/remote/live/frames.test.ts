@@ -5,6 +5,7 @@ import { toLiveEvents } from "./frames";
 const COMMUNITY = "did:plc:colibrihqspace2a4b6c8d";
 const ALICE = "did:plc:alice";
 const GENERAL = `at://${COMMUNITY}/space/social.colibri.beta.channel.text/general`;
+const THREAD = `at://${COMMUNITY}/space/social.colibri.beta.channel.thread/t1`;
 const PREFIX = "social.colibri.beta.sync.defs#";
 
 const frame = (name: string, body: Record<string, unknown>) =>
@@ -294,7 +295,7 @@ describe("toLiveEvents", () => {
 		).toEqual([]);
 	});
 
-	it("maps a preferences frame to the GIF favorites it carries", () => {
+	it("maps a preferences frame to the preferences it carries", () => {
 		const gif = {
 			id: "g1",
 			url: "https://media.example/g1.gif",
@@ -306,13 +307,38 @@ describe("toLiveEvents", () => {
 			toLiveEvents(
 				frame("preferencesEvent", {
 					preferences: {
-						notificationLevel: "all",
-						communityOrder: [],
-						mutes: [],
+						notificationLevel: "nothing",
+						communityOrder: [COMMUNITY],
+						mutes: [
+							{
+								subject: {
+									$type: "social.colibri.beta.actor.defs#mutedThread",
+									thread: THREAD,
+								},
+								createdAt: "2026-10-15T10:00:00.000Z",
+							},
+						],
 						gifFavorites: [gif],
+						shareActivity: true,
 					},
 				}),
 			),
-		).toEqual([{ $type: "preferencesEvent", gifFavorites: [gif] }]);
+		).toEqual([
+			{
+				$type: "preferencesEvent",
+				preferences: {
+					notificationLevel: "nothing",
+					communityOrder: [COMMUNITY],
+					shareActivity: true,
+					gifFavorites: [gif],
+					mutes: [
+						{
+							subject: { kind: "thread", thread: THREAD },
+							createdAt: "2026-10-15T10:00:00.000Z",
+						},
+					],
+				},
+			},
+		]);
 	});
 });

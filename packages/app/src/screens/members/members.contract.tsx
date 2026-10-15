@@ -2,10 +2,12 @@ import {
 	ChannelInfoBar,
 	ChannelInfoSummary,
 	groupMembers,
+	type MemberGroup,
 	MemberList,
 	MemberRowSkeleton,
 } from "@colibri-social/ui";
-import { createMemo, For, type JSX, Show } from "solid-js";
+import { createComputed, createMemo, For, type JSX, Show } from "solid-js";
+import { createStore, reconcile } from "solid-js/store";
 import {
 	canReadChannel,
 	isAdminRoleSet,
@@ -83,6 +85,11 @@ export const members = defineContract({
 			);
 			return groupMembers(mapped, hoistedRoles(current.roles.value() ?? []));
 		});
+		const [listed, setListed] = createStore<{ groups?: MemberGroup[] }>({});
+		createComputed(() => {
+			const next = groups();
+			setListed("groups", next ? reconcile(next, { key: "id" }) : undefined);
+		});
 		const loadError = () => {
 			const current = space();
 			return current?.members.value() ? undefined : current?.members.error();
@@ -95,7 +102,7 @@ export const members = defineContract({
 			args,
 			stack,
 			channel,
-			groups,
+			groups: () => listed.groups,
 			muted,
 			setMuted,
 			openSettings: () => {

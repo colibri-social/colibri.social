@@ -1,4 +1,5 @@
 import {
+	afterSpaceRailMotion,
 	Button,
 	CategoryContextMenu,
 	CategoryDrawer,
@@ -28,6 +29,7 @@ import {
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
 import {
+	batch,
 	createEffect,
 	createMemo,
 	createSignal,
@@ -146,8 +148,25 @@ export const spaces = defineContract({
 			}
 			return data.lastChannel(spaceKey(current));
 		};
-		const selectSpace = (target: CommunityView) =>
-			stack.setRoot({ tab: "spaces", space: spaceKey(target) });
+		const [pendingSpace, setPendingSpace] = createSignal<Did>();
+		let cancelPendingSwitch: (() => void) | undefined;
+		const cancelSwitch = () => {
+			cancelPendingSwitch?.();
+			cancelPendingSwitch = undefined;
+		};
+		onCleanup(cancelSwitch);
+		const selectSpace = (target: CommunityView) => {
+			cancelSwitch();
+			setPendingSpace(target.did);
+			cancelPendingSwitch = afterSpaceRailMotion(() => {
+				cancelPendingSwitch = undefined;
+				batch(() => {
+					stack.setRoot({ tab: "spaces", space: spaceKey(target) });
+					setPendingSpace(undefined);
+				});
+			});
+		};
+		const railSpace = () => pendingSpace() ?? community()?.did;
 		const openChannel = (channel: ChannelView) => {
 			const current = community();
 			if (!current) return;
@@ -511,6 +530,7 @@ export const spaces = defineContract({
 			space,
 			activeChannel,
 			selectSpace,
+			railSpace,
 			openChannel,
 			participants,
 			openParticipant,
@@ -564,7 +584,7 @@ export const spaces = defineContract({
 								<SpaceRailItem
 									name={community.name}
 									iconSrc={community.picture}
-									active={m.community()?.did === community.did}
+									active={m.railSpace() === community.did}
 									unread={totals().hasUnread}
 									mentions={totals().mentions || undefined}
 									onSelect={() => m.selectSpace(community)}

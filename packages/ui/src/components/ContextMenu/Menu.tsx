@@ -1,14 +1,20 @@
-import { ContextMenu as KobalteContextMenu } from "@kobalte/core/context-menu";
+import {
+	ContextMenu as KobalteContextMenu,
+	useContextMenuContext,
+} from "@kobalte/core/context-menu";
 import { DropdownMenu as KobalteDropdownMenu } from "@kobalte/core/dropdown-menu";
+import { useMenuContext } from "@kobalte/core/menu";
 import {
 	createSignal,
 	type JSX,
 	onCleanup,
+	onMount,
 	type ParentProps,
 	Show,
 	splitProps,
 	untrack,
 } from "solid-js";
+import { spread } from "solid-js/web";
 import { cx } from "../../utils/cx";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
@@ -86,6 +92,30 @@ export const MenuSeparator = (props: { class?: string }) => (
 	/>
 );
 
+const LONG_PRESS_MS = 700;
+
+type PendingOpen = { x: number; y: number; focus: boolean };
+
+const AdoptTrigger = (props: Record<string, unknown>) => {
+	const [own, others] = splitProps(props, ["element", "ref", "style"]);
+	const element = own.element as HTMLElement;
+	(own.ref as ((node: HTMLElement) => void) | undefined)?.(element);
+	spread(element, others, false, true);
+	return undefined;
+};
+
+const OpenOnArm = (props: { take: () => PendingOpen | undefined }) => {
+	const anchor = useContextMenuContext();
+	const menu = useMenuContext();
+	onMount(() => {
+		const request = props.take();
+		if (!request) return;
+		anchor.setAnchorRect({ x: request.x, y: request.y });
+		menu.open(request.focus);
+	});
+	return undefined;
+};
+
 export type ContextMenuProps = ParentProps<{
 	menu: JSX.Element;
 	disabled?: boolean;
@@ -146,34 +176,81 @@ export const ContextMenu = (props: ContextMenuProps) => {
 			element.removeEventListener("pointerdown", closeOnPress, true),
 		);
 	};
+	let trigger: HTMLDivElement | undefined;
+	let pending: PendingOpen | undefined;
+	let longPress: ReturnType<typeof setTimeout> | undefined;
+	const [armed, setArmed] = createSignal(false);
+	const clearLongPress = () => clearTimeout(longPress);
+	onCleanup(clearLongPress);
+	const arm = (request: PendingOpen) => {
+		pending = request;
+		setArmed(true);
+	};
+	const onLazyContextMenu = (event: MouseEvent) => {
+		if (local.disabled || event.defaultPrevented) return;
+		clearLongPress();
+		event.preventDefault();
+		event.stopPropagation();
+		arm({ x: event.clientX, y: event.clientY, focus: true });
+	};
+	const isTouchOrPen = (event: PointerEvent) =>
+		event.pointerType === "touch" || event.pointerType === "pen";
+	const onLazyPointerDown = (event: PointerEvent) => {
+		if (local.disabled || !isTouchOrPen(event)) return;
+		clearLongPress();
+		const request = { x: event.clientX, y: event.clientY, focus: false };
+		longPress = setTimeout(() => arm(request), LONG_PRESS_MS);
+	};
+	const onLazyPointerEnd = (event: PointerEvent) => {
+		if (isTouchOrPen(event)) clearLongPress();
+	};
 	return (
-		<KobalteContextMenu
-			modal={false}
-			onOpenChange={change}
-			overflowPadding={overflowPadding()}
+		<div
+			ref={(element) => {
+				trigger = element;
+				bindTrigger(element);
+			}}
+			data-disabled={local.disabled ? "" : undefined}
+			class={cx("block", local.class)}
+			style={{ "-webkit-touch-callout": "none" }}
+			onContextMenu={onLazyContextMenu}
+			onPointerDown={onLazyPointerDown}
+			onPointerMove={onLazyPointerEnd}
+			onPointerCancel={onLazyPointerEnd}
+			onPointerUp={onLazyPointerEnd}
 		>
-			<KobalteContextMenu.Trigger
-				ref={bindTrigger}
-				disabled={local.disabled}
-				class={cx("block", local.class)}
-			>
-				{local.children}
-			</KobalteContextMenu.Trigger>
-			<KobalteContextMenu.Portal>
-				<KobalteContextMenu.Content
-					{...topLayerAttrs}
-					ref={revealLayer}
-					{...rest}
-					class={cx(
-						menuContentClass,
-						"max-h-(--kb-popper-content-available-height) origin-(--kb-menu-content-transform-origin) overflow-y-auto",
-						"data-closed:animate-[ui-fade-out_calc(var(--duration-exit)*var(--motion-scale))_var(--ease-exit)_both]",
-						local.contentClass,
-					)}
-				>
-					{local.menu}
-				</KobalteContextMenu.Content>
-			</KobalteContextMenu.Portal>
-		</KobalteContextMenu>
+			{local.children}
+			<Show when={armed() && trigger}>
+				{(element) => (
+					<KobalteContextMenu
+						modal={false}
+						onOpenChange={change}
+						overflowPadding={overflowPadding()}
+					>
+						<KobalteContextMenu.Trigger
+							as={AdoptTrigger}
+							element={element()}
+							disabled={local.disabled}
+						/>
+						<OpenOnArm take={() => pending} />
+						<KobalteContextMenu.Portal>
+							<KobalteContextMenu.Content
+								{...topLayerAttrs}
+								ref={revealLayer}
+								{...rest}
+								class={cx(
+									menuContentClass,
+									"max-h-(--kb-popper-content-available-height) origin-(--kb-menu-content-transform-origin) overflow-y-auto",
+									"data-closed:animate-[ui-fade-out_calc(var(--duration-exit)*var(--motion-scale))_var(--ease-exit)_both]",
+									local.contentClass,
+								)}
+							>
+								{local.menu}
+							</KobalteContextMenu.Content>
+						</KobalteContextMenu.Portal>
+					</KobalteContextMenu>
+				)}
+			</Show>
+		</div>
 	);
 };

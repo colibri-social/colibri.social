@@ -26,6 +26,7 @@ import {
 } from "../../utils/rich-text/link-safety";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { MentionChip, mentionChipClass, timeChipClass } from "../Badge/Badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import type { RichTextResolvers } from "./context";
 
 export const LINK_CLASS =
@@ -259,60 +260,63 @@ export const ChannelChip = (props: {
 				})()}
 			>
 				{(ready) => (
-					<a
-						data-facet-type="channel"
-						data-chip=""
-						data-channel={props.channel}
-						href={ready().href ?? "#"}
-						title={ready().space?.name}
-						class={CHANNEL_CLASS}
-						onClick={(event) => {
-							if (!ready().href) event.preventDefault();
-							props.ctx.onChannelOpen?.(props.channel, event);
-						}}
-					>
-						<Show when={ready().space}>
-							{(space) => (
-								<>
-									<Show
-										when={space().iconSrc}
-										fallback={
-											<span
-												aria-hidden="true"
-												class="mx-px inline-flex size-[1.1em] -translate-y-px items-center justify-center rounded-[3px] bg-secondary align-middle text-[0.55em] font-semibold"
-											>
-												{spaceInitials(space().name)}
-											</span>
-										}
-									>
-										{(src) => (
-											<AnimatedImage
-												src={src()}
-												alt=""
-												class="mx-px inline-block size-[1.1em] -translate-y-px rounded-[3px] object-cover align-middle"
-											/>
-										)}
-									</Show>
-									<AltArrowRightIcon
-										class={CHIP_GLYPH_CLASS}
-										aria-hidden="true"
-									/>
-								</>
-							)}
-						</Show>
-						<Show when={ready().category}>
-							{(category) => (
-								<>
-									{category()}
-									<AltArrowRightIcon
-										class={CHIP_GLYPH_CLASS}
-										aria-hidden="true"
-									/>
-								</>
-							)}
-						</Show>
-						{`#${ready().name}`}
-					</a>
+					<Tooltip disabled={!ready().space?.name}>
+						<TooltipTrigger
+							as="a"
+							data-facet-type="channel"
+							data-chip=""
+							data-channel={props.channel}
+							href={ready().href ?? "#"}
+							class={CHANNEL_CLASS}
+							onClick={(event) => {
+								if (!ready().href) event.preventDefault();
+								props.ctx.onChannelOpen?.(props.channel, event);
+							}}
+						>
+							<Show when={ready().space}>
+								{(space) => (
+									<>
+										<Show
+											when={space().iconSrc}
+											fallback={
+												<span
+													aria-hidden="true"
+													class="mx-px inline-flex size-[1.1em] -translate-y-px items-center justify-center rounded-[3px] bg-secondary align-middle text-[0.55em] font-semibold"
+												>
+													{spaceInitials(space().name)}
+												</span>
+											}
+										>
+											{(src) => (
+												<AnimatedImage
+													src={src()}
+													alt=""
+													class="mx-px inline-block size-[1.1em] -translate-y-px rounded-[3px] object-cover align-middle"
+												/>
+											)}
+										</Show>
+										<AltArrowRightIcon
+											class={CHIP_GLYPH_CLASS}
+											aria-hidden="true"
+										/>
+									</>
+								)}
+							</Show>
+							<Show when={ready().category}>
+								{(category) => (
+									<>
+										{category()}
+										<AltArrowRightIcon
+											class={CHIP_GLYPH_CLASS}
+											aria-hidden="true"
+										/>
+									</>
+								)}
+							</Show>
+							{`#${ready().name}`}
+						</TooltipTrigger>
+						<TooltipContent>{ready().space?.name}</TooltipContent>
+					</Tooltip>
 				)}
 			</Match>
 		</Switch>
@@ -346,19 +350,22 @@ export const LinkFacet = (props: {
 	return (
 		<Switch
 			fallback={
-				<a
-					data-facet-type="link"
-					data-uri={props.uri}
-					href={href()}
-					title={href()}
-					target="_blank"
-					rel="noreferrer noopener"
-					data-disguised={disguised() || undefined}
-					class={LINK_CLASS}
-					onClick={open}
-				>
-					{bare() ? href() : props.children}
-				</a>
+				<Tooltip disabled={bare()}>
+					<TooltipTrigger
+						as="a"
+						data-facet-type="link"
+						data-uri={props.uri}
+						href={href()}
+						target="_blank"
+						rel="noreferrer noopener"
+						data-disguised={disguised() || undefined}
+						class={LINK_CLASS}
+						onClick={open}
+					>
+						{bare() ? href() : props.children}
+					</TooltipTrigger>
+					<TooltipContent class="break-all">{href()}</TooltipContent>
+				</Tooltip>
 			}
 		>
 			<Match when={!safe()}>

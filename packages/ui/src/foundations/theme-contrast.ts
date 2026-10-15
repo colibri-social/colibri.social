@@ -40,8 +40,10 @@ export const SURFACES = [
 
 export const COLOR_TOKENS = [
 	"background",
+	"background-fade",
 	"foreground",
 	"card",
+	"card-fade",
 	"popover",
 	"popover-highlight",
 	"primary",

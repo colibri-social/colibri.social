@@ -21,6 +21,7 @@ import {
 	springs,
 } from "../../utils/motion";
 import { formatClock } from "../Media/format";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import { CallControlButton, CallLeaveButton } from "./CallControls";
 import { SpeakingAvatar, type VoiceParticipant } from "./shared";
 
@@ -605,19 +606,22 @@ export const CallPill = (props: CallPillProps) => {
 									</Show>
 								</span>
 							</button>
-							<button
-								type="button"
-								aria-label={
-									otherSide() === "bottom" ? "Move to bottom" : "Move to top"
-								}
-								title={
-									otherSide() === "bottom" ? "Move to bottom" : "Move to top"
-								}
-								onClick={() => moveTo(otherSide())}
-								class="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-control-sm border-0 bg-white/10 text-white outline-none hover:bg-white/15 focus-ring [&_svg]:size-5"
-							>
-								<TransferVerticalIcon />
-							</button>
+							<Tooltip>
+								<TooltipTrigger
+									as="button"
+									type="button"
+									aria-label={
+										otherSide() === "bottom" ? "Move to bottom" : "Move to top"
+									}
+									onClick={() => moveTo(otherSide())}
+									class="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-control-sm border-0 bg-white/10 text-white outline-none hover:bg-white/15 focus-ring [&_svg]:size-5"
+								>
+									<TransferVerticalIcon />
+								</TooltipTrigger>
+								<TooltipContent>
+									{otherSide() === "bottom" ? "Move to bottom" : "Move to top"}
+								</TooltipContent>
+							</Tooltip>
 							<button
 								type="button"
 								aria-expanded="true"

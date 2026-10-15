@@ -15,6 +15,7 @@ import { Avatar, type Presence } from "../Avatar/Avatar";
 import { Banner } from "../Banner/Banner";
 import { Card, type CardTone } from "../Card/Card";
 import { Emoji, EmojiText } from "../Emoji/Emoji";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 
 export type ProfileSurface = "background" | "popover";
 
@@ -121,6 +122,7 @@ export type ProfileHeaderProps = {
 	onStatusClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
 	onAvatarClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
 	avatarLabel?: string;
+	avatarPlay?: boolean;
 	actions?: JSX.Element;
 	surface?: ProfileSurface;
 	tight?: boolean;
@@ -177,6 +179,7 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 						src={props.avatarSrc}
 						color={props.avatarColor}
 						presence={props.presence}
+						play={props.avatarPlay}
 					/>
 				</Dynamic>
 				<Show
@@ -249,23 +252,26 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 						<span class="flex shrink-0 items-center gap-1">
 							<For each={props.links}>
 								{(link) => (
-									<a
-										href={link.href}
-										target="_blank"
-										rel="noreferrer"
-										title={link.label}
-										aria-label={link.label}
-										data-profile-link=""
-										data-tinted={link.tint ? "" : undefined}
-										style={
-											link.tint
-												? { "--profile-link-tint": link.tint }
-												: undefined
-										}
-										class="group/brand-link flex size-6 items-center justify-center rounded-control-xs text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-ring data-tinted:hover:text-(--profile-link-tint) data-tinted:focus-visible:text-(--profile-link-tint) [&>svg]:size-4 [&>img]:size-4"
-									>
-										{link.icon}
-									</a>
+									<Tooltip>
+										<TooltipTrigger
+											as="a"
+											href={link.href}
+											target="_blank"
+											rel="noreferrer"
+											aria-label={link.label}
+											data-profile-link=""
+											data-tinted={link.tint ? "" : undefined}
+											style={
+												link.tint
+													? { "--profile-link-tint": link.tint }
+													: undefined
+											}
+											class="group/brand-link flex size-6 items-center justify-center rounded-control-xs text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-ring data-tinted:hover:text-(--profile-link-tint) data-tinted:focus-visible:text-(--profile-link-tint) [&>svg]:size-4 [&>img]:size-4"
+										>
+											{link.icon}
+										</TooltipTrigger>
+										<TooltipContent>{link.label}</TooltipContent>
+									</Tooltip>
 								)}
 							</For>
 						</span>

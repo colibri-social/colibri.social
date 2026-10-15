@@ -78,7 +78,7 @@ const DEFAULT_MAX_LINES = 8;
 const keepEditorFocus = (event: Event) => event.preventDefault();
 
 const toolButtonClass =
-	"text-muted-foreground enabled:hover:text-foreground data-pressed:text-foreground";
+	"text-muted-foreground not-aria-disabled:hover:text-foreground data-pressed:text-foreground";
 
 const toRichText = (value: RichText | string): RichText =>
 	typeof value === "string" ? { text: value, facets: [] } : value;
@@ -196,16 +196,15 @@ export const Composer = (props: ComposerProps) => {
 			<Show when={typing.has()}>
 				<div
 					data-composer-typing=""
-					class={
+					class={cx(
+						"pointer-events-none absolute inset-x-0 bottom-full flex h-6 flex-col justify-end [padding-inline:inherit]",
 						platform() === "desktop"
-							? "[--typing-ring:var(--card)]"
-							: cx(
-									"pointer-events-none absolute inset-x-0 bottom-full flex h-6 flex-col justify-end [padding-inline:inherit] [--typing-ring:var(--background)]",
-									"bg-linear-to-b from-transparent via-background/70 via-35% to-background to-90%",
-									"opacity-0 transition-opacity duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)] has-data-active:opacity-100",
-									"motion-reduce:transition-none reduced-motion:transition-none",
-								)
-					}
+							? "[--typing-ring:var(--card)] [--typing-fade:var(--card-fade)]"
+							: "[--typing-ring:var(--background)] [--typing-fade:var(--background-fade)]",
+						"bg-[linear-gradient(to_bottom,transparent_0%,var(--typing-fade)_35%,var(--typing-ring)_90%)]",
+						"opacity-0 transition-opacity duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)] has-data-active:opacity-100",
+						"motion-reduce:transition-none reduced-motion:transition-none",
+					)}
 				>
 					{typing()}
 				</div>

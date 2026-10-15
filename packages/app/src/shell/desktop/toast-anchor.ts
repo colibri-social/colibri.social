@@ -13,15 +13,20 @@ export const anchorToasts = (dock: HTMLElement) => {
 		for (const property of [LEFT, BOTTOM, WIDTH])
 			root.style.removeProperty(property);
 	};
-	const openPopoverTop = () => {
+	let watched: HTMLElement | undefined;
+	const watchPopover = (popover: HTMLElement | undefined) => {
+		if (popover === watched) return;
+		if (watched) popoverSize.unobserve(watched);
+		watched = popover;
+		if (popover) popoverSize.observe(popover);
+	};
+	const openPopover = () => {
 		const trigger = dock.querySelector<HTMLElement>(
 			'[aria-expanded="true"][aria-controls]',
 		);
 		const id = trigger?.getAttribute("aria-controls");
 		const popover = id ? document.getElementById(id) : null;
-		return popover?.isConnected
-			? popover.getBoundingClientRect().top
-			: undefined;
+		return popover?.isConnected ? popover : undefined;
 	};
 	const sync = () => {
 		if (!dock.isConnected) {
@@ -30,7 +35,12 @@ export const anchorToasts = (dock: HTMLElement) => {
 		}
 		const panel = dock.querySelector<HTMLElement>("[data-user-panel]") ?? dock;
 		const rect = panel.getBoundingClientRect();
-		const top = Math.min(rect.top, openPopoverTop() ?? rect.top);
+		const popover = openPopover();
+		watchPopover(popover);
+		const top = Math.min(
+			rect.top,
+			popover?.getBoundingClientRect().top ?? rect.top,
+		);
 		root.style.setProperty(LEFT, `${Math.round(rect.left)}px`);
 		root.style.setProperty(
 			BOTTOM,
@@ -48,16 +58,22 @@ export const anchorToasts = (dock: HTMLElement) => {
 		settled += 1;
 		frame = settled < SETTLE_FRAMES ? requestAnimationFrame(settle) : 0;
 	};
-	const expansion = new MutationObserver(() => {
+	const resettle = () => {
 		cancelAnimationFrame(frame);
 		settled = 0;
 		frame = requestAnimationFrame(settle);
-	});
+	};
+	const popoverSize = new ResizeObserver(resettle);
+	const expansion = new MutationObserver(resettle);
 	expansion.observe(dock, {
 		subtree: true,
 		attributes: true,
 		attributeFilter: ["aria-expanded"],
 	});
+	const portals = new MutationObserver(() => {
+		if (dock.querySelector('[aria-expanded="true"][aria-controls]')) resettle();
+	});
+	portals.observe(document.body, { childList: true });
 	const observer = new ResizeObserver(sync);
 	observer.observe(dock);
 	window.addEventListener("resize", sync);
@@ -65,6 +81,8 @@ export const anchorToasts = (dock: HTMLElement) => {
 	onCleanup(() => {
 		observer.disconnect();
 		expansion.disconnect();
+		popoverSize.disconnect();
+		portals.disconnect();
 		cancelAnimationFrame(frame);
 		window.removeEventListener("resize", sync);
 		clear();

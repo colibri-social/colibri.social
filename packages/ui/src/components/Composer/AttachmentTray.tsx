@@ -1,10 +1,13 @@
 import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
+import { EyeIcon } from "@solar-icons/solid/bold/eye";
+import { EyeClosedIcon } from "@solar-icons/solid/bold/eye-closed";
 import { FileIcon } from "@solar-icons/solid/bold/file";
 import { RestartIcon } from "@solar-icons/solid/bold/restart";
 import { For, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 
 export type PendingAttachment = {
 	id: string;
@@ -13,6 +16,7 @@ export type PendingAttachment = {
 	previewSrc?: string;
 	progress?: number;
 	failed?: boolean;
+	spoiler?: boolean;
 };
 
 export type AttachmentTrayProps = {
@@ -20,6 +24,7 @@ export type AttachmentTrayProps = {
 	max?: number;
 	onRemove?: (id: string) => void;
 	onRetry?: (id: string) => void;
+	onToggleSpoiler?: (id: string) => void;
 	class?: string;
 };
 
@@ -98,6 +103,7 @@ export const AttachmentTray = (props: AttachmentTrayProps) => (
 					{(item) => (
 						<li
 							class="relative shrink-0"
+							data-spoiler={item.spoiler ? "" : undefined}
 							title={
 								item.size === undefined
 									? item.name
@@ -129,7 +135,10 @@ export const AttachmentTray = (props: AttachmentTrayProps) => (
 										<AnimatedImage
 											src={src()}
 											alt={item.name}
-											class="size-full object-cover"
+											class={cx(
+												"size-full object-cover",
+												item.spoiler && "scale-110 blur-sm",
+											)}
 										/>
 									)}
 								</Show>
@@ -141,6 +150,30 @@ export const AttachmentTray = (props: AttachmentTrayProps) => (
 									}
 								>
 									<UploadProgress progress={item.progress ?? 0} />
+								</Show>
+								<Show when={props.onToggleSpoiler && !item.failed}>
+									<Tooltip>
+										<TooltipTrigger
+											as="button"
+											type="button"
+											aria-label={`Mark ${item.name} as a spoiler`}
+											aria-pressed={!!item.spoiler}
+											data-attachment-spoiler=""
+											onClick={() => props.onToggleSpoiler?.(item.id)}
+											class={cx(
+												"focus-ring absolute bottom-1 left-1 flex size-6 cursor-pointer items-center justify-center rounded-control-xs border-0 [&>svg]:size-3.5",
+												"transition-colors duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)]",
+												item.spoiler
+													? "bg-primary-fill text-white hover:bg-primary-fill-highlight"
+													: "bg-black/60 text-white backdrop-blur-sm hover:bg-black/75",
+											)}
+										>
+											{item.spoiler ? <EyeClosedIcon /> : <EyeIcon />}
+										</TooltipTrigger>
+										<TooltipContent>
+											{item.spoiler ? "Hidden as a spoiler" : "Mark as spoiler"}
+										</TooltipContent>
+									</Tooltip>
 								</Show>
 								<Show when={item.failed}>
 									<Show

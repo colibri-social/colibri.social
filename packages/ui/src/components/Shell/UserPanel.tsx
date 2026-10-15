@@ -4,7 +4,7 @@ import { AnimatedSettingsIcon } from "../../icons/animated/icons";
 import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
 import { createSlot } from "../../utils/slot";
-import { Avatar, type Presence } from "../Avatar/Avatar";
+import { Avatar, type Presence, presenceLabels } from "../Avatar/Avatar";
 import { IconButton } from "../IconButton/IconButton";
 import { AvatarSkeleton, SkeletonText } from "../Skeleton/Skeleton";
 
@@ -69,9 +69,17 @@ export const UserPanel = (props: UserPanelProps) => {
 						<span class="truncate text-base leading-5 font-semibold">
 							{props.name}
 						</span>
-						<Show when={status.has()}>
-							<span class="truncate text-xs leading-4 text-muted-foreground">
-								{status()}
+						<Show when={status.has() || props.presence}>
+							<span
+								data-user-panel-status=""
+								class="truncate text-xs leading-4 text-muted-foreground"
+							>
+								<Show
+									when={status.has()}
+									fallback={props.presence && presenceLabels[props.presence]}
+								>
+									{status()}
+								</Show>
 							</span>
 						</Show>
 					</span>

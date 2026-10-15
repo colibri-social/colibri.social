@@ -2,6 +2,7 @@ import { type JSX, Show, splitProps } from "solid-js";
 import { cva, cx, type VariantProps } from "../../utils/cx";
 import { createPress } from "../../utils/press";
 import { createSlot } from "../../utils/slot";
+import { TableText } from "../Table/TableText";
 import { BadgeInfo } from "./BadgeInfo";
 
 const userBadgeBase =
@@ -263,13 +264,22 @@ export const CountBadge = (props: CountBadgeProps) => {
 	);
 };
 
-export type ChipProps = JSX.HTMLAttributes<HTMLSpanElement> & {
+export type ChipProps = Omit<JSX.HTMLAttributes<HTMLSpanElement>, "title"> & {
 	icon?: JSX.Element;
+	tooltip?: string;
 };
 
 export const Chip = (props: ChipProps) => {
-	const [local, rest] = splitProps(props, ["icon", "class", "children"]);
+	const [local, rest] = splitProps(props, [
+		"icon",
+		"class",
+		"children",
+		"tooltip",
+	]);
 	const icon = createSlot(() => local.icon);
+	const tooltip = () =>
+		local.tooltip ??
+		(typeof local.children === "string" ? local.children : undefined);
 	return (
 		<span
 			{...rest}
@@ -284,12 +294,16 @@ export const Chip = (props: ChipProps) => {
 					{icon()}
 				</span>
 			</Show>
-			<span
-				class="truncate pr-0.5"
-				title={typeof local.children === "string" ? local.children : undefined}
+			<Show
+				when={tooltip()}
+				fallback={<span class="truncate pr-0.5">{local.children}</span>}
 			>
-				{local.children}
-			</span>
+				{(text) => (
+					<TableText class="pr-0.5" text={text()}>
+						{local.children}
+					</TableText>
+				)}
+			</Show>
 		</span>
 	);
 };

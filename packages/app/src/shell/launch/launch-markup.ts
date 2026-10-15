@@ -6,6 +6,10 @@ export const LAUNCH_SCREEN_LABEL = "Starting Colibri";
 
 export const LAUNCH_MARK_SIZE = 288;
 
+const LAUNCH_ART_SCALE = 0.59;
+
+export const LAUNCH_BIRD_SIZE = LAUNCH_MARK_SIZE * LAUNCH_ART_SCALE;
+
 export const LAUNCH_STALL_MS = 20_000;
 
 const MARK_PARTS = [
@@ -43,7 +47,7 @@ export const launchMarkSvg = (idPrefix: string) => {
 	const paths = MARK_PARTS.map(
 		(part, index) => `<path d="${part.d}" fill="url(#${idPrefix}-${index})"/>`,
 	).join("");
-	return `<svg data-launch-mark="" viewBox="0 0 1024 1024" width="${LAUNCH_MARK_SIZE}" height="${LAUNCH_MARK_SIZE}" aria-hidden="true" focusable="false"><defs>${gradients}</defs><g transform="translate(185.233 207.451) scale(0.59)">${paths}</g></svg>`;
+	return `<svg data-launch-mark="" viewBox="0 0 1024 1024" width="${LAUNCH_MARK_SIZE}" height="${LAUNCH_MARK_SIZE}" aria-hidden="true" focusable="false"><defs>${gradients}</defs><g transform="translate(185.233 207.451) scale(${LAUNCH_ART_SCALE})">${paths}</g></svg>`;
 };
 
 export const LAUNCH_SCREEN_STYLE = [

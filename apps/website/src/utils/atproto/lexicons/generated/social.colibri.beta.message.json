@@ -129,6 +129,10 @@
 					"type": "string",
 					"maxLength": 256,
 					"description": "The original filename."
+				},
+				"spoiler": {
+					"type": "boolean",
+					"description": "Whether clients hide the file behind a reveal step until the reader chooses to see it."
 				}
 			}
 		}

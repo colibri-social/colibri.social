@@ -91,6 +91,7 @@ export * from "./components/Lightbox/Lightbox";
 export * from "./components/LinkWarning/LinkWarning";
 export * from "./components/List/List";
 export * from "./components/List/settings-search";
+export * from "./components/LoadingScreen/LoadingScreen";
 export * from "./components/Media/format";
 export * from "./components/Media/handoff";
 export * from "./components/Media/Scrubber";

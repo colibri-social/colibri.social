@@ -264,6 +264,70 @@ export const FilesDesktop: Story = {
 	render: () => <FileCases desktop />,
 };
 
+const SpoilerFileCases = (props: { desktop?: boolean }) => (
+	<Screen desktop={props.desktop}>
+		<div data-testid="spoiler-files">
+			<Message
+				text="Do not open this before the finale"
+				attachments={
+					<FileAttachment
+						name="season-finale-script.pdf"
+						size={1_048_576}
+						href="data:text/plain,example"
+						spoiler
+					/>
+				}
+			/>
+			<Message
+				name="Lis"
+				attachments={
+					<AudioAttachment
+						name="final-track.mp3"
+						size={3_948_544}
+						duration={187}
+						href="data:text/plain,example"
+						spoiler
+					/>
+				}
+			/>
+		</div>
+	</Screen>
+);
+
+export const SpoilerFiles: Story = {
+	parameters: mobile,
+	render: () => <SpoilerFileCases />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expectNoLayoutIssues(canvas.getByTestId("spoiler-files"));
+		await expect(
+			canvas.queryByRole("link", { name: /season-finale-script/ }),
+		).toBeNull();
+		await expect(
+			canvas.queryByRole("button", { name: "Play final-track.mp3" }),
+		).toBeNull();
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Reveal spoiler file" }),
+		);
+		await expect(
+			canvas.queryByRole("button", { name: "Reveal spoiler file" }),
+		).toBeNull();
+		await expect(
+			canvas.getByRole("link", { name: /season-finale-script/ }),
+		).toHaveAttribute("download", "season-finale-script.pdf");
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Reveal spoiler audio" }),
+		);
+		await expect(
+			canvas.getByRole("button", { name: "Play final-track.mp3" }),
+		).toBeInTheDocument();
+	},
+};
+
+export const SpoilerFilesDesktop: Story = {
+	render: () => <SpoilerFileCases desktop />,
+};
+
 const LinkCases = (props: { desktop?: boolean }) => (
 	<Screen desktop={props.desktop}>
 		<Message

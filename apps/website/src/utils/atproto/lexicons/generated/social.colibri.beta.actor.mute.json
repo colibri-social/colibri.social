@@ -17,10 +17,11 @@
 						"type": "union",
 						"refs": [
 							"social.colibri.beta.actor.defs#mutedActor",
-							"social.colibri.beta.actor.defs#mutedChannel"
+							"social.colibri.beta.actor.defs#mutedChannel",
+							"social.colibri.beta.actor.defs#mutedThread"
 						],
 						"closed": true,
-						"description": "What is muted. A user or a community is named by DID, a channel by its space."
+						"description": "What is muted. A user or a community is named by DID, a channel or a thread by its space."
 					},
 					"createdAt": {
 						"type": "string",

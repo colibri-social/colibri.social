@@ -16,6 +16,7 @@ import { FullScreenSheet } from "../FullScreenSheet/FullScreenSheet";
 import { Modal, ModalContent } from "../Modal/Modal";
 import { Slider } from "../Slider/Slider";
 import { Spinner } from "../Spinner/Spinner";
+import { TableText } from "../Table/TableText";
 import {
 	bandView,
 	CROP_ASPECT,
@@ -420,13 +421,11 @@ const CropStage = (props: {
 				/>
 				<MagnifierZoomInIcon aria-hidden="true" class="size-5 shrink-0" />
 			</div>
-			<p
+			<TableText
 				data-image-crop-name=""
-				title={props.file.name}
-				class="m-0 truncate text-center text-sm text-muted-foreground"
-			>
-				{props.file.name}
-			</p>
+				class="text-center text-sm text-muted-foreground"
+				text={props.file.name}
+			/>
 		</div>
 	);
 };

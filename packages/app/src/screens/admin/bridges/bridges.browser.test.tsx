@@ -114,16 +114,18 @@ describe("bridges", () => {
 		expect(connect.textContent).toContain("Invite the Colibri bridge");
 		expect(connect.querySelectorAll("ol > li")).toHaveLength(3);
 		const submit = buttonNamed(connect, "Connect") as HTMLButtonElement;
-		expect(submit.disabled).toBe(true);
+		const submitDisabled = () =>
+			submit.getAttribute("aria-disabled") === "true";
+		expect(submitDisabled()).toBe(true);
 		const field = connect.querySelector<HTMLInputElement>(
 			'input[aria-label="Pairing code"]',
 		) as HTMLInputElement;
 		typeInto(field, "nope");
-		await until(() => !submit.disabled);
+		await until(() => !submitDisabled());
 		submit.click();
 		await until(() => (connect.textContent ?? "").includes("didn't work"));
 		typeInto(field, "MTRX2345");
-		await until(() => !submit.disabled);
+		await until(() => !submitDisabled());
 		submit.click();
 		await until(() => !!dialogNamed(/^Connect /));
 		const confirm = dialogNamed(/^Connect /) as HTMLElement;

@@ -1,12 +1,21 @@
+import { LoadingScreen } from "@colibri-social/ui";
+import { onCleanup } from "solid-js";
+import { usePlatform } from "../../screen/platform";
 import {
+	LAUNCH_BIRD_SIZE,
 	LAUNCH_SCREEN_ID,
 	LAUNCH_SCREEN_LABEL,
 	LAUNCH_SCREEN_STYLE,
 	LAUNCH_STYLE_ID,
-	launchMarkSvg,
 } from "./launch-markup";
+import { LAUNCH_TIPS, launchTips } from "./launch-tips";
 
-let copies = 0;
+const RESUME_WINDOW_MS = 1000;
+
+const tipStart = Math.floor(Math.random() * LAUNCH_TIPS.length);
+let mounted = 0;
+let startedAt: number | undefined;
+let endedAt: number | undefined;
 
 const ensureLaunchStyle = () => {
 	if (document.getElementById(LAUNCH_STYLE_ID)) return;
@@ -25,20 +34,33 @@ export const dismissDocumentLaunchScreen = () => {
 	documentLaunchScreen()?.remove();
 };
 
+const claimLaunchStart = () => {
+	const now = performance.now();
+	const lapsed =
+		mounted === 0 && endedAt !== undefined && now - endedAt > RESUME_WINDOW_MS;
+	if (startedAt === undefined || lapsed) startedAt = now;
+	mounted += 1;
+	onCleanup(() => {
+		mounted -= 1;
+		if (mounted === 0) endedAt = performance.now();
+	});
+	return startedAt;
+};
+
 export const LaunchScreen = () => {
 	ensureLaunchStyle();
-	const adopted = documentLaunchScreen();
-	if (adopted) {
-		adopted.removeAttribute("id");
-		return adopted;
-	}
-	copies += 1;
+	const platform = usePlatform();
+	const since = claimLaunchStart();
 	return (
-		<div
-			data-launch-screen=""
-			role="status"
-			aria-label={LAUNCH_SCREEN_LABEL}
-			innerHTML={launchMarkSvg(`launch-mark-${copies}`)}
-		/>
+		<div data-launch-screen="">
+			<LoadingScreen
+				class="absolute inset-0"
+				label={LAUNCH_SCREEN_LABEL}
+				tips={launchTips(platform())}
+				tipStart={tipStart}
+				since={since}
+				birdSize={LAUNCH_BIRD_SIZE}
+			/>
+		</div>
 	);
 };

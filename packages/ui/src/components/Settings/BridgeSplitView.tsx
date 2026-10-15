@@ -6,6 +6,7 @@ import { cx } from "../../utils/cx";
 import { Button } from "../Button/Button";
 import { IconButton } from "../IconButton/IconButton";
 import { SectionLabel } from "../List/List";
+import { TableText } from "../Table/TableText";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Tabs/Tabs";
 import type {
 	BridgeOverviewProps,
@@ -80,7 +81,7 @@ const ConnectedPane = (props: {
 				<dl class="m-0 flex flex-col divide-y divide-border overflow-hidden rounded-control bg-secondary">
 					<DetailRow term="Bridged with">{props.bridge.bridgedWith}</DetailRow>
 					<DetailRow term="Service">
-						<span title={props.bridge.service}>{props.bridge.service}</span>
+						<TableText text={props.bridge.service} />
 					</DetailRow>
 					<Show when={props.platform}>
 						{(platform) => (

@@ -485,7 +485,7 @@ export const BridgeSummaryGrid: Story = {
 		).not.toBeInTheDocument();
 		const chip = within(long)
 			.getByText("planning-and-logistics-for-the-autumn-season")
-			.closest("span[title]") as HTMLElement;
+			.closest("[data-bridge-channel]") as HTMLElement;
 		await expect(chip.getBoundingClientRect().right).toBeLessThanOrEqual(
 			long.getBoundingClientRect().right,
 		);

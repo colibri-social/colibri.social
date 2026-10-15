@@ -141,6 +141,9 @@ export const Mobile: Story = {
 		await expect(threadIcon()).toHaveAttribute("data-hover");
 		await waitFor(() => expect(threadIcon()).not.toHaveAttribute("data-hover"));
 		threads.dispatchEvent(
+			new PointerEvent("pointerleave", { pointerType: "mouse" }),
+		);
+		threads.dispatchEvent(
 			new PointerEvent("pointerdown", {
 				bubbles: true,
 				button: 0,
@@ -234,9 +237,7 @@ export const LongName: Story = {
 		</Stack>
 	),
 	play: async ({ canvasElement }) => {
-		const names = Array.from(
-			canvasElement.querySelectorAll<HTMLElement>(`[title="${LONG_NAME}"]`),
-		);
+		const names = within(canvasElement).getAllByText(LONG_NAME);
 		await expect(names).toHaveLength(2);
 		for (const name of names) {
 			await expect(name.scrollWidth).toBeGreaterThan(name.clientWidth);

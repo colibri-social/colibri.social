@@ -28,6 +28,7 @@ import {
 	mentionsDid,
 	mentionsRole,
 	previewText,
+	spoileredLinkUris,
 	toTextValue,
 	utf8Length,
 	validFacets,
@@ -104,6 +105,69 @@ describe("facet lookups", () => {
 	it("lists link targets once", () => {
 		expect(linkUris([...facets, ...facets])).toEqual(["https://a.test"]);
 		expect(linkUris(undefined)).toEqual([]);
+	});
+});
+
+describe("links inside spoilers", () => {
+	const link = (uri: string) =>
+		[
+			{ $type: "social.colibri.beta.richtext.facet#link", uri },
+		] as Facet["features"];
+	const spoiler = [
+		{ $type: "social.colibri.beta.richtext.facet#spoiler" },
+	] as Facet["features"];
+
+	it("skips a link wrapped in a spoiler", () => {
+		const text = "Ending: https://end.test is wild";
+		const facets = [
+			facet(text, "https://end.test", link("https://end.test")),
+			facet(text, "https://end.test is wild", spoiler),
+		];
+		expect(linkUris(facets)).toEqual([]);
+		expect([...spoileredLinkUris(facets)]).toEqual(["https://end.test"]);
+	});
+
+	it("skips a link that only partly overlaps a spoiler", () => {
+		const text = "see https://end.test now";
+		const facets = [
+			facet(text, "https://end.test", link("https://end.test")),
+			facet(text, "see https://end", spoiler),
+		];
+		expect(linkUris(facets)).toEqual([]);
+	});
+
+	it("skips a facet carrying both link and spoiler features", () => {
+		const text = "https://end.test";
+		const facets = [
+			facet(text, text, [...link("https://end.test"), ...spoiler]),
+		];
+		expect(linkUris(facets)).toEqual([]);
+		expect(spoileredLinkUris(facets).has("https://end.test")).toBe(true);
+	});
+
+	it("keeps a link that only touches the spoiler's edge", () => {
+		const text = "secret https://a.test";
+		const facets = [
+			facet(text, "secret ", spoiler),
+			facet(text, "https://a.test", link("https://a.test")),
+		];
+		expect(linkUris(facets)).toEqual(["https://a.test"]);
+		expect(spoileredLinkUris(facets).size).toBe(0);
+	});
+
+	it("keeps a link that also appears outside the spoiler", () => {
+		const text = "https://a.test and again https://a.test.";
+		const second = text.lastIndexOf("https://a.test");
+		const byteStart = utf8Length(text.slice(0, second));
+		const facets = [
+			facet(text, "https://a.test", link("https://a.test")),
+			{
+				index: { byteStart, byteEnd: byteStart + utf8Length("https://a.test") },
+				features: [...link("https://a.test"), ...spoiler],
+			} as Facet,
+		];
+		expect(linkUris(facets)).toEqual(["https://a.test"]);
+		expect(spoileredLinkUris(facets).size).toBe(0);
 	});
 });
 
@@ -283,6 +347,18 @@ describe("attachments", () => {
 			name: "doc.pdf",
 			mimeType: "application/pdf",
 		});
+	});
+
+	it("carries the spoiler flag to media, audio and files", () => {
+		const result = splitAttachments([
+			attachment("image/png", { spoiler: true }),
+			attachment("image/jpeg"),
+			attachment("audio/mpeg", { name: "song.mp3", spoiler: true }),
+			attachment("application/pdf", { name: "doc.pdf", spoiler: true }),
+		]);
+		expect(result.media.map((item) => item.spoiler)).toEqual([true, undefined]);
+		expect(result.audio[0]?.spoiler).toBe(true);
+		expect(result.files[0]?.spoiler).toBe(true);
 	});
 
 	it("drops suppressed embeds and maps images", () => {

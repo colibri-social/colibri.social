@@ -11,6 +11,7 @@ import { createSlot } from "../../utils/slot";
 import { IconButton, iconButtonTouchTarget } from "../IconButton/IconButton";
 import { Modal, ModalContent, ModalTrigger } from "../Modal/Modal";
 import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
+import { TableText } from "../Table/TableText";
 
 export type ChannelHeaderPlatform = "mobile" | "desktop";
 
@@ -67,12 +68,7 @@ const MobileChannelHeader = (props: ChannelHeaderProps) => {
 	const title = () => (
 		<>
 			<ChannelGlyph icon={icon()} size={20} />
-			<span
-				class="min-w-0 truncate text-base leading-5 font-bold"
-				title={props.name}
-			>
-				{props.name}
-			</span>
+			<TableText class="text-base leading-5 font-bold" text={props.name} />
 		</>
 	);
 
@@ -155,10 +151,9 @@ const ChannelDescriptionButton = (props: {
 	<Modal>
 		<ModalTrigger
 			data-channel-description=""
-			title={props.description}
 			class="focus-ring m-0 min-w-0 flex-1 cursor-pointer truncate rounded-control-sm border-0 bg-transparent p-0 text-left text-base leading-5 text-muted-foreground transition-colors duration-150 hover:text-foreground"
 		>
-			{props.description}
+			<TableText text={props.description} />
 		</ModalTrigger>
 		<ModalContent
 			title={<span class="[overflow-wrap:anywhere]">{props.name}</span>}
@@ -187,11 +182,8 @@ const DesktopChannelHeader = (props: ChannelHeaderProps) => {
 		>
 			<div class="flex min-w-0 flex-1 items-center gap-2 pl-1">
 				<ChannelGlyph icon={icon()} size={20} />
-				<h1
-					class="m-0 min-w-0 shrink truncate text-base leading-5 font-semibold"
-					title={props.name}
-				>
-					{props.name}
+				<h1 class="m-0 min-w-0 shrink truncate text-base leading-5 font-semibold">
+					<TableText text={props.name} />
 				</h1>
 				<Show when={props.description}>
 					{(description) => (

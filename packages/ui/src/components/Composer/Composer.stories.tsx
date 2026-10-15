@@ -320,7 +320,7 @@ export const DesktopSuggestions: Story = {
 				platform="desktop"
 				channelName="general"
 				sources={suggestionSources}
-				typing={<TypingIndicator users={typists.slice(0, 2)} />}
+				typing={<TypingIndicator size="sm" users={typists.slice(0, 2)} />}
 				onSend={onSend}
 			/>
 		</DesktopScreen>
@@ -373,7 +373,7 @@ export const DesktopNearLimit: Story = {
 					defaultValue={nearLimit}
 					ringThreshold={threshold()}
 					maxLines={4}
-					typing={<TypingIndicator users={typists.slice(0, 2)} />}
+					typing={<TypingIndicator size="sm" users={typists.slice(0, 2)} />}
 					onSend={onSend}
 				/>
 			</DesktopScreen>
@@ -468,7 +468,7 @@ export const Editing: Story = {
 		);
 		await expect(
 			canvas.getByRole("button", { name: "Upload a file" }),
-		).toBeDisabled();
+		).toHaveAttribute("aria-disabled", "true");
 		await waitFor(() => expect(editor).toHaveFocus());
 		await userEvent.keyboard(" again");
 		await userEvent.click(canvas.getByRole("button", { name: "Save edit" }));
@@ -671,6 +671,18 @@ const expectTypingAligned = async (canvasElement: HTMLElement) => {
 	await expect(Math.abs(avatarBox.width - uploadBox.width)).toBeLessThanOrEqual(
 		1,
 	);
+	const overlay = canvasElement.querySelector<HTMLElement>(
+		"[data-composer-typing]",
+	);
+	const box = canvasElement.querySelector("[data-composer-anchor]");
+	if (!overlay) throw new Error("Typing overlay missing");
+	await expect(getComputedStyle(overlay).position).toBe("absolute");
+	await expect(
+		Math.abs(rect(overlay).bottom - rect(box).top),
+	).toBeLessThanOrEqual(0.5);
+	const fade = getComputedStyle(overlay).backgroundImage;
+	await expect(fade).toContain("rgb");
+	await expect(fade).not.toMatch(/oklab|oklch|color-mix/);
 };
 
 export const DesktopTypingAlignment: Story = {
@@ -680,7 +692,7 @@ export const DesktopTypingAlignment: Story = {
 				platform="desktop"
 				channelName="general"
 				onSend={onSend}
-				typing={<TypingIndicator users={typists.slice(0, 2)} />}
+				typing={<TypingIndicator size="sm" users={typists.slice(0, 2)} />}
 			/>
 		</DesktopScreen>
 	),
@@ -1003,6 +1015,62 @@ export const Attachments: Story = {
 		);
 		await expect(onRemove).toHaveBeenCalledWith("3");
 		await expect(canvas.getByText("3/10 attachments")).toBeInTheDocument();
+	},
+};
+
+export const AttachmentSpoilers: Story = {
+	render: () => {
+		const [items, setItems] = createSignal<PendingAttachment[]>([
+			{
+				id: "1",
+				name: "plot-twist.png",
+				size: 482_133,
+				previewSrc: storyImages.tealIcon(),
+			},
+			{ id: "2", name: "finale-notes.pdf", size: 81_920, spoiler: true },
+			{ id: "3", name: "broken.mov", size: 18_400_000, failed: true },
+		]);
+		return (
+			<div class="w-[402px] p-4" data-testid="spoiler-tray-host">
+				<AttachmentTray
+					items={items()}
+					onToggleSpoiler={(id) =>
+						setItems((list) =>
+							list.map((item) =>
+								item.id === id ? { ...item, spoiler: !item.spoiler } : item,
+							),
+						)
+					}
+					onRemove={(id) =>
+						setItems((list) => list.filter((item) => item.id !== id))
+					}
+				/>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expectNoLayoutIssues(canvas.getByTestId("spoiler-tray-host"));
+		await expect(
+			canvas.getByRole("button", { name: "Mark plot-twist.png as a spoiler" }),
+		).toHaveAttribute("aria-pressed", "false");
+		await expect(
+			canvas.getByRole("button", {
+				name: "Mark finale-notes.pdf as a spoiler",
+			}),
+		).toHaveAttribute("aria-pressed", "true");
+		await expect(
+			canvas.queryByRole("button", { name: "Mark broken.mov as a spoiler" }),
+		).toBeNull();
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Mark plot-twist.png as a spoiler" }),
+		);
+		await expect(
+			canvas.getByRole("button", { name: "Mark plot-twist.png as a spoiler" }),
+		).toHaveAttribute("aria-pressed", "true");
+		await expect(
+			canvasElement.querySelectorAll("li[data-spoiler]"),
+		).toHaveLength(2);
 	},
 };
 

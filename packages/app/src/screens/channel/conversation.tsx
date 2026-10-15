@@ -248,6 +248,7 @@ export const createConversation = (options: ConversationOptions) => {
 	let entered: ChannelData | undefined;
 	let ownDepth = 0;
 	let covered = false;
+	const [activeFeed, setActiveFeed] = createSignal<ChannelData>();
 	createEffect(() => {
 		const current = feed();
 		if (!current || !isActive()) return;
@@ -269,7 +270,11 @@ export const createConversation = (options: ConversationOptions) => {
 			data.setLastChannel(options.space, options.channel);
 		}
 		current.markRead();
-		onCleanup(() => data.setViewing(undefined));
+		setActiveFeed(current);
+		onCleanup(() => {
+			setActiveFeed(undefined);
+			data.setViewing(undefined);
+		});
 	});
 
 	const memberMap = createMemo(
@@ -325,7 +330,7 @@ export const createConversation = (options: ConversationOptions) => {
 		if (
 			!atBottom() ||
 			!revealed() ||
-			!isActive() ||
+			activeFeed() !== current ||
 			modalOpen() ||
 			!documentVisible() ||
 			!current?.ready()
@@ -441,6 +446,7 @@ export const createConversation = (options: ConversationOptions) => {
 						mimeType: upload.file.type || "application/octet-stream",
 						name: upload.file.name,
 						size: upload.file.size,
+						...(upload.spoiler ? { spoiler: true } : {}),
 					})),
 				],
 				uploadProgress: entry.uploads?.map((upload) =>
@@ -973,10 +979,8 @@ export const ConversationMessages = (props: {
 					getAuthorName={(message) => m.nameOf(message.author)}
 					locale="en-GB"
 					hasOlder={!m.revealed() || (m.feed()?.hasOlder() ?? false)}
-					bottomInset={
-						props.platform !== "desktop" ? COMPOSER_TYPING_INSET : undefined
-					}
-					jumpLift={props.platform !== "desktop" ? COMPOSER_TYPING_INSET : 0}
+					bottomInset={COMPOSER_TYPING_INSET}
+					jumpLift={COMPOSER_TYPING_INSET}
 					loadingOlder={m.feed()?.loadingOlder() || !m.revealed()}
 					onLoadOlder={() => m.feed()?.loadOlder()}
 					hasNewer={m.feed()?.hasNewer() ?? false}

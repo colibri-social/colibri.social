@@ -3,16 +3,24 @@ import {
 	type PendingAttachment,
 	toast,
 } from "@colibri-social/ui";
-import { type Component, createSignal, onCleanup, Show } from "solid-js";
+import {
+	type Component,
+	createRenderEffect,
+	createSignal,
+	onCleanup,
+	Show,
+} from "solid-js";
+import { createStore, reconcile } from "solid-js/store";
 import { MAX_ATTACHMENT_BYTES, MAX_ATTACHMENTS } from "../../../../data/source";
 
 export type DraftItem = {
 	id: string;
 	file: File;
 	previewSrc?: string;
+	spoiler?: boolean;
 };
 
-export type DraftFile = Pick<DraftItem, "file" | "previewSrc">;
+export type DraftFile = Pick<DraftItem, "file" | "previewSrc" | "spoiler">;
 
 export type AttachmentDraftOptions = {
 	max?: number;
@@ -57,6 +65,8 @@ export const videoThumbnail = (file: File) =>
 		video.src = source;
 	});
 
+const spoileredFiles = new WeakSet<File>();
+
 let counter = 0;
 const nextId = () => `draft-${Date.now().toString(36)}-${counter++}`;
 
@@ -88,6 +98,7 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 				previewSrc: IMAGE_PREVIEW.test(file.type)
 					? URL.createObjectURL(file)
 					: undefined,
+				...(spoileredFiles.has(file) ? { spoiler: true } : {}),
 			});
 		}
 		if (accepted.length === 0) return;
@@ -113,7 +124,19 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 		const item = items().find((entry) => entry.id === id);
 		if (!item) return;
 		revoke(item.previewSrc);
+		spoileredFiles.delete(item.file);
 		setItems((list) => list.filter((entry) => entry.id !== id));
+	};
+
+	const toggleSpoiler = (id: string) => {
+		const item = items().find((entry) => entry.id === id);
+		if (!item) return;
+		const spoiler = !item.spoiler;
+		if (spoiler) spoileredFiles.add(item.file);
+		else spoileredFiles.delete(item.file);
+		setItems((list) =>
+			list.map((entry) => (entry.id === id ? { ...entry, spoiler } : entry)),
+		);
 	};
 
 	const clear = () => {
@@ -122,7 +145,12 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 	};
 
 	const take = (): DraftFile[] => {
-		const taken = items().map(({ file, previewSrc }) => ({ file, previewSrc }));
+		const taken = items().map(({ file, previewSrc, spoiler }) => ({
+			file,
+			previewSrc,
+			...(spoiler ? { spoiler: true } : {}),
+		}));
+		for (const { file } of taken) spoileredFiles.delete(file);
 		setItems([]);
 		return taken;
 	};
@@ -147,18 +175,31 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 
 	onCleanup(() => clear());
 
-	const trayItems = (): PendingAttachment[] =>
-		items().map((item) => ({
-			id: item.id,
-			name: item.file.name,
-			size: item.file.size,
-			previewSrc: item.previewSrc,
-		}));
+	const [trayItems, setTrayItems] = createStore<PendingAttachment[]>([]);
+	createRenderEffect(() =>
+		setTrayItems(
+			reconcile(
+				items().map((item) => ({
+					id: item.id,
+					name: item.file.name,
+					size: item.file.size,
+					previewSrc: item.previewSrc,
+					spoiler: item.spoiler,
+				})),
+				{ key: "id" },
+			),
+		),
+	);
 
 	const Tray: Component = () => (
 		<Show when={items().length > 0}>
 			<div data-attachment-draft="" class="flex flex-col">
-				<AttachmentTray items={trayItems()} max={max} onRemove={remove} />
+				<AttachmentTray
+					items={trayItems}
+					max={max}
+					onRemove={remove}
+					onToggleSpoiler={toggleSpoiler}
+				/>
 			</div>
 		</Show>
 	);
@@ -168,6 +209,7 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 		pick,
 		addFiles,
 		remove,
+		toggleSpoiler,
 		clear,
 		take,
 		Tray,

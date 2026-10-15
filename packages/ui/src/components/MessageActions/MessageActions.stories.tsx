@@ -305,7 +305,7 @@ export const Toolbar: Story = {
 		const ownButtons = canvas
 			.getAllByRole("toolbar", { name: "Message actions" })[0]
 			.querySelectorAll<HTMLElement>(
-				"[data-toolbar-action], button[title='More actions']",
+				"[data-toolbar-action], button[aria-label='More actions']",
 			);
 		const flush = (left: HTMLElement, right: HTMLElement) =>
 			Math.abs(

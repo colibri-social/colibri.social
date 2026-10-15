@@ -42,6 +42,7 @@ const IconTip = (props: {
 		<TooltipTrigger
 			as={IconButton}
 			variant="ghost"
+			tooltip={false}
 			label={props.label}
 			icon={props.icon}
 		/>
@@ -120,6 +121,7 @@ export const LongText: Story = {
 			<TooltipTrigger
 				as={IconButton}
 				variant="secondary"
+				tooltip={false}
 				label="Connection details"
 				icon={<SettingsIcon />}
 			/>

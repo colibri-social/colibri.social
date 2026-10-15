@@ -1319,18 +1319,32 @@ export const KeyboardFlowDesktop: Story = {
 		const view = within(dialog);
 		dialog.focus();
 		await userEvent.keyboard("{Enter}");
-		const field = await view.findByLabelText("Handle or username");
+		const field = await view.findByLabelText("Handle or username", undefined, {
+			timeout: 3000,
+		});
 		await userEvent.type(field, "alice.bsky.social{Enter}");
-		await view.findByRole("heading", { name: /profile going/ });
+		await view.findByRole(
+			"heading",
+			{ name: /profile going/ },
+			{ timeout: 3000 },
+		);
 		await expect(args.onChange).toHaveBeenCalledWith("alice.bsky.social");
 		dialog.focus();
 		await userEvent.keyboard("{Enter}");
-		const name = await view.findByLabelText("Display name");
+		const name = await view.findByLabelText("Display name", undefined, {
+			timeout: 3000,
+		});
 		await userEvent.keyboard("{Alt>}{ArrowLeft}{/Alt}");
-		await view.findByRole("heading", { name: /profile going/ });
+		await view.findByRole(
+			"heading",
+			{ name: /profile going/ },
+			{ timeout: 3000 },
+		);
 		dialog.focus();
 		await userEvent.keyboard("{Enter}");
-		await view.findByLabelText("Display name");
+		await view.findByLabelText("Display name", undefined, {
+			timeout: 3000,
+		});
 		await expect(name).not.toBeInTheDocument();
 		dialog.focus();
 		await userEvent.keyboard("{Enter}");

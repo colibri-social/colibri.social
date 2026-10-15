@@ -27,7 +27,7 @@ export const OwnerChip = (props: {
 		<Chip
 			icon={<MentionCircleIcon />}
 			data-owner-chip=""
-			title={props.short ? `Owner ${handle()}` : undefined}
+			tooltip={props.short ? `Owner ${handle()}` : undefined}
 			class={props.class}
 		>
 			{props.short ? (

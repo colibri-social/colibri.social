@@ -257,6 +257,45 @@ describe("createRemoteSource", () => {
 		expect(record.attachments).toEqual([{ blob, name: "cat.png" }]);
 	});
 
+	it("writes the spoiler flag of an attachment into the record", async () => {
+		const blob = {
+			$type: "blob",
+			ref: { $link: "bafy" },
+			mimeType: "image/png",
+			size: 3,
+		};
+		const { fake, source } = await setup((fake) => {
+			fake.on("com.atproto.repo.uploadBlob", json({ blob }));
+			fake.on("com.atproto.space.createRecord", json({ uri: "x", cid: "c" }));
+		});
+
+		const hidden = await source.uploadBlob(
+			new File(["png"], "ending.png", { type: "image/png" }),
+		);
+		const plain = await source.uploadBlob(
+			new File(["png"], "cat.png", { type: "image/png" }),
+		);
+		const view = await source.sendMessage({
+			channel: CHANNEL,
+			text: "",
+			attachments: [{ ...hidden, spoiler: true }, plain],
+		});
+
+		const record = (
+			only(fake.callsTo("com.atproto.space.createRecord")).body as Record<
+				string,
+				any
+			>
+		).record;
+		expect(record.attachments).toEqual([
+			{ blob, name: "ending.png", spoiler: true },
+			{ blob, name: "cat.png" },
+		]);
+		expect(
+			(view.attachments[0] as { spoiler?: boolean } | undefined)?.spoiler,
+		).toBe(true);
+	});
+
 	it("refuses attachments it did not upload", async () => {
 		const { source } = await setup();
 		const failure = await source
@@ -899,23 +938,39 @@ describe("createRemoteSource", () => {
 		expect(source.viewer().presence?.voice?.channel).toBe(VOICE);
 	});
 
-	it("syncs GIF favorites to the AppView", async () => {
-		const { fake, source } = await setup((fake) =>
-			fake.on(colibri.actor.putSettings.main.nsid, json({ preferences: {} })),
-		);
+	it("writes the settings record, then pushes GIF favorites", async () => {
+		const saved = [{ id: "gif-2", url: "https://gif.test/2.gif" }];
+		const { fake, source } = await setup((fake) => {
+			fake.on("com.atproto.space.putRecord", json({ uri: "at://x", cid: "c" }));
+			fake.on(
+				colibri.actor.putSettings.main.nsid,
+				json({
+					preferences: {
+						notificationLevel: "all",
+						communityOrder: [],
+						mutes: [],
+						gifFavorites: saved,
+					},
+				}),
+			);
+		});
 
 		source.setGifFavorite(
 			{ id: "gif-2", url: "https://gif.test/2.gif" } as never,
 			true,
 		);
 		source.setGifFavorite({ id: "gif-1" } as never, false);
-		await Promise.resolve();
+		expect(source.gifFavorites().map((gif) => gif.id)).toEqual(["gif-2"]);
+		await source.preferences.settled();
 
 		expect(source.gifFavorites().map((gif) => gif.id)).toEqual(["gif-2"]);
+		const record = fake.callsTo("com.atproto.space.putRecord").at(-1)
+			?.body as any;
+		expect(record.collection).toBe("social.colibri.beta.actor.settings");
+		expect(record.rkey).toBe("self");
+		expect(record.record.gifFavorites).toEqual(saved);
 		const calls = fake.callsTo(colibri.actor.putSettings.main.nsid);
-		expect((calls.at(-1)?.body as any).gifFavorites).toEqual([
-			{ id: "gif-2", url: "https://gif.test/2.gif" },
-		]);
+		expect((calls.at(-1)?.body as any).gifFavorites).toEqual(saved);
 	});
 
 	it("takes GIF favorites changed in another session", async () => {
@@ -923,7 +978,13 @@ describe("createRemoteSource", () => {
 
 		live.emit({
 			$type: "preferencesEvent",
-			gifFavorites: [{ id: "gif-3", url: "https://gif.test/3.gif" }] as never,
+			preferences: {
+				notificationLevel: "all",
+				communityOrder: [],
+				shareActivity: false,
+				mutes: [],
+				gifFavorites: [{ id: "gif-3", url: "https://gif.test/3.gif" }] as never,
+			},
 		});
 
 		expect(source.gifFavorites().map((gif) => gif.id)).toEqual(["gif-3"]);
@@ -1017,8 +1078,8 @@ describe("createRemoteSource", () => {
 
 	it("keeps controls locally", async () => {
 		const { source } = await setup();
-		source.setControls({ developerMode: true });
-		expect(source.controls().developerMode).toBe(true);
-		expect(source.controls().swipeLeftAction).toBe("members");
+		source.preferences.setControls({ developerMode: true });
+		expect(source.preferences.controls().developerMode).toBe(true);
+		expect(source.preferences.controls().swipeLeftAction).toBe("members");
 	});
 });

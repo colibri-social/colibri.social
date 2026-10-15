@@ -36,6 +36,7 @@ import type { MediaItem } from "../Attachments/MediaGrid";
 import { ImageContextMenu } from "../ContextMenu/MessageMenu";
 import { IconButton, iconButtonVariants } from "../IconButton/IconButton";
 import { VideoPlayer } from "../Media/VideoPlayer";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 
 export type LightboxAuthor = {
 	name: string;
@@ -979,7 +980,7 @@ export const Lightbox = (props: LightboxProps) => {
 
 	const chromeButton = cx(
 		iconButtonVariants({ variant: "ghost", size: "lg" }),
-		"border-transparent text-white enabled:hover:bg-white/10 hover:bg-white/10 data-pressed:bg-white/15",
+		"border-transparent text-white not-aria-disabled:hover:bg-white/10 hover:bg-white/10 data-pressed:bg-white/15",
 	);
 
 	return (
@@ -1176,28 +1177,34 @@ export const Lightbox = (props: LightboxProps) => {
 						</Show>
 						<div class="pointer-events-auto flex shrink-0 items-center gap-1">
 							<Show when={props.onCopyImage && !isVideo(item())}>
-								<button
-									type="button"
-									data-lightbox-copy-image=""
-									aria-label="Copy image"
-									title="Copy image"
-									class={chromeButton}
-									onClick={() => props.onCopyImage?.(index())}
-								>
-									<CopyAddIcon />
-								</button>
+								<Tooltip placement="bottom">
+									<TooltipTrigger
+										as="button"
+										type="button"
+										data-lightbox-copy-image=""
+										aria-label="Copy image"
+										class={chromeButton}
+										onClick={() => props.onCopyImage?.(index())}
+									>
+										<CopyAddIcon />
+									</TooltipTrigger>
+									<TooltipContent>Copy image</TooltipContent>
+								</Tooltip>
 							</Show>
 							<Show when={props.onDownloadImage && !isVideo(item())}>
-								<button
-									type="button"
-									data-lightbox-download-image=""
-									aria-label="Download image"
-									title="Download image"
-									class={chromeButton}
-									onClick={() => props.onDownloadImage?.(index())}
-								>
-									<GalleryDownloadIcon />
-								</button>
+								<Tooltip placement="bottom">
+									<TooltipTrigger
+										as="button"
+										type="button"
+										data-lightbox-download-image=""
+										aria-label="Download image"
+										class={chromeButton}
+										onClick={() => props.onDownloadImage?.(index())}
+									>
+										<GalleryDownloadIcon />
+									</TooltipTrigger>
+									<TooltipContent>Download image</TooltipContent>
+								</Tooltip>
 							</Show>
 							<Show
 								when={
@@ -1206,28 +1213,34 @@ export const Lightbox = (props: LightboxProps) => {
 								}
 							>
 								{(href) => (
-									<a
-										href={href()}
-										download={item()?.name ?? ""}
-										data-icon-host=""
-										aria-label="Download"
-										title="Download"
-										class={chromeButton}
-									>
-										<AnimatedDownloadIcon />
-									</a>
+									<Tooltip placement="bottom">
+										<TooltipTrigger
+											as="a"
+											href={href()}
+											download={item()?.name ?? ""}
+											data-icon-host=""
+											aria-label="Download"
+											class={chromeButton}
+										>
+											<AnimatedDownloadIcon />
+										</TooltipTrigger>
+										<TooltipContent>Download</TooltipContent>
+									</Tooltip>
 								)}
 							</Show>
 							<Show when={props.onShare || props.shareUrl}>
-								<button
-									type="button"
-									aria-label={copied() ? "Link copied" : "Copy link"}
-									title="Copy link"
-									class={chromeButton}
-									onClick={(event) => void share(event)}
-								>
-									<LinkIcon />
-								</button>
+								<Tooltip placement="bottom">
+									<TooltipTrigger
+										as="button"
+										type="button"
+										aria-label={copied() ? "Link copied" : "Copy link"}
+										class={chromeButton}
+										onClick={(event) => void share(event)}
+									>
+										<LinkIcon />
+									</TooltipTrigger>
+									<TooltipContent>Copy link</TooltipContent>
+								</Tooltip>
 								<span
 									role="status"
 									class={cx(
@@ -1238,16 +1251,19 @@ export const Lightbox = (props: LightboxProps) => {
 									{copied() ? "Copied" : ""}
 								</span>
 							</Show>
-							<button
-								ref={closeButton}
-								type="button"
-								aria-label="Close"
-								title="Close"
-								class={chromeButton}
-								onClick={requestClose}
-							>
-								<CloseIcon />
-							</button>
+							<Tooltip placement="bottom">
+								<TooltipTrigger
+									as="button"
+									ref={closeButton}
+									type="button"
+									aria-label="Close"
+									class={chromeButton}
+									onClick={requestClose}
+								>
+									<CloseIcon />
+								</TooltipTrigger>
+								<TooltipContent>Close</TooltipContent>
+							</Tooltip>
 						</div>
 					</div>
 					<Show when={desktop() && count() > 1}>
@@ -1262,7 +1278,7 @@ export const Lightbox = (props: LightboxProps) => {
 								size="xl"
 								icon={<AltArrowLeftIcon />}
 								disabled={index() === 0}
-								class="pointer-events-auto border-transparent bg-black/40 text-white enabled:hover:bg-white/15"
+								class="pointer-events-auto border-transparent bg-black/40 text-white not-aria-disabled:hover:bg-white/15"
 								onClick={() => go(-1)}
 							/>
 						</div>
@@ -1277,7 +1293,7 @@ export const Lightbox = (props: LightboxProps) => {
 								size="xl"
 								icon={<AltArrowRightIcon />}
 								disabled={index() === count() - 1}
-								class="pointer-events-auto border-transparent bg-black/40 text-white enabled:hover:bg-white/15"
+								class="pointer-events-auto border-transparent bg-black/40 text-white not-aria-disabled:hover:bg-white/15"
 								onClick={() => go(1)}
 							/>
 						</div>

@@ -41,6 +41,10 @@ it("sends a message with Enter from the desktop composer", async () => {
 it("renders the hover toolbar on sent messages and edits inline", async () => {
 	await mount();
 	const article = await send("Edit me please");
+	article.dispatchEvent(new PointerEvent("pointerenter"));
+	await until(
+		() => !!article.querySelector("[data-message-toolbar] [role='toolbar']"),
+	);
 	const toolbar = article.querySelector<HTMLElement>(
 		"[data-message-toolbar] [role='toolbar']",
 	) as HTMLElement;

@@ -79,12 +79,10 @@ it("renders the desktop rail with the Inbox first and switches Spaces", async ()
 	await userEvent.click(
 		page.getByRole("button", { name: /Night Owls/ }).first(),
 	);
-	await expect
-		.poll(() => location.pathname)
-		.toMatch(
-			/^\/app\/c\/did:plc:[^/]+\/social\.colibri\.beta\.channel\.text\//,
-		);
-	expect(location.pathname).not.toContain(HQ);
+	await expect.poll(() => location.pathname).not.toContain(HQ);
+	expect(location.pathname).toMatch(
+		/^\/app\/c\/did:plc:[^/]+\/social\.colibri\.beta\.channel\.text\//,
+	);
 });
 
 it("switches channels from the desktop channel list", async () => {
@@ -102,6 +100,33 @@ it("switches channels from the desktop channel list", async () => {
 	await expect
 		.poll(() => channelButton("design")?.getAttribute("aria-current"))
 		.toBeTruthy();
+});
+
+it("keeps the member sidebar and its rows mounted across channel switches", async () => {
+	await mount(`/app/c/${HQ}/${TEXT}/general`);
+	await expect
+		.poll(
+			() =>
+				document.querySelectorAll("[data-shell-members] [data-member-row]")
+					.length,
+		)
+		.toBeGreaterThan(3);
+	const column = document.querySelector("[data-shell-members]") as HTMLElement;
+	const row = column.querySelector("[data-member-row]") as HTMLElement;
+	const removals: Node[] = [];
+	const observer = new MutationObserver((records) => {
+		for (const record of records) removals.push(...record.removedNodes);
+	});
+	observer.observe(document.body, { childList: true, subtree: true });
+	await userEvent.click(channelButton("design") as HTMLElement);
+	await expect
+		.poll(() => location.pathname)
+		.toBe(`/app/c/${HQ}/${TEXT}/design`);
+	await new Promise((resolve) => requestAnimationFrame(resolve));
+	observer.disconnect();
+	expect(removals.some((node) => node.contains(column))).toBe(false);
+	expect(column.isConnected).toBe(true);
+	expect(row.isConnected).toBe(true);
 });
 
 it("joins a voice channel directly and keeps the current channel open", async () => {

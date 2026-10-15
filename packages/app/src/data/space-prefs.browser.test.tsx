@@ -1,7 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { createMockSource, setLatency } from "./mock/source";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+	createMockSource,
+	type MockSourceOptions,
+	setLatency,
+} from "./mock/source";
 import { spaceNotificationPrefs } from "./notifications";
 import { createDataStore } from "./store";
+import type { SpaceRef } from "./types";
 
 const until = async (check: () => boolean, timeout = 8000) => {
 	const started = performance.now();
@@ -11,9 +16,9 @@ const until = async (check: () => boolean, timeout = 8000) => {
 	}
 };
 
-const setup = async () => {
+const setup = async (options: MockSourceOptions = {}) => {
 	setLatency(0);
-	const source = createMockSource({ live: false });
+	const source = createMockSource({ live: false, ...options });
 	const store = createDataStore(source);
 	await until(() => !!store.communities.value());
 	const hq = store.communities
@@ -59,5 +64,83 @@ describe("threadsOf", () => {
 		}
 		expect(found).toBe(true);
 		expect(calls).toEqual([]);
+	});
+});
+
+describe("synced preferences in the store", () => {
+	const SNAPSHOT = "colibri:preferences:test";
+
+	afterEach(() => localStorage.removeItem(SNAPSHOT));
+
+	it("round trips channel and Space mutes through the preference records", async () => {
+		const { source, store, hq, space } = await setup();
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+
+		store.setMuted(general.space, true);
+		store.spaceNotifications.setMuted(hq.did, true);
+		expect(store.isMuted(general.space)).toBe(true);
+		await source.preferences.settled();
+
+		expect(
+			source.preferenceBackend.state().mutes.map((m) => m.subject),
+		).toEqual([
+			{ kind: "channel", channel: general.space },
+			{ kind: "actor", did: hq.did },
+		]);
+		expect(source.preferenceBackend.records()).toHaveLength(2);
+
+		store.setMuted(general.space, false);
+		await source.preferences.settled();
+		expect(store.isMuted(general.space)).toBe(false);
+		expect(source.preferenceBackend.records()).toHaveLength(1);
+		expect(store.spaceNotifications.isMuted(hq.did)).toBe(true);
+	});
+
+	it("keeps thread mutes out of the synced list", async () => {
+		const { source, store, hq } = await setup();
+		const thread =
+			`at://${hq.did}/space/social.colibri.beta.channel.thread/t1` as SpaceRef;
+		store.setMuted(thread, true);
+		await source.preferences.settled();
+		expect(store.isMuted(thread)).toBe(true);
+		expect(source.preferenceBackend.state().mutes).toEqual([]);
+	});
+
+	it("restores mutes and controls from the snapshot in a new store", async () => {
+		const first = await setup({ preferencesSnapshotKey: SNAPSHOT });
+		const general = first.space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		first.store.setMuted(general.space, true);
+		first.store.setControls({ developerMode: true });
+		first.store.dispose();
+
+		const source = createMockSource({
+			live: false,
+			preferencesSnapshotKey: SNAPSHOT,
+		});
+		const store = createDataStore(source);
+		expect(store.isMuted(general.space)).toBe(true);
+		expect(store.controls().developerMode).toBe(true);
+		store.dispose();
+	});
+
+	it("orders Spaces by the synced order", async () => {
+		const { source, store } = await setup();
+		const list = store.communities.value() ?? [];
+		const last = list.at(-1);
+		if (!last || list.length < 2) throw new Error("needs two Spaces");
+		await source.preferences.setCommunityOrder([last.did]);
+		expect(store.communities.value()?.[0]?.did).toBe(last.did);
+		expect(store.communities.value()).toHaveLength(list.length);
+	});
+
+	it("falls back to the global notification level", async () => {
+		const { source, store, hq } = await setup();
+		expect(store.spaceNotifications.level(hq.did)).toBe("all");
+		await source.preferences.setNotificationLevel("nothing");
+		expect(store.spaceNotifications.level(hq.did)).toBe("nothing");
+		store.spaceNotifications.setLevel(hq.did, "mentionsAndReplies");
+		expect(store.spaceNotifications.level(hq.did)).toBe("mentionsAndReplies");
 	});
 });

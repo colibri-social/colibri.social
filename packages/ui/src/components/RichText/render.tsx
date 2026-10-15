@@ -12,6 +12,7 @@ import {
 	buildFeatureKey,
 	normalizeFacets,
 } from "../../utils/rich-text/normalize-facets";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import type {
 	RichTextCustomEmoji,
 	RichTextForeignFeature,
@@ -91,32 +92,35 @@ const customEmojiImage = (
 	emoji: RichTextCustomEmoji,
 	ctx: RichTextResolvers,
 ): JSX.Element => {
-	const image = (
+	const image = (title?: string) => (
 		<img
 			data-custom-emoji={emoji.name}
 			src={emoji.src}
 			alt={emoji.alt ?? `:${emoji.name}:`}
-			title={`:${emoji.name}:`}
+			title={title}
 			draggable={false}
 			class="inline-block size-[1.375em] object-contain align-text-bottom"
 		/>
 	);
-	if (!ctx.onCustomEmojiOpen) return image;
+	if (!ctx.onCustomEmojiOpen) return image(`:${emoji.name}:`);
 	return (
-		// biome-ignore lint/a11y/useSemanticElements: inline emoji stay selectable text inside the paragraph
-		<span
-			role="button"
-			tabIndex={0}
-			data-custom-emoji-button=""
-			data-custom-emoji-id={emoji.id}
-			data-custom-emoji-name={emoji.name}
-			data-custom-emoji-src={emoji.src}
-			data-custom-emoji-alt={emoji.alt}
-			aria-label={`:${emoji.name}:`}
-			class="cursor-pointer rounded-[4px] outline-none focus-ring"
-		>
-			{image}
-		</span>
+		<Tooltip>
+			<TooltipTrigger
+				as="span"
+				role="button"
+				tabIndex={0}
+				data-custom-emoji-button=""
+				data-custom-emoji-id={emoji.id}
+				data-custom-emoji-name={emoji.name}
+				data-custom-emoji-src={emoji.src}
+				data-custom-emoji-alt={emoji.alt}
+				aria-label={`:${emoji.name}:`}
+				class="cursor-pointer rounded-[4px] outline-none focus-ring"
+			>
+				{image()}
+			</TooltipTrigger>
+			<TooltipContent>{`:${emoji.name}:`}</TooltipContent>
+		</Tooltip>
 	);
 };
 

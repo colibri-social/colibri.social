@@ -56,6 +56,31 @@ describe("upload on send", () => {
 		expect(progress.some((value) => value > 0 && value < 1)).toBe(true);
 	});
 
+	it("keeps the spoiler mark from the composer on the sent attachment", async () => {
+		const { channel } = await setup();
+		const hidden = new File([new Uint8Array(20)], "ending.txt", {
+			type: "text/plain",
+		});
+		const plain = new File([new Uint8Array(20)], "notes.txt", {
+			type: "text/plain",
+		});
+		await channel.send({
+			text: "spoilers inside",
+			files: [{ file: hidden, spoiler: true }, { file: plain }],
+		});
+		const sent = channel.messages().at(-1);
+		const attachments = (sent?.attachments ?? []) as {
+			name?: string;
+			spoiler?: boolean;
+		}[];
+		expect(
+			attachments.map((attachment) => [attachment.name, !!attachment.spoiler]),
+		).toEqual([
+			["ending.txt", true],
+			["notes.txt", false],
+		]);
+	});
+
 	it("fails the message when an upload fails", async () => {
 		const { channel } = await setup();
 		const file = new File([new Uint8Array(10)], "fail.txt", {

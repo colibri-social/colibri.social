@@ -18,6 +18,7 @@ import { Button } from "../Button/Button";
 import { SpaceIcon } from "../Space/SpaceIcon";
 import { MemberCountChip, OwnerChip } from "../Space/SpaceMeta";
 import { SpaceProfileHeader } from "../Space/SpaceProfileHeader";
+import { TableText } from "../Table/TableText";
 import {
 	type DiscoveryActions,
 	type DiscoverySpace,
@@ -206,10 +207,9 @@ export const SpacePreview = (props: SpacePreviewProps) => {
 						<div class="flex min-w-0 flex-col gap-0.5">
 							<h2
 								id={nameId}
-								title={props.space.name}
 								class="truncate text-2xl leading-tight font-bold text-foreground"
 							>
-								{props.space.name}
+								<TableText text={props.space.name} />
 							</h2>
 							<Show when={props.space.handle}>
 								{(handle) => (

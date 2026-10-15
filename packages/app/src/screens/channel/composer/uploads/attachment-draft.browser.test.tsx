@@ -64,6 +64,48 @@ describe("attachment draft", () => {
 		expect(draft.items()).toHaveLength(0);
 	});
 
+	it("marks a file as a spoiler and hands the flag over on send", () => {
+		const { draft } = setup();
+		draft.addFiles([file("ending.png", 10, "image/png"), file("notes.pdf")]);
+		const [first] = draft.items();
+		draft.toggleSpoiler(first?.id ?? "");
+		expect(draft.items().map((item) => !!item.spoiler)).toEqual([true, false]);
+		draft.toggleSpoiler(first?.id ?? "");
+		expect(draft.items()[0]?.spoiler).toBe(false);
+		draft.toggleSpoiler(first?.id ?? "");
+		const taken = draft.take();
+		expect(taken.map((entry) => entry.spoiler)).toEqual([true, undefined]);
+	});
+
+	it("remembers the spoiler mark when the same file comes back", () => {
+		const { draft } = setup();
+		const kept = file("ending.png", 10, "image/png");
+		draft.addFiles([kept]);
+		draft.toggleSpoiler(draft.items()[0]?.id ?? "");
+		draft.clear();
+		draft.addFiles([kept]);
+		expect(draft.items()[0]?.spoiler).toBe(true);
+	});
+
+	it("toggles the spoiler mark from the tray", async () => {
+		const { draft } = setup();
+		const host = document.createElement("div");
+		document.body.append(host);
+		const stop = render(() => <draft.Tray />, host);
+		draft.addFiles([file("notes.pdf", 10, "application/pdf")]);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		const toggle = host.querySelector<HTMLButtonElement>(
+			'button[aria-label="Mark notes.pdf as a spoiler"]',
+		);
+		expect(toggle?.getAttribute("aria-pressed")).toBe("false");
+		toggle?.click();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(toggle?.getAttribute("aria-pressed")).toBe("true");
+		expect(draft.items()[0]?.spoiler).toBe(true);
+		stop();
+		host.remove();
+	});
+
 	it("renders a tray without upload progress", async () => {
 		const { draft } = setup();
 		const host = document.createElement("div");

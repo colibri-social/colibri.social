@@ -1,6 +1,8 @@
 import type { AccessEvent, AccessSource } from "./access";
 import type { ChannelSummary } from "./channel-summary";
 import type { EmojiEvent, EmojiSource } from "./emoji";
+import type { PreferenceStore } from "./preferences/store";
+import type { Preferences } from "./preferences/types";
 import type {
 	AttachmentView,
 	BlueskyPostView,
@@ -138,7 +140,7 @@ export type LiveEvent =
 			community: Did;
 			cursors: { channel: string; cursor: string }[];
 	  }
-	| { $type: "preferencesEvent"; gifFavorites: GifView[] };
+	| { $type: "preferencesEvent"; preferences: Preferences };
 
 export type ControlsPreferences = {
 	showMessagePreviews: boolean;
@@ -460,6 +462,5 @@ export type DataSource = AccessSource &
 		getBlueskyPost: (url: string) => Promise<BlueskyPostView | undefined>;
 		simulation: () => Simulation;
 		setSimulation: (next: Partial<Simulation>) => void;
-		controls: () => ControlsPreferences;
-		setControls: (next: Partial<ControlsPreferences>) => void;
+		preferences: PreferenceStore;
 	};

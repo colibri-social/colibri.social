@@ -12,6 +12,7 @@ import { isStaticSource } from "../../utils/playback";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { CountBadge } from "../Badge/Badge";
 import { Card, type CardTone } from "../Card/Card";
+import { TableText } from "../Table/TableText";
 
 export type ThreadPerson = {
 	name: string;
@@ -224,19 +225,16 @@ const ThreadSummary = (props: ThreadSummaryProps & { size: ThreadSize }) => {
 			</span>
 			<span class="flex min-w-0 flex-1 flex-col">
 				<span class="flex w-full min-w-0 items-center gap-2">
-					<span
+					<TableText
 						data-thread-name=""
 						class={cx(
-							"min-w-0 truncate",
 							size().name,
 							read()
 								? "font-medium text-muted-foreground"
 								: "font-semibold text-foreground",
 						)}
-						title={props.name}
-					>
-						{props.name}
-					</span>
+						text={props.name}
+					/>
 					<Show when={props.private}>
 						<LockKeyholeMinimalisticIcon
 							aria-label="Private"

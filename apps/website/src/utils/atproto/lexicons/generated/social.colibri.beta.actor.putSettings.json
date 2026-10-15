@@ -15,7 +15,8 @@
 							"description": "Which messages produce a notification. Absent leaves the current value unchanged.",
 							"knownValues": [
 								"all",
-								"mentionsAndReplies"
+								"mentionsAndReplies",
+								"nothing"
 							]
 						},
 						"communityOrder": {
@@ -38,6 +39,16 @@
 						"shareActivity": {
 							"type": "boolean",
 							"description": "Whether the AppView may show what the user is listening to. Absent leaves the current value unchanged."
+						},
+						"clientPreferences": {
+							"type": "ref",
+							"ref": "social.colibri.beta.actor.defs#clientPreferences",
+							"description": "The contents of the user's social.colibri.beta.actor.clientPreferences record. Replaces the stored copy whole. Absent leaves the current value unchanged."
+						},
+						"composerState": {
+							"type": "ref",
+							"ref": "social.colibri.beta.actor.defs#composerState",
+							"description": "The contents of the user's social.colibri.beta.actor.composerState record. Replaces the stored copy whole. Absent leaves the current value unchanged."
 						}
 					}
 				}

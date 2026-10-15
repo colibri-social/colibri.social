@@ -1,4 +1,5 @@
 import { frameIs, type ServerFrame } from "@colibri-social/lib";
+import { fromWire } from "../../preferences/wire";
 import type { LiveEvent } from "../../source";
 import type {
 	CategoryView,
@@ -6,7 +7,6 @@ import type {
 	CommunityView,
 	Datetime,
 	Did,
-	GifView,
 	MessageView,
 	NotificationView,
 	Presence,
@@ -155,10 +155,10 @@ export const toLiveEvents = (frame: ServerFrame): LiveEvent[] => {
 	}
 
 	if (frameIs(frame, "preferencesEvent")) {
-		const gifs = frame.preferences.gifFavorites;
-		if (!gifs) return [];
+		const { communityOrder, gifFavorites, mutes } = frame.preferences;
+		if (!communityOrder || !gifFavorites || !mutes) return [];
 		return [
-			{ $type: "preferencesEvent", gifFavorites: [...gifs] as GifView[] },
+			{ $type: "preferencesEvent", preferences: fromWire(frame.preferences) },
 		];
 	}
 

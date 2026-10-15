@@ -231,6 +231,10 @@
 				"height": {
 					"type": "integer",
 					"description": "Intrinsic pixel height, when the file is a decodable image or video."
+				},
+				"spoiler": {
+					"type": "boolean",
+					"description": "Whether the author marked the file as a spoiler. Clients hide it behind a reveal step."
 				}
 			}
 		},

@@ -72,6 +72,19 @@ const NoChannel = () => (
 	/>
 );
 
+const AfterPaint = (props: { children: JSX.Element }) => {
+	const [ready, setReady] = createSignal(false);
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const frame = requestAnimationFrame(() => {
+		timer = setTimeout(() => setReady(true));
+	});
+	onCleanup(() => {
+		cancelAnimationFrame(frame);
+		clearTimeout(timer);
+	});
+	return <Show when={ready()}>{props.children}</Show>;
+};
+
 export const DesktopShell = () => {
 	const data = useData();
 	const stack = createDesktopStack();
@@ -147,6 +160,7 @@ export const DesktopShell = () => {
 	};
 	const splitPane = () => (fullThread() ? undefined : route().pane);
 	const isVoice = () => chat()?.channelType === VOICE_CHANNEL;
+	const membersTarget = () => (isVoice() ? undefined : chat());
 
 	const loadFailure = createMemo(() => {
 		if (!data.communities.value()) {
@@ -332,15 +346,21 @@ export const DesktopShell = () => {
 								/>
 							}
 							members={
-								<Show when={chat() && !isVoice() ? chat() : undefined} keyed>
+								<Show when={membersTarget()}>
 									{(current) => (
 										<Suspense>
-											<MembersScreen
-												args={{
-													space: current.space,
-													channel: current.channel,
-												}}
-											/>
+											<AfterPaint>
+												<MembersScreen
+													args={{
+														get space() {
+															return current().space;
+														},
+														get channel() {
+															return current().channel;
+														},
+													}}
+												/>
+											</AfterPaint>
 										</Suspense>
 									)}
 								</Show>

@@ -5,6 +5,7 @@ import { createAnchorToggle } from "../../utils/anchor-toggle";
 import { cx } from "../../utils/cx";
 import { createExitHold } from "../../utils/exit-hold";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
+import { reducedMotionActive } from "../../utils/playback";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import type { PopoverPlacement } from "../Popover/Popover";
 import { Skeleton, SkeletonText } from "../Skeleton/Skeleton";
@@ -174,6 +175,7 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 									profile={profile()}
 									surface="popover"
 									tight
+									avatarPlay={open() && !reducedMotionActive()}
 									footer={props.footer}
 									onAction={(action) => {
 										setOpen(false);

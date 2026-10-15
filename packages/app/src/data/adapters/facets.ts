@@ -93,19 +93,54 @@ export const mentionsRole = (
 	);
 };
 
-export const linkUris = (facets: readonly Facet[] | undefined) => {
-	const uris: string[] = [];
-	for (const facet of facets ?? []) {
+const LINK_FEATURE = "social.colibri.beta.richtext.facet#link";
+const SPOILER_FEATURE = "social.colibri.beta.richtext.facet#spoiler";
+
+const linkUriOf = (feature: Facet["features"][number]) =>
+	feature.$type === LINK_FEATURE &&
+	"uri" in feature &&
+	typeof feature.uri === "string"
+		? feature.uri
+		: undefined;
+
+const linkFacets = (facets: readonly Facet[] | undefined) => {
+	const list = facets ?? [];
+	const spoilers = list
+		.filter((facet) =>
+			facet.features.some((feature) => feature.$type === SPOILER_FEATURE),
+		)
+		.map((facet) => facet.index);
+	const insideSpoiler = (index: Facet["index"]) =>
+		spoilers.some(
+			(spoiler) =>
+				index.byteStart < spoiler.byteEnd && spoiler.byteStart < index.byteEnd,
+		);
+	const links: { uri: string; spoiler: boolean }[] = [];
+	for (const facet of list) {
 		for (const feature of facet.features) {
-			if (
-				feature.$type === "social.colibri.beta.richtext.facet#link" &&
-				"uri" in feature &&
-				typeof feature.uri === "string" &&
-				!uris.includes(feature.uri)
-			) {
-				uris.push(feature.uri);
-			}
+			const uri = linkUriOf(feature);
+			if (uri) links.push({ uri, spoiler: insideSpoiler(facet.index) });
 		}
 	}
+	return links;
+};
+
+export const linkUris = (facets: readonly Facet[] | undefined) => {
+	const uris: string[] = [];
+	for (const link of linkFacets(facets)) {
+		if (!link.spoiler && !uris.includes(link.uri)) uris.push(link.uri);
+	}
 	return uris;
+};
+
+export const spoileredLinkUris = (facets: readonly Facet[] | undefined) => {
+	const links = linkFacets(facets);
+	const visible = new Set(
+		links.filter((link) => !link.spoiler).map((link) => link.uri),
+	);
+	return new Set(
+		links
+			.filter((link) => link.spoiler && !visible.has(link.uri))
+			.map((link) => link.uri),
+	);
 };

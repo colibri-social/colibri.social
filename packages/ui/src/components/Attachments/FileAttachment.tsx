@@ -21,12 +21,14 @@ import { AnimatedDownloadIcon } from "../../icons/animated/navigation";
 import { cx } from "../../utils/cx";
 import { Scrubber } from "../Media/Scrubber";
 import { Skeleton, SkeletonText } from "../Skeleton/Skeleton";
+import { TableText } from "../Table/TableText";
 import {
 	createPressRipple,
 	embedSurface,
 	formatBytes,
 	formatClock,
 	pressSurface,
+	SpoilerFrame,
 } from "./shared";
 
 export type FileKind = "generic" | "pdf" | "audio" | "video" | "archive";
@@ -114,18 +116,21 @@ export type FileAttachmentProps = {
 	mimeType?: string;
 	href?: string;
 	progress?: number;
+	spoiler?: boolean;
 	onCancel?: () => void;
 	class?: string;
 };
 
 export const FileAttachment = (props: FileAttachmentProps) => {
 	const press = createPressRipple();
+	const [revealed, setRevealed] = createSignal(false);
+	const hidden = () => !!props.spoiler && !revealed();
 	const kind = () => props.kind ?? fileKindOf(props.name, props.mimeType);
 	const uploading = () => props.progress !== undefined && props.progress < 1;
-	const interactive = () => !uploading() && !!props.href;
+	const interactive = () => !uploading() && !!props.href && !hidden();
 	const meta = () => `${KIND_LABEL[kind()]} · ${formatBytes(props.size)}`;
 
-	return (
+	const card = () => (
 		<Dynamic
 			component={interactive() ? "a" : "div"}
 			ref={(element: HTMLElement) => {
@@ -140,14 +145,12 @@ export const FileAttachment = (props: FileAttachmentProps) => {
 				cardClass,
 				"items-center no-underline",
 				interactive() && cx(pressSurface, "hover:bg-popover"),
-				props.class,
+				!props.spoiler && props.class,
 			)}
 		>
 			<KindTile kind={kind()} />
 			<span class="flex min-w-0 flex-1 flex-col gap-1">
-				<span class="truncate text-sm font-semibold" title={props.name}>
-					{props.name}
-				</span>
+				<TableText class="text-sm font-semibold" text={props.name} />
 				<Show
 					when={uploading()}
 					fallback={<span class="text-xs text-muted-foreground">{meta()}</span>}
@@ -184,6 +187,19 @@ export const FileAttachment = (props: FileAttachmentProps) => {
 			</Switch>
 		</Dynamic>
 	);
+
+	return (
+		<Show when={props.spoiler} fallback={card()}>
+			<SpoilerFrame
+				hidden={hidden()}
+				label="Reveal spoiler file"
+				onReveal={() => setRevealed(true)}
+				class={props.class}
+			>
+				{card()}
+			</SpoilerFrame>
+		</Show>
+	);
 };
 
 export type AudioAttachmentProps = {
@@ -192,10 +208,12 @@ export type AudioAttachmentProps = {
 	src?: string;
 	duration?: number;
 	href?: string;
+	spoiler?: boolean;
 	class?: string;
 };
 
 export const AudioAttachment = (props: AudioAttachmentProps) => {
+	const [revealed, setRevealed] = createSignal(false);
 	const [playing, setPlaying] = createSignal(false);
 	const [muted, setMuted] = createSignal(false);
 	const [position, setPosition] = createSignal(0);
@@ -231,13 +249,13 @@ export const AudioAttachment = (props: AudioAttachmentProps) => {
 
 	const meta = () => `${KIND_LABEL.audio} · ${formatBytes(props.size)}`;
 
-	return (
+	const card = () => (
 		<div
 			data-audio-attachment=""
 			class={cx(
 				embedSurface,
 				"flex w-full max-w-[416px] flex-col gap-3 p-3",
-				props.class,
+				!props.spoiler && props.class,
 			)}
 		>
 			<Show when={props.src}>
@@ -269,9 +287,7 @@ export const AudioAttachment = (props: AudioAttachmentProps) => {
 			<div class="flex items-center gap-3">
 				<KindTile kind="audio" />
 				<div class="flex min-w-0 flex-1 flex-col gap-1">
-					<span class="truncate text-sm font-semibold" title={props.name}>
-						{props.name}
-					</span>
+					<TableText class="text-sm font-semibold" text={props.name} />
 					<span class="text-xs text-muted-foreground">{meta()}</span>
 				</div>
 				<Show when={props.href}>
@@ -322,6 +338,19 @@ export const AudioAttachment = (props: AudioAttachmentProps) => {
 				</button>
 			</div>
 		</div>
+	);
+
+	return (
+		<Show when={props.spoiler} fallback={card()}>
+			<SpoilerFrame
+				hidden={!revealed()}
+				label="Reveal spoiler audio"
+				onReveal={() => setRevealed(true)}
+				class={props.class}
+			>
+				{card()}
+			</SpoilerFrame>
+		</Show>
 	);
 };
 

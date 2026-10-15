@@ -94,6 +94,32 @@ export const createRecords = (transport: Transport) => {
 			}
 			return undefined;
 		},
+		listInSpace: async (target: {
+			space: string;
+			collection: string;
+			repo?: string;
+		}): Promise<StoredRecord[]> => {
+			const found: StoredRecord[] = [];
+			let cursor: string | undefined;
+			for (let page = 0; page < RECORD_SCAN_LIMIT; page++) {
+				const result = await transport.pdsQuery<{
+					cursor?: string;
+					records: StoredRecord[];
+				}>("com.atproto.space.listRecords", {
+					params: {
+						space: target.space,
+						repo: repoOf(target),
+						collection: target.collection,
+						limit: RECORD_PAGE,
+						cursor,
+					},
+				});
+				found.push(...result.records);
+				if (!result.cursor || result.records.length === 0) break;
+				cursor = result.cursor;
+			}
+			return found;
+		},
 		getInRepo: async (collection: string, rkey: string) => {
 			try {
 				return await transport.pdsQuery<StoredRecord>(

@@ -27,6 +27,7 @@ import { MarkAllReadIcon } from "../ContextMenu/menu-entries";
 import { Skeleton, SkeletonText } from "../Skeleton/Skeleton";
 import { SpaceIcon } from "../Space/SpaceIcon";
 import { SpaceRailAction } from "../SpaceRail/SpaceRail";
+import { TableText } from "../Table/TableText";
 import {
 	focusFirstRow,
 	focusFirstRowFrom,
@@ -231,9 +232,7 @@ const SidebarItem = (props: {
 			<span class="flex size-5 shrink-0 items-center justify-center [&>svg]:size-5">
 				{props.icon}
 			</span>
-			<span class="min-w-0 flex-1 truncate" title={props.label}>
-				{props.label}
-			</span>
+			<TableText class="flex-1" text={props.label} />
 			<CountBadge count={props.count} class="tabular-nums" />
 		</button>
 	</li>
@@ -486,11 +485,8 @@ export const InboxPopover = (props: InboxPopoverProps) => {
 							data-inbox-view-bar=""
 							class="flex h-12 shrink-0 items-center gap-2 border-b border-border pr-2 pl-4"
 						>
-							<p
-								class="m-0 min-w-0 flex-1 truncate text-sm font-semibold"
-								title={viewTitle()}
-							>
-								{viewTitle()}
+							<p class="m-0 min-w-0 flex-1 truncate text-sm font-semibold">
+								<TableText text={viewTitle() ?? ""} />
 							</p>
 							<Show when={viewUnread() > 0}>
 								<Button

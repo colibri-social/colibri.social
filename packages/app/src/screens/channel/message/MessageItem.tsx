@@ -59,6 +59,7 @@ import {
 	mentionsDid,
 	mentionsRole,
 	previewText,
+	spoileredLinkUris,
 	toTextValue,
 } from "../../../data/adapters/facets";
 import {
@@ -145,6 +146,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			unknownProfile(message().author),
 	);
 	const author = createMemo(() => toMessageAuthor(profile(), directory()));
+	const bridged = () => !!profile().bridge;
 	const text = createMemo(() => toTextValue(message().text, message().facets));
 
 	const reply = createMemo((): MessageReply | undefined => {
@@ -170,13 +172,16 @@ export const MessageItem = (props: MessageItemProps) => {
 	);
 	const suppression = createMemo(() => embedSuppression(view()));
 	const embedsOn = () => chat.linkEmbedsEnabled?.() !== false;
+	const spoileredLinks = createMemo(() => spoileredLinkUris(message().facets));
+	const unspoileredEmbeds = () =>
+		(view()?.embeds ?? []).filter((embed) => !spoileredLinks().has(embed.uri));
 	const embeds = createMemo(() =>
-		embedsOn() ? visibleEmbeds(view()?.embeds, suppression()) : [],
+		embedsOn() ? visibleEmbeds(unspoileredEmbeds(), suppression()) : [],
 	);
 	const blueskyLinks = createMemo(() => {
 		if (!chat.loadBlueskyPost || !embedsOn()) return [];
 		const covered = new Set<string>(
-			(view()?.embeds ?? []).map((embed) => embed.uri),
+			unspoileredEmbeds().map((embed) => embed.uri),
 		);
 		return linkUris(message().facets).filter(
 			(uri) =>
@@ -190,12 +195,13 @@ export const MessageItem = (props: MessageItemProps) => {
 		const add = (uri: string) => {
 			if (!uris.includes(uri)) uris.push(uri);
 		};
-		for (const embed of view()?.embeds ?? []) add(embed.uri);
+		for (const embed of unspoileredEmbeds()) add(embed.uri);
 		for (const uri of linkUris(message().facets)) {
 			if (parseBlueskyPostUrl(uri)) add(uri);
 		}
-		for (const uri of suppression().author) add(uri);
-		for (const uri of suppression().moderator) add(uri);
+		for (const uri of [...suppression().author, ...suppression().moderator]) {
+			if (!spoileredLinks().has(uri)) add(uri);
+		}
 		return uris;
 	});
 	const attachmentContent = () =>
@@ -433,7 +439,54 @@ export const MessageItem = (props: MessageItemProps) => {
 
 	const [contextLink, setContextLink] = createSignal<HTMLAnchorElement>();
 	const [contextImage, setContextImage] = createSignal<ImageTarget>();
+	const [contextSelection, setContextSelection] = createSignal<{
+		text: string;
+		ranges: Range[];
+	}>();
+	const captureSelection = (row: Element) => {
+		const current = window.getSelection();
+		if (!current || current.isCollapsed) return undefined;
+		const ranges = Array.from({ length: current.rangeCount }, (_, index) =>
+			current.getRangeAt(index).cloneRange(),
+		);
+		if (!ranges.some((range) => range.intersectsNode(row))) return undefined;
+		const text = current.toString();
+		return text.trim() ? { text, ranges } : undefined;
+	};
+	const restoreSelection = () => {
+		const saved = contextSelection();
+		const current = window.getSelection();
+		if (!saved || !current?.isCollapsed) return;
+		current.removeAllRanges();
+		for (const range of saved.ranges) current.addRange(range);
+	};
+	const copySelectionAction = () => {
+		const saved = contextSelection();
+		if (!saved) return undefined;
+		return async () => {
+			const copied = await copyText(saved.text);
+			if (copied) toast.success("Copied text");
+			else toast.error("Couldn't copy text");
+		};
+	};
+	let pressedSelection:
+		| { value: ReturnType<typeof captureSelection> }
+		| undefined;
+	const captureSecondaryPress = (event: MouseEvent) => {
+		const secondary =
+			event.button === 2 || (event.button === 0 && event.ctrlKey);
+		if (!secondary || !(event.currentTarget instanceof Element)) return;
+		pressedSelection = { value: captureSelection(event.currentTarget) };
+	};
 	const captureContextLink = (event: MouseEvent) => {
+		if (event.currentTarget instanceof Element) {
+			setContextSelection(
+				pressedSelection
+					? pressedSelection.value
+					: captureSelection(event.currentTarget),
+			);
+		}
+		pressedSelection = undefined;
 		const target = event.target;
 		const anchorElement =
 			target instanceof Element
@@ -449,6 +502,7 @@ export const MessageItem = (props: MessageItemProps) => {
 	};
 	const attachRow = (element: HTMLDivElement) => {
 		seenTarget = element;
+		element.addEventListener("mousedown", captureSecondaryPress, true);
 		element.addEventListener("contextmenu", captureContextLink, true);
 		element.addEventListener("pointerdown", capturePressedImage, {
 			capture: true,
@@ -688,8 +742,12 @@ export const MessageItem = (props: MessageItemProps) => {
 			editing={editingNow()}
 			onRetry={() => chat.onRetry(message())}
 			onDelete={() => chat.onDelete(message())}
-			onAuthorClick={() => chat.onOpenProfile(message().author)}
-			onAuthorMenu={() => chat.onOpenMemberMenu(message().author)}
+			onAuthorClick={
+				bridged() ? undefined : () => chat.onOpenProfile(message().author)
+			}
+			onAuthorMenu={
+				bridged() ? undefined : () => chat.onOpenMemberMenu(message().author)
+			}
 			attachments={
 				!hidden() && attachmentContent() ? attachmentsView() : undefined
 			}
@@ -775,7 +833,12 @@ export const MessageItem = (props: MessageItemProps) => {
 					setContextLink(undefined);
 					setContextImage(undefined);
 				}
+				requestAnimationFrame(() => {
+					restoreSelection();
+					if (!open) setContextSelection(undefined);
+				});
 			}}
+			onCopySelection={copySelectionAction()}
 			link={linkActions()}
 			image={imageActions()}
 			onEdit={editAction()}

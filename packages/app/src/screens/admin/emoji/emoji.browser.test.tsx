@@ -108,7 +108,11 @@ const pressButton = async (scope: ParentNode, name: string | RegExp) => {
 	let target: HTMLElement | undefined;
 	await until(() => {
 		target = buttonNamed(scope, name);
-		return !!target && !(target as HTMLButtonElement).disabled;
+		return (
+			!!target &&
+			!(target as HTMLButtonElement).disabled &&
+			target.getAttribute("aria-disabled") !== "true"
+		);
 	});
 	target?.click();
 };

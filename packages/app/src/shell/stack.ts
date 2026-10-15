@@ -78,6 +78,7 @@ export const createStack = (options: StackOptions) => {
 	let target = depth;
 	let velocity = 0;
 	let frameRequest = 0;
+	let pushRequest = 0;
 	let lastTime = 0;
 	let held = false;
 	let width = typeof window === "undefined" ? 400 : window.innerWidth;
@@ -116,6 +117,7 @@ export const createStack = (options: StackOptions) => {
 	const history = createHistorySync({
 		port,
 		route: committed,
+		stacksOverTab: (next) => next.tab === "settings",
 		onExternal: (navigation) => {
 			if (blocksPop(navigation.depth, () => popTo(navigation.depth))) {
 				history.sync();
@@ -303,7 +305,8 @@ export const createStack = (options: StackOptions) => {
 		}
 		setMoving(true);
 		render();
-		requestAnimationFrame(() => {
+		cancelAnimationFrame(pushRequest);
+		pushRequest = requestAnimationFrame(() => {
 			if (target === next && !gesture) animateTo(next, 0);
 		});
 	};
@@ -489,6 +492,7 @@ export const createStack = (options: StackOptions) => {
 			node.removeEventListener("click", swallowInactive, true);
 			unbind();
 			stopLoop();
+			cancelAnimationFrame(pushRequest);
 			history.dispose();
 		});
 		history.seed(committed());

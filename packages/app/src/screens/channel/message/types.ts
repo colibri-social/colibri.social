@@ -1,5 +1,6 @@
 import type { PendingMessage } from "../../../data/store";
 import type {
+	AttachmentView,
 	DeletedMessageView,
 	Facet,
 	MessageView,
@@ -27,7 +28,7 @@ export type ChatMessage = {
 	view?: MessageView;
 	thread?: ThreadView;
 	anchor?: boolean;
-	attachments?: MessageView["attachments"];
+	attachments?: AttachmentView[];
 	uploadProgress?: (number | undefined)[];
 };
 
@@ -66,7 +67,7 @@ export const pendingChatMessage = (input: {
 	facets?: Facet[];
 	parent?: MessageView;
 	createdAt?: string;
-	attachments?: MessageView["attachments"];
+	attachments?: AttachmentView[];
 	uploadProgress?: (number | undefined)[];
 }): ChatMessage => ({
 	key: input.nonce,

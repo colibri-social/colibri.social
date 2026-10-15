@@ -167,9 +167,7 @@ export const LongNames: Story = {
 		</ThreadsPage>
 	),
 	play: async ({ canvasElement }) => {
-		const names = Array.from(
-			canvasElement.querySelectorAll<HTMLElement>(`[title="${LONG_NAME}"]`),
-		);
+		const names = within(canvasElement).getAllByText(LONG_NAME);
 		await expect(names).toHaveLength(2);
 		for (const name of names) {
 			await expect(name.scrollWidth).toBeGreaterThan(name.clientWidth);

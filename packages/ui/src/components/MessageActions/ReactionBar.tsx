@@ -155,25 +155,28 @@ export type AddReactionButtonProps = {
 export const AddReactionButton = (props: AddReactionButtonProps) => {
 	const ripple = createRipple();
 	return (
-		<button
-			ref={ripple}
-			type="button"
-			data-icon-host=""
-			aria-label={props.label ?? "Add reaction"}
-			title={props.label ?? "Add reaction"}
-			disabled={props.disabled}
-			onClick={(event) => props.onClick?.(event)}
-			class={cx(
-				"ripple inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-control-sm border border-border bg-popover text-muted-foreground outline-none",
-				"hover:bg-popover-highlight hover:text-foreground focus-ring",
-				"disabled:cursor-not-allowed disabled:opacity-50",
-				props.class,
-			)}
-		>
-			<span class={iconEffectClass("wiggle", "press")}>
-				<SmileCircleIcon class="size-4" />
-			</span>
-		</button>
+		<Tooltip disabled={props.disabled}>
+			<TooltipTrigger
+				as="button"
+				ref={ripple}
+				type="button"
+				data-icon-host=""
+				aria-label={props.label ?? "Add reaction"}
+				disabled={props.disabled}
+				onClick={(event) => props.onClick?.(event)}
+				class={cx(
+					"ripple inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-control-sm border border-border bg-popover text-muted-foreground outline-none",
+					"hover:bg-popover-highlight hover:text-foreground focus-ring",
+					"disabled:cursor-not-allowed disabled:opacity-50",
+					props.class,
+				)}
+			>
+				<span class={iconEffectClass("wiggle", "press")}>
+					<SmileCircleIcon class="size-4" />
+				</span>
+			</TooltipTrigger>
+			<TooltipContent>{props.label ?? "Add reaction"}</TooltipContent>
+		</Tooltip>
 	);
 };
 

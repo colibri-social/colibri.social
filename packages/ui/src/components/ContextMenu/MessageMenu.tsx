@@ -55,6 +55,7 @@ export type MessageMenuGif = {
 };
 
 export type MessageMenuActions = {
+	onCopySelection?: () => void;
 	link?: MessageMenuLink;
 	image?: MessageMenuImage;
 	onEdit?: () => void;
@@ -96,6 +97,24 @@ export const MessageMenuItems = (props: MessageMenuActions) => {
 
 	return (
 		<>
+			<Show when={props.onCopySelection}>
+				<MenuItem
+					icon={<CopyIcon />}
+					label="Copy"
+					onSelect={props.onCopySelection}
+				/>
+				<Show
+					when={
+						hasLink() ||
+						hasImageActions(props.image) ||
+						hasPrimary() ||
+						hasUtility() ||
+						hasDanger()
+					}
+				>
+					<MenuSeparator />
+				</Show>
+			</Show>
 			<Show when={hasLink()}>
 				<Show when={props.link?.onOpen}>
 					<MenuItem

@@ -2,6 +2,7 @@ import { ArrowDownIcon } from "@solar-icons/solid/linear/arrow-down";
 import { ArrowDownToLineIcon } from "@solar-icons/solid/linear/arrow-down-to-line";
 import { createUniqueId, Show } from "solid-js";
 import { cx } from "../../utils/cx";
+import { TableText } from "../Table/TableText";
 import type { ChatPlatform } from "./layout";
 
 export type JumpCardMode = "bottom" | "new" | "present";
@@ -70,9 +71,8 @@ export const JumpCard = (props: JumpCardProps) => {
 							"m-0 min-w-0 truncate text-sm tabular-nums",
 							props.mode === "new" ? "font-semibold" : "text-muted-foreground",
 						)}
-						title={text()}
 					>
-						{text()}
+						<TableText text={text()} />
 					</p>
 					<button
 						type="button"

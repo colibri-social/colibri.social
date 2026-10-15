@@ -7,6 +7,7 @@ import { spaceNotificationPrefs } from "../../data/notifications";
 import { createDataStore, DataContext } from "../../data/store";
 import { setVoiceSoundPlayer } from "../../data/voice";
 import { Providers } from "../../providers";
+import { usePlatform } from "../../screen/platform";
 import { DesktopShell } from "../../shell/desktop/DesktopShell";
 import { depthOf } from "../../shell/history-sync";
 import { MobileShell } from "../../shell/MobileShell";
@@ -41,9 +42,7 @@ const mount = async (platform: "mobile" | "desktop", path: string) => {
 	setVoiceSoundPlayer(() => {});
 	if (platform === "desktop") await page.viewport(1440, 900);
 	else await page.viewport(402, 874);
-	await until(
-		() => matchMedia("(min-width: 768px)").matches === (platform === "desktop"),
-	);
+	await until(() => usePlatform()() === platform);
 	history.replaceState(null, "", path);
 	const store = createDataStore(createMockSource({ live: false }));
 	const host = document.createElement("div");

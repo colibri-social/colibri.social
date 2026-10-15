@@ -1,4 +1,5 @@
-import type { JSX } from "solid-js";
+import { EyeIcon } from "@solar-icons/solid/bold/eye";
+import { type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
 
@@ -47,4 +48,51 @@ export const TextAction = (props: TextActionProps) => (
 		{props.icon}
 		{props.children}
 	</button>
+);
+
+export type SpoilerFrameProps = {
+	hidden: boolean;
+	label: string;
+	onReveal: () => void;
+	class?: string;
+	children: JSX.Element;
+};
+
+export const SpoilerFrame = (props: SpoilerFrameProps) => (
+	<div
+		data-spoiler-frame=""
+		data-spoiler-hidden={props.hidden ? "" : undefined}
+		class={cx(
+			"relative w-full max-w-[416px] overflow-hidden rounded-surface",
+			props.class,
+		)}
+	>
+		<div
+			inert={props.hidden}
+			aria-hidden={props.hidden ? "true" : undefined}
+			class={cx(
+				"transition-[filter] duration-[calc(150ms*var(--motion-scale))] motion-reduce:transition-none reduced-motion:transition-none",
+				props.hidden && "blur-md select-none",
+			)}
+		>
+			{props.children}
+		</div>
+		<Show when={props.hidden}>
+			<button
+				type="button"
+				data-spoiler-reveal=""
+				onClick={() => props.onReveal()}
+				class="focus-ring-inset absolute inset-0 flex cursor-pointer items-center justify-center rounded-surface border-0 bg-black/25 p-0 outline-none"
+			>
+				<span class="sr-only">{props.label}</span>
+				<span
+					aria-hidden="true"
+					class="flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-sm font-semibold text-white backdrop-blur-sm [&>svg]:size-4"
+				>
+					<EyeIcon />
+					Spoiler
+				</span>
+			</button>
+		</Show>
+	</div>
 );

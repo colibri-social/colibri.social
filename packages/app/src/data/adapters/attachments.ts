@@ -47,6 +47,7 @@ export const splitAttachments = (
 		const uploading = progress[index];
 		const name = fileName(attachment);
 		const kind = mediaKindOf(attachment.mimeType);
+		const spoiler = attachment.spoiler === true ? { spoiler: true } : {};
 		if (kind) {
 			result.media.push({
 				src: attachment.url,
@@ -57,6 +58,7 @@ export const splitAttachments = (
 				kind,
 				downloadHref: attachment.url,
 				progress: uploading,
+				...spoiler,
 			});
 			continue;
 		}
@@ -66,6 +68,7 @@ export const splitAttachments = (
 				size: attachment.size ?? 0,
 				src: attachment.url,
 				href: attachment.url,
+				...spoiler,
 			});
 			continue;
 		}
@@ -75,6 +78,7 @@ export const splitAttachments = (
 			mimeType: attachment.mimeType,
 			href: attachment.url,
 			progress: uploading,
+			...spoiler,
 		});
 	}
 	return result;

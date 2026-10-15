@@ -229,11 +229,33 @@ export const Controls: Story = {
 		const serverMic = server.getByRole("button", {
 			name: "Muted by a moderator",
 		});
-		await expect(serverMic).toBeDisabled();
+		await expect(serverMic).toHaveAttribute("aria-disabled", "true");
 		await expect(serverMic).toHaveAttribute("data-tone", "server");
-		await expect(
-			server.getByRole("button", { name: "Deafened by a moderator" }),
-		).toBeDisabled();
+		const serverDeafen = server.getByRole("button", {
+			name: "Deafened by a moderator",
+		});
+		await expect(serverDeafen).toHaveAttribute("aria-disabled", "true");
+		const selectionsBefore = haptics.selection.mock.calls.length;
+		await userEvent.click(serverMic);
+		await expect(haptics.selection).toHaveBeenCalledTimes(selectionsBefore);
+		await userEvent.hover(serverMic);
+		await waitFor(
+			() =>
+				expect(screen.getByRole("tooltip")).toHaveTextContent(
+					"A moderator muted you. Your mic stays muted until they lift it.",
+				),
+			{ timeout: 3000 },
+		);
+		await userEvent.unhover(serverMic);
+		await userEvent.hover(serverDeafen);
+		await waitFor(
+			() =>
+				expect(screen.getByRole("tooltip")).toHaveTextContent(
+					"A moderator deafened you. You stay deafened until they lift it.",
+				),
+			{ timeout: 2000 },
+		);
+		await userEvent.unhover(serverDeafen);
 	},
 };
 
@@ -791,9 +813,19 @@ export const StatusPanel: Story = {
 			),
 		).toHaveTextContent("Voice disconnected");
 		const server = within(canvas.getByTestId("status-server"));
-		await expect(
-			server.getByRole("button", { name: "Muted by a moderator" }),
-		).toBeDisabled();
+		const serverMic = server.getByRole("button", {
+			name: "Muted by a moderator",
+		});
+		await expect(serverMic).toHaveAttribute("aria-disabled", "true");
+		await userEvent.hover(serverMic);
+		await waitFor(
+			() =>
+				expect(screen.getByRole("tooltip")).toHaveTextContent(
+					"A moderator muted you. Your mic stays muted until they lift it.",
+				),
+			{ timeout: 3000 },
+		);
+		await userEvent.unhover(serverMic);
 	},
 };
 

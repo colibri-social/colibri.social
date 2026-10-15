@@ -234,7 +234,16 @@ export const MessageRow = (props: MessageRowProps) => {
 	const attachments = createSlot(() => local.attachments);
 	const reactions = createSlot(() => local.reactions);
 	const thread = createSlot(() => local.thread);
-	const toolbar = createSlot(() => local.toolbar);
+	const [toolbarArmed, setToolbarArmed] = createSignal(false);
+	const armToolbar = () => {
+		if (!toolbarArmed()) setToolbarArmed(true);
+	};
+	const toolbar = createSlot(() =>
+		toolbarArmed() || local.toolbarOpen ? local.toolbar : undefined,
+	);
+	const showToolbar = () =>
+		!editing() &&
+		(toolbarArmed() || local.toolbarOpen ? toolbar.has() : !mobile());
 	const dimmed = () => local.state === "pending";
 	const [failedMenuOpen, setFailedMenuOpen] = createSignal(false);
 	const keyboardModality = useKeyboardModality();
@@ -334,7 +343,13 @@ export const MessageRow = (props: MessageRowProps) => {
 					pressFailed(event);
 					if (typeof rest.onClick === "function") rest.onClick(event);
 				}}
+				onPointerEnter={(event) => {
+					armToolbar();
+					if (typeof rest.onPointerEnter === "function")
+						rest.onPointerEnter(event);
+				}}
 				onFocusIn={(event) => {
+					armToolbar();
 					setKeyboardFocus(keyboardModality());
 					if (typeof rest.onFocusIn === "function") rest.onFocusIn(event);
 				}}
@@ -586,7 +601,7 @@ export const MessageRow = (props: MessageRowProps) => {
 						</Show>
 					</div>
 				</div>
-				<Show when={toolbar.has() && !editing()}>
+				<Show when={showToolbar()}>
 					<div
 						data-message-toolbar=""
 						class={cx(

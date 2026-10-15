@@ -1,5 +1,5 @@
 import { historyBusy, historyGo, whenHistoryIdle } from "./history-go";
-import { parsePath, pathAt, type Route } from "./layers";
+import { parsePath, pathAt, type Root, type Route } from "./layers";
 
 export type HistoryPort = {
 	state: () => unknown;
@@ -20,7 +20,15 @@ export const depthOf = (state: unknown) => {
 	return typeof value === "number" ? value : 0;
 };
 
-const entry = (depth: number) => ({ [DEPTH_KEY]: depth });
+const TAB_OVER_KEY = "colibriTabOver";
+
+const isTabOver = (state: unknown) =>
+	(state as Record<string, unknown> | null)?.[TAB_OVER_KEY] === true;
+
+const entry = (depth: number, tabOver = false) =>
+	tabOver
+		? { [DEPTH_KEY]: depth, [TAB_OVER_KEY]: true }
+		: { [DEPTH_KEY]: depth };
 
 const OVERLAY_KEY = "colibriOverlay";
 
@@ -66,11 +74,14 @@ export const createHistorySync = (options: {
 	route: () => Route;
 	onExternal: (navigation: ExternalNavigation) => void;
 	parse?: (path: string) => Route;
+	stacksOverTab?: (root: Root) => boolean;
 }) => {
 	const { port } = options;
 	const parse = options.parse ?? parsePath;
+	const stacksOverTab = options.stacksOverTab ?? (() => false);
 	let pendingPop = false;
 	let dirty = false;
+	let disposed = false;
 	let basePath: string | undefined;
 
 	const writeStack = (route: Route) => {
@@ -85,7 +96,7 @@ export const createHistorySync = (options: {
 
 	const flushSeed = () => {
 		const route = pendingSeed;
-		if (!route) return;
+		if (!route || disposed) return;
 		pendingSeed = undefined;
 		if (depthOf(port.state()) !== route.layers.length) return;
 		writeStack(route);
@@ -106,6 +117,7 @@ export const createHistorySync = (options: {
 	let waitingForIdle = false;
 
 	const sync = () => {
+		if (disposed) return;
 		flushSeed();
 		if (!pendingPop && port.busy?.() && port.whenIdle) {
 			if (!waitingForIdle) {
@@ -124,6 +136,23 @@ export const createHistorySync = (options: {
 		const route = options.route();
 		const desired = route.layers.length;
 		const current = depthOf(port.state());
+		const onTabOver = current === 0 && isTabOver(port.state());
+		const wantsTabOver = stacksOverTab(route.root);
+		if (onTabOver && !wantsTabOver) {
+			pendingPop = true;
+			port.go(-1);
+			return;
+		}
+		if (
+			current === 0 &&
+			!onTabOver &&
+			wantsTabOver &&
+			!hasOverlay(port.state()) &&
+			port.path() !== pathAt(route, 0)
+		) {
+			basePath = pathAt(route, 0);
+			port.push(entry(0, true), basePath);
+		}
 		const rootChanged =
 			current > 0 && basePath !== undefined && basePath !== pathAt(route, 0);
 		if (desired < current || rootChanged) {
@@ -134,7 +163,7 @@ export const createHistorySync = (options: {
 		const currentPath = pathAt(route, current);
 		const overlayOnTop = desired > current && hasOverlay(port.state());
 		if (!overlayOnTop && port.path() !== currentPath) {
-			port.replace(entry(current), currentPath);
+			port.replace(entry(current, onTabOver), currentPath);
 		}
 		if (current === 0) basePath = currentPath;
 		for (let depth = current + 1; depth <= desired; depth++) {
@@ -146,7 +175,7 @@ export const createHistorySync = (options: {
 		}
 	};
 
-	const dispose = port.onPop(() => {
+	const stopListening = port.onPop(() => {
 		if (pendingPop) {
 			pendingPop = false;
 			dirty = false;
@@ -163,6 +192,12 @@ export const createHistorySync = (options: {
 			path: port.path(),
 		});
 	});
+
+	const dispose = () => {
+		disposed = true;
+		pendingSeed = undefined;
+		stopListening();
+	};
 
 	return {
 		seed,

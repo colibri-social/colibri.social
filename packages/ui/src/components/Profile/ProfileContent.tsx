@@ -70,6 +70,7 @@ export type ProfileContentPartProps = {
 	headingLevel?: 1 | 2 | 3;
 	onAction?: (action: ProfileAction) => void;
 	footer?: JSX.Element;
+	avatarPlay?: boolean;
 	class?: string;
 };
 
@@ -114,6 +115,7 @@ export const ProfileContentHeader = (props: ProfileContentPartProps) => {
 			statusEditable={props.profile.statusEditable}
 			statusShowWhileOffline={props.profile.statusShowWhileOffline}
 			onStatusClick={props.profile.onStatusClick}
+			avatarPlay={props.avatarPlay}
 			surface={props.surface ?? "popover"}
 			tight={props.tight}
 			headingLevel={props.headingLevel}
@@ -261,6 +263,7 @@ export const ProfileContent = (props: ProfileContentPartProps) => (
 			surface={props.surface}
 			tight={props.tight}
 			headingLevel={props.headingLevel}
+			avatarPlay={props.avatarPlay}
 			onAction={props.onAction}
 		/>
 		<ProfileContentBody

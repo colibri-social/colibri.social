@@ -50,6 +50,41 @@ it("keeps the normal group gap between the last message and the typing row", asy
 	expect(gap).toBeLessThanOrEqual(12);
 });
 
+it("reserves the typing room inside the list and overlays the typing row on it", async () => {
+	const { store, source } = await mount();
+	const { channel, other } = devOf(store);
+	await wait(400);
+	const bottom = main().querySelector(
+		"[data-message-list-bottom]",
+	) as HTMLElement;
+	const typing = () =>
+		main().querySelector("[data-composer-typing]") as HTMLElement;
+	const list = scroller();
+	expect(Number.parseFloat(getComputedStyle(bottom).paddingBottom)).toBe(32);
+	expect(getComputedStyle(typing()).position).toBe("absolute");
+	expect(
+		Math.abs(
+			typing().getBoundingClientRect().bottom -
+				list.getBoundingClientRect().bottom,
+		),
+	).toBeLessThanOrEqual(0.5);
+	const fade = getComputedStyle(typing()).backgroundImage;
+	expect(fade).toContain("rgb");
+	expect(fade).not.toMatch(/oklab|oklch|color-mix/);
+	const height = list.clientHeight;
+	source.emit({ $type: "typingEvent", did: other, channel });
+	await until(() => !!typing().querySelector("[data-active]"));
+	await wait(300);
+	expect(list.clientHeight).toBe(height);
+	expect(Number.parseFloat(getComputedStyle(bottom).paddingBottom)).toBe(32);
+	expect(
+		list.scrollHeight - list.scrollTop - list.clientHeight,
+	).toBeLessThanOrEqual(1);
+	expect(lastArticle().getBoundingClientRect().bottom).toBeLessThanOrEqual(
+		typing().getBoundingClientRect().top + 0.5,
+	);
+});
+
 it("matches the composer to the user panel height and edges", async () => {
 	await mount();
 	const box = (
@@ -197,8 +232,10 @@ it("hides the members toggle while a thread pane is open and restores the list a
 it("swaps More actions for Delete while Shift is held and keeps the regular buttons in place", async () => {
 	await mount();
 	const article = await send("Shift delete me");
+	await userEvent.hover(article);
 	const bar = () =>
 		article.querySelector<HTMLElement>("[role='toolbar']") as HTMLElement;
+	await until(() => !!bar());
 	const xOf = (action: string) =>
 		Math.round(
 			(
@@ -210,7 +247,7 @@ it("swaps More actions for Delete while Shift is held and keeps the regular butt
 		new KeyboardEvent("keydown", { key: "Shift", shiftKey: true }),
 	);
 	await until(() => !!bar().querySelector("[data-toolbar-action='delete']"));
-	expect(bar().querySelector("button[title='More actions']")).toBeNull();
+	expect(bar().querySelector("button[aria-label='More actions']")).toBeNull();
 	expect(bar().querySelector("[data-toolbar-action='react']")).toBeNull();
 	expect(["add-reaction", "edit", "forward"].map(xOf)).toEqual(before);
 	(

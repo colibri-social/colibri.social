@@ -1656,7 +1656,19 @@ export const HeaderChips: Story = {
 			);
 			const label = owner.querySelector(".truncate") as HTMLElement;
 			await expect(label.scrollWidth).toBeGreaterThan(label.clientWidth);
-			await expect(owner.title).toBe(`Owner @${LONG_OWNER}`);
+			await expect(owner).not.toHaveAttribute("title");
+			await userEvent.hover(label);
+			await waitFor(
+				() =>
+					expect(screen.getByRole("tooltip")).toHaveTextContent(
+						`Owner @${LONG_OWNER}`,
+					),
+				{ timeout: 2000 },
+			);
+			await userEvent.unhover(label);
+			await waitFor(() =>
+				expect(screen.queryByRole("tooltip")).not.toBeInTheDocument(),
+			);
 			await expectNoLayoutIssues(root);
 		}
 		const { root, members, owner } = chipsIn("short");

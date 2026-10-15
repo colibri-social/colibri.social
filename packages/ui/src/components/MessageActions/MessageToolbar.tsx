@@ -61,6 +61,24 @@ export const ToolbarAction = (props: ToolbarActionProps) => (
 	</Tooltip>
 );
 
+const MoreActionsTrigger = (
+	props: JSX.ButtonHTMLAttributes<HTMLButtonElement>,
+) => (
+	<Tooltip
+		disabled={
+			props["aria-expanded"] === true || props["aria-expanded"] === "true"
+		}
+	>
+		<TooltipTrigger
+			as="button"
+			{...props}
+			type="button"
+			aria-label="More actions"
+		/>
+		<TooltipContent>More actions</TooltipContent>
+	</Tooltip>
+);
+
 const defaultRenderEmoji: RenderEmoji = (emoji) => (
 	<span class="text-base leading-none">{emoji}</span>
 );
@@ -248,11 +266,11 @@ export const MessageToolbar = (props: MessageToolbarProps) => {
 			<Show
 				when={dangerReplacesMenu() ? danger() : undefined}
 				fallback={
-					<Show when={props.menu}>
+					<Show when={"menu" in props}>
 						<DropdownMenu
 							label="More actions"
+							triggerAs={MoreActionsTrigger}
 							triggerClass={toolbarActionClass}
-							triggerProps={{ title: "More actions" }}
 							trigger={
 								<span aria-hidden="true" class={toolbarGlyphClass}>
 									<MenuDotsIcon />

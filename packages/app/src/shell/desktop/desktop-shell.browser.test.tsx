@@ -34,6 +34,7 @@ const mount = async (path: string) => {
 		),
 		host,
 	);
+	return store;
 };
 
 it("opens the last or first text channel of the Space", async () => {
@@ -89,4 +90,21 @@ it("keeps the modal mounted while it animates out", async () => {
 	expect(exiting).not.toBeNull();
 	expect(exiting?.getAnimations().length).toBeGreaterThan(0);
 	await expect.poll(() => document.querySelector("[role=dialog]")).toBeNull();
+});
+
+it("shows the presence state under the name until a status is set", async () => {
+	const store = await mount(`/app/c/${HQ}`);
+	await expect.poll(() => location.pathname).toContain("channel.text");
+	const line = () =>
+		document.querySelector("[data-user-panel] [data-user-panel-status]")
+			?.textContent;
+	await store.setStatus({ text: "" });
+	await store.setOnlineState("dnd");
+	await expect.poll(line).toBe("Do not disturb");
+	await store.setOnlineState("away");
+	await expect.poll(line).toBe("Away");
+	await store.setStatus({ text: "Building a nest" });
+	await expect.poll(line).toBe("Building a nest");
+	await store.setStatus({ text: "" });
+	await expect.poll(line).toBe("Away");
 });

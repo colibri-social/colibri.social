@@ -1,10 +1,4 @@
-import {
-	asSpaceRef,
-	COLLECTIONS,
-	preferencesSpace,
-	SELF,
-	SPACE_TYPES,
-} from "@colibri-social/lexicons";
+import { COLLECTIONS } from "@colibri-social/lexicons";
 import {
 	type ClientFrame,
 	ColibriError,
@@ -20,6 +14,14 @@ import {
 import type { InvitationPreview, JoinResult } from "../access";
 import { type ChannelSummary, summarizeMessage } from "../channel-summary";
 import type { EmojiSource } from "../emoji";
+import {
+	createPreferencesSpace,
+	createRemotePreferenceBackend,
+} from "../preferences/remote";
+import {
+	createPreferenceStore,
+	preferencesSnapshotKey,
+} from "../preferences/store";
 import type {
 	ControlsPreferences,
 	DataSource,
@@ -76,6 +78,7 @@ export type RemoteSourceOptions = {
 	live: RemoteLive;
 	controls?: Partial<ControlsPreferences>;
 	cachedViewer?: ProfileView;
+	onScopesRejected?: () => void;
 };
 
 export const DEFAULT_REMOTE_CONTROLS: ControlsPreferences = {
@@ -141,46 +144,27 @@ export const createRemoteSource = async (
 				params: { actor: options.session.did },
 			})
 			.then((result) => result.profile as ProfileView);
-	const fetchFavorites = () =>
-		transport
-			.query(colibri.actor.getPreferences.main)
-			.then((result) => result.preferences.gifFavorites ?? [])
-			.catch((error: unknown) => {
-				log.warn("could not load preferences", {
-					code: classifyThrown(error).code,
-				});
-				return [];
-			});
-
 	const localListeners = new Set<(event: LiveEvent) => void>();
 	const emitLocal = (event: LiveEvent) => {
 		for (const listener of localListeners) listener(event);
 	};
 
+	const preferencesSpace = createPreferencesSpace(transport);
+	const preferences = createPreferenceStore({
+		backend: createRemotePreferenceBackend({
+			transport,
+			records,
+			space: preferencesSpace,
+		}),
+		controls: { ...DEFAULT_REMOTE_CONTROLS, ...options.controls },
+		snapshotKey: preferencesSnapshotKey(options.session.did),
+		onScopesRejected: options.onScopesRejected,
+	});
+
 	let viewer: ProfileView;
-	let initialFavorites: readonly GifView[] = [];
 	if (options.cachedViewer) {
 		viewer = options.cachedViewer;
-	} else {
-		const [profile, gifs] = await Promise.all([
-			fetchProfile(),
-			fetchFavorites(),
-		]);
-		viewer = profile;
-		initialFavorites = gifs as GifView[];
-	}
-	let controls: ControlsPreferences = {
-		...DEFAULT_REMOTE_CONTROLS,
-		...options.controls,
-	};
-	const favorites = new Map<string, GifView>(
-		initialFavorites.map((gif) => [gif.id, gif]),
-	);
-	if (options.cachedViewer) {
-		void fetchFavorites().then((gifs) => {
-			for (const gif of gifs as GifView[])
-				if (!favorites.has(gif.id)) favorites.set(gif.id, gif);
-		});
+		void preferences.refresh();
 		void fetchProfile().then(
 			(profile) => {
 				viewer = { ...profile, presence: viewer.presence ?? profile.presence };
@@ -191,6 +175,12 @@ export const createRemoteSource = async (
 					code: classifyThrown(error).code,
 				}),
 		);
+	} else {
+		const [profile] = await Promise.all([
+			fetchProfile(),
+			preferences.refresh(),
+		]);
+		viewer = profile;
 	}
 
 	options.live.subscribe((event) => {
@@ -214,56 +204,20 @@ export const createRemoteSource = async (
 				? [{ channel, cursor: status.cursor }]
 				: [];
 		});
-	let preferencesSpaceReady: Promise<void> | undefined;
-	const ensurePreferencesSpace = () => {
-		preferencesSpaceReady ??= transport
-			.pdsProcedure("com.atproto.simplespace.createSpace", {
-				body: {
-					spaceType: SPACE_TYPES.actorPreferences,
-					skey: SELF,
-					readPolicy: {
-						$type: "com.atproto.simplespace.defs#memberListPolicy",
-					},
-					writePolicy: {
-						$type: "com.atproto.simplespace.defs#memberListPolicy",
-					},
-					appAccess: { $type: "com.atproto.simplespace.defs#open" },
-				},
-			})
-			.then(
-				() => undefined,
-				(error: unknown) => {
-					preferencesSpaceReady = undefined;
-					log.warn("could not create the preferences space", {
-						code: classifyThrown(error, {
-							method: "com.atproto.simplespace.createSpace",
-						}).code,
-					});
-				},
-			);
-		return preferencesSpaceReady;
-	};
 	const readCursors = createReadCursorWriter({
 		hydrate: async (community) =>
 			cursorsOf(await readCursorStatuses(community)),
 		persist: async (community, cursors) => {
-			const put = () =>
+			await preferencesSpace.write(() =>
 				records.putInSpace(
 					{
-						space: asSpaceRef(preferencesSpace(transport.did)),
+						space: preferencesSpace.space,
 						collection: COLLECTIONS.channelRead,
 						rkey: community,
 					},
 					{ community, cursors },
-				);
-			try {
-				await put();
-			} catch (error) {
-				if (!(error instanceof ColibriError) || error.code !== "SpaceNotFound")
-					throw error;
-				await ensurePreferencesSpace();
-				await put();
-			}
+				),
+			);
 		},
 		push: async (community, cursors) => {
 			await transport.procedure(colibri.channel.putReadCursors.main, {
@@ -271,15 +225,12 @@ export const createRemoteSource = async (
 			});
 		},
 	});
-	let favoriteWrites = 0;
 	options.live.subscribe((event) => {
 		if (event.$type === "readCursorEvent") {
 			readCursors.adopt(event.community, event.cursors);
 		}
-		if (event.$type === "preferencesEvent" && favoriteWrites === 0) {
-			favorites.clear();
-			for (const gif of event.gifFavorites) favorites.set(gif.id, gif);
-		}
+		if (event.$type === "preferencesEvent")
+			preferences.adopt(event.preferences);
 	});
 	if (typeof window !== "undefined") {
 		const flush = () => void readCursors.flush();
@@ -789,33 +740,16 @@ export const createRemoteSource = async (
 				: await transport.query(colibri.embed.trendingGifs.main);
 			return result.gifs as GifView[];
 		},
-		gifFavorites: () => [...favorites.values()],
+		gifFavorites: () => preferences.gifFavorites(),
 		setGifFavorite: (gif, favorite) => {
-			if (favorite) favorites.set(gif.id, gif);
-			else favorites.delete(gif.id);
-			favoriteWrites += 1;
-			transport
-				.procedure(colibri.actor.putSettings.main, {
-					body: { gifFavorites: [...favorites.values()] },
-				})
-				.catch((error: unknown) => {
-					log.warn("could not save GIF favorites", {
-						code: classifyThrown(error).code,
-					});
-				})
-				.finally(() => {
-					favoriteWrites -= 1;
-				});
+			void preferences.setGifFavorite(gif, favorite);
 		},
 
 		getBlueskyPost: (url) => fetchBlueskyPost(url),
 
 		simulation: (): Simulation => ({ slowNetwork: false }),
 		setSimulation: () => {},
-		controls: () => controls,
-		setControls: (next) => {
-			controls = { ...controls, ...next };
-		},
+		preferences,
 	};
 
 	return source;

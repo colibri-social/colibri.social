@@ -26,7 +26,9 @@ export type MemberView = social.colibri.beta.community.defs.MemberView;
 export type MessageView = social.colibri.beta.channel.defs.MessageView;
 export type DeletedMessageView =
 	social.colibri.beta.channel.defs.DeletedMessageView;
-export type AttachmentView = social.colibri.beta.channel.defs.AttachmentView;
+export type AttachmentView = social.colibri.beta.channel.defs.AttachmentView & {
+	spoiler?: boolean;
+};
 export type ReactionView = social.colibri.beta.channel.defs.ReactionView;
 export type ForwardView = social.colibri.beta.channel.defs.ForwardView;
 export type UnreadStatus = social.colibri.beta.channel.defs.UnreadStatus;

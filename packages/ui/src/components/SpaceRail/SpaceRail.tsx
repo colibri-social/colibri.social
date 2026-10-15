@@ -55,6 +55,52 @@ export const spaceRailDesktopEdgeFade = {
 	"-webkit-mask-image": desktopEdgeMask,
 } as const;
 
+export const SPACE_RAIL_SETTLE_CAP_MS = 600;
+
+const runningRailMotion = () => {
+	const tab = document.querySelector<HTMLElement>(
+		"[data-space-rail] [data-rail-tab]",
+	);
+	if (!tab || typeof tab.getAnimations !== "function") return [];
+	return tab
+		.getAnimations()
+		.filter(
+			(animation) =>
+				animation.playState === "running" || animation.pending === true,
+		);
+};
+
+export const afterSpaceRailMotion = (run: () => void) => {
+	let state: "waiting" | "queued" | "cancelled" = "waiting";
+	let cap: ReturnType<typeof setTimeout> | undefined;
+	let task: ReturnType<typeof setTimeout> | undefined;
+	let frame: number | undefined;
+	const queue = () => {
+		if (state !== "waiting") return;
+		state = "queued";
+		clearTimeout(cap);
+		task = setTimeout(run);
+	};
+	const motion = runningRailMotion();
+	if (motion.length === 0) {
+		frame = requestAnimationFrame(() => {
+			frame = undefined;
+			queue();
+		});
+	} else {
+		cap = setTimeout(queue, SPACE_RAIL_SETTLE_CAP_MS);
+		void Promise.allSettled(motion.map((animation) => animation.finished)).then(
+			queue,
+		);
+	}
+	return () => {
+		state = "cancelled";
+		clearTimeout(cap);
+		clearTimeout(task);
+		if (frame !== undefined) cancelAnimationFrame(frame);
+	};
+};
+
 export const spaceRailPanelClass =
 	"rail-join relative rounded-tl-sheet border-t border-l border-muted bg-card";
 
@@ -125,7 +171,7 @@ const ActiveTab = (props: {
 			aria-hidden="true"
 			data-rail-tab=""
 			class={cx(
-				"pointer-events-none absolute top-0 z-0 block",
+				"pointer-events-none absolute top-0 z-0 block will-change-transform",
 				props.animate &&
 					"transition-transform duration-[calc(240ms*var(--motion-scale))] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none reduced-motion:transition-none",
 			)}
@@ -205,6 +251,31 @@ const RailFrame = (
 	let scroller: HTMLDivElement | undefined;
 	let host: HTMLElement | undefined;
 
+	type RailTabValues = Record<(typeof RAIL_TAB_VARS)[number], string>;
+	const joinTargets = new Set<HTMLElement>();
+	let written: RailTabValues | undefined;
+
+	const applyJoin = (target: HTMLElement, values: RailTabValues) => {
+		for (const name of RAIL_TAB_VARS) {
+			if (target.style.getPropertyValue(name) !== values[name])
+				target.style.setProperty(name, values[name]);
+		}
+	};
+
+	const collectJoins = (node: Node) => {
+		if (!(node instanceof HTMLElement)) return [];
+		const found = Array.from(node.querySelectorAll<HTMLElement>(".rail-join"));
+		if (node.classList.contains("rail-join")) found.unshift(node);
+		return found;
+	};
+
+	const registerJoins = (node: Node) => {
+		for (const target of collectJoins(node)) {
+			joinTargets.add(target);
+			if (written) applyJoin(target, written);
+		}
+	};
+
 	const writeJoin = (instant: boolean) => {
 		if (!host) return;
 		const value = top();
@@ -212,13 +283,26 @@ const RailFrame = (
 		const offset =
 			(value ?? 0) - metrics().tabRing - (scroller?.scrollTop ?? 0);
 		const shown = !!active() && value !== undefined && offset > -0.5;
-		host.style.setProperty("--rail-tab-offset", `${offset}px`);
-		host.style.setProperty("--rail-tab-height", `${tabHeight}px`);
-		host.style.setProperty("--rail-tab-visible", shown ? "1" : "0");
-		host.style.setProperty(
-			"--rail-tab-duration",
-			instant || !animate() ? "0ms" : "calc(240ms * var(--motion-scale))",
-		);
+		written = {
+			"--rail-tab-offset": `${offset}px`,
+			"--rail-tab-height": `${tabHeight}px`,
+			"--rail-tab-visible": shown ? "1" : "0",
+			"--rail-tab-duration":
+				instant || !animate() ? "0ms" : "calc(240ms * var(--motion-scale))",
+		};
+		for (const target of joinTargets) {
+			if (target.isConnected) applyJoin(target, written);
+			else joinTargets.delete(target);
+		}
+	};
+
+	let scrollFrame: number | undefined;
+	const scheduleScrollJoin = () => {
+		if (scrollFrame !== undefined) return;
+		scrollFrame = requestAnimationFrame(() => {
+			scrollFrame = undefined;
+			writeJoin(true);
+		});
 	};
 
 	const measure = () => {
@@ -253,10 +337,19 @@ const RailFrame = (
 			rail.closest<HTMLElement>("[data-space-rail-host]") ??
 			rail.parentElement ??
 			undefined;
+		if (host) registerJoins(host);
 		writeJoin(true);
-		const target = host;
+		const joinObserver = new MutationObserver((records) => {
+			for (const record of records)
+				for (const node of record.addedNodes) registerJoins(node);
+		});
+		if (host) joinObserver.observe(host, { childList: true, subtree: true });
 		onCleanup(() => {
-			for (const name of RAIL_TAB_VARS) target?.style.removeProperty(name);
+			joinObserver.disconnect();
+			if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame);
+			for (const target of joinTargets)
+				for (const name of RAIL_TAB_VARS) target.style.removeProperty(name);
+			joinTargets.clear();
 		});
 		const observer = new ResizeObserver(() => measure());
 		if (content) observer.observe(content);
@@ -277,7 +370,7 @@ const RailFrame = (
 		>
 			<div
 				ref={scroller}
-				onScroll={() => writeJoin(true)}
+				onScroll={scheduleScrollJoin}
 				data-rail-scroll=""
 				class="absolute inset-y-0 left-0 overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 				style={{

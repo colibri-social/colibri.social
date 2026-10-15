@@ -28,12 +28,13 @@ import { IconButton } from "../IconButton/IconButton";
 import { InviteStateBadge } from "../Invite/InviteStateBadge";
 import type { InviteState } from "../Invite/invite-links";
 import { SpaceIcon } from "../Space/SpaceIcon";
+import { TableText } from "../Table/TableText";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 
 const COPIED_MS = 1500;
 
 const cardMenuButton =
-	"bg-secondary-highlight enabled:hover:bg-accent data-pressed:bg-accent border-transparent";
+	"bg-secondary-highlight not-aria-disabled:hover:bg-accent data-pressed:bg-accent border-transparent";
 
 export type CardInfoRowProps = {
 	icon: JSX.Element;
@@ -183,9 +184,7 @@ export const BridgeCard = (props: BridgeCardProps) => (
 			</div>
 			<div class="flex min-w-0 items-center gap-2 text-xs">
 				<span class="shrink-0 text-muted-foreground">Service:</span>
-				<span class="min-w-0 truncate font-semibold" title={props.service}>
-					{props.service}
-				</span>
+				<TableText class="font-semibold" text={props.service} />
 			</div>
 		</div>
 		<CardInfoRow icon={<TransferHorizontalIcon />} label="Bridged with:">
@@ -277,12 +276,10 @@ export const EmojiRow = (props: EmojiRowProps) => (
 		<Show when={props.uploader}>
 			{(uploader) => (
 				<>
-					<span
-						class="max-w-[40%] truncate text-xs text-muted-foreground"
-						title={uploader().handle}
-					>
-						{uploader().handle}
-					</span>
+					<TableText
+						class="max-w-[40%] text-xs text-muted-foreground"
+						text={uploader().handle}
+					/>
 					<Show
 						when={uploader().avatar}
 						fallback={
@@ -386,12 +383,10 @@ export const BridgeSummaryCard = (props: BridgeSummaryCardProps) => {
 				</span>
 				<div class="flex min-w-0 flex-1 flex-col gap-0.5">
 					<span class="flex min-w-0 items-center gap-1.5">
-						<span
-							class="min-w-0 truncate text-base leading-5 font-bold"
-							title={props.name}
-						>
-							{props.name}
-						</span>
+						<TableText
+							class="text-base leading-5 font-bold"
+							text={props.name}
+						/>
 						<Show when={props.verified}>
 							<VerifiedCheckIcon
 								class="size-4 shrink-0 text-primary"
@@ -400,12 +395,10 @@ export const BridgeSummaryCard = (props: BridgeSummaryCardProps) => {
 							/>
 						</Show>
 					</span>
-					<span
-						class="min-w-0 truncate text-xs text-muted-foreground"
-						title={`${props.platform} bridge by ${props.handle}`}
-					>
-						{`${props.platform} bridge by ${props.handle}`}
-					</span>
+					<TableText
+						class="text-xs text-muted-foreground"
+						text={`${props.platform} bridge by ${props.handle}`}
+					/>
 				</div>
 				<Show when={props.menuItems?.length}>
 					<DropdownMenu
@@ -440,14 +433,14 @@ export const BridgeSummaryCard = (props: BridgeSummaryCardProps) => {
 						{(channel) => (
 							<li class="flex min-w-0 max-w-full">
 								<span
+									data-bridge-channel=""
 									class="flex h-6 min-w-0 items-center gap-1 rounded-full bg-secondary-highlight pr-2.5 pl-1.5 text-xs font-semibold"
-									title={channel}
 								>
 									<HashtagIcon
 										aria-hidden="true"
 										class="size-3.5 shrink-0 text-muted-foreground"
 									/>
-									<span class="min-w-0 truncate">{channel}</span>
+									<TableText text={channel} />
 								</span>
 							</li>
 						)}

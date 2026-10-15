@@ -1262,11 +1262,7 @@ const AlignmentDemo = (props: { platform: ChatPlatform }) => (
 	<div class="flex min-h-dvh flex-col justify-end bg-background text-foreground">
 		<div
 			class="flex flex-col pb-2"
-			style={
-				props.platform === "mobile"
-					? { "padding-bottom": `${8 + COMPOSER_TYPING_INSET}px` }
-					: undefined
-			}
+			style={{ "padding-bottom": `${8 + COMPOSER_TYPING_INSET}px` }}
 		>
 			<MessageRow
 				platform={props.platform}
@@ -1302,7 +1298,12 @@ const AlignmentDemo = (props: { platform: ChatPlatform }) => (
 		<Composer
 			platform={props.platform}
 			channelName="#general"
-			typing={<TypingIndicator users={[{ name: "Kris" }, { name: "Lou" }]} />}
+			typing={
+				<TypingIndicator
+					size="sm"
+					users={[{ name: "Kris" }, { name: "Lou" }]}
+				/>
+			}
 		/>
 	</div>
 );
@@ -1701,5 +1702,63 @@ export const OwnerCrown: Story = {
 		await expect(
 			within(member).queryByRole("img", { name: "Owner" }),
 		).toBeNull();
+	},
+};
+
+export const BridgedAuthor: Story = {
+	render: () => (
+		<div class="flex flex-col bg-background py-4">
+			<div data-testid="member">
+				<MessageRow
+					platform="desktop"
+					author={{ name: "Tim", seed: SEED_B }}
+					timestamp={at(9, 30)}
+					now={NOW}
+					locale="en-GB"
+					onAuthorClick={fn()}
+					onAuthorMenu={fn()}
+				>
+					Can you all see this?
+				</MessageRow>
+			</div>
+			<div data-testid="bridged">
+				<MessageRow
+					platform="desktop"
+					author={{ name: "Max", seed: SEED_A }}
+					via="Matrix"
+					timestamp={at(9, 31)}
+					now={NOW}
+					locale="en-GB"
+				>
+					Hey from the other side of the bridge
+				</MessageRow>
+			</div>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const member = canvasElement.querySelector(
+			'[data-testid="member"]',
+		) as HTMLElement;
+		await expect(
+			within(member).getByRole("button", { name: "Tim's profile" }),
+		).toBeVisible();
+		const memberName = member.querySelector("[data-author-name]");
+		await expect(memberName?.tagName).toBe("BUTTON");
+
+		const bridged = canvasElement.querySelector(
+			'[data-testid="bridged"]',
+		) as HTMLElement;
+		await expect(within(bridged).queryByRole("button")).toBeNull();
+		await expect(bridged.querySelector("[data-member-menu]")).toBeNull();
+		const name = bridged.querySelector("[data-author-name]") as HTMLElement;
+		await expect(name.tagName).toBe("SPAN");
+		await expect(name.className).not.toContain("hover:underline");
+		await expect(getComputedStyle(name).cursor).not.toBe("pointer");
+		const avatar = bridged.querySelector(
+			"[data-default-avatar]",
+		) as HTMLElement;
+		await expect(avatar.closest("button")).toBeNull();
+		await expect(getComputedStyle(avatar).cursor).not.toBe("pointer");
+		await expect(within(bridged).getByText("via Matrix")).toBeVisible();
 	},
 };

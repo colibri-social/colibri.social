@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { createHistorySync, depthOf, type HistoryPort } from "./history-sync";
+import {
+	createHistorySync,
+	depthOf,
+	type ExternalNavigation,
+	type HistoryPort,
+} from "./history-sync";
 import { parsePath, type Route } from "./layers";
 
 const fakeHistory = () => {
@@ -305,5 +310,76 @@ describe("history sync", () => {
 			path: "/app/c/did:plc:owls",
 		});
 		back.dispose();
+	});
+
+	it("layers Settings over the tab it was opened from", () => {
+		const history = fakeHistory();
+		let route: Route = parsePath("/app/inbox");
+		const onExternal = vi.fn((navigation: ExternalNavigation) => {
+			route = navigation.route;
+		});
+		const sync = createHistorySync({
+			port: history.port,
+			route: () => route,
+			stacksOverTab: (root) => root.tab === "settings",
+			onExternal,
+		});
+		sync.seed(route);
+		route = parsePath("/app/settings");
+		sync.sync();
+		expect(history.entries().map((entry) => entry.url)).toEqual([
+			"/app/inbox",
+			"/app/settings",
+		]);
+		expect(history.index()).toBe(1);
+		history.back();
+		expect(history.index()).toBe(0);
+		expect(onExternal).toHaveBeenCalledWith({
+			route: parsePath("/app/inbox"),
+			depth: 0,
+			path: "/app/inbox",
+		});
+		sync.sync();
+		expect(history.entries()).toHaveLength(2);
+		expect(history.index()).toBe(0);
+	});
+
+	it("drops the Settings entry when another tab opens from it", () => {
+		const history = fakeHistory();
+		let route: Route = parsePath("/app/inbox");
+		const sync = createHistorySync({
+			port: history.port,
+			route: () => route,
+			stacksOverTab: (root) => root.tab === "settings",
+			onExternal: () => {},
+		});
+		sync.seed(route);
+		route = parsePath("/app/settings");
+		sync.sync();
+		route = parsePath("/app/profile");
+		sync.sync();
+		history.flush();
+		expect(history.index()).toBe(0);
+		expect(history.port.path()).toBe("/app/profile");
+		route = parsePath("/app/settings");
+		sync.sync();
+		expect(history.entries().map((entry) => entry.url)).toEqual([
+			"/app/profile",
+			"/app/settings",
+		]);
+	});
+
+	it("keeps a Settings deep link as the first entry", () => {
+		const history = fakeHistory();
+		const route = parsePath("/app/settings");
+		const sync = createHistorySync({
+			port: history.port,
+			route: () => route,
+			stacksOverTab: (root) => root.tab === "settings",
+			onExternal: () => {},
+		});
+		sync.seed(route);
+		sync.sync();
+		expect(history.entries()).toHaveLength(1);
 	});
 });

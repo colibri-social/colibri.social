@@ -47,7 +47,7 @@ export const clampSidebarWidth = (value: unknown) =>
 		: DEFAULT_CHANNEL_SIDEBAR_WIDTH;
 
 const squareFlushCorner =
-	"[[data-app-shell]:not(:has([data-window-bar-rounded]))_&:has([data-banner-flush])]:rounded-tl-none";
+	"[[data-app-shell]>:not([data-window-bar-rounded]+*)_&:has([data-banner-flush])]:rounded-tl-none";
 
 export const AppShell = (props: AppShellProps) => {
 	const windowBar = createSlot(() => props.windowBar);

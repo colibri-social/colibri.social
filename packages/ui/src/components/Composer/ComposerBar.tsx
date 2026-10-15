@@ -67,7 +67,7 @@ export const ComposerBar = (props: ComposerBarProps) => {
 						size="sm"
 						label={props.cancelLabel}
 						icon={<CloseIcon />}
-						class="text-muted-foreground enabled:hover:text-foreground"
+						class="text-muted-foreground not-aria-disabled:hover:text-foreground"
 						onClick={() => props.onCancel?.()}
 					/>
 				</div>

@@ -12,6 +12,7 @@ import {
 	memberHandleLabel,
 } from "../Members/MemberIdentity";
 import { type RoleIdentity, RoleMark } from "../Roles/RoleBadge";
+import { TableText } from "../Table/TableText";
 
 const toggleFromRow = (event: MouseEvent & { currentTarget: HTMLElement }) => {
 	const target = event.target as Element | null;
@@ -183,12 +184,10 @@ export const EmojiSelectRow = (props: EmojiSelectRowProps) => (
 			<Show when={props.uploader}>
 				{(uploader) => (
 					<>
-						<span
-							class="min-w-0 truncate text-xs text-muted-foreground"
-							title={uploader().handle}
-						>
-							{uploader().handle}
-						</span>
+						<TableText
+							class="text-xs text-muted-foreground"
+							text={uploader().handle}
+						/>
 						<Show
 							when={uploader().avatar}
 							fallback={

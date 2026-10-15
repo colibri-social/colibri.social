@@ -1,0 +1,259 @@
+import { ColibriError } from "@colibri-social/lib";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_REMOTE_CONTROLS } from "../remote/source";
+import type { CommunityView, Did, GifView, SpaceRef } from "../types";
+import { createMemoryPreferenceBackend } from "./memory";
+import { orderCommunities } from "./order";
+import { createPreferenceStore, preferencesSnapshotKey } from "./store";
+import {
+	DEFAULT_PREFERENCES,
+	type PreferenceBackend,
+	type Preferences,
+} from "./types";
+
+const VIEWER = "did:plc:viewer";
+const KEY = preferencesSnapshotKey(VIEWER);
+const SPACE = "did:plc:space" as Did;
+const OTHER = "did:plc:other" as Did;
+const CHANNEL =
+	`at://${SPACE}/space/social.colibri.beta.channel.text/general` as SpaceRef;
+const THREAD =
+	`at://${SPACE}/space/social.colibri.beta.channel.thread/t1` as SpaceRef;
+const GIF: GifView = {
+	id: "gif-1",
+	url: "https://gif.test/1.gif",
+	previewUrl: "https://gif.test/1.webp",
+	width: 200,
+	height: 100,
+};
+
+const deferred = <T>() => {
+	let resolve!: (value: T) => void;
+	let reject!: (error: unknown) => void;
+	const promise = new Promise<T>((done, fail) => {
+		resolve = done;
+		reject = fail;
+	});
+	return { promise, resolve, reject };
+};
+
+const prefs = (overrides: Partial<Preferences> = {}): Preferences => ({
+	...DEFAULT_PREFERENCES,
+	...overrides,
+});
+
+const storage = new Map<string, string>();
+
+beforeEach(() => {
+	storage.clear();
+	vi.stubGlobal("localStorage", {
+		getItem: (key: string) => storage.get(key) ?? null,
+		setItem: (key: string, value: string) => storage.set(key, value),
+		removeItem: (key: string) => storage.delete(key),
+	});
+});
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+});
+
+const create = (backend: PreferenceBackend, onScopesRejected?: () => void) =>
+	createPreferenceStore({
+		backend,
+		controls: DEFAULT_REMOTE_CONTROLS,
+		snapshotKey: KEY,
+		onScopesRejected,
+	});
+
+describe("createPreferenceStore", () => {
+	it("boots from the snapshot before the AppView answers", async () => {
+		storage.set(
+			KEY,
+			JSON.stringify({
+				preferences: prefs({ notificationLevel: "nothing" }),
+				controls: { developerMode: true },
+			}),
+		);
+		const load = deferred<Preferences>();
+		const memory = createMemoryPreferenceBackend();
+		const store = create({ ...memory.backend, load: () => load.promise });
+
+		const refreshing = store.refresh();
+		expect(store.notificationLevel()).toBe("nothing");
+		expect(store.controls().developerMode).toBe(true);
+		expect(store.controls().swipeLeftAction).toBe("members");
+
+		load.resolve(prefs({ notificationLevel: "mentionsAndReplies" }));
+		await refreshing;
+		expect(store.notificationLevel()).toBe("mentionsAndReplies");
+		expect(JSON.parse(storage.get(KEY) ?? "{}").preferences).toMatchObject({
+			notificationLevel: "mentionsAndReplies",
+		});
+	});
+
+	it("ignores a snapshot it cannot read", () => {
+		storage.set(KEY, "{not json");
+		const store = create(createMemoryPreferenceBackend().backend);
+		expect(store.preferences()).toEqual(DEFAULT_PREFERENCES);
+	});
+
+	it("keeps controls across a reload", () => {
+		const backend = createMemoryPreferenceBackend().backend;
+		create(backend).setControls({ swipeLeftAction: "reply" });
+		expect(create(backend).controls().swipeLeftAction).toBe("reply");
+	});
+
+	it("applies preferences from another session", () => {
+		const store = create(createMemoryPreferenceBackend().backend);
+		store.adopt(prefs({ communityOrder: [OTHER, SPACE], shareActivity: true }));
+		expect(store.communityOrder()).toEqual([OTHER, SPACE]);
+		expect(store.shareActivity()).toBe(true);
+	});
+
+	it("skips echoes while a write is in flight and takes the last output", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const put = deferred<Preferences>();
+		const store = create({
+			...memory.backend,
+			putSettings: () => put.promise,
+		});
+
+		void store.setNotificationLevel("nothing");
+		store.adopt(prefs({ notificationLevel: "all" }));
+		expect(store.notificationLevel()).toBe("nothing");
+
+		put.resolve(prefs({ notificationLevel: "nothing", shareActivity: true }));
+		await store.settled();
+		expect(store.shareActivity()).toBe(true);
+
+		store.adopt(prefs({ notificationLevel: "all" }));
+		expect(store.notificationLevel()).toBe("all");
+	});
+
+	it("writes the whole settings record and pushes only the change", async () => {
+		const putSettings = vi.fn(async () => prefs());
+		const store = create({
+			...createMemoryPreferenceBackend().backend,
+			putSettings,
+		});
+		store.adopt(prefs({ communityOrder: [SPACE] }));
+
+		await store.setGifFavorite(GIF, true);
+
+		expect(putSettings).toHaveBeenCalledWith(
+			{
+				notificationLevel: "all",
+				communityOrder: [SPACE],
+				shareActivity: false,
+				gifFavorites: [GIF],
+			},
+			{ gifFavorites: [GIF] },
+		);
+	});
+
+	it("reloads the server state after a failed write", async () => {
+		const memory = createMemoryPreferenceBackend({ shareActivity: false });
+		const store = create({
+			...memory.backend,
+			putSettings: async () => {
+				throw new ColibriError({ code: "Unexpected" });
+			},
+		});
+
+		await store.setShareActivity(true);
+		expect(store.shareActivity()).toBe(false);
+	});
+
+	it("asks for access again when a write is refused for scopes", async () => {
+		const onScopesRejected = vi.fn();
+		const store = create(
+			{
+				...createMemoryPreferenceBackend().backend,
+				putSettings: async () => {
+					throw new ColibriError({ code: "ScopesMissing" });
+				},
+			},
+			onScopesRejected,
+		);
+
+		await store.setNotificationLevel("nothing");
+		expect(onScopesRejected).toHaveBeenCalledOnce();
+	});
+
+	it("round trips a mute through a record and the full list", async () => {
+		const memory = createMemoryPreferenceBackend({
+			mutes: [
+				{
+					subject: { kind: "actor", did: OTHER },
+					createdAt: "2026-10-01T00:00:00.000Z" as never,
+				},
+			],
+		});
+		const putMutes = vi.spyOn(memory.backend, "putMutes");
+		const createMute = vi.spyOn(memory.backend, "createMute");
+		const deleteMute = vi.spyOn(memory.backend, "deleteMute");
+		const store = create(memory.backend);
+		await store.refresh();
+
+		await store.setMuted({ kind: "channel", channel: CHANNEL }, true);
+		expect(store.isMuted({ kind: "channel", channel: CHANNEL })).toBe(true);
+		expect(createMute).toHaveBeenCalledOnce();
+		expect(putMutes.mock.lastCall?.[0].map((mute) => mute.subject)).toEqual([
+			{ kind: "actor", did: OTHER },
+			{ kind: "channel", channel: CHANNEL },
+		]);
+		const rkey = createMute.mock.lastCall?.[0];
+
+		await store.setMuted({ kind: "channel", channel: CHANNEL }, false);
+		expect(store.isMuted({ kind: "channel", channel: CHANNEL })).toBe(false);
+		expect(deleteMute).toHaveBeenCalledWith(rkey);
+		expect(memory.records().map((record) => record.key)).toEqual([
+			`actor:${OTHER}`,
+		]);
+		expect(memory.state().mutes.map((mute) => mute.subject)).toEqual([
+			{ kind: "actor", did: OTHER },
+		]);
+
+		await store.setMuted({ kind: "actor", did: OTHER }, false);
+		expect(deleteMute).toHaveBeenLastCalledWith("seed0");
+		expect(memory.state().mutes).toEqual([]);
+	});
+
+	it("keeps channel and thread mutes apart", async () => {
+		const store = create(createMemoryPreferenceBackend().backend);
+		await store.setMuted({ kind: "thread", thread: THREAD }, true);
+		expect(store.isMuted({ kind: "thread", thread: THREAD })).toBe(true);
+		expect(store.isMuted({ kind: "channel", channel: THREAD })).toBe(false);
+	});
+
+	it("serializes quick toggles", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const store = create(memory.backend);
+		const subject = { kind: "channel", channel: CHANNEL } as const;
+		void store.setMuted(subject, true);
+		void store.setMuted(subject, false);
+		await store.setMuted(subject, true);
+		await store.settled();
+		expect(memory.records()).toHaveLength(1);
+		expect(store.isMuted(subject)).toBe(true);
+	});
+});
+
+describe("orderCommunities", () => {
+	const did = (name: string) => `did:plc:${name}` as Did;
+	const view = (name: string) => ({ did: did(name) }) as CommunityView;
+
+	it("puts ordered communities first and keeps the rest in place", () => {
+		const list = [view("a"), view("b"), view("c"), view("d")];
+		expect(
+			orderCommunities(list, [did("c"), did("zz"), did("a")])?.map(
+				(entry) => entry.did,
+			),
+		).toEqual([did("c"), did("a"), did("b"), did("d")]);
+	});
+
+	it("returns the same list without an order", () => {
+		const list = [view("a")];
+		expect(orderCommunities(list, [])).toBe(list);
+	});
+});

@@ -196,7 +196,9 @@ export const Avatar: Story = {
 			height: 512,
 		});
 		await expect(output.size).toBeLessThanOrEqual(1_000_000);
-		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+		await waitFor(() =>
+			expect(document.querySelector('[role="dialog"]')).toBeNull(),
+		);
 		await expect(target.isConnected).toBe(false);
 	},
 };
@@ -324,7 +326,9 @@ export const Cancel: Story = {
 		const dialog = screen.getByRole("dialog");
 		const cancels = within(dialog).getAllByRole("button", { name: "Cancel" });
 		await userEvent.click(cancels[cancels.length - 1] as HTMLElement);
-		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+		await waitFor(() =>
+			expect(document.querySelector('[role="dialog"]')).toBeNull(),
+		);
 		await expect(onApply).not.toHaveBeenCalled();
 		await waitFor(() =>
 			expect(
@@ -349,9 +353,14 @@ export const LongFileName: Story = {
 		await expect(caption).not.toBeNull();
 		if (!caption) return;
 		await expect(caption.scrollWidth).toBeGreaterThan(caption.clientWidth);
-		await expect(caption).toHaveAttribute(
-			"title",
-			expect.stringContaining("very_long_export_name"),
+		await expect(caption).not.toHaveAttribute("title");
+		await userEvent.hover(caption);
+		await waitFor(
+			() =>
+				expect(screen.getByRole("tooltip")).toHaveTextContent(
+					"very_long_export_name",
+				),
+			{ timeout: 2000 },
 		);
 	},
 };

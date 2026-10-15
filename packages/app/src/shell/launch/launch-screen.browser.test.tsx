@@ -10,10 +10,13 @@ import {
 import { Providers } from "../../providers";
 import { dismissDocumentLaunchScreen, LaunchScreen } from "./LaunchScreen";
 import {
-	LAUNCH_MARK_SIZE,
 	LAUNCH_SCREEN_ID,
+	LAUNCH_SCREEN_LABEL,
+	LAUNCH_STYLE_ID,
 	launchScreenDocumentHtml,
+	launchScreenDocumentStyle,
 } from "./launch-markup";
+import { LAUNCH_TIPS, launchTips } from "./launch-tips";
 import { StartupError } from "./StartupError";
 
 let dispose: (() => void) | undefined;
@@ -26,6 +29,7 @@ afterEach(() => {
 	restoreChrome = undefined;
 	document.body.replaceChildren();
 	document.documentElement.setAttribute("data-theme", "dark");
+	delete document.documentElement.dataset.reducedMotion;
 });
 
 const mountHost = () => {
@@ -39,20 +43,36 @@ const insertDocumentLaunchScreen = () => {
 	return document.getElementById(LAUNCH_SCREEN_ID);
 };
 
-const centerOf = (element: Element) => {
-	const rect = element.getBoundingClientRect();
-	return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-};
-
 describe("launch screen", () => {
-	it("takes over the launch screen from the page without replacing it", () => {
+	it("draws the bird where the page's launch screen drew it", () => {
+		document.documentElement.dataset.reducedMotion = "true";
+		if (!document.getElementById(LAUNCH_STYLE_ID)) {
+			document.head.insertAdjacentHTML(
+				"beforeend",
+				launchScreenDocumentStyle(),
+			);
+		}
 		const fromPage = insertDocumentLaunchScreen();
+		const paths = Array.from(
+			fromPage?.querySelectorAll("[data-launch-mark] path") ?? [],
+		);
+		expect(paths).toHaveLength(4);
+		const pageTail = paths[0].getBoundingClientRect();
+		const pageBody = paths[2].getBoundingClientRect();
+		const pageBottom = Math.max(pageTail.bottom, pageBody.bottom);
+		const pageRight = Math.max(pageTail.right, pageBody.right);
+		const pageTop = Math.min(pageTail.top, pageBody.top);
+		const pageLeft = Math.min(pageTail.left, pageBody.left);
+		dismissDocumentLaunchScreen();
 		const host = mountHost();
 		dispose = render(() => <LaunchScreen />, host);
-		expect(fromPage).not.toBeNull();
-		expect(host.firstElementChild).toBe(fromPage);
-		expect(fromPage?.hasAttribute("id")).toBe(false);
-		expect(document.querySelectorAll("[data-launch-screen]")).toHaveLength(1);
+		const body = host.querySelector('use[href^="#hb-body-"]');
+		if (!body) throw new Error("launch bird missing");
+		const box = body.getBoundingClientRect();
+		expect(Math.abs(box.bottom - pageBottom)).toBeLessThan(1);
+		expect(Math.abs(box.right - pageRight)).toBeLessThan(1);
+		expect(Math.abs(box.top - pageTop)).toBeLessThan(1);
+		expect(Math.abs(box.left - pageLeft)).toBeLessThan(1);
 	});
 
 	it("removes the launch screen from the page when nothing takes it over", () => {
@@ -61,30 +81,26 @@ describe("launch screen", () => {
 		expect(document.querySelector("[data-launch-screen]")).toBeNull();
 	});
 
-	it("centers the mark on the theme background at the native splash size", () => {
+	it("fills the window with the theme background", () => {
 		const host = mountHost();
 		dispose = render(() => <LaunchScreen />, host);
-		const screen = host.querySelector<HTMLElement>("[data-launch-screen]");
-		const mark = host.querySelector("[data-launch-mark]");
-		if (!screen || !mark) throw new Error("launch screen missing");
+		const screen = host.querySelector<HTMLElement>("[data-loading-screen]");
+		if (!screen) throw new Error("launch screen missing");
 		expect(getComputedStyle(screen).backgroundColor).toBe("rgb(8, 8, 8)");
-		const box = mark.getBoundingClientRect();
-		expect(box.width).toBe(LAUNCH_MARK_SIZE);
-		expect(box.height).toBe(LAUNCH_MARK_SIZE);
-		const center = centerOf(mark);
-		expect(Math.abs(center.x - window.innerWidth / 2)).toBeLessThan(1);
-		expect(Math.abs(center.y - window.innerHeight / 2)).toBeLessThan(1);
-		const screenBox = screen.getBoundingClientRect();
-		expect(screenBox.width).toBe(window.innerWidth);
-		expect(screenBox.height).toBe(window.innerHeight);
+		const box = screen.getBoundingClientRect();
+		expect(box.width).toBe(window.innerWidth);
+		expect(box.height).toBe(window.innerHeight);
+		expect(
+			page.getByRole("status", { name: LAUNCH_SCREEN_LABEL }).element(),
+		).toBe(screen);
 	});
 
 	it("follows the light theme", () => {
 		document.documentElement.setAttribute("data-theme", "light");
 		const host = mountHost();
 		dispose = render(() => <LaunchScreen />, host);
-		const screen = host.querySelector<HTMLElement>("[data-launch-screen]");
-		const stop = host.querySelector("stop");
+		const screen = host.querySelector<HTMLElement>("[data-loading-screen]");
+		const stop = host.querySelector("[data-hummingbird] stop");
 		if (!screen || !stop) throw new Error("launch screen missing");
 		expect(getComputedStyle(screen).backgroundColor).toBe("rgb(247, 247, 248)");
 		expect(getComputedStyle(stop).stopColor).toBe("rgb(32, 32, 32)");
@@ -105,6 +121,44 @@ describe("launch screen", () => {
 			(gradient) => gradient.id,
 		);
 		expect(new Set(ids).size).toBe(ids.length);
+	});
+
+	it("shows a tip about a feature once loading takes a moment", async () => {
+		const host = mountHost();
+		dispose = render(() => <LaunchScreen />, host);
+		await expect
+			.poll(() => host.querySelector("[data-loading-tip-text]")?.textContent, {
+				timeout: 3000,
+			})
+			.toBeTruthy();
+		const text = host.querySelector("[data-loading-tip-text]")?.textContent;
+		expect(LAUNCH_TIPS.map((tip) => tip.text)).toContain(text);
+	});
+
+	it("keeps platform tips on their own platform", () => {
+		const desktop = launchTips("desktop");
+		const mobile = launchTips("mobile");
+		expect(desktop).toContain(
+			"Press Shift and Enter to start a new line without sending.",
+		);
+		expect(mobile).not.toContain(
+			"Press Shift and Enter to start a new line without sending.",
+		);
+		expect(mobile).toContain(
+			"Press and hold a message to see everything you can do with it.",
+		);
+		expect(desktop).not.toContain(
+			"Press and hold a message to see everything you can do with it.",
+		);
+	});
+
+	it("writes every tip as one plain sentence", () => {
+		for (const { text } of LAUNCH_TIPS) {
+			expect(text).toMatch(/^[A-Z].*\.$/);
+			expect(text).not.toMatch(/[\u2014\u2013\u2026;]/);
+			expect(text.slice(0, -1)).not.toMatch(/[.!?]\s/);
+			expect(text).not.toMatch(/server|appview|pds|record|protocol|did:/i);
+		}
 	});
 
 	it("keeps the page's slow start message hidden until it's needed", () => {

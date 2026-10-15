@@ -36,6 +36,7 @@ import { type EmojiUsage, topEmoji } from "../../utils/emoji-usage";
 import { foldText } from "../../utils/fold-text";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { SearchField } from "../TextField/TextField";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import {
 	applySkinTone,
 	SKIN_TONE_SAMPLE,
@@ -647,23 +648,26 @@ export const EmojiPicker = (props: EmojiPickerProps) => {
 				>
 					<For each={browseSections()}>
 						{(section) => (
-							<button
-								type="button"
-								aria-label={section.title}
-								aria-current={visibleSection() === section.id || undefined}
-								title={platform() === "desktop" ? section.title : undefined}
-								onClick={() => jumpTo(section.id)}
-								class={cx(
-									"flex shrink-0 cursor-pointer items-center justify-center rounded-control-xs outline-none [&_svg]:size-4",
-									platform() === "desktop" ? "size-7" : "size-9",
-									"focus-ring-inset",
-									visibleSection() === section.id
-										? "bg-secondary text-foreground"
-										: "text-muted-foreground hover:text-foreground",
-								)}
-							>
-								{section.icon()}
-							</button>
+							<Tooltip disabled={platform() !== "desktop"}>
+								<TooltipTrigger
+									as="button"
+									type="button"
+									aria-label={section.title}
+									aria-current={visibleSection() === section.id || undefined}
+									onClick={() => jumpTo(section.id)}
+									class={cx(
+										"flex shrink-0 cursor-pointer items-center justify-center rounded-control-xs outline-none [&_svg]:size-4",
+										platform() === "desktop" ? "size-7" : "size-9",
+										"focus-ring-inset",
+										visibleSection() === section.id
+											? "bg-secondary text-foreground"
+											: "text-muted-foreground hover:text-foreground",
+									)}
+								>
+									{section.icon()}
+								</TooltipTrigger>
+								<TooltipContent>{section.title}</TooltipContent>
+							</Tooltip>
 						)}
 					</For>
 				</nav>

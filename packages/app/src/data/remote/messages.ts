@@ -34,7 +34,7 @@ export const REACTION_COLLECTION = "social.colibri.beta.reaction";
 const HIDDEN_LABEL = "hidden";
 
 type Label = MessageView["labels"][number];
-type Attached = { blob: BlobRef; name?: string };
+type Attached = { blob: BlobRef; name?: string; spoiler?: boolean };
 
 const keyOf = (channel: string, rkey: string) => `${channel}\n${rkey}`;
 
@@ -85,7 +85,7 @@ export const createUploads = () => {
 						code: "UploadFailed",
 						method: "message.attachments",
 					});
-				return known;
+				return attachment.spoiler ? { ...known, spoiler: true } : known;
 			}),
 		blobFor: (url: string) => byUrl.get(url)?.blob,
 	};
@@ -447,10 +447,16 @@ export const createMessageWrites = (deps: {
 					};
 			const files = await Promise.all(snapshot.attachments.map(download));
 			const blobs = await Promise.all(
-				files.map(async (file) => ({
-					blob: await records.uploadBlob(file),
-					name: file.name,
-				})),
+				files.map(
+					async (file, position): Promise<Attached> => ({
+						blob: await records.uploadBlob(file),
+						name: file.name,
+						...((snapshot.attachments[position] as AttachmentView | undefined)
+							?.spoiler
+							? { spoiler: true }
+							: {}),
+					}),
+				),
 			);
 			const rkey = nextTid();
 			const createdAt = new Date().toISOString();

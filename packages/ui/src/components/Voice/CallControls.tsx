@@ -16,9 +16,9 @@ export type CallControlTone = "default" | "active" | "off" | "server";
 const toneClass: Record<CallControlTone, string> = {
 	default: "",
 	active:
-		"border-primary/40 bg-primary/15 text-primary-highlight enabled:hover:bg-primary/25 data-pressed:bg-primary/25",
+		"border-primary/40 bg-primary/15 text-primary-highlight not-aria-disabled:hover:bg-primary/25 data-pressed:bg-primary/25",
 	off: "text-destructive",
-	server: "text-warning disabled:opacity-100",
+	server: "text-warning aria-disabled:opacity-100",
 };
 
 export type CallControlSize = "md" | "lg" | "xl";
@@ -31,7 +31,7 @@ export type CallControlButtonProps = {
 	size?: CallControlSize;
 	stretch?: boolean;
 	disabled?: boolean;
-	title?: string;
+	tooltip?: string;
 	onClick?: () => void;
 	class?: string;
 };
@@ -41,7 +41,7 @@ export const CallControlButton = (props: CallControlButtonProps) => {
 	return (
 		<IconButton
 			label={props.label}
-			title={props.title ?? props.label}
+			tooltip={props.tooltip}
 			icon={props.icon}
 			size={props.size ?? "xl"}
 			variant="secondary"
@@ -103,7 +103,7 @@ export const micControl = (state: CallMediaState) => {
 		off,
 		label: () =>
 			state.serverMuted ? "Muted by a moderator" : off() ? "Unmute" : "Mute",
-		title: () =>
+		tooltip: () =>
 			state.serverMuted
 				? "A moderator muted you. Your mic stays muted until they lift it."
 				: undefined,
@@ -122,7 +122,7 @@ export const deafenControl = (state: CallMediaState) => {
 				: off()
 					? "Undeafen"
 					: "Deafen",
-		title: () =>
+		tooltip: () =>
 			state.serverDeafened
 				? "A moderator deafened you. You stay deafened until they lift it."
 				: undefined,
@@ -172,7 +172,7 @@ export const CallControls = (props: CallControlsProps) => {
 			</Show>
 			<CallControlButton
 				label={mic.label()}
-				title={mic.title()}
+				tooltip={mic.tooltip()}
 				pressed={mic.off()}
 				tone={mic.tone()}
 				size={props.size}
@@ -182,7 +182,7 @@ export const CallControls = (props: CallControlsProps) => {
 			/>
 			<CallControlButton
 				label={deafen.label()}
-				title={deafen.title()}
+				tooltip={deafen.tooltip()}
 				pressed={deafen.off()}
 				tone={deafen.tone()}
 				size={props.size}
