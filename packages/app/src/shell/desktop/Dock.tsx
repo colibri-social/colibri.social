@@ -12,6 +12,7 @@ import { displayNameOf } from "../../data/adapters/authors";
 import { uiPresence } from "../../data/adapters/presence";
 import { useData } from "../../data/store";
 import { voice } from "../../data/voice";
+import { createBioRenderer } from "../../screens/profile/bio-links";
 import { ownProfileData } from "../../screens/profile/own-profile";
 import { useStack } from "../stack";
 import { useDesktopShell } from "./context";
@@ -28,8 +29,9 @@ export const Dock = () => {
 	const [profileOpen, setProfileOpen] = createSignal(false);
 	const presence = () =>
 		data.presenceOf(data.viewer.did) ?? data.viewer.presence;
+	const bio = createBioRenderer();
 	const profile = createMemo(() =>
-		ownProfileData(data, shell.stack.route().root.space),
+		ownProfileData(data, shell.stack.route().root.space, bio.render),
 	);
 	createEffect(
 		on(
@@ -39,31 +41,34 @@ export const Dock = () => {
 		),
 	);
 	return (
-		<OwnProfilePopover
-			open={profileOpen()}
-			onOpenChange={setProfileOpen}
-			profile={profile()}
-			actions={
-				<Suspense>
-					<ProfileScreen args={{}} />
-				</Suspense>
-			}
-			renderTrigger={(trigger) => (
-				<UserPanel
-					name={displayNameOf(data.viewer)}
-					avatarSeed={data.viewer.did}
-					avatarSrc={data.viewer.avatar}
-					presence={uiPresence(presence())}
-					status={presence()?.status?.text || undefined}
-					profileTrigger={trigger}
-					voice={
-						<Show when={voice.current()}>
-							<VoiceDock />
-						</Show>
-					}
-					onOpenSettings={() => stack.push({ kind: "settings" })}
-				/>
-			)}
-		/>
+		<>
+			<OwnProfilePopover
+				open={profileOpen()}
+				onOpenChange={setProfileOpen}
+				profile={profile()}
+				actions={
+					<Suspense>
+						<ProfileScreen args={{}} />
+					</Suspense>
+				}
+				renderTrigger={(trigger) => (
+					<UserPanel
+						name={displayNameOf(data.viewer)}
+						avatarSeed={data.viewer.did}
+						avatarSrc={data.viewer.avatar}
+						presence={uiPresence(presence())}
+						status={presence()?.status?.text || undefined}
+						profileTrigger={trigger}
+						voice={
+							<Show when={voice.current()}>
+								<VoiceDock />
+							</Show>
+						}
+						onOpenSettings={() => stack.push({ kind: "settings" })}
+					/>
+				)}
+			/>
+			<bio.LinkWarningOutlet />
+		</>
 	);
 };

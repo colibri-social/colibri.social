@@ -1,4 +1,6 @@
 import type { JSX } from "solid-js";
+import { blueskyClient, buildBskyProfileUrl } from "../../data/bluesky-client";
+import { createLinkOpener } from "../channel/message/link-opener";
 
 const LINK_PATTERN =
 	/(?<!\S)(?!@)(https?:\/\/(www\.)?)?[-a-zA-Z0-9@%._+~#=]{1,256}\.[a-zA-Z][a-zA-Z0-9()]{0,17}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)/g;
@@ -11,11 +13,32 @@ export type BioSegment =
 
 type Match = { start: number; end: number; segment: BioSegment };
 
+const TRAILING_PUNCTUATION = /[.,;:!?'"]+$/;
+
+const unbalancedClose = (value: string) =>
+	value.endsWith(")") &&
+	(value.match(/\(/g)?.length ?? 0) < (value.match(/\)/g)?.length ?? 0);
+
+const trimTrailing = (value: string) => {
+	let current = value;
+	for (;;) {
+		const next = unbalancedClose(current)
+			? current.slice(0, -1)
+			: current.replace(TRAILING_PUNCTUATION, "");
+		if (next === current) return current;
+		current = next;
+	}
+};
+
+const isEmailLike = (value: string) =>
+	!/^https?:\/\//i.test(value) && value.includes("@");
+
 const collect = (text: string): Match[] => {
 	const matches: Match[] = [];
 	for (const match of text.matchAll(LINK_PATTERN)) {
-		const value = match[0];
+		const value = trimTrailing(match[0]);
 		const start = match.index ?? 0;
+		if (!value || isEmailLike(value)) continue;
 		matches.push({
 			start,
 			end: start + value.length,
@@ -94,7 +117,7 @@ export const linkifyBio = (
 		</a>
 	);
 	return (
-		<span class="whitespace-pre-line">
+		<span class="leading-prose whitespace-pre-line">
 			{bioSegments(text).map((segment) => {
 				if (segment.kind === "link") return anchor(segment.href, segment.text);
 				if (segment.kind === "mention") {
@@ -104,4 +127,18 @@ export const linkifyBio = (
 			})}
 		</span>
 	);
+};
+
+export const createBioRenderer = () => {
+	const links = createLinkOpener();
+	const render = (text: string | undefined) => {
+		const trimmed = text?.trim();
+		if (!trimmed) return undefined;
+		return linkifyBio(trimmed, {
+			profileHref: (handle) => buildBskyProfileUrl(blueskyClient(), handle),
+			onLink: (href, label) =>
+				links.onExternalLink(href, { label, disguised: false }),
+		});
+	};
+	return { render, LinkWarningOutlet: links.LinkWarningOutlet };
 };

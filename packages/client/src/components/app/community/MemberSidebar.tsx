@@ -1,10 +1,10 @@
+import { spaceSkey } from "@colibri-social/lib";
 import { useLocation } from "@solidjs/router";
 import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import CaretLeftIcon from "~icons/ph/caret-left";
 import CrownIcon from "~icons/ph/crown-fill";
 import { activityIsLive, activitySummary } from "../../../atproto/activity";
 import { parseThreadPath } from "../../../atproto/colibri-channel-url";
-import { spaceSkey } from "../../../atproto/space-ref";
 import { useCommunityContext } from "../../../contexts/Community";
 import type { Member } from "../../../contexts/community-payload";
 import { useThreads } from "../../../contexts/Threads";

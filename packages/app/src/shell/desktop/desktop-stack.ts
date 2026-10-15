@@ -83,7 +83,7 @@ export const createDesktopStack = (
 				return;
 			}
 			const current = route();
-			const keep = navigation.depth > 0 ? baseLayers(current) : [];
+			const keep = baseLayers(current).slice(0, navigation.depth);
 			commit(
 				desktopRoute(navigation.route.root, [
 					...keep,

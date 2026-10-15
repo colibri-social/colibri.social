@@ -1,7 +1,7 @@
+import { classifyThrown, isRecordNotFound } from "@colibri-social/lib";
 import { createResource, Match, type ParentComponent, Switch } from "solid-js";
 import { COLLECTIONS } from "../../../atproto/lexicons";
 import { useUserContext } from "../../../contexts/User";
-import { classifyThrown, isRecordNotFound } from "../../../errors/classify";
 import { markBoot } from "../../../utils/perf";
 import { AppLoadingScreen } from "../../AppLoadingScreen";
 import { ErrorState } from "../../ErrorState";

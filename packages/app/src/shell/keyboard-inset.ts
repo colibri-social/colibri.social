@@ -1,6 +1,13 @@
-import { KEYBOARD_INSET_EVENT } from "@colibri-social/ui";
+import {
+	KEYBOARD_INSET_EVENT,
+	KEYBOARD_LIFT_ATTRIBUTE,
+	KEYBOARD_LIFT_VAR,
+} from "@colibri-social/ui";
 
 export const KEYBOARD_INSET_VAR = "--keyboard-inset";
+export const KEYBOARD_PROGRESS_EVENT = "colibri-keyboard-progress";
+export const KEYBOARD_FOLLOW_ATTRIBUTE = "data-keyboard-follow";
+export const SHELL_INSET_VAR = "--shell-keyboard-inset";
 
 const MAX_INSET_RATIO = 0.7;
 const SPRING_SAMPLES = 60;
@@ -67,6 +74,24 @@ export const springSamples = (spring: KeyboardSpring): number[] => {
 	return samples;
 };
 
+type KeyboardProgress =
+	| { phase: "start"; from: number; to: number }
+	| { phase: "progress"; inset: number };
+
+const readProgress = (value: unknown): KeyboardProgress | undefined => {
+	if (!value || typeof value !== "object") return undefined;
+	const detail = value as Record<string, unknown>;
+	if (
+		detail.phase === "start" &&
+		typeof detail.from === "number" &&
+		typeof detail.to === "number"
+	)
+		return { phase: "start", from: detail.from, to: detail.to };
+	if (detail.phase === "progress" && typeof detail.inset === "number")
+		return { phase: "progress", inset: detail.inset };
+	return undefined;
+};
+
 const clampInset = (value: number) =>
 	Math.min(Math.max(value, 0), window.innerHeight * MAX_INSET_RATIO);
 
@@ -77,17 +102,129 @@ export type KeyboardInsetOptions = {
 	root?: HTMLElement;
 };
 
+const EDITABLE =
+	"textarea, [contenteditable]:not([contenteditable='false']), input:not([type='button']):not([type='submit']):not([type='reset']):not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='image']):not([type='hidden'])";
+
+const TOP_LAYER = "[data-kb-top-layer], [role='dialog']";
+
+type Target =
+	| { kind: "shell" }
+	| { kind: "lift"; element: HTMLElement }
+	| { kind: "overlay" };
+
+type Motion = {
+	target: Target;
+	base: number;
+	cap: number;
+	movers: HTMLElement[];
+};
+
 export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 	const root = options.root ?? document.documentElement;
 	let current = 0;
+	let lifted: { element: HTMLElement; inset: number } | undefined;
 	let queued: number | undefined;
 	let frame = 0;
 	let native = false;
 	let animation: Animation | undefined;
+	let motion: Motion | undefined;
 
-	const apply = (inset: number) => {
+	const focusedTarget = (): Target => {
+		const active = document.activeElement;
+		if (active instanceof HTMLElement && active.matches(EDITABLE)) {
+			const element = active.closest<HTMLElement>(
+				`[${KEYBOARD_LIFT_ATTRIBUTE}]`,
+			);
+			if (element) return { kind: "lift", element };
+			if (active.closest(TOP_LAYER)) return { kind: "overlay" };
+		}
+		if (lifted?.element.isConnected && lifted.inset > 0)
+			return { kind: "lift", element: lifted.element };
+		return { kind: "shell" };
+	};
+
+	const committedFor = (target: Target) => {
+		if (target.kind === "shell") return current;
+		if (target.kind === "lift" && lifted?.element === target.element)
+			return lifted.inset;
+		return 0;
+	};
+
+	const headroom = (element: HTMLElement) => {
+		const overlayTop =
+			Number.parseFloat(
+				getComputedStyle(root).getPropertyValue("--overlay-top"),
+			) || 0;
+		return Math.max(0, element.getBoundingClientRect().top - overlayTop);
+	};
+
+	const moversFor = (target: Target) => {
+		if (target.kind === "lift") return [target.element];
+		if (target.kind === "overlay") return [];
+		return Array.from(
+			root.querySelectorAll<HTMLElement>(`[${KEYBOARD_FOLLOW_ATTRIBUTE}]`),
+		);
+	};
+
+	const place = (
+		movers: HTMLElement[],
+		offset: number,
+		kind: Target["kind"],
+	) => {
+		const lift = Math.round(offset);
+		for (const mover of movers) {
+			if (kind === "lift") mover.style.translate = lift ? `0 ${-lift}px` : "";
+			else mover.style.transform = lift ? `translate3d(0, ${-lift}px, 0)` : "";
+		}
+	};
+
+	const endMotion = () => {
+		if (!motion) return;
+		for (const mover of motion.movers) {
+			if (motion.target.kind === "lift") mover.style.translate = "";
+			else mover.style.transform = "";
+			mover.style.willChange = "";
+		}
+		motion = undefined;
+	};
+
+	const applyShell = (inset: number) => {
 		current = inset;
 		root.style.setProperty(KEYBOARD_INSET_VAR, `${inset}px`);
+		root.style.setProperty(SHELL_INSET_VAR, `${inset}px`);
+		root.toggleAttribute("data-keyboard-open", inset > 0);
+	};
+
+	const applyLift = (element: HTMLElement, inset: number) => {
+		if (lifted && lifted.element !== element)
+			lifted.element.style.removeProperty(KEYBOARD_LIFT_VAR);
+		if (inset > 0) {
+			element.style.setProperty(KEYBOARD_LIFT_VAR, `${inset}px`);
+			lifted = { element, inset };
+		} else {
+			element.style.removeProperty(KEYBOARD_LIFT_VAR);
+			lifted = undefined;
+		}
+		root.toggleAttribute("data-keyboard-open", inset > 0);
+	};
+
+	const revealFocus = () => {
+		const active = document.activeElement;
+		if (active instanceof HTMLElement && active.matches(EDITABLE))
+			active.scrollIntoView({ block: "nearest" });
+	};
+
+	const commit = (target: Target, inset: number) => {
+		if (target.kind === "shell") {
+			if (inset !== current) applyShell(inset);
+			return;
+		}
+		if (inset < current) applyShell(inset);
+		if (target.kind === "lift") {
+			applyLift(target.element, inset);
+			if (inset > 0) requestAnimationFrame(revealFocus);
+			return;
+		}
 		root.toggleAttribute("data-keyboard-open", inset > 0);
 	};
 
@@ -95,7 +232,10 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 		frame = 0;
 		const next = queued;
 		queued = undefined;
-		if (next !== undefined && next !== current) apply(next);
+		if (next === undefined) return;
+		const target = motion?.target ?? focusedTarget();
+		endMotion();
+		commit(target, next);
 	};
 
 	const queue = (inset: number) => {
@@ -103,24 +243,41 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 		if (!frame) frame = requestAnimationFrame(flush);
 	};
 
-	const animate = (from: number, spring: KeyboardSpring) => {
-		const shell = options.shell();
+	const cancelQueued = () => {
+		if (frame) cancelAnimationFrame(frame);
+		frame = 0;
+		queued = undefined;
+	};
+
+	const animate = (target: Target, from: number, spring: KeyboardSpring) => {
 		animation?.cancel();
 		animation = undefined;
-		if (!shell || spring.duration <= 0 || spring.mass <= 0) return;
+		if (spring.duration <= 0 || spring.mass <= 0) return;
 		const to = clampInset(spring.inset);
 		const span = to - from;
 		const samples = springSamples(spring);
 		const last = samples.length - 1;
-		const frames = samples.map((progress, index) => ({
-			offset: index / last,
-			height: shellHeight(from + span * progress),
-		}));
-		const running = shell.animate(frames, {
-			duration: spring.duration,
-			easing: "linear",
-			fill: "none",
-		});
+		let running: Animation | undefined;
+		if (target.kind === "shell") {
+			const shell = options.shell();
+			if (!shell) return;
+			running = shell.animate(
+				samples.map((progress, index) => ({
+					offset: index / last,
+					height: shellHeight(from + span * progress),
+				})),
+				{ duration: spring.duration, easing: "linear", fill: "none" },
+			);
+		} else if (target.kind === "lift") {
+			running = target.element.animate(
+				samples.map((progress, index) => ({
+					offset: index / last,
+					translate: `0 ${Math.round(span * (1 - progress))}px`,
+				})),
+				{ duration: spring.duration, easing: "linear", fill: "none" },
+			);
+		}
+		if (!running) return;
 		running.currentTime = Math.min(
 			Math.max(performance.now() - spring.at + spring.latency, 0),
 			spring.duration,
@@ -132,19 +289,49 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 		native = true;
 		const detail = (event as CustomEvent<unknown>).detail;
 		if (isSpring(detail)) {
+			const target = focusedTarget();
 			const next = clampInset(detail.inset);
-			if (next === current) return;
-			const from = current;
-			if (frame) cancelAnimationFrame(frame);
-			frame = 0;
-			queued = undefined;
-			apply(next);
-			animate(from, detail);
+			const from = committedFor(target);
+			if (next === from) return;
+			cancelQueued();
+			endMotion();
+			commit(target, next);
+			animate(target, from, detail);
 			return;
 		}
 		const reported = typeof detail === "number" ? detail : Number(detail);
 		if (!Number.isFinite(reported)) return;
 		queue(clampInset(reported));
+	};
+
+	const onProgress = (event: Event) => {
+		native = true;
+		const progress = readProgress((event as CustomEvent<unknown>).detail);
+		if (!progress) return;
+		if (progress.phase === "start") {
+			cancelQueued();
+			endMotion();
+			const target = focusedTarget();
+			const from = committedFor(target);
+			const to = clampInset(progress.to);
+			const base = Math.min(from, to);
+			const movers = moversFor(target);
+			for (const mover of movers)
+				mover.style.willChange =
+					target.kind === "lift" ? "translate" : "transform";
+			commit(target, base);
+			let cap = Math.max(from, to) - base;
+			if (target.kind === "lift") cap = Math.min(cap, headroom(target.element));
+			motion = { target, base, cap, movers };
+			place(movers, Math.min(from - base, cap), target.kind);
+			return;
+		}
+		if (!motion) return;
+		const offset = Math.min(
+			Math.max(clampInset(progress.inset) - motion.base, 0),
+			motion.cap,
+		);
+		place(motion.movers, offset, motion.target.kind);
 	};
 
 	const viewport = window.visualViewport;
@@ -156,14 +343,20 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 	};
 
 	window.addEventListener(KEYBOARD_INSET_EVENT, onInset);
+	window.addEventListener(KEYBOARD_PROGRESS_EVENT, onProgress);
 	viewport?.addEventListener("resize", onViewport);
 
 	return () => {
 		window.removeEventListener(KEYBOARD_INSET_EVENT, onInset);
+		window.removeEventListener(KEYBOARD_PROGRESS_EVENT, onProgress);
+		endMotion();
 		viewport?.removeEventListener("resize", onViewport);
 		if (frame) cancelAnimationFrame(frame);
 		animation?.cancel();
+		lifted?.element.style.removeProperty(KEYBOARD_LIFT_VAR);
+		lifted = undefined;
 		root.style.removeProperty(KEYBOARD_INSET_VAR);
+		root.style.removeProperty(SHELL_INSET_VAR);
 		root.removeAttribute("data-keyboard-open");
 	};
 };

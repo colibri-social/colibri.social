@@ -17,9 +17,10 @@
 				"width": 1200,
 				"height": 800,
 				"minWidth": 768,
-				"minHeight": 600,
+				"minHeight": 768,
 				"titleBarStyle": "Overlay",
-				"hiddenTitle": true
+				"hiddenTitle": true,
+				"backgroundColor": "#080808"
 			}
 		],
 		"security": {
@@ -34,11 +35,35 @@
 			"icons/128x128.png",
 			"icons/128x128@2x.png",
 			"icons/icon.icns",
-			"icons/icon.ico"
+			"icons/icon.ico",
+			"icons/Colibri.icon",
+			"icons/Assets.car"
 		],
 		"category": "SocialNetworking",
 		"publisher": "Colibri",
 		"shortDescription": "Colibri Preview",
-		"longDescription": "A preview of the new Colibri client running on mock data."
+		"longDescription": "A preview of the new Colibri client running on mock data.",
+		"macOS": {
+			"entitlements": "Entitlements.plist",
+			"signingIdentity": "-"
+		}
+	},
+	"plugins": {
+		"deep-link": {
+			"mobile": [
+				{
+					"scheme": [
+						"social.colibri",
+						"social.colibri.spaces"
+					]
+				}
+			],
+			"desktop": {
+				"schemes": [
+					"social.colibri",
+					"social.colibri.spaces"
+				]
+			}
+		}
 	}
 }

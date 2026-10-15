@@ -1,4 +1,4 @@
-import type { ColibriErrorCode } from "../errors/codes";
+import type { ColibriErrorCode } from "@colibri-social/lib";
 import { createLogger } from "../utils/logger";
 import { endSession } from "./session";
 import {

@@ -1,13 +1,12 @@
-import { classifyThrown } from "../errors/classify";
+import type { XrpcResult } from "@colibri-social/lib";
+import { classifyThrown, parseSpace } from "@colibri-social/lib";
 import { lastViewedChannelPath } from "../utils/last-viewed-channel";
 import { createLogger } from "../utils/logger";
 import { markBoot } from "../utils/perf";
 import { parseChannelPath } from "./colibri-channel-url";
 import { colibri, SPACE_TYPES } from "./lexicons";
-import { parseSpace } from "./space-ref";
 import type { MessageView } from "./views";
 import type { ColibriClient } from "./xrpc";
-import type { XrpcResult } from "./xrpc/result";
 
 const log = createLogger("channel-prefetch");
 

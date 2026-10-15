@@ -1,3 +1,11 @@
+import {
+	classifyThrown,
+	colibriError,
+	frameIs,
+	isAppViewErrorCode,
+	isColibriError,
+	setPresenceFrame,
+} from "@colibri-social/lib";
 import * as Sentry from "@sentry/solid";
 import type { types } from "mediasoup-client";
 import { Device } from "mediasoup-client";
@@ -13,7 +21,6 @@ import { createStore, reconcile } from "solid-js/store";
 import { toast } from "somoto";
 import { asSpaceRef } from "../atproto/lexicons";
 import { voiceDisabledOn } from "../atproto/server-features";
-import { frameIs, setPresenceFrame } from "../atproto/sync-frames";
 import type { ProfileView } from "../atproto/views";
 import {
 	type ClientVoiceFrame,
@@ -37,9 +44,6 @@ import {
 	VOICE_SIGNAL_LXM,
 	VOICE_SIGNAL_PATH,
 } from "../atproto/voice-frames";
-import { classifyThrown } from "../errors/classify";
-import { isAppViewErrorCode } from "../errors/codes";
-import { colibriError, isColibriError } from "../errors/error";
 import { reportError } from "../errors/report";
 import { showError } from "../errors/show-error";
 import {

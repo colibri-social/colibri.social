@@ -3,7 +3,11 @@ import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { skeyOf } from "../../data/ids";
 import { fx, mark, rich } from "../../data/mock/rich";
-import { createMockSource, setLatency } from "../../data/mock/source";
+import {
+	createMockSource,
+	pendingLatency,
+	setLatency,
+} from "../../data/mock/source";
 import { createDataStore, DataContext } from "../../data/store";
 import type { Did } from "../../data/types";
 import { Providers } from "../../providers";
@@ -17,7 +21,16 @@ const until = async (check: () => boolean, timeout = 8000) => {
 	}
 };
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const frame = () =>
+	new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+const settle = async () => {
+	let quiet = 0;
+	while (quiet < 3) {
+		await frame();
+		quiet = pendingLatency() === 0 ? quiet + 1 : 0;
+	}
+};
 
 let stop: (() => void) | undefined;
 let host: HTMLDivElement | undefined;
@@ -80,22 +93,36 @@ const openHqGeneral = async () => {
 		root.querySelector<HTMLElement>(
 			'[data-pane-index="1"] [data-message-list-scroller]',
 		);
+	const atRest = async () => {
+		let still = 0;
+		while (still < 3) {
+			await frame();
+			const pane = root.querySelector<HTMLElement>('[data-pane-index="1"]');
+			still = pane && pane.getBoundingClientRect().left === 0 ? still + 1 : 0;
+		}
+		await settle();
+	};
+	const latest = () => source.world.messagesOf(general).at(-1)?.rkey;
 	const readThrough = async () => {
 		buttonStarting(root, "general")?.click();
 		await until(() => location.pathname.endsWith("/general"));
 		await until(() => !!scroller()?.querySelector("article[data-message-key]"));
-		await wait(900);
-		for (let step = 0; step < 60; step++) {
+		await atRest();
+		await until(() => {
 			const element = scroller();
-			if (element) element.scrollTop += 250;
-			await wait(40);
-		}
-		await wait(1200);
+			if (!element) return false;
+			const bottom =
+				element.scrollTop + element.clientHeight >= element.scrollHeight - 1;
+			if (!bottom) element.scrollTop += 250;
+			return bottom && general.readCursor === latest();
+		});
+		await settle();
 	};
 	const leave = async () => {
 		history.back();
 		await until(() => !location.pathname.endsWith("/general"));
-		await wait(800);
+		await until(() => store.viewing() === undefined);
+		await settle();
 	};
 	const mention = (text: string) => {
 		const body = rich(
@@ -116,7 +143,7 @@ const openHqGeneral = async () => {
 				channel: general.view.space,
 				text: `filler line ${index} that keeps the conversation going`,
 			});
-			await wait(20);
+			await frame();
 		}
 	};
 	const mentions = () => {
@@ -125,7 +152,7 @@ const openHqGeneral = async () => {
 			?.find((entry) => entry.did === hq.did);
 		return view ? store.space(view).unread("general").mentions : -1;
 	};
-	return { general, readThrough, leave, mention, chatter, mentions };
+	return { general, latest, readThrough, leave, mention, chatter, mentions };
 };
 
 describe("mention badges", () => {
@@ -140,10 +167,12 @@ describe("mention badges", () => {
 		const chat = await openHqGeneral();
 		await chat.readThrough();
 		expect(chat.mentions()).toBe(0);
-		chat.mention("ping one");
-		await wait(900);
-		chat.mention("ping two");
-		await wait(1500);
+		const one = chat.mention("ping one");
+		await until(() => chat.general.readCursor === one.rkey);
+		await settle();
+		const two = chat.mention("ping two");
+		await until(() => chat.general.readCursor === two.rkey);
+		await settle();
 		expect(chat.mentions()).toBe(0);
 	});
 
@@ -154,11 +183,10 @@ describe("mention badges", () => {
 		const cursor = chat.general.readCursor;
 		chat.mention("are you around?");
 		await chat.chatter(18);
-		await wait(500);
+		await settle();
 		expect(chat.general.readCursor).toBe(cursor);
 		expect(chat.mentions()).toBe(1);
 		await chat.readThrough();
-		await until(() => chat.mentions() === 0).catch(() => undefined);
 		expect(chat.mentions()).toBe(0);
 	});
 });

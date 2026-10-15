@@ -1,4 +1,5 @@
 import type { HoistedRole, Member } from "@colibri-social/ui";
+import { displayNameOf } from "../../data/adapters/authors";
 import { uiPresence } from "../../data/adapters/presence";
 import {
 	roleIdentity,
@@ -25,7 +26,7 @@ export const toListMember = (
 	const status = options.presence?.status;
 	return {
 		id: member.actor.did,
-		name: member.nickname ?? member.actor.displayName,
+		name: displayNameOf(member.actor, member),
 		avatarSrc: member.actor.avatar,
 		presence: uiPresence(options.presence),
 		status: status

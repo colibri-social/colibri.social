@@ -120,6 +120,7 @@
 						"social.colibri.beta.community.migrate",
 						"social.colibri.beta.community.registerCredentials",
 						"social.colibri.beta.community.setMemberRoles",
+						"social.colibri.beta.community.transferOwnership",
 						"social.colibri.beta.community.reorderCategories",
 						"social.colibri.beta.community.createInvitation",
 						"social.colibri.beta.community.listInvitations",

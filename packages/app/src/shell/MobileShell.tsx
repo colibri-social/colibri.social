@@ -30,6 +30,7 @@ import { installKeyboardInset } from "./keyboard-inset";
 import { LayerStack } from "./LayerStack";
 import type { Layer, Tab } from "./layers";
 import { LoadErrorState, NotFoundScreen } from "./load-error";
+import { MessageToastHost } from "./MessageToastHost";
 import { installOverlayBack } from "./overlay-back";
 import { AdminScreen, AppScreen } from "./registry";
 import { createStack } from "./stack";
@@ -247,12 +248,13 @@ export const MobileShell = () => {
 		<div
 			ref={shell}
 			data-mobile-shell=""
-			class="h-[calc(100dvh-var(--keyboard-inset,0px))] w-full bg-background font-sans text-foreground"
+			class="h-[calc(100dvh-var(--shell-keyboard-inset,0px))] w-full bg-background font-sans text-foreground"
 		>
 			<ProfileSheetProvider>
 				<MemberMenuProvider>
 					<LayerStack stack={stack} base={base()} renderLayer={renderLayer} />
 					<CallPillHost />
+					<MessageToastHost stack={stack} />
 					<DiscardChangesDialog guard={stack.leaveGuard} />
 				</MemberMenuProvider>
 			</ProfileSheetProvider>

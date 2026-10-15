@@ -1,5 +1,5 @@
+import { isColibriError } from "@colibri-social/lib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { isColibriError } from "../errors/error";
 import { getAppViewHost } from "../utils/appview";
 import {
 	handleResolver,

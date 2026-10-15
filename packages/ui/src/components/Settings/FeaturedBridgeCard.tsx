@@ -137,7 +137,7 @@ export const BridgeEmptyState = (props: BridgeEmptyStateProps) => (
 			<TransferHorizontalIcon aria-hidden="true" />
 		</span>
 		<p class="m-0 text-sm font-semibold text-foreground">{props.title}</p>
-		<p class="m-0 max-w-80 text-sm text-pretty text-muted-foreground">
+		<p class="m-0 max-w-80 text-sm leading-prose text-pretty text-muted-foreground">
 			{props.children}
 		</p>
 	</div>

@@ -390,8 +390,16 @@ const SHORTCODE_TO_EMOJI = (() => {
 	return map;
 })();
 
-export const emojiForShortcode = (shortcode: string) =>
-	SHORTCODE_TO_EMOJI.get(shortcode.toLowerCase());
+const TEXT_PRESENTATION = new Set([
+	"\u2122\uFE0F",
+	"\u00A9\uFE0F",
+	"\u00AE\uFE0F",
+]);
+
+export const emojiForShortcode = (shortcode: string) => {
+	const emoji = SHORTCODE_TO_EMOJI.get(shortcode.toLowerCase());
+	return emoji && TEXT_PRESENTATION.has(emoji) ? emoji.slice(0, -1) : emoji;
+};
 
 export type ShortcodeEmojiOptions = {
 	customEmoji: (name: string) => CustomEmojiSuggestion | undefined;
@@ -406,11 +414,19 @@ export const ShortcodeEmoji = Extension.create<ShortcodeEmojiOptions>({
 		const options = this.options;
 		return [
 			new InputRule({
-				find: /(?:^|\s):([a-zA-Z0-9_+-]+):$/,
+				find: /:([a-zA-Z0-9_+-]+):$/,
 				handler: ({ state, range, match }) => {
 					const name = match[1];
 					const start = range.to - name.length - 1;
 					if (codeContextAtPos(state.doc, start)) return null;
+					const $start = state.doc.resolve(start);
+					const before = $start.parent.textBetween(
+						Math.max(0, $start.parentOffset - 1),
+						$start.parentOffset,
+					);
+					if (/\d/.test(before) && /^\d+$/.test(name)) return null;
+					const lineBefore = $start.parent.textBetween(0, $start.parentOffset);
+					if ((lineBefore.match(/`/g)?.length ?? 0) % 2 === 1) return null;
 					const custom = options.customEmoji(name);
 					if (custom) {
 						const node = state.schema.nodes.mention?.create(

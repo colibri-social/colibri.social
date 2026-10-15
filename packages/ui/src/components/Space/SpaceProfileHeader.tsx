@@ -1,7 +1,7 @@
 import { type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createSlot } from "../../utils/slot";
-import { Banner } from "../Banner/Banner";
+import { Banner, hasSpaceBanner } from "../Banner/Banner";
 import { SpaceIcon } from "./SpaceIcon";
 import { MemberCountChip, OwnerChip } from "./SpaceMeta";
 
@@ -25,14 +25,22 @@ export const SpaceProfileHeader = (props: SpaceProfileHeaderProps) => {
 	const children = createSlot(() => props.children);
 
 	return (
-		<div class={cx("flex flex-col", props.class)}>
-			<Banner
-				ratio="space"
-				src={props.bannerSrc}
-				tintFrom={props.iconSrc}
-				color={props.bannerColor}
-			/>
-			<div class="relative -mt-8 px-3">
+		<div
+			data-space-profile-header=""
+			data-banner={hasSpaceBanner(props) ? "" : undefined}
+			class={cx("flex flex-col", props.class)}
+		>
+			<Show when={hasSpaceBanner(props)}>
+				<Banner
+					ratio="space"
+					src={props.bannerSrc}
+					tintFrom={props.iconSrc}
+					color={props.bannerColor}
+				/>
+			</Show>
+			<div
+				class={cx("relative px-3", hasSpaceBanner(props) ? "-mt-8" : "pt-4")}
+			>
 				<SpaceIcon
 					name={props.name}
 					src={props.iconSrc}
@@ -58,7 +66,7 @@ export const SpaceProfileHeader = (props: SpaceProfileHeaderProps) => {
 						</Show>
 					</div>
 					<Show when={props.description}>
-						<p class="text-base text-pretty text-muted-foreground select-text">
+						<p class="text-base leading-prose text-pretty text-muted-foreground select-text">
 							{props.description}
 						</p>
 					</Show>

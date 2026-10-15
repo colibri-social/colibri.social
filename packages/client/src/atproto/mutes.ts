@@ -1,5 +1,6 @@
 import type { Agent } from "@atproto/api";
-import { classifyThrown } from "../errors/classify";
+import type { XrpcResult } from "@colibri-social/lib";
+import { classifyThrown } from "@colibri-social/lib";
 import { createLogger } from "../utils/logger";
 import { asDid, asSpaceRef, COLLECTIONS, colibri } from "./lexicons";
 import type { PreferencesOutput } from "./notificationPreference";
@@ -7,7 +8,6 @@ import { enqueueSpaceCreate, enqueueSpaceDelete } from "./outbox/outbox";
 import { preferencesSpaceRef } from "./preferences-space";
 import type { ActorMuteRecord, Mute } from "./views";
 import type { ColibriClient } from "./xrpc";
-import type { XrpcResult } from "./xrpc/result";
 
 const log = createLogger("mutes");
 

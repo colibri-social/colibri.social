@@ -1,111 +1,78 @@
-import type { l } from "@atproto/lex";
-import type { social } from "@colibri-social/lexicons";
-
-export type ProfileView = social.colibri.beta.actor.defs.ProfileView;
-export type Presence = social.colibri.beta.actor.defs.Presence;
-export type Status = social.colibri.beta.actor.defs.Status;
-export type Activity = social.colibri.beta.actor.defs.Activity;
-export type ActivityKind = "listening" | "playing" | "streaming";
-export type VoiceState = social.colibri.beta.actor.defs.VoiceState;
-export type Preferences = social.colibri.beta.actor.defs.Preferences;
-export type Mute = social.colibri.beta.actor.defs.Mute;
-
-export type CommunityView = social.colibri.beta.community.defs.CommunityView;
-export type ViewerState = social.colibri.beta.community.defs.ViewerState;
-export type CategoryView = social.colibri.beta.community.defs.CategoryView;
-export type ChannelView = social.colibri.beta.community.defs.ChannelView;
-export type ChannelViewerState =
-	social.colibri.beta.community.defs.ChannelViewerState;
-export type RoleView = social.colibri.beta.community.defs.RoleView;
-export type RoleChannelOverride =
-	social.colibri.beta.community.defs.RoleChannelOverride;
-export type MemberView = social.colibri.beta.community.defs.MemberView;
-export type ApplicationView =
-	social.colibri.beta.community.defs.ApplicationView;
-export type InvitationView = social.colibri.beta.community.defs.InvitationView;
-export type ModerationView = social.colibri.beta.community.defs.ModerationView;
-export type LabelView = social.colibri.beta.community.defs.LabelView;
-export type BannedActorView =
-	social.colibri.beta.community.defs.BannedActorView;
-export type LegacyCommunityView =
-	social.colibri.beta.community.defs.LegacyCommunityView;
-
-export type MessageView = social.colibri.beta.channel.defs.MessageView;
-export type DeletedMessageView =
-	social.colibri.beta.channel.defs.DeletedMessageView;
-export type AttachmentView = social.colibri.beta.channel.defs.AttachmentView;
-export type ForwardView = social.colibri.beta.channel.defs.ForwardView;
-export type ReactionView = social.colibri.beta.channel.defs.ReactionView;
-export type BridgedReactor = social.colibri.beta.bridge.defs.BridgedReactor;
-export type BridgedActor = social.colibri.beta.bridge.defs.BridgedActor;
-export type BridgeRegistrationView =
-	social.colibri.beta.bridge.defs.RegistrationView;
-export type BridgePairingView = social.colibri.beta.bridge.defs.PairingView;
-export type BridgeRemoteRoom = social.colibri.beta.bridge.defs.RemoteRoom;
-export type BridgeLink = social.colibri.beta.bridge.defs.Link;
-export type BridgeBackfillStatus =
-	social.colibri.beta.bridge.defs.BackfillStatus;
-export type UnreadStatus = social.colibri.beta.channel.defs.UnreadStatus;
-
-export type ThreadView = social.colibri.beta.thread.defs.ThreadView;
-export type ThreadViewerState =
-	social.colibri.beta.thread.defs.ThreadViewerState;
-export type ThreadFilter = "all" | "unread" | "following";
-
-export type NotificationView =
-	social.colibri.beta.notification.defs.NotificationView;
-
-export type LinkEmbed = social.colibri.beta.embed.defs.LinkEmbed;
-export type EmbedImage = social.colibri.beta.embed.defs.EmbedImage;
-export type EmbedVideo = social.colibri.beta.embed.defs.EmbedVideo;
-export type GifView = social.colibri.beta.embed.defs.GifView;
-export type GifCategory = social.colibri.beta.embed.defs.GifCategory;
-
-export type RecordRef = social.colibri.beta.defs.RecordRef;
-export type SpaceRecordRef = social.colibri.beta.defs.SpaceRecordRef;
-
-export type Facet = social.colibri.beta.richtext.facet.Main;
-
-export type MessageRecord = social.colibri.beta.message.Main;
-export type MessageAttachment = social.colibri.beta.message.Attachment;
-export type MessageForward = social.colibri.beta.message.Forward;
-export type ForwardSnapshot = Omit<MessageForward, "attachments">;
-export type ReactionRecord = social.colibri.beta.reaction.Main;
-export type LabelRecord = social.colibri.beta.label.Main;
-export type LabelSubject = social.colibri.beta.label.Subject;
-export type MemberRecord = social.colibri.beta.member.Main;
-export type RoleRecord = social.colibri.beta.role.Main;
-export type CategoryRecord = social.colibri.beta.category.Main;
-export type ChannelRecord = social.colibri.beta.channel.Main;
-export type CommunityRecord = social.colibri.beta.community.Main;
-export type CommunitySettingsRecord =
-	social.colibri.beta.community.settings.Main;
-export type ModerationRecord = social.colibri.beta.moderation.Main;
-export type ActorProfileRecord = social.colibri.beta.actor.profile.Main;
-export type ProfileTheme = social.colibri.beta.actor.profile.Theme;
-export type ActorSettingsRecord = social.colibri.beta.actor.settings.Main;
-export type ActorMuteRecord = social.colibri.beta.actor.mute.Main;
-export type ChannelReadRecord = social.colibri.beta.channel.read.Main;
-export type ChannelReadCursor = social.colibri.beta.channel.read.Cursor;
-export type ThreadRecord = social.colibri.beta.thread.Main;
-export type ThreadFollowRecord = social.colibri.beta.thread.follow.Main;
-
-export type MessageParent = NonNullable<MessageView["parent"]>;
-
-export const MESSAGE_VIEW_TYPE = "social.colibri.beta.channel.defs#messageView";
-
-export const DELETED_MESSAGE_TYPE =
-	"social.colibri.beta.channel.defs#deletedMessageView";
-
-export const isVisibleParent = (
-	parent: MessageParent,
-): parent is l.$Typed<MessageView> => parent.$type === MESSAGE_VIEW_TYPE;
-
-export const isUnavailableParent = (parent: MessageParent): boolean =>
-	!isVisibleParent(parent);
-
-export type ThreadAnchorMessage = NonNullable<ThreadView["anchorMessage"]>;
-
-export const isVisibleAnchor = (
-	anchor: ThreadAnchorMessage,
-): anchor is l.$Typed<MessageView> => anchor.$type === MESSAGE_VIEW_TYPE;
+export {
+	type Activity,
+	type ActivityKind,
+	type ActorMuteRecord,
+	type ActorProfileRecord,
+	type ActorSettingsRecord,
+	type ApplicationView,
+	type AttachmentView,
+	type BannedActorView,
+	type BridgeBackfillStatus,
+	type BridgedActor,
+	type BridgedReactor,
+	type BridgeLink,
+	type BridgePairingView,
+	type BridgeRegistrationView,
+	type BridgeRemoteRoom,
+	type CategoryRecord,
+	type CategoryView,
+	type ChannelReadCursor,
+	type ChannelReadRecord,
+	type ChannelRecord,
+	type ChannelView,
+	type ChannelViewerState,
+	type CommunityRecord,
+	type CommunitySettingsRecord,
+	type CommunityView,
+	DELETED_MESSAGE_TYPE,
+	type DeletedMessageView,
+	type EmbedImage,
+	type EmbedVideo,
+	type Facet,
+	type ForwardSnapshot,
+	type ForwardView,
+	type GifCategory,
+	type GifView,
+	type InvitationView,
+	isUnavailableParent,
+	isVisibleAnchor,
+	isVisibleParent,
+	type LabelRecord,
+	type LabelSubject,
+	type LabelView,
+	type LegacyCommunityView,
+	type LinkEmbed,
+	MESSAGE_VIEW_TYPE,
+	type MemberRecord,
+	type MemberView,
+	type MessageAttachment,
+	type MessageForward,
+	type MessageParent,
+	type MessageRecord,
+	type MessageView,
+	type ModerationRecord,
+	type ModerationView,
+	type Mute,
+	type NotificationView,
+	type Preferences,
+	type Presence,
+	type ProfileTheme,
+	type ProfileView,
+	type ReactionRecord,
+	type ReactionView,
+	type RecordRef,
+	type RoleChannelOverride,
+	type RoleRecord,
+	type RoleView,
+	type SpaceRecordRef,
+	type Status,
+	type ThreadAnchorMessage,
+	type ThreadFilter,
+	type ThreadFollowRecord,
+	type ThreadRecord,
+	type ThreadView,
+	type ThreadViewerState,
+	type UnreadStatus,
+	type ViewerState,
+	type VoiceState,
+} from "@colibri-social/lib";

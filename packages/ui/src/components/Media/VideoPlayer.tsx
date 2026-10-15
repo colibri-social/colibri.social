@@ -16,6 +16,7 @@ import {
 } from "../../icons/animated/media";
 import { AnimatedMaximizeIcon } from "../../icons/animated/navigation";
 import { cx } from "../../utils/cx";
+import { keyboardFocusWithin } from "../../utils/keyboard-modality";
 import { motionScale } from "../../utils/motion";
 import { Spinner } from "../Spinner/Spinner";
 import { formatClock } from "./format";
@@ -87,6 +88,7 @@ const bufferedRanges = (video: HTMLVideoElement): [number, number][] => {
 };
 
 export const VideoPlayer = (props: VideoPlayerProps) => {
+	const volumeFocus = keyboardFocusWithin();
 	const [playing, setPlaying] = createSignal(false);
 	const [started, setStarted] = createSignal(false);
 	const [time, setTime] = createSignal(props.startTime ?? 0);
@@ -531,13 +533,18 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 							{formatClock(time())} / {formatClock(duration())}
 						</span>
 						<span class="flex-1" />
-						<div class="group/volume flex items-center">
+						<div
+							class="group/volume flex items-center"
+							onFocusIn={volumeFocus.onFocusIn}
+							onFocusOut={volumeFocus.onFocusOut}
+							onPointerDown={volumeFocus.onPointerDown}
+						>
 							<Show when={fineHover()}>
 								<div
 									data-video-volume=""
 									class={cx(
 										"ring-room-y w-0 overflow-hidden opacity-0 transition-[width,opacity] duration-[calc(160ms*var(--motion-scale))] ease-out motion-reduce:transition-none reduced-motion:transition-none",
-										"group-focus-within/volume:w-16 group-focus-within/volume:opacity-100 group-hover/volume:w-16 group-hover/volume:opacity-100",
+										"group-data-keyboard-focus/volume:w-16 group-data-keyboard-focus/volume:opacity-100 group-hover/volume:w-16 group-hover/volume:opacity-100",
 									)}
 								>
 									<Scrubber

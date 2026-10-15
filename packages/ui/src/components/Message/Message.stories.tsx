@@ -10,6 +10,7 @@ import {
 } from "../../utils/message-groups";
 import { contrastRatio, NameColorProvider } from "../../utils/name-color";
 import { formatMessageTime } from "../../utils/time";
+import { MESSAGE_LINE_HEIGHT } from "../../utils/typography";
 import { defaultAvatarFor } from "../Avatar/default-avatars/default-avatars";
 import { MentionChip, TeamBadge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
@@ -350,10 +351,9 @@ export const PendingToSent: Story = {
 	play: async ({ canvasElement }) => {
 		const row = canvasElement.querySelector('[data-testid="pending"]');
 		await expect(row).toHaveAttribute("data-state", "pending");
-		await expect(row).not.toHaveAttribute("data-dimmed");
-		await waitFor(() => expect(row).toHaveAttribute("data-dimmed"), {
-			timeout: 2000,
-		});
+		await expect(row).toHaveAttribute("data-dimmed");
+		const content = row?.querySelector<HTMLElement>(".transition-opacity");
+		await expect(content && getComputedStyle(content).opacity).toBe("0.6");
 		await userEvent.click(
 			within(canvasElement).getByRole("button", { name: "Mark as sent" }),
 		);
@@ -480,6 +480,24 @@ export const FailedMobile: Story = {
 	},
 };
 
+const lineTops = (element: Element) => {
+	const range = document.createRange();
+	range.selectNodeContents(element);
+	const tops = Array.from(range.getClientRects())
+		.filter((rect) => rect.width > 0)
+		.map((rect) => Math.round(rect.top));
+	return [...new Set(tops)].sort((a, b) => a - b);
+};
+
+const firstLineCenter = (element: Element) => {
+	const range = document.createRange();
+	range.selectNodeContents(element);
+	const first = Array.from(range.getClientRects()).find(
+		(rect) => rect.width > 0,
+	) as DOMRect;
+	return first.top + first.height / 2;
+};
+
 export const EditedAndLong: Story = {
 	parameters: mobile,
 	render: () => (
@@ -535,6 +553,24 @@ export const EditedAndLong: Story = {
 		await expect(
 			marker && text && Math.abs(marker.bottom - text.bottom),
 		).toBeLessThan(4);
+		const long = Array.from(
+			canvasElement.querySelectorAll<HTMLElement>("[data-message-content]"),
+		).find((element) => element.textContent?.includes("old mill"));
+		if (!long) throw new Error("missing long message");
+		await expect(getComputedStyle(long).lineHeight).toBe(
+			`${MESSAGE_LINE_HEIGHT}px`,
+		);
+		const tops = lineTops(long);
+		await expect(tops.length).toBeGreaterThan(3);
+		for (let index = 1; index < tops.length; index++) {
+			await expect(
+				Math.abs(
+					(tops[index] as number) -
+						(tops[index - 1] as number) -
+						MESSAGE_LINE_HEIGHT,
+				),
+			).toBeLessThanOrEqual(1);
+		}
 	},
 };
 
@@ -846,6 +882,11 @@ export const InlineEditAlignment: Story = {
 		/>
 	),
 	play: async ({ canvasElement }) => {
+		const view = canvasElement.querySelector(
+			"[data-message-content]",
+		) as HTMLElement;
+		const viewLine = Number.parseFloat(getComputedStyle(view).lineHeight);
+		const viewLines = lineTops(view).length;
 		await startEditing(canvasElement);
 		const box = canvasElement.querySelector(
 			"[data-message-editor-box]",
@@ -870,6 +911,11 @@ export const InlineEditAlignment: Story = {
 		const glyphCenter = glyphRect.top + glyphRect.height / 2;
 		await expect(Math.abs(glyphCenter - lineCenter)).toBeLessThanOrEqual(1);
 		await expect(boxRect.height).toBeLessThanOrEqual(lineHeight + 18 + 0.5);
+		await expect(lineHeight).toBe(viewLine);
+		await expect(lineHeight).toBe(MESSAGE_LINE_HEIGHT);
+		await expect(paragraph.getBoundingClientRect().height).toBe(
+			viewLines * MESSAGE_LINE_HEIGHT,
+		);
 	},
 };
 
@@ -954,6 +1000,12 @@ export const ContinuationTime: Story = {
 		row.blur();
 		await waitFor(() => expect(getComputedStyle(time).opacity).toBe("0"));
 		await expect(time.textContent).toBe("09:06");
+		const content = row.querySelector("[data-message-content]") as HTMLElement;
+		const timeRect = time.getBoundingClientRect();
+		await expect(timeRect.height).toBe(MESSAGE_LINE_HEIGHT);
+		await expect(
+			Math.abs(timeRect.top + timeRect.height / 2 - firstLineCenter(content)),
+		).toBeLessThanOrEqual(1);
 	},
 };
 
@@ -1102,7 +1154,9 @@ export const InboxPreviews: Story = {
 		)[1];
 		await expect(long).toBeDefined();
 		if (!long) return;
-		await expect(long.getBoundingClientRect().height).toBeLessThanOrEqual(64);
+		await expect(long.getBoundingClientRect().height).toBeLessThanOrEqual(
+			MESSAGE_LINE_HEIGHT * 3 + 1,
+		);
 		await expect(
 			canvasElement.querySelector("[data-message-preview-reply]"),
 		).not.toBeNull();

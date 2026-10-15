@@ -6,6 +6,7 @@ import { createMockSource, setLatency } from "../../../data/mock/source";
 import { createDataStore, DataContext } from "../../../data/store";
 import type { MessageView, SpaceRef } from "../../../data/types";
 import { Providers } from "../../../providers";
+import { whenHistoryIdle } from "../../../shell/history-go";
 import { MobileShell } from "../../../shell/MobileShell";
 
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
@@ -39,8 +40,12 @@ afterEach(() => {
 	history.replaceState(null, "", originalPath);
 });
 
+const historyIdle = () =>
+	new Promise<void>((resolve) => whenHistoryIdle(resolve));
+
 const mount = async () => {
 	setLatency(0);
+	await historyIdle();
 	history.replaceState(null, "", DEV_PATH);
 	const source = createMockSource({ live: false });
 	const store = createDataStore(source);
@@ -233,7 +238,12 @@ describe("moving messages", () => {
 		const { root, targets } = await setup();
 		await startSelection(root, targets[0] as MessageView);
 		const path = location.pathname;
-		await wait(300);
+		await until(
+			() =>
+				typeof (history.state as Record<string, unknown> | null)
+					?.colibriOverlay !== "number",
+		);
+		await historyIdle();
 		history.back();
 		await until(() => !buttonNamed("Cancel selection"));
 		await wait(300);

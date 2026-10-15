@@ -1,3 +1,4 @@
+import { frameIs, isThreadSpace } from "@colibri-social/lib";
 import {
 	createContext,
 	createSignal,
@@ -15,8 +16,6 @@ import {
 	unmuteSubject as unmuteSubjectRecord,
 } from "../atproto/mutes";
 import { getPreferences } from "../atproto/notificationPreference";
-import { isThreadSpace } from "../atproto/space-ref";
-import { frameIs } from "../atproto/sync-frames";
 import type { Mute } from "../atproto/views";
 import { createLogger } from "../utils/logger";
 import { useSocketContext } from "./Socket";

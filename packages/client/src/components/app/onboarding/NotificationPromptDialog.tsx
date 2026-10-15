@@ -1,3 +1,4 @@
+import { classifyThrown } from "@colibri-social/lib";
 import {
 	type Component,
 	createEffect,
@@ -8,7 +9,6 @@ import {
 import { toast } from "somoto";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";
-import { classifyThrown } from "../../../errors/classify";
 import {
 	enablePushNotifications,
 	getBackend,

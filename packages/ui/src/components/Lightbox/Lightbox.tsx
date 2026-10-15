@@ -1,6 +1,8 @@
 import { AltArrowLeftIcon } from "@solar-icons/solid/bold/alt-arrow-left";
 import { AltArrowRightIcon } from "@solar-icons/solid/bold/alt-arrow-right";
 import { CloseIcon } from "@solar-icons/solid/bold/close";
+import { CopyAddIcon } from "@solar-icons/solid/bold/copy-add";
+import { GalleryDownloadIcon } from "@solar-icons/solid/bold/gallery-download";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
 import {
 	batch,
@@ -27,9 +29,11 @@ import {
 	springs,
 	springTransition,
 } from "../../utils/motion";
+import { useWindowChromeTop } from "../../utils/safe-area";
 import { formatMessageTime, type TimeInput } from "../../utils/time";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import type { MediaItem } from "../Attachments/MediaGrid";
+import { ImageContextMenu } from "../ContextMenu/MessageMenu";
 import { IconButton, iconButtonVariants } from "../IconButton/IconButton";
 import { VideoPlayer } from "../Media/VideoPlayer";
 
@@ -53,6 +57,8 @@ export type LightboxProps = {
 	locale?: string;
 	shareUrl?: string | ((index: number) => string);
 	onShare?: (index: number) => void;
+	onCopyImage?: (index: number) => void;
+	onDownloadImage?: (index: number) => void;
 	label?: string;
 };
 
@@ -202,6 +208,7 @@ export const Lightbox = (props: LightboxProps) => {
 
 	const index = () => clamp(internalIndex(), 0, props.items.length - 1);
 	const item = () => props.items[index()];
+	const [mediaMenuTarget, setMediaMenuTarget] = createSignal(false);
 	const count = () => props.items.length;
 	const mounted = () => phase() !== "closed";
 	const zoomed = () => zoom() > 1.01;
@@ -228,8 +235,11 @@ export const Lightbox = (props: LightboxProps) => {
 		props.onIndexChange?.(bounded);
 	};
 
+	const chromeTop = useWindowChromeTop();
 	const padding = () =>
-		desktop() ? { x: 72, top: 64, bottom: 64 } : { x: 0, top: 56, bottom: 56 };
+		desktop()
+			? { x: 72, top: 64 + chromeTop(), bottom: 64 }
+			: { x: 0, top: 56 + chromeTop(), bottom: 56 };
 
 	const sizeOf = (target: number) => {
 		const known = natural()[target];
@@ -995,105 +1005,144 @@ export const Lightbox = (props: LightboxProps) => {
 						class="absolute inset-0 bg-black/95"
 						style={{ opacity: backdropOpacity() }}
 					/>
-					<div
-						ref={stage}
-						data-lightbox-stage=""
-						class="absolute inset-0 isolate touch-none"
-						onPointerDown={onPointerDown}
-						onPointerMove={onPointerMove}
-						onPointerUp={onPointerUp}
-						onPointerCancel={onPointerCancel}
+					<ImageContextMenu
+						contentClass="z-[80]"
+						disabled={!mediaMenuTarget() || isVideo(item())}
+						onCopy={
+							props.onCopyImage ? () => props.onCopyImage?.(index()) : undefined
+						}
+						onDownload={
+							props.onDownloadImage
+								? () => props.onDownloadImage?.(index())
+								: undefined
+						}
 					>
-						<For each={slides()}>
-							{(offset) => {
-								const target = () => index() + offset;
-								const entry = () => props.items[target()];
-								return (
-									<div
-										data-lightbox-slide={offset}
-										class={cx(
-											"absolute will-change-transform",
-											offset === 0 && (zoomed() || zoomAnimating())
-												? "z-10 overflow-visible"
-												: "overflow-hidden",
-										)}
-										style={slideStyle(offset)}
-									>
-										<Show
-											when={isVideo(entry())}
-											fallback={
-												<AnimatedImage
-													data-lightbox-media=""
-													animated={entry()?.kind === "gif" ? true : undefined}
-													play={offset === 0}
-													playOnDemand="none"
-													src={entry()?.src}
-													alt={entry()?.alt ?? ""}
-													draggable={false}
-													onLoad={(event) =>
-														rememberSize(target(), event.currentTarget)
-													}
-													class={cx(
-														"block size-full object-cover",
-														zoomed() && offset === 0
-															? "cursor-zoom-out"
-															: "cursor-zoom-in",
-													)}
-													style={mediaStyle(offset)}
-												/>
-											}
+						<div
+							ref={stage}
+							data-lightbox-stage=""
+							onContextMenu={(event) => {
+								const target = event.target as Element | null;
+								setMediaMenuTarget(!!target?.closest("[data-lightbox-media]"));
+							}}
+							class="absolute inset-0 isolate touch-none [clip-path:inset(var(--window-chrome-top,0px)_0_0_0)]"
+							onPointerDown={onPointerDown}
+							onPointerMove={onPointerMove}
+							onPointerUp={onPointerUp}
+							onPointerCancel={onPointerCancel}
+						>
+							<For each={slides()}>
+								{(offset) => {
+									const target = () => index() + offset;
+									const entry = () => props.items[target()];
+									return (
+										<div
+											data-lightbox-slide={offset}
+											class={cx(
+												"absolute will-change-transform",
+												offset === 0 && (zoomed() || zoomAnimating())
+													? "z-10 overflow-visible"
+													: "overflow-hidden",
+											)}
+											style={slideStyle(offset)}
 										>
 											<Show
-												when={offset === 0}
+												when={isVideo(entry())}
 												fallback={
-													<Show
-														when={entry()?.poster}
-														fallback={
-															<video
-																data-lightbox-media=""
-																src={entry()?.src}
-																aria-label={
-																	entry()?.alt ?? entry()?.name ?? "Video"
-																}
-																tabindex={-1}
-																muted
-																playsinline
-																preload="metadata"
-																class="block size-full bg-black object-contain"
-															/>
+													<AnimatedImage
+														data-lightbox-media=""
+														animated={
+															entry()?.kind === "gif" ? true : undefined
 														}
-													>
-														{(poster) => (
-															<img
-																data-lightbox-media=""
-																src={poster()}
-																alt=""
-																draggable={false}
-																class="block size-full bg-black object-contain"
-															/>
+														play={offset === 0}
+														playOnDemand="none"
+														src={entry()?.src}
+														alt={entry()?.alt ?? ""}
+														draggable={false}
+														onLoad={(event) =>
+															rememberSize(target(), event.currentTarget)
+														}
+														class={cx(
+															"block size-full object-cover",
+															zoomed() && offset === 0
+																? "cursor-zoom-out"
+																: "cursor-zoom-in",
 														)}
-													</Show>
+														style={mediaStyle(offset)}
+													/>
 												}
 											>
-												<VideoPlayer
-													src={entry()?.src ?? ""}
-													poster={entry()?.poster}
-													label={entry()?.alt ?? entry()?.name ?? "Video"}
-													handoff="viewer"
-													interactive={phase() === "open"}
-													onReady={(video) => rememberSize(target(), video)}
-													class="size-full"
-												/>
+												<Show
+													when={offset === 0}
+													fallback={
+														<Show
+															when={entry()?.poster}
+															fallback={
+																<video
+																	data-lightbox-media=""
+																	src={entry()?.src}
+																	aria-label={
+																		entry()?.alt ?? entry()?.name ?? "Video"
+																	}
+																	tabindex={-1}
+																	muted
+																	playsinline
+																	preload="metadata"
+																	class="block size-full bg-black object-contain"
+																/>
+															}
+														>
+															{(poster) => (
+																<img
+																	data-lightbox-media=""
+																	src={poster()}
+																	alt=""
+																	draggable={false}
+																	class="block size-full bg-black object-contain"
+																/>
+															)}
+														</Show>
+													}
+												>
+													<VideoPlayer
+														src={entry()?.src ?? ""}
+														poster={entry()?.poster}
+														label={entry()?.alt ?? entry()?.name ?? "Video"}
+														handoff="viewer"
+														interactive={phase() === "open"}
+														onReady={(video) => rememberSize(target(), video)}
+														class="size-full"
+													/>
+												</Show>
 											</Show>
-										</Show>
-									</div>
-								);
+										</div>
+									);
+								}}
+							</For>
+						</div>
+					</ImageContextMenu>
+					<div
+						aria-hidden="true"
+						data-lightbox-scrim="top"
+						class="pointer-events-none absolute inset-x-0 top-0 h-[calc(var(--overlay-top,0px)+112px)] bg-[linear-gradient(to_bottom,rgb(0_0_0/0.6),rgb(0_0_0/0.3)_55%,rgb(0_0_0/0))]"
+						style={{
+							opacity: chromeOpacity(),
+							transition: `opacity calc(160ms * var(--motion-scale)) ease-out`,
+						}}
+					/>
+					<Show when={item()?.alt}>
+						<div
+							aria-hidden="true"
+							data-lightbox-scrim="bottom"
+							class="pointer-events-none absolute inset-x-0 bottom-0 h-[calc(var(--safe-area-bottom,0px)+160px)] bg-[linear-gradient(to_top,rgb(0_0_0/0.65),rgb(0_0_0/0.3)_55%,rgb(0_0_0/0))]"
+							style={{
+								opacity: chromeOpacity(),
+								transition: `opacity calc(160ms * var(--motion-scale)) ease-out`,
 							}}
-						</For>
-					</div>
+						/>
+					</Show>
 					<div
 						data-lightbox-chrome=""
-						class="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 bg-linear-to-b from-black/70 to-transparent px-safe-offset-3 pt-safe-offset-2 pb-6"
+						class="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 px-safe-offset-3 pt-overlay-offset-2 pb-6"
 						style={{
 							opacity: chromeOpacity(),
 							transition: `opacity calc(160ms * var(--motion-scale)) ease-out`,
@@ -1120,13 +1169,42 @@ export const Lightbox = (props: LightboxProps) => {
 						<Show when={count() > 1}>
 							<span
 								data-lightbox-counter=""
-								class="pointer-events-auto absolute top-[calc(var(--safe-area-top,0px)+14px)] left-1/2 -translate-x-1/2 rounded-control-xs bg-black/40 px-2 py-0.5 text-sm font-semibold tabular-nums"
+								class="pointer-events-auto absolute top-[calc(var(--overlay-top,0px)+14px)] left-1/2 -translate-x-1/2 rounded-control-xs bg-black/40 px-2 py-0.5 text-sm font-semibold tabular-nums"
 							>
 								{index() + 1} / {count()}
 							</span>
 						</Show>
 						<div class="pointer-events-auto flex shrink-0 items-center gap-1">
-							<Show when={item()?.downloadHref}>
+							<Show when={props.onCopyImage && !isVideo(item())}>
+								<button
+									type="button"
+									data-lightbox-copy-image=""
+									aria-label="Copy image"
+									title="Copy image"
+									class={chromeButton}
+									onClick={() => props.onCopyImage?.(index())}
+								>
+									<CopyAddIcon />
+								</button>
+							</Show>
+							<Show when={props.onDownloadImage && !isVideo(item())}>
+								<button
+									type="button"
+									data-lightbox-download-image=""
+									aria-label="Download image"
+									title="Download image"
+									class={chromeButton}
+									onClick={() => props.onDownloadImage?.(index())}
+								>
+									<GalleryDownloadIcon />
+								</button>
+							</Show>
+							<Show
+								when={
+									!(props.onDownloadImage && !isVideo(item())) &&
+									item()?.downloadHref
+								}
+							>
 								{(href) => (
 									<a
 										href={href()}
@@ -1208,7 +1286,7 @@ export const Lightbox = (props: LightboxProps) => {
 						{(alt) => (
 							<div
 								data-lightbox-chrome=""
-								class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center bg-linear-to-t from-black/75 to-transparent px-safe-offset-4 pt-10 pb-safe-offset-4"
+								class="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center px-safe-offset-4 pt-10 pb-safe-offset-4"
 								style={{
 									opacity: chromeOpacity(),
 									transition: `opacity calc(160ms * var(--motion-scale)) ease-out`,

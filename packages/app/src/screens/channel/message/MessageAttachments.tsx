@@ -33,6 +33,7 @@ import type {
 	LinkEmbed as LinkEmbedView,
 } from "../../../data/types";
 import { externalAnchorOf } from "../../../native/open-external";
+import { lightboxImageActions } from "./image-actions";
 
 const routeEmbedLink = (
 	event: MouseEvent,
@@ -87,6 +88,7 @@ export const MediaWithLightbox = (props: {
 			<Show when={mounted()}>
 				<Lightbox
 					items={props.items}
+					{...lightboxImageActions(() => props.items)}
 					open={open()}
 					onOpenChange={setOpen}
 					index={index()}
@@ -156,6 +158,7 @@ export const EmbedWithLightbox = (props: {
 			<Show when={mounted()}>
 				<Lightbox
 					items={items()}
+					{...lightboxImageActions(items)}
 					open={open()}
 					onOpenChange={setOpen}
 					index={0}
@@ -230,6 +233,7 @@ export const BlueskyEmbed = (props: {
 						<Show when={mounted()}>
 							<Lightbox
 								items={blueskyPostItems(view())}
+								{...lightboxImageActions(() => blueskyPostItems(view()))}
 								open={open()}
 								onOpenChange={setOpen}
 								index={index()}

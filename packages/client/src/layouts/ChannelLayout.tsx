@@ -1,3 +1,4 @@
+import { describeError, isThreadSpace, spaceSkey } from "@colibri-social/lib";
 import type { FileError } from "@kobalte/core/file-field";
 import { useNavigate } from "@solidjs/router";
 import {
@@ -34,7 +35,6 @@ import type { PendingMessage } from "../atproto/cache/schema";
 import { warmMetadata } from "../atproto/embed-metadata-cache";
 import { embedSuppression, isEmbedSuppressed } from "../atproto/labels";
 import { SPACE_TYPES } from "../atproto/lexicons";
-import { isThreadSpace, spaceSkey } from "../atproto/space-ref";
 import type { MessageView as MessageData, ThreadView } from "../atproto/views";
 import {
 	isRemovableEmbed,
@@ -73,7 +73,6 @@ import { useUserContext } from "../contexts/User";
 import { useUserPreferences } from "../contexts/UserPreferences";
 import { isTrustedCursorSource } from "../contexts/unread-cursor-resolve";
 import { useViewport } from "../contexts/Viewport";
-import { describeError } from "../errors/copy";
 import { cancelChannelTrayNotification } from "../notifications";
 import { authorKey } from "../utils/bridge";
 import {

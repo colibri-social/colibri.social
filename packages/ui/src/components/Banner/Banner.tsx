@@ -12,6 +12,11 @@ import { getImageTint, tintGradient } from "../../utils/image-tint";
 import { createSlot } from "../../utils/slot";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 
+export const hasSpaceBanner = (space: {
+	bannerSrc?: string;
+	bannerColor?: string;
+}) => !!space.bannerSrc;
+
 export type BannerRatio = "user" | "space";
 
 export type BannerFill = "image" | "tint" | "color" | "placeholder";

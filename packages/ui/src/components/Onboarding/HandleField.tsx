@@ -2,7 +2,10 @@ import { Search } from "@kobalte/core/search";
 import { createSignal, type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
-import { usePopperOverflowPadding } from "../../utils/safe-area";
+import {
+	BASE_OVERFLOW_PADDING,
+	useSafeAreaInsets,
+} from "../../utils/safe-area";
 import { createSlot } from "../../utils/slot";
 import { Avatar } from "../Avatar/Avatar";
 import { menuContentClass } from "../ContextMenu/Menu";
@@ -14,7 +17,7 @@ export type HandleSuggestion = {
 	avatar?: string;
 };
 
-export const HANDLE_QUERY_DEBOUNCE_MS = 250;
+export const HANDLE_QUERY_DEBOUNCE_MS = 120;
 
 export const normalizeHandleQuery = (value: string) =>
 	value.trim().replace(/^@/, "");
@@ -40,7 +43,9 @@ export type HandleFieldProps = {
 };
 
 export const HandleField = (props: HandleFieldProps) => {
-	const overflowPadding = usePopperOverflowPadding();
+	const insets = useSafeAreaInsets();
+	const overflowPadding = () =>
+		BASE_OVERFLOW_PADDING + Math.max(insets().left, insets().right);
 	const error = createSlot(() => props.error);
 	const [raw, setRaw] = createSignal("");
 	const [open, setOpen] = createSignal(false);
@@ -48,6 +53,7 @@ export const HandleField = (props: HandleFieldProps) => {
 	const suggestions = () => [...(props.suggestions ?? [])];
 	const hasQuery = () =>
 		props.onQuery !== undefined && normalizeHandleQuery(raw()).length > 0;
+	const showSuggestions = () => hasQuery() && suggestions().length > 0;
 
 	const accept = (suggestion: HandleSuggestion) => {
 		setSelected(suggestion);
@@ -95,13 +101,14 @@ export const HandleField = (props: HandleFieldProps) => {
 			optionValue="did"
 			optionLabel="handle"
 			optionTextValue="handle"
-			open={open() && hasQuery()}
+			open={open() && showSuggestions()}
 			onOpenChange={setOpen}
 			placeholder={props.placeholder}
 			validationState={error.has() ? "invalid" : "valid"}
 			sameWidth
 			gutter={6}
-			placement="bottom-start"
+			placement="top-start"
+			flip={false}
 			overflowPadding={overflowPadding()}
 			class={cx("group/root flex w-full flex-col gap-2", props.class)}
 			itemComponent={(itemProps) => (
@@ -113,23 +120,25 @@ export const HandleField = (props: HandleFieldProps) => {
 						"data-highlighted:bg-popover-highlight",
 					)}
 				>
-					<Avatar
-						size="base"
-						name={
-							itemProps.item.rawValue.displayName ??
-							itemProps.item.rawValue.handle
-						}
-						seed={itemProps.item.rawValue.did}
-						src={itemProps.item.rawValue.avatar}
-					/>
+					<span aria-hidden="true" class="flex shrink-0">
+						<Avatar
+							size="base"
+							name={
+								itemProps.item.rawValue.displayName ??
+								itemProps.item.rawValue.handle
+							}
+							seed={itemProps.item.rawValue.did}
+							src={itemProps.item.rawValue.avatar}
+						/>
+					</span>
 					<span class="flex min-w-0 flex-1 flex-col">
-						<Search.ItemLabel class="truncate text-sm font-semibold text-foreground">
+						<span class="truncate text-sm font-semibold text-foreground">
 							{itemProps.item.rawValue.displayName ??
 								itemProps.item.rawValue.handle}
-						</Search.ItemLabel>
-						<Search.ItemDescription class="truncate text-xs leading-4 text-muted-foreground">
+						</span>
+						<span class="truncate text-xs leading-4 text-muted-foreground">
 							@{itemProps.item.rawValue.handle}
-						</Search.ItemDescription>
+						</span>
 					</span>
 				</Search.Item>
 			)}
@@ -137,7 +146,7 @@ export const HandleField = (props: HandleFieldProps) => {
 			<Search.Label class="text-sm font-medium text-muted-foreground">
 				{props.label}
 			</Search.Label>
-			<Search.Control class={fieldShell}>
+			<Search.Control data-handle-control="" class={fieldShell}>
 				<span
 					aria-hidden="true"
 					class="flex min-w-4 shrink-0 items-center justify-center text-foreground"
@@ -175,10 +184,7 @@ export const HandleField = (props: HandleFieldProps) => {
 						"max-w-none min-w-0 origin-(--kb-combobox-content-transform-origin)",
 					)}
 				>
-					<Search.Listbox class="m-0 flex max-h-[min(320px,var(--kb-popper-content-available-height))] flex-col overflow-y-auto p-0 outline-none" />
-					<Search.NoResult class="m-0 px-2 py-3 text-center text-sm text-muted-foreground">
-						No accounts found.
-					</Search.NoResult>
+					<Search.Listbox class="m-0 flex max-h-[min(320px,calc(var(--kb-popper-content-available-height)-var(--overlay-top,0px)))] flex-col overflow-y-auto p-0 outline-none" />
 				</Search.Content>
 			</Search.Portal>
 		</Search>

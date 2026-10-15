@@ -8,6 +8,7 @@ import {
 	nameColorStyle,
 	useNameColor,
 } from "../../utils/name-color";
+import { isStaticSource } from "../../utils/playback";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { CountBadge } from "../Badge/Badge";
 import { Card, type CardTone } from "../Card/Card";
@@ -133,6 +134,9 @@ export const TinyAvatar = (
 				<AnimatedImage
 					src={src()}
 					alt=""
+					animated={!isStaticSource(src())}
+					playback="demand"
+					frameSize={props.size}
 					draggable={false}
 					class="absolute inset-0 size-full object-cover"
 				/>

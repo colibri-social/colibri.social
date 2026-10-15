@@ -4,6 +4,7 @@ import { GalleryRemoveIcon } from "@solar-icons/solid/bold/gallery-remove";
 import { createSignal, createUniqueId, type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createLocalPreview } from "../../utils/local-preview";
+import { createSlot } from "../../utils/slot";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { ThemeColorPicker } from "../ColorPicker/ColorPicker";
 import { Hummingbird } from "../Hummingbird/Hummingbird";
@@ -79,7 +80,7 @@ export type SignInScreenProps = {
 	onHandleQuery?: (query: string) => void;
 	handleSuggestions?: readonly HandleSuggestion[];
 	onSignIn: (handle: string, account?: HandleSuggestion) => void;
-	onCreateAccount: () => void;
+	onCreateAccount?: () => void;
 	error?: JSX.Element;
 	loading?: boolean;
 };
@@ -128,10 +129,14 @@ export const SignInScreen = (props: SignInScreenProps) => {
 			<OnboardingActions
 				group={3}
 				inline="grid"
-				secondary={{
-					label: "Create account",
-					onClick: () => props.onCreateAccount(),
-				}}
+				secondary={
+					props.onCreateAccount
+						? {
+								label: "Create account",
+								onClick: () => props.onCreateAccount?.(),
+							}
+						: undefined
+				}
 				primary={{
 					label: "Log in",
 					type: "submit",
@@ -146,43 +151,63 @@ export const SignInScreen = (props: SignInScreenProps) => {
 
 export type CreateAccountScreenProps = {
 	onBack: () => void;
-	onOpenBrowser: () => void;
+	onContinue: () => void;
+	host?: string;
+	loading?: boolean;
+	error?: JSX.Element;
 };
 
-export const CreateAccountScreen = (props: CreateAccountScreenProps) => (
-	<div
-		data-onboarding-screen="create-account"
-		class="flex w-full flex-col items-center gap-4 px-2"
-	>
-		<EntranceText
-			as="h1"
-			group={0}
-			class={titleClass}
-			lines="Create an account on colibri.social"
-		/>
-		<EntranceText
-			group={1}
-			class={descriptionClass}
-			lines="We'll redirect you to colibri.social where you can sign up for an Atmosphere account."
-		/>
-		<OnboardingActions
-			group={2}
-			inline="grid"
-			back={{ label: "Back", onClick: () => props.onBack() }}
-			primary={{ label: "Open browser", onClick: () => props.onOpenBrowser() }}
-		/>
-		<Entrance group={4}>
-			<a
-				href={ATMOSPHERE_ACCOUNT_URL}
-				target="_blank"
-				rel="noopener noreferrer"
-				class="focus-ring rounded-control-xs text-base font-medium text-primary-highlight underline-offset-4 hover:underline"
-			>
-				What is an Atmosphere account?
-			</a>
-		</Entrance>
-	</div>
-);
+export const CreateAccountScreen = (props: CreateAccountScreenProps) => {
+	const error = createSlot(() => props.error);
+	const host = () => props.host ?? "colibri.social";
+	return (
+		<div
+			data-onboarding-screen="create-account"
+			class="flex w-full flex-col items-center gap-4 px-2"
+		>
+			<EntranceText
+				as="h1"
+				group={0}
+				class={titleClass}
+				lines={`Create an account on ${host()}`}
+			/>
+			<EntranceText
+				group={1}
+				class={descriptionClass}
+				lines={`We'll redirect you to ${host()} where you can sign up for an Atmosphere account.`}
+			/>
+			<Show when={error.has()}>
+				<div
+					role="alert"
+					data-create-account-error=""
+					class="w-full text-center text-sm font-medium text-pretty text-destructive"
+				>
+					{error()}
+				</div>
+			</Show>
+			<OnboardingActions
+				group={2}
+				inline="grid"
+				back={{ label: "Back", onClick: () => props.onBack() }}
+				primary={{
+					label: "Open browser",
+					loading: props.loading,
+					onClick: () => props.onContinue(),
+				}}
+			/>
+			<Entrance group={4}>
+				<a
+					href={ATMOSPHERE_ACCOUNT_URL}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="focus-ring rounded-control-xs text-base font-medium text-primary-highlight underline-offset-4 hover:underline"
+				>
+					What is an Atmosphere account?
+				</a>
+			</Entrance>
+		</div>
+	);
+};
 
 export type ProfileSourceScreenProps = {
 	options: ProfileSetupOption[];
@@ -429,6 +454,8 @@ export const ProfileEditorScreen = (props: ProfileEditorScreenProps) => {
 										<AnimatedImage
 											data-profile-avatar-preview=""
 											animated={avatar.animated()}
+											playback="demand"
+											frameSize={72}
 											src={src()}
 											alt=""
 											class="size-full object-cover"

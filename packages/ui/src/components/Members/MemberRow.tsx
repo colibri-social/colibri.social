@@ -107,6 +107,7 @@ export const MemberRow = (props: MemberRowProps) => {
 			}}
 			onClick={local.onOpen}
 			data-member-row=""
+			data-media-play-host=""
 			data-member-menu={local.onMenu ? "" : undefined}
 			data-offline={local.offline || undefined}
 			class={cx(

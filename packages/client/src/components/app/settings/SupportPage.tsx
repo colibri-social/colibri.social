@@ -1,3 +1,4 @@
+import { classifyThrown } from "@colibri-social/lib";
 import {
 	type Component,
 	createResource,
@@ -17,7 +18,6 @@ import {
 } from "../../../atproto/labeler-link";
 import { invalidateLabelerBadges } from "../../../atproto/labeler-lookup";
 import { useUserContext } from "../../../contexts/User";
-import { classifyThrown } from "../../../errors/classify";
 import { isTauriRuntime } from "../../../notifications/environment";
 import { cx } from "../../../utils/cva";
 import { createLogger } from "../../../utils/logger";

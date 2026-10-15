@@ -55,7 +55,13 @@ import { defineContract, slot } from "../../screen/define";
 import { usePlatform } from "../../screen/platform";
 import { lastViewedSpace } from "../../shell/cold-start";
 import { useOptionalDesktopShell } from "../../shell/desktop/context";
-import { channelPath, NEW_ENTRY } from "../../shell/layers";
+import { DISCOVERY_ENABLED } from "../../shell/features";
+import {
+	channelPath,
+	isChannelLayer,
+	NEW_ENTRY,
+	type ThreadLayer,
+} from "../../shell/layers";
 import { LoadErrorState } from "../../shell/load-error";
 import { useStack } from "../../shell/stack";
 import { newEntryId } from "../admin/channel/channel-target";
@@ -70,6 +76,7 @@ import { openVoicePrompt } from "../voice/voice-prompt";
 import { createCategoryCollapse } from "./category-collapse";
 import { createDeleteDialogs } from "./delete-dialogs";
 import NotificationSettingsScreen from "./notification-settings/notification-settings.screen";
+import { recentThread } from "./recent-thread";
 import { sidebarThreadsFor } from "./sidebar-threads";
 
 export type SpacesArgs = { slug?: string };
@@ -112,9 +119,25 @@ export const spaces = defineContract({
 			const current = community();
 			return current ? data.space(current) : undefined;
 		});
+		const viewedThread = createMemo<ThreadLayer | undefined>((previous) => {
+			if (platform() === "desktop") {
+				const pane = stack.mounted().find((layer) => layer.kind === "thread");
+				return pane?.kind === "thread" ? pane : undefined;
+			}
+			const top = stack.top();
+			if (!isChannelLayer(top)) return previous;
+			return top.kind === "thread" ? top : undefined;
+		}, undefined);
+		const viewedThreadHere = () => {
+			const current = community();
+			const viewed = viewedThread();
+			return current && viewed?.space === spaceKey(current)
+				? viewed
+				: undefined;
+		};
 		const activeChannel = () => {
 			const current = community();
-			if (!current) return undefined;
+			if (!current || viewedThreadHere()) return undefined;
 			if (platform() === "desktop") {
 				const chat = stack.mounted().find((layer) => layer.kind === "chat");
 				return chat?.kind === "chat" && chat.space === spaceKey(current)
@@ -200,15 +223,32 @@ export const spaces = defineContract({
 		const [now, setNow] = createSignal(Date.now());
 		const clock = setInterval(() => setNow(Date.now()), 60_000);
 		onCleanup(() => clearInterval(clock));
-		const openThreadRef = () => {
-			const layer = stack
-				.mounted()
-				.findLast((entry) => entry.kind === "thread");
-			if (layer?.kind !== "thread") return undefined;
-			return layer.thread;
+		const pinnedThread = (channel: ChannelView) => {
+			const current = community();
+			if (!current) return undefined;
+			const slug = channelSlug(channel);
+			const recent = recentThread(data);
+			if (recent?.space === spaceKey(current) && recent.channel === slug) {
+				return recent.thread;
+			}
+			const viewed = viewedThreadHere();
+			return viewed?.channel === slug ? viewed.thread : undefined;
+		};
+		const isActiveThread = (channel: ChannelView, thread: SpaceRef) => {
+			const viewed = viewedThreadHere();
+			return (
+				viewed?.channel === channelSlug(channel) &&
+				viewed.thread === skeyOf(thread)
+			);
 		};
 		const sidebarThreads = (channel: ChannelView) =>
-			sidebarThreadsFor(data, space(), channel.space, now(), openThreadRef());
+			sidebarThreadsFor(
+				data,
+				space(),
+				channel.space,
+				now(),
+				pinnedThread(channel),
+			);
 		const [reorderMode, setReorderMode] = createSignal(false);
 		const [held, setHeld] = createSignal<ChannelView>();
 		const [drawerOpen, setDrawerOpen] = createSignal(false);
@@ -375,7 +415,6 @@ export const spaces = defineContract({
 				channel: channelSlug(channel),
 				channelType: channel.type,
 			};
-			stack.push({ kind: "chat", ...target });
 			stack.push({ kind: "thread", ...target, thread: skeyOf(thread.space) });
 		};
 		const leaveSpace = createLeaveSpace();
@@ -433,7 +472,9 @@ export const spaces = defineContract({
 			missing,
 			inviteDrawer,
 			openCreateSpace: () => stack.push({ kind: "createSpace" }),
-			openDiscover: () => stack.push({ kind: "discover" }),
+			openDiscover: DISCOVERY_ENABLED
+				? () => stack.push({ kind: "discover" })
+				: undefined,
 			fallbackSpace: () => communities()[0],
 			haptics: useHaptics(),
 			spaceMenu,
@@ -486,7 +527,7 @@ export const spaces = defineContract({
 			deleteCategory,
 			deleteDialogs,
 			sidebarThreads,
-			openThreadRef,
+			isActiveThread,
 			openThread,
 		};
 	},
@@ -738,11 +779,7 @@ export const spaces = defineContract({
 													name={state().thread.name}
 													platform={platform()}
 													private={state().thread.private}
-													active={
-														desktop() &&
-														m.activeChannel() === channelSlug(channel) &&
-														m.openThreadRef() === skeyOf(ref)
-													}
+													active={m.isActiveThread(channel, ref)}
 													unread={
 														!m.spaceMuted(m.community()) && state().unread
 													}

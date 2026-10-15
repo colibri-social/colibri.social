@@ -103,7 +103,9 @@ export const ChannelInfoSummary = (props: ChannelInfoSummaryProps) => {
 			</h1>
 			<Show when={props.description}>
 				{(description) => (
-					<p class="m-0 text-sm text-muted-foreground">{description()}</p>
+					<p class="m-0 text-sm leading-prose text-muted-foreground">
+						{description()}
+					</p>
 				)}
 			</Show>
 		</div>

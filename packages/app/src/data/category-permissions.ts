@@ -58,6 +58,39 @@ export type ViewerAccess = {
 	roles: readonly RoleView[];
 };
 
+export type ChannelReader = {
+	did: Did;
+	roles: readonly string[];
+	admin: boolean;
+};
+
+const isPrivateChannel = (
+	channel: ChannelView,
+	category: CategoryPermissions | undefined,
+	effective: Required<CategoryPermissions>,
+) =>
+	restrictsReading(effective) ||
+	(channel.private === true && !restrictsReading(category ?? {}));
+
+export const canReadChannel = (
+	channel: ChannelView,
+	category: CategoryPermissions | undefined,
+	reader: ChannelReader,
+) => {
+	const effective = effectivePermissions(channel, category);
+	return (
+		reader.admin ||
+		!isPrivateChannel(channel, category, effective) ||
+		effective.visibleToMembers.includes(reader.did) ||
+		effective.visibleToRoles.some((rkey) => reader.roles.includes(rkey))
+	);
+};
+
+export const isAdminRoleSet = (
+	held: readonly string[],
+	roles: readonly RoleView[],
+) => roles.some((role) => role.protected && held.includes(role.rkey));
+
 export const resolveChannelView = (
 	channel: ChannelView,
 	category: CategoryPermissions | undefined,
@@ -66,18 +99,15 @@ export const resolveChannelView = (
 	const effective = effectivePermissions(channel, category);
 	const held = viewer.community.viewer.roles ?? [];
 	const admin =
-		!!viewer.community.viewer.isOwner ||
-		viewer.roles.some((role) => role.protected && held.includes(role.rkey));
+		!!viewer.community.viewer.isOwner || isAdminRoleSet(held, viewer.roles);
 	const holds = (roles: readonly string[]) =>
 		roles.some((rkey) => held.includes(rkey));
-	const privateChannel =
-		restrictsReading(effective) ||
-		(channel.private === true && !restrictsReading(category ?? {}));
-	const canRead =
-		admin ||
-		!privateChannel ||
-		effective.visibleToMembers.includes(viewer.did) ||
-		holds(effective.visibleToRoles);
+	const privateChannel = isPrivateChannel(channel, category, effective);
+	const canRead = canReadChannel(channel, category, {
+		did: viewer.did,
+		roles: held,
+		admin,
+	});
 	const openPosting =
 		effective.allowedRoles.length === 0 &&
 		effective.allowedMembers.length === 0;

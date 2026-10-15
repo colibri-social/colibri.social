@@ -13,6 +13,7 @@ import {
 	MessageGestures,
 	type MessageHighlight,
 	type MessageListEntry,
+	type MessageMenuImage,
 	MessageMenuItems,
 	type MessageMenuLink,
 	type MessageReply,
@@ -74,6 +75,12 @@ import type { ProfileView } from "../../../data/types";
 import { mediaSession } from "../composer/media/session";
 import { whenOverlaysClosed } from "../forward/overlay-wait";
 import { type EmbedEditor, useChat } from "./chat-context";
+import {
+	copyImage,
+	downloadImage,
+	type ImageTarget,
+	imageTargetOf,
+} from "./image-actions";
 import { LinkPreviewsDialog } from "./link-previews";
 import {
 	hasAttachmentContent,
@@ -222,19 +229,23 @@ export const MessageItem = (props: MessageItemProps) => {
 		return { ...source, onOpen: () => open(target) };
 	};
 	const resolveReactionEmoji = customReactionResolver(chat.customEmoji);
-	const renderReactionEmoji = (emoji: string) => {
+	const reactionEmojiAt = (size: number) => (emoji: string) => {
 		const custom = resolveReactionEmoji(emoji);
 		return custom ? (
 			<img
 				src={custom.src}
 				alt=""
 				draggable={false}
-				class="size-4 object-contain"
+				class="object-contain"
+				style={{ width: `${size}px`, height: `${size}px` }}
 			/>
 		) : (
-			<Emoji emoji={emoji} size={16} />
+			<Emoji emoji={emoji} size={size} />
 		);
 	};
+	const renderReactionEmoji = reactionEmojiAt(16);
+	const renderToolbarEmoji = reactionEmojiAt(18);
+	const renderQuickReactionEmoji = reactionEmojiAt(24);
 	const reactions = createMemo(() =>
 		toReactions(view()?.reactions, chat.members()),
 	);
@@ -421,6 +432,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			: undefined;
 
 	const [contextLink, setContextLink] = createSignal<HTMLAnchorElement>();
+	const [contextImage, setContextImage] = createSignal<ImageTarget>();
 	const captureContextLink = (event: MouseEvent) => {
 		const target = event.target;
 		const anchorElement =
@@ -428,10 +440,28 @@ export const MessageItem = (props: MessageItemProps) => {
 				? target.closest<HTMLAnchorElement>("a[href]")
 				: null;
 		setContextLink(anchorElement ?? undefined);
+		setContextImage(imageTargetOf(target instanceof Element ? target : null));
+	};
+	const capturePressedImage = (event: PointerEvent) => {
+		if (event.pointerType === "mouse") return;
+		const target = event.target;
+		setContextImage(imageTargetOf(target instanceof Element ? target : null));
 	};
 	const attachRow = (element: HTMLDivElement) => {
 		seenTarget = element;
 		element.addEventListener("contextmenu", captureContextLink, true);
+		element.addEventListener("pointerdown", capturePressedImage, {
+			capture: true,
+			passive: true,
+		});
+	};
+	const imageActions = (): MessageMenuImage | undefined => {
+		const target = contextImage();
+		if (!target) return undefined;
+		return {
+			onCopy: () => void copyImage(target),
+			onDownload: () => void downloadImage(target),
+		};
 	};
 	const openLink = (anchorElement: HTMLAnchorElement) => {
 		const href = anchorElement.href;
@@ -547,6 +577,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			onOpenThread={openThreadAction()}
 			onSelect={selectAction()}
 			onCopyText={message().text ? copy : undefined}
+			image={imageActions()}
 			gif={gifAction()}
 			onLinkPreviews={linkPreviewsAction()}
 			onViewReactions={viewReactionsAction()}
@@ -578,7 +609,7 @@ export const MessageItem = (props: MessageItemProps) => {
 				recentReactions={(
 					chat.quickReactions?.() ?? DEFAULT_QUICK_REACTIONS
 				).slice(0, 3)}
-				renderEmoji={renderReactionEmoji}
+				renderEmoji={renderToolbarEmoji}
 				onReact={toggleQuick}
 				onAddReaction={(event) =>
 					setPickerAnchor(event.currentTarget as HTMLElement)
@@ -740,9 +771,13 @@ export const MessageItem = (props: MessageItemProps) => {
 			disabled={!sent() || !!editingNow()}
 			onOpenChange={(open) => {
 				setContextOpen(open);
-				if (!open) setContextLink(undefined);
+				if (!open) {
+					setContextLink(undefined);
+					setContextImage(undefined);
+				}
 			}}
 			link={linkActions()}
+			image={imageActions()}
 			onEdit={editAction()}
 			onReply={replyAction()}
 			onForward={forwardMessage}
@@ -860,7 +895,7 @@ export const MessageItem = (props: MessageItemProps) => {
 					quickReactions={chat.quickReactions?.() ?? DEFAULT_QUICK_REACTIONS}
 					onReact={toggleQuick}
 					emojiPicker={{ packs: chat.emojiPacks?.() }}
-					renderEmoji={renderReactionEmoji}
+					renderEmoji={renderQuickReactionEmoji}
 					onEmojiPick={(pick) =>
 						react(
 							pick.kind === "unicode" ? pick.emoji : `:${pick.emoji.name}:`,
@@ -873,6 +908,7 @@ export const MessageItem = (props: MessageItemProps) => {
 					onOpenThread={openThreadAction()}
 					onSelect={selectAction()}
 					onCopyText={message().text ? copy : undefined}
+					image={imageActions()}
 					gif={gifAction()}
 					onLinkPreviews={linkPreviewsAction()}
 					onDelete={confirmDeleteAction()}

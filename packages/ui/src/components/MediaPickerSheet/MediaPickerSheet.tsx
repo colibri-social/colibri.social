@@ -1,4 +1,4 @@
-import { createSignal, Show } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import {
 	type EmojiPick,
@@ -36,12 +36,21 @@ export type MediaPickerSheetProps = {
 
 export const MediaPickerSheet = (props: MediaPickerSheetProps) => {
 	const [emojiSearch, setEmojiSearch] = createSignal<HTMLInputElement>();
+	const [picked, setPicked] = createSignal(false);
+	createEffect(() => {
+		if (props.open) setPicked(false);
+	});
+	const closeAfterPick = () => {
+		setPicked(true);
+		props.onOpenChange(false);
+	};
 	return (
 		<Drawer
 			open={props.open}
 			onOpenChange={props.onOpenChange}
 			initialFocus="content"
 			initialFocusEl={props.tab === "emoji" ? emojiSearch() : undefined}
+			restoreFocus={!picked()}
 		>
 			<DrawerContent aria-label="Emoji and GIF picker">
 				<Tabs
@@ -64,7 +73,7 @@ export const MediaPickerSheet = (props: MediaPickerSheetProps) => {
 							searchRef={setEmojiSearch}
 							onPick={(pick, event) => {
 								props.onEmoji(pick, event);
-								props.onOpenChange(false);
+								closeAfterPick();
 							}}
 						/>
 					</TabsContent>
@@ -74,7 +83,7 @@ export const MediaPickerSheet = (props: MediaPickerSheetProps) => {
 							platform="mobile"
 							onPick={(gif, event) => {
 								props.onGif(gif, event);
-								props.onOpenChange(false);
+								closeAfterPick();
 							}}
 						/>
 					</TabsContent>

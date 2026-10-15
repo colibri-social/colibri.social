@@ -49,6 +49,15 @@
 						"overrideUserNameColors": {
 							"type": "boolean",
 							"description": "Whether only role colours are shown in chat. Members' own name colours are hidden, and a member without a coloured role shows the default name colour."
+						},
+						"customEmoji": {
+							"type": "string",
+							"knownValues": [
+								"all",
+								"local",
+								"none"
+							],
+							"description": "Which custom emoji render in this community. all allows custom emoji from any source, local only the community's own emoji, none disables custom emoji. Disallowed emoji show their fallback text."
 						}
 					}
 				}

@@ -1,3 +1,5 @@
+import type { ColibriError, XrpcResult } from "@colibri-social/lib";
+import { classifyThrown, frameIs } from "@colibri-social/lib";
 import {
 	type Accessor,
 	createContext,
@@ -35,13 +37,9 @@ import {
 	enqueueSpaceDelete,
 	onOutboxSent,
 } from "../atproto/outbox/outbox";
-import { frameIs } from "../atproto/sync-frames";
 import type { MoveSubject } from "../atproto/thread-move";
 import type { MessageView, SpaceRecordRef, ThreadView } from "../atproto/views";
 import { clientForManagingApp } from "../atproto/xrpc";
-import type { XrpcResult } from "../atproto/xrpc/result";
-import { classifyThrown } from "../errors/classify";
-import type { ColibriError } from "../errors/error";
 import { showError } from "../errors/show-error";
 import { getAppViewDid } from "../utils/appview";
 import { createLogger } from "../utils/logger";

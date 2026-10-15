@@ -23,6 +23,7 @@ import {
 	revealLayer,
 	topLayerAttrs,
 } from "../../utils/nested-layers";
+import { keyboardLiftAttrs } from "../../utils/safe-area";
 import { createSlot } from "../../utils/slot";
 import { IconButton } from "../IconButton/IconButton";
 import { DiscardChangesDialog } from "../Modal/Modal";
@@ -267,6 +268,7 @@ export const FullScreenSheet = (props: FullScreenSheetProps) => {
 						/>
 						<Dialog.Content
 							{...topLayerAttrs}
+							{...keyboardLiftAttrs}
 							ref={(element: HTMLDivElement) => {
 								content = element;
 								revealLayer(element);
@@ -281,7 +283,7 @@ export const FullScreenSheet = (props: FullScreenSheetProps) => {
 							}}
 							onInteractOutside={(event: Event) => event.preventDefault()}
 							class={cx(
-								"fixed inset-0 z-50 flex flex-col bg-popover pt-safe text-foreground outline-none",
+								"fixed inset-x-0 top-0 bottom-(--keyboard-lift,0px) z-50 flex flex-col bg-popover pt-overlay text-foreground outline-none",
 								props.class,
 							)}
 						>

@@ -146,7 +146,7 @@ export const MessageEditor = (props: MessageEditorProps) => {
 							label="Add an emoji"
 							icon={<SmileCircleIcon />}
 							data-message-editor-emoji=""
-							class="-my-[5.5px] -mr-1.5 shrink-0 text-muted-foreground hover:text-foreground"
+							class="-my-1 -mr-1.5 shrink-0 text-muted-foreground hover:text-foreground"
 							disabled={saving()}
 							onMouseDown={(event) => event.preventDefault()}
 							onClick={() => setEmojiOpen((open) => !open)}
@@ -156,7 +156,7 @@ export const MessageEditor = (props: MessageEditorProps) => {
 				<span
 					data-ring-slot=""
 					data-visible={ringVisible() || undefined}
-					class={cx(characterRingSlotClass, "-my-[5.5px] -ml-2")}
+					class={cx(characterRingSlotClass, "-my-1 -ml-2")}
 				>
 					<CharacterRing
 						length={utf8Length(current().text)}

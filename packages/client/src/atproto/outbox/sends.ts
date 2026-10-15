@@ -1,8 +1,13 @@
 import type { Agent } from "@atproto/api";
 import type { JsonBlobRef } from "@atproto/lexicon";
+import type { ColibriError } from "@colibri-social/lib";
+import {
+	buildMessageRecord,
+	classifyThrown,
+	nextTid,
+	statusOf,
+} from "@colibri-social/lib";
 import { createSignal } from "solid-js";
-import { classifyThrown, statusOf } from "../../errors/classify";
-import type { ColibriError } from "../../errors/error";
 import { reportError } from "../../errors/report";
 import { showError } from "../../errors/show-error";
 import { createLogger } from "../../utils/logger";
@@ -13,7 +18,6 @@ import {
 	sendsUpdate,
 } from "../cache/store";
 import { asUri, COLLECTIONS } from "../lexicons";
-import { buildMessageRecord } from "../message-record";
 import { uploadBlob } from "../pds";
 import { sessionDead } from "../session-health";
 import type {
@@ -24,7 +28,6 @@ import type {
 	RecordRef,
 } from "../views";
 import { enqueueSpaceCreate, onOutboxSent, type QueuedRecord } from "./outbox";
-import { nextTid } from "./tid";
 
 const MAX_ATTEMPTS = 8;
 const RETRY_BASE_MS = 2_000;

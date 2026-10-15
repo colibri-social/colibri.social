@@ -343,7 +343,7 @@ export const SpaceRoleList = (props: SpaceRoleListProps) => {
 					</div>
 				}
 			>
-				<p class="m-0 text-xs text-pretty text-muted-foreground">
+				<p class="m-0 text-xs leading-prose text-pretty text-muted-foreground">
 					Drag roles to change their order. Roles higher up outrank the ones
 					below them.
 				</p>

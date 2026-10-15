@@ -120,6 +120,14 @@ export const MediaTile = (props: MediaTileProps) => {
 		<div
 			data-media-tile=""
 			data-index={props.index}
+			data-image-src={
+				props.item.kind === "video" || props.loading
+					? undefined
+					: (props.item.downloadHref ?? props.item.src)
+			}
+			data-image-name={
+				props.item.kind === "video" ? undefined : props.item.name
+			}
 			class={cx(
 				"group/tile relative min-h-0 min-w-0 overflow-hidden bg-muted",
 				props.class,

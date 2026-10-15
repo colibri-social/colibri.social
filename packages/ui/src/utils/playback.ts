@@ -99,3 +99,9 @@ const ANIMATED_SOURCE =
 
 export const isAnimatedSource = (src: string | undefined) =>
 	!!src && ANIMATED_SOURCE.test(src);
+
+const STATIC_SOURCE =
+	/\.(?:jpe?g|svg)(?:[?#]|$)|^data:image\/(?:jpeg|svg\+xml)|[@=/](?:jpe?g)(?:[?#&]|$)/i;
+
+export const isStaticSource = (src: string | undefined) =>
+	!!src && !isAnimatedSource(src) && STATIC_SOURCE.test(src);

@@ -138,7 +138,8 @@ const expectAlignedGrid = async (grid: HTMLElement) => {
 		}
 	}
 	for (const element of cards) {
-		const banner = element.querySelector("[data-banner]") as HTMLElement;
+		const banner = element.querySelector("[data-banner]") as HTMLElement | null;
+		if (!banner) continue;
 		await expect(
 			Math.abs(
 				banner.getBoundingClientRect().top -

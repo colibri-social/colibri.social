@@ -1,7 +1,13 @@
 import type { Agent } from "@atproto/api";
 import { Client } from "@atproto/lex-client";
-import { classifyThrown } from "../../errors/classify";
-import { ColibriError } from "../../errors/error";
+import {
+	ColibriError,
+	classifyThrown,
+	methodByNsid,
+	type XrpcResult,
+	xrpcFail,
+	xrpcOk,
+} from "@colibri-social/lib";
 import {
 	appViewServiceRef,
 	getAppViewDid,
@@ -15,9 +21,7 @@ import {
 import { createLogger } from "../../utils/logger";
 import { perfNow, recordRequest } from "../../utils/perf";
 import { enqueueAppview, setAppviewExecutor } from "../outbox/outbox";
-import { methodByNsid } from "./registry";
 import { type CallOptions, call, type Method, type Output } from "./request";
-import { type XrpcResult, xrpcFail, xrpcOk } from "./result";
 
 const log = createLogger("xrpc");
 

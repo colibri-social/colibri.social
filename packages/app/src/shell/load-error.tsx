@@ -1,6 +1,7 @@
+import type { ColibriError } from "@colibri-social/lib";
 import { ErrorState, NavHeader, NotFound } from "@colibri-social/ui";
 import type { JSX } from "solid-js";
-import { type ColibriError, describeError } from "../data/errors";
+import { describeError } from "../data/error-copy";
 import { useStack } from "./stack";
 
 export const LoadErrorState = (props: {

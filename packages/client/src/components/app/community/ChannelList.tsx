@@ -1,3 +1,4 @@
+import { spaceSkey } from "@colibri-social/lib";
 import {
 	closestCenter,
 	DragDropProvider,
@@ -18,7 +19,6 @@ import {
 import { createStore } from "solid-js/store";
 import PlusIcon from "~icons/ph/plus";
 import { colibri } from "../../../atproto/lexicons";
-import { spaceSkey } from "../../../atproto/space-ref";
 import { clientForManagingApp } from "../../../atproto/xrpc";
 import {
 	useCommunityContext,

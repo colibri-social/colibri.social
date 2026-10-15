@@ -1,5 +1,5 @@
+import { classifyThrown } from "@colibri-social/lib";
 import { createSignal, ErrorBoundary, type JSX, onMount } from "solid-js";
-import { classifyThrown } from "../errors/classify";
 import { reportError } from "../errors/report";
 import { createLogger } from "../utils/logger";
 import { ErrorState } from "./ErrorState";

@@ -81,6 +81,7 @@ export const DiscoveryGrid = (props: DiscoveryGridProps) => {
 											iconSrc={space().iconSrc}
 											bannerSrc={space().bannerSrc}
 											bannerColor={space().bannerColor}
+											bannerPlaceholder={props.platform === "desktop"}
 											memberCount={space().memberCount}
 											description={space().description}
 											class="h-full"
@@ -96,7 +97,7 @@ export const DiscoveryGrid = (props: DiscoveryGridProps) => {
 					<p
 						role="status"
 						data-discovery-empty=""
-						class="text-sm text-pretty text-muted-foreground"
+						class="text-sm leading-prose text-pretty text-muted-foreground"
 					>
 						<Show
 							when={props.query.trim()}

@@ -110,7 +110,7 @@ const Frame = (props: {
 	platform?: "mobile" | "desktop";
 }) => (
 	<RichTextProvider value={{ ...resolvers, platform: props.platform }}>
-		<div class="min-h-dvh bg-background p-4 text-base leading-[21px] text-foreground">
+		<div class="min-h-dvh bg-background p-4 text-base leading-message text-foreground">
 			<RichTextRenderer value={props.value} />
 		</div>
 	</RichTextProvider>
@@ -352,7 +352,7 @@ const ConfirmedLinks = () => {
 				},
 			}}
 		>
-			<div class="min-h-dvh bg-background p-4 text-base leading-[21px] text-foreground">
+			<div class="min-h-dvh bg-background p-4 text-base leading-message text-foreground">
 				<RichTextRenderer value={LINKS} />
 			</div>
 			<LinkWarning
@@ -628,7 +628,7 @@ const CustomFrame = (props: { value: TextWithFacets }) => (
 				CUSTOM_EMOJI[name] ? { name, src: CUSTOM_EMOJI[name] } : undefined,
 		}}
 	>
-		<div class="bg-background p-4 text-base leading-[21px] text-foreground">
+		<div class="bg-background p-4 text-base leading-message text-foreground">
 			<RichTextRenderer value={props.value} />
 		</div>
 	</RichTextProvider>
@@ -688,7 +688,7 @@ const ForeignFrame = (props: { value: TextWithFacets }) => (
 					: undefined,
 		}}
 	>
-		<div class="bg-background p-4 text-base leading-[21px] text-foreground">
+		<div class="bg-background p-4 text-base leading-message text-foreground">
 			<RichTextRenderer value={props.value} />
 		</div>
 	</RichTextProvider>
@@ -715,7 +715,7 @@ export const CustomEmojiTap: Story = {
 				onCustomEmojiOpen: openedEmoji,
 			}}
 		>
-			<div class="bg-background p-4 text-base leading-[21px] text-foreground">
+			<div class="bg-background p-4 text-base leading-message text-foreground">
 				<RichTextRenderer value={build(["Party :party_parrot: time"])} />
 			</div>
 		</RichTextProvider>

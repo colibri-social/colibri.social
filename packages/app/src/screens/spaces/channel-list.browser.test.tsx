@@ -8,6 +8,7 @@ import { createDataStore, DataContext } from "../../data/store";
 import { setVoiceSoundPlayer } from "../../data/voice";
 import { Providers } from "../../providers";
 import { DesktopShell } from "../../shell/desktop/DesktopShell";
+import { depthOf } from "../../shell/history-sync";
 import { MobileShell } from "../../shell/MobileShell";
 import { categoryCollapseKey } from "./category-collapse";
 
@@ -155,6 +156,145 @@ describe("threads in the channel list", () => {
 		);
 		(row.querySelector("button") as HTMLButtonElement).click();
 		await until(() => location.pathname.includes("/t/"));
+	});
+
+	it("opens a thread from the mobile list as one history entry and goes back to the list", async () => {
+		await mount("mobile", `/app/c/${OWLS}`);
+		await until(() => !!threadRow("Portrait critique"));
+		const listPath = location.pathname;
+		const startDepth = depthOf(history.state);
+		(
+			threadRow("Portrait critique")?.querySelector(
+				"button",
+			) as HTMLButtonElement
+		).click();
+		await until(() => location.pathname.includes("/t/"));
+		expect(depthOf(history.state)).toBe(startDepth + 1);
+		expect(document.querySelector('[data-pane-index="2"]')).toBeNull();
+		await until(
+			() =>
+				!!document.querySelector<HTMLElement>(
+					'[aria-label="Back to channels"]',
+				),
+		);
+		history.back();
+		await until(() => location.pathname === listPath);
+		expect(depthOf(history.state)).toBe(startDepth);
+	});
+
+	it("keeps the channel under a thread opened from a cold mobile link", async () => {
+		await mount("mobile", `/app/c/${OWLS}`);
+		await until(() => !!threadRow("Portrait critique"));
+		(
+			threadRow("Portrait critique")?.querySelector(
+				"button",
+			) as HTMLButtonElement
+		).click();
+		await until(() => location.pathname.includes("/t/"));
+		const threadPath = location.pathname;
+		const channelPath = threadPath.slice(0, threadPath.indexOf("/t/"));
+		dispose?.();
+		dispose = undefined;
+		document.body.replaceChildren();
+		await mount("mobile", threadPath);
+		await until(
+			() =>
+				!!document.querySelector<HTMLElement>(
+					'[aria-label="Back to #critique"]',
+				),
+		);
+		const header = document.querySelector<HTMLElement>(
+			'[data-pane-index="2"] h1, [data-pane-index="2"] [data-channel-header]',
+		);
+		await userEvent.click(header ?? document.body);
+		await until(() => depthOf(history.state) === 2);
+		history.back();
+		await until(() => location.pathname === channelPath);
+	});
+
+	it("opens a thread from the desktop list in the pane and Back closes the pane", async () => {
+		await mount("desktop", `/app/c/${HQ}/${TEXT}/general`);
+		await until(() => !!threadRow("Spring tuning"));
+		const startDepth = depthOf(history.state);
+		(
+			threadRow("Spring tuning")?.querySelector("button") as HTMLButtonElement
+		).click();
+		await until(() => location.pathname.includes("/t/"));
+		const threadPath = location.pathname;
+		expect(depthOf(history.state)).toBe(startDepth + 1);
+		history.back();
+		await until(
+			() =>
+				location.pathname === threadPath.slice(0, threadPath.indexOf("/t/")),
+		);
+		expect(depthOf(history.state)).toBe(startDepth);
+		await until(() => !document.querySelector("[data-shell-thread]"));
+	});
+
+	it("highlights only the open thread on desktop and keeps its row after the pane closes", async () => {
+		await mount("desktop", `/app/c/${HQ}/${TEXT}/general`);
+		await until(() => !!threadRow("Spring tuning"));
+		(
+			threadRow("Spring tuning")?.querySelector("button") as HTMLButtonElement
+		).click();
+		await until(() => location.pathname.includes("/t/"));
+		await until(
+			() => !!threadRow("Spring tuning")?.hasAttribute("data-active"),
+		);
+		expect(threadRow("Spring tuning")?.querySelector("button")).toHaveAttribute(
+			"aria-current",
+			"page",
+		);
+		expect(
+			document.querySelectorAll(
+				"[data-channel-row][data-active], [data-channel-thread][data-active]",
+			),
+		).toHaveLength(1);
+		expect(channelRow("dev")?.hasAttribute("data-active")).toBe(false);
+		await userEvent.click(page.getByRole("button", { name: "Close thread" }));
+		await until(() => !document.querySelector("[data-shell-thread]"));
+		await until(() => !!channelRow("dev")?.hasAttribute("data-active"));
+		expect(threadRow("Spring tuning")?.hasAttribute("data-active")).toBe(false);
+		(
+			channelRow("general")?.querySelector("button") as HTMLButtonElement
+		).click();
+		await until(() => !!channelRow("general")?.hasAttribute("data-active"));
+		expect(threadRow("Spring tuning")).toBeDefined();
+		expect(threadRow("Spring tuning")?.hasAttribute("data-active")).toBe(false);
+	});
+
+	it("highlights only the thread on mobile until a channel is opened", async () => {
+		await mount("mobile", `/app/c/${OWLS}`);
+		await until(() => !!threadRow("Portrait critique"));
+		const listPath = location.pathname;
+		(
+			threadRow("Portrait critique")?.querySelector(
+				"button",
+			) as HTMLButtonElement
+		).click();
+		await until(() => location.pathname.includes("/t/"));
+		await until(
+			() => !!threadRow("Portrait critique")?.hasAttribute("data-active"),
+		);
+		expect(
+			Array.from(document.querySelectorAll("[data-channel-row]")).filter(
+				(row) => row.hasAttribute("data-active"),
+			),
+		).toHaveLength(0);
+		history.back();
+		await until(() => location.pathname === listPath);
+		expect(threadRow("Portrait critique")?.hasAttribute("data-active")).toBe(
+			true,
+		);
+		(
+			channelRow("critique")?.querySelector("button") as HTMLButtonElement
+		).click();
+		await until(() => location.pathname.endsWith("/critique"));
+		await until(() => !!channelRow("critique")?.hasAttribute("data-active"));
+		expect(threadRow("Portrait critique")).toBeDefined();
+		expect(threadRow("Portrait critique")?.hasAttribute("data-active")).toBe(
+			false,
+		);
 	});
 
 	it("shows a followed thread as read on desktop", async () => {

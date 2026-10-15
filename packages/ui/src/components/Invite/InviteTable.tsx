@@ -403,7 +403,7 @@ const EmptyState = (props: { controller: InviteTableController }) => (
 			<LinkIcon aria-hidden="true" />
 		</span>
 		<p class="m-0 text-sm font-semibold text-foreground">No invite links yet</p>
-		<p class="m-0 max-w-80 text-sm text-pretty text-muted-foreground">
+		<p class="m-0 max-w-80 text-sm leading-prose text-pretty text-muted-foreground">
 			Create a link to invite people to this Space. You choose how long it works
 			and how often it can be used.
 		</p>
@@ -452,7 +452,7 @@ const InviteTableFrame = (props: {
 					</h3>
 					<p
 						data-invite-access={c.props.joinMode ?? "open"}
-						class="m-0 text-sm text-pretty text-muted-foreground"
+						class="m-0 text-sm leading-prose text-pretty text-muted-foreground"
 					>
 						{INVITE_ACCESS_COPY[c.props.joinMode ?? "open"]}
 					</p>

@@ -1,10 +1,10 @@
+import { spaceSkey } from "@colibri-social/lib";
 import type {
 	SuggestionKeyDownProps,
 	SuggestionProps,
 } from "@tiptap/suggestion";
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
-import { spaceSkey } from "../../../../atproto/space-ref";
 import type {
 	Channel,
 	Member,

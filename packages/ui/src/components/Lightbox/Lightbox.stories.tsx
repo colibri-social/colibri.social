@@ -1,5 +1,5 @@
 import { createSignal, type JSX, onMount, Show } from "solid-js";
-import { expect, screen, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { BlueskyPostEmbed } from "../Attachments/BlueskyPostEmbed";
 import { LinkEmbed } from "../Attachments/LinkEmbed";
@@ -596,5 +596,163 @@ export const VideoHandoff: Story = {
 		await waitFor(() =>
 			expect(Math.abs(inlineVideo.currentTime - closedAt)).toBeLessThan(0.5),
 		);
+	},
+};
+
+const WHITE_IMAGE = `data:image/svg+xml,${encodeURIComponent(
+	'<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="2400"><rect width="1200" height="2400" fill="#ffffff"/></svg>',
+)}`;
+
+const onCopyImage = fn();
+const onDownloadImage = fn();
+
+export const ImageActionsAndScrims: Story = {
+	name: "Image actions and scrims over a white image",
+	parameters: iphone,
+	render: () => {
+		const [open, setOpen] = createSignal(true);
+		return (
+			<Lightbox
+				items={[
+					{
+						src: WHITE_IMAGE,
+						width: 1200,
+						height: 2400,
+						kind: "image",
+						name: "white.png",
+						alt: "A plain white page that fills the whole screen.",
+					},
+				]}
+				open={open()}
+				onOpenChange={setOpen}
+				onCopyImage={onCopyImage}
+				onDownloadImage={onDownloadImage}
+			/>
+		);
+	},
+	play: async () => {
+		onCopyImage.mockClear();
+		onDownloadImage.mockClear();
+		const top = await waitFor(() => {
+			const element = document.querySelector<HTMLElement>(
+				'[data-lightbox-scrim="top"]',
+			);
+			if (!element) throw new Error("no top scrim");
+			return element;
+		});
+		const bottom = document.querySelector<HTMLElement>(
+			'[data-lightbox-scrim="bottom"]',
+		);
+		await expect(bottom).not.toBeNull();
+		const copy = await screen.findByRole("button", { name: "Copy image" });
+		const download = screen.getByRole("button", { name: "Download image" });
+		const caption = document.querySelector<HTMLElement>("[data-lightbox-alt]");
+		if (!caption || !bottom) throw new Error("missing caption or scrim");
+		await waitFor(() => expect(getComputedStyle(top).opacity).toBe("1"));
+
+		const topBox = top.getBoundingClientRect();
+		const copyBox = copy.getBoundingClientRect();
+		await expect(topBox.top).toBeLessThanOrEqual(copyBox.top);
+		await expect(topBox.bottom).toBeGreaterThanOrEqual(copyBox.bottom);
+		const bottomBox = bottom.getBoundingClientRect();
+		const captionBox = caption.getBoundingClientRect();
+		await expect(bottomBox.top).toBeLessThanOrEqual(captionBox.top);
+		await expect(Math.round(bottomBox.bottom)).toBe(window.innerHeight);
+
+		const onCopy = document.elementFromPoint(
+			copyBox.left + copyBox.width / 2,
+			copyBox.top + copyBox.height / 2,
+		);
+		await expect(!!onCopy && copy.contains(onCopy)).toBe(true);
+		const onCaption = document.elementFromPoint(
+			captionBox.left + 4,
+			captionBox.top + captionBox.height / 2,
+		);
+		await expect(!!onCaption && caption.contains(onCaption)).toBe(true);
+		const stage = document.querySelector<HTMLElement>("[data-lightbox-stage]");
+		const toolbar = copy.closest<HTMLElement>("[data-lightbox-chrome]");
+		const captionChrome = caption.closest<HTMLElement>(
+			"[data-lightbox-chrome]",
+		);
+		if (!stage || !toolbar || !captionChrome) throw new Error("missing layers");
+		const after = (a: Node, b: Node) =>
+			!!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+		await expect(after(stage, top)).toBe(true);
+		await expect(after(top, toolbar)).toBe(true);
+		await expect(after(bottom, captionChrome)).toBe(true);
+		for (const layer of [top, bottom, toolbar, captionChrome])
+			await expect(getComputedStyle(layer).zIndex).toBe("auto");
+		await expect(getComputedStyle(top).pointerEvents).toBe("none");
+
+		for (const element of [
+			top,
+			bottom,
+			...document.querySelectorAll<HTMLElement>("[data-lightbox-chrome]"),
+		]) {
+			await expect(getComputedStyle(element).backdropFilter).toMatch(
+				/^(none|)$/,
+			);
+		}
+		await expect(getComputedStyle(top).backgroundImage).toContain(
+			"linear-gradient",
+		);
+
+		await userEvent.click(copy);
+		await expect(onCopyImage).toHaveBeenCalledWith(0);
+		await userEvent.click(download);
+		await expect(onDownloadImage).toHaveBeenCalledWith(0);
+	},
+};
+
+export const ImageMenuOnRightClick: Story = {
+	name: "Image menu on right-click",
+	render: () => {
+		const [open, setOpen] = createSignal(true);
+		return (
+			<Lightbox
+				items={[{ src: WHITE_IMAGE, width: 1200, height: 2400, kind: "image" }]}
+				open={open()}
+				onOpenChange={setOpen}
+				onCopyImage={onCopyImage}
+				onDownloadImage={onDownloadImage}
+			/>
+		);
+	},
+	play: async () => {
+		onCopyImage.mockClear();
+		const media = await waitFor(() => {
+			const element = document.querySelector<HTMLElement>(
+				'[data-lightbox-slide="0"] [data-lightbox-media]',
+			);
+			if (!element) throw new Error("no media");
+			return element;
+		});
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		const box = media.getBoundingClientRect();
+		const event = new MouseEvent("contextmenu", {
+			bubbles: true,
+			cancelable: true,
+			clientX: box.left + box.width / 2,
+			clientY: box.top + box.height / 2,
+		});
+		const hit = document.elementFromPoint(
+			box.left + box.width / 2,
+			box.top + box.height / 2,
+		);
+		if (!hit) throw new Error("nothing under the pointer");
+		hit.dispatchEvent(event);
+		await expect(event.defaultPrevented).toBe(true);
+		const menu = await screen.findByRole("menu", { name: "Image options" });
+		const copyItem = within(menu).getByRole("menuitem", { name: "Copy image" });
+		const itemBox = copyItem.getBoundingClientRect();
+		const topmost = document.elementFromPoint(
+			itemBox.left + itemBox.width / 2,
+			itemBox.top + itemBox.height / 2,
+		);
+		await expect(!!topmost && copyItem.contains(topmost)).toBe(true);
+		await userEvent.click(
+			within(menu).getByRole("menuitem", { name: "Copy image" }),
+		);
+		await expect(onCopyImage).toHaveBeenCalledWith(0);
 	},
 };

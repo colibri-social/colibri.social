@@ -39,7 +39,7 @@ export const StatusScreen = (props: StatusScreenProps) => {
 					{props.title}
 				</h2>
 				<Show when={description.has()}>
-					<p class="m-0 text-sm text-pretty text-muted-foreground">
+					<p class="m-0 text-sm leading-prose text-pretty text-muted-foreground">
 						{description()}
 					</p>
 				</Show>

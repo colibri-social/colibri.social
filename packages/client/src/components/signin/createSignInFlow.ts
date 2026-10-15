@@ -1,3 +1,12 @@
+import type { ErrorCopy } from "@colibri-social/lib";
+import {
+	buildScopes,
+	classifyOAuthParams,
+	classifyThrown,
+	isColibriError,
+	isSignInDenial,
+	supportsSpaces,
+} from "@colibri-social/lib";
 import { useLocation, useNavigate } from "@solidjs/router";
 import { createEffect, createSignal, on, onMount } from "solid-js";
 import { toast } from "somoto";
@@ -25,13 +34,8 @@ import {
 	classifyCallback,
 	readCallbackParams,
 } from "../../atproto/oauth-callback";
-import { buildScopes } from "../../atproto/scopes";
-import { supportsSpaces } from "../../atproto/spaces-support";
+
 import { useAuthContext } from "../../contexts/Auth";
-import { classifyThrown } from "../../errors/classify";
-import type { ErrorCopy } from "../../errors/copy";
-import { isColibriError } from "../../errors/error";
-import { classifyOAuthParams, isSignInDenial } from "../../errors/oauth";
 import { showError } from "../../errors/show-error";
 import { getAppViewDid } from "../../utils/appview";
 import { createLogger } from "../../utils/logger";

@@ -5,7 +5,7 @@ import {
 } from "@colibri-social/ui";
 import { Show } from "solid-js";
 import { Outlet } from "../../shell/desktop/context";
-import { resolveChromeMode } from "../../shell/desktop/window-chrome";
+import { desktopRailPaddingTop } from "../../shell/desktop/window-chrome";
 import InboxScreen from "../inbox/inbox.screen";
 import { spaces } from "./spaces.contract";
 
@@ -16,7 +16,7 @@ export default spaces.view({
 			<Outlet name="rail">
 				<SpaceRail
 					platform="desktop"
-					paddingTop={resolveChromeMode() === "none" ? 8 : undefined}
+					paddingTop={desktopRailPaddingTop()}
 					leading={<InboxScreen args={{}} />}
 					onCreate={m.openCreateSpace}
 					onDiscover={m.openDiscover}

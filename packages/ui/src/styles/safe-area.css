@@ -3,6 +3,24 @@
 	--safe-area-bottom: env(safe-area-inset-bottom, 0px);
 	--safe-area-left: env(safe-area-inset-left, 0px);
 	--safe-area-right: env(safe-area-inset-right, 0px);
+	--window-chrome-top: 0px;
+	--overlay-top: max(var(--window-chrome-top, 0px), var(--safe-area-top, 0px));
+}
+
+:root[data-keyboard-open] {
+	--safe-area-bottom: 0px;
+}
+
+@utility pt-overlay {
+	padding-top: var(--overlay-top, 0px);
+}
+
+@utility pt-overlay-offset-* {
+	padding-top: calc(--spacing(--value(integer)) + var(--overlay-top, 0px));
+}
+
+@utility top-overlay-offset-* {
+	top: calc(--spacing(--value(integer)) + var(--overlay-top, 0px));
 }
 
 @utility pt-safe {

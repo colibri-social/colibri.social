@@ -1,4 +1,4 @@
-import { classifyThrown } from "../errors/classify";
+import { classifyThrown } from "@colibri-social/lib";
 import { createLogger } from "../utils/logger";
 import { createRnnoiseNode, type RnnoiseNode } from "./noise/rnnoise";
 

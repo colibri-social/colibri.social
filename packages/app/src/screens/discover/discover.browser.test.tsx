@@ -5,6 +5,7 @@ import { layoutIssues } from "../../../../ui/src/foundations/layout-test";
 import { createMockSource, setLatency } from "../../data/mock/source";
 import { createDataStore, DataContext } from "../../data/store";
 import { Providers } from "../../providers";
+import { DISCOVERY_ENABLED } from "../../shell/features";
 import { MobileShell } from "../../shell/MobileShell";
 
 const until = async (check: () => boolean, timeout = 8000) => {
@@ -72,7 +73,7 @@ const dialogNamed = (name: string | RegExp) =>
 		},
 	);
 
-describe("discover Spaces", () => {
+describe.skipIf(!DISCOVERY_ENABLED)("discover Spaces", () => {
 	it("opens the feed from the rail, previews a Space and joins it", async () => {
 		const { root, store } = await mount("/app");
 		await until(() => !!buttonNamed(root, "Discover Spaces"));

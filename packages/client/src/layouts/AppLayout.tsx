@@ -1,3 +1,4 @@
+import { frameIs } from "@colibri-social/lib";
 import { A, useLocation, useNavigate } from "@solidjs/router";
 import {
 	closestCenter,
@@ -28,7 +29,6 @@ import { linkErrorMessage, readLinkOutcome } from "../atproto/labeler-link";
 import { writeCommunityOrder } from "../atproto/notificationPreference";
 import { creationInFlight } from "../atproto/pending-community";
 import { resumeQuietly } from "../atproto/resume-community-creation";
-import { frameIs } from "../atproto/sync-frames";
 import type { CommunityView } from "../atproto/views";
 import { AppBadge } from "../components/app/AppBadge";
 import { AppReconnectingIndicator } from "../components/app/AppReconnectingIndicator";

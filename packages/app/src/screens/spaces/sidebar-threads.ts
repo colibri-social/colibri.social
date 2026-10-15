@@ -13,12 +13,25 @@ const newestFirst = (a: ThreadView, b: ThreadView) => {
 export const belongsInSidebar = (
 	thread: ThreadView,
 	now: number,
-	openThread?: string,
+	pinnedThread?: string,
 ) => {
 	if (thread.viewer.hasUnread || thread.viewer.following) return true;
-	if (openThread === skeyOf(thread.space)) return true;
+	if (pinnedThread === skeyOf(thread.space)) return true;
 	const at = new Date(thread.lastActivityAt).getTime();
 	return !Number.isNaN(at) && now - at <= SIDEBAR_ACTIVITY_WINDOW_MS;
+};
+
+export const capKeepingPinned = <T extends { thread: ThreadView }>(
+	listed: T[],
+	pinnedThread?: string,
+	limit = SIDEBAR_THREAD_LIMIT,
+): T[] => {
+	const shown = listed.slice(0, limit);
+	const pinned = listed.find(
+		(state) => skeyOf(state.thread.space) === pinnedThread,
+	);
+	if (pinned && !shown.includes(pinned)) shown[shown.length - 1] = pinned;
+	return shown;
 };
 
 export const sidebarThreads = (data: DataStore, channel: SpaceRef) =>
@@ -37,12 +50,12 @@ export const sidebarThreadsFor = (
 	space: SpaceData | undefined,
 	channel: SpaceRef,
 	now: number,
-	openThread?: string,
+	pinnedThread?: string,
 ): SidebarThreadState[] => {
 	const unseen = data.notifications
 		.items()
 		.filter((entry) => !entry.seenAt && entry.thread);
-	return sidebarThreads(data, channel)
+	const listed = sidebarThreads(data, channel)
 		.map((thread) => {
 			const live = space?.unread(skeyOf(thread.space));
 			const pings = unseen.filter(
@@ -58,8 +71,8 @@ export const sidebarThreadsFor = (
 			(state) =>
 				state.unread ||
 				state.mentions > 0 ||
-				belongsInSidebar(state.thread, now, openThread),
+				belongsInSidebar(state.thread, now, pinnedThread),
 		)
-		.sort((a, b) => newestFirst(a.thread, b.thread))
-		.slice(0, SIDEBAR_THREAD_LIMIT);
+		.sort((a, b) => newestFirst(a.thread, b.thread));
+	return capKeepingPinned(listed, pinnedThread);
 };

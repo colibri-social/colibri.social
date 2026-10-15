@@ -1,3 +1,4 @@
+import { classifyThrown, isSignInDenial } from "@colibri-social/lib";
 import { useNavigate } from "@solidjs/router";
 import { type Component, onCleanup, onMount } from "solid-js";
 import { completeNativeOAuth } from "../atproto/auth";
@@ -6,8 +7,6 @@ import {
 	parseColibriChannelUrl,
 } from "../atproto/colibri-channel-url";
 import { useAuthContext } from "../contexts/Auth";
-import { classifyThrown } from "../errors/classify";
-import { isSignInDenial } from "../errors/oauth";
 import { showError } from "../errors/show-error";
 import {
 	emitNotificationActivation,

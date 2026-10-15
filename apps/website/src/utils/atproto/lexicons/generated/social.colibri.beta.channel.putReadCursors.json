@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "procedure",
-			"description": "Pushes the requesting user's read cursors for one community to the AppView, so unread counts update immediately instead of waiting for a sync notification. The client writes its social.colibri.beta.channel.read record for the community to its own personal space first, then calls this. Clients should debounce this rather than calling it on every message.",
+			"description": "Pushes the requesting user's read cursors for one community to the AppView, so unread counts update immediately instead of waiting for a sync notification. The client writes its social.colibri.beta.channel.read record for the community to its own personal space first, then calls this. Clients should debounce this rather than calling it on every message. The user's other sessions receive the cursors that moved as a social.colibri.beta.sync.defs#readCursorEvent.",
 			"input": {
 				"encoding": "application/json",
 				"schema": {
@@ -21,7 +21,7 @@
 						},
 						"cursors": {
 							"type": "array",
-							"description": "The complete, replacement set of read cursors for the community's channels.",
+							"description": "Read cursors for the community's channels and threads. Each one replaces the stored cursor only when it is newer, and channels left out keep their stored cursor.",
 							"items": {
 								"type": "ref",
 								"ref": "social.colibri.beta.channel.read#cursor"

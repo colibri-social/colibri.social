@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "procedure",
-			"description": "Updates a category's name.",
+			"description": "Updates a category's name and the permissions its channels inherit.",
 			"input": {
 				"encoding": "application/json",
 				"schema": {
@@ -29,6 +29,46 @@
 							"minLength": 1,
 							"maxLength": 32,
 							"description": "The category's new name."
+						},
+						"ownerOnly": {
+							"type": "boolean",
+							"description": "Whether only community admins may post in the category's channels. Absent leaves the current value unchanged."
+						},
+						"allowedRoles": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "record-key",
+								"description": "A role permitted to post."
+							},
+							"description": "Roles allowed to post in the category's channels. Absent leaves the current value unchanged."
+						},
+						"allowedMembers": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A member permitted to post."
+							},
+							"description": "Members allowed to post in the category's channels in addition to allowedRoles. Absent leaves the current value unchanged."
+						},
+						"visibleToRoles": {
+							"type": "array",
+							"description": "Roles that may read the category's channels. Absent leaves the current value unchanged.",
+							"items": {
+								"type": "string",
+								"format": "record-key",
+								"description": "A role permitted to read."
+							}
+						},
+						"visibleToMembers": {
+							"type": "array",
+							"description": "Members that may read the category's channels in addition to visibleToRoles. Absent leaves the current value unchanged.",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A member permitted to read."
+							}
 						}
 					}
 				}
@@ -56,7 +96,7 @@
 				},
 				{
 					"name": "Forbidden",
-					"description": "The caller lacks the category.update permission."
+					"description": "The caller lacks the category.update permission, or grants visibility to a role at or above their own highest position."
 				},
 				{
 					"name": "CommunityNotFound",

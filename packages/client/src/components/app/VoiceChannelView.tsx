@@ -1,3 +1,4 @@
+import { classifyThrown, spaceSkey } from "@colibri-social/lib";
 import { useParams } from "@solidjs/router";
 import {
 	type Component,
@@ -19,13 +20,11 @@ import SpeakerHighIcon from "~icons/ph/speaker-high-fill";
 import UsersIcon from "~icons/ph/users";
 import UsersIconFill from "~icons/ph/users-fill";
 import { voiceDisabledOn } from "../../atproto/server-features";
-import { spaceSkey } from "../../atproto/space-ref";
 import { useCommunityContext } from "../../contexts/Community";
 import type { Member } from "../../contexts/community-payload";
 import { useUserContext } from "../../contexts/User";
 import { useUserPreferences } from "../../contexts/UserPreferences";
 import { ConnectionState, useVoiceChatContext } from "../../contexts/VoiceChat";
-import { classifyThrown } from "../../errors/classify";
 import { appViewHostFor } from "../../utils/appview";
 import { getAverageColorFromUrl } from "../../utils/get-average-color";
 import { createLogger } from "../../utils/logger";

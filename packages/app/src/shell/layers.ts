@@ -1,3 +1,6 @@
+import { SIGN_IN_PATH } from "../auth/callback";
+import { DISCOVERY_ENABLED } from "./features";
+
 export type Tab = "spaces" | "inbox" | "profile" | "settings";
 
 export type Root = {
@@ -227,13 +230,16 @@ const parseKnownPath = (parts: readonly string[]): Route | undefined => {
 	}
 	if (app !== "app") return undefined;
 	if (!head) return { root: { tab: "spaces" }, layers: [] };
+	if (`/${app}/${head}` === SIGN_IN_PATH && length === 2) {
+		return { root: { tab: "spaces" }, layers: [] };
+	}
 	if (head === "profile" && space === "edit" && length === 3) {
 		return { root: { tab: "profile" }, layers: [{ kind: "editProfile" }] };
 	}
 	if (head === "new" && length === 2) {
 		return { root: { tab: "spaces" }, layers: [{ kind: "createSpace" }] };
 	}
-	if (head === "discover" && length === 2) {
+	if (DISCOVERY_ENABLED && head === "discover" && length === 2) {
 		return { root: { tab: "spaces" }, layers: [{ kind: "discover" }] };
 	}
 	if (head === "invite") {

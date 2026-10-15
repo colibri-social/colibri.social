@@ -14,6 +14,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsAnimationCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewCompat
@@ -23,6 +24,9 @@ class MainActivity : TauriActivity() {
   private val handler = Handler(Looper.getMainLooper())
   private var lastBars: Insets = Insets.NONE
   private var lastImeBottom: Int = -1
+  private var committedImeBottom: Int = -1
+  private var imeAnimating = false
+  private var imeFrom: Int = 0
   private var barsScriptHandler: ScriptHandler? = null
   private var askedForNotifications = false
   private var pendingOpenCall = false
@@ -42,6 +46,7 @@ class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     CallEvents.attach(webView)
     webView.addJavascriptInterface(CallBridge(), "__colibriCall")
+    ReceiveFiles(this, webView).attach()
     if (pendingOpenCall) {
       pendingOpenCall = false
       handler.postDelayed({ CallEvents.dispatch("open") }, 1500L)
@@ -52,18 +57,51 @@ class MainActivity : TauriActivity() {
       )
       lastBars = bars
       registerBarsScript(webView, bars)
-      val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-      if (imeBottom != lastImeBottom) {
-        lastImeBottom = imeBottom
-        dispatchKeyboard(webView, imeBottom)
+      lastImeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+      if (!imeAnimating && lastImeBottom != committedImeBottom) {
+        dispatchKeyboard(webView, lastImeBottom)
       }
       insets
     }
+    ViewCompat.setWindowInsetsAnimationCallback(webView, object :
+      WindowInsetsAnimationCompat.Callback(WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_STOP) {
+      override fun onPrepare(animation: WindowInsetsAnimationCompat) {
+        if ((animation.typeMask and WindowInsetsCompat.Type.ime()) == 0) return
+        imeAnimating = true
+        imeFrom = maxOf(committedImeBottom, 0)
+      }
+
+      override fun onStart(
+        animation: WindowInsetsAnimationCompat,
+        bounds: WindowInsetsAnimationCompat.BoundsCompat
+      ): WindowInsetsAnimationCompat.BoundsCompat {
+        if ((animation.typeMask and WindowInsetsCompat.Type.ime()) != 0) {
+          dispatchKeyboardStart(webView, imeFrom, maxOf(lastImeBottom, 0))
+        }
+        return bounds
+      }
+
+      override fun onProgress(
+        insets: WindowInsetsCompat,
+        runningAnimations: MutableList<WindowInsetsAnimationCompat>
+      ): WindowInsetsCompat {
+        if (!imeAnimating) return insets
+        val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+        dispatchKeyboardProgress(webView, imeBottom)
+        return insets
+      }
+
+      override fun onEnd(animation: WindowInsetsAnimationCompat) {
+        if ((animation.typeMask and WindowInsetsCompat.Type.ime()) == 0) return
+        imeAnimating = false
+        dispatchKeyboard(webView, maxOf(lastImeBottom, 0))
+      }
+    })
     ViewCompat.requestApplyInsets(webView)
     for (delay in longArrayOf(250L, 750L, 1500L, 3000L)) {
       handler.postDelayed({
         registerBarsScript(webView, lastBars)
-        dispatchKeyboard(webView, maxOf(lastImeBottom, 0))
+        if (!imeAnimating) dispatchKeyboard(webView, maxOf(lastImeBottom, 0))
       }, delay)
     }
   }
@@ -71,7 +109,25 @@ class MainActivity : TauriActivity() {
   private fun px(webView: WebView, value: Int): Float =
     value / webView.resources.displayMetrics.density
 
+  private fun dispatchKeyboardStart(webView: WebView, from: Int, to: Int) {
+    val safeBottom = if (to > 0) 0f else px(webView, lastBars.bottom)
+    webView.evaluateJavascript(
+      "document.documentElement.style.setProperty('--safe-area-bottom', '${safeBottom}px');" +
+        "window.dispatchEvent(new CustomEvent('colibri-safe-area-change'));" +
+        "window.dispatchEvent(new CustomEvent('colibri-keyboard-progress', { detail: { phase: 'start', from: ${px(webView, from)}, to: ${px(webView, to)} } }));",
+      null
+    )
+  }
+
+  private fun dispatchKeyboardProgress(webView: WebView, imeBottom: Int) {
+    webView.evaluateJavascript(
+      "window.dispatchEvent(new CustomEvent('colibri-keyboard-progress', { detail: { phase: 'progress', inset: ${px(webView, imeBottom)} } }));",
+      null
+    )
+  }
+
   private fun dispatchKeyboard(webView: WebView, imeBottom: Int) {
+    committedImeBottom = imeBottom
     val bottom = px(webView, imeBottom)
     val safeBottom = if (imeBottom > 0) 0f else px(webView, lastBars.bottom)
     webView.evaluateJavascript(

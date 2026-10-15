@@ -15,14 +15,13 @@ import {
 	Show,
 	useContext,
 } from "solid-js";
-import { blueskyClient, buildBskyProfileUrl } from "../../data/bluesky-client";
+import { displayNameOf } from "../../data/adapters/authors";
 import { roleIdentity, rolesOf } from "../../data/roles";
 import { useData } from "../../data/store";
 import type { Did } from "../../data/types";
 import { usePlatform } from "../../screen/platform";
-import { createLinkOpener } from "../channel/message/link-opener";
 import { uiPresence } from "../members/member-adapter";
-import { linkifyBio } from "./bio-links";
+import { createBioRenderer } from "./bio-links";
 import { blueskyProfileLinks } from "./bluesky-link";
 
 type Target = { did: string; space?: string };
@@ -48,16 +47,8 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 	const [target, setTarget] = createSignal<Target>();
 	const [open, setOpen] = createSignal(false);
 	const platform = usePlatform();
-	const links = createLinkOpener();
-	const bioOf = (text: string | undefined) => {
-		const trimmed = text?.trim();
-		if (!trimmed) return undefined;
-		return linkifyBio(trimmed, {
-			profileHref: (handle) => buildBskyProfileUrl(blueskyClient(), handle),
-			onLink: (href, label) =>
-				links.onExternalLink(href, { label, disguised: false }),
-		});
-	};
+	const bio = createBioRenderer();
+	const bioOf = bio.render;
 	const [anchor, setAnchor] = createSignal<HTMLElement>();
 	const [anchorRect, setAnchorRect] = createSignal<DOMRect>();
 	const [placement, setPlacement] = createSignal<ProfilePopoverPlacement>();
@@ -90,7 +81,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 		const roles = space ? rolesOf(member, space.roleByKey) : [];
 		const status = presence?.status;
 		return {
-			displayName: actor.displayName,
+			displayName: displayNameOf(actor),
 			nickname: member?.nickname,
 			handle: actor.handle,
 			accentColor: actor.theme?.accentColor,
@@ -161,7 +152,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 					loading={open() && !profile()}
 				/>
 			</Show>
-			<links.LinkWarningOutlet />
+			<bio.LinkWarningOutlet />
 		</ProfileSheetContext.Provider>
 	);
 };

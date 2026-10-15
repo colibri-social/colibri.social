@@ -1,5 +1,5 @@
+import { ColibriError } from "@colibri-social/lib";
 import { describe, expect, it } from "vitest";
-import { ColibriError } from "../errors/error";
 import { decideCommunityExit } from "./community-exit";
 
 const gone = new ColibriError({ code: "NotFound" });

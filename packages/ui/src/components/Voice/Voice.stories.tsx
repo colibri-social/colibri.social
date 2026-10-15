@@ -1279,6 +1279,27 @@ export const FloatingWindow: Story = {
 		await userEvent.click(chrome.getByRole("button", { name: "Disconnect" }));
 		await expect(floatingDisconnect).toHaveBeenCalledTimes(1);
 		await expect(corner).toHaveTextContent("br");
+
+		const floatingChrome = win.querySelector(
+			"[data-floating-chrome]",
+		) as HTMLElement;
+		const chromeOpacity = () =>
+			Number(getComputedStyle(floatingChrome).opacity);
+		(document.activeElement as HTMLElement | null)?.blur();
+		document.dispatchEvent(
+			new PointerEvent("pointerdown", { pointerType: "mouse" }),
+		);
+		surface.focus();
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		await expect(win).not.toHaveAttribute("data-keyboard-focus");
+		await expect(chromeOpacity()).toBe(0);
+		surface.blur();
+		document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+		surface.focus();
+		await expect(win).toHaveAttribute("data-keyboard-focus");
+		await waitFor(() => expect(chromeOpacity()).toBe(1));
+		surface.blur();
+		await expect(win).not.toHaveAttribute("data-keyboard-focus");
 		await expectNoLayoutIssues(win);
 	},
 };

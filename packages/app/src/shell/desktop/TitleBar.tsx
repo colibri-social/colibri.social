@@ -73,27 +73,17 @@ const NavButtons = () => {
 	);
 };
 
-export const TitleBar = (props: { mode?: ChromeMode }) => {
-	const data = useData();
-	const shell = useDesktopShell();
+export const WindowChrome = (props: {
+	mode?: ChromeMode;
+	title?: string;
+	iconSrc?: string;
+}) => {
 	const mode = () => props.mode ?? resolveChromeMode();
 	const [maximized, setMaximized] = createSignal(false);
 	const [fullscreen, setFullscreen] = createSignal(false);
 	const [layout, setLayout] = createSignal<ControlsLayout>(
 		controlsLayoutFrom(null),
 	);
-
-	const space = () => {
-		const key = shell.stack.route().root.space;
-		return key ? data.spaceByKey(key) : undefined;
-	};
-	const channelName = () => {
-		const chat = shell.stack.route().chat;
-		const community = space();
-		if (!chat || !community) return undefined;
-		return data.space(community).channelBySlug(chat.channel)?.name;
-	};
-	const title = () => composeWindowTitle(space()?.name, channelName());
 
 	onMount(() => {
 		if (mode() === "none") return;
@@ -117,16 +107,6 @@ export const TitleBar = (props: { mode?: ChromeMode }) => {
 		}
 	});
 
-	createEffect(
-		on(title, (next) => {
-			const timer = setTimeout(() => {
-				document.title = next;
-				if (mode() !== "none") void nativeWindow.setTitle(next);
-			}, TITLE_DEBOUNCE_MS);
-			onCleanup(() => clearTimeout(timer));
-		}),
-	);
-
 	const controlsOnLeft = () => mode() === "linux" && layout().side === "left";
 
 	const controls = () => (
@@ -143,8 +123,8 @@ export const TitleBar = (props: { mode?: ChromeMode }) => {
 		<Show when={mode() !== "none"}>
 			<WindowBar
 				dragRegion
-				title={space()?.name}
-				iconSrc={space()?.picture}
+				title={props.title}
+				iconSrc={props.iconSrc}
 				macInset={mode() === "macos" && !fullscreen()}
 				roundedCorners={mode() === "macos"}
 				leading={
@@ -169,5 +149,41 @@ export const TitleBar = (props: { mode?: ChromeMode }) => {
 				}
 			/>
 		</Show>
+	);
+};
+
+export const TitleBar = (props: { mode?: ChromeMode }) => {
+	const data = useData();
+	const shell = useDesktopShell();
+	const mode = () => props.mode ?? resolveChromeMode();
+
+	const space = () => {
+		const key = shell.stack.route().root.space;
+		return key ? data.spaceByKey(key) : undefined;
+	};
+	const channelName = () => {
+		const chat = shell.stack.route().chat;
+		const community = space();
+		if (!chat || !community) return undefined;
+		return data.space(community).channelBySlug(chat.channel)?.name;
+	};
+	const title = () => composeWindowTitle(space()?.name, channelName());
+
+	createEffect(
+		on(title, (next) => {
+			const timer = setTimeout(() => {
+				document.title = next;
+				if (mode() !== "none") void nativeWindow.setTitle(next);
+			}, TITLE_DEBOUNCE_MS);
+			onCleanup(() => clearTimeout(timer));
+		}),
+	);
+
+	return (
+		<WindowChrome
+			mode={props.mode}
+			title={space()?.name}
+			iconSrc={space()?.picture}
+		/>
 	);
 };

@@ -188,6 +188,22 @@ Show the code only to the admin who asked for it. Check that they're an admin on
 
 `context.linkedRooms(remoteSpace)` lists the Colibri channels currently linked to a remote space, for a status command.
 
+### Disconnecting
+
+Give admins on the other service a way to disconnect as well. `context.connections(remoteSpace)` lists the communities a remote space is connected to, each with its `community` DID, `communityName` and `registration`. Pass one of those DIDs to `context.disconnect()` to leave that community, or leave it out to disconnect the remote space from every community:
+
+```ts
+const left = await context.disconnect("workspace-1", "did:plc:4z3bq7rjmuyqfdeslq7vfwdk");
+```
+
+`disconnect()` returns how many registrations it deleted. A registration that an admin in Colibri revoked in the meantime counts as deleted.
+
+When your bridge is removed from a remote space, emit a `spaceLeft` event. It disconnects the remote space from every community:
+
+```ts
+context.emit({ type: "spaceLeft", remoteSpace: "workspace-1" });
+```
+
 ## Run the bridge
 
 Create a `Bridge` with a client, your connector, and a store, then start it:

@@ -8,6 +8,7 @@ import {
 	splitProps,
 } from "solid-js";
 import { cx } from "../../utils/cx";
+import { isStaticSource } from "../../utils/playback";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import {
 	type DefaultAvatarId,
@@ -210,19 +211,28 @@ export const Avatar = (props: AvatarProps) => {
 					when={showImage()}
 					fallback={<span class="sr-only">{local.name}</span>}
 				>
-					<AnimatedImage
-						src={local.src}
-						alt={local.name}
-						draggable={false}
-						onLoad={() => setLoaded(true)}
-						onError={() => setFailed(true)}
+					<span
+						data-avatar-image=""
 						class={cx(
-							"absolute inset-0 size-full object-cover outline-1 -outline-offset-1 outline-white/8 light:outline-black/8",
-							"transition-opacity duration-[calc(180ms*var(--motion-scale))] ease-(--ease-out-quick)",
-							radius(),
+							"absolute inset-0 transition-opacity duration-[calc(180ms*var(--motion-scale))] ease-(--ease-out-quick)",
 							!loaded() && "opacity-0",
 						)}
-					/>
+					>
+						<AnimatedImage
+							src={local.src}
+							alt={local.name}
+							draggable={false}
+							animated={!isStaticSource(local.src)}
+							playback="demand"
+							frameSize={pixels()}
+							onLoad={() => setLoaded(true)}
+							onError={() => setFailed(true)}
+							class={cx(
+								"absolute inset-0 size-full object-cover outline-1 -outline-offset-1 outline-white/8 light:outline-black/8",
+								radius(),
+							)}
+						/>
+					</span>
 				</Show>
 			</span>
 			<Show when={local.presence}>

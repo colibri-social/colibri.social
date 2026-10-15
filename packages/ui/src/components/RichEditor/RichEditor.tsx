@@ -32,6 +32,7 @@ import {
 	MARKDOWN_LINK_POLICY,
 } from "../../utils/rich-text/link-safety";
 import { utf8Length } from "../../utils/text-length";
+import { MESSAGE_LINE_HEIGHT } from "../../utils/typography";
 import { mentionChipClass, timeChipClass } from "../Badge/Badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import { codeContextAtPos } from "./block-projection";
@@ -123,7 +124,7 @@ export type RichEditorProps = {
 	class?: string;
 };
 
-export const DEFAULT_LINE_HEIGHT = 21;
+export const DEFAULT_LINE_HEIGHT = MESSAGE_LINE_HEIGHT;
 const DEFAULT_MAX_LINES = 8;
 const BUBBLE_GAP = 8;
 const VIEWPORT_GAP = 8;

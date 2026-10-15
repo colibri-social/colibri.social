@@ -11,6 +11,9 @@ export type OverflowPadding = SafeAreaInsets;
 
 export const SAFE_AREA_CHANGE_EVENT = "colibri-safe-area-change";
 export const KEYBOARD_INSET_EVENT = "colibri-keyboard-inset";
+export const KEYBOARD_LIFT_ATTRIBUTE = "data-keyboard-lift";
+export const KEYBOARD_LIFT_VAR = "--keyboard-lift";
+export const keyboardLiftAttrs = { [KEYBOARD_LIFT_ATTRIBUTE]: "" };
 export const BASE_OVERFLOW_PADDING = 8;
 
 const ZERO_INSETS: SafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
@@ -71,14 +74,53 @@ const createSharedInsets = (): Accessor<SafeAreaInsets> => {
 	return insets;
 };
 
+export const WINDOW_CHROME_TOP_VAR = "--window-chrome-top";
+
+export const readWindowChromeTop = () => {
+	if (typeof document === "undefined") return 0;
+	return toPixels(
+		getComputedStyle(document.documentElement).getPropertyValue(
+			WINDOW_CHROME_TOP_VAR,
+		),
+	);
+};
+
+export const setWindowChromeTop = (pixels: number | null) => {
+	if (typeof document === "undefined") return;
+	const style = document.documentElement.style;
+	if (pixels === null) style.removeProperty(WINDOW_CHROME_TOP_VAR);
+	else style.setProperty(WINDOW_CHROME_TOP_VAR, `${pixels}px`);
+	notifySafeAreaChange();
+};
+
+let sharedChromeTop: Accessor<number> | undefined;
+
+const createSharedChromeTop = () => {
+	const [top, setTop] = createSignal(readWindowChromeTop());
+	window.addEventListener(SAFE_AREA_CHANGE_EVENT, () =>
+		setTop(readWindowChromeTop()),
+	);
+	return top;
+};
+
+export const useWindowChromeTop = (): Accessor<number> => {
+	if (typeof window === "undefined") return () => 0;
+	if (!sharedChromeTop) sharedChromeTop = createSharedChromeTop();
+	return sharedChromeTop;
+};
+
 export const useSafeAreaInsets = (): Accessor<SafeAreaInsets> => {
 	if (typeof window === "undefined") return () => ZERO_INSETS;
 	if (!sharedInsets) sharedInsets = createSharedInsets();
 	return sharedInsets;
 };
 
-const paddingFor = (insets: SafeAreaInsets, base: number): OverflowPadding => ({
-	top: base + insets.top,
+const paddingFor = (
+	insets: SafeAreaInsets,
+	base: number,
+	chromeTop = 0,
+): OverflowPadding => ({
+	top: base + Math.max(insets.top, chromeTop),
 	right: base + insets.right,
 	bottom: base + insets.bottom,
 	left: base + insets.left,
@@ -88,21 +130,31 @@ export const useOverflowPadding = (
 	base = BASE_OVERFLOW_PADDING,
 ): Accessor<OverflowPadding> => {
 	const insets = useSafeAreaInsets();
-	return () => paddingFor(insets(), base);
+	const chromeTop = useWindowChromeTop();
+	return () => paddingFor(insets(), base, chromeTop());
 };
 
 export const safeAreaOverflowPadding = (
 	base = BASE_OVERFLOW_PADDING,
-): OverflowPadding => paddingFor(readSafeAreaInsets(), base);
+): OverflowPadding =>
+	paddingFor(readSafeAreaInsets(), base, readWindowChromeTop());
 
 export const usePopperOverflowPadding = (
 	base = BASE_OVERFLOW_PADDING,
 ): Accessor<number> => {
 	const insets = useSafeAreaInsets();
+	const chromeTop = useWindowChromeTop();
 	return () => {
 		const current = insets();
 		return (
-			base + Math.max(current.top, current.right, current.bottom, current.left)
+			base +
+			Math.max(
+				current.top,
+				chromeTop(),
+				current.right,
+				current.bottom,
+				current.left,
+			)
 		);
 	};
 };

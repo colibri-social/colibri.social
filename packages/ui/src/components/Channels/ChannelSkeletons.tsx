@@ -158,6 +158,7 @@ export type SpaceRailSkeletonProps = {
 	count?: number;
 	leading?: boolean;
 	platform?: SpaceRailPlatform;
+	paddingTop?: number;
 	class?: string;
 };
 
@@ -182,7 +183,7 @@ export const SpaceRailSkeleton = (props: SpaceRailSkeletonProps) => {
 			style={{
 				width: `${metrics().width}px`,
 				gap: `${metrics().gap}px`,
-				"padding-top": `${metrics().paddingTop}px`,
+				"padding-top": `${props.paddingTop ?? metrics().paddingTop}px`,
 				...(props.platform === "desktop" ? spaceRailDesktopEdgeFade : {}),
 			}}
 		>

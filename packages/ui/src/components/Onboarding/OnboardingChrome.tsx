@@ -88,9 +88,10 @@ const SLOT_VARIANT: Record<ActionSlot, "primary" | "secondary" | "tertiary"> = {
 const actionButton = (
 	action: () => OnboardingAction | undefined,
 	variant: "primary" | "secondary" | "tertiary",
-	extra: { block?: boolean; hint?: string } = {},
+	extra: { block?: boolean; hint?: string; slot?: ActionSlot } = {},
 ) => (
 	<Button
+		data-onboarding-action={extra.slot}
 		type={action()?.type ?? "button"}
 		form={action()?.form}
 		variant={variant}
@@ -109,7 +110,7 @@ const actionButton = (
 			<span
 				aria-hidden="true"
 				data-onboarding-key-hint=""
-				class="-mr-1 ml-1 flex h-5 min-w-5 items-center justify-center rounded-control-xs bg-black/15 px-1 font-sans text-xs leading-none font-semibold"
+				class="ml-1.5 inline-flex h-5 min-w-5 items-center align-middle justify-center rounded-control-xs bg-black/15 px-1 font-sans text-xs leading-none font-semibold"
 			>
 				{extra.hint}
 			</span>
@@ -196,7 +197,7 @@ export const OnboardingFooterActions = (props: {
 					actionButton(
 						() => props.actions?.[slot],
 						slot === "back" ? "tertiary" : SLOT_VARIANT[slot],
-						{ hint: slot === "primary" ? "↵" : undefined },
+						{ hint: slot === "primary" ? "↵" : undefined, slot },
 					)
 				}
 			</For>

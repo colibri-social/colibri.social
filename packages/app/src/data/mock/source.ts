@@ -50,7 +50,7 @@ import { mockUpload } from "./uploads";
 import { seedVoice } from "./voice";
 import { createWorld, MANAGING_APP } from "./world";
 
-export { setLatency } from "./latency";
+export { pendingLatency, setLatency } from "./latency";
 
 const DEFAULT_PAGE = 50;
 
@@ -238,6 +238,7 @@ export const createMockSource = (
 	const createMessage = (input: {
 		author: Did;
 		channel: SpaceRef;
+		rkey?: string;
 		text: string;
 		facets?: Facet[];
 		parent?: string;
@@ -248,7 +249,7 @@ export const createMockSource = (
 			Date.now(),
 			Date.parse(messagesFor(input.channel).at(-1)?.createdAt ?? "0") + 1,
 		);
-		const rkey = tidFor(time, world.nextClock());
+		const rkey = input.rkey ?? tidFor(time, world.nextClock());
 		const view: MessageView = {
 			uri: messageUri(input.author, rkey),
 			rkey,
@@ -1310,11 +1311,12 @@ export const createMockSource = (
 				return next;
 			}),
 		getBlueskyPost: (url) => withLatency(() => findBlueskyPost(url, now)),
-		markRead: (channel) =>
+		markRead: (channel, through) =>
 			withLatency(() => {
 				const record = channelRecord(channel);
 				const thread = threadRecord(channel);
-				if (record) record.readCursor = world.messagesOf(record).at(-1)?.rkey;
+				if (record)
+					record.readCursor = through ?? world.messagesOf(record).at(-1)?.rkey;
 				if (thread)
 					thread.view = {
 						...thread.view,

@@ -1,28 +1,46 @@
 import {
+	type ColibriError,
+	classifyThrown,
+	createLogger,
+	createLru,
+	MEMORY_WINDOW_COUNT,
+	nextTid,
+	refreshMessageWindow,
+} from "@colibri-social/lib";
+import {
 	type Accessor,
 	batch,
 	createContext,
+	createEffect,
 	createMemo,
 	createRoot,
 	createSignal,
+	getOwner,
+	on,
+	onCleanup,
+	runWithOwner,
+	untrack,
 	useContext,
 } from "solid-js";
 import { createStore, produce, reconcile } from "solid-js/store";
 import { createAccessStore } from "./access-store";
+import { normalizeChannelLayout, sameChannel } from "./channel-layout";
 import {
 	type ChannelSummary,
 	newerSummary,
 	summarizeMessage,
 } from "./channel-summary";
 import { createEmojiStore } from "./emoji-store";
-import { type ColibriError, classifyThrown, createLogger } from "./errors";
 import { channelSlug, isVoiceChannel, skeyOf, spaceKey } from "./ids";
 import { createJumpRequests } from "./jump";
+import { keepUnchanged } from "./merge";
+import type { MessageCache } from "./message-cache";
 import {
 	createNotificationStore,
 	createSpaceNotificationPrefs,
 } from "./notifications";
 import { readStored, writeStored } from "./persist";
+import { type CatchUpTask, createCatchUpQueue } from "./resume";
 import {
 	countChange,
 	createRoleActions,
@@ -46,6 +64,7 @@ import {
 	type UpdateChannelInput,
 	type UpdateCommunityInput,
 } from "./source";
+import type { SpaceCache, SpaceSnapshot } from "./space-cache";
 import { createSpaceDirectory } from "./space-directory";
 import type {
 	AttachmentView,
@@ -64,10 +83,13 @@ import type {
 	ThreadView,
 	VoiceState,
 } from "./types";
+import { documentVisible } from "./visibility";
 import { connectVoice } from "./voice";
 
 const PAGE_SIZE = 60;
 const UNREAD_SEARCH_LIMIT = 400;
+const CATCH_UP_PAGES = 4;
+const CATCH_UP_SPACING_MS = 1_000;
 const TYPING_MS = 6000;
 const LAST_SPACE_KEY = "colibri:last-space";
 const LAST_CHANNEL_PREFIX = "colibri:last-channel:";
@@ -94,12 +116,15 @@ export type Load<T> = {
 
 type MutableLoad<T> = Load<T> & {
 	update: (change: (current: T) => T) => void;
+	refresh: () => Promise<void>;
+	peek?: () => T | undefined;
 };
 
 export type UnreadState = { hasUnread: boolean; mentions: number };
 
 export type PendingMessage = {
 	nonce: string;
+	rkey: string;
 	channel: SpaceRef;
 	text: string;
 	facets?: Facet[];
@@ -145,6 +170,10 @@ export type ChannelData = {
 	hasOlder: Accessor<boolean>;
 	loadingOlder: Accessor<boolean>;
 	loadOlder: () => void;
+	hasNewer: Accessor<boolean>;
+	loadingNewer: Accessor<boolean>;
+	loadNewer: () => void;
+	jumpToLatest: () => void;
 	unreadAfter: Accessor<string | undefined>;
 	enter: (fresh: boolean) => string | undefined;
 	threads: Load<ThreadView[]>;
@@ -179,6 +208,29 @@ export type CreateThreadDraft = {
 	anchor?: ThreadAnchor;
 };
 
+type FeedGap = {
+	after: string;
+	latest: readonly MessageView[];
+	cursor?: string;
+};
+
+const byRkey = (left: MessageView, right: MessageView) =>
+	left.rkey < right.rkey ? -1 : left.rkey > right.rkey ? 1 : 0;
+
+const oldestRkey = (items: readonly MessageView[]) =>
+	items.reduce<string | undefined>(
+		(min, message) => (!min || message.rkey < min ? message.rkey : min),
+		undefined,
+	);
+
+const isBehind = (
+	newest: string,
+	page: { items: readonly MessageView[]; cursor?: string },
+) => {
+	const oldest = oldestRkey(page.items);
+	return !!page.cursor && !!oldest && oldest > newest;
+};
+
 const insertSorted = (
 	list: readonly MessageView[],
 	incoming: readonly MessageView[],
@@ -197,28 +249,34 @@ const insertSorted = (
 const createLoad = <T>(
 	fetch: () => Promise<T>,
 	method: string,
+	seed?: T,
 ): MutableLoad<T> => {
-	const [value, setValue] = createSignal<T>();
-	const [loading, setLoading] = createSignal(true);
+	const [value, setValue] = createSignal<T | undefined>(seed);
+	const [loading, setLoading] = createSignal(seed === undefined);
 	const [error, setError] = createSignal<ColibriError>();
 	let attempt = 0;
-	const run = () => {
+	const run = (quiet = false): Promise<void> => {
 		const current = ++attempt;
-		batch(() => {
-			setLoading(true);
-			setError(undefined);
-		});
+		if (!quiet)
+			batch(() => {
+				setLoading(true);
+				setError(undefined);
+			});
 		let request: Promise<T>;
 		try {
 			request = fetch();
 		} catch (thrown) {
 			request = Promise.reject(thrown);
 		}
-		void request.then(
+		return request.then(
 			(result) => {
 				if (current !== attempt) return;
 				batch(() => {
-					setValue(() => result);
+					setValue((previous) =>
+						quiet && previous !== undefined
+							? keepUnchanged(previous, result)
+							: result,
+					);
 					setLoading(false);
 				});
 			},
@@ -226,6 +284,7 @@ const createLoad = <T>(
 				if (current !== attempt) return;
 				const failure = classifyThrown(thrown, { method });
 				log.warn("load failed", { method, code: failure.code });
+				if (quiet && untrack(value) !== undefined) return;
 				batch(() => {
 					setError(failure);
 					setLoading(false);
@@ -233,22 +292,31 @@ const createLoad = <T>(
 			},
 		);
 	};
-	run();
+	void run(seed !== undefined);
 	const update = (change: (current: T) => T) =>
 		setValue((current) => (current === undefined ? current : change(current)));
 	const retry = () => {
-		if (!loading()) run();
+		if (!loading()) void run();
 	};
-	return { value, loading, error, retry, update };
+	const refresh = () =>
+		untrack(value) === undefined || untrack(loading)
+			? Promise.resolve()
+			: run(true);
+	return { value, loading, error, retry, update, refresh };
 };
 
 const createLazyLoad = <T>(
 	fetch: () => Promise<T>,
 	method: string,
+	seed?: T,
 ): MutableLoad<T> => {
 	let inner: MutableLoad<T> | undefined;
+	const [started, setStarted] = createSignal(false);
 	const ensure = () => {
-		inner ??= createRoot(() => createLoad(fetch, method));
+		if (!inner) {
+			inner = createRoot(() => createLoad(fetch, method, seed));
+			setStarted(true);
+		}
 		return inner;
 	};
 	return {
@@ -257,14 +325,46 @@ const createLazyLoad = <T>(
 		error: () => ensure().error(),
 		retry: () => ensure().retry(),
 		update: (change) => inner?.update(change),
+		refresh: () => inner?.refresh() ?? Promise.resolve(),
+		peek: () => (started() ? inner?.value() : undefined),
 	};
 };
 
 let nonceCounter = 0;
 const nextNonce = () => `local-${Date.now().toString(36)}-${nonceCounter++}`;
 
-export const createDataStore = (source: DataSource) =>
-	createRoot(() => {
+type ChannelWatcher = {
+	watchChannel: (channel: SpaceRef) => () => void;
+	viewChannel: (channel?: SpaceRef) => void;
+};
+
+const watchesChannels = (
+	source: DataSource,
+): source is DataSource & ChannelWatcher =>
+	typeof (source as Partial<ChannelWatcher>).watchChannel === "function" &&
+	typeof (source as Partial<ChannelWatcher>).viewChannel === "function";
+
+export type DataStoreOptions = { cache?: MessageCache; spaces?: SpaceCache };
+
+const seededUnread = (snapshot: SpaceSnapshot | undefined) => {
+	const seeded: Record<string, Record<string, UnreadState>> = {};
+	for (const [community, entry] of Object.entries(snapshot?.spaces ?? {}))
+		if (entry.unread) seeded[community] = { ...entry.unread };
+	return seeded;
+};
+
+export const createDataStore = (
+	source: DataSource,
+	options: DataStoreOptions = {},
+) =>
+	createRoot((dispose) => {
+		const owner = getOwner();
+		const spaceCache = options.spaces;
+		const snapshot = spaceCache?.snapshot();
+		const persist = (track: () => void) => {
+			if (!spaceCache) return;
+			runWithOwner(owner, () => createEffect(track));
+		};
 		const [viewer, setViewer] = createStore<ProfileView>(source.viewer());
 		const memberLoads = new Map<Did, MutableLoad<MemberView[]>>();
 		const roleLoads = new Map<Did, MutableLoad<RoleView[]>>();
@@ -273,7 +373,18 @@ export const createDataStore = (source: DataSource) =>
 		const communities = createLoad(
 			() => source.listCommunities(),
 			"community.list",
+			snapshot?.communities,
 		);
+		persist(() => {
+			const list = communities.value();
+			if (list) spaceCache?.offerCommunities(list);
+		});
+		persist(() => {
+			const profile: Record<string, unknown> = {};
+			for (const key of Object.keys(viewer))
+				profile[key] = viewer[key as keyof ProfileView];
+			if (viewer.did) spaceCache?.offerViewer(profile as ProfileView);
+		});
 		const spaces = new Map<Did, SpaceData>();
 		const [lastMessages, setLastMessages] = createStore<
 			Record<string, ChannelSummary | undefined>
@@ -283,8 +394,8 @@ export const createDataStore = (source: DataSource) =>
 				setLastMessages(summary.channel, summary);
 			}
 		};
-		const loadSummaries = (community: Did, only?: SpaceRef) =>
-			void source.listChannelSummaries(community).then(
+		const loadSummaries = (community: Did, only?: SpaceRef): Promise<void> =>
+			source.listChannelSummaries(community).then(
 				(list) => {
 					const seen = new Set<string>();
 					for (const summary of list) {
@@ -311,6 +422,16 @@ export const createDataStore = (source: DataSource) =>
 			);
 		};
 		source.subscribe((event) => {
+			if (event.$type === "roleRemovedEvent") {
+				const roles = roleLoads.get(event.community);
+				if (!roles) return;
+				roles.update((list) => withoutRole(list, event.rkey));
+				memberLoads
+					.get(event.community)
+					?.update((list) => stripRole(list, event.rkey));
+				syncViewer(event.community);
+				return;
+			}
 			if (event.$type === "roleEvent") {
 				const roles = roleLoads.get(event.community);
 				if (!roles) return;
@@ -341,6 +462,17 @@ export const createDataStore = (source: DataSource) =>
 			}
 		});
 		const channels = new Map<SpaceRef, ChannelData>();
+		const feedControls = new Map<
+			SpaceRef,
+			{
+				ensureOpen: () => void;
+				refresh: () => Promise<void>;
+				catchUp: () => Promise<void>;
+				evict: () => void;
+			}
+		>();
+		const cache = options.cache;
+		const recentFeeds = createLru<true>(MEMORY_WINDOW_COUNT);
 		const [presence, setPresence] = createStore<Record<string, Presence>>({});
 		const [speaking, setSpeaking] = createStore<Record<string, boolean>>({});
 		const voiceRoster = createMemo(() => {
@@ -356,8 +488,45 @@ export const createDataStore = (source: DataSource) =>
 		});
 		const [unread, setUnread] = createStore<
 			Record<string, Record<string, UnreadState>>
-		>({});
+		>(seededUnread(snapshot));
 		const [viewing, setViewing] = createSignal<SpaceRef>();
+		const holds = new Map<SpaceRef, { count: number; release: () => void }>();
+		const holdChannel = (ref: SpaceRef): (() => void) => {
+			const held = holds.get(ref);
+			if (held) held.count += 1;
+			else {
+				const watching = watchesChannels(source);
+				holds.set(ref, {
+					count: 1,
+					release: watching ? source.watchChannel(ref) : () => {},
+				});
+				if (watching) void feedControls.get(ref)?.refresh();
+			}
+			let holding = true;
+			return () => {
+				if (!holding) return;
+				holding = false;
+				const entry = holds.get(ref);
+				if (!entry) return;
+				entry.count -= 1;
+				if (entry.count > 0) return;
+				holds.delete(ref);
+				entry.release();
+			};
+		};
+		if (watchesChannels(source)) {
+			createEffect(
+				on(viewing, (ref) => {
+					if (!ref) return;
+					const release = holdChannel(ref);
+					source.viewChannel(ref);
+					onCleanup(() => {
+						source.viewChannel(undefined);
+						release();
+					});
+				}),
+			);
+		}
 		const [lastChannels, setLastChannels] = createStore<
 			Record<string, string | undefined>
 		>({});
@@ -402,65 +571,84 @@ export const createDataStore = (source: DataSource) =>
 		const communityOfRef = (ref: SpaceRef) =>
 			ref.slice("at://".length, ref.indexOf("/space/")) as Did;
 
-		const space = (community: CommunityView): SpaceData => {
-			const existing = spaces.get(community.did);
-			if (existing) return existing;
-			const categories = createLoad(
-				() => source.listCategories(community.did),
-				"category.list",
-			);
-			const channelList = createLoad(
-				() => source.listChannels(community.did),
-				"channel.list",
-			);
-			loadSummaries(community.did);
-			categoryLoads.set(community.did, categories);
-			channelLoads.set(community.did, channelList);
-			const roles = createLoad(
-				() => source.listRoles(community.did),
-				"role.list",
-			);
-			roleLoads.set(community.did, roles);
-			const members = createLazyLoad(async () => {
-				memberLoads.set(community.did, members);
-				const all: MemberView[] = [];
-				let cursor: string | undefined;
-				do {
-					const page = await source.listMembers(community.did, {
-						limit: 100,
-						cursor,
-					});
-					all.push(...page.items);
-					cursor = page.cursor;
-				} while (cursor);
-				setPresence(
-					produce((draft) => {
-						for (const member of all) {
-							const current = member.actor.presence;
-							if (current && !draft[member.actor.did]) {
-								draft[member.actor.did] = current;
-							}
-						}
-					}),
-				);
-				return all;
-			}, "member.list");
-			void source.listUnreadStatus(community.did).then(
+		const onScreen = (ref: SpaceRef) =>
+			untrack(viewing) === ref && untrack(documentVisible);
+		const loadUnread = (community: Did): Promise<void> =>
+			source.listUnreadStatus(community).then(
 				(statuses) => {
 					const entries: Record<string, UnreadState> = {};
 					for (const status of statuses) {
-						entries[skeyOf(status.channel)] = {
-							hasUnread: status.hasUnread,
-							mentions: status.unreadMentions,
-						};
+						const slug = skeyOf(status.channel);
+						entries[slug] = onScreen(status.channel)
+							? {
+									hasUnread: false,
+									mentions: unread[community]?.[slug]?.mentions ?? 0,
+								}
+							: {
+									hasUnread: status.hasUnread,
+									mentions: status.unreadMentions,
+								};
 					}
-					setUnread(community.did, reconcile(entries));
+					setUnread(community, reconcile(entries));
 				},
 				(thrown: unknown) =>
 					log.warn("unread status failed", {
 						code: classifyThrown(thrown, { method: "unread.list" }).code,
 					}),
 			);
+
+		const space = (community: CommunityView): SpaceData => {
+			const existing = spaces.get(community.did);
+			if (existing) return existing;
+			const cached = snapshot?.spaces[community.did];
+			const categories = createLoad(
+				() => source.listCategories(community.did),
+				"category.list",
+				cached?.categories,
+			);
+			const channelList = createLoad(
+				() => source.listChannels(community.did),
+				"channel.list",
+				cached?.channels,
+			);
+			void loadSummaries(community.did);
+			categoryLoads.set(community.did, categories);
+			channelLoads.set(community.did, channelList);
+			const roles = createLoad(
+				() => source.listRoles(community.did),
+				"role.list",
+				cached?.roles,
+			);
+			roleLoads.set(community.did, roles);
+			const members = createLazyLoad(
+				async () => {
+					memberLoads.set(community.did, members);
+					const all: MemberView[] = [];
+					let cursor: string | undefined;
+					do {
+						const page = await source.listMembers(community.did, {
+							limit: 100,
+							cursor,
+						});
+						all.push(...page.items);
+						cursor = page.cursor;
+					} while (cursor);
+					setPresence(
+						produce((draft) => {
+							for (const member of all) {
+								const current = member.actor.presence;
+								if (current && !draft[member.actor.did]) {
+									draft[member.actor.did] = current;
+								}
+							}
+						}),
+					);
+					return all;
+				},
+				"member.list",
+				cached?.members,
+			);
+			void loadUnread(community.did);
 
 			let memberIndex: Map<string, MemberView> | undefined;
 			let memberIndexSource: MemberView[] | undefined;
@@ -520,11 +708,29 @@ export const createDataStore = (source: DataSource) =>
 				syncViewer: () => syncViewer(community.did),
 			});
 
+			let layoutInput:
+				| [CategoryView[] | undefined, ChannelView[] | undefined]
+				| undefined;
+			let layoutOutput: ReturnType<typeof normalizeChannelLayout> | undefined;
+			const layout = () => {
+				const nextCategories = categories.value();
+				const nextChannels = channelList.value();
+				if (
+					!layoutOutput ||
+					layoutInput?.[0] !== nextCategories ||
+					layoutInput?.[1] !== nextChannels
+				) {
+					layoutInput = [nextCategories, nextChannels];
+					layoutOutput = normalizeChannelLayout(nextCategories, nextChannels);
+				}
+				return layoutOutput;
+			};
+
 			const data: SpaceData = {
 				...roleActions,
 				community,
-				categories,
-				channels: channelList,
+				categories: { ...categories, value: () => layout().categories },
+				channels: { ...channelList, value: () => layout().channels },
 				roles,
 				members,
 				memberByDid,
@@ -533,7 +739,7 @@ export const createDataStore = (source: DataSource) =>
 				kick: removeWith(source.kickMember),
 				ban: removeWith(source.banMember),
 				channelBySlug: (slug) =>
-					channelList.value()?.find((channel) => channelSlug(channel) === slug),
+					layout().channels?.find((channel) => channelSlug(channel) === slug),
 				unread: (slug) =>
 					unread[community.did]?.[slug] ?? { hasUnread: false, mentions: 0 },
 				totals: () => {
@@ -548,6 +754,21 @@ export const createDataStore = (source: DataSource) =>
 				},
 			};
 			spaces.set(community.did, data);
+			persist(() => {
+				const patch = {
+					categories: categories.value(),
+					channels: channelList.value(),
+					roles: roles.value(),
+					members: members.peek?.(),
+					unread: Object.fromEntries(
+						Object.entries(unread[community.did] ?? {}).map(([slug, state]) => [
+							slug,
+							{ hasUnread: state.hasUnread, mentions: state.mentions },
+						]),
+					),
+				};
+				spaceCache?.offerSpace(community.did, patch);
+			});
 			return data;
 		};
 
@@ -590,11 +811,31 @@ export const createDataStore = (source: DataSource) =>
 		const threadsOf = (ref: SpaceRef): Load<ThreadView[]> => {
 			const existing = threadLoads.get(ref);
 			if (existing) return existing;
+			const community = communityOfRef(ref);
 			const created = createLazyLoad(
-				() => source.listThreads(ref),
+				() =>
+					source.listThreads(ref).then((list) =>
+						list.map((entry) =>
+							onScreen(entry.space) && entry.viewer.hasUnread
+								? {
+										...entry,
+										viewer: {
+											...entry.viewer,
+											hasUnread: false,
+											unreadMentions: 0,
+										},
+									}
+								: entry,
+						),
+					),
 				"thread.list",
+				snapshot?.spaces[community]?.threads?.[ref],
 			);
 			threadLoads.set(ref, created);
+			persist(() => {
+				const list = created.peek?.();
+				if (list) spaceCache?.offerThreads(community, ref, list);
+			});
 			return created;
 		};
 		const markThreadSeen = (space: SpaceRef) => {
@@ -646,6 +887,51 @@ export const createDataStore = (source: DataSource) =>
 			if (event.$type !== "threadEvent") return;
 			if (event.event === "delete") removeThread(event.thread);
 			else upsertThread(event.thread);
+		});
+
+		const applyReadCursors = (
+			community: Did,
+			cursors: readonly { channel: string; cursor: string }[],
+		) => {
+			const refs = new Map<string, SpaceRef>();
+			for (const channel of untrack(
+				() => channelLoads.get(community)?.value() ?? [],
+			)) {
+				refs.set(channelSlug(channel), channel.space);
+			}
+			const staleThreads = new Set<MutableLoad<ThreadView[]>>();
+			let staleChannels = false;
+			batch(() => {
+				for (const { channel: slug, cursor } of cursors) {
+					const state = unread[community]?.[slug];
+					if (state?.hasUnread) {
+						const ref = refs.get(slug);
+						const last = ref ? lastMessages[ref]?.rkey : undefined;
+						if (last === undefined) staleChannels = true;
+						else if (cursor >= last) {
+							setUnread(community, slug, { ...state, hasUnread: false });
+						}
+					}
+					for (const load of threadLoads.values()) {
+						const unreadThread = load
+							.peek?.()
+							?.some(
+								(entry) =>
+									entry.viewer.hasUnread &&
+									communityOfRef(entry.space) === community &&
+									skeyOf(entry.space) === slug,
+							);
+						if (unreadThread) staleThreads.add(load);
+					}
+				}
+			});
+			for (const load of staleThreads) void load.refresh();
+			if (staleChannels) void loadUnread(community);
+		};
+		source.subscribe((event) => {
+			if (event.$type === "readCursorEvent") {
+				applyReadCursors(event.community, event.cursors);
+			}
 		});
 
 		const findThread = (ref: SpaceRef) => {
@@ -726,15 +1012,37 @@ export const createDataStore = (source: DataSource) =>
 			},
 		};
 
+		const dropChannel = (community: Did, space: SpaceRef) => {
+			cache?.forget(space);
+			channelLoads
+				.get(community)
+				?.update((list) =>
+					list.filter((entry) => !sameChannel(entry.space, space)),
+				);
+			categoryLoads.get(community)?.update((list) =>
+				list.map((category) =>
+					category.channels.some((entry) => sameChannel(entry.space, space))
+						? {
+								...category,
+								channels: category.channels.filter(
+									(entry) => !sameChannel(entry.space, space),
+								),
+							}
+						: category,
+				),
+			);
+		};
 		const withChannel = (community: Did, view: ChannelView, add: boolean) => {
 			channelLoads.get(community)?.update((list) => {
-				const rest = list.filter((entry) => entry.space !== view.space);
+				const rest = list.filter(
+					(entry) => !sameChannel(entry.space, view.space),
+				);
 				return add ? [...rest, view] : rest;
 			});
 			categoryLoads.get(community)?.update((list) =>
 				list.map((category) => {
 					const rest = category.channels.filter(
-						(entry) => entry.space !== view.space,
+						(entry) => !sameChannel(entry.space, view.space),
 					);
 					const channels =
 						add && view.category === category.rkey ? [...rest, view] : rest;
@@ -749,14 +1057,16 @@ export const createDataStore = (source: DataSource) =>
 			channelLoads
 				.get(community)
 				?.update((list) =>
-					list.some((entry) => entry.space === view.space)
-						? list.map((entry) => (entry.space === view.space ? view : entry))
+					list.some((entry) => sameChannel(entry.space, view.space))
+						? list.map((entry) =>
+								sameChannel(entry.space, view.space) ? view : entry,
+							)
 						: [...list, view],
 				);
 			categoryLoads.get(community)?.update((list) =>
 				list.map((category) => {
-					const index = category.channels.findIndex(
-						(entry) => entry.space === view.space,
+					const index = category.channels.findIndex((entry) =>
+						sameChannel(entry.space, view.space),
 					);
 					const belongs = view.category === category.rkey;
 					if (index === -1) {
@@ -792,6 +1102,16 @@ export const createDataStore = (source: DataSource) =>
 				);
 			});
 		source.subscribe((event) => {
+			if (event.$type === "categoryRemovedEvent") {
+				categoryLoads
+					.get(event.community)
+					?.update((list) => list.filter((entry) => entry.rkey !== event.rkey));
+				return;
+			}
+			if (event.$type === "channelRemovedEvent") {
+				dropChannel(event.community, event.channel);
+				return;
+			}
 			if (event.$type === "categoryEvent") {
 				withCategory(event.community, event.category, event.event);
 				return;
@@ -887,6 +1207,8 @@ export const createDataStore = (source: DataSource) =>
 				.map((entry) => entry.id);
 
 		const dropCommunity = (community: Did) => {
+			cache?.forgetCommunity(community);
+			spaceCache?.forgetCommunity(community);
 			communities.update((list) =>
 				list.filter((entry) => entry.did !== community),
 			);
@@ -895,6 +1217,10 @@ export const createDataStore = (source: DataSource) =>
 		};
 
 		source.subscribe((event) => {
+			if (event.$type === "communityRemovedEvent") {
+				dropCommunity(event.community);
+				return;
+			}
 			if (event.$type !== "communityEvent") return;
 			const view = event.community;
 			if (event.event === "delete") {
@@ -951,11 +1277,46 @@ export const createDataStore = (source: DataSource) =>
 			},
 		};
 
+		const touchFeed = (ref: SpaceRef) => {
+			for (const key of recentFeeds.remember(ref, true)) {
+				const evicted = key as SpaceRef;
+				if (holds.has(evicted) || viewing() === evicted) {
+					recentFeeds.remember(evicted, true);
+					continue;
+				}
+				feedControls.get(evicted)?.evict();
+			}
+		};
+
+		const newestSince = async (ref: SpaceRef, newestKnown?: string) => {
+			const items: MessageView[] = [];
+			let next: string | undefined;
+			let pages = 0;
+			do {
+				const page = await source.listMessages({
+					channel: ref,
+					limit: PAGE_SIZE,
+					cursor: next,
+				});
+				items.push(...page.items);
+				next = page.cursor;
+				pages += 1;
+				const oldest = oldestRkey(page.items);
+				if (!newestKnown || !oldest || oldest <= newestKnown) break;
+			} while (next && pages < CATCH_UP_PAGES);
+			return next ? { items, cursor: next } : { items };
+		};
+
 		const channel = (ref: SpaceRef): ChannelData => {
 			const existing = channels.get(ref);
-			if (existing) return existing;
+			if (existing) {
+				feedControls.get(ref)?.ensureOpen();
+				return existing;
+			}
 
-			const [messages, setMessages] = createSignal<readonly MessageView[]>([]);
+			const [messages, setMessageList] = createSignal<readonly MessageView[]>(
+				[],
+			);
 			const [pending, setPending] = createSignal<readonly PendingMessage[]>([]);
 			const [ready, setReady] = createSignal(false);
 			const [openError, setOpenError] = createSignal<ColibriError>();
@@ -963,13 +1324,110 @@ export const createDataStore = (source: DataSource) =>
 			const [cursor, setCursor] = createSignal<string>();
 			const [loadingOlder, setLoadingOlder] = createSignal(false);
 			const [unreadAfter, setUnreadAfter] = createSignal<string>();
+			const [gap, setGap] = createSignal<FeedGap>();
+			const [loadingNewer, setLoadingNewer] = createSignal(false);
 			const [typingSet, setTypingSet] = createSignal<readonly Did[]>([]);
 			const typingTimers = new Map<Did, ReturnType<typeof setTimeout>>();
 			const community = communityOfRef(ref);
 			let readThrough: string | undefined;
 			const threads = threadsOf(ref);
 
+			const remember = () => {
+				if (!cache || !ready()) return;
+				const held = gap();
+				const next = held ? held.cursor : cursor();
+				cache.offer(ref, held ? held.latest : messages(), {
+					cursor: next,
+					hasMore: !!next,
+					readCursor: readThrough,
+				});
+			};
+			const editLatest = (
+				change: (latest: readonly MessageView[]) => readonly MessageView[],
+			) => {
+				const held = untrack(gap);
+				if (!held) return;
+				setGap({ ...held, latest: change(held.latest) });
+				remember();
+			};
+			const setMessages = (
+				next:
+					| readonly MessageView[]
+					| ((current: readonly MessageView[]) => readonly MessageView[]),
+			) => {
+				setMessageList(next as never);
+				remember();
+			};
+
+			const paint = (window: {
+				messages: MessageView[];
+				cursor?: string;
+				readCursor?: string;
+			}) =>
+				batch(() => {
+					setMessageList(window.messages);
+					setCursor(window.cursor);
+					readThrough = window.readCursor ?? readThrough;
+					setReady(true);
+				});
+
+			const remembered = cache?.recall(ref);
+			if (remembered) paint(remembered);
+
+			const refreshFromNetwork = async (keepPlace = false) => {
+				const held = untrack(gap);
+				const newestKnown = (held ? held.latest : untrack(messages)).at(
+					-1,
+				)?.rkey;
+				const [statuses, page] = await Promise.all([
+					source.listUnreadStatus(community),
+					newestSince(ref, newestKnown),
+				]);
+				const status = statuses.find((entry) => entry.channel === ref);
+				readThrough = status?.cursor ?? readThrough;
+				const current = untrack(gap);
+				if (current) {
+					const merged = refreshMessageWindow(current.latest, page, {
+						pageSize: PAGE_SIZE,
+						cachedCursor: current.cursor,
+					});
+					setGap({
+						after: current.after,
+						latest: merged.messages,
+						cursor: merged.cursor,
+					});
+					remember();
+					return;
+				}
+				const newest = untrack(messages).at(-1)?.rkey;
+				if (keepPlace && newest && isBehind(newest, page)) {
+					setGap({
+						after: newest,
+						latest: [...page.items].sort(byRkey),
+						cursor: page.cursor,
+					});
+					remember();
+					return;
+				}
+				const refreshed = refreshMessageWindow(untrack(messages), page, {
+					pageSize: PAGE_SIZE,
+					cachedCursor: untrack(cursor),
+				});
+				batch(() => {
+					setCursor(refreshed.cursor);
+					setMessages(refreshed.messages);
+				});
+			};
+
 			const open = async () => {
+				if (!untrack(ready) && cache) {
+					const stored = await cache.read(ref);
+					if (stored && !untrack(ready)) paint(stored);
+				}
+				if (untrack(ready) && untrack(messages).length > 0) {
+					await refreshFromNetwork();
+					return;
+				}
 				const statuses = await source.listUnreadStatus(community);
 				const status = statuses.find((entry) => entry.channel === ref);
 				const readCursor = status?.hasUnread ? status.cursor : undefined;
@@ -1005,6 +1463,7 @@ export const createDataStore = (source: DataSource) =>
 					);
 					setReady(true);
 				});
+				remember();
 			};
 
 			const openFeed = () => {
@@ -1053,20 +1512,101 @@ export const createDataStore = (source: DataSource) =>
 					);
 			};
 
-			const upsert = (message: MessageView) =>
-				setMessages((list) => {
+			const loadNewer = () => {
+				const held = gap();
+				if (!held || loadingNewer()) return;
+				setLoadingNewer(true);
+				void source
+					.listMessages({
+						channel: ref,
+						limit: PAGE_SIZE,
+						cursor: held.after,
+						reverse: true,
+					})
+					.then(
+						(page) => {
+							const current = untrack(gap);
+							if (current?.after !== held.after) {
+								setLoadingNewer(false);
+								return;
+							}
+							const items = page.items
+								.filter((message) => message.rkey > current.after)
+								.sort(byRkey);
+							const joinAt = current.latest[0]?.rkey;
+							const newest = items.at(-1)?.rkey;
+							const joined =
+								!page.cursor || !newest || (!!joinAt && newest >= joinAt);
+							batch(() => {
+								if (joined) {
+									const tail = [
+										...new Map(
+											[...items, ...current.latest].map((message) => [
+												message.rkey,
+												message,
+											]),
+										).values(),
+									].sort(byRkey);
+									setGap(undefined);
+									setMessages((list) => [...list, ...tail]);
+								} else {
+									setGap({ ...current, after: newest });
+									setMessages((list) => [...list, ...items]);
+								}
+								setLoadingNewer(false);
+							});
+						},
+						(thrown: unknown) => {
+							log.warn("loading newer messages failed", {
+								code: classifyThrown(thrown, {
+									method: "channel.listMessages",
+								}).code,
+							});
+							setLoadingNewer(false);
+						},
+					);
+			};
+
+			const jumpToLatest = () => {
+				const held = untrack(gap);
+				if (!held) return;
+				batch(() => {
+					setGap(undefined);
+					setCursor(held.cursor);
+					setMessages(held.latest);
+				});
+			};
+
+			const upsert = (message: MessageView) => {
+				const place = (list: readonly MessageView[]) => {
 					const index = list.findIndex((entry) => entry.rkey === message.rkey);
 					if (index === -1) return insertSorted(list, [message]);
 					const next = list.slice();
 					next[index] = message;
 					return next;
-				});
+				};
+				const after = untrack(gap)?.after;
+				if (after && message.rkey > after) editLatest(place);
+				else setMessages(place);
+			};
 
-			const settlePending = (nonce: string, message: MessageView) =>
+			const settlePending = (nonce: string, message: MessageView) => {
+				const settled = pending().find((entry) => entry.nonce === nonce);
 				batch(() => {
-					setPending((list) => list.filter((entry) => entry.nonce !== nonce));
+					if (settled) {
+						setPending((list) => list.filter((entry) => entry.nonce !== nonce));
+					}
 					upsert(message);
 				});
+				if (settled) revokePreviews(settled);
+			};
+
+			const settleEcho = (message: MessageView) => {
+				const nonce = sentNonces.get(message.rkey);
+				if (!nonce) return false;
+				settlePending(nonce, message);
+				return true;
+			};
 
 			const patchPending = (
 				nonce: string,
@@ -1127,18 +1667,18 @@ export const createDataStore = (source: DataSource) =>
 					markFailed();
 					return;
 				}
+				sentNonces.set(entry.rkey, entry.nonce);
 				try {
 					const message = await source.sendMessage({
 						channel: ref,
+						rkey: entry.rkey,
 						text: entry.text,
 						facets: entry.facets,
 						parent: entry.parent,
 						attachments: [...(entry.attachments ?? []), ...uploaded],
 					});
 					sentNonces.set(message.rkey, entry.nonce);
-					const latest = pending().find((item) => item.nonce === entry.nonce);
 					settlePending(entry.nonce, message);
-					if (latest) revokePreviews(latest);
 				} catch {
 					markFailed();
 				}
@@ -1149,8 +1689,8 @@ export const createDataStore = (source: DataSource) =>
 				emoji: string,
 				actor: Did,
 				add: boolean,
-			) =>
-				setMessages((list) =>
+			) => {
+				const react = (list: readonly MessageView[]) =>
 					list.map((message) => {
 						if (message.rkey !== rkey) return message;
 						const reactions = message.reactions.slice();
@@ -1181,17 +1721,24 @@ export const createDataStore = (source: DataSource) =>
 							else reactions[index] = next;
 						}
 						return { ...message, reactions };
-					}),
-				);
+					});
+				setMessages(react);
+				editLatest(react);
+			};
 
 			messageListeners.set(ref, (event) => {
 				if (event.$type === "messageEvent") {
 					if (event.event === "delete" && event.rkey) {
 						const rkey = event.rkey;
-						setMessages((list) => list.filter((entry) => entry.rkey !== rkey));
+						const drop = (list: readonly MessageView[]) =>
+							list.filter((entry) => entry.rkey !== rkey);
+						setMessages(drop);
+						editLatest(drop);
 						return;
 					}
-					if (event.message && ready()) upsert(event.message);
+					if (!event.message) return;
+					if (settleEcho(event.message)) return;
+					if (ready()) upsert(event.message);
 					return;
 				}
 				if (event.$type === "reactionEvent") {
@@ -1235,10 +1782,15 @@ export const createDataStore = (source: DataSource) =>
 					if (!ready()) openFeed();
 				},
 				hasOlder: () => !!cursor(),
+				hasNewer: () => !!gap(),
+				loadingNewer,
+				loadNewer,
+				jumpToLatest,
 				loadingOlder,
 				loadOlder,
 				unreadAfter,
 				enter: (fresh) => {
+					touchFeed(ref);
 					if (!ready()) return undefined;
 					const state = unread[community]?.[skeyOf(ref)];
 					const through = readThrough;
@@ -1261,23 +1813,36 @@ export const createDataStore = (source: DataSource) =>
 				threads,
 				detach: (rkeys) => {
 					const keys = new Set(rkeys);
-					const removed = messages().filter((entry) => keys.has(entry.rkey));
+					const keep = (list: readonly MessageView[]) =>
+						list.filter((entry) => !keys.has(entry.rkey));
+					const removed = [
+						...messages(),
+						...(untrack(gap)?.latest ?? []),
+					].filter((entry) => keys.has(entry.rkey));
 					if (removed.length > 0) {
-						setMessages((list) =>
-							list.filter((entry) => !keys.has(entry.rkey)),
-						);
+						setMessages(keep);
+						editLatest(keep);
 					}
 					return removed;
 				},
 				attach: (incoming) => {
 					if (!ready() || incoming.length === 0) return;
-					setMessages((list) => {
-						const keys = new Set(incoming.map((entry) => entry.rkey));
-						return insertSorted(
-							list.filter((entry) => !keys.has(entry.rkey)),
-							incoming,
-						);
-					});
+					const keys = new Set(incoming.map((entry) => entry.rkey));
+					const after = untrack(gap)?.after;
+					const newer = after
+						? incoming.filter((entry) => entry.rkey > after)
+						: [];
+					const older = after
+						? incoming.filter((entry) => entry.rkey <= after)
+						: incoming;
+					const merge =
+						(add: readonly MessageView[]) => (list: readonly MessageView[]) =>
+							insertSorted(
+								list.filter((entry) => !keys.has(entry.rkey)),
+								add,
+							);
+					setMessages(merge(older));
+					if (newer.length > 0) editLatest(merge(newer));
 				},
 				createThread: async (input) => {
 					const created = await source.createThread({
@@ -1293,6 +1858,7 @@ export const createDataStore = (source: DataSource) =>
 				send: async (input) => {
 					const entry: PendingMessage = {
 						nonce: nextNonce(),
+						rkey: nextTid(),
 						channel: ref,
 						text: input.text,
 						facets: input.facets,
@@ -1359,21 +1925,97 @@ export const createDataStore = (source: DataSource) =>
 				},
 				markRead: () => {
 					const current = unread[community]?.[skeyOf(ref)];
-					if (current?.hasUnread) {
+					const thread = untrack(() => findThread(ref));
+					const behind = !!untrack(gap);
+					if (
+						!behind &&
+						(current?.hasUnread || (thread && current?.mentions))
+					) {
 						setUnread(community, skeyOf(ref), {
 							...current,
 							hasUnread: false,
+							mentions: thread ? 0 : current.mentions,
 						});
+					}
+					if (thread) {
+						markThreadSeen(ref);
+						const ids = untrack(notifications.items)
+							.filter((entry) => entry.thread === ref && !entry.seenAt)
+							.map((entry) => entry.id);
+						if (ids.length) void notifications.markRead(ids).catch(() => {});
 					}
 					if (!ready()) return;
 					readThrough = messages().at(-1)?.rkey ?? readThrough;
-					void source.markRead(ref);
+					void source.markRead(ref, behind ? readThrough : undefined);
 				},
 				clearUnreadMarker: () => setUnreadAfter(undefined),
 			};
 
 			typingStops.set(ref, stopTyping);
 			channels.set(ref, data);
+			const refresh = (): Promise<void> => {
+				if (!untrack(ready) || opening) return Promise.resolve();
+				opening = true;
+				return refreshFromNetwork(
+					untrack(viewing) === ref || holds.has(ref),
+				).then(
+					() => {
+						opening = false;
+					},
+					(thrown: unknown) => {
+						opening = false;
+						log.warn("channel refresh failed", {
+							code: classifyThrown(thrown, {
+								method: "channel.listMessages",
+							}).code,
+						});
+					},
+				);
+			};
+
+			const catchUpStored = async () => {
+				if (!cache || opening || untrack(ready)) return;
+				const stored = await cache.read(ref);
+				if (!stored || opening || untrack(ready)) return;
+				const page = await newestSince(ref, stored.messages.at(-1)?.rkey);
+				if (opening || untrack(ready)) return;
+				const refreshed = refreshMessageWindow(stored.messages, page, {
+					pageSize: PAGE_SIZE,
+					cachedCursor: stored.cursor,
+				});
+				cache.offer(ref, refreshed.messages, {
+					cursor: refreshed.cursor,
+					hasMore: !!refreshed.cursor,
+					readCursor: stored.readCursor,
+				});
+			};
+
+			feedControls.set(ref, {
+				ensureOpen: () => {
+					if (!untrack(ready) && !opening) openFeed();
+				},
+				refresh,
+				catchUp: () =>
+					untrack(ready)
+						? refresh()
+						: catchUpStored().catch((thrown: unknown) =>
+								log.warn("cached channel catch-up failed", {
+									code: classifyThrown(thrown, {
+										method: "channel.listMessages",
+									}).code,
+								}),
+							),
+				evict: () => {
+					if (untrack(pending).length > 0) return;
+					batch(() => {
+						setGap(undefined);
+						setMessageList([]);
+						setCursor(undefined);
+						setUnreadAfter(undefined);
+						setReady(false);
+					});
+				},
+			});
 			openFeed();
 			return data;
 		};
@@ -1396,7 +2038,7 @@ export const createDataStore = (source: DataSource) =>
 						const rkey = event.rkey ?? event.message?.rkey;
 						const current = lastMessages[event.channel];
 						if (current && current.rkey === rkey) {
-							loadSummaries(communityOfRef(event.channel), event.channel);
+							void loadSummaries(communityOfRef(event.channel), event.channel);
 						}
 					}
 					messageListeners.get(event.channel)?.(event);
@@ -1417,8 +2059,11 @@ export const createDataStore = (source: DataSource) =>
 				case "voiceActivityEvent":
 					setSpeaking(event.did, event.speaking);
 					return;
+				case "viewerEvent":
+					applyViewer(event.profile);
+					return;
 				case "seenEvent":
-					markThreadSeen(event.channel);
+					if (event.channel) markThreadSeen(event.channel);
 					return;
 				case "notificationEvent":
 					return;
@@ -1544,6 +2189,64 @@ export const createDataStore = (source: DataSource) =>
 			}
 		};
 
+		const backfill = createCatchUpQueue();
+		onCleanup(backfill.cancel);
+		let lastCatchUp = Number.NEGATIVE_INFINITY;
+		const catchUp = () => {
+			const now = Date.now();
+			if (now - lastCatchUp < CATCH_UP_SPACING_MS) return;
+			lastCatchUp = now;
+			backfill.cancel();
+			const shown = new Set<SpaceRef>(holds.keys());
+			const current = untrack(viewing);
+			if (current) shown.add(current);
+			for (const ref of shown) {
+				void feedControls.get(ref)?.refresh();
+				void threadLoads.get(ref)?.refresh();
+			}
+			void communities.refresh();
+			for (const community of spaces.keys()) {
+				void loadUnread(community);
+				void loadSummaries(community);
+				void categoryLoads.get(community)?.refresh();
+				void channelLoads.get(community)?.refresh();
+			}
+			void notifications.refresh();
+			const queued: CatchUpTask[] = [];
+			for (const [ref, control] of [...feedControls].reverse()) {
+				if (!shown.has(ref)) queued.push(control.catchUp);
+			}
+			for (const [ref, load] of threadLoads) {
+				if (!shown.has(ref)) queued.push(load.refresh);
+			}
+			for (const [community, roles] of roleLoads) {
+				queued.push(() => roles.refresh().then(() => syncViewer(community)));
+			}
+			for (const members of memberLoads.values()) queued.push(members.refresh);
+			void backfill.run(queued);
+		};
+
+		const bootReady = createMemo(() => {
+			const list = communities.value();
+			if (!list) return false;
+			const key = lastSpace();
+			const current = key
+				? list.find((entry) => spaceKey(entry) === key)
+				: undefined;
+			if (current) {
+				const data = runWithOwner(owner, () => space(current));
+				if (
+					!data ||
+					data.channels.value() === undefined ||
+					data.categories.value() === undefined
+				)
+					return false;
+			}
+			const ref = viewing();
+			const feed = ref ? channels.get(ref) : undefined;
+			return !feed || feed.ready();
+		});
+
 		const store = {
 			access: createAccessStore({ source, memberLoads }),
 			emoji: createEmojiStore(
@@ -1576,9 +2279,12 @@ export const createDataStore = (source: DataSource) =>
 			isSpeaking: (did: Did) => !!speaking[did],
 			setVoice,
 			nonceFor: (rkey: string) => sentNonces.get(rkey),
+			viewing,
 			setViewing,
+			holdChannel,
 			lastChannel,
 			lastSpace: () => lastSpace(),
+			bootReady,
 			lastMessage: (ref: SpaceRef) => lastMessages[ref],
 			setLastChannel,
 			isMuted: (ref: SpaceRef) => mutedChannels().has(ref),
@@ -1601,6 +2307,9 @@ export const createDataStore = (source: DataSource) =>
 				setControlsSignal(source.controls());
 			},
 			typing: (ref: SpaceRef) => source.typing(ref),
+			catchUp,
+			pauseCatchUp: backfill.cancel,
+			dispose,
 		};
 		connectVoice(store);
 		return store;

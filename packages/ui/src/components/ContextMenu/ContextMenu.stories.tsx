@@ -95,6 +95,68 @@ export const Generic: Story = {
 
 const onOpenLink = fn();
 
+const onCopyImage = fn();
+const onDownloadImage = fn();
+
+export const MessageImageMenu: Story = {
+	name: "Message menu on an image",
+	render: () => (
+		<div class="min-h-screen bg-background p-8">
+			<MessageContextMenu
+				image={{ onCopy: onCopyImage, onDownload: onDownloadImage }}
+				onReply={fn()}
+				onCopyText={fn()}
+				onDelete={fn()}
+			>
+				<div
+					data-testid="image-message"
+					class="rounded-control px-4 py-3 text-base hover:bg-card"
+				>
+					Right-click the image in this message.
+				</div>
+			</MessageContextMenu>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		onCopyImage.mockClear();
+		onDownloadImage.mockClear();
+		const message = within(canvasElement).getByTestId("image-message");
+		const menu = await waitFor(() => {
+			if (!screen.queryByRole("menu")) rightClick(message);
+			return screen.getByRole("menu");
+		});
+		const labels = within(menu)
+			.getAllByRole("menuitem")
+			.map((item) => item.textContent?.trim());
+		await expect(labels).toEqual([
+			"Copy image",
+			"Download image",
+			"Reply",
+			"Copy text",
+			"Delete message",
+		]);
+		const download = within(menu).getByRole("menuitem", {
+			name: "Download image",
+		});
+		const reply = within(menu).getByRole("menuitem", { name: "Reply" });
+		const follows = (a: Node, b: Node) =>
+			!!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+		const between = Array.from(
+			menu.querySelectorAll('[role="separator"], hr'),
+		).filter(
+			(separator) => follows(download, separator) && follows(separator, reply),
+		);
+		await expect(between).toHaveLength(1);
+		await userEvent.keyboard("{ArrowDown}");
+		await expect(document.activeElement?.textContent?.trim()).toBe(
+			"Copy image",
+		);
+		await userEvent.keyboard("{Enter}");
+		await expect(onCopyImage).toHaveBeenCalledTimes(1);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+	},
+};
+
 export const MessageMenu: Story = {
 	render: () => (
 		<div class="min-h-screen bg-background p-8">

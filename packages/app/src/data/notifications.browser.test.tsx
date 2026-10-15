@@ -36,6 +36,37 @@ describe("notification store", () => {
 		expect(store.notifications.unreadCount()).toBe(before + 1);
 	});
 
+	it("never reloads the whole list for a channel's seen event", async () => {
+		const { source, store } = await setup();
+		const unread = store.notifications.unreadCount();
+		expect(unread).toBeGreaterThan(0);
+		let loads = 0;
+		const list = source.listNotifications;
+		source.listNotifications = (params) => {
+			loads += 1;
+			return list(params);
+		};
+		const channel = store.notifications
+			.items()
+			.find((entry) => entry.channel)?.channel;
+		if (!channel) throw new Error("no channel notification");
+		for (let round = 0; round < 3; round += 1)
+			source.emit({
+				$type: "seenEvent",
+				channel,
+				unread: 0,
+				seenAt: new Date().toISOString() as never,
+			});
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(loads).toBe(0);
+		source.emit({
+			$type: "seenEvent",
+			unread: unread + 5,
+			seenAt: new Date(0).toISOString() as never,
+		} as never);
+		await until(() => loads === 1);
+	});
+
 	it("rolls back an optimistic mark read when the server fails", async () => {
 		const { source, store } = await setup();
 		const target = store.notifications.items().find((entry) => !entry.seenAt);

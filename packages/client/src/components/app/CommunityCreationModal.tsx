@@ -1,3 +1,9 @@
+import {
+	ColibriError,
+	classifyThrown,
+	frameIs,
+	progressStepLabel,
+} from "@colibri-social/lib";
 import type { Details } from "@kobalte/core/file-field";
 import {
 	type Component,
@@ -25,13 +31,10 @@ import {
 	writePending,
 } from "../../atproto/pending-community";
 import { resumeQuietly } from "../../atproto/resume-community-creation";
-import { frameIs, progressStepLabel } from "../../atproto/sync-frames";
 import type { CommunityView, LegacyCommunityView } from "../../atproto/views";
 import type { ColibriClient } from "../../atproto/xrpc";
 import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
-import { classifyThrown } from "../../errors/classify";
-import { ColibriError } from "../../errors/error";
 import { showError } from "../../errors/show-error";
 import { getAppViewDid } from "../../utils/appview";
 import { IMAGE_UPLOAD_ACCEPT } from "../../utils/image-upload";

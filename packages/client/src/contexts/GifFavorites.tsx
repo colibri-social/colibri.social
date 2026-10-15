@@ -1,3 +1,4 @@
+import { classifyThrown } from "@colibri-social/lib";
 import {
 	createContext,
 	createSignal,
@@ -8,7 +9,6 @@ import {
 import { toast } from "somoto";
 import { readGifFavorites, writeGifFavorites } from "../atproto/gif-favorites";
 import type { GifView } from "../atproto/views";
-import { classifyThrown } from "../errors/classify";
 import { showError } from "../errors/show-error";
 import { createLogger } from "../utils/logger";
 import { useUserContext } from "./User";

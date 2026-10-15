@@ -1,4 +1,4 @@
-import { classifyResponse, classifyThrown } from "../errors/classify";
+import { classifyResponse, classifyThrown } from "@colibri-social/lib";
 import { getLabelerDid, getLabelerUrl } from "../utils/labeler";
 import { createLogger } from "../utils/logger";
 import { perfNow, recordRequest } from "../utils/perf";

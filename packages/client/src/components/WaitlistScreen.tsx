@@ -3,6 +3,7 @@ import {
 	BrowserOAuthClient,
 	type OAuthSession,
 } from "@atproto/oauth-client-browser";
+import { classifyThrown, describeError } from "@colibri-social/lib";
 import { useNavigate } from "@solidjs/router";
 import { type Component, createSignal, onMount, Show } from "solid-js";
 import { toast } from "somoto";
@@ -12,8 +13,6 @@ import {
 	searchActorsTypeahead,
 } from "../atproto/bsky";
 import { useViewport, ViewportProvider } from "../contexts/Viewport";
-import { classifyThrown } from "../errors/classify";
-import { describeError } from "../errors/copy";
 import { isTauriRuntime } from "../notifications/environment";
 import { getAppViewHost } from "../utils/appview";
 import { createLogger } from "../utils/logger";

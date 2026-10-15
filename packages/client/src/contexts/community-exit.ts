@@ -1,5 +1,4 @@
-import { isGoneCode } from "../errors/codes";
-import { isColibriError } from "../errors/error";
+import { isColibriError, isGoneCode } from "@colibri-social/lib";
 
 export type CommunityExit = "stay" | "leave" | "gone";
 

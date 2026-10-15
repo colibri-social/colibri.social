@@ -27,6 +27,7 @@ import {
 	untrack,
 } from "solid-js";
 import { createStore } from "solid-js/store";
+import { displayNameOf } from "../../../data/adapters/authors";
 import { isVisibleRole } from "../../../data/roles";
 import type { MemberView } from "../../../data/types";
 import { defineContract, slot } from "../../../screen/define";
@@ -57,7 +58,7 @@ const memberIdentity = (
 	presence: ReturnType<typeof uiPresence>,
 ) => ({
 	id: member.actor.did,
-	name: member.nickname ?? member.actor.displayName ?? member.actor.handle,
+	name: displayNameOf(member.actor, member),
 	handle: member.actor.handle,
 	avatarSrc: member.actor.avatar,
 	presence,

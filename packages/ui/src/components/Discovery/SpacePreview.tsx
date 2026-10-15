@@ -13,7 +13,7 @@ import {
 	Switch,
 } from "solid-js";
 import { cx } from "../../utils/cx";
-import { Banner } from "../Banner/Banner";
+import { Banner, hasSpaceBanner } from "../Banner/Banner";
 import { Button } from "../Button/Button";
 import { SpaceIcon } from "../Space/SpaceIcon";
 import { MemberCountChip, OwnerChip } from "../Space/SpaceMeta";
@@ -184,18 +184,23 @@ export const SpacePreview = (props: SpacePreviewProps) => {
 				</Button>
 			</div>
 			<article class="overflow-hidden rounded-surface border border-border bg-card">
-				<Banner
-					src={props.space.bannerSrc}
-					tintFrom={props.space.iconSrc}
-					color={props.space.bannerColor}
-					class="aspect-[4/1]"
-				/>
+				<Show when={hasSpaceBanner(props.space)}>
+					<Banner
+						src={props.space.bannerSrc}
+						tintFrom={props.space.iconSrc}
+						color={props.space.bannerColor}
+						class="aspect-[4/1]"
+					/>
+				</Show>
 				<div class="flex flex-col gap-4 px-4 pb-5">
 					<SpaceIcon
 						name={props.space.name}
 						src={props.space.iconSrc}
 						size={64}
-						class="-mt-8 border-4 border-card"
+						class={cx(
+							"border-4 border-card",
+							hasSpaceBanner(props.space) ? "-mt-8" : "mt-4",
+						)}
 					/>
 					<div class="flex min-w-0 flex-col gap-2">
 						<div class="flex min-w-0 flex-col gap-0.5">
@@ -225,7 +230,7 @@ export const SpacePreview = (props: SpacePreviewProps) => {
 						</div>
 					</div>
 					<Show when={props.space.description}>
-						<p class="max-w-[65ch] text-base text-pretty text-muted-foreground select-text">
+						<p class="max-w-[65ch] text-base leading-prose text-pretty text-muted-foreground select-text">
 							{props.space.description}
 						</p>
 					</Show>

@@ -1,6 +1,6 @@
+import type { LabelEventFrame } from "@colibri-social/lib";
 import { describe, expect, it } from "vitest";
 import { asDatetime } from "../atproto/lexicons";
-import type { LabelEventFrame } from "../atproto/sync-frames";
 import type { LabelView, MessageView } from "../atproto/views";
 import { foldLabelEvent } from "./message-labels";
 

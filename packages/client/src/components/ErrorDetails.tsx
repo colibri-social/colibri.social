@@ -1,6 +1,6 @@
+import { onReportDelivered } from "@colibri-social/lib";
 import { createEffect, createSignal, onCleanup, Show } from "solid-js";
 import { reportingAccount } from "../errors/account";
-import { onReportDelivered } from "../errors/delivery";
 import { attachAccountToReport } from "../errors/report";
 import { Button } from "./ui/Button";
 

@@ -7,7 +7,7 @@ import {
 import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { MaximizeSquareIcon } from "@solar-icons/solid/bold/maximize-square";
 import { MenuDotsIcon } from "@solar-icons/solid/bold/menu-dots";
-import { createMemo, Show } from "solid-js";
+import { createEffect, createMemo, Show } from "solid-js";
 import { skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
 import { defineContract, slot } from "../../screen/define";
@@ -21,6 +21,7 @@ import {
 	ConversationUnavailable,
 	createConversation,
 } from "../channel/conversation";
+import { rememberThread } from "../spaces/recent-thread";
 import { createThreadMenu } from "../threads/thread-menu";
 import { closePane } from "./close-pane";
 import { ThreadIntro } from "./thread-intro";
@@ -129,6 +130,15 @@ export const thread = defineContract({
 					(layer) => layer.kind === "thread" && layer.thread === args.thread,
 				),
 		});
+		createEffect(() => {
+			if (
+				stack.isVisible(
+					(layer) => layer.kind === "thread" && layer.thread === args.thread,
+				)
+			) {
+				rememberThread(data, args);
+			}
+		});
 		const loadFailure = createMemo(() => {
 			const current = community();
 			const space = current ? data.space(current) : undefined;
@@ -177,8 +187,19 @@ export const thread = defineContract({
 				}
 			},
 		});
+		const backLabel = () => {
+			const layers = stack.mounted();
+			const index = layers.findIndex(
+				(layer) => layer.kind === "thread" && layer.thread === args.thread,
+			);
+			const below = index > 0 ? layers[index - 1] : undefined;
+			return below && below.kind !== "thread"
+				? `Back to #${parent()?.name ?? args.channel}`
+				: "Back to channels";
+		};
 		return {
 			...conversation,
+			backLabel,
 			unavailable: threadUnavailable,
 			loadFailure,
 			thread: view,
@@ -196,7 +217,7 @@ export const thread = defineContract({
 					<NavHeader
 						safeTop
 						kind="back"
-						navigateLabel={`Back to #${m.parent()?.name ?? m.options.channel}`}
+						navigateLabel={m.backLabel()}
 						onNavigate={() => m.stack.pop()}
 						title={m.options.label()}
 						action={
@@ -223,9 +244,7 @@ export const thread = defineContract({
 					<ConversationUnavailable
 						kind={kind()}
 						actionLabel={
-							kind() === "thread"
-								? `Back to #${m.parent()?.name ?? m.options.channel}`
-								: "Back to channels"
+							kind() === "thread" ? m.backLabel() : "Back to channels"
 						}
 						onAction={() =>
 							kind() === "thread" ? closePane(m.stack) : m.stack.popTo(0)

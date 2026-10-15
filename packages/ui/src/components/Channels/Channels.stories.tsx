@@ -1342,6 +1342,12 @@ const checkNestedThreads = async (canvasElement: HTMLElement) => {
 	await expect(
 		within(canvasElement).getByRole("button", { name: /^Open thread/ }),
 	).toHaveAttribute("aria-current", "page");
+	await expect(
+		canvasElement.querySelectorAll('[aria-current="page"]'),
+	).toHaveLength(1);
+	await expect(
+		canvasElement.querySelector("[data-channel-row]"),
+	).not.toHaveAttribute("data-active");
 };
 
 export const NestedThreadsMobile: Story = {
@@ -1446,6 +1452,7 @@ export const Skeletons: Story = {
 				<ChannelListHeaderSkeleton />
 				<ChannelListHeader
 					name="Colibri Social Flock"
+					bannerSrc={storyImages.sunsetBanner()}
 					memberCount={99}
 					ownerHandle="lou.gg"
 				/>
@@ -1726,31 +1733,40 @@ export const DesktopBannerHeader: Story = {
 			const root = canvasElement.querySelector(
 				`[data-hero-frame="${frame.id}"]`,
 			) as HTMLElement;
-			const header = root.querySelector(
-				"[data-channel-list-header]",
-			) as HTMLElement;
-			const banner = root.querySelector("[data-banner]") as HTMLElement;
+			const banner = root.querySelector("[data-banner]") as HTMLElement | null;
 			const row = root.querySelector("[data-space-header-row]") as HTMLElement;
 			const name = root.querySelector("[data-space-name]") as HTMLElement;
 			const chevron = root.querySelector("[data-space-chevron]") as HTMLElement;
 			const trigger = root.querySelector(
 				"[data-space-name-button]",
 			) as HTMLElement;
-			const withBanner = frame.id !== "none";
+			const withBanner = "bannerSrc" in frame && !!frame.bannerSrc;
+			const rootTop = root.getBoundingClientRect().top;
+			await expect(row.getBoundingClientRect().top).toBe(rootTop);
+			await expect(getComputedStyle(row).backdropFilter).toMatch(/^(none|)$/);
+			await expect(getComputedStyle(trigger).backdropFilter).toMatch(
+				/^(none|)$/,
+			);
 			if (withBanner) {
-				await expect(banner.getBoundingClientRect().top).toBe(
-					header.getBoundingClientRect().top,
-				);
-				await expect(row.getBoundingClientRect().top).toBe(
-					banner.getBoundingClientRect().top,
+				if (!banner) throw new Error(`missing banner in ${frame.id}`);
+				await expect(banner.getBoundingClientRect().top).toBe(rootTop);
+				await expect(row.dataset.overlay).toBe("");
+				await expect(getComputedStyle(row).backgroundColor).toBe(
+					"rgba(0, 0, 0, 0)",
 				);
 				await expect(getComputedStyle(name).textShadow).not.toBe("none");
 				await expect(getComputedStyle(chevron).filter).toContain("drop-shadow");
 				await expect(getComputedStyle(banner).borderTopLeftRadius).toBe("0px");
+				await expect(root.querySelector("[data-space-scrim]")).not.toBeNull();
 				await expect(root.querySelector("[data-banner-flush]")).not.toBeNull();
 			} else {
-				await expect(banner.getBoundingClientRect().top).toBeGreaterThanOrEqual(
-					row.getBoundingClientRect().bottom,
+				await expect(banner).toBeNull();
+				await expect(
+					root.querySelector("[data-banner-placeholder]"),
+				).toBeNull();
+				await expect(row.dataset.overlay).toBeUndefined();
+				await expect(getComputedStyle(row).backgroundColor).not.toBe(
+					"rgba(0, 0, 0, 0)",
 				);
 				await expect(getComputedStyle(name).textShadow).toBe("none");
 				await expect(root.querySelector("[data-banner-flush]")).toBeNull();
@@ -1764,6 +1780,116 @@ export const DesktopBannerHeader: Story = {
 			await expect(!!hit && trigger.contains(hit)).toBe(true);
 			await expectNoLayoutIssues(root);
 		}
+	},
+};
+
+const scrollChannels = Array.from({ length: 30 }, (_, index) => ({
+	id: `scroll-${index}`,
+	name: `channel-${index + 1}`,
+}));
+
+export const DesktopBannerHeaderScroll: Story = {
+	name: "Desktop banner header while scrolling",
+	parameters: desktop,
+	render: () => (
+		<div class="flex gap-6 bg-background p-4 text-foreground">
+			<For each={["banner", "none"] as const}>
+				{(variant) => (
+					<div
+						data-scroll-frame={variant}
+						class="h-[420px] w-72 overflow-y-auto bg-background"
+					>
+						<ChannelListHeader
+							platform="desktop"
+							name="Colibri Social Flock"
+							bannerSrc={
+								variant === "banner" ? storyImages.sunsetBanner() : undefined
+							}
+							memberCount={99}
+							ownerHandle="lou.gg"
+							menu={{ onMarkAsRead: () => {}, onLeave: () => {} }}
+						/>
+						<For each={scrollChannels}>
+							{(channel) => (
+								<div class="flex h-9 items-center px-4 text-sm text-muted-foreground">
+									# {channel.name}
+								</div>
+							)}
+						</For>
+					</div>
+				)}
+			</For>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const frame = (variant: string) =>
+			canvasElement.querySelector(
+				`[data-scroll-frame="${variant}"]`,
+			) as HTMLElement;
+		const rowOf = (root: HTMLElement) =>
+			root.querySelector("[data-space-header-row]") as HTMLElement;
+		const settle = () =>
+			new Promise((resolve) =>
+				requestAnimationFrame(() => requestAnimationFrame(resolve)),
+			);
+
+		const withBanner = frame("banner");
+		const row = rowOf(withBanner);
+		await expect(row.querySelector("[data-space-invite]")).toBeNull();
+		await expect(row.dataset.overlay).toBe("");
+		await expect(row.dataset.scrolled).toBeUndefined();
+		const name = row.querySelector("[data-space-name-button]") as HTMLElement;
+		const center = name.getBoundingClientRect();
+		const top = document.elementFromPoint(
+			center.left + center.width / 2,
+			center.top + center.height / 2,
+		);
+		await expect(!!top && name.contains(top)).toBe(true);
+
+		withBanner.scrollTop = 40;
+		await settle();
+		await expect(row.getBoundingClientRect().top).toBe(
+			withBanner.getBoundingClientRect().top,
+		);
+		await expect(row.dataset.overlay).toBe("");
+		const hero = withBanner.querySelector("[data-space-hero]") as HTMLElement;
+		await expect(hero.getBoundingClientRect().top).toBeLessThan(
+			row.getBoundingClientRect().top,
+		);
+
+		withBanner.scrollTop = 400;
+		await settle();
+		await waitFor(() => expect(row.dataset.scrolled).toBe(""));
+		await expect(row.dataset.overlay).toBeUndefined();
+		await expect(row.getBoundingClientRect().top).toBe(
+			withBanner.getBoundingClientRect().top,
+		);
+		await waitFor(() =>
+			expect(getComputedStyle(row).boxShadow).toContain("inset"),
+		);
+		await waitFor(() =>
+			expect(getComputedStyle(row).backgroundColor).not.toBe(
+				"rgba(0, 0, 0, 0)",
+			),
+		);
+		await expect(getComputedStyle(row).backdropFilter).toMatch(/^(none|)$/);
+
+		withBanner.scrollTop = 0;
+		await settle();
+		await waitFor(() => expect(row.dataset.scrolled).toBeUndefined());
+		await expect(row.dataset.overlay).toBe("");
+
+		const plain = frame("none");
+		const plainRow = rowOf(plain);
+		await expect(plain.querySelector("[data-banner]")).toBeNull();
+		await expect(plainRow.dataset.scrolled).toBeUndefined();
+		plain.scrollTop = 120;
+		await settle();
+		await waitFor(() => expect(plainRow.dataset.scrolled).toBe(""));
+		await expect(plainRow.getBoundingClientRect().top).toBe(
+			plain.getBoundingClientRect().top,
+		);
+		await expectNoLayoutIssues(canvasElement);
 	},
 };
 

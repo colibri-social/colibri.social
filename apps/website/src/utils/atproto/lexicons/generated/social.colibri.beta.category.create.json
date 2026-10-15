@@ -24,6 +24,46 @@
 							"minLength": 1,
 							"maxLength": 32,
 							"description": "The category's name."
+						},
+						"ownerOnly": {
+							"type": "boolean",
+							"description": "Whether only community admins may post in the category's channels. A channel that sets its own posting restriction overrides this."
+						},
+						"allowedRoles": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "record-key",
+								"description": "A role permitted to post."
+							},
+							"description": "Roles allowed to post in the category's channels. Empty means no role restriction. A channel that sets its own posting restriction overrides this."
+						},
+						"allowedMembers": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A member permitted to post."
+							},
+							"description": "Members allowed to post in the category's channels in addition to allowedRoles."
+						},
+						"visibleToRoles": {
+							"type": "array",
+							"description": "Roles that may read the category's channels. Empty or absent means every member may read them. A channel with its own non-empty visibleToRoles or visibleToMembers overrides this. A non-empty list makes the category's other channels private, enforced the same way as a private channel.",
+							"items": {
+								"type": "string",
+								"format": "record-key",
+								"description": "A role permitted to read."
+							}
+						},
+						"visibleToMembers": {
+							"type": "array",
+							"description": "Members that may read the category's channels in addition to visibleToRoles.",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A member permitted to read."
+							}
 						}
 					}
 				}
@@ -51,7 +91,7 @@
 				},
 				{
 					"name": "Forbidden",
-					"description": "The caller lacks the category.create permission."
+					"description": "The caller lacks the category.create permission, or grants visibility to a role at or above their own highest position."
 				},
 				{
 					"name": "CommunityNotFound",

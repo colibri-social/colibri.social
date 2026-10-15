@@ -15,9 +15,15 @@ import {
 
 export type PlayOnDemand = "hover" | "none";
 
+export type AnimatedImagePlayback = "auto" | "demand";
+
+export const MEDIA_PLAY_HOST = "data-media-play-host";
+
 export type AnimatedImageProps = JSX.ImgHTMLAttributes<HTMLImageElement> & {
 	animated?: boolean;
 	playOnDemand?: PlayOnDemand;
+	playback?: AnimatedImagePlayback;
+	frameSize?: number;
 	play?: boolean;
 	ref?: (element: HTMLImageElement) => void;
 };
@@ -50,21 +56,40 @@ const hideStyle = (
 	return { ...style, display: "none" };
 };
 
-const drawFrame = (canvas: HTMLCanvasElement, image: HTMLImageElement) => {
-	const scale = Math.min(
-		1,
-		MAX_FRAME_EDGE / Math.max(image.naturalWidth, image.naturalHeight, 1),
-	);
+const frameScale = (image: HTMLImageElement, frameSize?: number) => {
+	const width = Math.max(image.naturalWidth, 1);
+	const height = Math.max(image.naturalHeight, 1);
+	const edgeLimit = MAX_FRAME_EDGE / Math.max(width, height);
+	if (!frameSize) return Math.min(1, edgeLimit);
+	const ratio = typeof devicePixelRatio === "number" ? devicePixelRatio : 1;
+	const coverLimit = (frameSize * Math.max(1, ratio)) / Math.min(width, height);
+	return Math.min(1, edgeLimit, coverLimit);
+};
+
+const drawFrame = (
+	canvas: HTMLCanvasElement,
+	image: HTMLImageElement,
+	frameSize?: number,
+) => {
+	const scale = frameScale(image, frameSize);
 	canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
 	canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-	canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+	const context = canvas.getContext("2d");
+	if (!context) return;
+	context.imageSmoothingQuality = "high";
+	context.drawImage(image, 0, 0, canvas.width, canvas.height);
 };
+
+const playHostOf = (element: HTMLImageElement, demandOnly: boolean) =>
+	(demandOnly
+		? element.parentElement?.closest<HTMLElement>(`[${MEDIA_PLAY_HOST}]`)
+		: undefined) ?? element.parentElement;
 
 export const AnimatedImage = (props: AnimatedImageProps) => {
 	const merged = mergeProps({ playOnDemand: "hover" as PlayOnDemand }, props);
 	const [local, imageProps, shared] = splitProps(
 		merged,
-		["animated", "playOnDemand", "play", "ref"],
+		["animated", "playOnDemand", "playback", "frameSize", "play", "ref"],
 		IMAGE_ONLY_PROPS,
 	);
 	const [image, setImage] = createSignal<HTMLImageElement>();
@@ -76,9 +101,11 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 	});
 
 	const candidate = () => local.animated ?? isAnimatedSource(imageProps.src);
+	const demandOnly = () => local.playback === "demand";
 	const paused = () =>
 		candidate() &&
-		(!appActive() || (reducedMotionActive() && !local.play && !demand()));
+		(!appActive() ||
+			((demandOnly() || reducedMotionActive()) && !local.play && !demand()));
 	const frameSrc = () => {
 		const src = imageProps.src;
 		return paused() && src && loadedSrc() === src ? src : undefined;
@@ -91,9 +118,22 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 		}
 	};
 
+	const [placed, setPlaced] = createSignal<HTMLImageElement>();
 	createEffect(() => {
 		const element = image();
-		const host = element?.parentElement;
+		if (!element || element.isConnected) {
+			setPlaced(element);
+			return;
+		}
+		queueMicrotask(() => {
+			if (!disposed) setPlaced(element);
+		});
+	});
+
+	createEffect(() => {
+		const element = placed();
+		if (!element) return;
+		const host = playHostOf(element, demandOnly());
 		if (!host || local.playOnDemand !== "hover" || !candidate()) return;
 		const start = (event: PointerEvent) => {
 			if (event.pointerType === "mouse") setDemand(true);
@@ -105,6 +145,11 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 			if (event.pointerType !== "mouse") setDemand(false);
 		};
 		const stop = () => setDemand(false);
+		const focusOut = (event: FocusEvent) => {
+			const next = event.relatedTarget;
+			if (next instanceof Node && host.contains(next)) return;
+			setDemand(false);
+		};
 		const focusIn = (event: FocusEvent) => {
 			if ((event.target as HTMLElement).matches?.(":focus-visible")) {
 				setDemand(true);
@@ -116,7 +161,7 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 		host.addEventListener("pointerup", release);
 		host.addEventListener("pointercancel", stop);
 		host.addEventListener("focusin", focusIn);
-		host.addEventListener("focusout", stop);
+		host.addEventListener("focusout", focusOut);
 		onCleanup(() => {
 			host.removeEventListener("pointerenter", start);
 			host.removeEventListener("pointerleave", stop);
@@ -124,7 +169,7 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 			host.removeEventListener("pointerup", release);
 			host.removeEventListener("pointercancel", stop);
 			host.removeEventListener("focusin", focusIn);
-			host.removeEventListener("focusout", stop);
+			host.removeEventListener("focusout", focusOut);
 		});
 	});
 
@@ -136,7 +181,7 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 						{...(shared as JSX.CanvasHTMLAttributes<HTMLCanvasElement>)}
 						ref={(canvas) => {
 							const element = image();
-							if (element?.src) drawFrame(canvas, element);
+							if (element?.src) drawFrame(canvas, element, local.frameSize);
 						}}
 						role={imageProps.alt ? "img" : undefined}
 						aria-label={imageProps.alt || undefined}

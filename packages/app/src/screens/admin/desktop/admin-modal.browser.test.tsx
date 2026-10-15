@@ -8,6 +8,7 @@ import { createMockSource, setLatency } from "../../../data/mock/source";
 import { createDataStore, DataContext } from "../../../data/store";
 import { Providers } from "../../../providers";
 import { DesktopShell } from "../../../shell/desktop/DesktopShell";
+import { DISCOVERY_ENABLED } from "../../../shell/features";
 
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
 const SLOW = { timeout: 8000 };
@@ -96,8 +97,10 @@ it("pushes nested pages with a breadcrumb, back arrow and crumb navigation", asy
 		.poll(() => location.pathname, SLOW)
 		.toBe(`/app/c/${HQ}/manage/role-permissions/bots`);
 	await expect.poll(visiblePage, SLOW).toBe("role-permissions");
-	expect(crumbs()).toEqual(["Roles", roleName, "Permissions"]);
-	expect(dialog()?.querySelectorAll("[data-modal-page]")).toHaveLength(3);
+	await expect.poll(crumbs, SLOW).toEqual(["Roles", roleName, "Permissions"]);
+	await expect
+		.poll(() => dialog()?.querySelectorAll("[data-modal-page]").length, SLOW)
+		.toBe(3);
 	await userEvent.click(
 		dialog()?.querySelector("[data-modal-back]") as HTMLElement,
 	);
@@ -110,7 +113,7 @@ it("pushes nested pages with a breadcrumb, back arrow and crumb navigation", asy
 	await expect
 		.poll(() => location.pathname, SLOW)
 		.toBe(`/app/c/${HQ}/manage/roles`);
-	expect(crumbs()).toEqual([]);
+	await expect.poll(crumbs, SLOW).toEqual([]);
 });
 
 it("blocks closing the modal while a page has unsaved changes", async () => {
@@ -197,7 +200,7 @@ it("shows channel settings with General and Permissions in the sidebar", async (
 	await expectNoLayoutIssues(dialog() as HTMLElement);
 });
 
-it("opens create Space, Discover and Join as desktop modals", async () => {
+it("opens create Space and Join as desktop modals", async () => {
 	await mount("/app/new");
 	await expect
 		.element(page.getByRole("dialog", { name: "Create your Space" }))
@@ -207,6 +210,13 @@ it("opens create Space, Discover and Join as desktop modals", async () => {
 		.toBeVisible();
 	dispose?.();
 	document.body.replaceChildren();
+	await mount("/app/invite/nope");
+	await expect
+		.element(page.getByRole("dialog", { name: "Invite" }))
+		.toBeVisible();
+});
+
+it.skipIf(!DISCOVERY_ENABLED)("opens Discover as a desktop modal", async () => {
 	await mount("/app/discover");
 	await expect
 		.element(page.getByRole("dialog", { name: "Discover Spaces" }))
@@ -216,12 +226,6 @@ it("opens create Space, Discover and Join as desktop modals", async () => {
 		.not.toBeNull();
 	await userEvent.keyboard("{Escape}");
 	await expect.poll(() => location.pathname, SLOW).not.toBe("/app/discover");
-	dispose?.();
-	document.body.replaceChildren();
-	await mount("/app/invite/nope");
-	await expect
-		.element(page.getByRole("dialog", { name: "Invite" }))
-		.toBeVisible();
 });
 
 it("opens emoji actions in a popover anchored to the row menu", async () => {

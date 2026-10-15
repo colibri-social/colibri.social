@@ -1,3 +1,4 @@
+import { parseSpace, spaceSkey } from "@colibri-social/lib";
 import { A } from "@solidjs/router";
 import {
 	type Component,
@@ -16,7 +17,6 @@ import {
 	peekChannel,
 } from "../../../../atproto/channel-reference";
 import { buildChannelPath } from "../../../../atproto/colibri-channel-url";
-import { parseSpace, spaceSkey } from "../../../../atproto/space-ref";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { useUserContext } from "../../../../contexts/User";
 import { getAppViewDid } from "../../../../utils/appview";

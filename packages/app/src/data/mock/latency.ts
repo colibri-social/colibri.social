@@ -5,6 +5,9 @@ let maximum = 260;
 const random = createRandom(0x1a7e);
 
 let scale = 1;
+let pending = 0;
+
+export const pendingLatency = () => pending;
 
 export const setLatencyScale = (next: number) => {
 	scale = Math.max(1, next);
@@ -26,8 +29,10 @@ export const withLatency = <T>(produce: () => T): Promise<T> => {
 		}
 	}
 	const wait = random.int(minimum, maximum) * scale;
+	pending += 1;
 	return new Promise<T>((resolve, reject) => {
 		setTimeout(() => {
+			pending -= 1;
 			try {
 				resolve(produce());
 			} catch (error) {

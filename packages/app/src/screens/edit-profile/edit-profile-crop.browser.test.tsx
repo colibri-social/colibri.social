@@ -96,7 +96,7 @@ describe("edit profile image cropping", () => {
 		const [, avatarInput] = fileInputs(host);
 		if (!avatarInput) throw new Error("avatar input missing");
 		const before = host
-			.querySelector("[data-profile-avatar-preview]")
+			.querySelector("img[data-profile-avatar-preview]")
 			?.getAttribute("src");
 		choose(avatarInput, await photo("sunset.png"));
 		await until(
@@ -106,19 +106,21 @@ describe("edit profile image cropping", () => {
 		const sheet = cropper() as HTMLElement;
 		await expectNoLayoutIssues(sheet);
 		expect(
-			host.querySelector("[data-profile-avatar-preview]")?.getAttribute("src"),
+			host
+				.querySelector("img[data-profile-avatar-preview]")
+				?.getAttribute("src"),
 		).toBe(before);
 		buttonIn(sheet, "Apply")[0]?.click();
 		await until(() => !cropper());
 		await until(
 			() =>
 				!!host
-					.querySelector("[data-profile-avatar-preview]")
+					.querySelector("img[data-profile-avatar-preview]")
 					?.getAttribute("src")
 					?.startsWith("blob:"),
 		);
 		const src = host
-			.querySelector("[data-profile-avatar-preview]")
+			.querySelector("img[data-profile-avatar-preview]")
 			?.getAttribute("src") as string;
 		expect(await decoded(src)).toEqual([512, 512]);
 	});

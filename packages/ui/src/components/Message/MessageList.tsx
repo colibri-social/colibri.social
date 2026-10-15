@@ -205,6 +205,7 @@ export const MessageList = <T extends GroupableMessage>(
 	const [scroller, setScroller] = createSignal<HTMLDivElement>();
 	let content: HTMLDivElement | undefined;
 	let top: HTMLDivElement | undefined;
+	let bottom: HTMLDivElement | undefined;
 	let feed: HTMLDivElement | undefined;
 	let handle: VirtualizerHandle | undefined;
 
@@ -792,8 +793,8 @@ export const MessageList = <T extends GroupableMessage>(
 		if (!element) return;
 		const height = element.clientHeight;
 		if (lastClientHeight && height !== lastClientHeight) {
-			if (followsBottom()) stickToBottom();
-			else if (!untrack(pinned) && !untrack(settling) && !autoScroll)
+			if (untrack(pinned) && !autoScroll) stickToBottom();
+			else if (!untrack(settling) && !autoScroll)
 				element.scrollTop += lastClientHeight - height;
 		}
 		lastClientHeight = height;
@@ -1023,10 +1024,12 @@ export const MessageList = <T extends GroupableMessage>(
 			for (const entry of entries) {
 				if (entry.target === element) onScrollerResize();
 				else if (entry.target === top) onTopResize();
+				else if (entry.target === bottom && followsBottom()) stickToBottom();
 			}
 		});
 		resize.observe(element);
 		if (top) resize.observe(top);
+		if (bottom) resize.observe(bottom, { box: "border-box" });
 		const mutations = new MutationObserver(onFeedHeightChange);
 		if (feed) mutations.observe(feed, { attributeFilter: ["style"] });
 		element.addEventListener("scroll", onScroll, { passive: true });
@@ -1121,6 +1124,7 @@ export const MessageList = <T extends GroupableMessage>(
 						{renderRow}
 					</Virtualizer>
 					<div
+						ref={bottom}
 						data-message-list-bottom=""
 						class="flex flex-col pb-2"
 						style={

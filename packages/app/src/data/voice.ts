@@ -7,6 +7,7 @@ import {
 	createSignal,
 	on,
 } from "solid-js";
+import { displayNameOf } from "./adapters/display-name";
 import { uiPresence } from "./adapters/presence";
 import {
 	createSimulatedConnection,
@@ -125,7 +126,9 @@ export const createVoice = (
 				return {
 					id: did,
 					pending: !actor || undefined,
-					name: member?.nickname ?? actor?.displayName ?? actor?.handle ?? did,
+					name: actor
+						? displayNameOf(actor, member)
+						: member?.nickname?.trim() || did,
 					avatarSrc: actor?.avatar,
 					presence: uiPresence(data.presenceOf(did)),
 					speaking: current()?.channel === channelUri && data.isSpeaking(did),

@@ -1,12 +1,12 @@
 import { AttachmentDropzone } from "@colibri-social/ui";
-import { onMount, Show } from "solid-js";
+import { Show } from "solid-js";
+import { ConnectionSlot } from "../../shell/connection-slot";
 import {
 	Outlet,
 	useOptionalDesktopShell,
 	usePlacement,
 } from "../../shell/desktop/context";
 import { channel } from "./channel.contract";
-import { liftToasts } from "./toast-offset";
 
 export default channel.view({
 	hidden: ["Unavailable", "LoadError"] as const,
@@ -37,17 +37,12 @@ export default channel.view({
 							}
 							onFiles={(files) => m.attachments.addFiles(files)}
 							footer={
-								<div
-									data-chat-footer=""
-									ref={(element) => {
-										if (placement === "main")
-											onMount(() => liftToasts(element));
-									}}
-								>
+								<div data-chat-footer="">
 									<s.Composer platform="desktop" />
 								</div>
 							}
 						>
+							<ConnectionSlot platform="desktop" />
 							<s.Messages platform="desktop" />
 						</AttachmentDropzone>
 					</Show>

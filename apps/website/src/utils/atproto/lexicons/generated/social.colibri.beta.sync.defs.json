@@ -622,10 +622,38 @@
 					"format": "space-ref",
 					"description": "The channel that was marked seen, when it was a single channel."
 				},
+				"message": {
+					"type": "ref",
+					"ref": "social.colibri.beta.defs#recordRef",
+					"description": "The message whose notifications were marked seen, when it was a single message."
+				},
 				"seenAt": {
 					"type": "string",
 					"format": "datetime",
 					"description": "The point everything was marked seen up to."
+				}
+			}
+		},
+		"readCursorEvent": {
+			"type": "object",
+			"description": "The connected user's read cursors for one community moved, possibly from another of their sessions. Each cursor is the newest the AppView holds for that channel or thread, so applying the event never moves a cursor backwards.",
+			"required": [
+				"community",
+				"cursors"
+			],
+			"properties": {
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community the cursors belong to."
+				},
+				"cursors": {
+					"type": "array",
+					"description": "The cursors that changed.",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.channel.read#cursor"
+					}
 				}
 			}
 		},

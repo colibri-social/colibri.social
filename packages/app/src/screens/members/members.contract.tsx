@@ -6,6 +6,10 @@ import {
 	MemberRowSkeleton,
 } from "@colibri-social/ui";
 import { createMemo, For, type JSX, Show } from "solid-js";
+import {
+	canReadChannel,
+	isAdminRoleSet,
+} from "../../data/category-permissions";
 import { useData } from "../../data/store";
 import { defineContract, slot } from "../../screen/define";
 import { LoadErrorState } from "../../shell/load-error";
@@ -55,8 +59,22 @@ export const members = defineContract({
 		const groups = createMemo(() => {
 			const current = space();
 			const list = current?.members.value();
-			if (!current || !list) return undefined;
-			const mapped = list.map((member) =>
+			const view = channel();
+			if (!current || !list || !view) return undefined;
+			const roles = current.roles.value() ?? [];
+			const category = view.category
+				? current.categories
+						.value()
+						?.find((entry) => entry.rkey === view.category)
+				: undefined;
+			const readers = list.filter((member) =>
+				canReadChannel(view, category, {
+					did: member.actor.did,
+					roles: member.roles ?? [],
+					admin: isAdminRoleSet(member.roles ?? [], roles),
+				}),
+			);
+			const mapped = readers.map((member) =>
 				toListMember(member, {
 					roleByKey: current.roleByKey,
 					presence: data.presenceOf(member.actor.did),

@@ -1,8 +1,7 @@
+import { markReportDelivered, redactText } from "@colibri-social/lib";
 import * as Sentry from "@sentry/solid";
 import { solidRouterBrowserTracingIntegration } from "@sentry/solid/solidrouter";
-import { markReportDelivered } from "./errors/delivery";
 import { isDeclinedByUser } from "./errors/sentry-filter";
-import { redactText } from "./utils/redact";
 
 export interface InitSentryOptions {
 	dsn?: string;

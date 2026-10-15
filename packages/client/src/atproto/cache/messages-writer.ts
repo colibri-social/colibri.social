@@ -1,6 +1,6 @@
+import type { LabelEventFrame, MessageEventFrame } from "@colibri-social/lib";
 import { insertAt, placeMessage } from "../../utils/message-order";
 import { HIDDEN } from "../labels";
-import type { LabelEventFrame, MessageEventFrame } from "../sync-frames";
 import type { MessageView } from "../views";
 import { messagesKey } from "./keys";
 import {

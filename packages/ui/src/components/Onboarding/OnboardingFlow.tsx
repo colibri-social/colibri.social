@@ -1,6 +1,15 @@
 import { Dialog } from "@kobalte/core/dialog";
 import { CheckReadIcon } from "@solar-icons/solid/bold/check-read";
-import { For, type JSX, Match, Show, Switch } from "solid-js";
+import {
+	createEffect,
+	For,
+	type JSX,
+	Match,
+	on,
+	onCleanup,
+	Show,
+	Switch,
+} from "solid-js";
 import { cx } from "../../utils/cx";
 import { createHeightTransition } from "../../utils/height-transition";
 import { Hummingbird } from "../Hummingbird/Hummingbird";
@@ -34,6 +43,20 @@ export type OnboardingFlowProps = {
 
 const SKIP_ENTER =
 	"textarea, button, a[href], select, [contenteditable], [role='switch'], [role='slider'], [role='listbox'], [role='option'], [role='combobox']";
+
+const STEP_FIELD =
+	"input:not([type='hidden']):not(:disabled), textarea:not(:disabled), select:not(:disabled), [contenteditable='true']";
+
+const stepFocusTarget = (dialog: HTMLElement) => {
+	const body = dialog.querySelector<HTMLElement>("[data-onboarding-body]");
+	const field = body?.querySelector<HTMLElement>(STEP_FIELD);
+	if (field) return field;
+	return (
+		dialog.querySelector<HTMLElement>(
+			"[data-onboarding-action='primary']:not(:disabled)",
+		) ?? undefined
+	);
+};
 
 const isModified = (event: KeyboardEvent) =>
 	event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
@@ -102,7 +125,7 @@ export const OnboardingFlow = (props: OnboardingFlowProps) => {
 			data-onboarding=""
 			data-platform="mobile"
 			class={cx(
-				"flex min-h-dvh flex-col bg-background pt-safe text-foreground",
+				"flex min-h-dvh flex-col bg-background pt-overlay text-foreground",
 				props.class,
 			)}
 		>
@@ -194,13 +217,48 @@ export const OnboardingFlow = (props: OnboardingFlowProps) => {
 		</ol>
 	);
 
+	let dialogElement: HTMLElement | undefined;
+	let focusFrame: number | undefined;
+	const focusStep = () => {
+		if (focusFrame !== undefined) cancelAnimationFrame(focusFrame);
+		focusFrame = requestAnimationFrame(() => {
+			focusFrame = requestAnimationFrame(() => {
+				focusFrame = undefined;
+				const dialog = dialogElement;
+				if (!dialog?.isConnected) return;
+				const active = document.activeElement;
+				const body = dialog.querySelector("[data-onboarding-body]");
+				if (active instanceof HTMLElement && body?.contains(active)) return;
+				stepFocusTarget(dialog)?.focus({ preventScroll: true });
+			});
+		});
+	};
+	createEffect(
+		on(
+			() => [variant(), props.title] as const,
+			([current]) => {
+				if (current === "split") focusStep();
+			},
+		),
+	);
+	onCleanup(() => {
+		if (focusFrame !== undefined) cancelAnimationFrame(focusFrame);
+	});
+
 	const dialogContent = (inner: () => JSX.Element, contentClass: string) => (
 		<Modal open={props.open ?? true}>
 			<Dialog.Portal>
 				<Dialog.Overlay class="overlay-motion fixed inset-0 z-50 bg-overlay backdrop-blur-md" />
-				<div class="fixed inset-0 z-50 flex items-center justify-center px-safe-offset-4 pt-safe-offset-4 pb-safe-offset-4">
+				<div class="fixed inset-0 z-50 flex items-center justify-center px-safe-offset-4 pt-overlay-offset-4 pb-safe-offset-4">
 					<Dialog.Content
-						ref={heightTransition}
+						ref={(element: HTMLElement) => {
+							dialogElement = element;
+							heightTransition(element);
+						}}
+						onOpenAutoFocus={(event: Event) => {
+							event.preventDefault();
+							focusStep();
+						}}
 						data-onboarding=""
 						data-platform="desktop"
 						data-variant={variant()}
@@ -245,7 +303,10 @@ export const OnboardingFlow = (props: OnboardingFlowProps) => {
 						{stepList()}
 					</aside>
 					<div class="flex min-w-0 flex-1 flex-col">
-						<div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-10 pt-10 pb-8">
+						<div
+							data-onboarding-body=""
+							class="flex min-h-0 flex-1 flex-col overflow-y-auto px-10 pt-10 pb-8"
+						>
 							<div class="my-auto flex w-full flex-col items-center">
 								{props.children}
 							</div>

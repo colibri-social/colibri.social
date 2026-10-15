@@ -1,5 +1,6 @@
 import { type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
+import { isStaticSource } from "../../utils/playback";
 import { createRipple } from "../../utils/ripple";
 import { createSlot } from "../../utils/slot";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
@@ -201,6 +202,9 @@ export const EmojiSelectRow = (props: EmojiSelectRowProps) => (
 								<AnimatedImage
 									src={avatar()}
 									alt=""
+									animated={!isStaticSource(avatar())}
+									playback="demand"
+									frameSize={16}
 									width={16}
 									height={16}
 									class="size-4 shrink-0 rounded-full object-cover outline-1 -outline-offset-1 outline-white/8 light:outline-black/8"

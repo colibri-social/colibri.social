@@ -109,7 +109,7 @@ export const MessagePreview = (props: MessagePreviewProps) => {
 				</span>
 				<span
 					data-message-preview-content=""
-					class="line-clamp-3 text-base leading-[21px] [overflow-wrap:anywhere]"
+					class="line-clamp-3 text-base leading-message [overflow-wrap:anywhere]"
 				>
 					{local.children}
 				</span>

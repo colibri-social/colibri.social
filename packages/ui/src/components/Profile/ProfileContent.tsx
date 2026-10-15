@@ -1,4 +1,4 @@
-import { For, type JSX, Show } from "solid-js";
+import { For, type JSX, Show, splitProps } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createSlot } from "../../utils/slot";
 import type { Presence } from "../Avatar/Avatar";
@@ -152,6 +152,25 @@ const ProfileSection = (props: { label: string; children: JSX.Element }) => (
 	</section>
 );
 
+export const ProfileBio = (
+	props: { children: JSX.Element } & JSX.HTMLAttributes<HTMLParagraphElement>,
+) => {
+	const [local, rest] = splitProps(props, ["children", "class"]);
+	return (
+		<ProfileSection label="Bio">
+			<p
+				{...rest}
+				class={cx(
+					"m-0 text-base break-words text-foreground select-text [&_a]:text-primary-highlight [&_a]:underline-offset-2 [&_a:hover]:underline",
+					local.class,
+				)}
+			>
+				{local.children}
+			</p>
+		</ProfileSection>
+	);
+};
+
 export const ProfileContentBody = (props: ProfileContentPartProps) => {
 	const bio = createSlot(() => props.profile.bio);
 	const footer = createSlot(() => props.footer);
@@ -166,11 +185,7 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 				{(activity) => <NowPlayingCard {...activity} tone={tone()} />}
 			</For>
 			<Show when={bio.has()}>
-				<ProfileSection label="Bio">
-					<p class="m-0 text-base break-words text-foreground select-text [&_a]:text-primary-highlight [&_a]:underline-offset-2 [&_a:hover]:underline">
-						{bio()}
-					</p>
-				</ProfileSection>
+				<ProfileBio>{bio()}</ProfileBio>
 			</Show>
 			<Show when={(props.profile.roles ?? []).length > 0}>
 				<ProfileSection label="Space roles">

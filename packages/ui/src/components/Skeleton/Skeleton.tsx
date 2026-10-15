@@ -11,6 +11,7 @@ import {
 import { cx } from "../../utils/cx";
 import { motionScale, prefersReducedMotion } from "../../utils/motion";
 import { createSlot } from "../../utils/slot";
+import { PROSE_LEADING } from "../../utils/typography";
 import type { AvatarSize } from "../Avatar/Avatar";
 
 export type SkeletonProps = JSX.HTMLAttributes<HTMLSpanElement> & {
@@ -58,6 +59,7 @@ const textMetrics: Record<SkeletonTextSize, { font: number; leading: number }> =
 export type SkeletonTextProps = {
 	size?: SkeletonTextSize;
 	leading?: number;
+	prose?: boolean;
 	lines?: number;
 	width?: number | string;
 	lastLineWidth?: number | string;
@@ -66,7 +68,9 @@ export type SkeletonTextProps = {
 
 export const SkeletonText = (props: SkeletonTextProps) => {
 	const metrics = () => textMetrics[props.size ?? "base"];
-	const leading = () => props.leading ?? metrics().leading;
+	const leading = () =>
+		props.leading ??
+		(props.prose ? metrics().font * PROSE_LEADING : metrics().leading);
 	const barHeight = () => Math.round(metrics().font * 0.72);
 	const lines = () => Array.from({ length: props.lines ?? 1 }, (_, i) => i);
 	const widthFor = (index: number) => {

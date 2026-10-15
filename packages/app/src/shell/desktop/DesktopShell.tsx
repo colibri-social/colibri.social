@@ -11,6 +11,7 @@ import {
 	type JSX,
 	lazy,
 	onCleanup,
+	onMount,
 	Show,
 	type Signal,
 	Suspense,
@@ -43,6 +44,7 @@ import {
 	storeThreadWidth,
 } from "./sidebar-width";
 import { TitleBar } from "./TitleBar";
+import { anchorToasts } from "./toast-anchor";
 
 const ChannelScreen = lazy(
 	() => import("../../screens/channel/channel.screen"),
@@ -317,7 +319,11 @@ export const DesktopShell = () => {
 								/>
 							}
 							sidebar={<SpacesScreen args={{ slug: route().root.space }} />}
-							dock={<Dock />}
+							dock={
+								<div ref={(element) => onMount(() => anchorToasts(element))}>
+									<Dock />
+								</div>
+							}
 							header={
 								<div
 									ref={(node) => outletSignal("header")[1](node)}

@@ -1,3 +1,4 @@
+import { wroteToFrame } from "@colibri-social/lib";
 import {
 	createEffect,
 	onCleanup,
@@ -9,7 +10,6 @@ import { useUserContext } from "../../contexts/User";
 import { getAppViewDid } from "../../utils/appview";
 import { namespace } from "../cache/keys";
 import { asSpaceRef } from "../lexicons";
-import { wroteToFrame } from "../sync-frames";
 import { flush, initOutbox, onOutboxSent } from "./outbox";
 import { flushSends, initSends } from "./sends";
 

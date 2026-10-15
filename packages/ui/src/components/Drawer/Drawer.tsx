@@ -24,6 +24,7 @@ import {
 	topLayerAttrs,
 	useParentLayers,
 } from "../../utils/nested-layers";
+import { keyboardLiftAttrs } from "../../utils/safe-area";
 import { createSlot } from "../../utils/slot";
 import { Button } from "../Button/Button";
 
@@ -34,6 +35,7 @@ export type DrawerProps = ParentProps<{
 	modal?: boolean;
 	initialFocus?: "first-focusable" | "content";
 	initialFocusEl?: HTMLElement;
+	restoreFocus?: boolean;
 	dirty?: boolean;
 	discardDescription?: JSX.Element;
 }>;
@@ -228,6 +230,7 @@ export const Drawer = (props: DrawerProps) => {
 				activeSnapPoint={snapPoint()}
 				onActiveSnapPointChange={setSnapPoint}
 				initialFocusEl={initialFocusEl()}
+				restoreFocus={props.restoreFocus ?? true}
 			>
 				{() => (
 					<DrawerContentRef.Provider value={setContentElement}>
@@ -352,6 +355,7 @@ export const DrawerContent = (props: DrawerContentProps) => {
 			<CorvuDrawer.Content
 				{...rest}
 				{...topLayerAttrs}
+				{...keyboardLiftAttrs}
 				ref={(element: HTMLElement) => {
 					contentNode = element;
 					element.addEventListener("keydown", (event) => {
@@ -362,11 +366,11 @@ export const DrawerContent = (props: DrawerContentProps) => {
 					heightTransition(element);
 				}}
 				class={cx(
-					"sheet-motion fixed inset-x-0 bottom-0 z-50 flex max-h-[min(90dvh,calc(100dvh-var(--safe-area-top,0px)-16px))] flex-col pl-safe pr-safe",
+					"sheet-motion fixed inset-x-0 bottom-(--keyboard-lift,0px) z-50 flex max-h-[min(90dvh,calc(100dvh-var(--overlay-top,0px)-16px-var(--keyboard-lift,0px)))] flex-col pl-safe pr-safe",
 					"bg-popover text-foreground outline-none",
 					"after:absolute after:inset-x-0 after:top-full after:h-1/2 after:bg-inherit",
 					local.fill
-						? "h-dvh max-h-none rounded-none pt-safe"
+						? "h-[calc(100dvh-var(--keyboard-lift,0px))] max-h-none rounded-none pt-overlay"
 						: "rounded-t-sheet",
 					local.class,
 				)}
@@ -409,7 +413,7 @@ export const DrawerContent = (props: DrawerContentProps) => {
 					</div>
 				</Show>
 				<Show when={description.has()}>
-					<CorvuDrawer.Description class="-mt-4 shrink-0 px-4 pb-6 text-sm text-pretty text-muted-foreground">
+					<CorvuDrawer.Description class="-mt-4 shrink-0 px-4 pb-6 text-sm leading-prose text-pretty text-muted-foreground">
 						{description()}
 					</CorvuDrawer.Description>
 				</Show>

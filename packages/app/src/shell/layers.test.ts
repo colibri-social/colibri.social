@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DISCOVERY_ENABLED } from "./features";
 import { parsePath, pathAt, type Route, rootPath } from "./layers";
 
 const DID = "did:plc:hq";
@@ -27,12 +28,32 @@ describe("paths", () => {
 		).toEqual(["overview", "bridges", "bridge-new", "bridge-connect"]);
 	});
 
-	it("round-trips create, discover and invite paths", () => {
-		for (const path of ["/app/new", "/app/discover", "/app/invite/abc123"]) {
+	it("round-trips create and invite paths", () => {
+		for (const path of ["/app/new", "/app/invite/abc123"]) {
 			const route = parsePath(path);
 			expect(route.root.tab).toBe("spaces");
 			expect(pathAt(route, 1)).toBe(path);
 		}
+	});
+
+	it.skipIf(DISCOVERY_ENABLED)("treats the discover path as unknown", () => {
+		expect(parsePath("/app/discover").layers).toEqual([
+			{ kind: "notFound", path: "/app/discover" },
+		]);
+	});
+
+	it.skipIf(!DISCOVERY_ENABLED)("round-trips the discover path", () => {
+		const route = parsePath("/app/discover");
+		expect(route.root.tab).toBe("spaces");
+		expect(pathAt(route, 1)).toBe("/app/discover");
+	});
+
+	it("opens home on the sign-in return path", () => {
+		expect(parsePath("/app/login")).toEqual({
+			root: { tab: "spaces" },
+			layers: [],
+		});
+		expect(parsePath("/app/login/extra").layers[0]?.kind).toBe("notFound");
 	});
 
 	it("opens shared invite links from the web origin", () => {

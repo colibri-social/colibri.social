@@ -14,6 +14,7 @@ import {
 	AnimatedVideocameraIcon,
 } from "../../icons/animated/media";
 import { cx } from "../../utils/cx";
+import { keyboardFocusWithin } from "../../utils/keyboard-modality";
 import { IconButton } from "../IconButton/IconButton";
 import { CallControlButton, CallLeaveButton } from "./CallControls";
 import { VoiceTile, type VoiceTileData } from "./VoiceGrid";
@@ -239,6 +240,8 @@ export const VoiceFloatingWindow = (props: VoiceFloatingWindowProps) => {
 		transform: `translate3d(${Math.round(position().x)}px, ${Math.round(position().y)}px, 0)`,
 	});
 
+	const keyboardFocus = keyboardFocusWithin();
+
 	return (
 		<Portal mount={props.mount}>
 			<section
@@ -247,7 +250,12 @@ export const VoiceFloatingWindow = (props: VoiceFloatingWindowProps) => {
 				data-voice-floating=""
 				data-corner={corner()}
 				data-dragging={drag() ? "" : undefined}
-				onPointerDown={onPointerDown}
+				onPointerDown={(event) => {
+					keyboardFocus.onPointerDown(event);
+					onPointerDown(event);
+				}}
+				onFocusIn={keyboardFocus.onFocusIn}
+				onFocusOut={keyboardFocus.onFocusOut}
 				onPointerMove={onPointerMove}
 				onPointerUp={endDrag}
 				onPointerCancel={endDrag}
@@ -281,7 +289,7 @@ export const VoiceFloatingWindow = (props: VoiceFloatingWindowProps) => {
 				/>
 				<div
 					data-floating-chrome=""
-					class="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between opacity-0 transition-opacity duration-150 group-focus-within/floating:opacity-100 group-hover/floating:opacity-100 motion-reduce:transition-none"
+					class="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between opacity-0 transition-opacity duration-150 group-data-keyboard-focus/floating:opacity-100 group-hover/floating:opacity-100 motion-reduce:transition-none"
 				>
 					<div class="flex items-start justify-between gap-2 bg-linear-to-b from-black/70 to-transparent p-2 pb-6">
 						<button

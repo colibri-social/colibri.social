@@ -493,6 +493,10 @@ export const EmojiPicker = (props: EmojiPickerProps) => {
 					: cellProps.item.label
 			}
 			tabIndex={active() === cellProps.index() ? 0 : -1}
+			onPointerDown={(event) => {
+				if (platform() === "mobile" && event.pointerType !== "mouse")
+					event.preventDefault();
+			}}
 			onClick={(event) => {
 				setActive(cellProps.index());
 				pick(cellProps.item, event);
@@ -728,7 +732,7 @@ export const EmojiPicker = (props: EmojiPickerProps) => {
 					<Show when={trimmed() && flat().total === 0}>
 						<p
 							role="status"
-							class="px-4 py-10 text-center text-sm text-pretty text-muted-foreground"
+							class="px-4 py-10 text-center text-sm leading-prose text-pretty text-muted-foreground"
 						>
 							No emoji found for “{trimmed()}”
 						</p>

@@ -1,5 +1,5 @@
+import { statusOf } from "@colibri-social/lib";
 import { createSignal } from "solid-js";
-import { statusOf } from "../errors/classify";
 
 const KEY_PREFIX = "colibri:pendingCommunity:";
 

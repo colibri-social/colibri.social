@@ -217,7 +217,7 @@ export const ModalContent = (props: ModalContentProps) => {
 	return (
 		<Dialog.Portal>
 			<Overlay />
-			<div class="fixed inset-0 z-50 flex items-center justify-center px-safe-offset-4 pt-safe-offset-10 pb-safe-offset-4 md:pt-safe-offset-4">
+			<div class="fixed inset-0 z-50 flex items-center justify-center px-safe-offset-4 pt-overlay-offset-10 pb-safe-offset-4 md:pt-overlay-offset-4">
 				<Dialog.Content
 					{...rest}
 					{...guards}
@@ -234,7 +234,7 @@ export const ModalContent = (props: ModalContentProps) => {
 						/>
 					</div>
 					<Show when={description.has()}>
-						<Dialog.Description class="-mt-2 text-sm text-pretty text-muted-foreground">
+						<Dialog.Description class="-mt-2 text-sm leading-prose text-pretty text-muted-foreground">
 							{description()}
 						</Dialog.Description>
 					</Show>
@@ -284,7 +284,7 @@ export const LargeModalContent = (props: LargeModalContentProps) => {
 	return (
 		<Dialog.Portal>
 			<Overlay />
-			<div class="fixed inset-0 z-50 flex items-center justify-center px-safe-offset-4 pt-safe-offset-4 pb-safe-offset-4">
+			<div class="fixed inset-0 z-50 flex items-center justify-center px-safe-offset-4 pt-overlay-offset-4 pb-safe-offset-4">
 				<Dialog.Content
 					{...rest}
 					{...guards}

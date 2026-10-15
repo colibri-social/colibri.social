@@ -1,6 +1,6 @@
 import { type JSX, Show, splitProps } from "solid-js";
 import { cx } from "../../utils/cx";
-import { Banner } from "../Banner/Banner";
+import { Banner, hasSpaceBanner } from "../Banner/Banner";
 import { Card } from "../Card/Card";
 import { SpaceIcon } from "./SpaceIcon";
 import { MemberCountChip } from "./SpaceMeta";
@@ -10,6 +10,7 @@ export type SpaceCardProps = {
 	iconSrc?: string;
 	bannerSrc?: string;
 	bannerColor?: string;
+	bannerPlaceholder?: boolean;
 	memberCount: number;
 	memberLabel?: string;
 	description?: string;
@@ -24,6 +25,7 @@ export const SpaceCard = (props: SpaceCardProps) => {
 		"iconSrc",
 		"bannerSrc",
 		"bannerColor",
+		"bannerPlaceholder",
 		"memberCount",
 		"memberLabel",
 		"description",
@@ -36,12 +38,14 @@ export const SpaceCard = (props: SpaceCardProps) => {
 			tone="card"
 			class={cx("flex flex-col justify-start", local.class)}
 		>
-			<Banner
-				ratio="space"
-				src={local.bannerSrc}
-				tintFrom={local.iconSrc}
-				color={local.bannerColor}
-			/>
+			<Show when={hasSpaceBanner(local) || local.bannerPlaceholder}>
+				<Banner
+					ratio="space"
+					src={local.bannerSrc}
+					tintFrom={local.iconSrc}
+					color={local.bannerColor}
+				/>
+			</Show>
 			<span class="flex flex-col gap-3 p-3">
 				<span class="flex min-w-0 items-center gap-3">
 					<SpaceIcon name={local.name} src={local.iconSrc} />
@@ -56,7 +60,7 @@ export const SpaceCard = (props: SpaceCardProps) => {
 					</span>
 				</span>
 				<Show when={local.description}>
-					<span class="line-clamp-3 text-base text-pretty text-muted-foreground">
+					<span class="line-clamp-3 text-base leading-prose text-pretty text-muted-foreground">
 						{local.description}
 					</span>
 				</Show>

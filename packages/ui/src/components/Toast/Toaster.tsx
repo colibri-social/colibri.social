@@ -220,7 +220,7 @@ const ToastItem = (props: {
 	const dismisses = (along: number) => {
 		if (along === 0) return false;
 		if (axis === "y") return along < 0;
-		return mobile() || along > 0;
+		return mobile() || along < 0;
 	};
 
 	const onPointerDown = (event: PointerEvent) => {
@@ -412,6 +412,7 @@ const ToastItem = (props: {
 				>
 					<Show
 						when={record.custom}
+						keyed
 						fallback={
 							<div
 								class={cx(
@@ -434,7 +435,7 @@ const ToastItem = (props: {
 										{record.title}
 									</p>
 									<Show when={record.description}>
-										<p class="text-sm leading-5 text-pretty text-muted-foreground">
+										<p class="text-sm leading-prose text-pretty text-muted-foreground">
 											{record.description}
 										</p>
 									</Show>
@@ -469,7 +470,7 @@ const ToastItem = (props: {
 							</div>
 						}
 					>
-						{(render) => render()(record.id)}
+						{(render) => render(record.id)}
 					</Show>
 				</div>
 			</div>
@@ -489,6 +490,7 @@ export const Toaster = (props: ToasterProps) => {
 	const [focusWithin, setFocusWithin] = createSignal(false);
 	const [tapExpanded, setTapExpanded] = createSignal(false);
 	const [swiping, setSwiping] = createSignal(false);
+	const [pressed, setPressed] = createSignal(false);
 	const [hidden, setHidden] = createSignal(isDocumentHidden());
 	const [politeText, setPoliteText] = createSignal("");
 	const [alertText, setAlertText] = createSignal("");
@@ -510,7 +512,12 @@ export const Toaster = (props: ToasterProps) => {
 	const revealed = () => hovered() || focusWithin();
 
 	const paused = () =>
-		hovered() || focusWithin() || tapExpanded() || swiping() || hidden();
+		hovered() ||
+		focusWithin() ||
+		tapExpanded() ||
+		swiping() ||
+		pressed() ||
+		hidden();
 
 	const heightOf = (record: ToastRecord) => heights()[String(record.id)] ?? 0;
 
@@ -581,13 +588,18 @@ export const Toaster = (props: ToasterProps) => {
 			if (event.target instanceof Node && list.contains(event.target)) return;
 			setTapExpanded(false);
 		};
+		const onRelease = () => setPressed(false);
 		document.addEventListener("visibilitychange", onVisibility);
 		window.addEventListener("keydown", onKeyDown);
 		document.addEventListener("pointerdown", onOutsidePointer, true);
+		document.addEventListener("pointerup", onRelease, true);
+		document.addEventListener("pointercancel", onRelease, true);
 		onCleanup(() => {
 			document.removeEventListener("visibilitychange", onVisibility);
 			window.removeEventListener("keydown", onKeyDown);
 			document.removeEventListener("pointerdown", onOutsidePointer, true);
+			document.removeEventListener("pointerup", onRelease, true);
+			document.removeEventListener("pointercancel", onRelease, true);
 		});
 	});
 
@@ -631,8 +643,8 @@ export const Toaster = (props: ToasterProps) => {
 				class={cx(
 					"pointer-events-none fixed z-[90]",
 					platform() === "mobile"
-						? "top-safe-offset-2 left-1/2 w-[min(420px,calc(100vw-32px-var(--safe-area-left,0px)-var(--safe-area-right,0px)))] -translate-x-1/2"
-						: "right-[calc(16px+var(--safe-area-right,0px))] bottom-[calc(16px+var(--safe-area-bottom,0px)+var(--toast-bottom-offset,0px))] w-[min(360px,calc(100vw-32px))]",
+						? "top-overlay-offset-2 left-1/2 w-[min(420px,calc(100vw-32px-var(--safe-area-left,0px)-var(--safe-area-right,0px)))] -translate-x-1/2"
+						: "left-(--toast-left,calc(16px+var(--safe-area-left,0px))) bottom-(--toast-bottom,calc(16px+var(--safe-area-bottom,0px))) w-(--toast-width,min(360px,calc(100vw-32px))) max-w-[calc(100vw-32px)]",
 					props.class,
 				)}
 			>
@@ -645,6 +657,9 @@ export const Toaster = (props: ToasterProps) => {
 					}}
 					onPointerLeave={(event) => {
 						if (event.pointerType === "mouse") setHovered(false);
+					}}
+					onPointerDown={(event) => {
+						if (event.pointerType !== "mouse") setPressed(true);
 					}}
 					onFocusIn={(event) => {
 						const target = event.target as Element;

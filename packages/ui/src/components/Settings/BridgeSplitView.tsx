@@ -112,7 +112,7 @@ const AddPane = (props: BridgeSplitViewProps) => {
 					<h2 id={headingId} class={paneHeading}>
 						Add a bridge
 					</h2>
-					<p class="m-0 text-sm text-pretty text-muted-foreground">
+					<p class="m-0 text-sm leading-prose text-pretty text-muted-foreground">
 						Connect a featured bridge, or enter a code from a bridge's setup
 						page.
 					</p>

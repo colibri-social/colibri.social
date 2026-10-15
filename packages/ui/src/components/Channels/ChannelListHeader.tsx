@@ -1,9 +1,16 @@
 import { AltArrowDownIcon } from "@solar-icons/solid/linear/alt-arrow-down";
 import { AltArrowRightIcon } from "@solar-icons/solid/linear/alt-arrow-right";
-import { createSignal, type JSX, mergeProps, Show } from "solid-js";
+import {
+	createSignal,
+	type JSX,
+	mergeProps,
+	onCleanup,
+	onMount,
+	Show,
+} from "solid-js";
 import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
-import { Banner } from "../Banner/Banner";
+import { Banner, hasSpaceBanner } from "../Banner/Banner";
 import { Card } from "../Card/Card";
 import {
 	type SpaceContextMenuActions,
@@ -109,19 +116,36 @@ const MobileSpaceButton = (props: {
 	);
 };
 
-const DesktopSpaceButton = (props: {
+export const SPACE_HEADER_HEIGHT = 44;
+
+const scrollParentOf = (node: HTMLElement) => {
+	let current = node.parentElement;
+	while (current) {
+		const overflow = getComputedStyle(current).overflowY;
+		if (overflow === "auto" || overflow === "scroll") return current;
+		current = current.parentElement;
+	}
+	return undefined;
+};
+
+const DesktopSpaceRow = (props: {
 	name: string;
 	label?: string;
 	menu?: SpaceMenuActions;
 	onClick?: () => void;
-	overlay?: boolean;
+	overlay: boolean;
+	scrolled: boolean;
+	ref: (node: HTMLDivElement) => void;
 }) => (
 	<div
+		ref={props.ref}
 		data-space-header-row=""
 		data-overlay={props.overlay ? "" : undefined}
+		data-scrolled={props.scrolled ? "" : undefined}
 		class={cx(
-			"flex h-11 min-w-0 items-center p-2",
-			props.overlay && "absolute inset-x-0 top-0 z-10",
+			"sticky top-0 z-20 flex h-11 min-w-0 shrink-0 items-center justify-between gap-2 p-2 transition-[background-color,box-shadow] duration-[calc(150ms*var(--motion-scale))] ease-out motion-reduce:transition-none reduced-motion:transition-none",
+			props.overlay ? "bg-transparent" : "bg-background",
+			props.scrolled && "shadow-[inset_0_-1px_0_var(--secondary)]",
 		)}
 	>
 		<Show
@@ -159,9 +183,82 @@ const DesktopSpaceButton = (props: {
 	</div>
 );
 
+const DesktopHeader = (props: ChannelListHeaderProps) => {
+	const banner = () => hasSpaceBanner(props);
+	const [scrolled, setScrolled] = createSignal(false);
+	let row: HTMLDivElement | undefined;
+	let hero: HTMLDivElement | undefined;
+
+	onMount(() => {
+		if (!row) return;
+		const scroller = scrollParentOf(row);
+		if (!scroller) return;
+		let frame = 0;
+		const measure = () => {
+			frame = 0;
+			if (!row) return;
+			const rowBottom = row.getBoundingClientRect().bottom;
+			const reference = hero?.isConnected
+				? hero.getBoundingClientRect().bottom
+				: scroller.getBoundingClientRect().top + SPACE_HEADER_HEIGHT;
+			setScrolled(
+				banner() ? reference <= rowBottom + 0.5 : scroller.scrollTop > 0.5,
+			);
+		};
+		const schedule = () => {
+			if (!frame) frame = requestAnimationFrame(measure);
+		};
+		measure();
+		scroller.addEventListener("scroll", schedule, { passive: true });
+		const resize = new ResizeObserver(schedule);
+		resize.observe(scroller);
+		onCleanup(() => {
+			scroller.removeEventListener("scroll", schedule);
+			resize.disconnect();
+			if (frame) cancelAnimationFrame(frame);
+		});
+	});
+
+	return (
+		<>
+			<DesktopSpaceRow
+				ref={(node) => {
+					row = node;
+				}}
+				name={props.name}
+				label={props.openLabel}
+				menu={props.menu}
+				onClick={props.onOpenSpace}
+				overlay={banner() && !scrolled()}
+				scrolled={scrolled()}
+			/>
+			<Show when={banner()}>
+				<div
+					ref={(node) => {
+						hero = node;
+					}}
+					data-space-hero=""
+					class="relative -mt-11"
+				>
+					<Banner
+						ratio="space"
+						src={props.bannerSrc}
+						tintFrom={props.iconSrc}
+						color={props.bannerColor}
+					/>
+					<span
+						aria-hidden="true"
+						data-space-scrim=""
+						class="pointer-events-none absolute inset-x-0 top-0 h-16 bg-linear-to-b from-black/45 to-transparent"
+					/>
+				</div>
+			</Show>
+		</>
+	);
+};
+
 export const ChannelListHeader = (props: ChannelListHeaderProps) => {
 	const desktop = () => props.platform === "desktop";
-	const overlay = () => desktop() && !!(props.bannerSrc || props.bannerColor);
 	const chips = () => (
 		<div data-space-chips="" class="flex min-w-0 flex-wrap gap-1">
 			<MemberCountChip count={props.memberCount} label={props.memberLabel} />
@@ -175,29 +272,26 @@ export const ChannelListHeader = (props: ChannelListHeaderProps) => {
 		<div
 			data-channel-list-header=""
 			data-platform={desktop() ? "desktop" : "mobile"}
-			class={cx("flex w-full flex-col", props.class)}
+			data-banner-flush={desktop() && hasSpaceBanner(props) ? "" : undefined}
+			class={cx(desktop() ? "contents" : "flex w-full flex-col", props.class)}
 		>
-			<div
-				data-space-hero=""
-				data-banner-flush={overlay() ? "" : undefined}
-				class="relative flex flex-col"
+			<Show
+				when={desktop()}
+				fallback={
+					<Show when={hasSpaceBanner(props)}>
+						<div data-space-hero="" class="relative flex flex-col">
+							<Banner
+								ratio="space"
+								src={props.bannerSrc}
+								tintFrom={props.iconSrc}
+								color={props.bannerColor}
+							/>
+						</div>
+					</Show>
+				}
 			>
-				<Show when={desktop()}>
-					<DesktopSpaceButton
-						name={props.name}
-						label={props.openLabel}
-						menu={props.menu}
-						onClick={props.onOpenSpace}
-						overlay={overlay()}
-					/>
-				</Show>
-				<Banner
-					ratio="space"
-					src={props.bannerSrc}
-					tintFrom={props.iconSrc}
-					color={props.bannerColor}
-				/>
-			</div>
+				<DesktopHeader {...props} />
+			</Show>
 			<div
 				class={cx(
 					"flex flex-col gap-2 p-4",

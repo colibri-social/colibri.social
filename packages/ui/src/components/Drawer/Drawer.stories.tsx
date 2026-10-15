@@ -19,6 +19,7 @@ import { Button } from "../Button/Button";
 import { MarkReadIcon } from "../ContextMenu/menu-entries";
 import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
 import { DestructiveRow } from "../List/List";
+import { TextField } from "../TextField/TextField";
 import { Drawer, DrawerContent, DrawerTrigger } from "./Drawer";
 
 const meta = {
@@ -514,4 +515,87 @@ export const GuardsUnsavedChanges: Story = {
 			expect(document.body.style.pointerEvents).not.toBe("none"),
 		);
 	},
+};
+
+const KEYBOARD = 300;
+
+const liftedDrawer = () =>
+	document.querySelector<HTMLElement>(
+		"[data-corvu-drawer-content][data-keyboard-lift]",
+	) as HTMLElement;
+
+const expectFitsAboveKeyboard = async () => {
+	const content = liftedDrawer();
+	const overlayTop =
+		Number.parseFloat(
+			getComputedStyle(document.documentElement).getPropertyValue(
+				"--overlay-top",
+			),
+		) || 0;
+	await waitFor(() => {
+		const box = content.getBoundingClientRect();
+		expect(
+			Math.abs(box.bottom - (window.innerHeight - KEYBOARD)),
+		).toBeLessThanOrEqual(1);
+		expect(box.top).toBeGreaterThanOrEqual(overlayTop - 1);
+	});
+	const field = content.querySelector("input") as HTMLInputElement;
+	field.scrollIntoView({ block: "nearest" });
+	await waitFor(() => {
+		const box = field.getBoundingClientRect();
+		expect(box.bottom).toBeLessThanOrEqual(window.innerHeight - KEYBOARD + 1);
+		expect(box.top).toBeGreaterThanOrEqual(content.getBoundingClientRect().top);
+	});
+};
+
+const keyboardLiftPlay: Story["play"] = async () => {
+	await waitFor(() => expect(liftedDrawer()).toBeTruthy());
+	const content = liftedDrawer();
+	await new Promise((resolve) => setTimeout(resolve, 700));
+	const rest = content.getBoundingClientRect().bottom;
+	content.style.translate = "0 -120px";
+	await waitFor(() =>
+		expect(Math.round(content.getBoundingClientRect().bottom)).toBe(
+			Math.round(rest - 120),
+		),
+	);
+	content.style.translate = "";
+	content.style.setProperty("--keyboard-lift", `${KEYBOARD}px`);
+	await expectFitsAboveKeyboard();
+	await expectNoLayoutIssues(content);
+	content.style.removeProperty("--keyboard-lift");
+	await waitFor(() =>
+		expect(Math.round(content.getBoundingClientRect().bottom)).toBe(
+			Math.round(rest),
+		),
+	);
+};
+
+export const KeyboardLift: Story = {
+	render: () => (
+		<Drawer initialOpen>
+			<DrawerContent title="Rename channel">
+				<TextField label="Name" placeholder="general" />
+			</DrawerContent>
+		</Drawer>
+	),
+	play: keyboardLiftPlay,
+};
+
+export const KeyboardLiftTall: Story = {
+	render: () => (
+		<Drawer initialOpen>
+			<DrawerContent title="Members">
+				<For each={Array.from({ length: 40 }, (_, index) => index + 1)}>
+					{(index) => (
+						<div class="flex h-12 shrink-0 items-center rounded-control-lg bg-secondary px-3 text-sm font-semibold">
+							Member {index}
+						</div>
+					)}
+				</For>
+				<TextField label="Search" placeholder="Find a member" />
+			</DrawerContent>
+		</Drawer>
+	),
+	play: keyboardLiftPlay,
 };

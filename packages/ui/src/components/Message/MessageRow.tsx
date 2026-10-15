@@ -19,6 +19,7 @@ import {
 	nameColorStyle,
 	useNameColor,
 } from "../../utils/name-color";
+import { isStaticSource } from "../../utils/playback";
 import { createSlot } from "../../utils/slot";
 import {
 	formatFullTimestamp,
@@ -97,7 +98,6 @@ export type MessageRowProps = Omit<
 	onAuthorMenu?: (event: Event) => void;
 };
 
-export const PENDING_DIM_DELAY_MS = 300;
 export const JUMP_HIGHLIGHT_MS = 1500;
 export const JUMP_FADE_MS = 600;
 
@@ -113,7 +113,7 @@ const failedLinkButton =
 	"cursor-pointer rounded-control-xs text-destructive-highlight underline underline-offset-2 outline-none hover:text-foreground focus-ring";
 
 const contentText =
-	"text-base leading-[21px] [overflow-wrap:anywhere] [&>[data-rich-text]]:inline [&_a:not([data-chip])]:text-primary-highlight [&_a:not([data-chip])]:underline-offset-2 [&_a:not([data-chip])]:decoration-1 [&_a:not([data-chip]):hover]:underline";
+	"text-base leading-message [overflow-wrap:anywhere] [&>[data-rich-text]]:inline [&_a:not([data-chip])]:text-primary-highlight [&_a:not([data-chip])]:underline-offset-2 [&_a:not([data-chip])]:decoration-1 [&_a:not([data-chip]):hover]:underline";
 
 const ReplyLine = (props: { reply: MessageReply }) => {
 	const interactive = () => !!props.reply.onClick && !props.reply.unavailable;
@@ -155,6 +155,9 @@ const ReplyLine = (props: { reply: MessageReply }) => {
 											<AnimatedImage
 												src={src}
 												alt=""
+												animated={!isStaticSource(src)}
+												playback="demand"
+												frameSize={16}
 												class="size-full object-cover"
 												draggable={false}
 											/>
@@ -232,7 +235,7 @@ export const MessageRow = (props: MessageRowProps) => {
 	const reactions = createSlot(() => local.reactions);
 	const thread = createSlot(() => local.thread);
 	const toolbar = createSlot(() => local.toolbar);
-	const [dimmed, setDimmed] = createSignal(false);
+	const dimmed = () => local.state === "pending";
 	const [failedMenuOpen, setFailedMenuOpen] = createSignal(false);
 	const keyboardModality = useKeyboardModality();
 	const [keyboardFocus, setKeyboardFocus] = createSignal(false);
@@ -240,23 +243,6 @@ export const MessageRow = (props: MessageRowProps) => {
 	const highlight = (): MessageHighlight | undefined =>
 		listItem?.jumped() ? "jumped" : local.highlight;
 	let root: HTMLElement | undefined;
-
-	createEffect(
-		on(
-			() => local.state,
-			(state) => {
-				if (state !== "pending") {
-					setDimmed(false);
-					return;
-				}
-				const timer = setTimeout(
-					() => setDimmed(true),
-					PENDING_DIM_DELAY_MS * motionScale(),
-				);
-				onCleanup(() => clearTimeout(timer));
-			},
-		),
-	);
 
 	createEffect(
 		on(highlight, (value) => {
@@ -328,6 +314,7 @@ export const MessageRow = (props: MessageRowProps) => {
 					local.ref?.(element);
 				}}
 				data-message=""
+				data-media-play-host=""
 				data-message-key={listItem?.key}
 				aria-posinset={listItem?.position()}
 				aria-setsize={listItem?.setSize()}
@@ -394,7 +381,7 @@ export const MessageRow = (props: MessageRowProps) => {
 							<span
 								data-continuation-time=""
 								class={cx(
-									"flex h-[21px] w-10 shrink-0 items-center justify-center text-[11px] leading-none whitespace-nowrap text-muted-foreground tabular-nums",
+									"flex h-(--leading-message) w-10 shrink-0 items-center justify-center text-[11px] leading-none whitespace-nowrap text-muted-foreground tabular-nums",
 									local.showTime
 										? "opacity-100"
 										: "opacity-0 group-hover/message:opacity-100 [@media(hover:hover)]:group-data-keyboard-focus/message:opacity-100",

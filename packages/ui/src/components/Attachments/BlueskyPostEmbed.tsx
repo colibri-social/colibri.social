@@ -86,7 +86,9 @@ const QuotedPost = (props: { post: BlueskyPost }) => (
 		class="flex flex-col gap-1.5 rounded-badge border border-border p-3"
 	>
 		<PostHeader post={props.post} size="sm" />
-		<p class="m-0 line-clamp-3 text-sm select-text">{props.post.text}</p>
+		<p class="m-0 line-clamp-3 text-sm leading-prose select-text">
+			{props.post.text}
+		</p>
 	</div>
 );
 
@@ -146,7 +148,9 @@ export const BlueskyPostEmbed = (props: BlueskyPostEmbedProps) => (
 				Replying to @{props.post.replyTo}
 			</span>
 		</Show>
-		<p class="m-0 text-sm whitespace-pre-wrap select-text">{props.post.text}</p>
+		<p class="m-0 text-sm leading-prose whitespace-pre-wrap select-text">
+			{props.post.text}
+		</p>
 		<Show when={props.post.images?.length}>
 			<MediaGrid
 				items={props.post.images ?? []}
@@ -200,7 +204,7 @@ export const BlueskyPostEmbedSkeleton = (
 			</span>
 			<Skeleton width={32} height={32} class="shrink-0 rounded-control-sm" />
 		</div>
-		<SkeletonText size="sm" lines={props.lines ?? 2} />
+		<SkeletonText size="sm" prose lines={props.lines ?? 2} />
 		<Show when={props.stats ?? true}>
 			<span class="flex items-center gap-4">
 				<Skeleton width={36} height={16} />

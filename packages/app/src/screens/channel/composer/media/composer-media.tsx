@@ -19,6 +19,7 @@ export type ComposerMediaOptions = {
 	onSendGif: (gif: GifView) => void;
 	platform?: "mobile" | "desktop";
 	anchor?: () => HTMLElement | undefined;
+	focusComposer?: () => void;
 };
 
 export type ComposerMedia = {
@@ -72,9 +73,13 @@ export const createComposerMedia = (
 
 	const pickEmoji = (pick: EmojiPick) => {
 		setOpen(null);
+		if (options.platform !== "desktop")
+			queueMicrotask(() => options.focusComposer?.());
 		if (pick.kind === "unicode") {
-			session.recordEmoji(pick.emoji);
-			afterOverlaysClose(() => options.onInsertEmoji(pick.emoji));
+			afterOverlaysClose(() => {
+				session.recordEmoji(pick.emoji);
+				options.onInsertEmoji(pick.emoji);
+			});
 			return;
 		}
 		const custom = pick.emoji;

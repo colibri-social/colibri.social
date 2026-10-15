@@ -410,7 +410,7 @@ export const InboxEmpty = (props: {
 		<p class="m-0 text-sm font-semibold text-balance text-foreground">
 			{emptyCopy(props.filter, props.spaceName).title}
 		</p>
-		<p class="m-0 max-w-72 text-sm text-pretty text-muted-foreground">
+		<p class="m-0 max-w-72 text-sm leading-prose text-pretty text-muted-foreground">
 			{emptyCopy(props.filter, props.spaceName).body}
 		</p>
 		<Show when={props.onOpenSettings}>
@@ -442,7 +442,7 @@ export const InboxError = (props: { onRetry?: () => void; class?: string }) => (
 		<p class="m-0 text-sm font-semibold text-balance text-foreground">
 			Couldn't load your inbox
 		</p>
-		<p class="m-0 max-w-72 text-sm text-pretty text-muted-foreground">
+		<p class="m-0 max-w-72 text-sm leading-prose text-pretty text-muted-foreground">
 			Check your connection and try again.
 		</p>
 		<Show when={props.onRetry}>

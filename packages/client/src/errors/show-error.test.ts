@@ -6,7 +6,7 @@ vi.mock("somoto", () => ({
 }));
 
 const { showError } = await import("./show-error");
-const { ColibriError } = await import("./error");
+const { ColibriError } = await import("@colibri-social/lib");
 
 afterEach(() => {
 	toastError.mockClear();

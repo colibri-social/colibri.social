@@ -1,3 +1,4 @@
+import { classifyThrown, frameIs } from "@colibri-social/lib";
 import { type Component, onCleanup, onMount } from "solid-js";
 import { namespace } from "../../atproto/cache/keys";
 import {
@@ -12,11 +13,9 @@ import {
 	readMessages,
 	writeMessages,
 } from "../../atproto/cache/store";
-import { frameIs } from "../../atproto/sync-frames";
 import { PAGE_SIZE } from "../../contexts/Channel";
 import { useSocketContext } from "../../contexts/Socket";
 import { useUserContext } from "../../contexts/User";
-import { classifyThrown } from "../../errors/classify";
 import { getAppViewDid } from "../../utils/appview";
 import { createLogger } from "../../utils/logger";
 

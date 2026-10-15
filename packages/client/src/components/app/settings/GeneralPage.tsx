@@ -1,3 +1,4 @@
+import { classifyThrown } from "@colibri-social/lib";
 import type { Details } from "@kobalte/core/file-field";
 import {
 	type Component,
@@ -35,7 +36,6 @@ import {
 	TextFieldTextArea,
 } from "../../../components/ui/TextField";
 import { useUserContext } from "../../../contexts/User";
-import { classifyThrown } from "../../../errors/classify";
 import { createLogger } from "../../../utils/logger";
 import { readableUserColor } from "../../../utils/readable-color";
 import { resolvedTheme } from "../../../utils/theme";

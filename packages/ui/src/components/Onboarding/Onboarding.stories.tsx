@@ -3,6 +3,7 @@ import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { type Haptics, HapticsProvider } from "../../utils/haptics";
 import { setAppActive } from "../../utils/playback";
+import { applySafeAreaInsets } from "../../utils/safe-area";
 import {
 	defaultAvatarFor,
 	defaultAvatarUrl,
@@ -351,7 +352,7 @@ const OnboardingDemo = (props: {
 	records?: ProfileSetupRecords;
 	avatarSrc?: string;
 	requestPermission?: () => Promise<NotificationPermissionResult>;
-	onOpenBrowser?: () => void;
+	onCreateAccount?: () => void;
 	onSignIn?: (handle: string, account?: HandleSuggestion) => void;
 	onHandleQuery?: (query: string) => void;
 	suggestHandles?: boolean;
@@ -412,7 +413,7 @@ const OnboardingDemo = (props: {
 						<Match when={onboarding.step() === "create-account"}>
 							<CreateAccountScreen
 								onBack={onboarding.back}
-								onOpenBrowser={() => props.onOpenBrowser?.()}
+								onContinue={() => props.onCreateAccount?.()}
 							/>
 						</Match>
 						<Match when={onboarding.step() === "profile-source"}>
@@ -659,6 +660,156 @@ export const SignIn: Story = {
 	play: signInPlay("mobile"),
 };
 
+export const SignInUnknownUsername: Story = {
+	render: (args) => (
+		<OnboardingDemo
+			platform="mobile"
+			start="sign-in"
+			suggestHandles
+			onHandleQuery={args.onHandleQuery}
+			onSignIn={args.onSignIn}
+		/>
+	),
+	play: async ({ canvasElement, args }) => {
+		const canvas = within(canvasElement);
+		const field = canvas.getByRole("combobox", { name: "Handle or username" });
+		await userEvent.type(field, "nobody.example.org");
+		await waitFor(() =>
+			expect(args.onHandleQuery).toHaveBeenLastCalledWith("nobody.example.org"),
+		);
+		await new Promise((resolve) => setTimeout(resolve, 150));
+		await expect(
+			document.querySelector("[data-handle-suggestions]"),
+		).toBeNull();
+		await userEvent.click(canvas.getByRole("button", { name: /Log in/ }));
+		await expect(args.onSignIn).toHaveBeenCalledTimes(1);
+		await expect(args.onSignIn).toHaveBeenCalledWith("nobody.example.org");
+	},
+};
+
+export const SuggestionsLeaveLogInFree: Story = {
+	render: (args) => (
+		<OnboardingDemo
+			platform="mobile"
+			start="sign-in"
+			suggestHandles
+			onHandleQuery={args.onHandleQuery}
+			onSignIn={args.onSignIn}
+		/>
+	),
+	play: async ({ canvasElement, args }) => {
+		const canvas = within(canvasElement);
+		await typeHandleQuery(canvas, args);
+		const listbox = await suggestionList();
+		const login = canvas.getByRole("button", { name: /Log in/ });
+		const list = listbox.getBoundingClientRect();
+		const button = login.getBoundingClientRect();
+		const overlaps =
+			list.left < button.right &&
+			list.right > button.left &&
+			list.top < button.bottom &&
+			list.bottom > button.top;
+		await expect(overlaps).toBe(false);
+		await userEvent.click(login);
+		await expect(args.onSignIn).toHaveBeenCalledTimes(1);
+		await expect(args.onSignIn).toHaveBeenCalledWith("al");
+	},
+};
+
+const suggestionsMatchField =
+	(width: number) =>
+	async ({
+		canvasElement,
+		args,
+	}: {
+		canvasElement: HTMLElement;
+		args: Args;
+	}) => {
+		applySafeAreaInsets({ top: 52, bottom: 24, left: 0, right: 0 });
+		try {
+			const canvas = within(canvasElement);
+			await typeHandleQuery(canvas, args);
+			const listbox = await suggestionList();
+			const content = listbox.closest<HTMLElement>("[data-handle-suggestions]");
+			const control = canvasElement.querySelector<HTMLElement>(
+				"[data-handle-control]",
+			);
+			if (!content || !control) throw new Error("missing field or list");
+			const frame =
+				canvasElement.querySelector<HTMLElement>("[data-story-width]");
+			await expect(frame?.getBoundingClientRect().width).toBe(width);
+			await waitFor(() => {
+				const list = content.getBoundingClientRect();
+				const field = control.getBoundingClientRect();
+				expect(Math.abs(list.left - field.left)).toBeLessThanOrEqual(1);
+				expect(Math.abs(list.right - field.right)).toBeLessThanOrEqual(1);
+				expect(list.left).toBeGreaterThanOrEqual(0);
+				expect(list.right).toBeLessThanOrEqual(window.innerWidth);
+				expect(list.top).toBeGreaterThanOrEqual(52);
+			});
+		} finally {
+			applySafeAreaInsets(null);
+		}
+	};
+
+const NarrowSignIn = (props: { width: number; args: Args }) => (
+	<div
+		data-story-width=""
+		class="fixed inset-y-0 left-0 z-10 overflow-y-auto bg-background"
+		style={{ width: `${props.width}px` }}
+	>
+		<OnboardingDemo
+			platform="mobile"
+			start="sign-in"
+			suggestHandles
+			onHandleQuery={props.args.onHandleQuery}
+			onSignIn={props.args.onSignIn}
+		/>
+	</div>
+);
+
+export const SuggestionsMatchFieldPhone: Story = {
+	parameters: { layout: "fullscreen" },
+	render: (args) => <NarrowSignIn width={402} args={args} />,
+	play: suggestionsMatchField(402),
+};
+
+export const SuggestionsMatchFieldNarrow: Story = {
+	parameters: { layout: "fullscreen" },
+	render: (args) => <NarrowSignIn width={320} args={args} />,
+	play: suggestionsMatchField(320),
+};
+
+const expectLogInIntact = async () => {
+	const logIn = await screen.findByRole("button", { name: /^Log in/ });
+	const label = logIn.querySelector<HTMLElement>("[data-button-label]");
+	if (!label) throw new Error("missing label");
+	await expect(label.scrollHeight).toBeLessThanOrEqual(label.clientHeight);
+	await expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth);
+	const glyphs = document.createRange();
+	glyphs.selectNodeContents(label);
+	const lines = new Set(
+		Array.from(glyphs.getClientRects()).map((rect) => Math.round(rect.top)),
+	);
+	const hint = logIn.querySelector<HTMLElement>("[data-onboarding-key-hint]");
+	if (hint) {
+		const word = label.firstChild;
+		if (!word) throw new Error("missing label text");
+		const text = document.createRange();
+		text.selectNodeContents(word);
+		const textBox = text.getBoundingClientRect();
+		const hintBox = hint.getBoundingClientRect();
+		await expect(hintBox.left).toBeGreaterThanOrEqual(textBox.right);
+		await expect(
+			Math.abs(
+				hintBox.top + hintBox.height / 2 - (textBox.top + textBox.height / 2),
+			),
+		).toBeLessThanOrEqual(2);
+	} else {
+		await expect(lines.size).toBe(1);
+	}
+};
+
 const createAccountPlay =
 	(platform: OnboardingPlatform) =>
 	async ({
@@ -678,12 +829,18 @@ const createAccountPlay =
 		);
 		await expect(link).toHaveAttribute("target", "_blank");
 		await expect(link.getAttribute("rel")).toContain("noopener");
+		await expect(
+			view.getByRole("heading", {
+				name: "Create an account on colibri.social",
+			}),
+		).toBeInTheDocument();
 		await userEvent.click(view.getByRole("button", { name: /Open browser/ }));
-		await expect(args.onChange).toHaveBeenCalledWith("open-browser");
+		await expect(args.onChange).toHaveBeenCalledWith("create-account");
 		await userEvent.click(view.getByRole("button", { name: "Back" }));
 		await view.findByRole("heading", {
 			name: "Sign in with your existing account",
 		});
+		await expectLogInIntact();
 	};
 
 export const CreateAccount: Story = {
@@ -691,7 +848,7 @@ export const CreateAccount: Story = {
 		<OnboardingDemo
 			platform="mobile"
 			start="create-account"
-			onOpenBrowser={() => args.onChange("open-browser")}
+			onCreateAccount={() => args.onChange("create-account")}
 		/>
 	),
 	play: createAccountPlay("mobile"),
@@ -800,7 +957,7 @@ export const ProfileImagesPreview: Story = {
 		await applyCrop();
 		const avatar = await waitFor(() => {
 			const image = canvasElement.querySelector<HTMLImageElement>(
-				"[data-profile-avatar-preview]",
+				"img[data-profile-avatar-preview]",
 			);
 			if (!image) throw new Error("No avatar preview");
 			return image;
@@ -1009,7 +1166,7 @@ const desktop = (
 			records={records}
 			avatarSrc={DEMO_AVATAR}
 			onSignIn={args.onChange}
-			onOpenBrowser={() => args.onChange("open-browser")}
+			onCreateAccount={() => args.onChange("create-account")}
 			onComplete={(result) => args.onChange(result.notifications)}
 		/>
 	),
@@ -1203,5 +1360,83 @@ export const DesktopFlowResizes: Story = {
 		});
 		await expect(dialog.offsetHeight).toBeGreaterThan(before);
 		await expect(dialog.offsetHeight).toBeLessThanOrEqual(760);
+	},
+};
+
+const STEP_FIELD_SELECTOR =
+	"input:not([type='hidden']):not(:disabled), textarea:not(:disabled), select:not(:disabled), [contenteditable='true']";
+
+const expectStepFocus = async (expectField: boolean) => {
+	const dialog = await screen.findByRole("dialog");
+	await waitFor(() => {
+		const body = dialog.querySelector<HTMLElement>("[data-onboarding-body]");
+		const active = document.activeElement as HTMLElement | null;
+		if (!body || !active) throw new Error("missing body or focus");
+		const field = body.querySelector<HTMLElement>(STEP_FIELD_SELECTOR);
+		if (expectField) {
+			expect(field).not.toBeNull();
+			expect(active).toBe(field);
+		} else {
+			expect(field).toBeNull();
+			expect(active.getAttribute("data-onboarding-action")).toBe("primary");
+		}
+	});
+};
+
+const autofocusStory = (
+	start: OnboardingStep,
+	expectField: boolean,
+	records?: ProfileSetupRecords,
+): Story => ({
+	...desktop(start, records),
+	play: () => expectStepFocus(expectField),
+});
+
+export const AutofocusWelcomeDesktop = autofocusStory("welcome", false);
+
+export const AutofocusSignInDesktop = autofocusStory("sign-in", true);
+
+export const AutofocusCreateAccountDesktop = autofocusStory(
+	"create-account",
+	false,
+);
+
+export const AutofocusProfileEditorDesktop = autofocusStory(
+	"profile-editor",
+	true,
+	{ colibriProfile: false, blueskyProfile: false },
+);
+
+export const AutofocusNotificationsDesktop = autofocusStory(
+	"notifications",
+	false,
+);
+
+export const AutofocusFollowsStepsDesktop: Story = {
+	...desktop("welcome"),
+	play: async () => {
+		await expectStepFocus(false);
+		const dialog = await screen.findByRole("dialog");
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: /Start setup/ }),
+		);
+		await expectStepFocus(true);
+		await expect(document.activeElement).toBe(
+			within(dialog).getByRole("combobox", { name: "Handle or username" }),
+		);
+	},
+};
+
+export const NoAutofocusMobile: Story = {
+	render: (args) => (
+		<OnboardingDemo
+			platform="mobile"
+			start="sign-in"
+			onSignIn={args.onChange}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		await new Promise((resolve) => setTimeout(resolve, 200));
+		await expect(canvasElement.contains(document.activeElement)).toBe(false);
 	},
 };

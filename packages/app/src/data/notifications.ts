@@ -29,8 +29,8 @@ export const createNotificationStore = (
 	};
 	const [status, setStatus] = createSignal<NotificationStatus>("loading");
 
-	const load = async () => {
-		setStatus("loading");
+	const load = async (quiet = false) => {
+		if (!quiet) setStatus("loading");
 		try {
 			const all: NotificationView[] = [];
 			let cursor: string | undefined;
@@ -50,11 +50,51 @@ export const createNotificationStore = (
 				setStatus("ready");
 			});
 		} catch {
-			setStatus("error");
+			if (!quiet || status() !== "ready") setStatus("error");
+		}
+	};
+
+	const applySeenMessage = (
+		seenAt: Datetime,
+		message: { did: string; rkey: string },
+	) => {
+		const targets = all().filter(
+			(entry) =>
+				isUnread(entry) &&
+				entry.message?.author.did === message.did &&
+				entry.message.rkey === message.rkey,
+		);
+		if (targets.length === 0) return;
+		patch(new Set(targets.map((entry) => entry.id)), seenAt);
+		onSeenChange?.(targets, true);
+	};
+
+	const applySeen = (seenAt: Datetime, unread: number, global: boolean) => {
+		if (global) {
+			const cutoff = Date.parse(seenAt);
+			const targets = all().filter(
+				(entry) => isUnread(entry) && Date.parse(entry.indexedAt) <= cutoff,
+			);
+			if (targets.length > 0) {
+				patch(new Set(targets.map((entry) => entry.id)), seenAt);
+				onSeenChange?.(targets, true);
+			}
+		}
+		if (
+			global &&
+			status() === "ready" &&
+			all().filter(isUnread).length !== unread
+		) {
+			void load();
 		}
 	};
 
 	source.subscribe((event) => {
+		if (event.$type === "seenEvent") {
+			if (event.message) applySeenMessage(event.seenAt, event.message);
+			applySeen(event.seenAt, event.unread, !event.channel);
+			return;
+		}
 		if (event.$type !== "notificationEvent") return;
 		const next = event.notification;
 		setItems((current) =>
@@ -137,7 +177,8 @@ export const createNotificationStore = (
 		items,
 		status,
 		unreadCount: () => items().filter(isUnread).length,
-		reload: load,
+		reload: () => load(),
+		refresh: () => load(status() === "ready"),
 		markRead,
 		markAllRead,
 		clear,

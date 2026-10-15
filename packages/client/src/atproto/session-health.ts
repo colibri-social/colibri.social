@@ -1,7 +1,11 @@
+import {
+	ColibriError,
+	type ColibriErrorCode,
+	classifyThrown,
+	needsReauthentication,
+	readEnvelope,
+} from "@colibri-social/lib";
 import { createSignal } from "solid-js";
-import { classifyThrown, readEnvelope } from "../errors/classify";
-import { type ColibriErrorCode, needsReauthentication } from "../errors/codes";
-import { ColibriError } from "../errors/error";
 import { reportError } from "../errors/report";
 import { createLogger } from "../utils/logger";
 

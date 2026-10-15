@@ -1,6 +1,9 @@
 import type { MessageAuthor, RoleIdentity } from "@colibri-social/ui";
 import { roleIdentity, rolesOf, topColoredRole } from "../roles";
 import type { MemberView, ProfileView, RoleView } from "../types";
+import { displayNameOf } from "./display-name";
+
+export { displayNameOf };
 
 export type AuthorDirectory = {
 	members: ReadonlyMap<string, MemberView>;
@@ -23,15 +26,6 @@ export const isOwnerMember = (
 	member: Pick<MemberView, "roles"> | undefined,
 	roles: ReadonlyMap<string, RoleView>,
 ) => !!member?.roles.some((rkey) => roles.get(rkey)?.protected);
-
-export const displayNameOf = (
-	profile: Pick<ProfileView, "displayName" | "handle"> | undefined,
-	member?: Pick<MemberView, "nickname">,
-) =>
-	member?.nickname?.trim() ||
-	profile?.displayName?.trim() ||
-	profile?.handle ||
-	"Unknown user";
 
 export const toMessageAuthor = (
 	profile: ProfileView,

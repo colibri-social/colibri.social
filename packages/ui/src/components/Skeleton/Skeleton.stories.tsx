@@ -4,6 +4,7 @@ import { expect, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { Avatar } from "../Avatar/Avatar";
 import { Banner } from "../Banner/Banner";
+import { storyImages } from "../Banner/story-images";
 import { InboxGroupCard } from "../Inbox/InboxGroupCard";
 import { CheckboxRow, ListGroup, NavRow, ToggleRow } from "../List/List";
 import { MessagePreview } from "../Message/MessagePreview";
@@ -384,6 +385,7 @@ export const SizeParity: Story = {
 					real={
 						<SpaceCard
 							name="Colibri Social Flock"
+							bannerSrc={storyImages.sunsetBanner()}
 							memberCount={180}
 							description={DESCRIPTION}
 						/>
@@ -493,6 +495,7 @@ export const SizeParity: Story = {
 					real={
 						<SpaceProfileHeader
 							name="Colibri Social Flock"
+							bannerSrc={storyImages.sunsetBanner()}
 							memberCount={20}
 							ownerHandle="lou.gg"
 							description="Builders hang out here."

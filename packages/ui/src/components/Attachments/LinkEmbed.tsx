@@ -71,17 +71,20 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 		<Show
 			when={props.onOpenImage}
 			fallback={
-				<AnimatedImage
-					src={imageProps.image.src}
-					alt=""
-					class={imageProps.class}
-				/>
+				<span data-image-src={imageProps.image.src} class="contents">
+					<AnimatedImage
+						src={imageProps.image.src}
+						alt=""
+						class={imageProps.class}
+					/>
+				</span>
 			}
 		>
 			<button
 				type="button"
 				data-media-tile=""
 				data-index={0}
+				data-image-src={imageProps.image.src}
 				aria-label={`Open image from ${label()}`}
 				onClick={() => props.onOpenImage?.()}
 				class={cx(
@@ -137,7 +140,7 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 						</span>
 					</Show>
 					<Show when={props.description}>
-						<span class="line-clamp-2 text-sm text-muted-foreground">
+						<span class="line-clamp-2 text-sm leading-prose text-muted-foreground">
 							{props.description}
 						</span>
 					</Show>
@@ -177,7 +180,7 @@ export const LinkEmbedSkeleton = (props: LinkEmbedSkeletonProps) => (
 				<SkeletonText size="xs" width="30%" />
 				<SkeletonText size="sm" width="75%" />
 				<Show when={(props.descriptionLines ?? 2) > 0}>
-					<SkeletonText size="sm" lines={props.descriptionLines ?? 2} />
+					<SkeletonText size="sm" prose lines={props.descriptionLines ?? 2} />
 				</Show>
 			</span>
 			<Show when={props.imageStyle === "thumbnail"}>

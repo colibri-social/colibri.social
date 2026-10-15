@@ -1,6 +1,11 @@
 import "@arborium/arborium/themes/base.css";
 import "@arborium/arborium/themes/github-light.css";
 import "@arborium/arborium/themes/tokyo-night.css";
+import {
+	classifyThrown,
+	describeError,
+	isColibriError,
+} from "@colibri-social/lib";
 import { withSentryRouterRouting } from "@sentry/solid/solidrouter";
 import { Route, Router, useNavigate, useParams } from "@solidjs/router";
 import {
@@ -47,9 +52,6 @@ import { UserPreferencesContextProvider } from "./contexts/UserPreferences";
 import { ViewportProvider } from "./contexts/Viewport";
 import { VoiceChatContextProvider } from "./contexts/VoiceChat";
 import NotFound from "./errors/404";
-import { classifyThrown } from "./errors/classify";
-import { describeError } from "./errors/copy";
-import { isColibriError } from "./errors/error";
 import { reportError } from "./errors/report";
 import AppLayout from "./layouts/AppLayout";
 import ChannelLayoutWithContext from "./layouts/ChannelLayout";

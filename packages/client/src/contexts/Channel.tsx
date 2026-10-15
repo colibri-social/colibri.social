@@ -1,4 +1,19 @@
-import type { ColibriRichTextFacet } from "@colibri-social/lib";
+import type {
+	ColibriError,
+	ColibriRichTextFacet,
+	LabelEventFrame,
+	MessageEventFrame,
+	ReactionEventFrame,
+	TypingEventFrame,
+} from "@colibri-social/lib";
+import {
+	buildMessageRecord,
+	classifyThrown,
+	nextTid,
+	spaceSkey,
+	typingFrame,
+	viewChannelFrame,
+} from "@colibri-social/lib";
 import {
 	type Accessor,
 	batch,
@@ -64,7 +79,6 @@ import {
 	liveMediaLink,
 	mediaRefreshDueAt,
 } from "../atproto/media-link";
-import { buildMessageRecord } from "../atproto/message-record";
 import {
 	enqueueSpaceCreate,
 	enqueueSpaceDelete,
@@ -82,20 +96,11 @@ import {
 	pendingSends,
 	sendsRevision,
 } from "../atproto/outbox/sends";
-import { nextTid } from "../atproto/outbox/tid";
 import {
 	adoptRemoteCursors,
 	recallReadCursor,
 	recordRead,
 } from "../atproto/read-cursor";
-import { spaceSkey } from "../atproto/space-ref";
-import type {
-	LabelEventFrame,
-	MessageEventFrame,
-	ReactionEventFrame,
-	TypingEventFrame,
-} from "../atproto/sync-frames";
-import { typingFrame, viewChannelFrame } from "../atproto/sync-frames";
 import type {
 	ChannelView,
 	Facet,
@@ -105,8 +110,6 @@ import type {
 } from "../atproto/views";
 import { clientForManagingApp } from "../atproto/xrpc";
 import { trimWithFacets } from "../components/app/common/rich-text-renderer/util";
-import { classifyThrown } from "../errors/classify";
-import type { ColibriError } from "../errors/error";
 import { isPingKind } from "../notifications";
 import { getAppViewDid } from "../utils/appview";
 import { foldBridgedReaction } from "../utils/bridged-reactions";

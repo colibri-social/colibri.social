@@ -67,7 +67,10 @@ export const InviteSettingsForm = (props: InviteSettingsFormProps) => {
 					}
 				/>
 			</div>
-			<p id={noteId} class="m-0 text-sm text-pretty text-muted-foreground">
+			<p
+				id={noteId}
+				class="m-0 text-sm leading-prose text-pretty text-muted-foreground"
+			>
 				Invite links can't be changed once they exist, so this creates a new
 				link with these settings.
 			</p>

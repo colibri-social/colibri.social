@@ -99,7 +99,7 @@ export const ErrorState = (props: ErrorStateProps) => {
 					<p class="m-0 text-sm font-semibold text-balance text-foreground">
 						{props.title ?? DEFAULT_TITLE}
 					</p>
-					<p class="m-0 text-xs text-pretty text-muted-foreground">
+					<p class="m-0 text-xs leading-prose text-pretty text-muted-foreground">
 						{props.description ?? DEFAULT_DESCRIPTION}
 					</p>
 					{code()}

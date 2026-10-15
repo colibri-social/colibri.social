@@ -1,3 +1,4 @@
+import { classifyThrown } from "@colibri-social/lib";
 import { useNavigate } from "@solidjs/router";
 import { createSignal, type ParentComponent, Show } from "solid-js";
 import { toast } from "somoto";
@@ -30,7 +31,6 @@ import {
 	ConnectionState,
 	useVoiceChatContext,
 } from "../../../contexts/VoiceChat";
-import { classifyThrown } from "../../../errors/classify";
 import { showError } from "../../../errors/show-error";
 import { showChannelTab } from "../../../utils/channel-tab";
 import { createLongPress } from "../../../utils/create-long-press";

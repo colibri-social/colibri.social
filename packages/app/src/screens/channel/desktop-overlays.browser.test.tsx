@@ -267,56 +267,83 @@ it("drops files into the composer of the zone they land in", async () => {
 const overlaps = (a: DOMRect, b: DOMRect) =>
 	a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 
-it("keeps toasts above the composer and the selection bar", async () => {
+const toastBoxes = () =>
+	Array.from(
+		document.querySelectorAll<HTMLElement>("[data-toaster] li[data-toast]"),
+	).map((item) => item.getBoundingClientRect());
+
+const settledToasts = async () => {
+	await until(() => toastBoxes().some((box) => box.height > 0));
+	await wait(450);
+	return toastBoxes();
+};
+
+const userPanel = () =>
+	document.querySelector<HTMLElement>("[data-user-panel]") as HTMLElement;
+
+it("stacks toasts bottom-left above the user panel", async () => {
 	await mount();
 	toast("Something happened");
-	const toastBox = () =>
-		document
-			.querySelector<HTMLElement>("[data-toaster] li[data-toast]")
-			?.getBoundingClientRect();
-	await until(() => (toastBox()?.height ?? 0) > 0);
-	await wait(300);
-	const composer = main().querySelector("[data-chat-footer]") as HTMLElement;
-	expect(
-		overlaps(toastBox() as DOMRect, composer.getBoundingClientRect()),
-	).toBe(false);
-	expect((toastBox() as DOMRect).bottom).toBeLessThanOrEqual(
-		composer.getBoundingClientRect().top,
+	toast("Something else happened");
+	const boxes = await settledToasts();
+	const panel = userPanel().getBoundingClientRect();
+	const composer = (
+		main().querySelector("[data-chat-footer]") as HTMLElement
+	).getBoundingClientRect();
+	const members = document
+		.querySelector<HTMLElement>("[data-member-list]")
+		?.getBoundingClientRect();
+	const front = boxes.reduce((widest, box) =>
+		box.width > widest.width ? box : widest,
 	);
+	expect(Math.abs(front.left - panel.left)).toBeLessThanOrEqual(1);
+	for (const box of boxes) {
+		expect(box.bottom).toBeLessThanOrEqual(panel.top);
+		expect(overlaps(box, composer)).toBe(false);
+		if (members) expect(overlaps(box, members)).toBe(false);
+	}
+});
+
+it("stacks toasts above the open profile popover", async () => {
+	await mount();
+	const trigger = userPanel().querySelector<HTMLElement>("button");
+	if (!trigger) throw new Error("missing profile trigger");
+	await userEvent.click(trigger);
+	await until(() => trigger.getAttribute("aria-expanded") === "true");
+	await until(() => !!document.querySelector("[data-profile-popover]"));
+	await wait(300);
+	toast("Profile updated");
+	const boxes = await settledToasts();
+	const popover = (
+		document.querySelector("[data-profile-popover]") as HTMLElement
+	).getBoundingClientRect();
+	for (const box of boxes) {
+		expect(box.bottom).toBeLessThanOrEqual(popover.top);
+		expect(overlaps(box, popover)).toBe(false);
+	}
+});
+
+it("keeps toasts clear of the selection bar", async () => {
+	await mount();
 	const article = await send("Toast check");
 	rightClick(article);
 	await until(() => !!menuItem("Select messages"));
 	await userEvent.click(menuItem("Select messages") as HTMLElement);
 	await until(() => !!main().querySelector("[data-message-selection-bar]"));
 	toast("Selection started");
-	await wait(400);
-	const move = Array.from(
-		main().querySelectorAll<HTMLButtonElement>(
-			"[data-message-selection-bar] button",
-		),
-	).find((button) => button.textContent?.includes("Move")) as HTMLButtonElement;
-	for (const item of document.querySelectorAll<HTMLElement>(
-		"[data-toaster] li[data-toast]",
-	)) {
-		expect(
-			overlaps(item.getBoundingClientRect(), move.getBoundingClientRect()),
-		).toBe(false);
-	}
-	expect(
-		document.documentElement.style.getPropertyValue("--toast-bottom-offset"),
-	).not.toBe("");
+	const boxes = await settledToasts();
+	const bar = (
+		main().querySelector("[data-message-selection-bar]") as HTMLElement
+	).getBoundingClientRect();
+	for (const box of boxes) expect(overlaps(box, bar)).toBe(false);
 });
 
-it("clears the toast offset when the desktop chat unmounts", async () => {
+it("clears the toast anchor when the desktop shell unmounts", async () => {
 	await mount();
-	await until(
-		() =>
-			document.documentElement.style.getPropertyValue(
-				"--toast-bottom-offset",
-			) !== "",
-	);
+	const root = document.documentElement.style;
+	await until(() => root.getPropertyValue("--toast-left") !== "");
 	cleanupMounted();
-	expect(
-		document.documentElement.style.getPropertyValue("--toast-bottom-offset"),
-	).toBe("");
+	expect(root.getPropertyValue("--toast-left")).toBe("");
+	expect(root.getPropertyValue("--toast-bottom")).toBe("");
+	expect(root.getPropertyValue("--toast-width")).toBe("");
 });

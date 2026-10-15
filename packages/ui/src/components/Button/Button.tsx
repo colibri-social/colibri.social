@@ -121,7 +121,7 @@ export const Button = (props: ButtonProps) => {
 						{icon()}
 					</span>
 				</Show>
-				<span data-button-label="" class="min-w-0 truncate">
+				<span data-button-label="" class="min-w-0 truncate leading-5">
 					{local.children}
 				</span>
 			</span>

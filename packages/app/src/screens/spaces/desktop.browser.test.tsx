@@ -377,8 +377,15 @@ it("draws the Space banner behind the name inside a square corner on the web", a
 		"[data-channel-list-header]",
 	) as HTMLElement;
 	const banner = header.querySelector("[data-banner]") as HTMLElement;
+	const row = header.querySelector("[data-space-header-row]") as HTMLElement;
+	const scroller = sidebar().querySelector(
+		"[data-spaces-desktop]",
+	) as HTMLElement;
 	expect(banner.getBoundingClientRect().top).toBe(
-		header.getBoundingClientRect().top,
+		scroller.getBoundingClientRect().top,
+	);
+	expect(row.getBoundingClientRect().top).toBe(
+		banner.getBoundingClientRect().top,
 	);
 	const name = header.querySelector("[data-space-name]") as HTMLElement;
 	expect(getComputedStyle(name).textShadow).not.toBe("none");

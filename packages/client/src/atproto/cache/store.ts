@@ -1,5 +1,4 @@
-import { classifyThrown } from "../../errors/classify";
-import { ColibriError } from "../../errors/error";
+import { ColibriError, classifyThrown } from "@colibri-social/lib";
 import { reportError } from "../../errors/report";
 import { createLogger } from "../../utils/logger";
 import {

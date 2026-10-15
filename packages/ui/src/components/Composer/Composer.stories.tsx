@@ -2,6 +2,7 @@ import { createSignal, For, type JSX } from "solid-js";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
+import { MESSAGE_LINE_HEIGHT } from "../../utils/typography";
 import { storyImages } from "../Banner/story-images";
 import { Button } from "../Button/Button";
 import {
@@ -221,16 +222,22 @@ export const MobileOverflow: Story = {
 	play: async ({ canvasElement }) => {
 		const field = textarea(canvasElement);
 		const box = scroller(canvasElement);
-		await expect(box.getBoundingClientRect().height).toBe(21);
+		await expect(box.getBoundingClientRect().height).toBe(MESSAGE_LINE_HEIGHT);
 		await userEvent.click(field);
 		await userEvent.keyboard("1{Enter}2{Enter}3");
-		await waitFor(() => expect(box.getBoundingClientRect().height).toBe(63));
+		await waitFor(() =>
+			expect(box.getBoundingClientRect().height).toBe(MESSAGE_LINE_HEIGHT * 3),
+		);
 		await userEvent.keyboard("{Enter}");
 		await userEvent.paste(eightPlusLines);
-		await waitFor(() => expect(box.getBoundingClientRect().height).toBe(168));
+		await waitFor(() =>
+			expect(box.getBoundingClientRect().height).toBe(MESSAGE_LINE_HEIGHT * 8),
+		);
 		await expect(box.scrollHeight).toBeGreaterThan(box.clientHeight);
 		await userEvent.paste("\n11\n12");
-		await expect(box.getBoundingClientRect().height).toBe(168);
+		await expect(box.getBoundingClientRect().height).toBe(
+			MESSAGE_LINE_HEIGHT * 8,
+		);
 	},
 };
 

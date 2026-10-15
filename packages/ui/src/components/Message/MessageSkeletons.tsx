@@ -1,5 +1,6 @@
 import { Show } from "solid-js";
 import { cx } from "../../utils/cx";
+import { MESSAGE_LINE_HEIGHT } from "../../utils/typography";
 import { AvatarSkeleton, Skeleton, SkeletonText } from "../Skeleton/Skeleton";
 import { type ChatPlatform, chatLayoutVars } from "./layout";
 
@@ -50,7 +51,7 @@ export const MessageRowSkeleton = (props: MessageRowSkeletonProps) => {
 					</Show>
 					<SkeletonText
 						size="base"
-						leading={21}
+						leading={MESSAGE_LINE_HEIGHT}
 						lines={lines()}
 						width={lines() > 1 ? "100%" : "68%"}
 					/>
@@ -87,7 +88,7 @@ export const MessagePreviewSkeleton = (props: MessagePreviewSkeletonProps) => {
 				</div>
 				<SkeletonText
 					size="base"
-					leading={21}
+					leading={MESSAGE_LINE_HEIGHT}
 					lines={lines()}
 					width={lines() > 1 ? "100%" : "72%"}
 				/>

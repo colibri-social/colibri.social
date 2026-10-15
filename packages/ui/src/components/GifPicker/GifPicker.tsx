@@ -450,7 +450,7 @@ export const GifPicker = (props: GifPickerProps) => {
 	);
 
 	const Empty = (empty: { children: JSX.Element }) => (
-		<p class="px-6 py-10 text-center text-sm text-pretty text-muted-foreground">
+		<p class="px-6 py-10 text-center text-sm leading-prose text-pretty text-muted-foreground">
 			{empty.children}
 		</p>
 	);

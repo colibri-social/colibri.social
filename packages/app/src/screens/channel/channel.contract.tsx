@@ -1,3 +1,4 @@
+import type { ColibriError } from "@colibri-social/lib";
 import {
 	ChannelHeader,
 	ConversationStart,
@@ -6,7 +7,6 @@ import {
 import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
 import { createMemo, Show } from "solid-js";
-import type { ColibriError } from "../../data/errors";
 import { isVoiceChannel } from "../../data/ids";
 import { useData } from "../../data/store";
 import { defineContract, slot } from "../../screen/define";

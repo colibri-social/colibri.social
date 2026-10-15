@@ -41,6 +41,7 @@ export type ListMessagesParams = {
 
 export type SendMessageInput = {
 	channel: SpaceRef;
+	rkey?: string;
 	text: string;
 	facets?: Facet[];
 	parent?: string;
@@ -67,6 +68,7 @@ export const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
 export type LiveEvent =
 	| AccessEvent
 	| EmojiEvent
+	| { $type: "viewerEvent"; profile: ProfileView }
 	| {
 			$type: "messageEvent";
 			event: "create" | "update" | "delete";
@@ -114,6 +116,10 @@ export type LiveEvent =
 			community: Did;
 			role: RoleView;
 	  }
+	| { $type: "channelRemovedEvent"; community: Did; channel: SpaceRef }
+	| { $type: "categoryRemovedEvent"; community: Did; rkey: string }
+	| { $type: "roleRemovedEvent"; community: Did; rkey: string }
+	| { $type: "communityRemovedEvent"; community: Did }
 	| {
 			$type: "memberRolesEvent";
 			community: Did;
@@ -122,10 +128,17 @@ export type LiveEvent =
 	  }
 	| {
 			$type: "seenEvent";
-			channel: SpaceRef;
+			channel?: SpaceRef;
+			message?: { did: Did; rkey: string };
 			unread: number;
 			seenAt: Datetime;
-	  };
+	  }
+	| {
+			$type: "readCursorEvent";
+			community: Did;
+			cursors: { channel: string; cursor: string }[];
+	  }
+	| { $type: "preferencesEvent"; gifFavorites: GifView[] };
 
 export type ControlsPreferences = {
 	showMessagePreviews: boolean;
@@ -403,7 +416,7 @@ export type DataSource = AccessSource &
 			emoji: string;
 			add: boolean;
 		}) => Promise<void>;
-		markRead: (channel: SpaceRef) => Promise<void>;
+		markRead: (channel: SpaceRef, through?: string) => Promise<void>;
 		setMemberRoles: (input: MemberRolesInput) => Promise<void>;
 		createRole: (input: CreateRoleInput) => Promise<RoleView>;
 		updateRole: (input: UpdateRoleInput) => Promise<RoleView>;

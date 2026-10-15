@@ -3,8 +3,8 @@ import {
 	highlight,
 	normalizeLanguage,
 } from "@arborium/arborium";
+import { classifyThrown, createLogger } from "@colibri-social/lib";
 import type { RichTextHighlighter } from "@colibri-social/ui";
-import { classifyThrown, createLogger } from "../../../data/errors";
 
 const log = createLogger("code-highlight");
 

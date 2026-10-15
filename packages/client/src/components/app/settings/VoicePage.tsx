@@ -1,3 +1,4 @@
+import { classifyThrown } from "@colibri-social/lib";
 import { createAsync } from "@solidjs/router";
 import chroma from "chroma-js";
 import {
@@ -38,7 +39,6 @@ import {
 	type VoiceInputSettings,
 } from "../../../contexts/UserPreferences";
 import { useVoiceChatContext } from "../../../contexts/VoiceChat";
-import { classifyThrown } from "../../../errors/classify";
 import { showError } from "../../../errors/show-error";
 import { createIsSpeaking } from "../../../hooks/createIsSpeaking";
 import {

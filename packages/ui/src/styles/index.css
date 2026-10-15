@@ -152,6 +152,9 @@
 	--radius-sheet: 16px;
 
 	--shadow-overlay: 0 8px 8px 2px var(--shadow-color);
+
+	--leading-prose: 1.5;
+	--leading-message: 24px;
 }
 
 @layer base {

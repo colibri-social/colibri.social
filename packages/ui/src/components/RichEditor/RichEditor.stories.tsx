@@ -312,6 +312,26 @@ export const EmojiShortcodes: Story = {
 	},
 };
 
+export const ShortcodesAfterText: Story = {
+	render: () => <Harness platform="desktop" />,
+	play: async ({ canvasElement }) => {
+		const editor = field(canvasElement);
+		await userEvent.click(editor);
+		await userEvent.keyboard("Coming soon:tm: to a device near you:joy:");
+		await waitFor(() =>
+			expect(currentValue(canvasElement).text).toBe(
+				"Coming soon\u2122 to a device near you😂",
+			),
+		);
+		await userEvent.keyboard(" at 10:100: and :notanemoji:");
+		await waitFor(() =>
+			expect(currentValue(canvasElement).text).toBe(
+				"Coming soon\u2122 to a device near you😂 at 10:100: and :notanemoji:",
+			),
+		);
+	},
+};
+
 export const CustomEmojiShortcodes: Story = {
 	render: () => <Harness platform="mobile" />,
 	play: async ({ canvasElement }) => {

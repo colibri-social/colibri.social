@@ -22,6 +22,7 @@ const MANUAL_ALIASES: Record<string, string> = {
 	thumbsup: "thumbs_up",
 	thumbsdown: "thumbs_down",
 	tada: "party_popper",
+	tm: "trade_mark",
 	joy: "face_with_tears_of_joy",
 	rofl: "rolling_on_the_floor_laughing",
 	sob: "loudly_crying_face",

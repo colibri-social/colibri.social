@@ -20,6 +20,10 @@ export const resolveChromeMode = (): ChromeMode =>
 		isNativeShell(),
 	);
 
+export const desktopRailPaddingTop = (
+	mode: ChromeMode = resolveChromeMode(),
+) => (mode === "none" ? 8 : undefined);
+
 export const BAR_HEIGHT: Record<ChromeMode, number> = {
 	macos: 36,
 	windows: 32,

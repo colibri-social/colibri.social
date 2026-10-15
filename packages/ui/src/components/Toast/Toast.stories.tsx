@@ -2,7 +2,17 @@ import { BellIcon } from "@solar-icons/solid/bold/bell";
 import { onCleanup, onMount } from "solid-js";
 import { expect, fn, userEvent, waitFor } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import {
+	emulateWindowChrome,
+	expectClearOfWindowChrome,
+	expectNoLayoutIssues,
+} from "../../foundations/layout-test";
 import { Button } from "../Button/Button";
+import {
+	MessageToast,
+	type MessageToastProps,
+	messageToastAnnouncement,
+} from "./MessageToast";
 import { Toaster, type ToasterPlatform } from "./Toaster";
 import { clearToasts, type ToastId, toast } from "./toast-store";
 
@@ -179,56 +189,70 @@ export const Mobile: Story = {
 	render: () => <Playground />,
 };
 
-const FakeComposer = () => {
-	let footer: HTMLDivElement | undefined;
+const FakePanel = () => {
+	let panel: HTMLDivElement | undefined;
 	onMount(() => {
 		const root = document.documentElement;
-		const sync = () =>
+		const sync = () => {
+			const rect = panel?.getBoundingClientRect();
+			if (!rect) return;
+			root.style.setProperty("--toast-left", `${Math.round(rect.left)}px`);
 			root.style.setProperty(
-				"--toast-bottom-offset",
-				`${footer?.getBoundingClientRect().height ?? 0}px`,
+				"--toast-bottom",
+				`${Math.round(window.innerHeight - rect.top + 8)}px`,
 			);
+			root.style.setProperty("--toast-width", `${Math.round(rect.width)}px`);
+		};
 		const observer = new ResizeObserver(sync);
-		if (footer) observer.observe(footer);
+		if (panel) observer.observe(panel);
 		sync();
 		onCleanup(() => {
 			observer.disconnect();
-			root.style.removeProperty("--toast-bottom-offset");
+			for (const property of [
+				"--toast-left",
+				"--toast-bottom",
+				"--toast-width",
+			])
+				root.style.removeProperty(property);
 		});
 	});
 	return (
 		<div
-			ref={footer}
-			data-testid="fake-composer"
-			class="fixed inset-x-0 bottom-0 flex h-28 items-center justify-end border-t border-border bg-card px-4"
+			ref={panel}
+			data-testid="fake-panel"
+			class="fixed bottom-4 left-4 flex h-16 w-[300px] items-center rounded-surface border border-border bg-popover px-4 text-sm"
 		>
-			<Button>Send</Button>
+			Your profile
 		</div>
 	);
 };
 
-export const AboveComposer: Story = {
-	name: "Above the composer",
-	render: () => <FakeComposer />,
+export const AboveUserPanel: Story = {
+	name: "Above the user panel",
+	render: () => <FakePanel />,
 	play: async () => {
 		toast("Forwarded to #general");
 		await waitFor(() => expect(activeItems()).toHaveLength(1));
-		const composer = document.querySelector(
-			"[data-testid='fake-composer']",
+		const panel = document.querySelector(
+			"[data-testid='fake-panel']",
 		) as HTMLElement;
 		const region = document.querySelector("[data-toaster]") as HTMLElement;
 		await waitFor(() =>
 			expect(region.getBoundingClientRect().bottom).toBeLessThanOrEqual(
-				composer.getBoundingClientRect().top - 15,
+				panel.getBoundingClientRect().top - 7,
 			),
 		);
 		await expect(
-			Math.round(window.innerWidth - region.getBoundingClientRect().right),
-		).toBe(16);
-		composer.style.height = "200px";
+			Math.round(
+				region.getBoundingClientRect().left -
+					panel.getBoundingClientRect().left,
+			),
+		).toBe(0);
+		await expect(Math.round(region.getBoundingClientRect().width)).toBe(300);
+		panel.style.height = "160px";
 		await waitFor(() =>
 			expect(region.getBoundingClientRect().bottom).toBeLessThanOrEqual(
-				composer.getBoundingClientRect().top - 15,
+				panel.getBoundingClientRect().top - 7,
 			),
 		);
 	},
@@ -350,10 +374,10 @@ export const SwipeDesktop: Story = {
 		await waitFor(() =>
 			expect(activeItems()[0]).toHaveAttribute("data-mounted"),
 		);
-		await drag(activeItems()[0], -60, 0);
+		await drag(activeItems()[0], 60, 0);
 		await wait(450);
 		await expect(activeItems()).toHaveLength(1);
-		await drag(activeItems()[0], 90, 0);
+		await drag(activeItems()[0], -90, 0);
 		await waitFor(() => expect(activeItems()).toHaveLength(0));
 		await waitFor(() => expect(items()).toHaveLength(0));
 	},
@@ -445,5 +469,199 @@ export const TapToExpandMobile: Story = {
 		await waitFor(() => expect(ol).toHaveAttribute("data-expanded"));
 		await userEvent.pointer({ keys: "[TouchA]", target: document.body });
 		await waitFor(() => expect(ol).not.toHaveAttribute("data-expanded"));
+	},
+};
+
+const MESSAGE_TOAST_ID = "message-toast";
+
+type MessageSample = Omit<MessageToastProps, "onOpen">;
+
+const shortMessage: MessageSample = {
+	authorName: "Ada Lovelace",
+	authorSeed: "did:plc:ada",
+	location: "#general",
+	text: "Can you take a look at the release notes?",
+};
+
+const longMessage: MessageSample = {
+	authorName: "Bartholomew Featherstonehaugh-Montgomery",
+	authorSeed: "did:plc:bartholomew",
+	location: "Planning the spring community meetup and the venue shortlist",
+	spaceName: "Hummingbird Enthusiasts of the Northern Hemisphere",
+	text: "I went through every venue on the list and wrote up the pros and cons for each one, including capacity, accessibility, transit options and the catering situation.",
+};
+
+const showMessageToast = (
+	sample: MessageSample,
+	onOpen: () => void = () => {},
+	duration?: number,
+) =>
+	toast.custom(
+		(id) => (
+			<MessageToast
+				{...sample}
+				onOpen={() => {
+					onOpen();
+					toast.dismiss(id);
+				}}
+			/>
+		),
+		{
+			id: MESSAGE_TOAST_ID,
+			duration,
+			announce: messageToastAnnouncement(sample),
+		},
+	);
+
+const MessagePlayground = () => (
+	<div class="flex max-w-md flex-wrap gap-2">
+		<Button variant="secondary" onClick={() => showMessageToast(shortMessage)}>
+			Short message
+		</Button>
+		<Button variant="secondary" onClick={() => showMessageToast(longMessage)}>
+			Long message in another Space
+		</Button>
+		<Button
+			variant="secondary"
+			onClick={() =>
+				showMessageToast({
+					...shortMessage,
+					location: "Release checklist",
+					text: "Sent an image",
+				})
+			}
+		>
+			Thread message
+		</Button>
+	</div>
+);
+
+const messageSurface = () =>
+	document.querySelector<HTMLElement>("[data-message-toast]");
+
+export const MessageMobile: Story = {
+	name: "Message (mobile)",
+	args: { platform: "mobile" },
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => <MessagePlayground />,
+	play: async () => {
+		const onOpen = fn();
+		showMessageToast(longMessage, onOpen);
+		await waitFor(() =>
+			expect(activeItems()[0]).toHaveAttribute("data-mounted"),
+		);
+		const item = activeItems()[0];
+		const button = messageSurface() as HTMLElement;
+		await waitFor(() =>
+			expect(item.getBoundingClientRect().top).toBeGreaterThanOrEqual(8),
+		);
+		await expect(button.getBoundingClientRect().right).toBeLessThanOrEqual(
+			window.innerWidth - 16 + 0.5,
+		);
+		await expectNoLayoutIssues(item);
+		for (const part of ["author", "location", "text"]) {
+			const element = button.querySelector(
+				`[data-message-toast-${part}]`,
+			) as HTMLElement;
+			await expect(getComputedStyle(element).textOverflow).toBe("ellipsis");
+			await expect(element.scrollWidth).toBeGreaterThan(element.clientWidth);
+		}
+		const text = button.querySelector(
+			"[data-message-toast-text]",
+		) as HTMLElement;
+		await expect(text.getBoundingClientRect().height).toBeLessThanOrEqual(21);
+		await waitFor(() =>
+			expect(document.querySelector("[role='status']")).toHaveTextContent(
+				messageToastAnnouncement(longMessage),
+			),
+		);
+		await userEvent.click(button);
+		await expect(onOpen).toHaveBeenCalledOnce();
+		await waitFor(() => expect(items()).toHaveLength(0));
+	},
+};
+
+export const MessageReplacesPrevious: Story = {
+	name: "Message replaces the previous one",
+	args: { platform: "mobile" },
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => <MessagePlayground />,
+	play: async () => {
+		showMessageToast(shortMessage);
+		await waitFor(() => expect(activeItems()).toHaveLength(1));
+		showMessageToast(longMessage);
+		await waitFor(() =>
+			expect(messageSurface()).toHaveTextContent(longMessage.authorName),
+		);
+		await expect(activeItems()).toHaveLength(1);
+		await expect(
+			document.querySelectorAll("[data-message-toast]"),
+		).toHaveLength(1);
+	},
+};
+
+export const MessageSwipeUp: Story = {
+	name: "Message swipe up",
+	args: { platform: "mobile" },
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => <MessagePlayground />,
+	play: async () => {
+		const onOpen = fn();
+		showMessageToast(shortMessage, onOpen);
+		await waitFor(() =>
+			expect(activeItems()[0]).toHaveAttribute("data-mounted"),
+		);
+		await drag(messageSurface() as HTMLElement, 0, -70, "touch");
+		await waitFor(() => expect(activeItems()).toHaveLength(0));
+		await expect(onOpen).not.toHaveBeenCalled();
+	},
+};
+
+export const MessagePausesWhileTouched: Story = {
+	name: "Message pauses while touched",
+	args: { platform: "mobile" },
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => <MessagePlayground />,
+	play: async () => {
+		showMessageToast(shortMessage, () => {}, 400);
+		await waitFor(() => expect(activeItems()).toHaveLength(1));
+		const surface = messageSurface() as HTMLElement;
+		const rect = surface.getBoundingClientRect();
+		const init = {
+			pointerId: 11,
+			pointerType: "touch",
+			button: 0,
+			bubbles: true,
+			clientX: rect.left + 20,
+			clientY: rect.top + 20,
+		};
+		surface.dispatchEvent(new PointerEvent("pointerdown", init));
+		await wait(800);
+		await expect(activeItems()).toHaveLength(1);
+		document.dispatchEvent(new PointerEvent("pointercancel", init));
+		await waitFor(() => expect(activeItems()).toHaveLength(0), {
+			timeout: 2000,
+		});
+	},
+};
+
+export const MessageClearsWindowChrome: Story = {
+	name: "Message clears the window chrome",
+	args: { platform: "mobile" },
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => {
+		onCleanup(emulateWindowChrome());
+		return <MessagePlayground />;
+	},
+	play: async () => {
+		showMessageToast(shortMessage);
+		await waitFor(() =>
+			expect(activeItems()[0]).toHaveAttribute("data-mounted"),
+		);
+		await waitFor(() =>
+			expectClearOfWindowChrome(
+				document.querySelector("[data-toaster]") as HTMLElement,
+			),
+		);
 	},
 };

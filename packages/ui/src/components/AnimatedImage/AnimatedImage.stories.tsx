@@ -5,6 +5,8 @@ import { setAppActive } from "../../utils/playback";
 import { MediaGrid } from "../Attachments/MediaGrid";
 import { Avatar } from "../Avatar/Avatar";
 import { Lightbox } from "../Lightbox/Lightbox";
+import { MemberRow } from "../Members/MemberRow";
+import { MessageRow } from "../Message/MessageRow";
 import { AnimatedImage } from "./AnimatedImage";
 import { bouncingDotGif } from "./fixtures";
 
@@ -219,20 +221,163 @@ export const ChatGifToggle: Story = {
 	},
 };
 
+const avatarImage = (root: HTMLElement) => {
+	const image = root.querySelector<HTMLElement>("[data-avatar-image]");
+	if (!image) throw new Error("Missing avatar image");
+	return image;
+};
+
+const expectAvatarState = (root: HTMLElement, state: string) =>
+	waitFor(() => expect(mediaState(avatarImage(root))).toBe(state), {
+		timeout: 3000,
+	});
+
+const hoverCycle = async (root: HTMLElement, target: HTMLElement) => {
+	await expectAvatarState(root, "paused");
+	await userEvent.hover(target);
+	await expectAvatarState(root, "playing");
+	await userEvent.unhover(target);
+	await expectAvatarState(root, "paused");
+};
+
 export const AvatarHover: Story = {
 	render: () => <Avatar name="Lou Escher" size="xl" src={bouncingDotGif} />,
 	play: async ({ canvasElement }) => {
 		await loaded(canvasElement);
-		await expect(mediaState(canvasElement)).toBe("playing");
-		await withReducedMotion(async () => {
-			await waitFor(() => expect(mediaState(canvasElement)).toBe("paused"));
-			const host = visibleMedia(canvasElement)[0].parentElement;
-			if (!host) throw new Error("Missing avatar host");
+		const host = avatarImage(canvasElement);
+		await hoverCycle(canvasElement, host);
+		await withReducedMotion(() => hoverCycle(canvasElement, host));
+		await hoverCycle(canvasElement, host);
+		await withAppInactive(async () => {
 			await userEvent.hover(host);
-			await waitFor(() => expect(mediaState(canvasElement)).toBe("playing"));
+			await expectAvatarState(canvasElement, "paused");
 			await userEvent.unhover(host);
-			await waitFor(() => expect(mediaState(canvasElement)).toBe("paused"));
 		});
+	},
+};
+
+const bouncingDotBlobUrl = (() => {
+	const binary = atob(bouncingDotGif.slice(bouncingDotGif.indexOf(",") + 1));
+	const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+	return URL.createObjectURL(new Blob([bytes], { type: "image/gif" }));
+})();
+
+export const AvatarPlaysWithHost: Story = {
+	render: () => (
+		<div
+			data-media-play-host=""
+			data-row=""
+			class="flex w-72 items-center gap-3 rounded-control bg-card p-3"
+		>
+			<Avatar name="Lou Escher" size="md" src={bouncingDotBlobUrl} />
+			<span data-row-label="" class="text-sm">
+				Hover anywhere on this row
+			</span>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await loaded(canvasElement);
+		const row = canvasElement.querySelector<HTMLElement>("[data-row]");
+		const label = canvasElement.querySelector<HTMLElement>("[data-row-label]");
+		if (!row || !label) throw new Error("Missing row");
+		await hoverCycle(canvasElement, row);
+		await hoverCycle(canvasElement, label);
+		await withReducedMotion(() => hoverCycle(canvasElement, row));
+	},
+};
+
+export const AvatarFrameSize: Story = {
+	render: () => (
+		<div class="flex items-center gap-4">
+			<Avatar name="Small" size="sm" src={bouncingDotGif} data-size="sm" />
+			<Avatar name="Large" size="xl" src={bouncingDotGif} data-size="xl" />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await waitFor(
+			() => expect(canvasElement.querySelectorAll("canvas").length).toBe(2),
+			{ timeout: 3000 },
+		);
+		const ratio = Math.max(1, window.devicePixelRatio);
+		for (const [size, edge] of [
+			["sm", 24],
+			["xl", 88],
+		] as const) {
+			const frame = canvasElement.querySelector<HTMLCanvasElement>(
+				`[data-size="${size}"] canvas`,
+			);
+			if (!frame) throw new Error(`Missing ${size} frame`);
+			const expected = Math.min(64, Math.round(edge * ratio));
+			await expect(frame.width).toBe(expected);
+			await expect(frame.height).toBe(expected);
+			const box = frame.getBoundingClientRect();
+			await expect(box.width).toBe(edge);
+			await expect(box.height).toBe(edge);
+		}
+	},
+};
+
+export const StaticAvatarsStayImages: Story = {
+	render: () => (
+		<div class="flex items-center gap-4">
+			<Avatar name="Static" size="md" src={staticImage} />
+			<Avatar name="Feather" seed="did:plc:feather" size="md" />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await waitFor(
+			() => {
+				const images = Array.from(canvasElement.querySelectorAll("img"));
+				expect(images).toHaveLength(2);
+				for (const image of images) {
+					expect(image.complete && image.naturalWidth > 0).toBe(true);
+				}
+			},
+			{ timeout: 3000 },
+		);
+		await expect(canvasElement.querySelector("canvas")).toBeNull();
+		for (const image of canvasElement.querySelectorAll("img")) {
+			await expect(image).not.toHaveAttribute("data-animated-image");
+		}
+	},
+};
+
+export const MemberRowHost: Story = {
+	render: () => (
+		<div class="w-72">
+			<MemberRow name="Lou Escher" avatarSrc={bouncingDotBlobUrl} />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await loaded(canvasElement);
+		const row = canvasElement.querySelector<HTMLElement>("[data-member-row]");
+		const name = canvasElement.querySelector<HTMLElement>("[data-member-name]");
+		if (!row || !name) throw new Error("Missing member row");
+		await expect(row).toHaveAttribute("data-media-play-host");
+		await hoverCycle(canvasElement, name);
+	},
+};
+
+export const MessageRowHost: Story = {
+	render: () => (
+		<div class="w-96">
+			<MessageRow
+				author={{ name: "Lou Escher", avatarSrc: bouncingDotBlobUrl }}
+				timestamp={new Date()}
+			>
+				Hover the message to play the avatar.
+			</MessageRow>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await loaded(canvasElement);
+		const row = canvasElement.querySelector<HTMLElement>("[data-message]");
+		const content = canvasElement.querySelector<HTMLElement>(
+			"[data-message-content]",
+		);
+		if (!row || !content) throw new Error("Missing message row");
+		await expect(row).toHaveAttribute("data-media-play-host");
+		await hoverCycle(canvasElement, content);
 	},
 };
 

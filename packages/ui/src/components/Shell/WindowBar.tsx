@@ -7,8 +7,19 @@ import {
 	Show,
 } from "solid-js";
 import { cx } from "../../utils/cx";
+import { setWindowChromeTop } from "../../utils/safe-area";
 import { createSlot } from "../../utils/slot";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
+
+const chromeHeights = new Map<HTMLElement, number>();
+
+const publishChromeTop = () => {
+	if (chromeHeights.size === 0) {
+		setWindowChromeTop(null);
+		return;
+	}
+	setWindowChromeTop(Math.max(...chromeHeights.values()));
+};
 
 export type WindowControl = "minimize" | "maximize" | "close";
 
@@ -104,8 +115,28 @@ export const WindowBar = (props: WindowBarProps) => {
 	const leading = createSlot(() => props.leading);
 	const controls = createSlot(() => props.controls);
 	const [gutter, setGutter] = createSignal(0);
+	let bar: HTMLDivElement | undefined;
 	let leadingBox: HTMLDivElement | undefined;
 	let trailingBox: HTMLDivElement | undefined;
+
+	onMount(() => {
+		if (!bar) return;
+		const target = bar;
+		const publish = () => {
+			const height = Math.round(target.getBoundingClientRect().height);
+			if (chromeHeights.get(target) === height) return;
+			chromeHeights.set(target, height);
+			publishChromeTop();
+		};
+		const observer = new ResizeObserver(publish);
+		observer.observe(target);
+		publish();
+		onCleanup(() => {
+			observer.disconnect();
+			chromeHeights.delete(target);
+			publishChromeTop();
+		});
+	});
 
 	onMount(() => {
 		const measure = () =>
@@ -124,6 +155,7 @@ export const WindowBar = (props: WindowBarProps) => {
 
 	return (
 		<div
+			ref={bar}
 			data-window-bar=""
 			data-window-bar-rounded={props.roundedCorners ? "" : undefined}
 			data-tauri-drag-region={props.dragRegion ? "deep" : undefined}

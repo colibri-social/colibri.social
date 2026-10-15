@@ -1,5 +1,5 @@
+import type { LabelEventFrame, MessageEventFrame } from "@colibri-social/lib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { LabelEventFrame, MessageEventFrame } from "../sync-frames";
 import type { MessageView } from "../views";
 import { rkeyOf } from "./messages-snapshot";
 import {

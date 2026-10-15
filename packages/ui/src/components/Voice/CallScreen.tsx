@@ -29,7 +29,7 @@ export const CallScreen = (props: CallScreenProps) => {
 			aria-label="Voice call"
 			data-call-screen=""
 			class={cx(
-				"flex h-full min-h-0 flex-col gap-4 bg-popover pt-safe-offset-4 pb-safe-offset-4 px-safe-offset-4 text-foreground",
+				"flex h-full min-h-0 flex-col gap-4 bg-popover pt-overlay-offset-4 pb-safe-offset-4 px-safe-offset-4 text-foreground",
 				local.class,
 			)}
 		>

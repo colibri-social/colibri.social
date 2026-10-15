@@ -2,7 +2,7 @@ import {
 	getGrantedScopeSets,
 	getMissingScopeSets,
 	scopeSetLabel,
-} from "../atproto/scopes";
+} from "@colibri-social/lib";
 import type { SocketStatus } from "../contexts/Socket";
 import { getBackend } from "../notifications";
 import { isTauriRuntime } from "../notifications/environment";

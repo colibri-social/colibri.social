@@ -6,6 +6,7 @@ import {
 	OwnProfileRows,
 	ownPresenceEntries,
 	PresenceDrawer,
+	ProfileBio,
 	ProfileHeader,
 	presenceLabels,
 	SectionLabel,
@@ -15,11 +16,13 @@ import {
 import { EmojiFunnyCircleIcon } from "@solar-icons/solid/bold/emoji-funny-circle";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { createMemo, createSignal, Show, untrack } from "solid-js";
+import { displayNameOf } from "../../data/adapters/authors";
 import { useData } from "../../data/store";
 import type { Presence } from "../../data/types";
 import { defineContract, slot } from "../../screen/define";
 import { useStack } from "../../shell/stack";
 import { uiPresence } from "../members/member-adapter";
+import { createBioRenderer } from "./bio-links";
 import { blueskyProfileLinks } from "./bluesky-link";
 import { StatusEditor } from "./status-editor";
 
@@ -68,7 +71,7 @@ export const profile = defineContract({
 	slots: {
 		Header: slot((m, p: Platform) => (
 			<ProfileHeader
-				displayName={m.viewer.displayName?.trim() || m.viewer.handle}
+				displayName={displayNameOf(m.viewer)}
 				handle={m.viewer.handle}
 				avatarSrc={m.viewer.avatar}
 				avatarSeed={m.viewer.did}
@@ -119,18 +122,19 @@ export const profile = defineContract({
 				/>
 			</Show>
 		)),
-		Bio: slot((m) => (
-			<Show when={m.viewer.description?.trim()}>
-				{(bio) => (
-					<section class="flex flex-col gap-2">
-						<SectionLabel label="Bio" />
-						<p class="m-0 text-base break-words whitespace-pre-line text-muted-foreground">
-							{bio()}
-						</p>
-					</section>
-				)}
-			</Show>
-		)),
+		Bio: slot((m) => {
+			const bio = createBioRenderer();
+			return (
+				<Show when={bio.render(m.viewer.description)}>
+					{(content) => (
+						<>
+							<ProfileBio data-own-bio="">{content()}</ProfileBio>
+							<bio.LinkWarningOutlet />
+						</>
+					)}
+				</Show>
+			);
+		}),
 		Developer: slot((m) => (
 			<Show when={m.data.controls().developerMode}>
 				<DeveloperModeCard

@@ -45,7 +45,7 @@ import type {
 import { defineContract, slot } from "../../screen/define";
 import { useStack } from "../../shell/stack";
 import {
-	inboxTarget,
+	openNotificationTarget,
 	toInboxNotification,
 	toInboxSpace,
 } from "./inbox-adapter";
@@ -204,21 +204,7 @@ export const inbox = defineContract({
 			const view = mapped().byId.get(id);
 			if (!view) return;
 			markRead([id]);
-			const target = inboxTarget(view);
-			const chat = {
-				kind: "chat" as const,
-				space: target.space,
-				channel: target.channel,
-				channelType: target.channelType,
-			};
-			if (target.rkey) {
-				data.jumps.request({ channel: target.jumpChannel, rkey: target.rkey });
-			}
-			stack.setRoot({ tab: "spaces", space: target.space });
-			stack.push(chat);
-			if (target.thread) {
-				stack.push({ ...chat, kind: "thread", thread: target.thread });
-			}
+			openNotificationTarget(stack, data.jumps.request, view);
 		};
 
 		const unreadIds = (match: (entry: InboxNotification) => boolean) =>

@@ -581,7 +581,7 @@ export const EmojiUploadModal = (props: EmojiUploadModalProps) => {
 										{props.src ? "Choose a different image" : "Choose image"}
 									</Button>
 									<Show when={props.imageHint}>
-										<p class="m-0 text-xs text-pretty text-muted-foreground">
+										<p class="m-0 text-xs leading-prose text-pretty text-muted-foreground">
 											{props.imageHint}
 										</p>
 									</Show>
@@ -624,7 +624,7 @@ export const EmojiUploadModal = (props: EmojiUploadModalProps) => {
 									</Show>
 									<span class="min-w-0 truncate text-base font-bold">{`:${name()}:`}</span>
 								</div>
-								<p class="m-0 text-sm text-pretty text-muted-foreground">
+								<p class="m-0 text-sm leading-prose text-pretty text-muted-foreground">
 									{props.packName
 										? `It's added to ${props.packName}.`
 										: "It's added to this Space without a pack."}

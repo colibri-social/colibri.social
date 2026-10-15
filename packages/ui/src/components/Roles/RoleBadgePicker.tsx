@@ -304,7 +304,7 @@ const BadgeImageUpload = (props: {
 					<span
 						id={limitsId}
 						aria-hidden="true"
-						class="text-xs text-pretty text-muted-foreground"
+						class="text-xs leading-prose text-pretty text-muted-foreground"
 					>
 						<Show
 							when={props.uploading}

@@ -331,6 +331,8 @@ export const editProfile = defineContract({
 										<AnimatedImage
 											data-profile-avatar-preview=""
 											animated={m.avatar.animated()}
+											playback="demand"
+											frameSize={88}
 											src={src()}
 											alt=""
 											class="size-full object-cover"

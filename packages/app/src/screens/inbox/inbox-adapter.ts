@@ -5,6 +5,7 @@ import {
 } from "../../data/adapters/authors";
 import { previewText } from "../../data/adapters/facets";
 import { skeyOf, spaceKey } from "../../data/ids";
+import type { JumpRequest } from "../../data/jump";
 import { isUnread } from "../../data/notifications";
 import type {
 	CommunityView,
@@ -14,6 +15,7 @@ import type {
 	RoleView,
 	SpaceRef,
 } from "../../data/types";
+import type { Navigator } from "../../shell/stack";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -145,4 +147,26 @@ export const inboxTarget = (view: NotificationView): InboxTarget => {
 	if (view.thread) target.thread = skeyOf(view.thread);
 	if (view.message?.rkey) target.rkey = view.message.rkey;
 	return target;
+};
+
+export const openNotificationTarget = (
+	stack: Pick<Navigator, "setRoot" | "push">,
+	requestJump: (request: JumpRequest) => void,
+	view: NotificationView,
+) => {
+	const target = inboxTarget(view);
+	const chat = {
+		kind: "chat" as const,
+		space: target.space,
+		channel: target.channel,
+		channelType: target.channelType,
+	};
+	if (target.rkey) {
+		requestJump({ channel: target.jumpChannel, rkey: target.rkey });
+	}
+	stack.setRoot({ tab: "spaces", space: target.space });
+	stack.push(chat);
+	if (target.thread) {
+		stack.push({ ...chat, kind: "thread", thread: target.thread });
+	}
 };

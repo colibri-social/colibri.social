@@ -300,6 +300,32 @@ export const Desktop: Story = {
 			</Section>
 		</Screen>
 	),
+	play: async ({ canvasElement }) => {
+		const { root } = await playerIn(canvasElement);
+		const slider = root.querySelector("[data-video-volume]") as HTMLElement;
+		const group = slider.parentElement as HTMLElement;
+		const mute = within(root).getByRole("button", { name: /^(Mute|Unmute)$/ });
+		const width = () => slider.getBoundingClientRect().width;
+		await expect(width()).toBe(0);
+		document.dispatchEvent(
+			new PointerEvent("pointerdown", { pointerType: "mouse" }),
+		);
+		mute.focus();
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		await expect(group).not.toHaveAttribute("data-keyboard-focus");
+		await expect(width()).toBe(0);
+		mute.blur();
+		document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+		mute.focus();
+		await expect(group).toHaveAttribute("data-keyboard-focus");
+		await waitFor(() => expect(width()).toBe(64));
+		await waitFor(() =>
+			expect(Number(getComputedStyle(slider).opacity)).toBe(1),
+		);
+		mute.blur();
+		await expect(group).not.toHaveAttribute("data-keyboard-focus");
+		await waitFor(() => expect(width()).toBe(0));
+	},
 };
 
 const BufferingPlayer = () => {

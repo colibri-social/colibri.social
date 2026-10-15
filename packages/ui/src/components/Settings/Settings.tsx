@@ -14,6 +14,7 @@ import {
 } from "solid-js";
 import { copyText } from "../../utils/clipboard";
 import { cx } from "../../utils/cx";
+import { isStaticSource } from "../../utils/playback";
 import { createSlot } from "../../utils/slot";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Avatar } from "../Avatar/Avatar";
@@ -232,7 +233,9 @@ export const Step = (props: StepProps) => {
 					{props.title}
 				</span>
 				<Show when={props.description}>
-					<p class="m-0 text-sm text-muted-foreground">{props.description}</p>
+					<p class="m-0 text-sm leading-prose text-muted-foreground">
+						{props.description}
+					</p>
 				</Show>
 				<Show when={children.has()}>{children()}</Show>
 			</div>
@@ -293,6 +296,9 @@ export const EmojiRow = (props: EmojiRowProps) => (
 							<AnimatedImage
 								src={avatar()}
 								alt=""
+								animated={!isStaticSource(avatar())}
+								playback="demand"
+								frameSize={16}
 								width={16}
 								height={16}
 								class="size-4 shrink-0 rounded-full object-cover outline-1 -outline-offset-1 outline-white/8 light:outline-black/8"
@@ -420,7 +426,7 @@ export const BridgeSummaryCard = (props: BridgeSummaryCardProps) => {
 			<Show
 				when={props.channels.length > 0}
 				fallback={
-					<p class="m-0 text-sm text-muted-foreground">
+					<p class="m-0 text-sm leading-prose text-muted-foreground">
 						No channels linked yet
 					</p>
 				}

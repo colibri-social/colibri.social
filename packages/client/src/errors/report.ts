@@ -1,7 +1,10 @@
+import {
+	type ColibriError,
+	classifyThrown,
+	isColibriError,
+	isReportableCode,
+} from "@colibri-social/lib";
 import * as Sentry from "@sentry/solid";
-import { classifyThrown } from "./classify";
-import { isReportableCode } from "./codes";
-import { type ColibriError, isColibriError } from "./error";
 
 export interface ReportOptions {
 	stage?: string;

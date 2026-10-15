@@ -1,8 +1,10 @@
 import { ChecklistIcon } from "@solar-icons/solid/bold/checklist";
 import { CopyIcon } from "@solar-icons/solid/bold/copy";
+import { CopyAddIcon } from "@solar-icons/solid/bold/copy-add";
 import { EyeIcon } from "@solar-icons/solid/bold/eye";
 import { ForbiddenCircleIcon } from "@solar-icons/solid/bold/forbidden-circle";
 import { ForwardIcon } from "@solar-icons/solid/bold/forward";
+import { GalleryDownloadIcon } from "@solar-icons/solid/bold/gallery-download";
 import { HeartIcon } from "@solar-icons/solid/bold/heart";
 import { InfoCircleIcon } from "@solar-icons/solid/bold/info-circle";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
@@ -20,6 +22,33 @@ export type MessageMenuLink = {
 	onOpen?: () => void;
 };
 
+export type MessageMenuImage = {
+	onCopy?: () => void;
+	onDownload?: () => void;
+};
+
+export const ImageMenuItems = (props: MessageMenuImage) => (
+	<>
+		<Show when={props.onCopy}>
+			<MenuItem
+				icon={<CopyAddIcon />}
+				label="Copy image"
+				onSelect={props.onCopy}
+			/>
+		</Show>
+		<Show when={props.onDownload}>
+			<MenuItem
+				icon={<GalleryDownloadIcon />}
+				label="Download image"
+				onSelect={props.onDownload}
+			/>
+		</Show>
+	</>
+);
+
+export const hasImageActions = (image: MessageMenuImage | undefined) =>
+	!!(image?.onCopy || image?.onDownload);
+
 export type MessageMenuGif = {
 	saved: boolean;
 	onToggle: () => void;
@@ -27,6 +56,7 @@ export type MessageMenuGif = {
 
 export type MessageMenuActions = {
 	link?: MessageMenuLink;
+	image?: MessageMenuImage;
 	onEdit?: () => void;
 	onReply?: () => void;
 	onForward?: () => void;
@@ -81,6 +111,19 @@ export const MessageMenuItems = (props: MessageMenuActions) => {
 						onSelect={props.link?.onCopy}
 					/>
 				</Show>
+				<Show
+					when={
+						hasImageActions(props.image) ||
+						hasPrimary() ||
+						hasUtility() ||
+						hasDanger()
+					}
+				>
+					<MenuSeparator />
+				</Show>
+			</Show>
+			<Show when={hasImageActions(props.image)}>
+				<ImageMenuItems {...(props.image ?? {})} />
 				<Show when={hasPrimary() || hasUtility() || hasDanger()}>
 					<MenuSeparator />
 				</Show>
@@ -198,6 +241,29 @@ export type MessageContextMenuProps = MessageMenuActions & {
 	class?: string;
 	children?: JSX.Element;
 };
+
+export type ImageContextMenuProps = MessageMenuImage & {
+	disabled?: boolean;
+	contentClass?: string;
+	onOpenChange?: (open: boolean) => void;
+	class?: string;
+	children?: JSX.Element;
+};
+
+export const ImageContextMenu = (props: ImageContextMenuProps) => (
+	<ContextMenu
+		disabled={props.disabled || !hasImageActions(props)}
+		onOpenChange={props.onOpenChange}
+		class={props.class}
+		aria-label="Image options"
+		contentClass={props.contentClass}
+		menu={
+			<ImageMenuItems onCopy={props.onCopy} onDownload={props.onDownload} />
+		}
+	>
+		{props.children}
+	</ContextMenu>
+);
 
 export const MessageContextMenu = (props: MessageContextMenuProps) => (
 	<ContextMenu

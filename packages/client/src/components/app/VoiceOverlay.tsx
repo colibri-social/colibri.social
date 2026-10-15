@@ -1,3 +1,4 @@
+import { parseSpace } from "@colibri-social/lib";
 import { useNavigate, useParams } from "@solidjs/router";
 import {
 	type Component,
@@ -16,7 +17,6 @@ import PhoneSlashFillIcon from "~icons/ph/phone-slash-fill";
 import VideoCameraSlashFillIcon from "~icons/ph/video-camera-slash-fill";
 import XIcon from "~icons/ph/x";
 import { buildChannelPath } from "../../atproto/colibri-channel-url";
-import { parseSpace } from "../../atproto/space-ref";
 import type { ProfileView } from "../../atproto/views";
 import { useActorCache } from "../../contexts/ActorCache";
 import { useUserContext } from "../../contexts/User";

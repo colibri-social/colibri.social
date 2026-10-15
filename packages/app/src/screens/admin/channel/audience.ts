@@ -1,5 +1,6 @@
 import type { AudienceRole, MemberIdentityData } from "@colibri-social/ui";
 import { createMemo } from "solid-js";
+import { displayNameOf } from "../../../data/adapters/authors";
 import { rankOf } from "../../../data/member-permissions";
 import { isVisibleRole, roleIdentity } from "../../../data/roles";
 import type { SpaceData } from "../../../data/store";
@@ -71,8 +72,7 @@ export const createAudienceOptions = (
 			);
 			return {
 				id: member.actor.did,
-				name:
-					member.nickname ?? member.actor.displayName ?? member.actor.handle,
+				name: displayNameOf(member.actor, member),
 				handle: member.actor.handle,
 				avatarSrc: member.actor.avatar,
 				presence: uiPresence(data.presenceOf(member.actor.did)),

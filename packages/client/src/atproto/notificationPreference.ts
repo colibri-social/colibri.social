@@ -1,11 +1,11 @@
 import type { Agent } from "@atproto/api";
-import { classifyThrown } from "../errors/classify";
+import type { XrpcResult } from "@colibri-social/lib";
+import { classifyThrown } from "@colibri-social/lib";
 import { COLLECTIONS, colibri, SELF } from "./lexicons";
 import { enqueueSpacePut, queuedRecords } from "./outbox/outbox";
 import { preferencesSpaceRef } from "./preferences-space";
 import type { ActorSettingsRecord, Preferences } from "./views";
 import type { ColibriClient } from "./xrpc";
-import type { XrpcResult } from "./xrpc/result";
 
 export type NotificationLevel = ActorSettingsRecord["notificationLevel"];
 

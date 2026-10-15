@@ -1,8 +1,10 @@
 import { ChecklistIcon } from "@solar-icons/solid/bold/checklist";
 import { CopyIcon } from "@solar-icons/solid/bold/copy";
+import { CopyAddIcon } from "@solar-icons/solid/bold/copy-add";
 import { EyeIcon } from "@solar-icons/solid/bold/eye";
 import { ForbiddenCircleIcon } from "@solar-icons/solid/bold/forbidden-circle";
 import { ForwardIcon } from "@solar-icons/solid/bold/forward";
+import { GalleryDownloadIcon } from "@solar-icons/solid/bold/gallery-download";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { ReplyIcon } from "@solar-icons/solid/bold/reply";
@@ -23,7 +25,11 @@ import {
 import { ThreadIcon } from "../../icons/custom";
 import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
-import type { MessageMenuGif } from "../ContextMenu/MessageMenu";
+import {
+	hasImageActions,
+	type MessageMenuGif,
+	type MessageMenuImage,
+} from "../ContextMenu/MessageMenu";
 import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import {
@@ -113,6 +119,7 @@ export type MessageActionsDrawerProps = {
 	onOpenThread?: () => void;
 	onSelect?: () => void;
 	onCopyText?: () => void;
+	image?: MessageMenuImage;
 	gif?: MessageMenuGif;
 	onLinkPreviews?: () => void;
 	hidden?: boolean;
@@ -290,6 +297,28 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 									label="Select messages"
 									onClick={run(props.onSelect)}
 								/>
+							</Show>
+						</ListGroup>
+					</Show>
+					<Show when={hasImageActions(props.image)}>
+						<ListGroup>
+							<Show when={props.image?.onCopy}>
+								{(onCopy) => (
+									<ActionRow
+										icon={<CopyAddIcon />}
+										label="Copy image"
+										onClick={run(onCopy())}
+									/>
+								)}
+							</Show>
+							<Show when={props.image?.onDownload}>
+								{(onDownload) => (
+									<ActionRow
+										icon={<GalleryDownloadIcon />}
+										label="Download image"
+										onClick={run(onDownload())}
+									/>
+								)}
 							</Show>
 						</ListGroup>
 					</Show>

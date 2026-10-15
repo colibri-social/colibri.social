@@ -30,6 +30,23 @@ describe("bio links", () => {
 		]);
 	});
 
+	it("keeps sentence punctuation and emails out of links", () => {
+		const links = (text: string) =>
+			bioSegments(text)
+				.filter((segment) => segment.kind === "link")
+				.map((segment) => segment.text);
+		expect(links("Visit lou.gg.")).toEqual(["lou.gg"]);
+		expect(links("Sites: lou.gg, colibri.social!")).toEqual([
+			"lou.gg",
+			"colibri.social",
+		]);
+		expect(links("(see https://lou.gg/a)")).toEqual(["https://lou.gg/a"]);
+		expect(links("wiki en.wikipedia.org/wiki/Bird_(disambiguation)")).toEqual([
+			"en.wikipedia.org/wiki/Bird_(disambiguation)",
+		]);
+		expect(links("mail hi@lou.gg")).toEqual([]);
+	});
+
 	it("routes plain clicks through the link handler", () => {
 		const onLink = vi.fn();
 		const host = document.createElement("div");

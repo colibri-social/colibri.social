@@ -36,7 +36,7 @@ export type ComposerEditing = {
 	allowEmpty?: boolean;
 };
 
-export const COMPOSER_TYPING_INSET = 32;
+export const COMPOSER_TYPING_INSET = 24;
 
 export type ComposerProps = {
 	platform?: ComposerPlatform;
@@ -200,7 +200,7 @@ export const Composer = (props: ComposerProps) => {
 						platform() === "desktop"
 							? "[--typing-ring:var(--card)]"
 							: cx(
-									"pointer-events-none absolute inset-x-0 bottom-full flex h-8 flex-col justify-end [padding-inline:inherit] [--typing-ring:var(--background)]",
+									"pointer-events-none absolute inset-x-0 bottom-full flex h-6 flex-col justify-end [padding-inline:inherit] [--typing-ring:var(--background)]",
 									"bg-linear-to-b from-transparent via-background/70 via-35% to-background to-90%",
 									"opacity-0 transition-opacity duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)] has-data-active:opacity-100",
 									"motion-reduce:transition-none reduced-motion:transition-none",

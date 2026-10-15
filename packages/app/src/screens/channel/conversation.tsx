@@ -1,3 +1,4 @@
+import { classifyThrown, createLogger } from "@colibri-social/lib";
 import {
 	Button,
 	COMPOSER_TYPING_INSET,
@@ -29,7 +30,6 @@ import {
 } from "solid-js";
 import { authorForDid, displayNameOf } from "../../data/adapters/authors";
 import { fromComposerValue, toTextValue } from "../../data/adapters/facets";
-import { classifyThrown, createLogger } from "../../data/errors";
 import { channelSlug, skeyOf } from "../../data/ids";
 import {
 	createComposerDraft,
@@ -50,6 +50,7 @@ import type {
 	SpaceRef,
 	ThreadView,
 } from "../../data/types";
+import { documentVisible } from "../../data/visibility";
 import { usePlatform } from "../../screen/platform";
 import { useOptionalDesktopShell } from "../../shell/desktop/context";
 import { isCovered } from "../../shell/desktop/desktop-route";
@@ -134,6 +135,7 @@ export const createConversation = (options: ConversationOptions) => {
 			return platform();
 		},
 		anchor: () => mediaAnchor,
+		focusComposer: () => editor?.focus(),
 		gifs: data.source,
 		packs: emojiPacks,
 		onInsertEmoji: (emoji) => {
@@ -150,8 +152,12 @@ export const createConversation = (options: ConversationOptions) => {
 			keepEditorFocus();
 		},
 		onSendGif: (gif) => {
-			list?.scrollToBottom({ smooth: true });
-			void feed()?.send({ text: "", attachments: [gifAttachment(gif)] });
+			const current = feed();
+			if (!current) return;
+			pinWhile(
+				() =>
+					void current.send({ text: "", attachments: [gifAttachment(gif)] }),
+			);
 		},
 	});
 	const reactionPicker = createReactionPicker({ packs: emojiPacks });
@@ -182,6 +188,10 @@ export const createConversation = (options: ConversationOptions) => {
 		const ref = options.target();
 		return ref ? data.channel(ref) : undefined;
 	});
+	createEffect(() => {
+		const ref = options.target();
+		if (ref) onCleanup(data.holdChannel(ref));
+	});
 	const [replyTo, setReplyTo] = createSignal<ChatMessage>();
 	const [editing, setEditing] = createSignal<ChatMessage>();
 	const muted = () => {
@@ -193,6 +203,11 @@ export const createConversation = (options: ConversationOptions) => {
 		if (ref) data.setMuted(ref, next);
 	};
 	let list: MessageListHandle | undefined;
+	const pinWhile = (insert: () => void) => {
+		list?.scrollToBottom({ smooth: false });
+		insert();
+		list?.scrollToBottom({ smooth: false });
+	};
 	const [deletedPing, setDeletedPing] = createSignal(false);
 	const handledOrphans = new Set<string>();
 	createEffect(
@@ -290,7 +305,12 @@ export const createConversation = (options: ConversationOptions) => {
 		return map;
 	});
 
-	const [revealed, setRevealed] = createSignal(false);
+	const [revealed, setRevealed] = createSignal(
+		untrack(() => {
+			const current = feed();
+			return !!current?.ready() && current.messages().length > 0;
+		}),
+	);
 	createEffect(() => {
 		if (revealed() || !feed()?.ready() || stack.moving()) return;
 		const frame = requestAnimationFrame(() =>
@@ -307,6 +327,7 @@ export const createConversation = (options: ConversationOptions) => {
 			!revealed() ||
 			!isActive() ||
 			modalOpen() ||
+			!documentVisible() ||
 			!current?.ready()
 		)
 			return;
@@ -437,7 +458,7 @@ export const createConversation = (options: ConversationOptions) => {
 		return member
 			? displayNameOf(member.actor, member)
 			: did === data.viewer.did
-				? data.viewer.displayName
+				? displayNameOf(data.viewer)
 				: "Someone";
 	};
 
@@ -822,8 +843,7 @@ export const createConversation = (options: ConversationOptions) => {
 		const files = attachments.take();
 		const parent = replyTo()?.rkey;
 		setReplyTo(undefined);
-		list?.scrollToBottom({ smooth: true });
-		void current.send({ ...payload, parent, files });
+		pinWhile(() => void current.send({ ...payload, parent, files }));
 		return true;
 	};
 
@@ -954,13 +974,15 @@ export const ConversationMessages = (props: {
 					locale="en-GB"
 					hasOlder={!m.revealed() || (m.feed()?.hasOlder() ?? false)}
 					bottomInset={
-						props.platform === "desktop" ? undefined : COMPOSER_TYPING_INSET
+						props.platform !== "desktop" ? COMPOSER_TYPING_INSET : undefined
 					}
-					jumpLift={
-						props.platform !== "desktop" && m.typingUsers().length ? 24 : 0
-					}
+					jumpLift={props.platform !== "desktop" ? COMPOSER_TYPING_INSET : 0}
 					loadingOlder={m.feed()?.loadingOlder() || !m.revealed()}
 					onLoadOlder={() => m.feed()?.loadOlder()}
+					hasNewer={m.feed()?.hasNewer() ?? false}
+					loadingNewer={m.feed()?.loadingNewer() ?? false}
+					onLoadNewer={() => m.feed()?.loadNewer()}
+					onJumpToLatest={() => m.feed()?.jumpToLatest()}
 					onAtBottomChange={m.setAtBottom}
 					ref={m.setList}
 					header={props.header}

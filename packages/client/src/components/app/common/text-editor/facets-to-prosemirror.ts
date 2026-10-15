@@ -5,8 +5,10 @@ import {
 	type ColibriRichTextMention,
 	type ColibriRichTextRole,
 	type ColibriRichTextTime,
+	channelSpaceCandidates,
 	facetsToSource,
 	isTimestampStyle,
+	spaceSkey,
 } from "@colibri-social/lib";
 import type { Editor, TextType } from "@tiptap/core";
 import {
@@ -15,10 +17,6 @@ import {
 	UNRESOLVED_CHANNEL_LABEL,
 } from "../../../../atproto/channel-reference";
 import { parseColibriChannelUrl } from "../../../../atproto/colibri-channel-url";
-import {
-	channelSpaceCandidates,
-	spaceSkey,
-} from "../../../../atproto/space-ref";
 import type { CommunityView } from "../../../../atproto/views";
 import type {
 	Category,

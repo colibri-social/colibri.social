@@ -1,4 +1,4 @@
-import type { ColibriErrorCode } from "../errors/codes";
+import type { ColibriErrorCode } from "@colibri-social/lib";
 
 export type CommunityViewerState = {
 	isMember: boolean;

@@ -1,4 +1,20 @@
 import {
+	AUTH_SUBPROTOCOL,
+	type ClientFrame,
+	ColibriError,
+	classifyThrown,
+	decodeFrame,
+	EVENTS_LXM,
+	EVENTS_PATH,
+	encodeFrame,
+	frameIs,
+	heartbeatFrame,
+	type ServerFrame,
+	subscribeFrame,
+	subscriptionTargets,
+	unsubscribeFrame,
+} from "@colibri-social/lib";
+import {
 	type Accessor,
 	createContext,
 	createSignal,
@@ -16,22 +32,6 @@ import {
 	type SubscriptionSets,
 	type SubscriptionTarget,
 } from "../atproto/subscriptions";
-import {
-	AUTH_SUBPROTOCOL,
-	type ClientFrame,
-	decodeFrame,
-	EVENTS_LXM,
-	EVENTS_PATH,
-	encodeFrame,
-	frameIs,
-	heartbeatFrame,
-	type ServerFrame,
-	subscribeFrame,
-	subscriptionTargets,
-	unsubscribeFrame,
-} from "../atproto/sync-frames";
-import { classifyThrown } from "../errors/classify";
-import { ColibriError } from "../errors/error";
 import { reportError } from "../errors/report";
 import { getAppViewHost, getAppViewServiceRef } from "../utils/appview";
 import { createLogger } from "../utils/logger";

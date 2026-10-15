@@ -231,3 +231,94 @@ describe("moderation on yourself", () => {
 		expect(texts.some((text) => /^(Kick|Ban)\b/.test(text))).toBe(false);
 	});
 });
+
+describe("bio parity", () => {
+	const BIO =
+		"Birds at lou.gg/birds. Ping @ana.bsky.social (or https://colibri.social).\nSecond line";
+
+	const bioMarkup = (root: ParentNode) =>
+		root.querySelector('[data-profile-section="Bio"]')?.innerHTML ?? "";
+
+	it("renders the same bio in the user panel and the member popover", async () => {
+		setLatency(0);
+		await page.viewport(1440, 900);
+		history.replaceState(null, "", `/app/c/${HQ}`);
+		const source = createMockSource({ live: false });
+		await source.putProfile({ syncBluesky: false, description: BIO });
+		const store = createDataStore(source);
+		await until(() => !!store.communities.value());
+		const hq = store.spaceByKey(HQ);
+		if (!hq) throw new Error("hq missing");
+		await until(() => !!store.space(hq).members.value());
+
+		stops.push(
+			render(
+				() => (
+					<DataContext.Provider value={store}>
+						<Providers>
+							<DesktopShell />
+						</Providers>
+					</DataContext.Provider>
+				),
+				host(),
+			),
+		);
+		await expect.poll(() => location.pathname).toContain("channel.text");
+		await userEvent.click(
+			page
+				.getByRole("region", { name: "Your account" })
+				.getByRole("button")
+				.first(),
+		);
+		const panel = page.getByRole("dialog", { name: "Your profile" });
+		await expect.element(panel).toBeVisible();
+		await expect.poll(() => bioMarkup(panel.element())).not.toBe("");
+		const panelBio = bioMarkup(panel.element());
+		await userEvent.keyboard("{Escape}");
+		await expect
+			.poll(() => document.querySelector('[role="dialog"]'))
+			.toBeNull();
+		for (const stop of stops) stop();
+		stops = [];
+		document.body.replaceChildren();
+
+		let openProfile: ReturnType<typeof useProfileSheet>["open"] = () => {};
+		let anchor: HTMLButtonElement | undefined;
+		const Capture = () => {
+			openProfile = useProfileSheet().open;
+			return null;
+		};
+		stops.push(
+			render(
+				() => (
+					<DataContext.Provider value={store}>
+						<Providers>
+							<ProfileSheetProvider>
+								<Capture />
+								<button type="button" ref={anchor} style={{ margin: "200px" }}>
+									Anchor
+								</button>
+							</ProfileSheetProvider>
+						</Providers>
+					</DataContext.Provider>
+				),
+				host("position:fixed;inset:0;width:1440px;height:900px"),
+			),
+		);
+		openProfile(store.viewer.did, HQ, { element: anchor });
+		await until(() => bioMarkup(document) !== "");
+		const memberBio = bioMarkup(document);
+
+		expect(panelBio).toBe(memberBio);
+		const links = Array.from(
+			document.querySelectorAll<HTMLAnchorElement>(
+				'[data-profile-section="Bio"] a[data-bio-link]',
+			),
+		).map((link) => [link.textContent, link.getAttribute("href")]);
+		expect(links).toEqual([
+			["lou.gg/birds", "https://lou.gg/birds"],
+			["@ana.bsky.social", expect.stringContaining("ana.bsky.social")],
+			["https://colibri.social", "https://colibri.social"],
+		]);
+	});
+});
