@@ -1,4 +1,6 @@
 import type { AccessEvent, AccessSource } from "./access";
+import type { ActivityProvider } from "./activity-source";
+import type { LabelerTransport } from "./badges/labeler";
 import type { ChannelSummary } from "./channel-summary";
 import type { EmojiEvent, EmojiSource } from "./emoji";
 import type { PreferenceStore } from "./preferences/store";
@@ -48,6 +50,7 @@ export type SendMessageInput = {
 	facets?: Facet[];
 	parent?: string;
 	attachments?: AttachmentView[];
+	suppressedEmbeds?: string[];
 };
 
 export type UploadOptions = {
@@ -217,6 +220,14 @@ export type UpdateRoleInput = {
 	mentionable?: boolean;
 };
 
+export type VoiceModerationInput = {
+	channel: SpaceRef;
+	subject: Did;
+	muted?: boolean;
+	deafened?: boolean;
+	disconnect?: boolean;
+};
+
 export type MemberModerationInput = {
 	community: Did;
 	subject: Did;
@@ -228,11 +239,25 @@ export type ProfileTheme = NonNullable<ProfileView["theme"]>;
 export type ProfileRecordInput = {
 	displayName?: string;
 	description?: string;
+	pronouns?: string | null;
 	avatar?: AttachmentView | null;
 	banner?: AttachmentView | null;
 	syncBluesky: boolean;
 	theme?: ProfileTheme;
 };
+
+export type ProfileSeed = {
+	displayName?: string;
+	description?: string;
+	pronouns?: string;
+	avatar?: Blob;
+	banner?: Blob;
+	theme?: ProfileTheme;
+};
+
+export type ProfileSetup =
+	| { complete: true }
+	| { complete: false; colibri?: ProfileSeed; bluesky?: ProfileSeed };
 
 export type StatusInput = {
 	text?: string;
@@ -273,6 +298,7 @@ export type UpdateChannelInput = {
 	allowedRoles?: string[];
 	allowedMembers?: Did[];
 	linkEmbeds?: boolean;
+	removeLinkEmbeds?: boolean;
 	visibleToRoles?: string[];
 	visibleToMembers?: Did[];
 };
@@ -469,8 +495,11 @@ export type DataSource = AccessSource &
 			options?: UploadOptions,
 		) => Promise<AttachmentView>;
 		putProfile: (input: ProfileRecordInput) => Promise<ProfileView>;
+		loadProfileSetup: () => Promise<ProfileSetup>;
+		defaultCommunity: () => Promise<Did | undefined>;
 		setStatus: (input: StatusInput) => Promise<Presence>;
 		setVoice: (voice: VoiceState | undefined) => Promise<Presence>;
+		moderateVoice: (input: VoiceModerationInput) => Promise<void>;
 		listGifs: (query?: string) => Promise<GifView[]>;
 		gifFavorites: () => GifView[];
 		setGifFavorite: (gif: GifView, favorite: boolean) => void;
@@ -481,4 +510,6 @@ export type DataSource = AccessSource &
 		simulation: () => Simulation;
 		setSimulation: (next: Partial<Simulation>) => void;
 		preferences: PreferenceStore;
+		labeler?: LabelerTransport;
+		detectActivitySource?: (did: Did) => Promise<ActivityProvider | null>;
 	};

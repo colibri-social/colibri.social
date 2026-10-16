@@ -31,7 +31,12 @@ export const Dock = () => {
 		data.presenceOf(data.viewer.did) ?? data.viewer.presence;
 	const bio = createBioRenderer();
 	const profile = createMemo(() =>
-		ownProfileData(data, shell.stack.route().root.space, bio.render),
+		ownProfileData(
+			data,
+			shell.stack.route().root.space,
+			bio.render,
+			bio.openLink,
+		),
 	);
 	createEffect(
 		on(

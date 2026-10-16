@@ -14,6 +14,7 @@ export type DeveloperModeCardProps = {
 	onCopy?: () => void;
 	pdslsHref?: string;
 	pdslsLabel?: string;
+	stacked?: boolean;
 	class?: string;
 };
 
@@ -58,10 +59,13 @@ export const DeveloperModeCard = (props: DeveloperModeCardProps) => {
 			)}
 		>
 			<p class="text-sm text-foreground">{props.label ?? "Developer mode"}</p>
-			<div class="flex gap-2">
+			<div
+				data-stacked={props.stacked || undefined}
+				class={cx("flex gap-2", props.stacked && "flex-col")}
+			>
 				<Button
 					variant="secondary"
-					class="min-w-0 flex-1 px-3"
+					class={cx("min-w-0 px-3", props.stacked ? "w-full" : "flex-1")}
 					data-copied={copied() || undefined}
 					icon={<AnimatedCopyIcon copied={copied()} />}
 					onClick={(event) => void copy(event.currentTarget)}
@@ -76,7 +80,8 @@ export const DeveloperModeCard = (props: DeveloperModeCardProps) => {
 							rel="noreferrer"
 							class={cx(
 								buttonVariants({ variant: "secondary" }),
-								"min-w-0 flex-1 px-3",
+								"min-w-0 px-3",
+								props.stacked ? "w-full" : "flex-1",
 							)}
 						>
 							<PdslsLogo class="size-4 shrink-0" />

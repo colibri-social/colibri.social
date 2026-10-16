@@ -1,6 +1,7 @@
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, describe, expect, it } from "vitest";
+import { page, userEvent } from "vitest/browser";
 import {
 	type AttachmentDraft,
 	createAttachmentDraft,
@@ -102,6 +103,43 @@ describe("attachment draft", () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(toggle?.getAttribute("aria-pressed")).toBe("true");
 		expect(draft.items()[0]?.spoiler).toBe(true);
+		stop();
+		host.remove();
+	});
+
+	it("adds alt text from the tray and hands it over on send", async () => {
+		const { draft } = setup();
+		const host = document.createElement("div");
+		document.body.append(host);
+		const stop = render(() => <draft.Tray />, host);
+		draft.addFiles([file("bird.png", 10, "image/png"), file("notes.pdf")]);
+		await expect
+			.element(page.getByRole("button", { name: "Add alt text to bird.png" }))
+			.toBeVisible();
+		expect(
+			host.querySelector('button[aria-label="Add alt text to notes.pdf"]'),
+		).toBeNull();
+		expect(host.querySelector("img")?.getAttribute("alt")).toBe("");
+		await userEvent.click(
+			page.getByRole("button", { name: "Add alt text to bird.png" }),
+		);
+		const dialog = page.getByRole("dialog", { name: "Add alt text" });
+		await expect.element(dialog).toBeVisible();
+		await userEvent.fill(
+			dialog.getByRole("textbox", { name: "Alt text" }),
+			"  A colibri at a flower  ",
+		);
+		await userEvent.click(dialog.getByRole("button", { name: "Save" }));
+		await expect.element(dialog).not.toBeInTheDocument();
+		expect(draft.items()[0]?.alt).toBe("A colibri at a flower");
+		await expect
+			.element(page.getByRole("button", { name: "Edit alt text for bird.png" }))
+			.toBeVisible();
+		const taken = draft.take();
+		expect(taken.map((entry) => entry.alt)).toEqual([
+			"A colibri at a flower",
+			undefined,
+		]);
 		stop();
 		host.remove();
 	});

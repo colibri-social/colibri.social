@@ -4,6 +4,7 @@ import { SettingsIcon } from "@solar-icons/solid/bold/settings";
 import { createSignal, type JSX, Show } from "solid-js";
 import { AnimatedMicrophoneIcon } from "../../icons/animated/icons";
 import { cx } from "../../utils/cx";
+import { createMenuTrigger } from "../../utils/gestures";
 import { KeyedFor } from "../../utils/keyed";
 import { Button } from "../Button/Button";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
@@ -15,13 +16,24 @@ import {
 	type VoiceParticipant,
 	VoiceStateIcons,
 } from "./shared";
-import { VoiceGrid, type VoiceTileData } from "./VoiceGrid";
+import {
+	VoiceGrid,
+	type VoiceGridProps,
+	type VoiceTileData,
+} from "./VoiceGrid";
 
 export type VoiceParticipantRowProps = {
 	participant: VoiceParticipant;
 	onOpen?: (id: string) => void;
+	onMenu?: (id: string) => void;
+	wrap?: (row: JSX.Element) => JSX.Element;
 	class?: string;
 };
+
+const wrapRow = (
+	wrap: ((row: JSX.Element) => JSX.Element) | undefined,
+	row: JSX.Element,
+) => (wrap ? wrap(row) : row);
 
 const participantRowClass =
 	"flex w-full min-w-0 items-center gap-3 rounded-control bg-secondary py-2 pr-3 pl-2";
@@ -50,6 +62,12 @@ const VoiceParticipantContent = (props: { participant: VoiceParticipant }) => (
 
 export const VoiceParticipantRow = (props: VoiceParticipantRowProps) => (
 	<li
+		ref={(element) =>
+			createMenuTrigger(element, {
+				enabled: () => !!props.onMenu && !props.participant.pending,
+				onMenu: () => props.onMenu?.(props.participant.id),
+			})
+		}
 		data-voice-participant=""
 		data-pending={props.participant.pending || undefined}
 		class={cx("flex min-w-0", props.class)}
@@ -66,27 +84,30 @@ export const VoiceParticipantRow = (props: VoiceParticipantRowProps) => (
 				</span>
 			}
 		>
-			<Show
-				when={props.onOpen}
-				fallback={
-					<span class={participantRowClass}>
-						<VoiceParticipantContent participant={props.participant} />
-					</span>
-				}
-			>
-				{(open) => (
-					<button
-						type="button"
-						onClick={() => open()(props.participant.id)}
-						class={cx(
-							participantRowClass,
-							"cursor-pointer border-0 text-left outline-none focus-ring-inset hover:bg-popover-highlight",
-						)}
-					>
-						<VoiceParticipantContent participant={props.participant} />
-					</button>
-				)}
-			</Show>
+			{wrapRow(
+				props.wrap,
+				<Show
+					when={props.onOpen}
+					fallback={
+						<span class={participantRowClass}>
+							<VoiceParticipantContent participant={props.participant} />
+						</span>
+					}
+				>
+					{(open) => (
+						<button
+							type="button"
+							onClick={() => open()(props.participant.id)}
+							class={cx(
+								participantRowClass,
+								"cursor-pointer border-0 text-left outline-none focus-ring-inset hover:bg-popover-highlight",
+							)}
+						>
+							<VoiceParticipantContent participant={props.participant} />
+						</button>
+					)}
+				</Show>,
+			)}
 		</Show>
 	</li>
 );
@@ -152,6 +173,11 @@ export type VoiceJoinRosterProps = {
 	channelName: string;
 	participants?: VoiceParticipant[];
 	onOpenParticipant?: (id: string) => void;
+	onParticipantMenu?: (id: string) => void;
+	participantMenu?: (
+		participant: VoiceParticipant,
+		row: JSX.Element,
+	) => JSX.Element;
 	emptyText?: JSX.Element;
 };
 
@@ -180,6 +206,12 @@ export const VoiceJoinRoster = (props: VoiceJoinRosterProps) => {
 						<VoiceParticipantRow
 							participant={participant()}
 							onOpen={props.onOpenParticipant}
+							onMenu={props.onParticipantMenu}
+							wrap={
+								props.participantMenu
+									? (row) => props.participantMenu?.(participant(), row)
+									: undefined
+							}
 						/>
 					)}
 				</KeyedFor>
@@ -259,6 +291,8 @@ export type VoiceStageProps = {
 	portrait?: boolean;
 	focusedKey?: string | null;
 	onFocusChange?: (key: string | null) => void;
+	tileMenu?: VoiceGridProps["tileMenu"];
+	onTileMenu?: VoiceGridProps["onTileMenu"];
 	class?: string;
 };
 
@@ -269,6 +303,8 @@ export const VoiceStage = (props: VoiceStageProps) => (
 			tiles={props.tiles}
 			focusedKey={props.focusedKey}
 			onFocusChange={props.onFocusChange}
+			tileMenu={props.tileMenu}
+			onTileMenu={props.onTileMenu}
 		/>
 	</div>
 );

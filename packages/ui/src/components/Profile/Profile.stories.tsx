@@ -2,20 +2,32 @@ import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { ShieldUserIcon } from "@solar-icons/solid/bold/shield-user";
 import { SledgehammerIcon } from "@solar-icons/solid/bold/sledgehammer";
 import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded";
-import { createSignal } from "solid-js";
+import { createSignal, For } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
-import { expectNoLayoutIssues } from "../../foundations/layout-test";
+import {
+	EMULATED_WINDOW_CHROME,
+	emulateWindowChrome,
+	expectClearOfWindowChrome,
+	expectNoLayoutIssues,
+} from "../../foundations/layout-test";
 import { PlayTesterBadge } from "../../icons/animated/brand";
 import { contrastRatio } from "../../utils/name-color";
 import { createRipple } from "../../utils/ripple";
 import { bouncingDotGif } from "../AnimatedImage/fixtures";
 import { Avatar } from "../Avatar/Avatar";
-import { AppBadge, TeamBadge } from "../Badge/Badge";
+import {
+	AppBadge,
+	type BadgeDefinition,
+	FALLBACK_BADGE_DEFINITIONS,
+	SecondaryUserBadge,
+	TeamBadge,
+} from "../Badge/Badge";
 import { Button } from "../Button/Button";
 import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
 import { SectionLabel } from "../List/List";
 import { MessageRow } from "../Message/MessageRow";
+import { ActivityOptInPrompt } from "./ActivityOptInPrompt";
 import {
 	OwnProfilePopoverFixture,
 	ownProfileFixture,
@@ -788,6 +800,37 @@ export const StatusWhileOffline: Story = {
 	},
 };
 
+export const PopoverOwnProfileUnderWindowChrome: Story = {
+	name: "Popover own profile under window chrome",
+	parameters: desktop,
+	render: () => (
+		<div class="fixed bottom-1 left-1 w-[312px]">
+			<OwnProfilePopoverFixture />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const restore = emulateWindowChrome();
+		try {
+			const trigger = within(canvasElement).getByRole("button", {
+				name: /^Lou/,
+			});
+			await userEvent.click(trigger);
+			const popover = await screen.findByRole("dialog", {
+				name: "Your profile",
+			});
+			await waitFor(() =>
+				expect(popover.getBoundingClientRect().left).toBe(16),
+			);
+			await expect(popover.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+				EMULATED_WINDOW_CHROME + 16,
+			);
+			await expectClearOfWindowChrome(document.body);
+		} finally {
+			restore();
+		}
+	},
+};
+
 export const PopoverOwnProfile: Story = {
 	name: "Popover own profile",
 	parameters: desktop,
@@ -1261,5 +1304,387 @@ export const PopoverPlaysAvatar: Story = {
 			await userEvent.keyboard("{Escape}");
 			await waitFor(() => expect(popoverAvatar()).toBeNull());
 		});
+	},
+};
+
+const onActivityOpen = fn();
+
+export const NowPlayingKinds: Story = {
+	render: () => (
+		<div class="flex w-full max-w-sm flex-col gap-4">
+			<NowPlayingCard
+				kind="listening"
+				label="Listening to rocksky.app"
+				source="rocksky.app"
+				title="Manual Drive 1991"
+				artist="DUSQK"
+				href="https://rocksky.app"
+				onOpen={(event) => {
+					event.preventDefault();
+					onActivityOpen();
+				}}
+			/>
+			<NowPlayingCard
+				kind="playing"
+				label="Playing"
+				source="steam"
+				title="Celeste"
+				artist="Chapter 7"
+				tone="secondary"
+			/>
+			<NowPlayingCard
+				kind="streaming"
+				label="Streaming on twitch.tv"
+				source="twitch.tv"
+				title="Painting birds live"
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		onActivityOpen.mockClear();
+		const canvas = within(canvasElement);
+		const cards = Array.from(
+			canvasElement.querySelectorAll<HTMLElement>("[data-now-playing]"),
+		);
+		await expect(cards.map((card) => card.dataset.nowPlaying)).toEqual([
+			"listening",
+			"playing",
+			"streaming",
+		]);
+		await expect(cards[1]).toHaveTextContent(/^Playing/);
+		await expect(cards[2]).toHaveTextContent(/^Streaming on twitch\.tv/);
+		await expect(
+			cards[1]?.querySelector('[data-activity-icon="playing"]'),
+		).not.toBeNull();
+		await expect(cards[1]?.tagName).toBe("DIV");
+		const link = canvas.getByRole("link");
+		await expect(link).toHaveAccessibleName(
+			/Listening to rocksky\.app.*Manual Drive 1991.*DUSQK/,
+		);
+		await userEvent.click(link);
+		await expect(onActivityOpen).toHaveBeenCalledTimes(1);
+	},
+};
+
+const onEnableActivity = fn();
+const onDismissActivity = fn();
+
+export const ActivityPrompt: Story = {
+	render: () => {
+		const [dismissed, setDismissed] = createSignal(false);
+		return (
+			<div class="flex flex-col gap-6">
+				<div class="w-[360px] bg-background p-4">
+					<ActivityOptInPrompt
+						provider="teal.fm"
+						tone="card"
+						dismissed={dismissed()}
+						onEnable={onEnableActivity}
+						onDismiss={() => {
+							onDismissActivity();
+							setDismissed(true);
+						}}
+					/>
+				</div>
+				<div class="w-[320px] bg-popover p-4" data-testid="busy">
+					<ActivityOptInPrompt provider="atradio.fm" tone="secondary" busy />
+				</div>
+			</div>
+		);
+	},
+	play: async ({ canvasElement, step }) => {
+		onEnableActivity.mockClear();
+		onDismissActivity.mockClear();
+		const canvas = within(canvasElement);
+		const prompt = canvasElement.querySelector<HTMLElement>(
+			'[data-activity-prompt="teal.fm"]',
+		) as HTMLElement;
+
+		await step("Shows the detected service", async () => {
+			await expect(prompt).toHaveTextContent(
+				"Let others see what you're listening to on teal.fm.",
+			);
+			await expect(
+				within(prompt).getByRole("img", { name: "teal.fm" }),
+			).toBeVisible();
+			const buttons = within(prompt).getAllByRole("button");
+			const [enable, dismiss] = buttons.map((button) =>
+				button.getBoundingClientRect(),
+			);
+			await expect(enable?.top).toBe(dismiss?.top);
+			await expect(enable?.width).toBeCloseTo(dismiss?.width ?? 0, 0);
+			await expect(prompt.scrollWidth).toBeLessThanOrEqual(prompt.clientWidth);
+		});
+
+		await step("A busy prompt blocks both actions", async () => {
+			const busy = within(canvas.getByTestId("busy"));
+			for (const button of busy.getAllByRole("button")) {
+				await expect(button).toBeDisabled();
+			}
+		});
+
+		await step("Turning on calls back", async () => {
+			await userEvent.click(
+				within(prompt).getByRole("button", { name: "Turn on" }),
+			);
+			await expect(onEnableActivity).toHaveBeenCalledTimes(1);
+		});
+
+		await step("Hiding leaves a pointer to the settings", async () => {
+			await userEvent.click(
+				within(prompt).getByRole("button", { name: "Hide" }),
+			);
+			await expect(onDismissActivity).toHaveBeenCalledTimes(1);
+			await waitFor(() =>
+				expect(
+					canvasElement.querySelector('[data-activity-prompt="dismissed"]'),
+				).toHaveTextContent("You can turn this on any time in Chat settings."),
+			);
+			await expect(
+				canvasElement.querySelector('[data-activity-prompt="teal.fm"]'),
+			).toBeNull();
+		});
+	},
+};
+
+const fallbackBadge = (identifier: string) =>
+	FALLBACK_BADGE_DEFINITIONS.find(
+		(entry) => entry.identifier === identifier,
+	) as BadgeDefinition;
+
+const EARLY_BIRD: BadgeDefinition = {
+	identifier: "early-bird",
+	name: "EARLY BIRD",
+	description: "Joined Colibri in its first month",
+};
+
+const BadgedHeader = (props: { secondary: BadgeDefinition[] }) => (
+	<div class="w-[360px] bg-popover pb-4 text-foreground">
+		<ProfileHeader
+			displayName="Lou"
+			handle="lou.gg"
+			avatarSrc={AVATAR}
+			presence="online"
+			badge={<TeamBadge size="sm" />}
+			appBadge={
+				<span class="flex shrink-0 items-center gap-1">
+					<For each={props.secondary}>
+						{(definition) => <SecondaryUserBadge definition={definition} />}
+					</For>
+				</span>
+			}
+		/>
+	</div>
+);
+
+export const IconBadges: Story = {
+	render: () => (
+		<BadgedHeader
+			secondary={[
+				fallbackBadge("play-store-tester"),
+				fallbackBadge("sponsor-twenty-five"),
+				fallbackBadge("backer-five"),
+			]}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		const meta = canvasElement.querySelector<HTMLElement>(
+			"[data-profile-meta]",
+		) as HTMLElement;
+		await expect(
+			canvasElement.querySelectorAll("[data-user-badge]").length,
+		).toBe(1);
+		await expect(
+			canvasElement
+				.querySelector('[data-user-badge="team"]')
+				?.closest("[data-profile-meta]"),
+		).toBeNull();
+		const icons = Array.from(
+			meta.querySelectorAll<HTMLElement>("[data-app-badge]"),
+		);
+		await expect(icons).toHaveLength(3);
+		await expect(
+			within(meta).getByRole("button", { name: "$5 BACKER" }),
+		).toBeVisible();
+		const money = meta.querySelectorAll<SVGElement>(
+			'[data-badge-icon="hand-money"]',
+		);
+		await expect(money).toHaveLength(2);
+		await expect(getComputedStyle(money[1] as Element).color).toBe(
+			"rgb(34, 211, 238)",
+		);
+		const tester = meta.querySelector('[data-badge-icon="play-tester"]');
+		await expect(tester).not.toBeNull();
+		await expect(tester?.querySelectorAll("linearGradient stop")).toHaveLength(
+			4,
+		);
+		await expect(meta.scrollWidth).toBeLessThanOrEqual(meta.clientWidth);
+	},
+};
+
+export const UnmappedSecondaryBadge: Story = {
+	render: () => (
+		<BadgedHeader secondary={[fallbackBadge("supporter-ten"), EARLY_BIRD]} />
+	),
+	play: async ({ canvasElement }) => {
+		const meta = canvasElement.querySelector<HTMLElement>(
+			"[data-profile-meta]",
+		) as HTMLElement;
+		await expect(meta.querySelectorAll("[data-app-badge]")).toHaveLength(2);
+		await expect(meta.querySelector("[data-user-badge]")).toBeNull();
+		await expect(
+			meta.querySelector('[data-badge-icon="medal"]'),
+		).not.toBeNull();
+		await expect(
+			within(meta).getByRole("button", { name: "EARLY BIRD" }),
+		).toBeVisible();
+		await expect(meta.scrollWidth).toBeLessThanOrEqual(meta.clientWidth);
+	},
+};
+
+const MULTI_LANGUAGE_PRONOUNS = "she/her, sie/ihr, elle";
+const OVERLONG_PRONOUNS =
+	"she/her, sie/ihr, elle, ella, zij/haar, hon/henne, lei/la, hen/hen, ona/jej, ela/dela";
+
+const expectMetaFlowsCleanly = async (meta: HTMLElement) => {
+	const clip = meta.getBoundingClientRect();
+	const inset = Number.parseFloat(getComputedStyle(meta).paddingLeft);
+	const contentLeft = clip.left + inset;
+	const contentRight = clip.right - inset;
+	await expect(meta.scrollWidth).toBeLessThanOrEqual(meta.clientWidth);
+	const items = Array.from(
+		meta.querySelectorAll<HTMLElement>("[data-profile-meta-item]"),
+	);
+	let previousTop: number | undefined;
+	for (const item of items) {
+		const top = Math.round(item.getBoundingClientRect().top);
+		const lineStart = previousTop === undefined || top > previousTop;
+		previousTop = top;
+		const dot = item
+			.querySelector("[data-profile-meta-dot] > *")
+			?.getBoundingClientRect();
+		const content = (
+			item.lastElementChild as HTMLElement
+		).getBoundingClientRect();
+		if (!dot) throw new Error("separator missing");
+		if (lineStart) {
+			await expect(dot.right).toBeLessThanOrEqual(clip.left);
+			await expect(Math.round(content.left)).toBe(Math.round(contentLeft));
+		} else {
+			await expect(dot.left).toBeGreaterThanOrEqual(contentLeft);
+		}
+		await expect(content.right).toBeLessThanOrEqual(contentRight + 0.5);
+	}
+	const pronouns = meta.querySelector<HTMLElement>("[data-profile-pronouns]");
+	if (pronouns) {
+		await expect(pronouns.scrollWidth).toBeLessThanOrEqual(
+			pronouns.clientWidth,
+		);
+	}
+	return items;
+};
+
+export const PopoverLongPronouns: Story = {
+	parameters: desktop,
+	render: () => (
+		<div class="flex min-h-[720px] w-full justify-end bg-background p-4">
+			<ProfilePopover
+				profile={lou({
+					handle: "lou.colibri.social",
+					pronouns: MULTI_LANGUAGE_PRONOUNS,
+					bannerColor: "linear-gradient(135deg, #a579ff, #4dd4c6)",
+				})}
+				defaultOpen
+				triggerLabel="Lou"
+				as="button"
+			>
+				<span class="text-sm text-foreground">Lou</span>
+			</ProfilePopover>
+		</div>
+	),
+	play: async () => {
+		const popover = await screen.findByRole("dialog", {
+			name: "Lou's profile",
+		});
+		const meta = await waitFor(() => {
+			const found = popover.querySelector<HTMLElement>("[data-profile-meta]");
+			if (!found) throw new Error("meta missing");
+			return found;
+		});
+		await waitFor(() =>
+			expect(within(meta).getByText(MULTI_LANGUAGE_PRONOUNS)).toBeVisible(),
+		);
+		await expect(within(meta).getByText("@lou.colibri.social")).toBeVisible();
+		const items = await expectMetaFlowsCleanly(meta);
+		await expect(items).toHaveLength(4);
+		await expectNoLayoutIssues(popover);
+	},
+};
+
+export const HeaderLongPronouns: Story = {
+	render: () => (
+		<div class="-m-4 flex min-h-dvh flex-col gap-6 bg-background pb-16">
+			<For
+				each={[
+					{ handle: "lou.gg", pronouns: "he/him" },
+					{ handle: "lou.gg", pronouns: MULTI_LANGUAGE_PRONOUNS },
+					{
+						handle: "lou-has-a-long-handle.colibri.social",
+						pronouns: MULTI_LANGUAGE_PRONOUNS,
+					},
+					{ handle: "lou.gg", pronouns: OVERLONG_PRONOUNS },
+				]}
+			>
+				{(variant) => (
+					<article>
+						<ProfileHeader
+							displayName="Lou"
+							handle={variant.handle}
+							pronouns={variant.pronouns}
+							avatarSrc={AVATAR}
+							bannerColor="linear-gradient(135deg, #a579ff, #4dd4c6)"
+							presence="online"
+							links={[
+								{
+									label: "View on Bluesky",
+									href: "https://bsky.app/profile/lou.gg",
+									icon: <BlueskyLinkIcon />,
+								},
+							]}
+							appBadge={
+								<AppBadge
+									name="Play Store tester"
+									description="Helped test the Colibri App for the Play Store release"
+									icon={<PlayTesterBadge size={16} />}
+								/>
+							}
+							surface="background"
+						/>
+					</article>
+				)}
+			</For>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const metas = Array.from(
+			canvasElement.querySelectorAll<HTMLElement>("[data-profile-meta]"),
+		);
+		await expect(metas).toHaveLength(4);
+		const lines = [];
+		for (const meta of metas) {
+			const items = await expectMetaFlowsCleanly(meta);
+			lines.push(
+				new Set(
+					items.map((item) => Math.round(item.getBoundingClientRect().top)),
+				).size,
+			);
+		}
+		await expect(lines[0]).toBe(1);
+		await expect(lines[3]).toBeGreaterThan(1);
+		const overlong = metas[3]?.querySelector<HTMLElement>(
+			"[data-profile-pronouns]",
+		);
+		await expect(overlong?.getBoundingClientRect().height).toBeGreaterThan(18);
+		await expectNoLayoutIssues(canvasElement);
 	},
 };

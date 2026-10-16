@@ -19,15 +19,17 @@ export default adminChannel.view({
 						</Show>
 					}
 				>
-					<div class="flex flex-col gap-6 p-4 pb-safe-offset-6">
+					<div class="flex min-h-full flex-col gap-6 p-4 pb-safe-offset-6">
 						<Show
 							when={m.creating}
 							fallback={
 								<>
 									<s.General />
 									<s.Options />
+									<s.LinkPreviews />
 									<s.Developer />
 									<s.Delete />
+									<s.Bar />
 								</>
 							}
 						>

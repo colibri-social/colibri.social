@@ -1,4 +1,5 @@
 import type { HoistedRole, Member } from "@colibri-social/ui";
+import { memberActivityOf } from "../../data/activity";
 import { displayNameOf } from "../../data/adapters/authors";
 import { uiPresence } from "../../data/adapters/presence";
 import {
@@ -37,6 +38,7 @@ export const toListMember = (
 		hoistedRoleId: hoisted?.rkey,
 		bot: member.actor.isBot,
 		owner: options.ownerRole ? member.roles.includes(options.ownerRole) : false,
+		activity: memberActivityOf(options.presence),
 	};
 };
 

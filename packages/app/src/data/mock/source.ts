@@ -1,3 +1,4 @@
+import { ColibriError } from "@colibri-social/lib";
 import { summarizeMessage } from "../channel-summary";
 import { createMemoryPreferenceBackend } from "../preferences/memory";
 import { createPreferenceStore } from "../preferences/store";
@@ -955,6 +956,7 @@ export const createMockSource = (
 				}
 				if (input.ownerOnly !== undefined) view.ownerOnly = input.ownerOnly;
 				if (input.linkEmbeds !== undefined) view.linkEmbeds = input.linkEmbeds;
+				else if (input.removeLinkEmbeds) delete view.linkEmbeds;
 				if (input.allowedRoles !== undefined) {
 					view.allowedRoles = input.allowedRoles;
 				}
@@ -1085,6 +1087,9 @@ export const createMockSource = (
 			return withLatency(() => {
 				if (fails) throw new Error("Message could not be sent");
 				const view = createMessage({ ...input, author: world.viewerDid });
+				if (input.suppressedEmbeds?.length)
+					view.suppressedEmbeds =
+						input.suppressedEmbeds as MessageView["suppressedEmbeds"];
 				append(view);
 				const channel = channelRecord(input.channel);
 				if (channel) channel.readCursor = view.rkey;
@@ -1148,13 +1153,19 @@ export const createMockSource = (
 				});
 			}),
 		uploadBlob: (file, options) => mockUpload(file, options),
+		loadProfileSetup: () => withLatency(() => ({ complete: true as const })),
+		defaultCommunity: () => withLatency(() => undefined),
 		putProfile: (input) =>
 			withLatency(() => {
 				const did = world.viewerDid;
 				if (input.syncBluesky) {
 					world.people.setProfile(
 						did,
-						{ syncBluesky: true, theme: input.theme ?? null },
+						{
+							syncBluesky: true,
+							theme: input.theme ?? null,
+							pronouns: input.pronouns || null,
+						},
 						true,
 					);
 				} else {
@@ -1162,6 +1173,8 @@ export const createMockSource = (
 						syncBluesky: false,
 						displayName: input.displayName,
 						description: input.description || null,
+						pronouns:
+							input.pronouns === undefined ? undefined : input.pronouns || null,
 						avatar:
 							input.avatar === undefined
 								? undefined
@@ -1187,6 +1200,26 @@ export const createMockSource = (
 				world.people.setPresence(did, next);
 				emit({ $type: "presenceEvent", did, presence: next });
 				return next;
+			}),
+		moderateVoice: (input) =>
+			withLatency(() => {
+				const current = world.people.presenceOf(input.subject);
+				if (current?.voice?.channel !== input.channel) {
+					throw new ColibriError({ code: "NotInVoice" });
+				}
+				const next: Presence = { ...current };
+				if (input.disconnect) {
+					delete next.voice;
+				} else {
+					const voice = { ...current.voice };
+					if (input.muted !== undefined) voice.serverMuted = input.muted;
+					if (input.deafened !== undefined) {
+						voice.serverDeafened = input.deafened;
+					}
+					next.voice = voice;
+				}
+				world.people.setPresence(input.subject, next);
+				emit({ $type: "presenceEvent", did: input.subject, presence: next });
 			}),
 		setStatus: (input) =>
 			withLatency(() => {
@@ -1428,6 +1461,20 @@ export const createMockSource = (
 			};
 		},
 		preferences,
+		labeler: {
+			queryLabels: async (dids) => ({
+				labels: dids.flatMap((did) =>
+					(world.people.byDid.get(did)?.badges ?? []).map((val) => ({
+						uri: did,
+						val,
+						cts: asDatetime(now),
+					})),
+				),
+				truncated: false,
+			}),
+			definitions: async () => [],
+		},
+		detectActivitySource: async () => null,
 	};
 
 	return source;

@@ -9,6 +9,7 @@ import {
 export type DirtySource = {
 	dirty: () => boolean;
 	onDiscard?: () => void;
+	onBlocked?: () => void;
 	description?: () => string | undefined;
 };
 
@@ -39,6 +40,10 @@ export const createDirtyGuard = <
 		if (pending()) return true;
 		const dirty = affected(applies);
 		if (dirty.length === 0) return false;
+		if (dirty.every((source) => source.onBlocked)) {
+			for (const source of dirty) source.onBlocked?.();
+			return true;
+		}
 		setPending({ leave, affected: dirty });
 		return true;
 	};

@@ -31,7 +31,7 @@ import { defineContract, slot } from "../../../screen/define";
 import { usePlatform } from "../../../screen/platform";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
-import { useUnsavedChanges } from "../../../shell/unsaved-changes";
+import { createUnsavedForm, UnsavedBar } from "../../settings/unsaved-form";
 import {
 	HISTORY_DEPTHS,
 	type HistoryDepth,
@@ -174,7 +174,7 @@ export const bridge = defineContract({
 		};
 
 		let disconnected = false;
-		useUnsavedChanges({
+		const unsaved = createUnsavedForm({
 			depth: () =>
 				stack
 					.mounted()
@@ -185,8 +185,10 @@ export const bridge = defineContract({
 							layer.space === args.space &&
 							layer.id === args.id,
 					) + 1,
-			dirty: () => !disconnected && !busy() && edited(),
-			description: () => "Your link changes won't be saved.",
+			dirty: () => !disconnected && edited(),
+			saving: busy,
+			save: saveLinks,
+			reset,
 		});
 
 		const disconnect = async () => {
@@ -225,6 +227,7 @@ export const bridge = defineContract({
 			run,
 			saveLinks,
 			reset,
+			unsaved,
 			confirmOpen,
 			setConfirmOpen,
 			disconnect,
@@ -399,29 +402,12 @@ export const bridge = defineContract({
 									</div>
 								)}
 							</For>
-							<div class="flex gap-2">
-								<Button
-									block
-									variant="secondary"
-									disabled={!m.edited() || m.busy()}
-									onClick={m.reset}
-								>
-									Reset
-								</Button>
-								<Button
-									block
-									loading={m.busy()}
-									disabled={!m.edited()}
-									onClick={() => void m.saveLinks()}
-								>
-									Save links
-								</Button>
-							</div>
 						</div>
 					</Match>
 				</Switch>
 			</section>
 		)),
+		Bar: slot((m) => <UnsavedBar form={m.unsaved} />),
 		Danger: slot((m) => (
 			<>
 				<ListGroup>

@@ -26,6 +26,9 @@ const log = createLogger("preferences");
 
 const MISSING_SPACE = new Set(["SpaceNotFound", "RepoNotFound", "NotFound"]);
 
+export const isMissingSpace = (error: unknown) =>
+	error instanceof ColibriError && MISSING_SPACE.has(error.code);
+
 export const createPreferencesSpace = (transport: Transport) => {
 	const space = asSpaceRef(preferencesSpace(transport.did));
 	let ready: Promise<void> | undefined;
@@ -149,8 +152,7 @@ export const createRemotePreferenceBackend = (input: {
 					return mute ? [{ rkey: rkeyOf(record.uri), mute }] : [];
 				});
 			} catch (error) {
-				if (error instanceof ColibriError && MISSING_SPACE.has(error.code))
-					return [];
+				if (isMissingSpace(error)) return [];
 				throw error;
 			}
 		},

@@ -58,3 +58,17 @@ export const memberPermissions = (
 		canBan: outranks && allowed("member.ban"),
 	};
 };
+
+export const canModerateVoice = (input: MemberPermissionInput): boolean => {
+	if (input.viewerDid === input.targetDid) return false;
+	if (
+		!input.viewerIsOwner &&
+		!input.viewerPermissions.includes("voice.moderate")
+	) {
+		return false;
+	}
+	return (
+		rankOf(input.viewerRoles, input.roles, input.viewerIsOwner) >
+		rankOf(input.targetRoles, input.roles)
+	);
+};

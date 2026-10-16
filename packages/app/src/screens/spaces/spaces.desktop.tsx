@@ -20,6 +20,7 @@ export default spaces.view({
 					leading={<InboxScreen args={{}} />}
 					onCreate={m.openCreateSpace}
 					onDiscover={m.openDiscover}
+					onReorder={m.reorderSpaces}
 				>
 					<s.RailItems platform="desktop" />
 				</SpaceRail>

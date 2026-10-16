@@ -262,6 +262,7 @@ export type LargeModalContentProps = {
 	onBack?: () => void;
 	backLabel?: string;
 	sidebar?: JSX.Element;
+	actions?: JSX.Element;
 	closeLabel?: string;
 	class?: string;
 	children?: JSX.Element;
@@ -274,12 +275,14 @@ export const LargeModalContent = (props: LargeModalContentProps) => {
 		"onBack",
 		"backLabel",
 		"sidebar",
+		"actions",
 		"closeLabel",
 		"class",
 		"children",
 	]);
 	const guards = useNestedLayerGuards();
 	const sidebar = createSlot(() => local.sidebar);
+	const actions = createSlot(() => local.actions);
 
 	return (
 		<Dialog.Portal>
@@ -369,9 +372,20 @@ export const LargeModalContent = (props: LargeModalContentProps) => {
 									</ol>
 								</nav>
 							</Show>
+							<Show when={actions.has()}>
+								<div
+									data-modal-actions=""
+									class="flex shrink-0 items-center gap-2"
+								>
+									{actions()}
+								</div>
+							</Show>
 							<ModalCloseButton label={local.closeLabel} />
 						</div>
-						<div class="min-h-0 flex-1 overflow-y-auto p-4">
+						<div
+							data-modal-scroll=""
+							class="min-h-0 flex-1 overflow-y-auto p-4"
+						>
 							{local.children}
 						</div>
 					</div>

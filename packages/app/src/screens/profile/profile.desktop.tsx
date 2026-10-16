@@ -1,7 +1,7 @@
 import { profile } from "./profile.contract";
 
 export default profile.view({
-	omit: ["Header", "Bio", "Developer"] as const,
+	omit: ["Header", "Activity", "Bio", "Developer"] as const,
 	render: ({ slots: s }) => (
 		<>
 			<s.PresencePicker platform="desktop" />

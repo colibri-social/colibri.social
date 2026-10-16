@@ -8,6 +8,7 @@ import { defineContract, slot } from "../../../screen/define";
 import { usePlatform } from "../../../screen/platform";
 import type { AdminArgs } from "../../../shell/registry";
 import { type Navigator, useStack } from "../../../shell/stack";
+import { UnsavedBar, type UnsavedForm } from "../../settings/unsaved-form";
 import { adminDraft, adminDraftKey, provideAdminDraft } from "../admin-draft";
 import { AdminNavHeader } from "../desktop/page-header";
 
@@ -22,6 +23,7 @@ export type RoleDraft = {
 	canManage: () => boolean;
 	addHolders: (ids: string[]) => Promise<void>;
 	removeHolder: (id: string) => Promise<void>;
+	form?: UnsavedForm;
 };
 
 const roleDraftKey = (space: string, id: string) =>
@@ -62,6 +64,7 @@ export const adminRolePermissions = defineContract({
 				title="Permissions"
 			/>
 		)),
+		Bar: slot((m) => <UnsavedBar form={m.draft()?.form} />),
 		Body: slot((m) => (
 			<Show when={m.draft()}>
 				{(draft) => (
@@ -84,6 +87,7 @@ export const adminRoleMembers = defineContract({
 		Header: slot((m) => (
 			<AdminNavHeader safeTop kind="back" onNavigate={m.back} title="Members" />
 		)),
+		Bar: slot((m) => <UnsavedBar form={m.draft()?.form} />),
 		Body: slot((m) => (
 			<Show when={m.draft()}>
 				{(draft) => (

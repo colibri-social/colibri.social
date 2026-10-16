@@ -2,10 +2,7 @@ import { Search } from "@kobalte/core/search";
 import { createSignal, type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
-import {
-	BASE_OVERFLOW_PADDING,
-	useSafeAreaInsets,
-} from "../../utils/safe-area";
+import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { createSlot } from "../../utils/slot";
 import { Avatar } from "../Avatar/Avatar";
 import { menuContentClass } from "../ContextMenu/Menu";
@@ -43,9 +40,7 @@ export type HandleFieldProps = {
 };
 
 export const HandleField = (props: HandleFieldProps) => {
-	const insets = useSafeAreaInsets();
-	const overflowPadding = () =>
-		BASE_OVERFLOW_PADDING + Math.max(insets().left, insets().right);
+	const overflowPadding = usePopperOverflowPadding();
 	const error = createSlot(() => props.error);
 	const [raw, setRaw] = createSignal("");
 	const [open, setOpen] = createSignal(false);

@@ -9,13 +9,16 @@ import {
 } from "solid-js";
 import { displayNameOf } from "./adapters/display-name";
 import { uiPresence } from "./adapters/presence";
-import {
-	createSimulatedConnection,
-	type VoiceConnection,
-	type VoiceConnectionMonitor,
-} from "./mock/voice-connection";
+import type { VoiceNoticeKey } from "./error-copy";
+import { createSimulatedConnection } from "./mock/voice-connection";
 import type { DataStore } from "./store";
 import type { Did, SpaceRef } from "./types";
+import type {
+	VoiceConnection,
+	VoiceConnectionMonitor,
+	VoiceModeration,
+	VoiceVideo,
+} from "./voice/types";
 import {
 	createVoiceSoundPlayer,
 	type VoiceSound,
@@ -33,6 +36,10 @@ export type VoiceController = {
 	expanded: Accessor<boolean>;
 	startedAt: Accessor<number | undefined>;
 	connection: Accessor<VoiceConnection>;
+	videos: Accessor<readonly VoiceVideo[]>;
+	moderationOf: (did: string) => VoiceModeration;
+	inCall: (did: string) => boolean;
+	channelOf: (did: string) => string | undefined;
 	floatingDismissed: Accessor<boolean>;
 	setFloatingDismissed(dismissed: boolean): void;
 	focusedKey: Accessor<string | null>;
@@ -60,12 +67,19 @@ type VoiceStore = Pick<
 
 const communityOf = (channelUri: string) => channelUri.split("/")[2] ?? "";
 
+const NO_VIDEOS: readonly VoiceVideo[] = [];
+
+export type VoiceNotifier = (key: VoiceNoticeKey) => void;
+
 export const createVoice = (
 	player: VoiceSoundPlayer = createVoiceSoundPlayer(),
 	monitor: () => VoiceConnectionMonitor = createSimulatedConnection,
+	notifier: VoiceNotifier = () => {},
 ) =>
 	createRoot(() => {
 		let playSound = player;
+		let notifyWith = notifier;
+		const notify = (key: VoiceNoticeKey) => notifyWith(key);
 		const [link, setLink] = createSignal<VoiceConnectionMonitor>(monitor());
 		const [floatingDismissed, setFloatingDismissed] = createSignal(false);
 		const [focusedKey, setFocusedKey] = createSignal<string | null>(null);
@@ -79,6 +93,28 @@ export const createVoice = (
 		const [startedAt, setStartedAt] = createSignal<number>();
 
 		const muted = () => selfMuted() || deafened();
+
+		const moderationOf = (did: string): VoiceModeration => {
+			const live = current() ? link().moderation?.()[did] : undefined;
+			if (live) return live;
+			const voice = store()?.presenceOf(did as Did)?.voice;
+			return {
+				serverMuted: !!voice?.serverMuted,
+				serverDeafened: !!voice?.serverDeafened,
+			};
+		};
+
+		const viewerDid = () => store()?.viewer.did;
+
+		const speakingIn = (channelUri: string, did: Did) => {
+			if (current()?.channel !== channelUri) return false;
+			const speakers = link().speakers;
+			if (speakers) return speakers().has(did);
+			return !!store()?.isSpeaking(did);
+		};
+
+		const channelOf = (did: string) =>
+			store()?.presenceOf(did as Did)?.voice?.channel;
 
 		const publish = () => {
 			const data = store();
@@ -110,6 +146,18 @@ export const createVoice = (
 				link().stop();
 			});
 
+		const session = () => ({
+			channel: current()?.channel ?? "",
+			muted: muted(),
+			deafened: deafened(),
+		});
+
+		const syncLink = () => {
+			if (!current()) return;
+			link().setMuted?.(muted());
+			link().setDeafened?.(deafened());
+		};
+
 		const participants = (channelUri: string): VoiceParticipant[] => {
 			const data = store();
 			if (!data) return [];
@@ -131,13 +179,29 @@ export const createVoice = (
 						: member?.nickname?.trim() || did,
 					avatarSrc: actor?.avatar,
 					presence: uiPresence(data.presenceOf(did)),
-					speaking: current()?.channel === channelUri && data.isSpeaking(did),
+					speaking: speakingIn(channelUri, did),
 					muted: voice?.muted,
 					deafened: voice?.deafened,
-					serverMuted: voice?.serverMuted,
-					serverDeafened: voice?.serverDeafened,
+					...moderated(channelUri, did, voice),
 				};
 			});
+		};
+
+		const moderated = (
+			channelUri: string,
+			did: Did,
+			voice: { serverMuted?: boolean; serverDeafened?: boolean } | undefined,
+		) => {
+			const live =
+				current()?.channel === channelUri
+					? link().moderation?.()[did]
+					: undefined;
+			return {
+				serverMuted: live ? live.serverMuted || undefined : voice?.serverMuted,
+				serverDeafened: live
+					? live.serverDeafened || undefined
+					: voice?.serverDeafened,
+			};
 		};
 
 		const others = (channelUri: string) => {
@@ -172,6 +236,36 @@ export const createVoice = (
 			),
 		);
 
+		const ended = () => {
+			if (!current()) return;
+			reset();
+			play("leave");
+			publish();
+		};
+
+		let detach: (() => void) | undefined;
+		const attach = (active: VoiceConnectionMonitor) => {
+			detach?.();
+			const releaseEnded = active.onEnded?.((reason) => {
+				if (!current()) return;
+				notify(reason);
+				ended();
+			});
+			const releaseNotice = active.onNotice?.(notify);
+			detach = () => {
+				releaseEnded?.();
+				releaseNotice?.();
+			};
+		};
+		attach(link());
+
+		const selfModeration = () => {
+			const did = viewerDid();
+			return did
+				? moderationOf(did)
+				: { serverMuted: false, serverDeafened: false };
+		};
+
 		const controller: VoiceController = {
 			current,
 			participants,
@@ -181,6 +275,13 @@ export const createVoice = (
 			expanded,
 			startedAt,
 			connection: () => link().connection(),
+			videos: () => (current() ? (link().videos?.() ?? NO_VIDEOS) : NO_VIDEOS),
+			moderationOf,
+			inCall: (did) => {
+				const call = current();
+				return !!call && channelOf(did) === call.channel;
+			},
+			channelOf,
 			floatingDismissed,
 			setFloatingDismissed,
 			focusedKey,
@@ -201,7 +302,7 @@ export const createVoice = (
 					setFloatingDismissed(false);
 					setFocusedKey(null);
 				});
-				link().start();
+				link().start(session());
 				play("join");
 				publish();
 			},
@@ -212,6 +313,10 @@ export const createVoice = (
 				publish();
 			},
 			toggleMute: () => {
+				if (current() && selfModeration().serverMuted) {
+					notify("serverMuted");
+					return;
+				}
 				batch(() => {
 					if (deafened()) {
 						setDeafened(false);
@@ -221,17 +326,32 @@ export const createVoice = (
 					setSelfMuted(!selfMuted());
 				});
 				play(muted() ? "mute" : "unmute");
+				syncLink();
 				if (current()) publish();
 			},
 			toggleDeafen: () => {
+				if (current() && selfModeration().serverDeafened) {
+					notify("serverDeafened");
+					return;
+				}
 				setDeafened(!deafened());
 				play(deafened() ? "deafen" : "undeafen");
+				syncLink();
 				if (current()) publish();
 			},
 			toggleCamera: () => {
-				if (!current()) return;
-				setCamera(!camera());
-				play(camera() ? "camOn" : "camOff");
+				const call = current();
+				if (!call) return;
+				const next = !camera();
+				setCamera(next);
+				play(next ? "camOn" : "camOff");
+				const apply = link().setCamera;
+				if (!apply) return;
+				void apply(next).then((on) => {
+					if (current() === call && camera() === next && on !== next) {
+						setCamera(on);
+					}
+				});
 			},
 			expand: () => {
 				if (current()) setExpanded(true);
@@ -254,10 +374,15 @@ export const createVoice = (
 			const restart = !!current();
 			link().stop();
 			setLink(() => next);
-			if (restart) next.start();
+			attach(next);
+			if (restart) next.start(session());
 		};
 
-		return { controller, connect, setPlayer, setMonitor };
+		const setNotifier = (next: VoiceNotifier) => {
+			notifyWith = next;
+		};
+
+		return { controller, connect, setPlayer, setMonitor, setNotifier };
 	});
 
 const instance = createVoice();
@@ -269,3 +394,5 @@ export const connectVoice = instance.connect;
 export const setVoiceSoundPlayer = instance.setPlayer;
 
 export const setVoiceConnectionMonitor = instance.setMonitor;
+
+export const setVoiceNotifier = instance.setNotifier;

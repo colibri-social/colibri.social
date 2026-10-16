@@ -1,6 +1,5 @@
 import {
 	Button,
-	DeveloperModeCard,
 	ListGroup,
 	Modal,
 	ModalContent,
@@ -30,6 +29,7 @@ import type { Platform } from "../../../screen/platform";
 import type { AdminPage } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
+import { AdminDeveloper } from "../developer";
 import { moveOffSpace, SPACE_PERMISSIONS, useAdminSpace } from "../space-admin";
 import { createLeaveSpace } from "./leave-space";
 
@@ -140,6 +140,12 @@ export const overview = defineContract({
 			open,
 			sections: () => sections.filter((section) => section.visible()),
 			developerMode: () => data.controls().developerMode,
+			developerTarget: () => {
+				const current = community();
+				return data.controls().developerMode && current
+					? { copyValue: `at://${current.did}` }
+					: undefined;
+			},
 			isOwner: () => !!community()?.viewer.isOwner,
 			canDelete: () => can(SPACE_PERMISSIONS.delete),
 			canLeave: () => !!community() && !community()?.viewer.isOwner,
@@ -243,24 +249,14 @@ export const overview = defineContract({
 				</Show>
 			</Show>
 		)),
-		Developer: slot((m) => (
-			<Show when={m.developerMode() && m.community()}>
-				{(community) => (
-					<DeveloperModeCard
-						copyLabel="Copy AT-URI"
-						copyValue={`at://${community().did}`}
-						pdslsHref={`https://pdsls.dev/at://${community().did}`}
-					/>
-				)}
-			</Show>
-		)),
+		Developer: slot((m) => <AdminDeveloper target={m.developerTarget()} />),
 		Actions: slot((m, p: SidebarProps) => (
 			<Show when={m.community()}>
 				<Show
 					when={p.platform !== "desktop"}
 					fallback={
 						<Show when={m.isOwner() || m.canDelete() || m.canLeave()}>
-							<SidebarNavSection label="Danger zone" class="mt-auto">
+							<SidebarNavSection label="Danger zone">
 								<Show when={m.isOwner()}>
 									<SidebarNavItem
 										label="Transfer ownership"

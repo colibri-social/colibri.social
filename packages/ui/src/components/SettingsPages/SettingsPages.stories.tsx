@@ -668,8 +668,8 @@ const definition = (identifier: string) =>
 
 const TIERS: SupportTier[] = [
 	{
-		id: "supporter-five",
-		badge: <UserBadge definition={definition("supporter-five")} size="sm" />,
+		id: "backer-five",
+		badge: <UserBadge definition={definition("backer-five")} size="sm" />,
 		price: "$5",
 		cadence: "/ month",
 		blurb: "Keep the lights on and wear a badge for it on your profile.",

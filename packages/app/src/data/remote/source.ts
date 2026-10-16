@@ -13,8 +13,11 @@ import {
 } from "@colibri-social/lib";
 import { resolvePdsHost } from "../../auth/identity";
 import type { InvitationPreview, JoinResult } from "../access";
+import { createActivitySourceDetector } from "../activity-source";
+import { createNetworkLabeler } from "../badges/labeler";
 import { type ChannelSummary, summarizeMessage } from "../channel-summary";
 import type { EmojiSource } from "../emoji";
+import { createPreferencesGrant } from "../preferences/grant";
 import { importLegacyPreferences } from "../preferences/legacy";
 import {
 	createPreferencesSpace,
@@ -28,6 +31,8 @@ import type {
 	ControlsPreferences,
 	DataSource,
 	LiveEvent,
+	ProfileSeed,
+	ProfileTheme,
 	Simulation,
 } from "../source";
 import {
@@ -51,14 +56,21 @@ import {
 	createUploads,
 } from "./messages";
 import { createReadCursorWriter } from "./read-cursors";
-import { createRecords } from "./records";
+import { type BlobRef, createRecords } from "./records";
 import { createTransport, type RemoteSession } from "./transport";
 
 const log = createLogger("remote/source");
 
 const PROFILE_COLLECTION = "social.colibri.beta.actor.profile";
+const LEGACY_PROFILE_COLLECTION = "social.colibri.actor.profile";
+const BLUESKY_PROFILE_COLLECTION = "app.bsky.actor.profile";
 const THREAD_FOLLOW_COLLECTION = "social.colibri.beta.thread.follow";
 const SUMMARY_CONCURRENCY = 4;
+
+type ProfileRecordValue = Record<string, unknown> & { syncBluesky?: unknown };
+
+const textOf = (value: unknown) =>
+	typeof value === "string" && value.trim() ? value : undefined;
 
 export type RemoteLive = {
 	subscribe: (listener: (event: LiveEvent) => void) => () => void;
@@ -70,6 +82,7 @@ export type RemoteLive = {
 };
 
 export type RemoteDataSource = DataSource & {
+	startPreferencesGrant: () => () => void;
 	flushReadCursors: () => Promise<void>;
 	watchChannel: (channel: SpaceRef) => () => void;
 	viewChannel: (channel?: SpaceRef) => void;
@@ -152,7 +165,38 @@ export const createRemoteSource = async (
 		for (const listener of localListeners) listener(event);
 	};
 
+	const imageOf = async (blob: unknown) => {
+		const cid = (blob as BlobRef | undefined)?.ref?.$link;
+		if (!cid) return undefined;
+		try {
+			return await transport.pdsBlob(cid);
+		} catch (error) {
+			log.warn("could not load a profile image", {
+				code: classifyThrown(error).code,
+			});
+			return undefined;
+		}
+	};
+	const seedOf = async (value: ProfileRecordValue): Promise<ProfileSeed> => {
+		const [avatar, banner] = await Promise.all([
+			imageOf(value.avatar),
+			imageOf(value.banner),
+		]);
+		return {
+			displayName: textOf(value.displayName),
+			description: textOf(value.description),
+			pronouns: textOf(value.pronouns),
+			avatar,
+			banner,
+			theme: value.theme as ProfileTheme | undefined,
+		};
+	};
+
 	const preferencesSpace = createPreferencesSpace(transport);
+	const preferencesGrant = createPreferencesGrant({
+		transport,
+		space: preferencesSpace,
+	});
 	const deletion = createDeletion({
 		transport,
 		records,
@@ -307,6 +351,7 @@ export const createRemoteSource = async (
 	};
 
 	const source: RemoteDataSource = {
+		startPreferencesGrant: preferencesGrant.start,
 		...emojiNotEnabled,
 		emojiBlobUrl: (blob) => {
 			const query = new URLSearchParams({ did: blob.did, cid: blob.cid });
@@ -376,7 +421,8 @@ export const createRemoteSource = async (
 		leaveCommunity: async (input) => {
 			await transport.procedure(colibri.community.leave.main, { body: input });
 		},
-		accountHost: () => resolvePdsHost(options.session.did),
+		accountHost: async () =>
+			options.session.accountHost?.() ?? resolvePdsHost(options.session.did),
 		getDeletionStatus: deletion.getDeletionStatus,
 		deleteColibriData: deletion.deleteColibriData,
 		transferOwnership: rejectNotEnabled("community.transferOwnership"),
@@ -706,6 +752,8 @@ export const createRemoteSource = async (
 			if (input.description !== undefined)
 				record.description = input.description;
 			if (input.theme !== undefined) record.theme = input.theme;
+			if (input.pronouns === null) delete record.pronouns;
+			else if (input.pronouns !== undefined) record.pronouns = input.pronouns;
 			for (const field of ["avatar", "banner"] as const) {
 				const value = input[field];
 				if (value === null) delete record[field];
@@ -727,6 +775,37 @@ export const createRemoteSource = async (
 			viewer = { ...(refreshed.profile as ProfileView) };
 			return viewer;
 		},
+		loadProfileSetup: async () => {
+			const current = await records.getInRepo(PROFILE_COLLECTION, "self");
+			const value = current?.value as ProfileRecordValue | undefined;
+			if (value && ("pronouns" in value || value.syncBluesky === true))
+				return { complete: true };
+			const [legacy, bluesky] = await Promise.all([
+				value
+					? undefined
+					: records.getInRepo(LEGACY_PROFILE_COLLECTION, "self"),
+				records.getInRepo(BLUESKY_PROFILE_COLLECTION, "self"),
+			]);
+			const previous =
+				value ?? (legacy?.value as ProfileRecordValue | undefined);
+			const blueskyValue = bluesky?.value as ProfileRecordValue | undefined;
+			const syncedBefore = previous?.syncBluesky === true && !!blueskyValue;
+			const [colibriSeed, blueskySeed] = await Promise.all([
+				previous && !syncedBefore ? seedOf(previous) : undefined,
+				blueskyValue ? seedOf(blueskyValue) : undefined,
+			]);
+			return { complete: false, colibri: colibriSeed, bluesky: blueskySeed };
+		},
+		defaultCommunity: async () => {
+			const described = await transport.query(
+				colibri.server.describeServer.main,
+			);
+			const community = (described as { defaultCommunity?: unknown })
+				.defaultCommunity;
+			return typeof community === "string" && community.startsWith("did:")
+				? (community as Did)
+				: undefined;
+		},
 		setStatus: async (input) => {
 			const result = await transport.procedure(colibri.actor.setStatus.main, {
 				body: input,
@@ -743,6 +822,9 @@ export const createRemoteSource = async (
 			else delete presence.voice;
 			viewer = { ...viewer, presence };
 			return presence;
+		},
+		moderateVoice: async (input) => {
+			await transport.procedure(colibri.voice.moderate.main, { body: input });
 		},
 
 		listGifs: async (query) => {
@@ -764,6 +846,8 @@ export const createRemoteSource = async (
 		simulation: (): Simulation => ({ slowNetwork: false }),
 		setSimulation: () => {},
 		preferences,
+		labeler: createNetworkLabeler(),
+		detectActivitySource: createActivitySourceDetector().detect,
 	};
 
 	return source;

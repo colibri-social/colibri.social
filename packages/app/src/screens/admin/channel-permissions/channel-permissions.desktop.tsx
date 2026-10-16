@@ -5,6 +5,7 @@ export default adminChannelPermissions.view({
 		<>
 			<s.Header />
 			<s.Body />
+			<s.Bar />
 		</>
 	),
 });

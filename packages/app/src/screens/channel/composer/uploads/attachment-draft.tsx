@@ -18,9 +18,13 @@ export type DraftItem = {
 	file: File;
 	previewSrc?: string;
 	spoiler?: boolean;
+	alt?: string;
 };
 
-export type DraftFile = Pick<DraftItem, "file" | "previewSrc" | "spoiler">;
+export type DraftFile = Pick<
+	DraftItem,
+	"file" | "previewSrc" | "spoiler" | "alt"
+>;
 
 export type AttachmentDraftOptions = {
 	max?: number;
@@ -66,6 +70,7 @@ export const videoThumbnail = (file: File) =>
 	});
 
 const spoileredFiles = new WeakSet<File>();
+const describedFiles = new WeakMap<File, string>();
 
 let counter = 0;
 const nextId = () => `draft-${Date.now().toString(36)}-${counter++}`;
@@ -99,6 +104,7 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 					? URL.createObjectURL(file)
 					: undefined,
 				...(spoileredFiles.has(file) ? { spoiler: true } : {}),
+				...(describedFiles.has(file) ? { alt: describedFiles.get(file) } : {}),
 			});
 		}
 		if (accepted.length === 0) return;
@@ -125,6 +131,7 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 		if (!item) return;
 		revoke(item.previewSrc);
 		spoileredFiles.delete(item.file);
+		describedFiles.delete(item.file);
 		setItems((list) => list.filter((entry) => entry.id !== id));
 	};
 
@@ -139,18 +146,33 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 		);
 	};
 
+	const setAlt = (id: string, text: string) => {
+		const item = items().find((entry) => entry.id === id);
+		if (!item) return;
+		const alt = text.trim() || undefined;
+		if (alt) describedFiles.set(item.file, alt);
+		else describedFiles.delete(item.file);
+		setItems((list) =>
+			list.map((entry) => (entry.id === id ? { ...entry, alt } : entry)),
+		);
+	};
+
 	const clear = () => {
 		for (const item of items()) revoke(item.previewSrc);
 		setItems([]);
 	};
 
 	const take = (): DraftFile[] => {
-		const taken = items().map(({ file, previewSrc, spoiler }) => ({
+		const taken = items().map(({ file, previewSrc, spoiler, alt }) => ({
 			file,
 			previewSrc,
 			...(spoiler ? { spoiler: true } : {}),
+			...(alt ? { alt } : {}),
 		}));
-		for (const { file } of taken) spoileredFiles.delete(file);
+		for (const { file } of taken) {
+			spoileredFiles.delete(file);
+			describedFiles.delete(file);
+		}
 		setItems([]);
 		return taken;
 	};
@@ -185,6 +207,7 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 					size: item.file.size,
 					previewSrc: item.previewSrc,
 					spoiler: item.spoiler,
+					alt: item.alt,
 				})),
 				{ key: "id" },
 			),
@@ -199,6 +222,7 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 					max={max}
 					onRemove={remove}
 					onToggleSpoiler={toggleSpoiler}
+					onAltChange={setAlt}
 				/>
 			</div>
 		</Show>
@@ -210,6 +234,7 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 		addFiles,
 		remove,
 		toggleSpoiler,
+		setAlt,
 		clear,
 		take,
 		Tray,

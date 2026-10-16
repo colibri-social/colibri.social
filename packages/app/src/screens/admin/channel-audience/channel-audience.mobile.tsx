@@ -8,8 +8,9 @@ export default adminChannelAudience.view({
 				data-scroll-y=""
 				class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
 			>
-				<div class="flex flex-col gap-6 p-4 pb-safe-offset-6">
+				<div class="flex min-h-full flex-col gap-6 p-4 pb-safe-offset-6">
 					<s.Body />
+					<s.Bar />
 				</div>
 			</div>
 		</div>

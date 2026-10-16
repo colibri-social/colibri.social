@@ -92,6 +92,8 @@ export const desktopRoute = (root: Root, layers: Layer[]): DesktopRoute => {
 		if (layer.kind === "chat") {
 			enterChannel(layer);
 			route.overlay = undefined;
+			if (route.pane?.kind === "thread" && route.pane.presentation === "full")
+				route.pane = undefined;
 			continue;
 		}
 		if (layer.kind === "members") {

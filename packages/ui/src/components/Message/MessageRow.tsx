@@ -1,4 +1,3 @@
-import { CrownIcon } from "@solar-icons/solid/bold/crown";
 import { RefreshIcon } from "@solar-icons/solid/bold/refresh";
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import {
@@ -31,6 +30,7 @@ import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Avatar } from "../Avatar/Avatar";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { DestructiveRow, ListGroup } from "../List/List";
+import { OwnerBadge } from "../Roles/OwnerBadge";
 import { RoleBadge, type RoleIdentity } from "../Roles/RoleBadge";
 import { chatLayoutVars } from "./layout";
 import { type MessageEditing, MessageEditor } from "./MessageEditor";
@@ -480,14 +480,7 @@ export const MessageRow = (props: MessageRowProps) => {
 										{(role) => <RoleBadge role={role()} />}
 									</Show>
 									<Show when={local.author.owner}>
-										<span
-											role="img"
-											aria-label="Owner"
-											data-author-owner=""
-											class="flex size-4 shrink-0 items-center justify-center text-warning [&>svg]:size-4"
-										>
-											<CrownIcon />
-										</span>
+										<OwnerBadge />
 									</Show>
 									<Show when={badge.has()}>{badge()}</Show>
 									<Show when={local.via}>

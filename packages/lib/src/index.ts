@@ -25,6 +25,8 @@ export * from "./protocol/tid.js";
 export * from "./protocol/views.js";
 export * from "./release-notes.js";
 export * from "./shared.js";
+export * from "./voice/frames.js";
+export * from "./voice/presence.js";
 export * from "./xrpc/registry.js";
 export * from "./xrpc/request.js";
 export * from "./xrpc/result.js";

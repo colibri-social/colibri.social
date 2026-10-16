@@ -2,7 +2,6 @@ import {
 	Button,
 	ColorPicker,
 	ConfirmDialog,
-	DeveloperModeCard,
 	ListGroup,
 	NavRow,
 	NavRowSkeleton,
@@ -37,7 +36,9 @@ import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { useUnsavedChanges } from "../../../shell/unsaved-changes";
 import { uiPresence } from "../../members/member-adapter";
+import { createUnsavedForm, UnsavedBar } from "../../settings/unsaved-form";
 import { AdminNavHeader } from "../desktop/page-header";
+import { AdminDeveloper } from "../developer";
 import { useRoleAccess } from "../roles/role-access";
 import {
 	DEFAULT_ROLE_NAME,
@@ -145,14 +146,13 @@ export const adminRole = defineContract({
 						layer.page === "role" &&
 						layer.id === args.id,
 				) + 1;
-		useUnsavedChanges({
-			depth,
-			dirty: () => editable() && dirty() && !saving() && !deleted(),
-			description: () =>
-				isNew
-					? "This role won't be created."
-					: "Your edits to this role won't be saved.",
-		});
+		if (isNew) {
+			useUnsavedChanges({
+				depth,
+				dirty: () => editable() && dirty() && !saving() && !deleted(),
+				description: () => "This role won't be created.",
+			});
+		}
 
 		const pendingImage = () =>
 			form.badge?.kind === "image"
@@ -164,10 +164,7 @@ export const adminRole = defineContract({
 			const space = access.space();
 			const base = baseline();
 			if (!space || !base || saving() || roleNameError(form.name)) return;
-			if (!isNew && !dirty()) {
-				stack.pop();
-				return;
-			}
+			if (!isNew && !dirty()) return;
 			setSaving(true);
 			try {
 				if (isNew) {
@@ -192,9 +189,13 @@ export const adminRole = defineContract({
 				}
 				const image = pendingImage();
 				if (image) await space.setRoleBadgeImage(current.rkey, image);
-				setBaseline({ ...form, name: form.name.trim() });
+				const saved = { ...form, name: form.name.trim() };
+				batch(() => {
+					setBaseline(saved);
+					setForm("name", saved.name);
+					setAttempted(false);
+				});
 				toast.success("Role updated");
-				stack.pop();
 			} catch {
 				toast.error(
 					isNew ? "Couldn't create the role" : "Couldn't update the role",
@@ -203,6 +204,25 @@ export const adminRole = defineContract({
 				setSaving(false);
 			}
 		};
+
+		const reset = () => {
+			const base = baseline();
+			if (!base) return;
+			batch(() => {
+				setForm({ ...base, permissions: [...base.permissions] });
+				setAttempted(false);
+			});
+		};
+
+		const unsavedForm = isNew
+			? undefined
+			: createUnsavedForm({
+					depth,
+					dirty: () => editable() && dirty() && !deleted(),
+					saving,
+					save,
+					reset,
+				});
 
 		const remove = async () => {
 			const space = access.space();
@@ -270,6 +290,7 @@ export const adminRole = defineContract({
 			canManage: editable,
 			addHolders: (ids) => setHolding(ids, true),
 			removeHolder: (id) => setHolding([id], false),
+			form: unsavedForm,
 		});
 		const atUri = () => {
 			const community = access.community();
@@ -299,6 +320,7 @@ export const adminRole = defineContract({
 			dirty,
 			saving,
 			save,
+			unsaved: unsavedForm,
 			nameError,
 			deleteOpen,
 			setDeleteOpen,
@@ -338,16 +360,21 @@ export const adminRole = defineContract({
 								: "Role"
 				}
 				action={
-					m.editable() && !m.missing() && m.ready()
+					m.isNew && m.editable() && !m.missing() && m.ready()
 						? {
 								type: "text",
-								label: m.isNew ? "Create" : "Save",
+								label: "Create",
 								onClick: () => void m.save(),
 								loading: m.saving(),
 							}
 						: undefined
 				}
 			/>
+		)),
+		Bar: slot((m) => (
+			<Show when={m.editable() && !m.missing() && m.ready()}>
+				<UnsavedBar form={m.unsaved} />
+			</Show>
 		)),
 		Unavailable: slot((m) => (
 			<Show when={m.missing()}>
@@ -462,15 +489,12 @@ export const adminRole = defineContract({
 			</>
 		)),
 		Developer: slot((m) => (
-			<Show when={m.developerMode() && m.atUri()}>
-				{(uri) => (
-					<DeveloperModeCard
-						copyLabel="Copy AT-URI"
-						copyValue={uri()}
-						pdslsHref={`https://pdsls.dev/${uri()}`}
-					/>
-				)}
-			</Show>
+			<AdminDeveloper
+				target={(() => {
+					const uri = m.atUri();
+					return m.developerMode() && uri ? { copyValue: uri } : undefined;
+				})()}
+			/>
 		)),
 		Danger: slot((m) => (
 			<Show when={!m.isNew && m.editable() && m.role()}>

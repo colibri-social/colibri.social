@@ -116,7 +116,14 @@ describe("profile tab", () => {
 			new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
 		);
 		await wait(300);
-		button("Save")?.click();
+		const bar = () =>
+			document.querySelector<HTMLElement>("[data-unsaved-changes-bar]");
+		await until(() => bar()?.dataset.visible !== undefined);
+		button("Save", bar() as HTMLElement)?.click();
+		await until(() => store.viewer.displayName === "Lou the Builder");
+		await until(() => bar()?.dataset.visible === undefined);
+		expect(window.location.pathname).toBe("/app/profile/edit");
+		button(/^Back$|^Go back$/)?.click();
 		await until(() => window.location.pathname === "/app/profile");
 		expect(store.viewer.displayName).toBe("Lou the Builder");
 		expect(store.viewer.description).toBe("Writes the new client in the open.");
@@ -172,28 +179,36 @@ describe("profile tab", () => {
 		await until(() => !!button("Set a status"));
 	});
 
-	it("opens the editor as a layer and guards unsaved changes on back", async () => {
+	it("opens the editor as a layer and blocks back while changes are unsaved", async () => {
 		await mount("/app/profile");
 		await openEditor();
 		window.history.back();
 		await until(() => window.location.pathname === "/app/profile");
 		await openEditor();
+		const bar = () =>
+			document.querySelector<HTMLElement>("[data-unsaved-changes-bar]");
+		const original = (fieldByLabel("Display name") as HTMLInputElement).value;
 		type(fieldByLabel("Display name") as HTMLInputElement, "Someone else");
 		document.activeElement instanceof HTMLElement &&
 			document.activeElement.blur();
+		await until(() => bar()?.dataset.visible !== undefined);
 		window.history.back();
-		await until(() => !!dialog("Discard changes?"));
+		await until(() => bar()?.dataset.attention !== undefined);
 		await wait(400);
 		expect(window.location.pathname).toBe("/app/profile/edit");
-		await expectNoLayoutIssues(dialog("Discard changes?") as HTMLElement);
-		button("Cancel")?.click();
-		await until(() => !dialog("Discard changes?"));
+		expect(dialog("Discard changes?")).toBeUndefined();
 		expect((fieldByLabel("Display name") as HTMLInputElement).value).toBe(
 			"Someone else",
 		);
 		button(/^Back$|^Go back$/)?.click();
-		await until(() => !!dialog("Discard changes?"));
-		button("Discard changes")?.click();
+		await wait(300);
+		expect(window.location.pathname).toBe("/app/profile/edit");
+		button("Cancel", bar() as HTMLElement)?.click();
+		await until(() => bar()?.dataset.visible === undefined);
+		expect((fieldByLabel("Display name") as HTMLInputElement).value).toBe(
+			original,
+		);
+		button(/^Back$|^Go back$/)?.click();
 		await until(() => window.location.pathname === "/app/profile");
 	});
 

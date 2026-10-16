@@ -27,6 +27,7 @@ export default adminRole.view({
 							<s.Details />
 							<s.Developer />
 							<s.Danger />
+							<s.Bar />
 						</div>
 					</Show>
 				</Show>

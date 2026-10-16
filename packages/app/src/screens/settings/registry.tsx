@@ -104,16 +104,10 @@ export const SettingsPageView = (props: {
 
 const pdslsHref = (did: string) => `https://pdsls.dev/at://${did}`;
 
-const copyDid = async (did: string) => {
-	try {
-		await navigator.clipboard.writeText(did);
-		toast.success("DID copied");
-	} catch {
-		toast.error("Couldn't copy your DID", {
-			description: "Give it another try.",
-		});
-	}
-};
+const copyDidFailed = () =>
+	toast.error("Couldn't copy your DID", {
+		description: "Give it another try.",
+	});
 
 export const settingsEntries = (
 	data: DataStore,
@@ -138,7 +132,10 @@ export const settingsEntries = (
 		experiments: page("experiments"),
 		...(developer
 			? {
-					copyDid: { onSelect: () => void copyDid(data.viewer.did) },
+					copyDid: {
+						copyValue: data.viewer.did,
+						onCopyFailed: copyDidFailed,
+					},
 					pdsls: external(pdslsHref(data.viewer.did)),
 					debugInfo: page("debugInfo"),
 					logs: page("logs"),

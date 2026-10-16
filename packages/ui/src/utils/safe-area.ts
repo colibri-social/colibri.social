@@ -142,21 +142,8 @@ export const safeAreaOverflowPadding = (
 export const usePopperOverflowPadding = (
 	base = BASE_OVERFLOW_PADDING,
 ): Accessor<number> => {
-	const insets = useSafeAreaInsets();
-	const chromeTop = useWindowChromeTop();
-	return () => {
-		const current = insets();
-		return (
-			base +
-			Math.max(
-				current.top,
-				chromeTop(),
-				current.right,
-				current.bottom,
-				current.left,
-			)
-		);
-	};
+	const padding = useOverflowPadding(base);
+	return () => padding() as unknown as number;
 };
 
 export const notifySafeAreaChange = () => {

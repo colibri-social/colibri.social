@@ -1,4 +1,3 @@
-import { CrownIcon } from "@solar-icons/solid/bold/crown";
 import { type JSX, Show, splitProps } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { cx } from "../../utils/cx";
@@ -13,6 +12,7 @@ import { createSlot } from "../../utils/slot";
 import { isStatusVisible } from "../../utils/status-visibility";
 import { Avatar, type AvatarSize, type Presence } from "../Avatar/Avatar";
 import { BotBadge } from "../Badge/Badge";
+import { OwnerBadge } from "../Roles/OwnerBadge";
 import { RoleBadge, type RoleIdentity } from "../Roles/RoleBadge";
 
 export type MemberRowVariant = "mobile" | "desktop";
@@ -156,13 +156,7 @@ export const MemberRow = (props: MemberRowProps) => {
 						)}
 					</Show>
 					<Show when={local.owner}>
-						<span
-							role="img"
-							aria-label="Owner"
-							class="flex size-4 shrink-0 items-center justify-center text-warning [&>svg]:size-4"
-						>
-							<CrownIcon />
-						</span>
+						<OwnerBadge interactive={!interactive()} />
 					</Show>
 					<Show when={local.bot}>
 						<BotBadge describe={false} />

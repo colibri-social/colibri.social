@@ -21,6 +21,7 @@ export default adminCategory.view({
 							<s.General />
 							<s.Developer />
 							<s.Delete />
+							<s.Bar />
 						</>
 					}
 				>

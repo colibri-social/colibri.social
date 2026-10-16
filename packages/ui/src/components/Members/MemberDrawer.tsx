@@ -1,8 +1,12 @@
+import { CameraIcon } from "@solar-icons/solid/bold/camera";
 import { CopyIcon } from "@solar-icons/solid/bold/copy";
+import { EndCallRoundedIcon } from "@solar-icons/solid/bold/end-call-rounded";
+import { MonitorCameraIcon } from "@solar-icons/solid/bold/monitor-camera";
 import { ShieldUserIcon } from "@solar-icons/solid/bold/shield-user";
 import { UserBlockRoundedIcon } from "@solar-icons/solid/bold/user-block-rounded";
 import { UserCircleIcon } from "@solar-icons/solid/bold/user-circle";
 import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded";
+import { UsersGroupRoundedIcon } from "@solar-icons/solid/bold/users-group-rounded";
 import { ArrowLeftIcon } from "@solar-icons/solid/linear/arrow-left";
 import {
 	createEffect,
@@ -12,11 +16,16 @@ import {
 	on,
 	Show,
 } from "solid-js";
+import { HeadphonesSlashIcon, MicrophoneSlashIcon } from "../../icons/custom";
 import { Avatar } from "../Avatar/Avatar";
 import {
 	assignedRoleCount,
 	canEditMemberRoles,
+	formatMemberVolume,
+	MEMBER_VOICE_DEFAULT_VOLUME,
+	MEMBER_VOICE_MAX_VOLUME,
 	type MemberMenuActions,
+	type MemberMenuVoice,
 } from "../ContextMenu/MemberMenu";
 import {
 	DeveloperModeCard,
@@ -24,11 +33,56 @@ import {
 } from "../DeveloperMode/DeveloperModeCard";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { IconButton } from "../IconButton/IconButton";
-import { CheckboxRow, DestructiveRow, ListGroup, NavRow } from "../List/List";
+import {
+	CheckboxRow,
+	DestructiveRow,
+	ListGroup,
+	NavRow,
+	ToggleRow,
+} from "../List/List";
 import { RoleColorDot } from "../Roles/RoleBadge";
+import { Slider } from "../Slider/Slider";
 import { memberHandleLabel } from "./MemberIdentity";
 
 export type MemberDrawerView = "actions" | "roles";
+
+const VolumeRow = (props: {
+	label: string;
+	value?: number;
+	onChange: (value: number) => void;
+}) => (
+	<div data-member-volume="" class="px-3 py-3">
+		<Slider
+			label={props.label}
+			showValue
+			formatValue={formatMemberVolume}
+			minValue={0}
+			maxValue={MEMBER_VOICE_MAX_VOLUME}
+			step={1}
+			defaultValue={[MEMBER_VOICE_DEFAULT_VOLUME]}
+			value={[props.value ?? MEMBER_VOICE_DEFAULT_VOLUME]}
+			onChange={(values) => props.onChange(values[0] ?? 0)}
+		/>
+	</div>
+);
+
+const hasVoiceSettings = (voice: MemberMenuVoice) =>
+	!!(
+		voice.onVolumeChange ||
+		voice.onStreamVolumeChange ||
+		voice.onSelfMutedChange ||
+		voice.onSelfDeafenedChange ||
+		voice.onPreviewCamera ||
+		voice.onShowNonVideoParticipantsChange ||
+		voice.onShowOwnCameraChange
+	);
+
+const hasVoiceModeration = (voice: MemberMenuVoice) =>
+	!!(
+		voice.onServerMutedChange ||
+		voice.onServerDeafenedChange ||
+		voice.onDisconnect
+	);
 
 export type MemberDrawerProps = MemberMenuActions & {
 	open: boolean;
@@ -144,6 +198,116 @@ export const MemberDrawer = (props: MemberDrawerProps) => {
 					</ListGroup>
 				</Show>
 				<Show when={view() === "actions"}>
+					<Show when={props.voice}>
+						{(voice) => (
+							<>
+								<Show when={hasVoiceSettings(voice())}>
+									<ListGroup label="Voice">
+										<Show when={voice().onVolumeChange}>
+											{(change) => (
+												<VolumeRow
+													label="Volume"
+													value={voice().volume}
+													onChange={change()}
+												/>
+											)}
+										</Show>
+										<Show when={voice().onStreamVolumeChange}>
+											{(change) => (
+												<VolumeRow
+													label="Stream volume"
+													value={voice().streamVolume}
+													onChange={change()}
+												/>
+											)}
+										</Show>
+										<Show when={voice().onSelfMutedChange}>
+											{(change) => (
+												<ToggleRow
+													icon={<MicrophoneSlashIcon />}
+													title="Mute"
+													checked={!!voice().selfMuted}
+													onChange={change()}
+												/>
+											)}
+										</Show>
+										<Show when={voice().onSelfDeafenedChange}>
+											{(change) => (
+												<ToggleRow
+													icon={<HeadphonesSlashIcon />}
+													title="Deafen"
+													checked={!!voice().selfDeafened}
+													onChange={change()}
+												/>
+											)}
+										</Show>
+										<Show when={voice().onPreviewCamera}>
+											{(preview) => (
+												<NavRow
+													icon={<CameraIcon />}
+													label="Preview camera"
+													onClick={run(preview())}
+												/>
+											)}
+										</Show>
+										<Show when={voice().onShowNonVideoParticipantsChange}>
+											{(change) => (
+												<ToggleRow
+													icon={<UsersGroupRoundedIcon />}
+													title="Show non-video participants"
+													checked={!!voice().showNonVideoParticipants}
+													onChange={change()}
+												/>
+											)}
+										</Show>
+										<Show when={voice().onShowOwnCameraChange}>
+											{(change) => (
+												<ToggleRow
+													icon={<MonitorCameraIcon />}
+													title="Show own camera"
+													checked={!!voice().showOwnCamera}
+													onChange={change()}
+												/>
+											)}
+										</Show>
+									</ListGroup>
+								</Show>
+								<Show when={hasVoiceModeration(voice())}>
+									<ListGroup>
+										<Show when={voice().onServerMutedChange}>
+											{(change) => (
+												<ToggleRow
+													icon={<MicrophoneSlashIcon />}
+													title="Server mute"
+													checked={!!voice().serverMuted}
+													onChange={change()}
+												/>
+											)}
+										</Show>
+										<Show when={voice().onServerDeafenedChange}>
+											{(change) => (
+												<ToggleRow
+													icon={<HeadphonesSlashIcon />}
+													title="Server deafen"
+													checked={!!voice().serverDeafened}
+													onChange={change()}
+												/>
+											)}
+										</Show>
+										<Show when={voice().onDisconnect}>
+											{(disconnect) => (
+												<DestructiveRow
+													icon={<EndCallRoundedIcon />}
+													label={`Disconnect ${props.name} from voice`}
+													onClick={run(disconnect())}
+												/>
+											)}
+										</Show>
+									</ListGroup>
+								</Show>
+							</>
+						)}
+					</Show>
 					<Show when={hasPrimary()}>
 						<ListGroup>
 							<Show when={props.onViewProfile}>

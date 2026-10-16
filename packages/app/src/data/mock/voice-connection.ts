@@ -1,32 +1,13 @@
-import type {
-	VoiceConnectionQuality,
-	VoiceConnectionState,
-} from "@colibri-social/ui";
 import { createSignal } from "solid-js";
+import {
+	DISCONNECTED,
+	qualityFor,
+	type VoiceConnection,
+	type VoiceConnectionMonitor,
+} from "../voice/types";
 
-export type VoiceConnection = {
-	state: VoiceConnectionState;
-	quality: VoiceConnectionQuality;
-	latency: number | null;
-};
-
-export type VoiceConnectionMonitor = {
-	connection: () => VoiceConnection;
-	start: () => void;
-	stop: () => void;
-};
-
-export const DISCONNECTED: VoiceConnection = {
-	state: "disconnected",
-	quality: "unknown",
-	latency: null,
-};
-
-export const qualityFor = (latency: number): VoiceConnectionQuality => {
-	if (latency < 150) return "excellent";
-	if (latency < 300) return "good";
-	return "poor";
-};
+export type { VoiceConnection, VoiceConnectionMonitor } from "../voice/types";
+export { DISCONNECTED, qualityFor } from "../voice/types";
 
 export type SimulatedConnectionOptions = {
 	random?: () => number;

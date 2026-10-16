@@ -27,6 +27,7 @@ export type ProfilePopoverProps = {
 	children?: JSX.Element;
 	anchor?: () => HTMLElement | undefined;
 	anchorRect?: () => DOMRect | undefined;
+	alignTo?: string;
 	as?: "div" | "span" | "button";
 	triggerClass?: string;
 	triggerLabel?: string;
@@ -71,6 +72,12 @@ export const ProfilePopoverSkeleton = (props: { class?: string }) => (
 	</div>
 );
 
+const focusMovedElsewhere = (content: EventTarget | null) => {
+	const active = document.activeElement;
+	if (!active || active === document.body) return false;
+	return !(content instanceof Node && content.contains(active));
+};
+
 export const ProfilePopover = (props: ProfilePopoverProps) => {
 	const overflowPadding = usePopperOverflowPadding(16);
 	const [innerOpen, setInnerOpen] = createSignal(props.defaultOpen ?? false);
@@ -92,6 +99,11 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 		open,
 		close: () => setOpen(false),
 	});
+
+	const alignedAnchor = (element?: HTMLElement) => {
+		if (!element || !props.alignTo) return element;
+		return element.closest<HTMLElement>(props.alignTo) ?? element;
+	};
 
 	const shown = createExitHold(
 		() => ({ profile: props.profile, loading: props.loading }),
@@ -118,7 +130,9 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 			modal={false}
 			overflowPadding={overflowPadding()}
 			anchorRef={props.anchor}
-			getAnchorRect={anchorScroll.rect}
+			getAnchorRect={(element?: HTMLElement) =>
+				anchorScroll.rect(alignedAnchor(element))
+			}
 		>
 			<Show when={props.renderTrigger}>
 				{(render) => render()(KobaltePopover.Trigger)}
@@ -158,6 +172,10 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 						(event.currentTarget as HTMLElement).focus({ preventScroll: true });
 					}}
 					onCloseAutoFocus={(event: Event) => {
+						if (focusMovedElsewhere(event.currentTarget)) {
+							event.preventDefault();
+							return;
+						}
 						const anchor = props.anchor?.();
 						if (!anchor) return;
 						event.preventDefault();

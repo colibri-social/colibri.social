@@ -44,6 +44,16 @@ const DEVELOPER_ORDER: SettingsEntryId[] = [
 ];
 
 const selected = fn();
+const DID = "did:plc:4kvupeyl3tjmhgsbdrnjfmvc";
+
+const stubClipboard = () => {
+	const writeText = fn(async (_value: string) => {});
+	Object.defineProperty(navigator, "clipboard", {
+		configurable: true,
+		value: { writeText },
+	});
+	return writeText;
+};
 
 const entriesFor = (ids: SettingsEntryId[]): SettingsEntries =>
 	Object.fromEntries(
@@ -51,7 +61,9 @@ const entriesFor = (ids: SettingsEntryId[]): SettingsEntries =>
 			id,
 			id === "atmosphereAccount" || id === "pdsls"
 				? { href: "https://example.com/", external: true }
-				: { onSelect: () => selected(id) },
+				: id === "copyDid"
+					? { copyValue: DID }
+					: { onSelect: () => selected(id) },
 		]),
 	);
 
@@ -114,6 +126,23 @@ export const Mobile: Story = {
 			await expect(atmosphere).toHaveAttribute("target", "_blank");
 		});
 
+		await step("Copy DID swaps its icon for a checkmark", async () => {
+			selected.mockClear();
+			const writeText = stubClipboard();
+			const row = canvas.getByRole("button", { name: "Copy DID" });
+			await expect(row.querySelector(".text-success")).toBeNull();
+			await userEvent.click(row);
+			await waitFor(() =>
+				expect(row.querySelector(".text-success")).not.toBeNull(),
+			);
+			await expect(writeText).toHaveBeenCalledWith(DID);
+			await expect(selected).not.toHaveBeenCalled();
+			await waitFor(
+				() => expect(row.querySelector(".text-success")).toBeNull(),
+				{ timeout: 3000 },
+			);
+		});
+
 		await step("search narrows the rows", async () => {
 			const search = canvas.getByRole("searchbox", { name: "Search settings" });
 			await userEvent.type(search, "theme");
@@ -162,7 +191,7 @@ export const Desktop: Story = {
 			Object.fromEntries(
 				Object.entries(args.entries).map(([id, action]) => [
 					id,
-					action?.href
+					action?.href || action?.copyValue
 						? action
 						: { onSelect: () => setActive(id as SettingsEntryId) },
 				]),

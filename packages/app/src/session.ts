@@ -23,6 +23,7 @@ import { createRemoteSource } from "./data/remote/source";
 import { installResumeSync } from "./data/resume";
 import { createSpaceCache } from "./data/space-cache";
 import { createDataStore, type DataStore } from "./data/store";
+import { installVoiceEngine } from "./data/voice/install";
 import { installNativeCall } from "./native/call";
 
 const log = createLogger("session");
@@ -60,6 +61,8 @@ export const createSignedInSession = (
 			let session: SignedInSession | undefined;
 			let uninstallCall: (() => void) | undefined;
 			let uninstallResume: (() => void) | undefined;
+			let uninstallVoice: (() => void) | undefined;
+			let stopPreferencesGrant: (() => void) | undefined;
 			const live = createLiveConnection({
 				agent,
 				appViewHost: appViewHost("ws"),
@@ -77,6 +80,7 @@ export const createSignedInSession = (
 					createRemoteSource({
 						session: {
 							did,
+							accountHost: auth.accountHost,
 							fetchHandler: (path, init) =>
 								agent.fetchHandler(path, init ?? {}),
 						},
@@ -96,8 +100,15 @@ export const createSignedInSession = (
 					if (cancelled) return;
 					const cache = createMessageCache({ namespace });
 					const store = createDataStore(source, { cache, spaces });
+					stopPreferencesGrant = source.startPreferencesGrant();
 					uninstallCall = installNativeCall(store);
 					uninstallResume = installResumeSync(store, live);
+					uninstallVoice = installVoiceEngine({
+						agent,
+						appViewHost: appViewHost("ws"),
+						serviceRef: appViewServiceRef(),
+						viewerDid: did,
+					});
 					session = { store, live, warm };
 					setState({ kind: "ready", session });
 				},
@@ -113,6 +124,8 @@ export const createSignedInSession = (
 				cancelled = true;
 				uninstallCall?.();
 				uninstallResume?.();
+				uninstallVoice?.();
+				stopPreferencesGrant?.();
 				session?.store.dispose();
 				live.close();
 			});

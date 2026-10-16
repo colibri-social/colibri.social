@@ -5,6 +5,7 @@ export default adminCategoryAudience.view({
 		<>
 			<s.Header />
 			<s.Body />
+			<s.Bar />
 		</>
 	),
 });

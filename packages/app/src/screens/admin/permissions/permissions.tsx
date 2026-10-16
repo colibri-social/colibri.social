@@ -11,6 +11,7 @@ import { defineContract, slot } from "../../../screen/define";
 import type { AdminPage } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
+import { UnsavedBar, type UnsavedForm } from "../../settings/unsaved-form";
 import { adminDraft, adminDraftKey, provideAdminDraft } from "../admin-draft";
 import {
 	type Audience,
@@ -29,6 +30,7 @@ export type PermissionDraft = {
 	setAudience: (kind: AudienceKind, audience: Audience) => void;
 	options: AudienceOptions;
 	disabled: () => boolean;
+	form?: UnsavedForm;
 };
 
 const AUDIENCE_SEPARATOR = "~";
@@ -152,6 +154,7 @@ export const createPermissionsContract = (
 					title={m.copy.title}
 				/>
 			)),
+			Bar: slot((m) => <UnsavedBar form={m.draft()?.form} />),
 			Body: slot((m) => (
 				<Show when={m.draft()}>
 					{(draft) => (
@@ -230,6 +233,7 @@ export const createAudienceContract = (id: string, target: PermissionTarget) =>
 					title={AUDIENCE_TITLE[m.kind]}
 				/>
 			)),
+			Bar: slot((m) => <UnsavedBar form={m.draft()?.form} />),
 			Body: slot((m) => (
 				<Show when={m.draft()}>
 					{(draft) => (

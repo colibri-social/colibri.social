@@ -571,7 +571,7 @@ export const SwitchFromTopIsSmooth: Story = {
 };
 
 export const SwitchFromTopIsSmoothDesktop: Story = {
-	parameters: { viewport: { defaultViewport: "desktop" } },
+	parameters: { viewport: { defaultViewport: "responsive" } },
 	render: () => <Rail platform="desktop" />,
 	play: async ({ canvasElement }) => {
 		const toSecond = await sampleSwitch(canvasElement, /^Bird watchers/);
@@ -737,7 +737,7 @@ const ActionTrigger = () => {
 };
 
 export const ActionAsPopupTrigger: Story = {
-	parameters: { viewport: { defaultViewport: "desktop" } },
+	parameters: { viewport: { defaultViewport: "responsive" } },
 	render: () => <ActionTrigger />,
 	play: async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
@@ -845,5 +845,481 @@ export const ItemMenu: Story = {
 
 		await userEvent.click(button);
 		await expect(onSelect).toHaveBeenCalledWith(second.id);
+	},
+};
+
+type Point = { x: number; y: number };
+
+let reorderPointerSeed = 400;
+
+const reorderPointer = (
+	target: Element,
+	type: string,
+	point: Point,
+	init: PointerEventInit = {},
+) =>
+	target.dispatchEvent(
+		new PointerEvent(type, {
+			bubbles: true,
+			cancelable: true,
+			composed: true,
+			isPrimary: true,
+			button: 0,
+			buttons: type === "pointerup" ? 0 : 1,
+			clientX: point.x,
+			clientY: point.y,
+			...init,
+		}),
+	);
+
+const reorderTouchMove = (target: Element, point: Point) => {
+	const touch = new Touch({
+		identifier: 1,
+		target,
+		clientX: point.x,
+		clientY: point.y,
+	});
+	const event = new TouchEvent("touchmove", {
+		bubbles: true,
+		cancelable: true,
+		touches: [touch],
+		changedTouches: [touch],
+	});
+	target.dispatchEvent(event);
+	return event.defaultPrevented;
+};
+
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const nextFrame = () =>
+	new Promise((resolve) => requestAnimationFrame(resolve));
+
+const centerOf = (element: Element): Point => {
+	const rect = element.getBoundingClientRect();
+	return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+};
+
+const glideTo = async (
+	target: Element,
+	from: Point,
+	to: Point,
+	init: PointerEventInit,
+	steps = 12,
+) => {
+	for (let step = 1; step <= steps; step++) {
+		reorderPointer(
+			target,
+			"pointermove",
+			{
+				x: from.x + ((to.x - from.x) * step) / steps,
+				y: from.y + ((to.y - from.y) * step) / steps,
+			},
+			init,
+		);
+		await nextFrame();
+	}
+};
+
+const railItem = (root: HTMLElement, id: string) =>
+	root.querySelector<HTMLElement>(`[data-rail-id="${id}"]`) as HTMLElement;
+
+const railOrder = (root: HTMLElement) =>
+	Array.from(root.querySelectorAll<HTMLElement>("[data-rail-id]")).map(
+		(element) => element.dataset.railId,
+	);
+
+const overlay = () =>
+	document.querySelector<HTMLElement>("[data-rail-reorder-overlay]");
+
+const reorderSettled = async (root: HTMLElement) => {
+	await waitFor(
+		() => {
+			expect(overlay()).toBeNull();
+			expect(root.querySelector("[data-lifted]")).toBeNull();
+			for (const element of root.querySelectorAll<HTMLElement>(
+				"[data-rail-id]",
+			))
+				expect(element.style.transform).toBe("");
+		},
+		{ timeout: 3000 },
+	);
+};
+
+type ReorderOutcome = "save" | "reject";
+
+const reorderArgs = {
+	onReorder: fn(),
+	onMenu: fn(),
+	onSelect: fn(),
+	outcome: "save" as ReorderOutcome,
+};
+
+const resetReorderArgs = (outcome: ReorderOutcome = "save") => {
+	reorderArgs.onReorder.mockClear();
+	reorderArgs.onMenu.mockClear();
+	reorderArgs.onSelect.mockClear();
+	reorderArgs.outcome = outcome;
+};
+
+const manySpaces: RailSpace[] = [
+	...spaces,
+	...Array.from({ length: 10 }, (_, index) => ({
+		id: `extra-${index + 1}`,
+		name: `Space ${index + 1}`,
+	})),
+];
+
+const ReorderRail = (props: {
+	platform?: SpaceRailPlatform;
+	list?: RailSpace[];
+	height?: string;
+	menu?: boolean;
+}) => {
+	const [order, setOrder] = createSignal(
+		(props.list ?? spaces).map((space) => space.id),
+	);
+	const [active, setActive] = createSignal(order()[1] ?? "");
+	const byId = new Map(
+		(props.list ?? spaces).map((space) => [space.id, space]),
+	);
+	const ordered = () =>
+		order()
+			.map((id) => byId.get(id))
+			.filter((space): space is RailSpace => !!space);
+	return (
+		<div
+			class="flex bg-background"
+			style={{ height: props.height ?? "100dvh" }}
+		>
+			<SpaceRail
+				platform={props.platform}
+				onReorder={(ids) => {
+					reorderArgs.onReorder(ids);
+					const previous = order();
+					setOrder(ids);
+					if (reorderArgs.outcome === "save") return Promise.resolve();
+					return new Promise<void>((_, reject) =>
+						setTimeout(() => {
+							setOrder(previous);
+							reject(new Error("rejected"));
+						}, 50),
+					);
+				}}
+			>
+				<For each={ordered()}>
+					{(space) => (
+						<SpaceRailItem
+							id={space.id}
+							name={space.name}
+							iconSrc={space.iconSrc}
+							unread={space.unread}
+							mentions={space.mentions}
+							active={active() === space.id}
+							onSelect={() => {
+								setActive(space.id);
+								reorderArgs.onSelect(space.id);
+							}}
+							onMenu={
+								props.menu === false
+									? undefined
+									: () => reorderArgs.onMenu(space.id)
+							}
+						/>
+					)}
+				</For>
+			</SpaceRail>
+			<div
+				data-rail-panel=""
+				class={`${(props.platform ?? "mobile") === "mobile" ? spaceRailMobilePanelClass : spaceRailPanelClass} min-w-0 flex-1`}
+			/>
+		</div>
+	);
+};
+
+const tabTop = (root: HTMLElement) =>
+	(root.querySelector("[data-rail-tab]") as HTMLElement).getBoundingClientRect()
+		.top;
+
+export const ReorderDesktopDrag: Story = {
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => <ReorderRail platform="desktop" menu={false} />,
+	play: async ({ canvasElement }) => {
+		resetReorderArgs();
+		const step =
+			SPACE_RAIL_METRICS.desktop.icon + SPACE_RAIL_METRICS.desktop.gap;
+		const flock = railItem(canvasElement, "flock");
+		const canal = railItem(canvasElement, "canal");
+		const birds = railItem(canvasElement, "birds");
+		const init = { pointerType: "mouse", pointerId: ++reorderPointerSeed };
+		const from = centerOf(flock);
+		const birdsTopBefore = birds.getBoundingClientRect().top;
+		const activeTabBefore = tabTop(canvasElement);
+		reorderPointer(flock, "pointerdown", from, init);
+		reorderPointer(flock, "pointermove", { x: from.x, y: from.y + 5 }, init);
+		await nextFrame();
+		await expect(overlay()).not.toBeNull();
+		await expect(overlay()?.getAttribute("aria-hidden")).toBe("true");
+		await expect(flock).toHaveAttribute("data-lifted");
+		const to = { x: from.x + 4, y: centerOf(canal).y + 4 };
+		await glideTo(flock, { x: from.x, y: from.y + 5 }, to, init);
+		await waitFor(
+			() =>
+				expect(
+					Math.round(birds.getBoundingClientRect().top - birdsTopBefore),
+				).toBe(-step),
+			{ timeout: 3000 },
+		);
+		await waitFor(() =>
+			expect(Math.round(tabTop(canvasElement) - activeTabBefore)).toBe(-step),
+		);
+		await expect(reorderArgs.onReorder).not.toHaveBeenCalled();
+		reorderPointer(flock, "pointerup", to, init);
+		await reorderSettled(canvasElement);
+		await expect(reorderArgs.onReorder).toHaveBeenCalledWith([
+			"birds",
+			"canal",
+			"flock",
+			"atproto",
+		]);
+		await expect(railOrder(canvasElement)).toEqual([
+			"birds",
+			"canal",
+			"flock",
+			"atproto",
+		]);
+		await expect(reorderArgs.onSelect).not.toHaveBeenCalled();
+		await expect(
+			canvasElement.querySelector('[role="status"]')?.textContent,
+		).toContain("Moved Colibri Social Flock to position 3 of 4");
+		await expectTabStaysJoined(canvasElement);
+		const activeButton = within(canvasElement).getByRole("button", {
+			name: /Bird watchers/,
+		});
+		near(
+			tabTop(canvasElement) + SPACE_RAIL_METRICS.desktop.tabRing,
+			activeButton.getBoundingClientRect().top,
+		);
+	},
+};
+
+export const ReorderTouchHold: Story = {
+	render: () => <ReorderRail />,
+	play: async ({ canvasElement }) => {
+		resetReorderArgs();
+		const flock = railItem(canvasElement, "flock");
+		const atproto = railItem(canvasElement, "atproto");
+		const start = centerOf(flock);
+
+		const scroll = { pointerType: "touch", pointerId: ++reorderPointerSeed };
+		reorderPointer(flock, "pointerdown", start, scroll);
+		const prevented: boolean[] = [];
+		for (let step = 1; step <= 4; step++) {
+			const point = { x: start.x, y: start.y + step * 12 };
+			reorderPointer(flock, "pointermove", point, scroll);
+			prevented.push(reorderTouchMove(flock, point));
+			await pause(16);
+		}
+		await pause(500);
+		await expect(prevented).toEqual([false, false, false, false]);
+		await expect(overlay()).toBeNull();
+		reorderPointer(flock, "pointerup", start, scroll);
+
+		const swipe = { pointerType: "touch", pointerId: ++reorderPointerSeed };
+		reorderPointer(flock, "pointerdown", start, swipe);
+		await glideTo(flock, start, { x: start.x + 80, y: start.y }, swipe, 4);
+		await pause(450);
+		await expect(overlay()).toBeNull();
+		reorderPointer(flock, "pointerup", start, swipe);
+
+		const hold = { pointerType: "touch", pointerId: ++reorderPointerSeed };
+		reorderPointer(flock, "pointerdown", start, hold);
+		await pause(250);
+		await expect(overlay()).toBeNull();
+		await pause(250);
+		await expect(overlay()).not.toBeNull();
+		await expect(reorderTouchMove(flock, start)).toBe(true);
+		await expect(document.documentElement.style.userSelect).toBe("none");
+		const slow = { x: start.x, y: centerOf(atproto).y + 4 };
+		await glideTo(flock, start, slow, hold, 40);
+		reorderPointer(flock, "pointerup", slow, hold);
+		flock.querySelector<HTMLElement>("[data-rail-focusable]")?.click();
+		await reorderSettled(canvasElement);
+		await expect(document.documentElement.style.userSelect).toBe("");
+		await expect(reorderArgs.onReorder).toHaveBeenCalledWith([
+			"birds",
+			"canal",
+			"atproto",
+			"flock",
+		]);
+		await expect(reorderArgs.onMenu).not.toHaveBeenCalled();
+		await expect(reorderArgs.onSelect).not.toHaveBeenCalled();
+	},
+};
+
+export const ReorderHoldOpensMenu: Story = {
+	render: () => <ReorderRail />,
+	play: async ({ canvasElement }) => {
+		resetReorderArgs();
+		const canal = railItem(canvasElement, "canal");
+		const start = centerOf(canal);
+		const hold = { pointerType: "touch", pointerId: ++reorderPointerSeed };
+		reorderPointer(canal, "pointerdown", start, hold);
+		await pause(500);
+		await expect(overlay()).not.toBeNull();
+		const jitter = { x: start.x + 2, y: start.y + 2 };
+		reorderPointer(canal, "pointermove", jitter, hold);
+		reorderPointer(canal, "pointerup", jitter, hold);
+		canal.querySelector<HTMLElement>("[data-rail-focusable]")?.click();
+		await reorderSettled(canvasElement);
+		await expect(reorderArgs.onMenu).toHaveBeenCalledWith("canal");
+		await expect(reorderArgs.onMenu).toHaveBeenCalledTimes(1);
+		await expect(reorderArgs.onReorder).not.toHaveBeenCalled();
+		await expect(reorderArgs.onSelect).not.toHaveBeenCalled();
+		await expect(railOrder(canvasElement)).toEqual([
+			"flock",
+			"birds",
+			"canal",
+			"atproto",
+		]);
+
+		await userEvent.click(
+			canal.querySelector<HTMLElement>("[data-rail-focusable]") as HTMLElement,
+		);
+		await expect(reorderArgs.onSelect).toHaveBeenCalledWith("canal");
+	},
+};
+
+export const ReorderDragOutsideCancels: Story = {
+	render: () => <ReorderRail />,
+	play: async ({ canvasElement }) => {
+		resetReorderArgs();
+		const flock = railItem(canvasElement, "flock");
+		const canal = railItem(canvasElement, "canal");
+		const start = centerOf(flock);
+		const hold = { pointerType: "touch", pointerId: ++reorderPointerSeed };
+		reorderPointer(flock, "pointerdown", start, hold);
+		await pause(500);
+		const below = { x: start.x, y: centerOf(canal).y };
+		await glideTo(flock, start, below, hold);
+		const away = { x: start.x + 220, y: below.y };
+		await glideTo(flock, below, away, hold, 6);
+		await waitFor(() =>
+			expect(railItem(canvasElement, "birds").style.transform).toBe(""),
+		);
+		reorderPointer(flock, "pointerup", away, hold);
+		await reorderSettled(canvasElement);
+		await expect(reorderArgs.onReorder).not.toHaveBeenCalled();
+		await expect(reorderArgs.onMenu).not.toHaveBeenCalled();
+		await expect(
+			canvasElement.querySelector('[role="status"]')?.textContent,
+		).toContain("Reorder cancelled");
+	},
+};
+
+export const ReorderKeyboard: Story = {
+	render: () => <ReorderRail />,
+	play: async ({ canvasElement }) => {
+		resetReorderArgs();
+		const canvas = within(canvasElement);
+		const birds = canvas.getByRole("button", { name: /Bird watchers/ });
+		await expect(birds).toHaveAttribute(
+			"aria-keyshortcuts",
+			"Alt+ArrowUp Alt+ArrowDown",
+		);
+		const instructions = document.getElementById(
+			birds.getAttribute("aria-describedby") ?? "",
+		);
+		await expect(instructions?.textContent).toContain("arrow key");
+		birds.focus();
+		await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
+		await expect(reorderArgs.onReorder).toHaveBeenLastCalledWith([
+			"flock",
+			"canal",
+			"birds",
+			"atproto",
+		]);
+		await waitFor(() => expect(birds).toHaveFocus());
+		await expect(
+			canvasElement.querySelector('[role="status"]')?.textContent,
+		).toContain("Moved Bird watchers to position 3 of 4");
+		await userEvent.keyboard("{Alt>}{Home}{/Alt}");
+		await expect(reorderArgs.onReorder).toHaveBeenLastCalledWith([
+			"birds",
+			"flock",
+			"canal",
+			"atproto",
+		]);
+		await waitFor(() => expect(birds).toHaveFocus());
+		await userEvent.keyboard("{Alt>}{ArrowUp}{/Alt}");
+		await expect(reorderArgs.onReorder).toHaveBeenCalledTimes(2);
+		await userEvent.keyboard("{ArrowDown}");
+		await expect(
+			canvas.getByRole("button", { name: "Colibri Social Flock" }),
+		).toHaveFocus();
+		await expect(reorderArgs.onReorder).toHaveBeenCalledTimes(2);
+		await reorderSettled(canvasElement);
+	},
+};
+
+export const ReorderRevertsOnReject: Story = {
+	render: () => <ReorderRail />,
+	play: async ({ canvasElement }) => {
+		resetReorderArgs("reject");
+		const canvas = within(canvasElement);
+		const flock = canvas.getByRole("button", { name: "Colibri Social Flock" });
+		flock.focus();
+		await userEvent.keyboard("{Alt>}{End}{/Alt}");
+		await expect(reorderArgs.onReorder).toHaveBeenCalledWith([
+			"birds",
+			"canal",
+			"atproto",
+			"flock",
+		]);
+		await waitFor(
+			() =>
+				expect(railOrder(canvasElement)).toEqual([
+					"flock",
+					"birds",
+					"canal",
+					"atproto",
+				]),
+			{ timeout: 3000 },
+		);
+		await waitFor(() =>
+			expect(
+				canvasElement.querySelector('[role="status"]')?.textContent,
+			).toContain("Couldn't move Colibri Social Flock"),
+		);
+		await reorderSettled(canvasElement);
+	},
+};
+
+export const ReorderAutoscroll: Story = {
+	render: () => <ReorderRail list={manySpaces} height="360px" />,
+	play: async ({ canvasElement }) => {
+		resetReorderArgs();
+		const scroller = canvasElement.querySelector(
+			"[data-rail-scroll]",
+		) as HTMLElement;
+		await expect(scroller.scrollHeight).toBeGreaterThan(scroller.clientHeight);
+		const flock = railItem(canvasElement, "flock");
+		const start = centerOf(flock);
+		const hold = { pointerType: "touch", pointerId: ++reorderPointerSeed };
+		reorderPointer(flock, "pointerdown", start, hold);
+		await pause(500);
+		const bottom = scroller.getBoundingClientRect().bottom - 4;
+		const edge = { x: start.x, y: bottom };
+		await glideTo(flock, start, edge, hold);
+		await waitFor(
+			() =>
+				expect(scroller.scrollTop).toBeGreaterThanOrEqual(
+					scroller.scrollHeight - scroller.clientHeight - 1,
+				),
+			{ timeout: 4000 },
+		);
+		reorderPointer(flock, "pointermove", { x: edge.x, y: edge.y - 1 }, hold);
+		reorderPointer(flock, "pointerup", { x: edge.x, y: edge.y - 1 }, hold);
+		await reorderSettled(canvasElement);
+		const saved = reorderArgs.onReorder.mock.calls.at(-1)?.[0] as string[];
+		await expect(saved.at(-1)).toBe("flock");
 	},
 };

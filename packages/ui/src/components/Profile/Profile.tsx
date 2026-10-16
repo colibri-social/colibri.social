@@ -16,6 +16,7 @@ import { Banner } from "../Banner/Banner";
 import { Card, type CardTone } from "../Card/Card";
 import { Emoji, EmojiText } from "../Emoji/Emoji";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
+import { ActivityIcon } from "./ActivityIcon";
 
 export type ProfileSurface = "background" | "popover";
 
@@ -101,6 +102,22 @@ export type ProfileHeaderLink = {
 	tint?: string;
 };
 
+const MetaItem = (props: { children: JSX.Element }) => (
+	<div
+		data-profile-meta-item=""
+		class="flex min-h-6 max-w-full min-w-0 items-center"
+	>
+		<div
+			aria-hidden="true"
+			data-profile-meta-dot=""
+			class="flex w-5 shrink-0 justify-center"
+		>
+			<div class="size-1 rounded-full bg-muted-foreground" />
+		</div>
+		{props.children}
+	</div>
+);
+
 export type ProfileHeaderProps = {
 	displayName: string;
 	avatarSeed?: string;
@@ -138,10 +155,6 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 	const surface = () => surfaceColor[props.surface ?? "background"];
 	const nameColor = () =>
 		resolveNameColor({ userColor: props.nameColor, context: "chat" });
-	const meta = () =>
-		[`@${props.handle}`, props.pronouns].filter(
-			(part): part is string => !!part,
-		);
 
 	return (
 		<header
@@ -225,64 +238,61 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 				</div>
 				<div
 					data-profile-meta=""
-					class="flex min-h-6 min-w-0 items-center gap-2 text-sm leading-[18px] text-foreground"
+					data-layout-clip=""
+					class="-mx-1.5 min-w-0 overflow-x-clip px-1.5 text-sm leading-[18px] text-foreground"
 				>
-					<For each={meta()}>
-						{(part, index) => (
-							<>
-								<Show when={index() > 0}>
+					<div class="-ml-5 flex min-w-0 flex-wrap items-center">
+						<MetaItem>
+							<span data-profile-handle="" class="min-w-0 truncate select-text">
+								{`@${props.handle}`}
+							</span>
+						</MetaItem>
+						<Show when={props.pronouns?.trim()}>
+							{(pronouns) => (
+								<MetaItem>
 									<span
-										aria-hidden="true"
-										class="size-1 shrink-0 rounded-full bg-muted-foreground"
-									/>
-								</Show>
-								<span
-									class={cx("min-w-0 truncate", index() === 0 && "select-text")}
-								>
-									{part}
-								</span>
-							</>
-						)}
-					</For>
-					<Show when={(props.links ?? []).length > 0}>
-						<span
-							aria-hidden="true"
-							class="size-1 shrink-0 rounded-full bg-muted-foreground"
-						/>
-						<span class="flex shrink-0 items-center gap-1">
-							<For each={props.links}>
-								{(link) => (
-									<Tooltip>
-										<TooltipTrigger
-											as="a"
-											href={link.href}
-											target="_blank"
-											rel="noreferrer"
-											aria-label={link.label}
-											data-profile-link=""
-											data-tinted={link.tint ? "" : undefined}
-											style={
-												link.tint
-													? { "--profile-link-tint": link.tint }
-													: undefined
-											}
-											class="group/brand-link flex size-6 items-center justify-center rounded-control-xs text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-ring data-tinted:hover:text-(--profile-link-tint) data-tinted:focus-visible:text-(--profile-link-tint) [&>svg]:size-4 [&>img]:size-4"
-										>
-											{link.icon}
-										</TooltipTrigger>
-										<TooltipContent>{link.label}</TooltipContent>
-									</Tooltip>
-								)}
-							</For>
-						</span>
-					</Show>
-					<Show when={appBadge.has()}>
-						<span
-							aria-hidden="true"
-							class="size-1 shrink-0 rounded-full bg-muted-foreground"
-						/>
-						{appBadge()}
-					</Show>
+										data-profile-pronouns=""
+										class="min-w-0 break-words select-text"
+									>
+										{pronouns()}
+									</span>
+								</MetaItem>
+							)}
+						</Show>
+						<Show when={(props.links ?? []).length > 0}>
+							<MetaItem>
+								<div class="flex min-w-0 flex-wrap items-center gap-1">
+									<For each={props.links}>
+										{(link) => (
+											<Tooltip>
+												<TooltipTrigger
+													as="a"
+													href={link.href}
+													target="_blank"
+													rel="noreferrer"
+													aria-label={link.label}
+													data-profile-link=""
+													data-tinted={link.tint ? "" : undefined}
+													style={
+														link.tint
+															? { "--profile-link-tint": link.tint }
+															: undefined
+													}
+													class="group/brand-link flex size-6 items-center justify-center rounded-control-xs text-muted-foreground outline-none hover:bg-secondary hover:text-foreground focus-ring data-tinted:hover:text-(--profile-link-tint) data-tinted:focus-visible:text-(--profile-link-tint) [&>svg]:size-4 [&>img]:size-4"
+												>
+													{link.icon}
+												</TooltipTrigger>
+												<TooltipContent>{link.label}</TooltipContent>
+											</Tooltip>
+										)}
+									</For>
+								</div>
+							</MetaItem>
+						</Show>
+						<Show when={appBadge.has()}>
+							<MetaItem>{appBadge()}</MetaItem>
+						</Show>
+					</div>
 				</div>
 			</div>
 		</header>
@@ -291,38 +301,50 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 
 export type NowPlayingCardProps = {
 	source: string;
+	label?: string;
+	kind?: string;
 	title: string;
 	artist?: string;
 	album?: string;
 	artSrc?: string;
 	tone?: CardTone;
 	href?: string;
+	onOpen?: (event: MouseEvent) => void;
 	class?: string;
 };
 
 export const NowPlayingCard = (props: NowPlayingCardProps) => {
 	const [local] = splitProps(props, [
 		"source",
+		"label",
+		"kind",
 		"title",
 		"artist",
 		"album",
 		"artSrc",
 		"tone",
 		"href",
+		"onOpen",
 		"class",
 	]);
 	return (
 		<Card
 			tone={local.tone}
 			href={local.href}
+			onClick={local.onOpen}
+			data-now-playing={local.kind ?? "listening"}
 			class={cx("flex flex-col gap-2 p-3", local.class)}
 		>
 			<span class="eyebrow text-foreground">
-				Listening to {local.source}
+				{local.label ?? `Listening to ${local.source}`}
 				<span class="sr-only">, </span>
 			</span>
 			<span class="flex min-w-0 items-center gap-3">
-				<span class="relative size-18 shrink-0 overflow-hidden rounded-badge bg-muted">
+				<span class="relative flex size-18 shrink-0 items-center justify-center overflow-hidden rounded-badge bg-muted">
+					<ActivityIcon
+						kind={local.kind}
+						class="size-8 text-muted-foreground"
+					/>
 					<Show when={local.artSrc}>
 						<AnimatedImage
 							src={local.artSrc}

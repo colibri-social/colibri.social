@@ -1,6 +1,7 @@
 import { createMemo, For, type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import type { Presence } from "../Avatar/Avatar";
+import type { BadgeDefinition } from "../Badge/Badge";
 import type { RoleIdentity } from "../Roles/RoleBadge";
 import { MemberGroupLabel, MemberListEntry } from "./MemberListParts";
 import type { MemberRowVariant } from "./MemberRow";
@@ -19,6 +20,13 @@ export type Member = {
 	hoistedRoleId?: string;
 	bot?: boolean;
 	owner?: boolean;
+	activity?: MemberActivity;
+};
+
+export type MemberActivity = {
+	kind: string;
+	summary: string;
+	more?: number;
 };
 
 export type HoistedRole = RoleIdentity & {
@@ -99,6 +107,7 @@ export type MemberListProps = {
 	onMemberContextMenu?: (member: Member, event: MouseEvent) => void;
 	onMemberMenu?: (member: Member, event: Event) => void;
 	wrapMember?: (member: Member, row: JSX.Element) => JSX.Element;
+	badgeOf?: (member: Member) => BadgeDefinition | undefined;
 	virtualizeAfter?: number;
 	class?: string;
 };
@@ -140,6 +149,7 @@ const StaticMemberList = (
 									onMemberContextMenu={props.onMemberContextMenu}
 									onMemberMenu={props.onMemberMenu}
 									wrapMember={props.wrapMember}
+									badgeOf={props.badgeOf}
 								/>
 							)}
 						</For>
@@ -169,6 +179,7 @@ export const MemberList = (props: MemberListProps) => {
 					onMemberContextMenu={props.onMemberContextMenu}
 					onMemberMenu={props.onMemberMenu}
 					wrapMember={props.wrapMember}
+					badgeOf={props.badgeOf}
 					class={props.class}
 				/>
 			}
@@ -180,6 +191,7 @@ export const MemberList = (props: MemberListProps) => {
 				onMemberContextMenu={props.onMemberContextMenu}
 				onMemberMenu={props.onMemberMenu}
 				wrapMember={props.wrapMember}
+				badgeOf={props.badgeOf}
 				class={props.class}
 			/>
 		</Show>

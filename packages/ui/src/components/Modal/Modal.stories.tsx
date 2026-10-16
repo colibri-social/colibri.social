@@ -19,6 +19,7 @@ import { SidebarNavItem, SidebarNavSection } from "../List/List";
 import { SpaceCard } from "../Space/SpaceCard";
 import { StatusField } from "../StatusField/StatusField";
 import { SearchField, TextField } from "../TextField/TextField";
+import { UnsavedChangesBar } from "../UnsavedChangesBar/UnsavedChangesBar";
 import {
 	LargeModalContent,
 	Modal,
@@ -224,6 +225,61 @@ export const Large: Story = {
 				</LargeModalContent>
 			</Modal>
 		);
+	},
+};
+
+export const LargeWithUnsavedChanges: Story = {
+	name: "Large with unsaved changes",
+	render: () => {
+		const [name, setName] = createSignal("Colibri HQ");
+		const dirty = () => name() !== "Colibri HQ";
+		return (
+			<Modal defaultOpen>
+				<LargeModalContent
+					title="Roles"
+					sidebar={<SettingsSidebar active="Profile" onSelect={() => {}} />}
+					actions={<Button class="h-8 px-3">New role</Button>}
+				>
+					<div class="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6">
+						<TextField label="Name" value={name()} onChange={setName} />
+						<For each={Array.from({ length: 12 }, (_, index) => index)}>
+							{(index) => <TextField label={`Field ${index + 1}`} value="" />}
+						</For>
+						<TextField label="Last field" value="" />
+						<UnsavedChangesBar
+							visible={dirty()}
+							onCancel={() => setName("Colibri HQ")}
+							onSave={() => {}}
+						/>
+					</div>
+				</LargeModalContent>
+			</Modal>
+		);
+	},
+	play: async () => {
+		const dialog = await screen.findByRole("dialog", { name: "Roles" });
+		const actions = dialog.querySelector<HTMLElement>("[data-modal-actions]");
+		expect(actions).not.toBeNull();
+		await waitFor(() =>
+			expect(
+				within(actions as HTMLElement).getByRole("button", {
+					name: "New role",
+				}),
+			).toBeVisible(),
+		);
+		await userEvent.type(within(dialog).getByLabelText("Name"), "!");
+		const bar = dialog.querySelector<HTMLElement>("[data-unsaved-changes-bar]");
+		await waitFor(() => expect(bar?.dataset.visible).toBeDefined());
+		const scroll = dialog.querySelector<HTMLElement>("[data-modal-scroll]");
+		if (scroll) scroll.scrollTop = scroll.scrollHeight;
+		await waitFor(() => {
+			const last = within(dialog)
+				.getByLabelText("Last field")
+				.getBoundingClientRect();
+			const card = bar?.getBoundingClientRect();
+			expect(card && last.bottom <= card.top + 0.5).toBe(true);
+		});
+		await expectNoLayoutIssues(dialog);
 	},
 };
 

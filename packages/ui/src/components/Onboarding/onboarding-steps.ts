@@ -1,7 +1,4 @@
-import type {
-	ProfileSetupRecords,
-	ProfileSetupSource,
-} from "./ProfileSetupPicker";
+import type { ProfileSetupRecords } from "./ProfileSetupPicker";
 
 export type OnboardingStep =
 	| "welcome"
@@ -20,14 +17,10 @@ export const SIGNED_OUT_STEPS: OnboardingStep[] = [
 export const hasProfileChoice = (records: ProfileSetupRecords) =>
 	records.colibriProfile || records.blueskyProfile;
 
-export const profileSteps = (
-	records: ProfileSetupRecords,
-	source?: ProfileSetupSource,
-): OnboardingStep[] => {
-	if (!hasProfileChoice(records)) return ["profile-editor", "notifications"];
-	if (source === "existing") return ["profile-source", "notifications"];
-	return ["profile-source", "profile-editor", "notifications"];
-};
+export const profileSteps = (records: ProfileSetupRecords): OnboardingStep[] =>
+	hasProfileChoice(records)
+		? ["profile-source", "profile-editor", "notifications"]
+		: ["profile-editor", "notifications"];
 
 export const firstProfileStep = (records: ProfileSetupRecords) =>
 	profileSteps(records)[0];
@@ -35,9 +28,8 @@ export const firstProfileStep = (records: ProfileSetupRecords) =>
 export const nextProfileStep = (
 	current: OnboardingStep,
 	records: ProfileSetupRecords,
-	source?: ProfileSetupSource,
 ): OnboardingStep | undefined => {
-	const steps = profileSteps(records, source);
+	const steps = profileSteps(records);
 	const index = steps.indexOf(current);
 	return index < 0 ? steps[0] : steps[index + 1];
 };
@@ -45,9 +37,8 @@ export const nextProfileStep = (
 export const previousProfileStep = (
 	current: OnboardingStep,
 	records: ProfileSetupRecords,
-	source?: ProfileSetupSource,
 ): OnboardingStep | undefined => {
-	const steps = profileSteps(records, source);
+	const steps = profileSteps(records);
 	const index = steps.indexOf(current);
 	return index > 0 ? steps[index - 1] : undefined;
 };

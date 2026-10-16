@@ -1,4 +1,7 @@
+import { HandMoneyIcon } from "@solar-icons/solid/bold/hand-money";
+import { MedalRibbonStarIcon } from "@solar-icons/solid/bold/medal-ribbon-star";
 import { type JSX, Show, splitProps } from "solid-js";
+import { PlayTesterBadge } from "../../icons/animated/brand";
 import { cva, cx, type VariantProps } from "../../utils/cx";
 import { createPress } from "../../utils/press";
 import { createSlot } from "../../utils/slot";
@@ -111,9 +114,9 @@ export const FALLBACK_BADGE_DEFINITIONS: readonly BadgeDefinition[] = [
 		},
 	},
 	{
-		identifier: "supporter-five",
-		name: "$5 SUPPORTER",
-		description: "Supports Colibri with a $5 monthly donation",
+		identifier: "backer-five",
+		name: "$5 BACKER",
+		description: "Backs Colibri with a $5 monthly donation",
 		precedence: 4,
 		appearance: {
 			variant: "solid",
@@ -233,6 +236,50 @@ export const AppBadge = (props: AppBadgeProps) => (
 			{props.icon}
 		</span>
 	</BadgeInfo>
+);
+
+export const OPEN_COLLECTIVE_BADGES: ReadonlySet<string> = new Set([
+	"sponsor-twenty-five",
+	"supporter-ten",
+	"backer-five",
+	"donator",
+]);
+
+const badgeColorOf = (definition: BadgeDefinition) =>
+	definition.appearance?.colors[0];
+
+export const badgeIconFor = (definition: BadgeDefinition): JSX.Element => {
+	if (OPEN_COLLECTIVE_BADGES.has(definition.identifier)) {
+		return (
+			<HandMoneyIcon
+				data-badge-icon="hand-money"
+				color={badgeColorOf(definition)}
+			/>
+		);
+	}
+	if (definition.identifier === "play-store-tester") {
+		return <PlayTesterBadge data-badge-icon="play-tester" />;
+	}
+	return (
+		<MedalRibbonStarIcon
+			data-badge-icon="medal"
+			color={badgeColorOf(definition)}
+		/>
+	);
+};
+
+export type SecondaryUserBadgeProps = {
+	definition: BadgeDefinition;
+	class?: string;
+};
+
+export const SecondaryUserBadge = (props: SecondaryUserBadgeProps) => (
+	<AppBadge
+		name={props.definition.name}
+		description={props.definition.description || undefined}
+		icon={badgeIconFor(props.definition)}
+		class={props.class}
+	/>
 );
 
 export type BotBadgeProps = Omit<UserBadgeProps, "definition">;

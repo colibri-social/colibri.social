@@ -6,7 +6,7 @@ import {
 	effectiveMuted,
 	type PresenceMember,
 	type SelfVoiceState,
-} from "./voice-presence";
+} from "./presence.js";
 
 const HOME = "did:plc:home";
 const VC_A = "at://did:plc:home/social.colibri.channel/a";

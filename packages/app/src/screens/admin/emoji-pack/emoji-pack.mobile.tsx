@@ -27,6 +27,7 @@ export default adminEmojiPack.view({
 							<div aria-hidden="true" class="h-px w-full bg-accent" />
 						</Show>
 						<s.Danger />
+						<s.Bar />
 					</div>
 				</Show>
 			</div>

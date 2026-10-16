@@ -15,14 +15,18 @@ import {
 	Show,
 	useContext,
 } from "solid-js";
+import { nowPlayingOf } from "../../data/activity";
 import { displayNameOf } from "../../data/adapters/authors";
+import { profileBannerFill } from "../../data/profile-theme";
 import { roleIdentity, rolesOf } from "../../data/roles";
 import { useData } from "../../data/store";
-import type { Did } from "../../data/types";
+import type { Did, ProfileView } from "../../data/types";
 import { usePlatform } from "../../screen/platform";
 import { uiPresence } from "../members/member-adapter";
+import { OwnActivityPrompt } from "./activity-prompt";
 import { createBioRenderer } from "./bio-links";
 import { blueskyProfileLinks } from "./bluesky-link";
+import { PrimaryBadge, SecondaryBadges } from "./user-badges";
 
 type Target = { did: string; space?: string };
 
@@ -73,28 +77,35 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 			: undefined;
 		const space = community ? data.space(community) : undefined;
 		const member = space?.memberByDid(current.did as Did);
-		const actor =
+		const actor: ProfileView | undefined =
 			member?.actor ??
 			(current.did === data.viewer.did ? data.viewer : undefined);
 		if (!actor) return undefined;
 		const presence = data.presenceOf(actor.did) ?? actor.presence;
 		const roles = space ? rolesOf(member, space.roleByKey) : [];
 		const status = presence?.status;
+		const self = actor.did === data.viewer.did;
 		return {
 			displayName: displayNameOf(actor),
 			nickname: member?.nickname,
 			handle: actor.handle,
+			pronouns: actor.pronouns,
 			accentColor: actor.theme?.accentColor,
 			avatarSrc: actor.avatar,
 			avatarSeed: actor.did,
 			presence: uiPresence(presence),
 			bannerSrc: actor.banner,
+			bannerColor: profileBannerFill(actor.theme),
+			badge: <PrimaryBadge profile={actor} size="sm" />,
+			appBadge: <SecondaryBadges profile={actor} />,
 			links: blueskyProfileLinks(data.preferences, actor.did),
 			status: status?.text,
 			statusEmoji: status?.emoji,
 			statusShowWhileOffline: status?.showWhileOffline,
 			bio: bioOf(actor.description),
-			self: actor.did === data.viewer.did,
+			nowPlaying: nowPlayingOf(presence, bio.openLink),
+			activityPrompt: self ? <OwnActivityPrompt tone="secondary" /> : undefined,
+			self,
 			roles: roles.map((role) => {
 				const identity = roleIdentity(role);
 				return {

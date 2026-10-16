@@ -2,7 +2,6 @@ import {
 	AudiencePicker,
 	Button,
 	ConfirmDialog,
-	DeveloperModeCard,
 	ListGroup,
 	NavRow,
 	StatusScreen,
@@ -14,6 +13,7 @@ import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { FolderIcon } from "@solar-icons/solid/bold/folder";
 import { ShieldUserIcon } from "@solar-icons/solid/bold/shield-user";
 import {
+	batch,
 	createEffect,
 	createMemo,
 	createSignal,
@@ -27,6 +27,7 @@ import { NEW_ENTRY } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { useUnsavedChanges } from "../../../shell/unsaved-changes";
+import { createUnsavedForm, UnsavedBar } from "../../settings/unsaved-form";
 import {
 	type Audience,
 	type AudienceKind,
@@ -34,6 +35,7 @@ import {
 	sameAudience,
 } from "../channel/audience";
 import { AdminNavHeader } from "../desktop/page-header";
+import { AdminDeveloper } from "../developer";
 import {
 	openPermissions,
 	providePermissionDraft,
@@ -99,15 +101,22 @@ export const adminCategory = defineContract({
 		const [attempted, setAttempted] = createSignal(false);
 		const [deleteOpen, setDeleteOpen] = createSignal(false);
 
+		const seed = (view: { name: string }) => {
+			batch(() => {
+				setName(view.name);
+				setAudience(savedVisible());
+				setPost(savedPost());
+				setOwnerOnly(savedOwnerOnly());
+				setAttempted(false);
+			});
+		};
+
 		let seeded = creating;
 		createEffect(() => {
 			if (seeded) return;
 			const view = category();
 			if (!view) return;
-			setName(view.name);
-			setAudience(savedVisible());
-			setPost(savedPost());
-			setOwnerOnly(savedOwnerOnly());
+			seed(view);
 			seeded = true;
 		});
 
@@ -136,6 +145,9 @@ export const adminCategory = defineContract({
 				setAudience: setAudienceOf,
 				options,
 				disabled: () => saving() || !canEditChannels(),
+				get form() {
+					return unsaved;
+				},
 			});
 		}
 		const dirty = createMemo(() =>
@@ -164,14 +176,13 @@ export const adminCategory = defineContract({
 				onBlocked: () => setStep(1),
 			}),
 		);
-		useUnsavedChanges({
-			depth,
-			dirty: () => !saving() && dirty(),
-			description: () =>
-				creating
-					? "This category won't be created."
-					: "Your changes to this category won't be saved.",
-		});
+		if (creating) {
+			useUnsavedChanges({
+				depth,
+				dirty: () => !saving() && dirty(),
+				description: () => "This category won't be created.",
+			});
+		}
 
 		const leave = () => stack.forcePop();
 
@@ -222,11 +233,11 @@ export const adminCategory = defineContract({
 			setAttempted(true);
 			const current = community();
 			const view = category();
-			if (!current || !view || saving() || !trimmed()) return;
+			if (!current || !view || saving() || !trimmed() || !dirty()) return;
 			void run(async () => {
 				const visible = audience();
 				const posting = post();
-				await data.categories.update(current.did, view.rkey, {
+				const updated = await data.categories.update(current.did, view.rkey, {
 					...(trimmed() !== view.name ? { name: trimmed() } : {}),
 					...(visibleChanged()
 						? {
@@ -242,10 +253,23 @@ export const adminCategory = defineContract({
 						: {}),
 					...(ownerOnlyChanged() ? { ownerOnly: ownerOnly() } : {}),
 				});
+				seed(updated);
 				toast.success("Category settings saved");
-				leave();
 			}, "Couldn't save the category settings");
 		};
+
+		const unsaved = creating
+			? undefined
+			: createUnsavedForm({
+					depth,
+					dirty,
+					saving,
+					save,
+					reset: () => {
+						const view = category();
+						if (view) seed(view);
+					},
+				});
 
 		const remove = async () => {
 			const current = community();
@@ -289,6 +313,7 @@ export const adminCategory = defineContract({
 			submitDetails,
 			submitAudience,
 			save,
+			unsaved,
 			back: () => stack.pop(),
 			deleteOpen,
 			setDeleteOpen,
@@ -308,16 +333,6 @@ export const adminCategory = defineContract({
 							navigateLabel="Close category settings"
 							onNavigate={m.back}
 							title="Category settings"
-							action={
-								ready() && m.canEdit() && m.dirty()
-									? {
-											type: "text",
-											label: "Save",
-											onClick: m.save,
-											loading: m.saving(),
-										}
-									: undefined
-							}
 						/>
 					}
 				>
@@ -352,6 +367,7 @@ export const adminCategory = defineContract({
 				</Show>
 			);
 		}),
+		Bar: slot((m) => <UnsavedBar form={m.unsaved} />),
 		Unavailable: slot((m) => (
 			<Show
 				when={m.unavailable()}
@@ -444,13 +460,17 @@ export const adminCategory = defineContract({
 			</ListGroup>
 		)),
 		Developer: slot((m) => (
-			<Show when={m.developerMode() && m.category() && m.community()}>
-				<DeveloperModeCard
-					copyLabel="Copy AT-URI"
-					copyValue={`at://${m.community()?.did}/social.colibri.beta.category/${m.category()?.rkey}`}
-					pdslsHref={`https://pdsls.dev/at://${m.community()?.did}/social.colibri.beta.category/${m.category()?.rkey}`}
-				/>
-			</Show>
+			<AdminDeveloper
+				target={(() => {
+					const category = m.category();
+					const community = m.community();
+					return m.developerMode() && category && community
+						? {
+								copyValue: `at://${community.did}/social.colibri.beta.category/${category.rkey}`,
+							}
+						: undefined;
+				})()}
+			/>
 		)),
 		Delete: slot((m) => (
 			<Show when={m.canDelete()}>

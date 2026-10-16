@@ -116,33 +116,123 @@ it("pushes nested pages with a breadcrumb, back arrow and crumb navigation", asy
 	await expect.poll(crumbs, SLOW).toEqual([]);
 });
 
+const unsavedBar = () =>
+	dialog()?.querySelector<HTMLElement>(
+		"[data-modal-page]:not([hidden]) [data-unsaved-changes-bar]",
+	) ?? undefined;
+
+const barShown = () => unsavedBar()?.dataset.visible !== undefined;
+
+const barAttention = () => unsavedBar()?.dataset.attention !== undefined;
+
+it("drops the page heading and shows only the breadcrumb title", async () => {
+	await mount(`/app/c/${HQ}/manage/roles`);
+	await expect.poll(visiblePage, SLOW).toBe("roles");
+	const visible = () =>
+		dialog()?.querySelector<HTMLElement>("[data-modal-page]:not([hidden])");
+	expect(visible()?.querySelector("h1, h2, h3")).toBeNull();
+	const actions = dialog()?.querySelector<HTMLElement>("[data-modal-actions]");
+	expect(actions?.querySelector("[data-modal-page-action]")).not.toBeNull();
+	await expectNoLayoutIssues(dialog() as HTMLElement);
+});
+
+it("shows the unsaved changes bar only after an edit and cancels back", async () => {
+	await mount(`/app/c/${HQ}/manage/profile`);
+	await expect.poll(visiblePage, SLOW).toBe("profile");
+	expect(barShown()).toBe(false);
+	expect(
+		dialog()?.querySelector("[data-modal-actions] [data-modal-page-action]"),
+	).toBeNull();
+	const name = page.getByRole("dialog").getByLabelText("Name", { exact: true });
+	await expect.element(name).toHaveValue("Colibri HQ");
+	await userEvent.fill(name, "Renamed HQ");
+	await expect.poll(barShown).toBe(true);
+	await expect
+		.element(page.getByRole("dialog").getByText("You have unsaved changes"))
+		.toBeVisible();
+	await userEvent.click(
+		page.getByRole("dialog").getByRole("button", { name: "Cancel" }),
+	);
+	await expect.poll(barShown).toBe(false);
+	await expect.element(name).toHaveValue("Colibri HQ");
+});
+
+it("saves from the bar and stays on the page", async () => {
+	const store = await mount(`/app/c/${HQ}/manage/profile`);
+	await expect.poll(visiblePage, SLOW).toBe("profile");
+	const name = page.getByRole("dialog").getByLabelText("Name", { exact: true });
+	await userEvent.fill(name, "Renamed HQ");
+	await expect.poll(barShown).toBe(true);
+	await userEvent.click(
+		page.getByRole("dialog").getByRole("button", { name: "Save" }),
+	);
+	await expect.poll(barShown, SLOW).toBe(false);
+	await expect
+		.poll(
+			() => store.communities.value()?.find((entry) => entry.did === HQ)?.name,
+			SLOW,
+		)
+		.toBe("Renamed HQ");
+	await expect.element(name).toHaveValue("Renamed HQ");
+	expect(location.pathname).toBe(`/app/c/${HQ}/manage/profile`);
+});
+
+it("keeps the bar clear of the last field when scrolled to the end", async () => {
+	await mount(`/app/c/${HQ}/manage/profile`);
+	await expect.poll(visiblePage, SLOW).toBe("profile");
+	await userEvent.fill(
+		page.getByRole("dialog").getByLabelText("Name", { exact: true }),
+		"Renamed HQ",
+	);
+	await expect.poll(barShown).toBe(true);
+	const scroll = dialog()?.querySelector<HTMLElement>("[data-modal-scroll]");
+	if (scroll) scroll.scrollTop = scroll.scrollHeight;
+	const toggle = dialog()?.querySelector<HTMLElement>(
+		'[data-modal-page]:not([hidden]) [role="switch"]',
+	);
+	const card = unsavedBar()?.firstElementChild as HTMLElement;
+	await expect
+		.poll(
+			() =>
+				(toggle?.closest("section") ?? toggle)?.getBoundingClientRect()
+					.bottom ?? Number.POSITIVE_INFINITY,
+		)
+		.toBeLessThanOrEqual(card.getBoundingClientRect().top + 0.5);
+	expect(card.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+		(scroll as HTMLElement).getBoundingClientRect().bottom,
+	);
+	await expectNoLayoutIssues(dialog() as HTMLElement);
+});
+
 it("blocks closing the modal while a page has unsaved changes", async () => {
 	await mount(`/app/c/${HQ}/manage/profile`);
 	await expect.poll(visiblePage, SLOW).toBe("profile");
 	const name = page.getByRole("dialog").getByLabelText("Name", { exact: true });
 	await userEvent.fill(name, "Renamed HQ");
+	await expect.poll(barShown).toBe(true);
 	await userEvent.keyboard("{Escape}");
-	await expect
-		.element(page.getByRole("dialog", { name: "Discard changes?" }))
-		.toBeVisible();
+	await expect.poll(barAttention).toBe(true);
 	expect(location.pathname).toBe(`/app/c/${HQ}/manage/profile`);
-	await userEvent.click(
-		page
-			.getByRole("dialog", { name: "Discard changes?" })
-			.getByRole("button", { name: "Cancel" }),
-	);
-	await expect.poll(visiblePage, SLOW).toBe("profile");
+	expect(
+		document.querySelector('[role="dialog"][aria-label="Discard changes?"]'),
+	).toBeNull();
 	await userEvent.click(
 		page.getByRole("dialog").getByRole("button", { name: "Close" }).first(),
 	);
-	await expect
-		.element(page.getByRole("dialog", { name: "Discard changes?" }))
-		.toBeVisible();
-	await userEvent.click(page.getByRole("button", { name: "Discard changes" }));
+	expect(visiblePage()).toBe("profile");
+	expect(location.pathname).toBe(`/app/c/${HQ}/manage/profile`);
+	await userEvent.click(
+		page.getByRole("dialog").getByRole("button", { name: "Cancel" }),
+	);
+	await expect.poll(barShown).toBe(false);
+	expect(barAttention()).toBe(false);
+	await userEvent.click(
+		page.getByRole("dialog").getByRole("button", { name: "Close" }).first(),
+	);
 	await expect.poll(() => location.pathname.includes("/manage/")).toBe(false);
 });
 
-it("asks before switching sidebar pages with unsaved changes", async () => {
+it("blocks switching sidebar pages with unsaved changes", async () => {
 	await mount(`/app/c/${HQ}/manage/profile`);
 	await expect.poll(visiblePage, SLOW).toBe("profile");
 	const settings = page.getByRole("dialog").first();
@@ -151,21 +241,12 @@ it("asks before switching sidebar pages with unsaved changes", async () => {
 		"Renamed HQ",
 	);
 	await userEvent.click(settings.getByRole("button", { name: "Roles" }));
-	const prompt = page.getByRole("dialog", { name: "Discard changes?" });
-	await expect.element(prompt).toBeVisible();
-	await expect
-		.element(prompt)
-		.toHaveTextContent("Your edits to this Space won't be saved.");
+	await expect.poll(barAttention).toBe(true);
 	expect(location.pathname).toBe(`/app/c/${HQ}/manage/profile`);
-	await userEvent.click(prompt.getByRole("button", { name: "Cancel" }));
-	await expect.element(prompt).not.toBeInTheDocument();
 	expect(visiblePage()).toBe("profile");
+	await userEvent.click(settings.getByRole("button", { name: "Save" }));
+	await expect.poll(barShown, SLOW).toBe(false);
 	await userEvent.click(settings.getByRole("button", { name: "Roles" }));
-	await userEvent.click(
-		page
-			.getByRole("dialog", { name: "Discard changes?" })
-			.getByRole("button", { name: "Discard changes" }),
-	);
 	await expect.poll(visiblePage, SLOW).toBe("roles");
 	expect(location.pathname).toBe(`/app/c/${HQ}/manage/roles`);
 });
@@ -446,4 +527,37 @@ it("opens a member profile from a role mention without closing the role popover"
 			page.getByRole("dialog", { name: "Moderators members" }).query(),
 		)
 		.toBeNull();
+});
+
+it("pins the developer section above the danger zone and follows the open page", async () => {
+	const store = await mount(`/app/c/${HQ}/manage/role/bots`);
+	store.setControls({ developerMode: true });
+	await expect.poll(visiblePage, SLOW).toBe("role");
+	const pdsls = () =>
+		dialog()
+			?.querySelector<HTMLAnchorElement>("[data-developer-mode] a")
+			?.getAttribute("href");
+	await expect.poll(pdsls, SLOW).toContain("bots");
+	const section = dialog()?.querySelector<HTMLElement>(
+		"[data-developer-mode]",
+	) as HTMLElement;
+	expect(section.closest("nav")).not.toBeNull();
+	expect(
+		section.querySelector("button")?.textContent?.includes("Copy AT-URI"),
+	).toBe(true);
+	const danger = Array.from(
+		dialog()?.querySelectorAll<HTMLElement>("nav *") ?? [],
+	).find((element) => element.textContent === "Danger zone") as HTMLElement;
+	expect(
+		section.compareDocumentPosition(danger) & Node.DOCUMENT_POSITION_FOLLOWING,
+	).toBeTruthy();
+	expect(
+		dialog()?.querySelector("[data-modal-page] [data-developer-mode]"),
+	).toBeNull();
+	await userEvent.click(
+		page.getByRole("dialog").getByRole("button", { name: "Space profile" }),
+	);
+	await expect.poll(visiblePage, SLOW).toBe("profile");
+	await expect.poll(pdsls, SLOW).toBe(`https://pdsls.dev/at://${HQ}`);
+	await expectNoLayoutIssues(dialog() as HTMLElement);
 });

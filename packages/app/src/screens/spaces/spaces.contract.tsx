@@ -1,3 +1,4 @@
+import { ColibriError } from "@colibri-social/lib";
 import {
 	afterSpaceRailMotion,
 	Button,
@@ -39,6 +40,7 @@ import {
 	Show,
 } from "solid-js";
 import { displayNameOf } from "../../data/adapters/authors";
+import { SPACE_ORDER_NOT_SAVED } from "../../data/error-copy";
 import { channelSlug, isVoiceChannel, skeyOf, spaceKey } from "../../data/ids";
 import { mutedTotals, spaceNotificationPrefs } from "../../data/notifications";
 import { type SpaceData, useData } from "../../data/store";
@@ -71,6 +73,7 @@ import { createInviteDrawer } from "../admin/invites/invite-drawer";
 import { createLeaveSpace } from "../admin/overview/leave-space";
 import { SPACE_PERMISSIONS } from "../admin/space-admin";
 import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
+import { useMemberMenu } from "../members/member-menu";
 import { useProfileSheet } from "../profile/profile-sheet";
 import { createThreadMenu } from "../threads/thread-menu";
 import { clickVoiceChannel } from "../voice/voice-click";
@@ -167,6 +170,24 @@ export const spaces = defineContract({
 			});
 		};
 		const railSpace = () => pendingSpace() ?? community()?.did;
+		const reorderSpaces = async (ids: string[]) => {
+			const store = data.preferences;
+			const previous = communities().map((entry) => entry.did);
+			const order = ids as Did[];
+			if (await store.setCommunityOrder(order)) return;
+			const current = store.preferences();
+			const unchanged =
+				current.communityOrder.length === order.length &&
+				current.communityOrder.every((did, index) => did === order[index]);
+			if (unchanged) store.adopt({ ...current, communityOrder: previous });
+			toast.error(SPACE_ORDER_NOT_SAVED.title, {
+				description: SPACE_ORDER_NOT_SAVED.description,
+			});
+			throw new ColibriError({
+				code: "Unexpected",
+				message: "the Space order wasn't saved",
+			});
+		};
 		const openChannel = (channel: ChannelView) => {
 			const current = community();
 			if (!current) return;
@@ -193,6 +214,17 @@ export const spaces = defineContract({
 		const profileSheet = useProfileSheet();
 		const participants = (channel: ChannelView): VoiceParticipant[] =>
 			voice.participants(channel.space);
+		const memberMenu = useMemberMenu();
+		const participantMenu = (did: string, row: JSX.Element) => {
+			const current = community();
+			return current
+				? memberMenu.contextMenu(did, spaceKey(current), row, "contents")
+				: row;
+		};
+		const openParticipantMenu = (did: string) => {
+			const current = community();
+			if (current) memberMenu.open(did, spaceKey(current));
+		};
 		const openParticipant = (did: string) => {
 			const current = community();
 			profileSheet.open(did, current ? spaceKey(current) : undefined);
@@ -426,7 +458,11 @@ export const spaces = defineContract({
 			if (current && category)
 				deleteDialogs.requestCategory(current.did, category);
 		};
-		const openThread = (channel: ChannelView, thread: ThreadView) => {
+		const openThread = (
+			channel: ChannelView,
+			thread: ThreadView,
+			presentation?: "full",
+		) => {
 			const current = community();
 			if (!current) return;
 			const target = {
@@ -434,7 +470,12 @@ export const spaces = defineContract({
 				channel: channelSlug(channel),
 				channelType: channel.type,
 			};
-			stack.push({ kind: "thread", ...target, thread: skeyOf(thread.space) });
+			stack.push({
+				kind: "thread",
+				...target,
+				thread: skeyOf(thread.space),
+				...(presentation ? { presentation } : {}),
+			});
 		};
 		const leaveSpace = createLeaveSpace();
 		const inviteDrawer = createInviteDrawer();
@@ -531,9 +572,12 @@ export const spaces = defineContract({
 			activeChannel,
 			selectSpace,
 			railSpace,
+			reorderSpaces,
 			openChannel,
 			participants,
 			openParticipant,
+			participantMenu,
+			openParticipantMenu,
 			joinedVoice,
 			categories,
 			setCategoryCollapsed,
@@ -582,6 +626,7 @@ export const spaces = defineContract({
 								);
 							const item = () => (
 								<SpaceRailItem
+									id={community.did}
 									name={community.name}
 									iconSrc={community.picture}
 									active={m.railSpace() === community.did}
@@ -669,6 +714,14 @@ export const spaces = defineContract({
 					active={desktop() && m.activeChannel() === channelSlug(channel)}
 					participants={m.participants(channel)}
 					onOpenParticipant={m.openParticipant}
+					participantMenu={
+						desktop()
+							? (participant, row) => m.participantMenu(participant.id, row)
+							: undefined
+					}
+					onParticipantMenu={
+						desktop() ? undefined : (id) => m.openParticipantMenu(id)
+					}
 					onClick={() => m.openChannel(channel)}
 					onOpenSettings={
 						desktop() && m.can("channel.update")
@@ -809,7 +862,13 @@ export const spaces = defineContract({
 															: state().mentions || undefined
 													}
 													muted={m.data.isMuted(ref)}
-													onClick={() => m.openThread(channel, state().thread)}
+													onClick={(event) =>
+														m.openThread(
+															channel,
+															state().thread,
+															desktop() && !event.shiftKey ? "full" : undefined,
+														)
+													}
 													onLongPress={
 														desktop()
 															? undefined

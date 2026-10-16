@@ -7,7 +7,7 @@ import { useSpaceModal } from "../desktop/space-modal-context";
 import { overview } from "./overview.contract";
 
 export default overview.view({
-	omit: ["Header"] as const,
+	omit: ["Header", "Developer"] as const,
 	render: ({ slots: s, model: m, args }) => {
 		const modal = useSpaceModal();
 		const stack = useStack();
@@ -61,13 +61,11 @@ export default overview.view({
 								active={active()}
 								onSelect={select}
 							/>
-							<s.Developer />
-							<s.Actions
-								platform="desktop"
-								active={active()}
-								onSelect={select}
-							/>
 						</>
+					}
+					developer={m.developerTarget()}
+					sidebarEnd={
+						<s.Actions platform="desktop" active={active()} onSelect={select} />
 					}
 				/>
 				<s.DeleteDialog />

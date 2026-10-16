@@ -117,6 +117,7 @@ export const layoutIssues = (
 		}
 		if (
 			!scrollsItsValue(control) &&
+			(control instanceof HTMLInputElement || control.textContent?.trim()) &&
 			control.scrollWidth > control.clientWidth + 1
 		) {
 			const style = getComputedStyle(control);

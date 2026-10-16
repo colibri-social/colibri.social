@@ -6,9 +6,15 @@ export default spaceProfile.view({
 		<>
 			<s.Header />
 			<Show when={!m.missing()} fallback={<s.Missing />}>
-				<s.Images />
+				<div
+					data-profile-card=""
+					class="overflow-hidden rounded-surface border border-border pb-4"
+				>
+					<s.Images />
+				</div>
 				<s.Fields />
 				<s.Access />
+				<s.Bar />
 			</Show>
 		</>
 	),

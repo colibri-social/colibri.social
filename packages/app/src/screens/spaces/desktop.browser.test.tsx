@@ -186,6 +186,20 @@ it("opens the Inbox popover from the rail", async () => {
 	await expect
 		.element(page.getByRole("navigation", { name: "Inbox views" }))
 		.toBeVisible();
+	const sidebar = (
+		document.querySelector("[data-shell-sidebar]") as HTMLElement
+	).getBoundingClientRect();
+	await expect
+		.poll(() => {
+			const popover = (
+				document.querySelector("[data-inbox-popover]") as HTMLElement
+			).getBoundingClientRect();
+			return [
+				Math.round(popover.left - sidebar.left),
+				Math.round(popover.top - sidebar.top),
+			];
+		})
+		.toEqual([0, 0]);
 	await userEvent.keyboard("{Escape}");
 	await expect
 		.poll(() => document.querySelector("[data-inbox-popover]"))

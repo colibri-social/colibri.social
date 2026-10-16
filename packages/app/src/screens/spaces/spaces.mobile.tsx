@@ -13,6 +13,7 @@ export default spaces.view({
 				platform="mobile"
 				onCreate={m.openCreateSpace}
 				onDiscover={m.openDiscover}
+				onReorder={m.reorderSpaces}
 			>
 				<s.RailItems />
 			</SpaceRail>

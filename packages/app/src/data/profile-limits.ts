@@ -39,3 +39,17 @@ export const bioError = (value: string) => {
 	}
 	return undefined;
 };
+
+export const PRONOUNS_MAX_GRAPHEMES = 64;
+export const PRONOUNS_MAX_BYTES = 640;
+
+export const pronounsError = (value: string) => {
+	const pronouns = value.trim();
+	if (
+		graphemeLength(pronouns) > PRONOUNS_MAX_GRAPHEMES ||
+		utf8Length(pronouns) > PRONOUNS_MAX_BYTES
+	) {
+		return `Keep your pronouns under ${PRONOUNS_MAX_GRAPHEMES} characters.`;
+	}
+	return undefined;
+};

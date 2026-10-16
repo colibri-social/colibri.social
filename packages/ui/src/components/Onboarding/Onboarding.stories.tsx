@@ -1044,7 +1044,7 @@ export const SkipsProfileChoiceWithoutRecords: Story = {
 	},
 };
 
-export const ExistingProfileSkipsEditor: Story = {
+export const ExistingProfileOpensEditor: Story = {
 	render: (args) => (
 		<OnboardingDemo
 			platform="mobile"
@@ -1059,12 +1059,14 @@ export const ExistingProfileSkipsEditor: Story = {
 			canvas.getByRole("radio", { name: "Use existing profile" }),
 		).toBeChecked();
 		await userEvent.click(canvas.getByRole("button", { name: "Next" }));
+		await canvas.findByRole("textbox", { name: "Pronouns" });
+		await userEvent.click(canvas.getByRole("button", { name: "Next" }));
 		await canvas.findByRole("heading", {
 			name: "Want to receive notifications?",
 		});
 		await userEvent.click(canvas.getByRole("button", { name: "Skip" }));
 		await waitFor(() => expect(args.onChange).toHaveBeenCalledWith("existing"));
-		await expect(readResult(canvasElement)?.profile).toBeUndefined();
+		await expect(readResult(canvasElement)?.profile).toBeDefined();
 	},
 };
 

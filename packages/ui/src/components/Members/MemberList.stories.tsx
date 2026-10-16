@@ -1,6 +1,11 @@
 import { createMemo, createSignal } from "solid-js";
 import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import {
+	type BadgeDefinition,
+	FALLBACK_BADGE_DEFINITIONS,
+	TEAM_BADGE_DEFINITION,
+} from "../Badge/Badge";
 import { Button } from "../Button/Button";
 import { MemberContextMenu } from "../ContextMenu/MemberMenu";
 import { ProfilePopover } from "../Profile/ProfilePopover";
@@ -453,4 +458,118 @@ export const RightClickMenu: Story = {
 			),
 		);
 	},
+};
+
+const BADGE_BY_MEMBER: Record<string, BadgeDefinition | undefined> = {
+	noor: FALLBACK_BADGE_DEFINITIONS.find(
+		(entry) => entry.identifier === "play-store-tester",
+	),
+	lena: FALLBACK_BADGE_DEFINITIONS.find(
+		(entry) => entry.identifier === "supporter-ten",
+	),
+	kai: TEAM_BADGE_DEFINITION,
+};
+
+const ACTIVITY_MEMBERS: Member[] = [
+	{
+		id: "noor",
+		name: "Noor Haddad",
+		presence: "online",
+		activity: { kind: "listening", summary: "DUSQK" },
+	},
+	{
+		id: "lena",
+		name: "Lena Fischer",
+		presence: "online",
+		status: "Speedrunning tonight",
+		activity: { kind: "playing", summary: "Celeste · Chapter 7" },
+	},
+	{
+		id: "kai",
+		name: "Kai with a name long enough to need truncating",
+		presence: "idle",
+		activity: {
+			kind: "streaming",
+			summary: "A long stream title that keeps going past the row edge",
+			more: 2,
+		},
+	},
+	{
+		id: "ola",
+		name: "Ola",
+		presence: "offline",
+		activity: { kind: "listening", summary: "Hidden while offline" },
+	},
+];
+
+const badgeOf = (member: Member) => BADGE_BY_MEMBER[member.id];
+
+export const BadgesAndActivity: Story = {
+	render: () => (
+		<div class="w-72 border-l border-border bg-card text-foreground">
+			<MemberList
+				groups={groupMembers(ACTIVITY_MEMBERS)}
+				badgeOf={badgeOf}
+				onOpen={onOpen}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const rows = rowsOf(canvasElement);
+		const row = (name: string) =>
+			rows.find((entry) => nameOf(entry).startsWith(name)) as HTMLElement;
+
+		const noor = row("Noor");
+		await expect(
+			noor.querySelector('[data-user-badge="play-store-tester"]'),
+		).not.toBeNull();
+		await expect(noor.querySelector("button button")).toBeNull();
+		await expect(noor.querySelector("[data-badge-info]")).toBeNull();
+		await expect(
+			noor.querySelector("[data-member-activity]")?.textContent,
+		).toBe("DUSQK");
+
+		const lena = row("Lena");
+		const lenaLine = lena.querySelector<HTMLElement>("[data-member-activity]");
+		await expect(lenaLine?.textContent).toBe("·Speedrunning tonight");
+		await expect(
+			lenaLine?.querySelector('[data-activity-icon="playing"]'),
+		).not.toBeNull();
+
+		for (const kai of rows.filter((entry) => nameOf(entry).startsWith("Kai"))) {
+			const box = kai.getBoundingClientRect();
+			const badge = kai.querySelector<HTMLElement>('[data-user-badge="team"]');
+			const line = kai.querySelector<HTMLElement>("[data-member-activity]");
+			await expect(badge).not.toBeNull();
+			await expect(
+				(badge as HTMLElement).getBoundingClientRect().right,
+			).toBeLessThanOrEqual(box.right);
+			await expect(
+				(line as HTMLElement).getBoundingClientRect().right,
+			).toBeLessThanOrEqual(box.right);
+			await expect(line?.textContent).toContain("+2");
+			const summary = line?.querySelector<HTMLElement>(".truncate");
+			await expect((summary as HTMLElement).scrollWidth).toBeGreaterThan(
+				(summary as HTMLElement).clientWidth,
+			);
+		}
+
+		const ola = row("Ola");
+		await expect(ola.querySelector("[data-member-activity]")).toBeNull();
+	},
+};
+
+export const BadgesAndActivityMobile: Story = {
+	parameters: iphone,
+	render: () => (
+		<div class="w-[402px] bg-popover p-4 text-foreground">
+			<MemberList
+				variant="mobile"
+				groups={groupMembers(ACTIVITY_MEMBERS)}
+				badgeOf={badgeOf}
+				onOpen={onOpen}
+			/>
+		</div>
+	),
+	play: BadgesAndActivity.play,
 };

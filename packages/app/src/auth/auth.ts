@@ -117,6 +117,7 @@ export type Auth = {
 	status: Accessor<AuthStatus>;
 	agent: Accessor<Agent | undefined>;
 	did: Accessor<string | undefined>;
+	accountHost: Accessor<string | undefined>;
 	phase: Accessor<SignInPhase | undefined>;
 	error: Accessor<ColibriError | undefined>;
 	startupError: Accessor<ColibriError | undefined>;
@@ -219,6 +220,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 	const [base, setBase] = createSignal<AuthStatus>("loading");
 	const [agent, setAgent] = createSignal<Agent>();
 	const [grantedScope, setGrantedScope] = createSignal<string>();
+	const [accountHost, setAccountHost] = createSignal<string>();
 	const [phase, setPhase] = createSignal<SignInPhase>();
 	const [error, setError] = createSignal<ColibriError>();
 	const [startupError, setStartupError] = createSignal<ColibriError>();
@@ -257,6 +259,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		batch(() => {
 			setAgent(undefined);
 			setGrantedScope(undefined);
+			setAccountHost(undefined);
 		});
 	};
 
@@ -267,14 +270,18 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 				health.observe(url, oauth.fetchHandler(url, init)),
 		});
 		let scope: string | undefined;
+		let host: string | undefined;
 		try {
-			scope = (await oauth.getTokenInfo(false)).scope;
+			const info = await oauth.getTokenInfo(false);
+			scope = info.scope;
+			host = hostOf(info.aud);
 		} catch {}
 		local.set(SUB_KEY, oauth.sub);
 		health.reset();
 		batch(() => {
 			setAgent(next);
 			setGrantedScope(scope);
+			setAccountHost(host);
 			setBase("signedIn");
 		});
 		const online = typeof navigator === "undefined" || navigator.onLine;
@@ -608,6 +615,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		status,
 		agent,
 		did: () => agent()?.did,
+		accountHost,
 		phase,
 		error,
 		startupError,

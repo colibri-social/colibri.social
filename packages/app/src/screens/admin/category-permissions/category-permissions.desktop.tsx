@@ -5,6 +5,7 @@ export default adminCategoryPermissions.view({
 		<>
 			<s.Header />
 			<s.Body />
+			<s.Bar />
 		</>
 	),
 });

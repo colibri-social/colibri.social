@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { memberPermissions, rankOf } from "./member-permissions";
+import {
+	canModerateVoice,
+	memberPermissions,
+	rankOf,
+} from "./member-permissions";
 import type { RoleView } from "./types";
 
 const role = (rkey: string, position: number, extra: Partial<RoleView> = {}) =>
@@ -74,5 +78,46 @@ describe("member permissions", () => {
 			canKick: false,
 			canBan: false,
 		});
+	});
+});
+
+describe("canModerateVoice", () => {
+	const input = {
+		viewerDid: "did:plc:mod",
+		viewerIsOwner: false,
+		viewerPermissions: ["voice.moderate"],
+		viewerRoles: ["mod"],
+		targetDid: "did:plc:member",
+		targetRoles: ["member"],
+		roles,
+		requiresApproval: false,
+	};
+
+	it("allows a moderator over someone ranked below them", () => {
+		expect(canModerateVoice(input)).toBe(true);
+	});
+
+	it("needs the voice permission", () => {
+		expect(canModerateVoice({ ...input, viewerPermissions: [] })).toBe(false);
+	});
+
+	it("never applies to an equal or higher rank or to yourself", () => {
+		expect(canModerateVoice({ ...input, targetRoles: ["mod"] })).toBe(false);
+		expect(canModerateVoice({ ...input, targetRoles: ["owner"] })).toBe(false);
+		expect(canModerateVoice({ ...input, targetDid: input.viewerDid })).toBe(
+			false,
+		);
+	});
+
+	it("lets the owner moderate anyone else", () => {
+		expect(
+			canModerateVoice({
+				...input,
+				viewerIsOwner: true,
+				viewerPermissions: [],
+				viewerRoles: [],
+				targetRoles: ["mod"],
+			}),
+		).toBe(true);
 	});
 });

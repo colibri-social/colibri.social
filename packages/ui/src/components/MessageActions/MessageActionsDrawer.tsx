@@ -5,6 +5,7 @@ import { EyeIcon } from "@solar-icons/solid/bold/eye";
 import { ForbiddenCircleIcon } from "@solar-icons/solid/bold/forbidden-circle";
 import { ForwardIcon } from "@solar-icons/solid/bold/forward";
 import { GalleryDownloadIcon } from "@solar-icons/solid/bold/gallery-download";
+import { HeartIcon } from "@solar-icons/solid/bold/heart";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { ReplyIcon } from "@solar-icons/solid/bold/reply";
@@ -122,6 +123,7 @@ export type MessageActionsDrawerProps = {
 	image?: MessageMenuImage;
 	gif?: MessageMenuGif;
 	onLinkPreviews?: () => void;
+	onViewReactions?: () => void;
 	hidden?: boolean;
 	onHide?: () => void;
 	onUnhide?: () => void;
@@ -207,7 +209,12 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 		setView("actions");
 	};
 	const hasUtility = () =>
-		!!(props.onCopyText || props.gif || props.onLinkPreviews);
+		!!(
+			props.onCopyText ||
+			props.gif ||
+			props.onLinkPreviews ||
+			props.onViewReactions
+		);
 	const hasModeration = () =>
 		!!(props.hidden ? props.onUnhide : props.onHide) || !!props.onDelete;
 
@@ -349,6 +356,13 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 									icon={<LinkIcon />}
 									label="Link previews"
 									onClick={run(props.onLinkPreviews)}
+								/>
+							</Show>
+							<Show when={props.onViewReactions}>
+								<ActionRow
+									icon={<HeartIcon />}
+									label="Reactions"
+									onClick={run(props.onViewReactions)}
 								/>
 							</Show>
 						</ListGroup>

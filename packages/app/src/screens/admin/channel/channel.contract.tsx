@@ -1,7 +1,6 @@
 import {
 	AudiencePicker,
 	Button,
-	DeveloperModeCard,
 	Drawer,
 	DrawerContent,
 	ListGroup,
@@ -23,6 +22,7 @@ import { FolderWithFilesIcon } from "@solar-icons/solid/bold/folder-with-files";
 import { ShieldUserIcon } from "@solar-icons/solid/bold/shield-user";
 import { VolumeLoudIcon } from "@solar-icons/solid/bold/volume-loud";
 import {
+	batch,
 	createEffect,
 	createMemo,
 	createSignal,
@@ -41,8 +41,10 @@ import { type Platform, usePlatform } from "../../../screen/platform";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { useUnsavedChanges } from "../../../shell/unsaved-changes";
+import { createUnsavedForm, UnsavedBar } from "../../settings/unsaved-form";
 import { isRestricted } from "../category/category-audience";
 import { AdminNavHeader } from "../desktop/page-header";
+import { AdminDeveloper } from "../developer";
 import {
 	openPermissions,
 	providePermissionDraft,
@@ -64,6 +66,20 @@ const VOICE_TYPE = "social.colibri.beta.channel.voice";
 const NO_CATEGORY = "";
 
 type ChannelKind = "text" | "voice";
+
+export type LinkPreviewChoice = "space" | "on" | "off";
+
+export const linkPreviewChoiceOf = (
+	view: ChannelView | undefined,
+): LinkPreviewChoice =>
+	view?.linkEmbeds === undefined ? "space" : view.linkEmbeds ? "on" : "off";
+
+export const linkPreviewChange = (
+	choice: LinkPreviewChoice,
+): Pick<UpdateChannelInput, "linkEmbeds" | "removeLinkEmbeds"> =>
+	choice === "space"
+		? { removeLinkEmbeds: true }
+		: { linkEmbeds: choice === "on" };
 
 const NO_AUDIENCE: Audience = { roles: [], members: [] };
 
@@ -111,6 +127,8 @@ export const adminChannel = defineContract({
 		const [category, setCategory] = createSignal(NO_CATEGORY);
 		const [restricted, setRestricted] = createSignal(false);
 		const [ownerOnly, setOwnerOnly] = createSignal(false);
+		const [linkPreviews, setLinkPreviews] =
+			createSignal<LinkPreviewChoice>("space");
 		const [visible, setVisible] = createSignal<Audience>(NO_AUDIENCE);
 		const [post, setPost] = createSignal<Audience>(NO_AUDIENCE);
 		const [categoryOpen, setCategoryOpen] = createSignal(false);
@@ -119,6 +137,19 @@ export const adminChannel = defineContract({
 		const [deleteOpen, setDeleteOpen] = createSignal(false);
 		const [confirmation, setConfirmation] = createSignal("");
 		const [deleting, setDeleting] = createSignal(false);
+
+		const seedFrom = (view: ChannelView) => {
+			batch(() => {
+				setName(view.name);
+				setDescription(view.description ?? "");
+				setCategory(view.category ?? NO_CATEGORY);
+				setOwnerOnly(!!view.ownerOnly);
+				setLinkPreviews(linkPreviewChoiceOf(view));
+				setVisible(visibleOf(view));
+				setPost(postOf(view));
+				setAttempted(false);
+			});
+		};
 
 		let seeded = false;
 		createEffect(() => {
@@ -134,12 +165,7 @@ export const adminChannel = defineContract({
 			}
 			const view = channel();
 			if (!view) return;
-			setName(view.name);
-			setDescription(view.description ?? "");
-			setCategory(view.category ?? NO_CATEGORY);
-			setOwnerOnly(!!view.ownerOnly);
-			setVisible(visibleOf(view));
-			setPost(postOf(view));
+			seedFrom(view);
 			seeded = true;
 		});
 
@@ -158,6 +184,9 @@ export const adminChannel = defineContract({
 				setAudience,
 				options,
 				disabled: () => saving() || !canEdit(),
+				get form() {
+					return unsaved;
+				},
 			});
 		}
 
@@ -180,6 +209,9 @@ export const adminChannel = defineContract({
 				patch.category = category();
 			}
 			if (ownerOnly() !== !!view.ownerOnly) patch.ownerOnly = ownerOnly();
+			if (linkPreviews() !== linkPreviewChoiceOf(view)) {
+				Object.assign(patch, linkPreviewChange(linkPreviews()));
+			}
 			if (!sameAudience(visible(), visibleOf(view))) {
 				patch.visibleToRoles = visible().roles;
 				patch.visibleToMembers = visible().members as Did[];
@@ -218,14 +250,13 @@ export const adminChannel = defineContract({
 				onBlocked: () => setStep(1),
 			}),
 		);
-		useUnsavedChanges({
-			depth,
-			dirty: () => !saving() && !deleting() && dirty(),
-			description: () =>
-				creating
-					? "This channel won't be created."
-					: "Your changes to this channel won't be saved.",
-		});
+		if (creating) {
+			useUnsavedChanges({
+				depth,
+				dirty: () => !saving() && !deleting() && dirty(),
+				description: () => "This channel won't be created.",
+			});
+		}
 
 		const leave = () => stack.forcePop();
 
@@ -293,13 +324,29 @@ export const adminChannel = defineContract({
 		const save = () => {
 			setAttempted(true);
 			const view = channel();
-			if (saving() || !view || !trimmedName()) return;
+			if (saving() || !view || !trimmedName() || !dirty()) return;
 			void run(async () => {
-				await data.channels.update({ channel: view.space, ...changes() });
+				const updated = await data.channels.update({
+					channel: view.space,
+					...changes(),
+				});
+				seedFrom(updated);
 				toast.success("Channel settings saved");
-				leave();
 			}, "Couldn't save the channel settings");
 		};
+
+		const unsaved = creating
+			? undefined
+			: createUnsavedForm({
+					depth,
+					dirty: () => canEdit() && !deleting() && dirty(),
+					saving,
+					save,
+					reset: () => {
+						const view = channel();
+						if (view) seedFrom(view);
+					},
+				});
 
 		const matches = () => {
 			const view = channel();
@@ -349,6 +396,9 @@ export const adminChannel = defineContract({
 			setRestricted,
 			ownerOnly,
 			setOwnerOnly,
+			linkPreviews,
+			setLinkPreviews,
+			spaceLinkPreviews: () => community()?.linkEmbeds !== false,
 			audience,
 			setAudience,
 			visible,
@@ -365,6 +415,7 @@ export const adminChannel = defineContract({
 			submitDetails,
 			submitAudience,
 			save,
+			unsaved,
 			back: () => stack.pop(),
 			deleteOpen,
 			setDeleteOpen,
@@ -388,16 +439,6 @@ export const adminChannel = defineContract({
 							navigateLabel="Close channel settings"
 							onNavigate={m.back}
 							title="Channel settings"
-							action={
-								ready() && m.canEdit() && m.dirty()
-									? {
-											type: "text",
-											label: "Save",
-											onClick: m.save,
-											loading: m.saving(),
-										}
-									: undefined
-							}
 						/>
 					}
 				>
@@ -432,6 +473,7 @@ export const adminChannel = defineContract({
 				</Show>
 			);
 		}),
+		Bar: slot((m) => <UnsavedBar form={m.unsaved} />),
 		Unavailable: slot((m) => (
 			<Show
 				when={m.unavailable()}
@@ -541,6 +583,34 @@ export const adminChannel = defineContract({
 				/>
 			</div>
 		)),
+		LinkPreviews: slot((m) => (
+			<RadioRowGroup
+				label="Link previews"
+				value={m.linkPreviews()}
+				onChange={(value) => m.setLinkPreviews(value as LinkPreviewChoice)}
+				disabled={m.saving() || !m.canEdit()}
+			>
+				<RadioRow
+					value="space"
+					title="Follow the Space"
+					description={
+						m.spaceLinkPreviews()
+							? "Use the Space setting. Previews are on there right now."
+							: "Use the Space setting. Previews are off there right now."
+					}
+				/>
+				<RadioRow
+					value="on"
+					title="Show previews"
+					description="Messages here show a preview card for the links they contain."
+				/>
+				<RadioRow
+					value="off"
+					title="Hide previews"
+					description="Messages here never show a preview card for links."
+				/>
+			</RadioRowGroup>
+		)),
 		Options: slot((m, p: { platform?: Platform }) => (
 			<Show
 				when={p.platform !== "desktop"}
@@ -579,15 +649,14 @@ export const adminChannel = defineContract({
 			</Show>
 		)),
 		Developer: slot((m) => (
-			<Show when={m.developerMode() && m.channel()}>
-				{(view) => (
-					<DeveloperModeCard
-						copyLabel="Copy AT-URI"
-						copyValue={view().space}
-						pdslsHref={`https://pdsls.dev/${view().space}`}
-					/>
-				)}
-			</Show>
+			<AdminDeveloper
+				target={(() => {
+					const view = m.channel();
+					return m.developerMode() && view
+						? { copyValue: view.space }
+						: undefined;
+				})()}
+			/>
 		)),
 		Delete: slot((m) => (
 			<Show when={m.canDelete()}>

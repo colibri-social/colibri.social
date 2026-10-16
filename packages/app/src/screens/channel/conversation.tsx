@@ -59,6 +59,7 @@ import { uiPresence } from "../members/member-adapter";
 import { useMemberMenu } from "../members/member-menu";
 import { useProfileSheet } from "../profile/profile-sheet";
 import { createThreadMenu } from "../threads/thread-menu";
+import { suppressedLinksFor } from "./composer/link-previews";
 import {
 	createComposerMedia,
 	createReactionPicker,
@@ -448,6 +449,7 @@ export const createConversation = (options: ConversationOptions) => {
 						name: upload.file.name,
 						size: upload.file.size,
 						...(upload.spoiler ? { spoiler: true } : {}),
+						...(upload.alt ? { alt: upload.alt } : {}),
 					})),
 				],
 				uploadProgress: entry.uploads?.map((upload) =>
@@ -850,8 +852,14 @@ export const createConversation = (options: ConversationOptions) => {
 		payload.facets = converted.facets;
 		const files = attachments.take();
 		const parent = replyTo()?.rkey;
+		const suppressedEmbeds = suppressedLinksFor(
+			payload.facets,
+			data.preferences.client().linkEmbedsByDefault,
+		);
 		setReplyTo(undefined);
-		pinWhile(() => void current.send({ ...payload, parent, files }));
+		pinWhile(
+			() => void current.send({ ...payload, parent, files, suppressedEmbeds }),
+		);
 		return true;
 	};
 
@@ -982,7 +990,7 @@ export const ConversationMessages = (props: {
 					locale="en-GB"
 					hasOlder={!m.revealed() || (m.feed()?.hasOlder() ?? false)}
 					bottomInset={COMPOSER_TYPING_INSET}
-					jumpLift={COMPOSER_TYPING_INSET}
+					jumpLift={COMPOSER_TYPING_INSET - 4}
 					loadingOlder={m.feed()?.loadingOlder() || !m.revealed()}
 					onLoadOlder={() => m.feed()?.loadOlder()}
 					hasNewer={m.feed()?.hasNewer() ?? false}

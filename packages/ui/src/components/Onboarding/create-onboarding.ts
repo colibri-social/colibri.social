@@ -87,12 +87,12 @@ export const createOnboarding = (
 		const current = step();
 		return (
 			SIGNED_OUT_BACK[current] ??
-			previousProfileStep(current, options.records(), source())
+			previousProfileStep(current, options.records())
 		);
 	};
 
 	const next = () => {
-		const following = nextProfileStep(step(), options.records(), source());
+		const following = nextProfileStep(step(), options.records());
 		if (following) setStep(following);
 	};
 
@@ -118,7 +118,7 @@ export const createOnboarding = (
 		finish: (notifications) => {
 			const done: OnboardingResult = {
 				source: source(),
-				profile: source() === "existing" ? undefined : profile(),
+				profile: profile(),
 				notifications,
 			};
 			setResult(done);

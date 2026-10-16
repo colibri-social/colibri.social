@@ -8,6 +8,7 @@ import { createDataStore, DataContext, type DataStore } from "./data/store";
 import { installNativeCall } from "./native/call";
 import { Providers } from "./providers";
 import { usePlatform } from "./screen/platform";
+import { ProfileGate } from "./screens/onboarding/ProfileGate";
 import { AuthGate } from "./screens/signin/AuthGate";
 import { createSignedInSession } from "./session";
 import { ColdStart } from "./shell/boot-gate";
@@ -71,16 +72,18 @@ const SignedInApp = (props: {
 			>
 				{(session) => (
 					<LiveStatusContext.Provider value={session.live}>
-						<Show
-							when={session.warm}
-							fallback={
-								<ColdStart store={session.store}>
-									<Shells store={session.store} />
-								</ColdStart>
-							}
-						>
-							<Shells store={session.store} />
-						</Show>
+						<ProfileGate store={session.store}>
+							<Show
+								when={session.warm}
+								fallback={
+									<ColdStart store={session.store}>
+										<Shells store={session.store} />
+									</ColdStart>
+								}
+							>
+								<Shells store={session.store} />
+							</Show>
+						</ProfileGate>
 					</LiveStatusContext.Provider>
 				)}
 			</Match>

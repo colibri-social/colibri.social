@@ -258,6 +258,52 @@ describe("createRemoteSource", () => {
 		expect(record.attachments).toEqual([{ blob, name: "cat.png" }]);
 	});
 
+	it("writes the alt text of an attachment into the record", async () => {
+		const blob = {
+			$type: "blob",
+			ref: { $link: "bafy" },
+			mimeType: "image/png",
+			size: 3,
+		};
+		const { fake, source } = await setup((fake) => {
+			fake.on("com.atproto.repo.uploadBlob", json({ blob }));
+			fake.on("com.atproto.space.createRecord", json({ uri: "x", cid: "c" }));
+		});
+
+		const uploaded = await source.uploadBlob(
+			new File(["png"], "bird.png", { type: "image/png" }),
+		);
+		await source.sendMessage({
+			channel: CHANNEL,
+			text: "",
+			attachments: [{ ...uploaded, alt: "A colibri at a flower" }],
+		});
+
+		const record = (
+			only(fake.callsTo("com.atproto.space.createRecord")).body as Record<
+				string,
+				any
+			>
+		).record;
+		expect(record.attachments).toEqual([
+			{ blob, name: "bird.png", alt: "A colibri at a flower" },
+		]);
+	});
+
+	it("reads the account host from the session before the DID document", async () => {
+		const fake = createFakeSession(VIEWER);
+		fake.on(
+			colibri.actor.getProfile.main.nsid,
+			json({ profile: profileOf(VIEWER) }),
+		);
+		const source = await createRemoteSource({
+			session: { ...fake.session, accountHost: () => "pds.example.com" },
+			appViewDid: "did:web:spaces-api.colibri.social",
+			live: createFakeLive().live,
+		});
+		expect(await source.accountHost()).toBe("pds.example.com");
+	});
+
 	it("writes the spoiler flag of an attachment into the record", async () => {
 		const blob = {
 			$type: "blob",
@@ -915,6 +961,136 @@ describe("createRemoteSource", () => {
 			syncBluesky: false,
 		});
 		expect(fake.callsTo(colibri.actor.getProfile.main.nsid)).toHaveLength(2);
+	});
+
+	it.each([
+		{ existing: {}, pronouns: "she/her", expected: "she/her" },
+		{ existing: { pronouns: "he/him" }, pronouns: null, expected: undefined },
+		{ existing: { pronouns: "he/him" }, pronouns: "", expected: "" },
+		{
+			existing: { pronouns: "he/him" },
+			pronouns: undefined,
+			expected: "he/him",
+		},
+	])("writes pronouns $pronouns over $existing", async ({
+		existing,
+		pronouns,
+		expected,
+	}) => {
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				"com.atproto.repo.getRecord",
+				json({ uri: "x", value: { syncBluesky: true, ...existing } }),
+			);
+			fake.on("com.atproto.repo.putRecord", json({ uri: "x", cid: "c" }));
+		});
+
+		await source.putProfile({ syncBluesky: true, pronouns });
+
+		const body = only(fake.callsTo("com.atproto.repo.putRecord"))
+			.body as Record<string, any>;
+		expect(body.record.pronouns).toBe(expected);
+	});
+
+	const profileRecords =
+		(byCollection: Record<string, unknown>) => (call: RecordedCall) => {
+			const value = byCollection[call.params.get("collection") ?? ""];
+			return value === undefined
+				? xrpcError(400, "RecordNotFound")
+				: json({ uri: "x", value });
+		};
+
+	it.each([
+		{ record: { displayName: "Me", pronouns: "" } },
+		{ record: { displayName: "Me", syncBluesky: true } },
+	])("treats $record as a complete profile", async ({ record }) => {
+		const { fake, source } = await setup((fake) =>
+			fake.on(
+				"com.atproto.repo.getRecord",
+				profileRecords({ "social.colibri.beta.actor.profile": record }),
+			),
+		);
+
+		await expect(source.loadProfileSetup()).resolves.toEqual({
+			complete: true,
+		});
+		expect(fake.callsTo("com.atproto.repo.getRecord")).toHaveLength(1);
+	});
+
+	it("seeds an incomplete profile from the old record and Bluesky", async () => {
+		const image = (cid: string) => ({
+			$type: "blob",
+			ref: { $link: cid },
+			mimeType: "image/png",
+			size: 3,
+		});
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				"com.atproto.repo.getRecord",
+				profileRecords({
+					"social.colibri.actor.profile": {
+						displayName: "Old name",
+						description: "Old bio",
+						avatar: image("old-avatar"),
+						theme: { accentColor: "#ff0000" },
+					},
+					"app.bsky.actor.profile": { displayName: "Sky name" },
+				}),
+			);
+			fake.on(
+				"com.atproto.sync.getBlob",
+				(call) =>
+					new Response(call.params.get("cid"), {
+						headers: { "content-type": "image/png" },
+					}),
+			);
+		});
+
+		const setupState = await source.loadProfileSetup();
+
+		if (setupState.complete) throw new Error("expected an incomplete profile");
+		expect(setupState.colibri).toMatchObject({
+			displayName: "Old name",
+			description: "Old bio",
+			theme: { accentColor: "#ff0000" },
+		});
+		expect(await setupState.colibri?.avatar?.text()).toBe("old-avatar");
+		expect(setupState.colibri?.banner).toBeUndefined();
+		expect(setupState.bluesky).toMatchObject({ displayName: "Sky name" });
+		expect(
+			only(fake.callsTo("com.atproto.sync.getBlob")).params.get("did"),
+		).toBe(VIEWER);
+	});
+
+	it("offers Bluesky only when the old profile mirrored it", async () => {
+		const { source } = await setup((fake) =>
+			fake.on(
+				"com.atproto.repo.getRecord",
+				profileRecords({
+					"social.colibri.actor.profile": { syncBluesky: true },
+					"app.bsky.actor.profile": { displayName: "Sky name" },
+				}),
+			),
+		);
+
+		const setupState = await source.loadProfileSetup();
+
+		expect(setupState).toEqual({
+			complete: false,
+			colibri: undefined,
+			bluesky: expect.objectContaining({ displayName: "Sky name" }),
+		});
+	});
+
+	it("reads the default community from the AppView", async () => {
+		const { source } = await setup((fake) =>
+			fake.on(
+				colibri.server.describeServer.main.nsid,
+				json({ did: "did:web:appview.test", defaultCommunity: COMMUNITY }),
+			),
+		);
+
+		await expect(source.defaultCommunity()).resolves.toBe(COMMUNITY);
 	});
 
 	it("sets status through the AppView and voice through the socket", async () => {

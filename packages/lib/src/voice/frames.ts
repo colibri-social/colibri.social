@@ -1,17 +1,21 @@
-import type { LexMap } from "@atproto/lex-data";
-import type { ValidationResult } from "@atproto/lex-schema";
-import type { types as MediasoupTypes } from "mediasoup-client";
-import { asSpaceRef, colibri } from "./lexicons";
+import { asSpaceRef } from "@colibri-social/lexicons";
+import { colibri } from "../protocol/lexicons.js";
 
 const defs: typeof colibri.voice.defs = colibri.voice.defs;
 
 export const VOICE_SIGNAL_LXM = "social.colibri.beta.voice.subscribeSignals";
 export const VOICE_SIGNAL_PATH = `/xrpc/${VOICE_SIGNAL_LXM}`;
 
-export type MediaSource = "mic" | "cam" | "screen";
+export type VoiceMediaSource = "mic" | "cam" | "screen";
+
+export type VoiceMediaKind = "audio" | "video";
+
+type WireObject = { [key: string]: unknown };
 export type WireMediaSource = "microphone" | "camera" | "screen";
 
-export const encodeMediaSource = (source: MediaSource): WireMediaSource => {
+export const encodeMediaSource = (
+	source: VoiceMediaSource,
+): WireMediaSource => {
 	if (source === "mic") return "microphone";
 	if (source === "cam") return "camera";
 	return "screen";
@@ -19,7 +23,7 @@ export const encodeMediaSource = (source: MediaSource): WireMediaSource => {
 
 export const decodeMediaSource = (
 	source: string | undefined,
-): MediaSource | null => {
+): VoiceMediaSource | null => {
 	if (source === "microphone") return "mic";
 	if (source === "camera") return "cam";
 	if (source === "screen") return "screen";
@@ -42,7 +46,7 @@ export type CloseProducerFrame = ReturnType<typeof defs.closeProducer.build>;
 export type ConsumeFrame = ReturnType<typeof defs.consume.build>;
 export type ResumeConsumerFrame = ReturnType<typeof defs.resumeConsumer.build>;
 export type SetSelfStateFrame = ReturnType<typeof defs.setSelfState.build>;
-export type HeartbeatFrame = ReturnType<typeof defs.heartbeat.build>;
+export type VoiceHeartbeatFrame = ReturnType<typeof defs.heartbeat.build>;
 
 export type ClientVoiceFrame =
 	| JoinFrame
@@ -55,7 +59,7 @@ export type ClientVoiceFrame =
 	| ConsumeFrame
 	| ResumeConsumerFrame
 	| SetSelfStateFrame
-	| HeartbeatFrame;
+	| VoiceHeartbeatFrame;
 
 export type RtpCapabilitiesFrame = ReturnType<
 	typeof defs.rtpCapabilities.build
@@ -63,7 +67,7 @@ export type RtpCapabilitiesFrame = ReturnType<
 export type TransportOptionsFrame = ReturnType<
 	typeof defs.transportOptions.build
 >;
-export type AckFrame = ReturnType<typeof defs.ack.build>;
+export type VoiceAckFrame = ReturnType<typeof defs.ack.build>;
 export type ProducerInfoFrame = ReturnType<typeof defs.producerInfo.build>;
 export type ConsumerOptionsFrame = ReturnType<
 	typeof defs.consumerOptions.build
@@ -84,7 +88,7 @@ export type DisconnectedFrame = ReturnType<typeof defs.disconnected.build>;
 export type ServerVoiceFrame =
 	| RtpCapabilitiesFrame
 	| TransportOptionsFrame
-	| AckFrame
+	| VoiceAckFrame
 	| ProducerInfoFrame
 	| ConsumerOptionsFrame
 	| VoiceErrorFrame
@@ -114,23 +118,23 @@ export const createTransportFrame = (
 
 export const connectTransportFrame = (
 	transportId: string,
-	dtlsParameters: MediasoupTypes.DtlsParameters,
+	dtlsParameters: object,
 ): ConnectTransportFrame =>
 	defs.connectTransport.build({
 		transportId,
-		dtlsParameters: dtlsParameters as unknown as LexMap,
+		dtlsParameters: dtlsParameters as WireObject as never,
 	});
 
 export const produceFrame = (
 	transportId: string,
-	kind: MediasoupTypes.MediaKind,
-	rtpParameters: MediasoupTypes.RtpParameters,
-	source: MediaSource,
+	kind: VoiceMediaKind,
+	rtpParameters: object,
+	source: VoiceMediaSource,
 ): ProduceFrame =>
 	defs.produce.build({
 		transportId,
 		kind,
-		rtpParameters: rtpParameters as unknown as LexMap,
+		rtpParameters: rtpParameters as WireObject as never,
 		source: encodeMediaSource(source),
 	});
 
@@ -140,12 +144,12 @@ export const closeProducerFrame = (producerId: string): CloseProducerFrame =>
 export const consumeFrame = (
 	transportId: string,
 	producerId: string,
-	rtpCapabilities: MediasoupTypes.RtpCapabilities,
+	rtpCapabilities: object,
 ): ConsumeFrame =>
 	defs.consume.build({
 		transportId,
 		producerId,
-		rtpCapabilities: rtpCapabilities as unknown as LexMap,
+		rtpCapabilities: rtpCapabilities as WireObject as never,
 	});
 
 export const resumeConsumerFrame = (consumerId: string): ResumeConsumerFrame =>
@@ -156,14 +160,15 @@ export const setSelfStateFrame = (state: {
 	deafened?: boolean;
 }): SetSelfStateFrame => defs.setSelfState.build(state);
 
-export const heartbeatFrame = (): HeartbeatFrame => defs.heartbeat.build({});
+export const voiceHeartbeatFrame = (): VoiceHeartbeatFrame =>
+	defs.heartbeat.build({});
 
 export const encodeVoiceFrame = (frame: VoiceFrame): string =>
 	JSON.stringify(frame);
 
 type AnyFrameSchema = {
 	$type: string;
-	safeParse: (input: unknown) => ValidationResult<unknown>;
+	safeParse: (input: unknown) => { success: boolean; value?: unknown };
 	build: (input: unknown) => unknown;
 };
 

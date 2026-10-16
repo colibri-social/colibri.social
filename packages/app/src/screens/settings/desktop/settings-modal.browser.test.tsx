@@ -137,55 +137,82 @@ describe("desktop settings modal", () => {
 			.toHaveAttribute("href", `https://pdsls.dev/at://${store.viewer.did}`);
 	});
 
-	it("asks before discarding profile edits when closing or switching pages", async () => {
+	it("blocks closing or switching pages while the profile has unsaved changes", async () => {
 		await mountShell(`/app/c/${HQ}`);
 		const channelPath = location.pathname;
 		await openEditProfile();
 		const modal = dialog();
+		const unsaved = () =>
+			document.querySelector<HTMLElement>("[data-unsaved-changes-bar]");
+		expect(unsaved()?.dataset.visible).toBeUndefined();
 		const name = modal.getByRole("textbox", { name: "Display name" });
+		const original = (name.element() as HTMLInputElement).value;
 		await userEvent.fill(name, "Somebody else");
-		await expect
-			.element(modal.getByRole("button", { name: "Save changes" }))
-			.toBeEnabled();
+		await expect.poll(() => unsaved()?.dataset.visible).toBeDefined();
 		await userEvent.keyboard("{Escape}");
-		const discard = page.getByRole("dialog", { name: "Discard changes?" });
-		await expect.element(discard).toBeVisible();
+		await expect.poll(() => unsaved()?.dataset.attention).toBeDefined();
+		expect(
+			document.querySelector('[role="dialog"][aria-label="Discard changes?"]'),
+		).toBeNull();
 		expect(location.pathname).toBe("/app/settings/profile");
-		await userEvent.click(discard.getByRole("button", { name: "Cancel" }));
-		await expect.element(name).toHaveValue("Somebody else");
 		await userEvent.click(modal.getByRole("button", { name: "Advanced" }));
-		await expect.element(discard).toBeVisible();
-		await userEvent.click(
-			discard.getByRole("button", { name: "Discard changes" }),
-		);
+		expect(location.pathname).toBe("/app/settings/profile");
+		await expect.element(name).toHaveValue("Somebody else");
+		await userEvent.click(modal.getByRole("button", { name: "Cancel" }));
+		await expect.poll(() => unsaved()?.dataset.visible).toBeUndefined();
+		await expect.element(name).toHaveValue(original);
+		await userEvent.click(modal.getByRole("button", { name: "Advanced" }));
 		await expect.poll(() => location.pathname).toBe("/app/settings/advanced");
 		await userEvent.click(modal.getByRole("button", { name: "Close" }));
 		await expect.poll(() => location.pathname).toBe(channelPath);
 	});
 
-	it("saves the profile page and stays open", async () => {
+	it("saves the profile page from the bar and stays open", async () => {
 		const store = await mountShell(`/app/c/${HQ}`);
 		await openEditProfile();
 		const modal = dialog();
+		const unsaved = () =>
+			document.querySelector<HTMLElement>("[data-unsaved-changes-bar]");
 		await userEvent.fill(
 			modal.getByRole("textbox", { name: "Display name" }),
 			"Lou the Crow",
 		);
-		await userEvent.click(modal.getByRole("button", { name: "Save changes" }));
+		await expect.poll(() => unsaved()?.dataset.visible).toBeDefined();
+		await userEvent.click(modal.getByRole("button", { name: "Save" }));
 		await expect.poll(() => store.viewer.displayName).toBe("Lou the Crow");
 		await expect.element(dialog()).toBeVisible();
+		await expect.poll(() => unsaved()?.dataset.visible).toBeUndefined();
+		expect(location.pathname).toBe("/app/settings/profile");
+	});
+
+	it("keeps the profile page at the shared width with the bar clear of the last field", async () => {
+		await mountShell(`/app/c/${HQ}`);
+		await openEditProfile();
+		const modal = dialog();
+		await userEvent.fill(
+			modal.getByRole("textbox", { name: "Display name" }),
+			"Wide enough",
+		);
+		const unsaved = () =>
+			document.querySelector<HTMLElement>("[data-unsaved-changes-bar]");
+		await expect.poll(() => unsaved()?.dataset.visible).toBeDefined();
+		const scroll = document.querySelector<HTMLElement>("[data-modal-scroll]");
+		if (scroll) scroll.scrollTop = scroll.scrollHeight;
+		const profile = document.querySelector<HTMLElement>(
+			'[data-edit-profile="desktop"]',
+		);
+		expect(profile?.getBoundingClientRect().width).toBeLessThanOrEqual(768);
+		const toggle = profile?.querySelector<HTMLElement>('[role="switch"]');
+		const section = toggle?.closest("section") ?? toggle;
+		const card = unsaved()?.firstElementChild as HTMLElement;
 		await expect
-			.element(modal.getByRole("button", { name: "Save changes" }))
-			.toBeDisabled();
-		const bar = document.querySelector<HTMLElement>("[data-profile-save-bar]");
-		const content = document.querySelector<HTMLElement>("[data-modal-main]");
-		expect(bar && content).toBeTruthy();
-		expect(
-			Math.abs(
-				(bar as HTMLElement).getBoundingClientRect().bottom -
-					(content as HTMLElement).getBoundingClientRect().bottom,
-			),
-		).toBeLessThanOrEqual(1);
+			.poll(() => section?.getBoundingClientRect().bottom ?? Infinity)
+			.toBeLessThanOrEqual(card.getBoundingClientRect().top + 0.5);
+		expect(card.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+			(scroll as HTMLElement).getBoundingClientRect().bottom,
+		);
+		expect(profile?.querySelector("h1, h2, h3")).toBeNull();
+		await expectNoLayoutIssues(modal.element() as HTMLElement);
 	});
 });
 

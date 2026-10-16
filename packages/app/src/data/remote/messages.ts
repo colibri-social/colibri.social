@@ -34,7 +34,12 @@ export const REACTION_COLLECTION = "social.colibri.beta.reaction";
 const HIDDEN_LABEL = "hidden";
 
 type Label = MessageView["labels"][number];
-type Attached = { blob: BlobRef; name?: string; spoiler?: boolean };
+type Attached = {
+	blob: BlobRef;
+	name?: string;
+	spoiler?: boolean;
+	alt?: string;
+};
 
 const keyOf = (channel: string, rkey: string) => `${channel}\n${rkey}`;
 
@@ -85,7 +90,11 @@ export const createUploads = () => {
 						code: "UploadFailed",
 						method: "message.attachments",
 					});
-				return attachment.spoiler ? { ...known, spoiler: true } : known;
+				return {
+					...known,
+					...(attachment.spoiler ? { spoiler: true } : {}),
+					...(attachment.alt ? { alt: attachment.alt } : {}),
+				};
 			}),
 		blobFor: (url: string) => byUrl.get(url)?.blob,
 	};
@@ -263,6 +272,7 @@ export const createMessageWrites = (deps: {
 					? ({ did: parent.author.did, rkey: parent.rkey } as never)
 					: undefined,
 				attachments: attached as never,
+				suppressedEmbeds: input.suppressedEmbeds as never,
 			});
 			await records.createInSpace(
 				{ space: input.channel, collection: MESSAGE_COLLECTION, rkey },
@@ -277,6 +287,9 @@ export const createMessageWrites = (deps: {
 				attachments: input.attachments,
 				parent,
 			});
+			if (input.suppressedEmbeds?.length)
+				view.suppressedEmbeds =
+					input.suppressedEmbeds as MessageView["suppressedEmbeds"];
 			index.put(view);
 			return view;
 		},
@@ -447,16 +460,17 @@ export const createMessageWrites = (deps: {
 					};
 			const files = await Promise.all(snapshot.attachments.map(download));
 			const blobs = await Promise.all(
-				files.map(
-					async (file, position): Promise<Attached> => ({
+				files.map(async (file, position): Promise<Attached> => {
+					const original = snapshot.attachments[position] as
+						| AttachmentView
+						| undefined;
+					return {
 						blob: await records.uploadBlob(file),
 						name: file.name,
-						...((snapshot.attachments[position] as AttachmentView | undefined)
-							?.spoiler
-							? { spoiler: true }
-							: {}),
-					}),
-				),
+						...(original?.spoiler ? { spoiler: true } : {}),
+						...(original?.alt ? { alt: original.alt } : {}),
+					};
+				}),
 			);
 			const rkey = nextTid();
 			const createdAt = new Date().toISOString();

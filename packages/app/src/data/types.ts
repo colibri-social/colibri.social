@@ -1,6 +1,8 @@
 import type { social } from "@colibri-social/lexicons";
 
-export type ProfileView = social.colibri.beta.actor.defs.ProfileView;
+export type ProfileView = social.colibri.beta.actor.defs.ProfileView & {
+	pronouns?: string;
+};
 export type Presence = social.colibri.beta.actor.defs.Presence;
 export type Status = social.colibri.beta.actor.defs.Status;
 export type VoiceState = social.colibri.beta.actor.defs.VoiceState;
@@ -28,6 +30,7 @@ export type DeletedMessageView =
 	social.colibri.beta.channel.defs.DeletedMessageView;
 export type AttachmentView = social.colibri.beta.channel.defs.AttachmentView & {
 	spoiler?: boolean;
+	alt?: string;
 };
 export type ReactionView = social.colibri.beta.channel.defs.ReactionView;
 export type ForwardView = social.colibri.beta.channel.defs.ForwardView;

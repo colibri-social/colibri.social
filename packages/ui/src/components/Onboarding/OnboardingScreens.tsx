@@ -488,7 +488,7 @@ export const ProfileEditorScreen = (props: ProfileEditorScreenProps) => {
 								placeholder="they/them"
 								value={props.pronouns}
 								onChange={props.onPronounsChange}
-								maxLength={20}
+								maxLength={64}
 								class={docked() ? "min-w-0 flex-1" : undefined}
 							/>
 						</div>

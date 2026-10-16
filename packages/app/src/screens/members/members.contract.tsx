@@ -2,17 +2,20 @@ import {
 	ChannelInfoBar,
 	ChannelInfoSummary,
 	groupMembers,
+	type Member,
 	type MemberGroup,
 	MemberList,
 	MemberRowSkeleton,
 } from "@colibri-social/ui";
 import { createComputed, createMemo, For, type JSX, Show } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
+import { useBadges } from "../../data/badges";
 import {
 	canReadChannel,
 	isAdminRoleSet,
 } from "../../data/category-permissions";
 import { useData } from "../../data/store";
+import type { Did } from "../../data/types";
 import { defineContract, slot } from "../../screen/define";
 import { LoadErrorState } from "../../shell/load-error";
 import { useStack } from "../../shell/stack";
@@ -31,6 +34,7 @@ export const members = defineContract({
 		const stack = useStack();
 		const profileSheet = useProfileSheet();
 		const memberMenu = useMemberMenu();
+		const badges = useBadges();
 		const community = () => data.spaceByKey(args.space);
 		const space = createMemo(() => {
 			const current = community();
@@ -120,6 +124,10 @@ export const members = defineContract({
 			openMemberMenu: (did: string) => memberMenu.open(did, args.space),
 			memberContextMenu: (did: string, row: JSX.Element) =>
 				memberMenu.contextMenu(did, args.space, row),
+			badgeOf: (member: Member) => {
+				const actor = space()?.memberByDid(member.id as Did)?.actor;
+				return actor ? badges.primary(actor, { withoutBot: true }) : undefined;
+			},
 		};
 	},
 	slots: {
@@ -195,6 +203,7 @@ export const members = defineContract({
 									variant="mobile"
 									onOpen={(member) => m.openProfile(member.id)}
 									onMemberMenu={(member) => m.openMemberMenu(member.id)}
+									badgeOf={m.badgeOf}
 								/>
 							}
 						>
@@ -210,6 +219,7 @@ export const members = defineContract({
 								wrapMember={(member, row) =>
 									m.memberContextMenu(member.id, row)
 								}
+								badgeOf={m.badgeOf}
 							/>
 						</Show>
 					)}

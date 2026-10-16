@@ -35,6 +35,7 @@ import {
 	ToggleRow,
 } from "../List/List";
 import { ActionRow } from "../MessageActions/MessageActionsDrawer";
+import { Slider } from "../Slider/Slider";
 
 export type DropdownMenuPlatform = "mobile" | "desktop";
 
@@ -93,6 +94,19 @@ export type DropdownMenuSubmenuEntry = {
 	items: DropdownMenuEntry[];
 };
 
+export type DropdownMenuSliderEntry = {
+	kind: "slider";
+	label: string;
+	value: number;
+	min?: number;
+	max?: number;
+	step?: number;
+	defaultValue?: number;
+	formatValue?: (value: number) => string;
+	disabled?: boolean;
+	onChange: (value: number) => void;
+};
+
 export type DropdownMenuSeparatorEntry = { kind: "separator" };
 export type DropdownMenuLabelEntry = { kind: "label"; label: string };
 
@@ -101,13 +115,15 @@ export type DropdownMenuEntry =
 	| DropdownMenuCheckboxEntry
 	| DropdownMenuRadioEntry
 	| DropdownMenuSubmenuEntry
+	| DropdownMenuSliderEntry
 	| DropdownMenuSeparatorEntry
 	| DropdownMenuLabelEntry;
 
 type GroupedEntry =
 	| DropdownMenuItemEntry
 	| DropdownMenuCheckboxEntry
-	| DropdownMenuSubmenuEntry;
+	| DropdownMenuSubmenuEntry
+	| DropdownMenuSliderEntry;
 
 type MenuGroup =
 	| { kind: "group"; label?: string; entries: GroupedEntry[] }
@@ -170,8 +186,49 @@ const indicatorClass =
 const groupLabelClass =
 	"flex h-7 items-center px-2 text-xs font-semibold text-muted-foreground";
 
+const stopMenuKeys = (event: KeyboardEvent) => {
+	if (event.key !== "Escape" && event.key !== "Tab") event.stopPropagation();
+};
+
+const MenuSlider = (props: {
+	entry: DropdownMenuSliderEntry;
+	class?: string;
+}) => (
+	<div
+		data-menu-slider=""
+		class={props.class}
+		onKeyDown={stopMenuKeys}
+		onPointerDown={(event) => event.stopPropagation()}
+	>
+		<Slider
+			label={props.entry.label}
+			showValue
+			formatValue={props.entry.formatValue}
+			minValue={props.entry.min ?? 0}
+			maxValue={props.entry.max ?? 100}
+			step={props.entry.step ?? 1}
+			defaultValue={
+				props.entry.defaultValue === undefined
+					? undefined
+					: [props.entry.defaultValue]
+			}
+			value={[props.entry.value]}
+			disabled={props.entry.disabled}
+			onChange={(values) => props.entry.onChange(values[0] ?? 0)}
+		/>
+	</div>
+);
+
 const DesktopEntry = (props: { entry: GroupedEntry }) => (
 	<Switch>
+		<Match when={props.entry.kind === "slider" && props.entry}>
+			{(entry) => (
+				<MenuSlider
+					entry={entry() as DropdownMenuSliderEntry}
+					class="w-56 max-w-full px-2 py-1.5"
+				/>
+			)}
+		</Match>
 		<Match when={props.entry.kind === "checkbox" && props.entry}>
 			{(entry) => (
 				<KobalteDropdownMenu.CheckboxItem
@@ -204,7 +261,11 @@ const DesktopEntry = (props: { entry: GroupedEntry }) => (
 			)}
 		</Match>
 		<Match
-			when={props.entry.kind !== "checkbox" && props.entry.kind !== "submenu"}
+			when={
+				props.entry.kind !== "checkbox" &&
+				props.entry.kind !== "submenu" &&
+				props.entry.kind !== "slider"
+			}
 		>
 			<MenuItem
 				label={props.entry.label}
@@ -421,6 +482,14 @@ const MobileGroups = (props: {
 									<For each={value().entries}>
 										{(entry) => (
 											<Switch>
+												<Match when={entry.kind === "slider" && entry}>
+													{(slider) => (
+														<MenuSlider
+															entry={slider() as DropdownMenuSliderEntry}
+															class="px-4 py-3"
+														/>
+													)}
+												</Match>
 												<Match when={entry.kind === "checkbox" && entry}>
 													{(checkbox) => {
 														const value = () =>
@@ -451,7 +520,11 @@ const MobileGroups = (props: {
 														)}
 													/>
 												</Match>
-												<Match when={entry.kind !== "checkbox"}>
+												<Match
+													when={
+														entry.kind !== "checkbox" && entry.kind !== "slider"
+													}
+												>
 													<ActionRow
 														label={entry.label}
 														icon={(entry as DropdownMenuItemEntry).icon}

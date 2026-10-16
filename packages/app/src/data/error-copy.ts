@@ -3,6 +3,7 @@ import {
 	type ErrorCopy,
 	type ErrorCopyCatalog,
 } from "@colibri-social/lib";
+import type { VoiceEndReason, VoiceNotice } from "./voice/types";
 
 const TRY_AGAIN: ErrorCopy = {
 	title: "Something went wrong",
@@ -292,3 +293,71 @@ export const { copyForCode, describeError } = createErrorCopy(
 	APP_ERROR_COPY,
 	TRY_AGAIN,
 );
+
+export type VoiceNoticeKey =
+	| VoiceEndReason
+	| VoiceNotice
+	| "serverMuted"
+	| "serverDeafened";
+
+export const VOICE_NOTICE_COPY: Record<VoiceNoticeKey, ErrorCopy> = {
+	moderator: {
+		title: "A moderator removed you from the call",
+		description: "You can join again if they allow it.",
+	},
+	superseded: {
+		title: "You joined this call on another device",
+		description: "Only one device can be in a call at a time.",
+	},
+	channelGone: {
+		title: "That voice channel isn't there anymore",
+		description: "It may have been deleted.",
+	},
+	forbidden: {
+		title: "You can't be in this call anymore",
+		description: "Your role in this Space no longer allows it.",
+	},
+	closed: {
+		title: "The call ended",
+		description: "Join again whenever you're ready.",
+	},
+	lost: {
+		title: "You lost the call",
+		description: "Check your internet connection, then join again.",
+	},
+	unsupported: {
+		title: "Calls don't work on this device yet",
+		description: "Try Colibri on another device or browser.",
+	},
+	failed: {
+		title: "Couldn't join the call",
+		description: "Check your internet connection and try again.",
+	},
+	noMicrophone: {
+		title: "You joined without a microphone",
+		description:
+			"Others can't hear you. Allow Colibri to use your microphone, then join again.",
+	},
+	streamFailed: {
+		title: "Someone's audio or video isn't coming through",
+		description: "Leaving and rejoining the call usually fixes it.",
+	},
+	cameraFailed: {
+		title: "Your camera didn't turn on",
+		description: "Make sure no other app is using it, then try again.",
+	},
+	serverMuted: {
+		title: "A moderator muted you",
+		description: "You can talk again once they unmute you.",
+	},
+	serverDeafened: {
+		title: "A moderator deafened you",
+		description: "You can hear the call again once they undeafen you.",
+	},
+};
+
+export const SPACE_ORDER_NOT_SAVED: ErrorCopy = {
+	title: "Your new Space order wasn't saved",
+	description:
+		"Your Spaces are back in their old order. Check your internet connection and try again.",
+};

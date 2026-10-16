@@ -1217,8 +1217,12 @@ export const MoreReactionsInPlace: Story = {
 
 const drawerGifToggle = fn();
 const drawerLinkPreviews = fn();
+const drawerViewReactions = fn();
 
-const UtilityDrawer = (props: { saved: boolean }) => (
+const UtilityDrawer = (props: {
+	saved: boolean;
+	onViewReactions?: () => void;
+}) => (
 	<div class="min-h-screen bg-background py-4">
 		<MessageActionsDrawer
 			open
@@ -1232,6 +1236,7 @@ const UtilityDrawer = (props: { saved: boolean }) => (
 				onToggle: () => drawerGifToggle(!props.saved),
 			}}
 			onLinkPreviews={drawerLinkPreviews}
+			onViewReactions={props.onViewReactions}
 			onHide={fn()}
 		/>
 	</div>
@@ -1251,10 +1256,33 @@ export const DrawerUtilityRows: Story = {
 			).toBeVisible(),
 		);
 		await expectNoLayoutIssues(dialog);
+		await expect(
+			within(dialog).queryByRole("button", { name: "Reactions" }),
+		).toBeNull();
 		await userEvent.click(
 			within(dialog).getByRole("button", { name: "Link previews" }),
 		);
 		await expect(drawerLinkPreviews).toHaveBeenCalledTimes(1);
+	},
+};
+
+export const DrawerReactionsRow: Story = {
+	render: () => (
+		<UtilityDrawer saved={false} onViewReactions={drawerViewReactions} />
+	),
+	parameters: iphone,
+	play: async () => {
+		drawerViewReactions.mockClear();
+		const dialog = await screen.findByRole("dialog", {
+			name: "Message actions",
+		});
+		const reactions = await within(dialog).findByRole("button", {
+			name: "Reactions",
+		});
+		await waitFor(() => expect(reactions).toBeVisible());
+		await expectNoLayoutIssues(dialog);
+		await userEvent.click(reactions);
+		await expect(drawerViewReactions).toHaveBeenCalledTimes(1);
 	},
 };
 

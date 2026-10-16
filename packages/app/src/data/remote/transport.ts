@@ -13,6 +13,7 @@ const log = createLogger("remote");
 
 export type RemoteSession = {
 	did: string;
+	accountHost?: () => string | undefined;
 	fetchHandler: (path: string, init?: RequestInit) => Promise<Response>;
 };
 
@@ -123,6 +124,24 @@ export const createTransport = (input: {
 			send(nsid, "query", init, false) as Promise<T>,
 		pdsProcedure: <T>(nsid: string, init: CallInit = {}) =>
 			send(nsid, "procedure", init, false) as Promise<T>,
+		pdsBlob: async (cid: string): Promise<Blob> => {
+			const nsid = "com.atproto.sync.getBlob";
+			const path = `/xrpc/${nsid}${encodeParams({ did: input.session.did, cid })}`;
+			let response: Response;
+			try {
+				response = await input.session.fetchHandler(path, { method: "GET" });
+			} catch (cause) {
+				throw classifyThrown(cause, { method: nsid });
+			}
+			if (!response.ok)
+				throw classifyResponse({
+					status: response.status,
+					body: await response.text(),
+					method: nsid,
+					retryAfter: response.headers.get("retry-after"),
+				});
+			return response.blob();
+		},
 	};
 };
 

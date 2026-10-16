@@ -10,6 +10,7 @@ export const DEVICE_KEYS = {
 	lastSpace: "colibri:last-space",
 	lastChannel: (space: string) => `colibri:last-channel:${space}`,
 	voiceSettings: "colibri:voice-settings",
+	voiceVolumes: "colibri:voice-volumes",
 	reportAttribution: "colibri:report-attribution",
 } as const;
 

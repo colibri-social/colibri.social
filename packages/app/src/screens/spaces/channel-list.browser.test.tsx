@@ -37,6 +37,15 @@ const until = async (check: () => boolean, timeout = 8000) => {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const shiftClick = (row: Element | null | undefined) =>
+	row?.querySelector("button")?.dispatchEvent(
+		new MouseEvent("click", {
+			bubbles: true,
+			cancelable: true,
+			shiftKey: true,
+		}),
+	);
+
 const mount = async (platform: "mobile" | "desktop", path: string) => {
 	setLatency(0);
 	setVoiceSoundPlayer(() => {});
@@ -211,13 +220,30 @@ describe("threads in the channel list", () => {
 		await until(() => location.pathname === channelPath);
 	});
 
-	it("opens a thread from the desktop list in the pane and Back closes the pane", async () => {
+	it("opens a thread from the desktop list full-screen on a plain click", async () => {
 		await mount("desktop", `/app/c/${HQ}/${TEXT}/general`);
 		await until(() => !!threadRow("Spring tuning"));
 		const startDepth = depthOf(history.state);
 		(
 			threadRow("Spring tuning")?.querySelector("button") as HTMLButtonElement
 		).click();
+		await until(() => location.pathname.endsWith("/full"));
+		const threadPath = location.pathname;
+		expect(threadPath).toContain("/t/");
+		expect(depthOf(history.state)).toBe(startDepth + 1);
+		history.back();
+		await until(
+			() =>
+				location.pathname === threadPath.slice(0, threadPath.indexOf("/t/")),
+		);
+		expect(depthOf(history.state)).toBe(startDepth);
+	});
+
+	it("opens a thread from the desktop list in the pane on shift click and Back closes the pane", async () => {
+		await mount("desktop", `/app/c/${HQ}/${TEXT}/general`);
+		await until(() => !!threadRow("Spring tuning"));
+		const startDepth = depthOf(history.state);
+		shiftClick(threadRow("Spring tuning"));
 		await until(() => location.pathname.includes("/t/"));
 		const threadPath = location.pathname;
 		expect(depthOf(history.state)).toBe(startDepth + 1);
@@ -230,12 +256,10 @@ describe("threads in the channel list", () => {
 		await until(() => !document.querySelector("[data-shell-thread]"));
 	});
 
-	it("highlights only the open thread on desktop and keeps its row after the pane closes", async () => {
+	it("highlights only the thread open in the desktop pane and keeps its row after the pane closes", async () => {
 		await mount("desktop", `/app/c/${HQ}/${TEXT}/general`);
 		await until(() => !!threadRow("Spring tuning"));
-		(
-			threadRow("Spring tuning")?.querySelector("button") as HTMLButtonElement
-		).click();
+		shiftClick(threadRow("Spring tuning"));
 		await until(() => location.pathname.includes("/t/"));
 		await until(
 			() => !!threadRow("Spring tuning")?.hasAttribute("data-active"),

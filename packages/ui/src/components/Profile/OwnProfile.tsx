@@ -127,6 +127,7 @@ export const OwnProfilePopover = (props: OwnProfilePopoverProps) => (
 		open={props.open}
 		onOpenChange={props.onOpenChange}
 		placement="top-start"
+		alignTo="[data-user-panel]"
 		label="Your profile"
 		profile={props.profile ? { ...props.profile, self: true } : undefined}
 		footer={<ListGroup>{props.actions}</ListGroup>}

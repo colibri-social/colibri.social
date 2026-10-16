@@ -1074,6 +1074,98 @@ export const AttachmentSpoilers: Story = {
 	},
 };
 
+const onAltChange = fn();
+
+export const AttachmentAltText: Story = {
+	render: () => {
+		const [items, setItems] = createSignal<PendingAttachment[]>([
+			{
+				id: "1",
+				name: "kingfisher.png",
+				size: 482_133,
+				previewSrc: storyImages.tealIcon(),
+			},
+			{
+				id: "2",
+				name: "canal.jpg",
+				size: 2_310_000,
+				previewSrc: storyImages.amberIcon(),
+				alt: "A canal at dusk with two narrowboats",
+			},
+			{ id: "3", name: "crow-notes.pdf", size: 81_920 },
+		]);
+		return (
+			<div class="w-[402px] p-4" data-testid="alt-tray-host">
+				<AttachmentTray
+					items={items()}
+					onToggleSpoiler={(id) =>
+						setItems((list) =>
+							list.map((item) =>
+								item.id === id ? { ...item, spoiler: !item.spoiler } : item,
+							),
+						)
+					}
+					onAltChange={(id, alt) => {
+						onAltChange(id, alt);
+						setItems((list) =>
+							list.map((item) =>
+								item.id === id ? { ...item, alt: alt || undefined } : item,
+							),
+						);
+					}}
+					onRemove={(id) =>
+						setItems((list) => list.filter((item) => item.id !== id))
+					}
+				/>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		onAltChange.mockClear();
+		const canvas = within(canvasElement);
+		const body = within(document.body);
+		await expectNoLayoutIssues(canvas.getByTestId("alt-tray-host"));
+		const tile = canvasElement.querySelector<HTMLElement>(
+			"li .rounded-control",
+		) as HTMLElement;
+		await expect(Math.round(tile.getBoundingClientRect().width)).toBe(80);
+		await expect(
+			canvas.queryByRole("button", { name: /alt text .*crow-notes\.pdf/ }),
+		).toBeNull();
+		const spoiler = canvas
+			.getByRole("button", { name: "Mark kingfisher.png as a spoiler" })
+			.getBoundingClientRect();
+		const alt = canvas
+			.getByRole("button", { name: "Add alt text to kingfisher.png" })
+			.getBoundingClientRect();
+		await expect(alt.left).toBeGreaterThanOrEqual(spoiler.right + 4);
+		await expect(
+			canvasElement.querySelectorAll('img[alt="kingfisher.png"]'),
+		).toHaveLength(0);
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Add alt text to kingfisher.png" }),
+		);
+		const dialog = await body.findByRole("dialog", { name: "Add alt text" });
+		await userEvent.type(
+			within(dialog).getByRole("textbox", { name: "Alt text" }),
+			"A kingfisher on a branch",
+		);
+		await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+		await waitFor(() =>
+			expect(body.queryByRole("dialog", { name: "Add alt text" })).toBeNull(),
+		);
+		await expect(onAltChange).toHaveBeenCalledWith(
+			"1",
+			"A kingfisher on a branch",
+		);
+		await expect(
+			await canvas.findByRole("button", {
+				name: "Edit alt text for kingfisher.png",
+			}),
+		).toHaveAttribute("data-has-alt");
+	},
+};
+
 export const Disabled: Story = {
 	render: () => (
 		<MobileScreen>

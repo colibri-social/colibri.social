@@ -20,8 +20,10 @@ export default adminChannel.view({
 						<>
 							<s.General />
 							<s.Options platform="desktop" />
+							<s.LinkPreviews />
 							<s.Developer />
 							<s.Delete />
+							<s.Bar />
 						</>
 					}
 				>

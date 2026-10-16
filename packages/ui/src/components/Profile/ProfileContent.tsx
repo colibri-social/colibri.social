@@ -55,6 +55,7 @@ export type ProfileData = {
 	statusShowWhileOffline?: boolean;
 	onStatusClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
 	nowPlaying?: Omit<NowPlayingCardProps, "tone" | "class">[];
+	activityPrompt?: JSX.Element;
 	bio?: JSX.Element;
 	roles?: ProfileRole[];
 	actionsLabel?: string;
@@ -175,6 +176,7 @@ export const ProfileBio = (
 
 export const ProfileContentBody = (props: ProfileContentPartProps) => {
 	const bio = createSlot(() => props.profile.bio);
+	const activityPrompt = createSlot(() => props.profile.activityPrompt);
 	const footer = createSlot(() => props.footer);
 	const tone = () => (props.surface === "background" ? "card" : "secondary");
 
@@ -183,12 +185,13 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 			data-profile-body=""
 			class={cx("flex min-w-0 flex-col gap-4", props.class)}
 		>
-			<For each={props.profile.nowPlaying ?? []}>
-				{(activity) => <NowPlayingCard {...activity} tone={tone()} />}
-			</For>
 			<Show when={bio.has()}>
 				<ProfileBio>{bio()}</ProfileBio>
 			</Show>
+			<For each={props.profile.nowPlaying ?? []}>
+				{(activity) => <NowPlayingCard {...activity} tone={tone()} />}
+			</For>
+			<Show when={activityPrompt.has()}>{activityPrompt()}</Show>
 			<Show when={(props.profile.roles ?? []).length > 0}>
 				<ProfileSection label="Space roles">
 					<div class="flex flex-wrap gap-1">

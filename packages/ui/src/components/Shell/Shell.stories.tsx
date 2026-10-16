@@ -16,6 +16,7 @@ import { fixtureMembers, fixtureRoles } from "../Members/fixtures";
 import { groupMembers, MemberList } from "../Members/MemberList";
 import { MessageRow } from "../Message/MessageRow";
 import { Popover, PopoverContent, PopoverTrigger } from "../Popover/Popover";
+import { OwnProfilePopoverFixture } from "../Profile/own-profile-fixture";
 import {
 	AppShell,
 	DEFAULT_CHANNEL_SIDEBAR_WIDTH,
@@ -718,6 +719,37 @@ export const UserPanelPresenceLabel: Story = {
 			canvas.getByRole("button", { name: "Toggle status" }),
 		);
 		await waitFor(() => expect(line()).toBe("Away"));
+	},
+};
+
+export const UserPanelOwnProfileAlignment: Story = {
+	name: "User panel own profile alignment",
+	render: () => (
+		<div class="flex h-[720px] w-[360px] flex-col justify-end bg-background pb-4 pl-[120px]">
+			<div class="w-[240px]">
+				<OwnProfilePopoverFixture />
+			</div>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const panel = canvasElement.querySelector(
+			"[data-user-panel]",
+		) as HTMLElement;
+		await userEvent.click(canvas.getByRole("button", { name: /^Lou/ }));
+		const popover = await screen.findByRole("dialog", { name: "Your profile" });
+		await waitFor(() =>
+			expect(
+				Math.abs(
+					popover.getBoundingClientRect().left -
+						panel.getBoundingClientRect().left,
+				),
+			).toBeLessThanOrEqual(1),
+		);
+		await expect(popover.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+			panel.getBoundingClientRect().top,
+		);
+		await userEvent.keyboard("{Escape}");
 	},
 };
 

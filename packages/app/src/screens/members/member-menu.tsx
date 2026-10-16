@@ -26,6 +26,7 @@ import { type SpaceData, useData } from "../../data/store";
 import type { Did, MemberView, RoleView } from "../../data/types";
 import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 import { useProfileSheet } from "../profile/profile-sheet";
+import { voiceMenuFor, withVoiceMenu } from "../voice/member-voice";
 
 type Target = { did: Did; space: string };
 
@@ -164,7 +165,7 @@ export const MemberMenuProvider = (props: ParentProps) => {
 			setTarget(target);
 			askModeration(kind);
 		};
-		return {
+		return withVoiceMenu(data, target, {
 			get name() {
 				return label();
 			},
@@ -190,7 +191,7 @@ export const MemberMenuProvider = (props: ParentProps) => {
 				void copyText(target.did).then(() =>
 					toast.success(`DID for ${label()} copied`),
 				),
-		};
+		});
 	};
 
 	const DesktopMenu = (props: {
@@ -246,6 +247,7 @@ export const MemberMenuProvider = (props: ParentProps) => {
 				{(current) => (
 					<>
 						<MemberDrawer
+							voice={voiceMenuFor(data, target())}
 							open={open()}
 							onOpenChange={setOpen}
 							name={name()}

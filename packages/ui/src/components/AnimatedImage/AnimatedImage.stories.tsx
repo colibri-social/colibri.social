@@ -317,6 +317,48 @@ export const AvatarFrameSize: Story = {
 	},
 };
 
+const unevenAvatarUrl = (() => {
+	const canvas = document.createElement("canvas");
+	canvas.width = 333;
+	canvas.height = 251;
+	const context = canvas.getContext("2d");
+	if (context) {
+		context.fillStyle = "#ff0000";
+		context.fillRect(0, 0, 166.5, 251);
+		context.fillStyle = "#0000ff";
+		context.fillRect(166.5, 0, 166.5, 251);
+	}
+	return new Promise<string>((resolve) =>
+		canvas.toBlob((blob) => resolve(URL.createObjectURL(blob as Blob))),
+	);
+})();
+
+const [unevenAvatar, setUnevenAvatar] = createSignal<string>();
+void unevenAvatarUrl.then(setUnevenAvatar);
+
+export const AvatarFrameCentersUnevenImages: Story = {
+	render: () => (
+		<div data-media-play-host="" class="flex w-72 items-center gap-3 p-3">
+			<Show when={unevenAvatar()}>
+				{(src) => <Avatar name="Uneven" size="md" src={src()} />}
+			</Show>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await waitFor(
+			() => expect(canvasElement.querySelector("canvas")).not.toBeNull(),
+			{ timeout: 3000 },
+		);
+		const frame = canvasElement.querySelector("canvas") as HTMLCanvasElement;
+		await expect(frame.width).toBe(frame.height);
+		const context = frame.getContext("2d") as CanvasRenderingContext2D;
+		const row = context.getImageData(0, frame.height / 2, frame.width, 1).data;
+		const middle = frame.width / 2;
+		await expect(row[(middle - 2) * 4]).toBeGreaterThan(200);
+		await expect(row[(middle + 1) * 4 + 2]).toBeGreaterThan(200);
+	},
+};
+
 export const StaticAvatarsStayImages: Story = {
 	render: () => (
 		<div class="flex items-center gap-4">

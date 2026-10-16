@@ -29,7 +29,7 @@ import {
 	springs,
 	springTransition,
 } from "../../utils/motion";
-import { useWindowChromeTop } from "../../utils/safe-area";
+import { useSafeAreaInsets, useWindowChromeTop } from "../../utils/safe-area";
 import { formatMessageTime, type TimeInput } from "../../utils/time";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import type { MediaItem } from "../Attachments/MediaGrid";
@@ -237,10 +237,12 @@ export const Lightbox = (props: LightboxProps) => {
 	};
 
 	const chromeTop = useWindowChromeTop();
+	const insets = useSafeAreaInsets();
+	const overlayTop = () => Math.max(chromeTop(), insets().top);
 	const padding = () =>
 		desktop()
-			? { x: 72, top: 64 + chromeTop(), bottom: 64 }
-			: { x: 0, top: 56 + chromeTop(), bottom: 56 };
+			? { x: 72, top: 64 + overlayTop(), bottom: 64 }
+			: { x: 0, top: 56 + overlayTop(), bottom: 56 };
 
 	const sizeOf = (target: number) => {
 		const known = natural()[target];

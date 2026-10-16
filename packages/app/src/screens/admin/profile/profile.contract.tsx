@@ -17,7 +17,15 @@ import {
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { GalleryAddIcon } from "@solar-icons/solid/bold/gallery-add";
 import { GalleryRemoveIcon } from "@solar-icons/solid/bold/gallery-remove";
-import { createEffect, createMemo, createSignal, Show } from "solid-js";
+import {
+	batch,
+	createEffect,
+	createMemo,
+	createSignal,
+	on,
+	Show,
+	untrack,
+} from "solid-js";
 import {
 	COMMUNITY_DESCRIPTION_MAX,
 	COMMUNITY_NAME_MAX,
@@ -28,7 +36,7 @@ import { defineContract, slot } from "../../../screen/define";
 import { usePlatform } from "../../../screen/platform";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
-import { useUnsavedChanges } from "../../../shell/unsaved-changes";
+import { createUnsavedForm, UnsavedBar } from "../../settings/unsaved-form";
 import { AdminNavHeader } from "../desktop/page-header";
 import { useAdminSpace } from "../space-admin";
 
@@ -54,13 +62,28 @@ export const spaceProfile = defineContract({
 		const stack = useStack();
 		const admin = useAdminSpace(args.space);
 		const { data, community } = admin;
-		const initial = community();
-		const [name, setName] = createSignal(initial?.name ?? "");
+		type Baseline = {
+			name: string;
+			description: string;
+			requiresApproval: boolean;
+		};
+		const baselineOf = (
+			current: ReturnType<typeof community>,
+		): Baseline | undefined =>
+			current
+				? {
+						name: current.name,
+						description: current.description ?? "",
+						requiresApproval: !!current.requiresApprovalToJoin,
+					}
+				: undefined;
+		const [baseline, setBaseline] = createSignal(baselineOf(community()));
+		const [name, setName] = createSignal(baseline()?.name ?? "");
 		const [description, setDescription] = createSignal(
-			initial?.description ?? "",
+			baseline()?.description ?? "",
 		);
 		const [requiresApproval, setRequiresApproval] = createSignal(
-			!!initial?.requiresApprovalToJoin,
+			!!baseline()?.requiresApproval,
 		);
 		const [pictureFile, setPictureFile] = createSignal<File | null>();
 		const [bannerFile, setBannerFile] = createSignal<File | null>();
@@ -68,15 +91,6 @@ export const spaceProfile = defineContract({
 		const [saving, setSaving] = createSignal(false);
 		const [progress, setProgress] = createSignal<ImageProgress>({});
 		const [attempted, setAttempted] = createSignal(false);
-		let seeded = !!initial;
-		createEffect(() => {
-			const current = community();
-			if (seeded || !current) return;
-			seeded = true;
-			setName(current.name);
-			setDescription(current.description ?? "");
-			setRequiresApproval(!!current.requiresApprovalToJoin);
-		});
 		const picture = createLocalPreview(() =>
 			pictureFile() === null ? undefined : community()?.picture,
 		);
@@ -85,14 +99,14 @@ export const spaceProfile = defineContract({
 		);
 
 		const changes = createMemo((): Omit<UpdateCommunityInput, "community"> => {
-			const current = community();
+			const base = baseline();
 			const next: Omit<UpdateCommunityInput, "community"> = {};
-			if (!current) return next;
-			if (name().trim() !== current.name) next.name = name().trim();
-			if (description().trim() !== (current.description ?? "")) {
+			if (!base) return next;
+			if (name().trim() !== base.name) next.name = name().trim();
+			if (description().trim() !== base.description) {
 				next.description = description().trim();
 			}
-			if (requiresApproval() !== !!current.requiresApprovalToJoin) {
+			if (requiresApproval() !== base.requiresApproval) {
 				next.requiresApprovalToJoin = requiresApproval();
 			}
 			return next;
@@ -103,6 +117,24 @@ export const spaceProfile = defineContract({
 				pictureFile() !== undefined ||
 				bannerFile() !== undefined,
 		);
+
+		const applyBaseline = (next: Baseline) => {
+			batch(() => {
+				setBaseline(next);
+				setName(next.name);
+				setDescription(next.description);
+				setRequiresApproval(next.requiresApproval);
+			});
+		};
+
+		createEffect(
+			on(community, (current) => {
+				const next = baselineOf(current);
+				if (!next || untrack(dirty) || untrack(saving)) return;
+				applyBaseline(next);
+			}),
+		);
+
 		const nameError = () => spaceNameError(name());
 		const descriptionError = () => spaceDescriptionError(description());
 		const valid = () => !nameError() && !descriptionError();
@@ -117,13 +149,18 @@ export const spaceProfile = defineContract({
 						layer.space === args.space,
 				) + 1;
 
-		useUnsavedChanges({
-			depth,
-			dirty: () => dirty() && !saving(),
-			description: () => "Your edits to this Space won't be saved.",
-		});
-
-		const leave = () => stack.forcePop();
+		const reset = () => {
+			const base = baseline();
+			batch(() => {
+				if (base) applyBaseline(base);
+				picture.clear();
+				banner.clear();
+				setPictureFile(undefined);
+				setBannerFile(undefined);
+				setImageError(undefined);
+				setAttempted(false);
+			});
+		};
 
 		const uploadImage = async (kind: CommunityImageKind, file: File | null) => {
 			const current = community();
@@ -136,11 +173,8 @@ export const spaceProfile = defineContract({
 		const save = async () => {
 			setAttempted(true);
 			const current = community();
-			if (!current || !valid() || saving()) return;
-			if (!dirty()) {
-				leave();
-				return;
-			}
+			const base = baseline();
+			if (!current || !base || !valid() || saving() || !dirty()) return;
 			setSaving(true);
 			setProgress({});
 			try {
@@ -160,14 +194,27 @@ export const spaceProfile = defineContract({
 				if (Object.keys(patch).length > 0) {
 					await data.community.update({ community: current.did, ...patch });
 				}
+				applyBaseline({
+					name: name().trim(),
+					description: description().trim(),
+					requiresApproval: requiresApproval(),
+				});
+				setAttempted(false);
 				toast.success("Space profile saved");
-				leave();
 			} catch {
 				toast.error("Couldn't save the Space profile");
 			} finally {
 				setSaving(false);
 			}
 		};
+
+		const form = createUnsavedForm({
+			depth,
+			dirty,
+			saving,
+			save,
+			reset,
+		});
 
 		return {
 			...admin,
@@ -202,6 +249,7 @@ export const spaceProfile = defineContract({
 			nameError: () => (attempted() ? nameError() : undefined),
 			descriptionError,
 			save,
+			form,
 			back: () => stack.pop(),
 		};
 	},
@@ -212,18 +260,9 @@ export const spaceProfile = defineContract({
 				kind="back"
 				onNavigate={m.back}
 				safeTop
-				action={
-					m.community()
-						? {
-								type: "text",
-								label: "Save",
-								onClick: () => void m.save(),
-								loading: m.saving(),
-							}
-						: undefined
-				}
 			/>
 		)),
+		Bar: slot((m) => <UnsavedBar form={m.form} />),
 		Missing: slot((m) => (
 			<Show when={m.missing()}>
 				<StatusScreen
@@ -244,7 +283,7 @@ export const spaceProfile = defineContract({
 					onError={m.setImageError}
 				>
 					{(open) => (
-						<div class="relative aspect-[3/1] w-full overflow-hidden rounded-control bg-secondary">
+						<div class="relative aspect-[3/1] w-full overflow-hidden bg-secondary">
 							<button
 								type="button"
 								aria-label={m.banner.src() ? "Change banner" : "Add banner"}
@@ -300,11 +339,17 @@ export const spaceProfile = defineContract({
 								aria-label={m.picture.src() ? "Change icon" : "Add icon"}
 								disabled={m.saving()}
 								onClick={open}
-								class="focus-ring relative -mt-8 flex size-[72px] shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-control border-4 border-popover bg-muted disabled:cursor-not-allowed"
+								class="focus-ring relative -mt-9 flex size-[88px] shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-surface border-4 border-popover bg-muted disabled:cursor-not-allowed"
 							>
 								<Show
 									when={m.picture.src()}
-									fallback={<SpaceIcon name={m.name() || "Space"} size={64} />}
+									fallback={
+										<SpaceIcon
+											name={m.name() || "Space"}
+											size={64}
+											class="size-full rounded-none text-2xl"
+										/>
+									}
 								>
 									{(src) => (
 										<AnimatedImage

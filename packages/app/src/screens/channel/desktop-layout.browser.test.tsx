@@ -123,6 +123,7 @@ it("centers the jump card above the composer and clear of the typing row", async
 		Math.abs(card.left + card.width / 2 - (area.left + area.width / 2)),
 	).toBeLessThanOrEqual(1);
 	expect(card.bottom).toBeLessThanOrEqual(typing.top);
+	expect(Math.round(typing.top - card.bottom)).toBe(4);
 });
 
 it("holds a small scroll up through live activity", async () => {

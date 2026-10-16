@@ -5,6 +5,7 @@ export default adminRoleMembers.view({
 		<>
 			<s.Header />
 			<s.Body />
+			<s.Bar />
 		</>
 	),
 });

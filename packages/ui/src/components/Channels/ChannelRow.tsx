@@ -15,7 +15,7 @@ import {
 	ThreadIcon,
 } from "../../icons/custom";
 import { cx } from "../../utils/cx";
-import { createLongPress } from "../../utils/gestures";
+import { createLongPress, createMenuTrigger } from "../../utils/gestures";
 import { KeyedFor } from "../../utils/keyed";
 import { createRipple } from "../../utils/ripple";
 import { Avatar } from "../Avatar/Avatar";
@@ -379,6 +379,11 @@ export type VoiceChannelRowProps = RowEvents & {
 	private?: boolean;
 	participants?: VoiceParticipant[];
 	onOpenParticipant?: (id: string) => void;
+	onParticipantMenu?: (id: string) => void;
+	participantMenu?: (
+		participant: VoiceParticipant,
+		row: JSX.Element,
+	) => JSX.Element;
 	platform?: ChannelPlatform;
 	density?: ChannelRowDensity;
 	class?: string;
@@ -508,6 +513,12 @@ export const VoiceChannelRow = (props: VoiceChannelRowProps) => {
 								person={person()}
 								live={!!props.joined}
 								onOpen={props.onOpenParticipant}
+								onMenu={props.onParticipantMenu}
+								wrap={
+									props.participantMenu
+										? (row) => props.participantMenu?.(person(), row)
+										: undefined
+								}
 							/>
 						)}
 					</KeyedFor>
@@ -567,12 +578,25 @@ const ParticipantContent = (props: {
 	</>
 );
 
+const wrapRow = (
+	wrap: ((row: JSX.Element) => JSX.Element) | undefined,
+	row: JSX.Element,
+) => (wrap ? wrap(row) : row);
+
 const ParticipantRow = (props: {
 	person: VoiceParticipant;
 	live: boolean;
 	onOpen?: (id: string) => void;
+	onMenu?: (id: string) => void;
+	wrap?: (row: JSX.Element) => JSX.Element;
 }) => (
 	<li
+		ref={(element) =>
+			createMenuTrigger(element, {
+				enabled: () => !!props.onMenu && !props.person.pending,
+				onMenu: () => props.onMenu?.(props.person.id),
+			})
+		}
 		data-voice-participant=""
 		data-pending={props.person.pending || undefined}
 		data-speaking={(props.live && props.person.speaking) || undefined}
@@ -591,27 +615,30 @@ const ParticipantRow = (props: {
 				</span>
 			}
 		>
-			<Show
-				when={props.onOpen}
-				fallback={
-					<span class="flex min-w-0 flex-1 items-center gap-2 p-1">
-						<ParticipantContent person={props.person} live={props.live} />
-					</span>
-				}
-			>
-				{(open) => (
-					<button
-						type="button"
-						onClick={() => open()(props.person.id)}
-						class={cx(
-							"flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-control-xs border-0 bg-transparent p-1 text-left hover:bg-popover/60",
-							rowFocus,
-						)}
-					>
-						<ParticipantContent person={props.person} live={props.live} />
-					</button>
-				)}
-			</Show>
+			{wrapRow(
+				props.wrap,
+				<Show
+					when={props.onOpen}
+					fallback={
+						<span class="flex min-w-0 flex-1 items-center gap-2 p-1">
+							<ParticipantContent person={props.person} live={props.live} />
+						</span>
+					}
+				>
+					{(open) => (
+						<button
+							type="button"
+							onClick={() => open()(props.person.id)}
+							class={cx(
+								"flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-control-xs border-0 bg-transparent p-1 text-left hover:bg-popover/60",
+								rowFocus,
+							)}
+						>
+							<ParticipantContent person={props.person} live={props.live} />
+						</button>
+					)}
+				</Show>,
+			)}
 		</Show>
 	</li>
 );

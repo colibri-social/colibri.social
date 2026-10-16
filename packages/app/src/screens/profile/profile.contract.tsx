@@ -2,6 +2,7 @@ import {
 	DeveloperModeCard,
 	ListGroup,
 	NavRow,
+	NowPlayingCard,
 	OwnPresenceRow,
 	OwnProfileRows,
 	ownPresenceEntries,
@@ -9,22 +10,25 @@ import {
 	ProfileBio,
 	ProfileHeader,
 	presenceLabels,
-	SectionLabel,
 	toast,
 	type Presence as UiPresence,
 } from "@colibri-social/ui";
 import { EmojiFunnyCircleIcon } from "@solar-icons/solid/bold/emoji-funny-circle";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
-import { createMemo, createSignal, Show, untrack } from "solid-js";
+import { createMemo, createSignal, For, Show, untrack } from "solid-js";
+import { nowPlayingOf } from "../../data/activity";
 import { displayNameOf } from "../../data/adapters/authors";
+import { profileBannerFill } from "../../data/profile-theme";
 import { useData } from "../../data/store";
 import type { Presence } from "../../data/types";
 import { defineContract, slot } from "../../screen/define";
 import { useStack } from "../../shell/stack";
 import { uiPresence } from "../members/member-adapter";
+import { OwnActivityPrompt } from "./activity-prompt";
 import { createBioRenderer } from "./bio-links";
 import { blueskyProfileLinks } from "./bluesky-link";
 import { StatusEditor } from "./status-editor";
+import { PrimaryBadge, SecondaryBadges } from "./user-badges";
 
 type Platform = { platform?: "mobile" | "desktop" };
 
@@ -73,13 +77,16 @@ export const profile = defineContract({
 			<ProfileHeader
 				displayName={displayNameOf(m.viewer)}
 				handle={m.viewer.handle}
+				pronouns={m.viewer.pronouns}
 				avatarSrc={m.viewer.avatar}
 				avatarSeed={m.viewer.did}
 				nameColor={m.viewer.theme?.accentColor}
 				bannerSrc={m.viewer.banner}
-				bannerColor={m.viewer.theme?.bannerColor}
+				bannerColor={profileBannerFill(m.viewer.theme)}
 				links={blueskyProfileLinks(m.data.preferences, m.viewer.did)}
 				presence={uiPresence(m.presence())}
+				badge={<PrimaryBadge profile={m.viewer} size="sm" />}
+				appBadge={<SecondaryBadges profile={m.viewer} />}
 				status={m.status()?.text || undefined}
 				statusEmoji={m.status()?.emoji}
 				statusShowWhileOffline={m.status()?.showWhileOffline}
@@ -122,6 +129,18 @@ export const profile = defineContract({
 				/>
 			</Show>
 		)),
+		Activity: slot((m) => {
+			const links = createBioRenderer();
+			return (
+				<>
+					<For each={nowPlayingOf(m.presence(), links.openLink) ?? []}>
+						{(activity) => <NowPlayingCard {...activity} tone="card" />}
+					</For>
+					<OwnActivityPrompt tone="card" />
+					<links.LinkWarningOutlet />
+				</>
+			);
+		}),
 		Bio: slot((m) => {
 			const bio = createBioRenderer();
 			return (

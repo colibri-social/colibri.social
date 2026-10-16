@@ -34,6 +34,16 @@ describe("desktop route", () => {
 		expect(result.pane).toMatchObject({ kind: "thread", thread: "t1" });
 	});
 
+	it("closes a full thread when its channel is pushed again", () => {
+		const result = route([
+			{ kind: "chat", ...target },
+			{ kind: "thread", ...target, thread: "t1", presentation: "full" },
+			{ kind: "chat", ...target },
+		]);
+		expect(result.pane).toBeUndefined();
+		expect(result.chat).toEqual({ kind: "chat", ...target });
+	});
+
 	it("replaces one thread pane with the next", () => {
 		const result = route([
 			{ kind: "chat", ...target },

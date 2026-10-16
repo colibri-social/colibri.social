@@ -1,4 +1,3 @@
-import { CrownIcon } from "@solar-icons/solid/bold/crown";
 import { type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import {
@@ -9,6 +8,7 @@ import {
 import { createSlot } from "../../utils/slot";
 import { Avatar, type AvatarSize, type Presence } from "../Avatar/Avatar";
 import { BotBadge } from "../Badge/Badge";
+import { OwnerBadge } from "../Roles/OwnerBadge";
 import { RoleBadge, type RoleIdentity } from "../Roles/RoleBadge";
 
 export type MemberIdentityData = {
@@ -60,13 +60,7 @@ export const MemberNameLine = (props: {
 				{(role) => <RoleBadge role={role()} interactive={false} />}
 			</Show>
 			<Show when={props.member.owner}>
-				<span
-					role="img"
-					aria-label="Owner"
-					class="flex size-4 shrink-0 items-center justify-center text-warning [&>svg]:size-4"
-				>
-					<CrownIcon />
-				</span>
+				<OwnerBadge interactive={false} />
 			</Show>
 			<Show when={props.member.bot}>
 				<BotBadge describe={false} />

@@ -271,6 +271,7 @@ export const VirtualMemberList = (props: VirtualMemberListProps) => {
 					onMemberContextMenu={props.onMemberContextMenu}
 					onMemberMenu={props.onMemberMenu}
 					wrapMember={props.wrapMember}
+					badgeOf={props.badgeOf}
 				/>
 			</div>
 		);

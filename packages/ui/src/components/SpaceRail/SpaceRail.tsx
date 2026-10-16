@@ -15,11 +15,13 @@ import {
 } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createLongPress } from "../../utils/gestures";
+import { useHaptics } from "../../utils/haptics";
 import { createRipple } from "../../utils/ripple";
 import { createSlot } from "../../utils/slot";
 import { CountBadge } from "../Badge/Badge";
 import { SpaceIcon } from "../Space/SpaceIcon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
+import { createRailReorder, type RailReorder } from "./rail-reorder";
 
 const FOCUSABLE = "[data-rail-focusable]";
 
@@ -117,6 +119,8 @@ const RAIL_TAB_VARS = [
 type RailContextValue = {
 	platform: Accessor<SpaceRailPlatform>;
 	setActive: (element: HTMLElement | undefined) => void;
+	reorder: RailReorder;
+	instructionsId: string;
 };
 
 const RailContext = createContext<RailContextValue>();
@@ -130,6 +134,7 @@ export type SpaceRailProps = {
 	leading?: JSX.Element;
 	onCreate?: () => void;
 	onDiscover?: () => void;
+	onReorder?: (ids: string[]) => unknown;
 	createLabel?: string;
 	discoverLabel?: string;
 	class?: string;
@@ -137,6 +142,7 @@ export type SpaceRailProps = {
 };
 
 const moveFocus = (rail: HTMLElement, event: KeyboardEvent) => {
+	if (event.altKey) return;
 	const items = Array.from(rail.querySelectorAll<HTMLElement>(FOCUSABLE));
 	const current = items.indexOf(document.activeElement as HTMLElement);
 	if (current === -1) return;
@@ -226,8 +232,19 @@ const ActiveTab = (props: {
 export const SpaceRail = (props: SpaceRailProps) => {
 	const platform = () => props.platform ?? "mobile";
 	const [active, setActive] = createSignal<HTMLElement>();
+	const haptics = useHaptics();
+	const reorder = createRailReorder({
+		enabled: () => !!props.onReorder,
+		onReorder: (ids) => props.onReorder?.(ids),
+		step: () =>
+			SPACE_RAIL_METRICS[platform()].icon + SPACE_RAIL_METRICS[platform()].gap,
+		haptics: () => haptics,
+	});
+	const instructionsId = createUniqueId();
 	return (
-		<RailContext.Provider value={{ platform, setActive }}>
+		<RailContext.Provider
+			value={{ platform, setActive, reorder, instructionsId }}
+		>
 			<RailFrame {...props} platform={platform()} active={active()} />
 		</RailContext.Provider>
 	);
@@ -241,6 +258,7 @@ const RailFrame = (
 ) => {
 	const items = createSlot(() => props.children);
 	const leading = createSlot(() => props.leading);
+	const context = useRail();
 	const platform = () => props.platform;
 	const metrics = () => SPACE_RAIL_METRICS[platform()];
 	const active = () => props.active;
@@ -311,13 +329,21 @@ const RailFrame = (
 			setTop(undefined);
 			return;
 		}
-		setTop(element.offsetTop);
+		const id = element.dataset.railId;
+		setTop(
+			element.offsetTop + (id && context ? context.reorder.offset(id) : 0),
+		);
 	};
 
 	createEffect(() => {
 		active();
 		platform();
+		context?.reorder.actual();
 		measure();
+	});
+
+	createEffect(() => {
+		if (!context?.reorder.enabled()) context?.reorder.finishImmediately();
 	});
 
 	createEffect(() => {
@@ -351,6 +377,8 @@ const RailFrame = (
 				for (const name of RAIL_TAB_VARS) target.style.removeProperty(name);
 			joinTargets.clear();
 		});
+		if (context && scroller && content)
+			context.reorder.attach({ rail, scroller, content });
 		const observer = new ResizeObserver(() => measure());
 		if (content) observer.observe(content);
 		onCleanup(() => observer.disconnect());
@@ -368,6 +396,15 @@ const RailFrame = (
 			class={cx("relative h-full shrink-0", props.class)}
 			style={{ width: `${metrics().width}px` }}
 		>
+			<Show when={context?.reorder.enabled()}>
+				<span id={context?.instructionsId} class="sr-only">
+					To move a Space, drag it, or press Alt with the Up or Down arrow key.
+					On touch, press and hold, then drag.
+				</span>
+				<span role="status" aria-live="assertive" class="sr-only">
+					{context?.reorder.announcement()}
+				</span>
+			</Show>
 			<div
 				ref={scroller}
 				onScroll={scheduleScrollJoin}
@@ -514,6 +551,7 @@ export const SpaceRailAction = (props: SpaceRailActionProps) => {
 };
 
 export type SpaceRailItemProps = {
+	id?: string;
 	name: string;
 	iconSrc?: string;
 	active?: boolean;
@@ -546,6 +584,9 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 	const platform = () => rail?.platform() ?? "mobile";
 	const size = () => SPACE_RAIL_METRICS[platform()].icon;
 	const inset = () => (platform() === "desktop" && props.active ? 2 : 0);
+	const sortable = () => !!props.id && !!rail?.reorder.enabled();
+	const lifted = () => !!props.id && rail?.reorder.lifted() === props.id;
+	const shift = () => (props.id && rail ? rail.reorder.offset(props.id) : 0);
 	let item: HTMLDivElement | undefined;
 
 	createEffect(() => {
@@ -561,14 +602,37 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 			ref={(element) => {
 				item = element;
 				createLongPress(element, {
-					enabled: () => !!props.onMenu,
+					enabled: () => !!props.onMenu && !sortable(),
 					onLongPress: (event) => props.onMenu?.(event),
 				});
+				const id = props.id;
+				if (id && rail) rail.reorder.register(id, element, () => props.name);
 			}}
 			data-rail-item=""
+			data-rail-id={props.id}
+			data-lifted={lifted() || undefined}
 			data-state={props.active ? "active" : props.unread ? "unread" : "read"}
-			class={cx("relative z-10 flex shrink-0 justify-center", local.class)}
-			style={{ height: `${size()}px` }}
+			onPointerDown={(event) => {
+				const id = props.id;
+				if (!id || !item || !sortable()) return;
+				rail?.reorder.press(
+					event,
+					id,
+					item,
+					props.onMenu ? (press) => props.onMenu?.(press) : undefined,
+				);
+			}}
+			class={cx(
+				"relative z-10 flex shrink-0 justify-center",
+				sortable() && "select-none [-webkit-touch-callout:none]",
+				lifted() && "opacity-0",
+				local.class,
+			)}
+			style={{
+				height: `${size()}px`,
+				transform: shift() ? `translate3d(0, ${shift()}px, 0)` : undefined,
+				transition: sortable() ? rail?.reorder.transition() : undefined,
+			}}
 		>
 			<span
 				aria-hidden="true"
@@ -582,6 +646,7 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 			/>
 			<RailTooltip
 				label={props.name}
+				suppressed={!!rail?.reorder.lifted()}
 				trigger={
 					<TooltipTrigger
 						ref={ripple}
@@ -589,6 +654,14 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 						tabIndex={props.active ? 0 : -1}
 						data-rail-focusable=""
 						aria-current={props.active ? "page" : undefined}
+						aria-describedby={sortable() ? rail?.instructionsId : undefined}
+						aria-keyshortcuts={
+							sortable() ? "Alt+ArrowUp Alt+ArrowDown" : undefined
+						}
+						onKeyDown={(event: KeyboardEvent) => {
+							const id = props.id;
+							if (id && sortable()) rail?.reorder.keyMove(event, id);
+						}}
 						onClick={() => props.onSelect?.()}
 						onContextMenu={(event: MouseEvent) => {
 							if (!props.onMenu) return;

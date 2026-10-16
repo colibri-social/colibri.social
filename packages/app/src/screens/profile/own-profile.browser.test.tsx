@@ -239,6 +239,43 @@ describe("bio parity", () => {
 	const bioMarkup = (root: ParentNode) =>
 		root.querySelector('[data-profile-section="Bio"]')?.innerHTML ?? "";
 
+	it("keeps your profile open when opened from an open member popover", async () => {
+		setLatency(0);
+		await page.viewport(1440, 900);
+		history.replaceState(null, "", `/app/c/${HQ}`);
+		const store = createDataStore(createMockSource({ live: false }));
+		await until(() => !!store.communities.value());
+		stops.push(
+			render(
+				() => (
+					<DataContext.Provider value={store}>
+						<Providers>
+							<DesktopShell />
+						</Providers>
+					</DataContext.Provider>
+				),
+				host(),
+			),
+		);
+		await expect.poll(() => location.pathname).toContain("channel.text");
+		await until(() => !!document.querySelector("[data-member-row]"));
+		await userEvent.click(
+			document.querySelector<HTMLElement>("[data-member-row]") as HTMLElement,
+		);
+		await until(() => !!document.querySelector("[data-profile-popover]"));
+		await userEvent.click(
+			page
+				.getByRole("region", { name: "Your account" })
+				.getByRole("button")
+				.first(),
+		);
+		const panel = page.getByRole("dialog", { name: "Your profile" });
+		await expect.element(panel).toBeVisible();
+		await new Promise((resolve) => setTimeout(resolve, 800));
+		await expect.element(panel).toBeVisible();
+		expect(document.querySelectorAll("[data-profile-popover]")).toHaveLength(1);
+	});
+
 	it("renders the same bio in the user panel and the member popover", async () => {
 		setLatency(0);
 		await page.viewport(1440, 900);

@@ -226,45 +226,88 @@ describe("space settings hub", () => {
 	});
 });
 
+const unsavedBar = (scope: ParentNode) =>
+	scope.querySelector<HTMLElement>("[data-unsaved-changes-bar]");
+
+const barShown = (scope: ParentNode) =>
+	unsavedBar(scope)?.dataset.visible !== undefined;
+
 describe("space profile", () => {
-	it("saves a new name and returns to the hub", async () => {
+	it("saves a new name from the unsaved changes bar and stays", async () => {
 		const { store, root } = await mount(`/app/c/${HQ}/manage/profile`);
 		await until(() => !!fieldLabelled(root, "Name"));
 		await wait(300);
 		await expectNoLayoutIssues(topPane(root));
+		expect(barShown(root)).toBe(false);
+		expect(
+			Array.from(topPane(root).querySelectorAll("header button")).some(
+				(button) => button.textContent?.trim() === "Save",
+			),
+		).toBe(false);
 		const name = fieldLabelled(root, "Name");
 		expect(name.value).toBe("Colibri HQ");
 		typeInto(name, "");
-		buttonNamed(root, "Save")?.click();
+		await until(() => barShown(root));
+		buttonNamed(unsavedBar(root) as HTMLElement, "Save")?.click();
 		await until(() => !!root.textContent?.includes("Give your Space a name."));
 		typeInto(name, "Colibri Headquarters");
 		const description = fieldLabelled(root, "Description");
 		typeInto(description, "Where the hummingbirds meet");
-		buttonNamed(root, "Save")?.click();
+		buttonNamed(unsavedBar(root) as HTMLElement, "Save")?.click();
 		await until(
 			() =>
 				store.spaceByKey(HQ)?.name === "Colibri Headquarters" &&
 				store.spaceByKey(HQ)?.description === "Where the hummingbirds meet",
 		);
-		await until(() => location.pathname.endsWith(`/c/${HQ}/manage/overview`));
+		await until(() => !barShown(root));
+		expect(location.pathname.endsWith("/manage/profile")).toBe(true);
 	});
 
-	it("keeps the edits when saving fails and asks before discarding", async () => {
+	it("keeps the edits when saving fails and blocks going back until cancelled", async () => {
 		const { store, root } = await mount(`/app/c/${HQ}/manage/profile`);
 		await until(() => !!fieldLabelled(root, "Name"));
 		const name = fieldLabelled(root, "Name");
 		typeInto(name, "This will fail");
-		buttonNamed(root, "Save")?.click();
+		await until(() => barShown(root));
+		buttonNamed(unsavedBar(root) as HTMLElement, "Save")?.click();
 		await wait(300);
 		expect(store.spaceByKey(HQ)?.name).toBe("Colibri HQ");
 		expect(location.pathname.endsWith("/manage/profile")).toBe(true);
 		expect(name.value).toBe("This will fail");
+		expect(barShown(root)).toBe(true);
 		buttonNamed(root, "Back")?.click();
-		await until(() => !!dialog()?.textContent?.includes("Discard changes?"));
+		await until(() => unsavedBar(root)?.dataset.attention !== undefined);
 		await wait(300);
-		await expectNoLayoutIssues(dialog() as HTMLElement);
-		buttonNamed(dialog() as HTMLElement, "Discard changes")?.click();
+		expect(dialog()?.textContent?.includes("Discard changes?") ?? false).toBe(
+			false,
+		);
+		expect(location.pathname.endsWith("/manage/profile")).toBe(true);
+		buttonNamed(unsavedBar(root) as HTMLElement, "Cancel")?.click();
+		await until(() => !barShown(root));
+		expect(name.value).toBe("Colibri HQ");
+		buttonNamed(root, "Back")?.click();
 		await until(() => location.pathname.endsWith(`/c/${HQ}/manage/overview`));
+	});
+
+	it("keeps the unsaved changes bar clear of the last field on mobile", async () => {
+		const { root } = await mount(`/app/c/${HQ}/manage/profile`);
+		await until(() => !!fieldLabelled(root, "Name"));
+		typeInto(fieldLabelled(root, "Name"), "Colibri HQ 2");
+		await until(() => barShown(root));
+		const pane = topPane(root);
+		const scroller = pane.querySelector<HTMLElement>("[data-scroll-y]");
+		if (scroller) scroller.scrollTop = scroller.scrollHeight;
+		await wait(300);
+		const toggle = pane.querySelector<HTMLElement>('[role="switch"]');
+		const section = toggle?.closest("section") ?? toggle;
+		const card = unsavedBar(pane)?.firstElementChild as HTMLElement;
+		expect(section?.getBoundingClientRect().bottom ?? 0).toBeLessThanOrEqual(
+			card.getBoundingClientRect().top + 0.5,
+		);
+		expect(card.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+			pane.getBoundingClientRect().bottom,
+		);
+		await expectNoLayoutIssues(pane);
 	});
 
 	it("toggles join approval", async () => {
@@ -274,7 +317,8 @@ describe("space profile", () => {
 			'[role="switch"], input[type="checkbox"]',
 		) as HTMLElement;
 		toggle.click();
-		buttonNamed(root, "Save")?.click();
+		await until(() => barShown(root));
+		buttonNamed(unsavedBar(root) as HTMLElement, "Save")?.click();
 		await until(() => !!store.spaceByKey(HQ)?.requiresApprovalToJoin);
 	});
 });

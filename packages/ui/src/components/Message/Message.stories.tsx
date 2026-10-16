@@ -1686,7 +1686,7 @@ export const OwnerCrown: Story = {
 		const owner = canvasElement.querySelector(
 			'[data-testid="owner"]',
 		) as HTMLElement;
-		const crown = within(owner).getByRole("img", { name: "Owner" });
+		const crown = within(owner).getByRole("button", { name: "Space Owner" });
 		const header = owner.querySelector("[data-message-header]") as HTMLElement;
 		const name = owner.querySelector("[data-author-name]") as HTMLElement;
 		await expect(header.contains(crown)).toBe(true);
@@ -1700,8 +1700,12 @@ export const OwnerCrown: Story = {
 			'[data-testid="member"]',
 		) as HTMLElement;
 		await expect(
-			within(member).queryByRole("img", { name: "Owner" }),
+			within(member).queryByRole("button", { name: "Space Owner" }),
 		).toBeNull();
+		await userEvent.hover(crown);
+		const tooltip = await screen.findByRole("tooltip", {}, { timeout: 3000 });
+		await expect(tooltip).toHaveTextContent("Space Owner");
+		await userEvent.unhover(crown);
 	},
 };
 

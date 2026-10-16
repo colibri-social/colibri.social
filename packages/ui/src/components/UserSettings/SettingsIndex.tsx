@@ -1,6 +1,7 @@
 import { BellIcon } from "@solar-icons/solid/bold/bell";
 import { BugIcon } from "@solar-icons/solid/bold/bug";
 import { ChatRoundDotsIcon } from "@solar-icons/solid/bold/chat-round-dots";
+import { CheckCircleIcon } from "@solar-icons/solid/bold/check-circle";
 import { CopyIcon } from "@solar-icons/solid/bold/copy";
 import { DocumentTextIcon } from "@solar-icons/solid/bold/document-text";
 import { HandMoneyIcon } from "@solar-icons/solid/bold/hand-money";
@@ -27,6 +28,7 @@ import {
 	SidebarNavSection,
 } from "../List/List";
 import { SettingsSearch, SettingsSearchEmpty } from "../List/settings-search";
+import { createCopied } from "../SettingsPages/shared";
 import { SearchField } from "../TextField/TextField";
 
 export type SettingsEntryId =
@@ -50,6 +52,8 @@ export type SettingsEntryId =
 
 export type SettingsEntryAction = {
 	onSelect?: () => void;
+	copyValue?: string;
+	onCopyFailed?: () => void;
 	href?: string;
 	external?: boolean;
 };
@@ -210,7 +214,26 @@ export const SettingsIndex = (props: SettingsIndexProps) => {
 	const mainSections = () => visible(SECTIONS);
 	const developerSections = () => visible([DEVELOPER_SECTION]);
 
-	const select = (id: SettingsEntryId) => () => props.entries[id]?.onSelect?.();
+	const { copied, copy } = createCopied();
+	const [copiedId, setCopiedId] = createSignal<SettingsEntryId>();
+	const select = (id: SettingsEntryId) => (event?: MouseEvent) => {
+		const entry = props.entries[id];
+		if (entry?.copyValue === undefined) {
+			entry?.onSelect?.();
+			return;
+		}
+		const anchor = event?.currentTarget as HTMLElement;
+		setCopiedId(id);
+		void copy(entry.copyValue, anchor).then((done) => {
+			if (!done) entry.onCopyFailed?.();
+		});
+	};
+	const icon = (id: SettingsEntryId) =>
+		copied() && copiedId() === id ? (
+			<CheckCircleIcon class="text-success" />
+		) : (
+			SETTINGS_ENTRY_INFO[id].icon()
+		);
 
 	return (
 		<SettingsSearch query={query()}>
@@ -240,6 +263,7 @@ export const SettingsIndex = (props: SettingsIndexProps) => {
 										section={section}
 										entries={props.entries}
 										select={select}
+										icon={icon}
 									/>
 								)}
 							</For>
@@ -261,6 +285,7 @@ export const SettingsIndex = (props: SettingsIndexProps) => {
 										section={section}
 										entries={props.entries}
 										select={select}
+										icon={icon}
 									/>
 								)}
 							</For>
@@ -275,6 +300,7 @@ export const SettingsIndex = (props: SettingsIndexProps) => {
 									entries={props.entries}
 									active={props.active}
 									select={select}
+									icon={icon}
 								/>
 							)}
 						</For>
@@ -298,12 +324,16 @@ export const SettingsIndex = (props: SettingsIndexProps) => {
 									entries={props.entries}
 									active={props.active}
 									select={select}
+									icon={icon}
 								/>
 							)}
 						</For>
 					</SidebarNav>
 				</Show>
 				<SettingsSearchEmpty />
+				<span aria-live="polite" class="sr-only">
+					{copied() ? "Copied" : ""}
+				</span>
 			</div>
 		</SettingsSearch>
 	);
@@ -312,13 +342,14 @@ export const SettingsIndex = (props: SettingsIndexProps) => {
 const MobileSection = (props: {
 	section: { label: string; entries: SettingsEntryId[] };
 	entries: SettingsEntries;
-	select: (id: SettingsEntryId) => () => void;
+	select: (id: SettingsEntryId) => (event?: MouseEvent) => void;
+	icon: (id: SettingsEntryId) => JSX.Element;
 }) => (
 	<ListGroup label={props.section.label}>
 		<For each={props.section.entries}>
 			{(id) => (
 				<NavRow
-					icon={SETTINGS_ENTRY_INFO[id].icon()}
+					icon={props.icon(id)}
 					label={SETTINGS_ENTRY_INFO[id].label}
 					keywords={SETTINGS_ENTRY_INFO[id].keywords}
 					href={props.entries[id]?.href}
@@ -334,13 +365,14 @@ const DesktopSection = (props: {
 	section: { label: string; entries: SettingsEntryId[] };
 	entries: SettingsEntries;
 	active?: SettingsEntryId;
-	select: (id: SettingsEntryId) => () => void;
+	select: (id: SettingsEntryId) => (event?: MouseEvent) => void;
+	icon: (id: SettingsEntryId) => JSX.Element;
 }) => (
 	<SidebarNavSection label={props.section.label}>
 		<For each={props.section.entries}>
 			{(id) => (
 				<SidebarNavItem
-					icon={SETTINGS_ENTRY_INFO[id].icon()}
+					icon={props.icon(id)}
 					label={SETTINGS_ENTRY_INFO[id].label}
 					keywords={SETTINGS_ENTRY_INFO[id].keywords}
 					href={props.entries[id]?.href}

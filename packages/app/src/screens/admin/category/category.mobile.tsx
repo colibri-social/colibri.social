@@ -19,7 +19,7 @@ export default adminCategory.view({
 						</Show>
 					}
 				>
-					<div class="flex flex-col gap-6 p-4 pb-safe-offset-6">
+					<div class="flex min-h-full flex-col gap-6 p-4 pb-safe-offset-6">
 						<Show
 							when={m.creating}
 							fallback={
@@ -28,6 +28,7 @@ export default adminCategory.view({
 									<s.Options />
 									<s.Developer />
 									<s.Delete />
+									<s.Bar />
 								</>
 							}
 						>

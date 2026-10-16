@@ -73,6 +73,7 @@ import {
 } from "../../../data/adapters/reactions";
 import { formatAge } from "../../../data/adapters/time";
 import type { ProfileView } from "../../../data/types";
+import { PrimaryBadge } from "../../profile/user-badges";
 import { mediaSession } from "../composer/media/session";
 import { whenOverlaysClosed } from "../forward/overlay-wait";
 import { type EmbedEditor, useChat } from "./chat-context";
@@ -622,6 +623,14 @@ export const MessageItem = (props: MessageItemProps) => {
 		reactions().length > 0
 			? () => openReactors(reactions()[0]?.emoji ?? "")
 			: undefined;
+	const drawerReactionsAction = () => {
+		const first = reactions()[0]?.emoji;
+		if (first === undefined) return undefined;
+		return () => {
+			setReactorsMounted(true);
+			void whenOverlaysClosed().then(() => setReactorsEmoji(first));
+		};
+	};
 
 	const menuItems = () => (
 		<MessageMenuItems
@@ -726,6 +735,7 @@ export const MessageItem = (props: MessageItemProps) => {
 		<MessageRow
 			platform={platform()}
 			author={author()}
+			badge={bridged() ? undefined : <PrimaryBadge profile={profile()} />}
 			via={viaLabel(profile())}
 			timestamp={message().timestamp}
 			now={chat.now?.()}
@@ -982,6 +992,7 @@ export const MessageItem = (props: MessageItemProps) => {
 					image={imageActions()}
 					gif={gifAction()}
 					onLinkPreviews={linkPreviewsAction()}
+					onViewReactions={drawerReactionsAction()}
 					onDelete={confirmDeleteAction()}
 					hidden={hidden()}
 					onHide={confirmHideAction()}

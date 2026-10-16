@@ -5,6 +5,7 @@ export default adminChannelAudience.view({
 		<>
 			<s.Header />
 			<s.Body />
+			<s.Bar />
 		</>
 	),
 });

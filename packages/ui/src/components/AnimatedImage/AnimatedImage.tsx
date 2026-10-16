@@ -56,28 +56,46 @@ const hideStyle = (
 	return { ...style, display: "none" };
 };
 
-const frameScale = (image: HTMLImageElement, frameSize?: number) => {
-	const width = Math.max(image.naturalWidth, 1);
-	const height = Math.max(image.naturalHeight, 1);
-	const edgeLimit = MAX_FRAME_EDGE / Math.max(width, height);
-	if (!frameSize) return Math.min(1, edgeLimit);
-	const ratio = typeof devicePixelRatio === "number" ? devicePixelRatio : 1;
-	const coverLimit = (frameSize * Math.max(1, ratio)) / Math.min(width, height);
-	return Math.min(1, edgeLimit, coverLimit);
-};
+const pixelRatio = () =>
+	typeof devicePixelRatio === "number" ? Math.max(1, devicePixelRatio) : 1;
 
 const drawFrame = (
 	canvas: HTMLCanvasElement,
 	image: HTMLImageElement,
 	frameSize?: number,
 ) => {
-	const scale = frameScale(image, frameSize);
-	canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-	canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-	const context = canvas.getContext("2d");
-	if (!context) return;
-	context.imageSmoothingQuality = "high";
-	context.drawImage(image, 0, 0, canvas.width, canvas.height);
+	const width = Math.max(image.naturalWidth, 1);
+	const height = Math.max(image.naturalHeight, 1);
+	const context = () => {
+		const found = canvas.getContext("2d");
+		if (found) found.imageSmoothingQuality = "high";
+		return found;
+	};
+	if (frameSize) {
+		const side = Math.min(width, height);
+		const edge = Math.max(
+			1,
+			Math.round(Math.min(side, frameSize * pixelRatio(), MAX_FRAME_EDGE)),
+		);
+		canvas.width = edge;
+		canvas.height = edge;
+		context()?.drawImage(
+			image,
+			(width - side) / 2,
+			(height - side) / 2,
+			side,
+			side,
+			0,
+			0,
+			edge,
+			edge,
+		);
+		return;
+	}
+	const scale = Math.min(1, MAX_FRAME_EDGE / Math.max(width, height));
+	canvas.width = Math.max(1, Math.round(width * scale));
+	canvas.height = Math.max(1, Math.round(height * scale));
+	context()?.drawImage(image, 0, 0, canvas.width, canvas.height);
 };
 
 const playHostOf = (element: HTMLImageElement, demandOnly: boolean) =>

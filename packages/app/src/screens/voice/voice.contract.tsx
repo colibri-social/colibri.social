@@ -9,17 +9,20 @@ import {
 	type VoiceTileData,
 } from "@colibri-social/ui";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
-import { batch, createMemo, createSignal, Show } from "solid-js";
+import { batch, createMemo, createSignal, type JSX, Show } from "solid-js";
 import { skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
 import { VOICE_CHANNEL } from "../../data/types";
 import { type VoiceCall, voice } from "../../data/voice";
 import { defineContract, slot } from "../../screen/define";
+import { usePlatform } from "../../screen/platform";
 import { useOptionalDesktopShell } from "../../shell/desktop/context";
 import { useStack } from "../../shell/stack";
 import { canInSpace } from "../admin/space-admin";
 import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
+import { useMemberMenu } from "../members/member-menu";
 import { useProfileSheet } from "../profile/profile-sheet";
+import { callTiles } from "./tiles";
 import { closeVoicePrompt, voicePrompt } from "./voice-prompt";
 
 export type VoiceArgs = { space?: string; channel?: string };
@@ -97,7 +100,29 @@ export const voiceScreen = defineContract({
 			const current = target();
 			return current ? voice.participants(current.channel) : [];
 		};
-		const tiles = (): VoiceTileData[] => participants();
+		const tiles = (): VoiceTileData[] => {
+			const current = target();
+			if (!current || !joined()) return participants();
+			return callTiles({
+				participants: participants(),
+				videos: voice.videos(),
+				viewer: data.viewer.did,
+				view: data.preferences.client().voiceView,
+			});
+		};
+		const platform = usePlatform();
+		const memberMenu = useMemberMenu();
+		const memberMenuFor = (did: string, element: JSX.Element) => {
+			const space = target()?.space;
+			if (!space || platform() !== "desktop") return element;
+			return memberMenu.contextMenu(did, space, element, "contents");
+		};
+		const openMemberMenu = (did: string) => {
+			const space = target()?.space;
+			if (!space || platform() === "desktop") return;
+			close();
+			memberMenu.open(did, space);
+		};
 		const canManage = () => canInSpace(community(), "channel.update");
 		const profileSheet = useProfileSheet();
 		const openParticipant = (did: string) =>
@@ -162,6 +187,8 @@ export const voiceScreen = defineContract({
 			name,
 			participants,
 			openParticipant,
+			memberMenuFor,
+			openMemberMenu,
 			tiles,
 			canManage,
 			joinMuted,
@@ -200,6 +227,10 @@ export const voiceScreen = defineContract({
 				channelName={m.name()}
 				participants={m.participants()}
 				onOpenParticipant={m.openParticipant}
+				onParticipantMenu={m.openMemberMenu}
+				participantMenu={(participant, row) =>
+					m.memberMenuFor(participant.id, row)
+				}
 				emptyText={VOICE_COPY.empty}
 			/>
 		)),
@@ -221,6 +252,8 @@ export const voiceScreen = defineContract({
 				portrait={p.portrait}
 				focusedKey={p.shareFocus ? voice.focusedKey() : undefined}
 				onFocusChange={p.shareFocus ? voice.setFocusedKey : undefined}
+				tileMenu={(tile, element) => m.memberMenuFor(tile.id, element)}
+				onTileMenu={(tile) => m.openMemberMenu(tile.id)}
 			/>
 		)),
 		Controls: slot((m, p: { size?: CallControlSize }) => (

@@ -118,8 +118,8 @@ importers:
         specifier: workspace:0.4.0
         version: link:../../packages/client
       '@colibri-social/lexicons':
-        specifier: ^2.15.0
-        version: 2.15.0
+        specifier: ^2.16.0
+        version: 2.16.0
       '@colibri-social/lib':
         specifier: workspace:*
         version: link:../../packages/lib
@@ -340,6 +340,9 @@ importers:
       '@atproto/oauth-client-browser':
         specifier: 0.0.0-spaces-alpha-20261001173819
         version: 0.0.0-spaces-alpha-20261001173819(patch_hash=026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f)
+      '@colibri-social/assets':
+        specifier: workspace:*
+        version: link:../assets
       '@colibri-social/lib':
         specifier: workspace:*
         version: link:../lib
@@ -361,13 +364,16 @@ importers:
       '@tauri-apps/plugin-http':
         specifier: ^2.8.2
         version: 2.8.2
+      mediasoup-client:
+        specifier: ^3.21.0
+        version: 3.23.2
       solid-js:
         specifier: ^1.9.15
         version: 1.9.15
     devDependencies:
       '@colibri-social/lexicons':
-        specifier: ^2.15.0
-        version: 2.15.0
+        specifier: ^2.16.0
+        version: 2.16.0
       '@tailwindcss/vite':
         specifier: ^4.1.18
         version: 4.3.3(vite@8.3.0(@types/node@25.9.7)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1))
@@ -430,8 +436,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20261001173819
         version: 0.0.0-spaces-alpha-20261001173819(patch_hash=026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f)
       '@colibri-social/lexicons':
-        specifier: ^2.15.0
-        version: 2.15.0
+        specifier: ^2.16.0
+        version: 2.16.0
       '@kobalte/core':
         specifier: ^0.13.11
         version: 0.13.14(solid-js@1.9.15)
@@ -674,8 +680,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20261001173819
         version: 0.0.0-spaces-alpha-20261001173819
       '@colibri-social/lexicons':
-        specifier: ^2.15.0
-        version: 2.15.0
+        specifier: ^2.16.0
+        version: 2.16.0
       mdast-util-from-markdown:
         specifier: ^2.0.2
         version: 2.0.3(supports-color@11.0.0)
@@ -1671,8 +1677,8 @@ packages:
     resolution: {integrity: sha512-dlT1m5e/0yUL0kRNcQn7yGLVThkgbB0Ga/1AmfDDC/8ik6AIiSf2QLQO2zPYvefsHP0aFgxO93cVLCCfDp7kzQ==}
     engines: {node: '>= 20.12.0'}
 
-  '@colibri-social/lexicons@2.15.0':
-    resolution: {integrity: sha512-QN0UoWh641q/ZgO0mN14GGvdteZ6B/NZgDVrxNq1GheFKZjQNnM96jw9aUcnGmr/GcuVp8HoD1Z9raxGZ1AM1g==}
+  '@colibri-social/lexicons@2.16.0':
+    resolution: {integrity: sha512-QzeRyRdS5gejWlpnr7i82Qqzm+lRv2PdoWPpRQ4EQvrkTtLYRTMLTEye3qbp+bThyOxkcnFVGnvLMCbhEm+DXQ==}
 
   '@corvu/dialog@0.2.4':
     resolution: {integrity: sha512-n54vJq+fOy8GVrnYBdJpD6JXNuyx7LOeMrRxwzAvZnYGpW8+AA12tnb/P/2emJj/HjOO5otheGKb0breshdFlA==}
@@ -8438,7 +8444,7 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
 
-  '@colibri-social/lexicons@2.15.0':
+  '@colibri-social/lexicons@2.16.0':
     dependencies:
       '@atproto/lex': 0.0.0-spaces-alpha-20261001173819
       '@atproto/lex-data': 0.0.0-spaces-alpha-20261001173819

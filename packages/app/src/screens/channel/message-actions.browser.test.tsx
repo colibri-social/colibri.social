@@ -284,9 +284,9 @@ describe("message rendering", () => {
 				?.getAttribute("data-highlight") ??
 				mention.getAttribute("data-highlight"),
 		).toBe("mention");
-		expect(mention.querySelector("[data-author-owner]")).not.toBeNull();
+		expect(mention.querySelector("[data-owner-badge]")).not.toBeNull();
 		const plain = await findArticle("In! I can drive");
-		expect(plain.querySelector("[data-author-owner]")).toBeNull();
+		expect(plain.querySelector("[data-owner-badge]")).toBeNull();
 		const post = await findArticle("Latest from the guides");
 		await until(() => !!post.querySelector("[data-bluesky-embed]"));
 		expect(post.querySelector("[data-bluesky-embed]")?.textContent).toContain(

@@ -10,6 +10,7 @@ export default profile.view({
 			<div class="flex flex-col gap-4 px-4 pt-4">
 				<s.Actions />
 				<s.Bio />
+				<s.Activity />
 				<s.Developer />
 			</div>
 			<s.StatusEditor />

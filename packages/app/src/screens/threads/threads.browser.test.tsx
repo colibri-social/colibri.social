@@ -189,6 +189,30 @@ describe("thread list", () => {
 		);
 	});
 
+	it("shows the AT-URI developer card in the thread drawer with developer mode on", async () => {
+		const { store, root } = await mount(DEV_THREADS);
+		store.setControls({ developerMode: true });
+		const drawer = await openListMenu(root, "Spring tuning");
+		await until(() => !!drawer.querySelector("[data-developer-mode]"));
+		const card = drawer.querySelector("[data-developer-mode]") as HTMLElement;
+		expect(buttonNamed(card, "Copy AT-URI")).toBeDefined();
+		const thread = store
+			.channel(`at://${HQ}/space/${TEXT}/dev` as never)
+			.threads.value()
+			?.find((entry) => entry.name === "Spring tuning");
+		expect(card.querySelector("a")?.getAttribute("href")).toBe(
+			`https://pdsls.dev/${thread?.space}`,
+		);
+		await expectNoLayoutIssues(drawer);
+	});
+
+	it("hides the developer card in the thread drawer with developer mode off", async () => {
+		const { store, root } = await mount(DEV_THREADS);
+		store.setControls({ developerMode: false });
+		const drawer = await openListMenu(root, "Spring tuning");
+		expect(drawer.querySelector("[data-developer-mode]")).toBeNull();
+	});
+
 	it("follows and leaves a thread", async () => {
 		const { store, root } = await mount(DEV_THREADS);
 		const drawer = await openListMenu(root, "Spring tuning");

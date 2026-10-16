@@ -2,6 +2,13 @@ import { createSignal } from "solid-js";
 import { describe, expect, it, vi } from "vitest";
 import type { Did, Presence, VoiceState } from "./types";
 import { createVoice } from "./voice";
+import type {
+	VoiceConnection,
+	VoiceConnectionMonitor,
+	VoiceEndReason,
+	VoiceModeration,
+	VoiceSession,
+} from "./voice/types";
 import type { VoiceSound } from "./voice-sounds";
 
 const VIEWER = "did:plc:viewer" as Did;
@@ -172,5 +179,154 @@ describe("voice", () => {
 		expect(sent).toEqual([]);
 		voice.toggleCamera();
 		expect(played).toHaveLength(5);
+	});
+});
+
+const fakeMonitor = () => {
+	const [connection, setConnection] = createSignal<VoiceConnection>({
+		state: "disconnected",
+		quality: "unknown",
+		latency: null,
+	});
+	const [speakers, setSpeakers] = createSignal<ReadonlySet<string>>(new Set());
+	const [moderation, setModeration] = createSignal<
+		Record<string, VoiceModeration>
+	>({});
+	let endedListener: ((reason: VoiceEndReason) => void) | undefined;
+	let cameraResult = true;
+	const monitor = {
+		connection,
+		start: vi.fn((session?: VoiceSession) => {
+			if (session) setConnection({ ...connection(), state: "connecting" });
+		}),
+		stop: vi.fn(),
+		setMuted: vi.fn(),
+		setDeafened: vi.fn(),
+		setCamera: vi.fn(async (on: boolean) => on && cameraResult),
+		speakers,
+		videos: () => [],
+		moderation,
+		onEnded: (listener: (reason: VoiceEndReason) => void) => {
+			endedListener = listener;
+			return () => {
+				endedListener = undefined;
+			};
+		},
+	} satisfies VoiceConnectionMonitor;
+	return {
+		monitor,
+		setSpeakers,
+		setModeration,
+		end: (reason: VoiceEndReason) => endedListener?.(reason),
+		failCamera: () => {
+			cameraResult = false;
+		},
+	};
+};
+
+const setupWithMonitor = () => {
+	const fake = fakeMonitor();
+	const notices: string[] = [];
+	const sent: (VoiceState | undefined)[] = [];
+	const presence = new Map<string, Presence>();
+	const [version, setVersion] = createSignal(0);
+	const played: VoiceSound[] = [];
+	const { controller, connect } = createVoice(
+		(sound) => played.push(sound),
+		() => fake.monitor,
+		(key) => notices.push(key),
+	);
+	connect({
+		communities: { value: () => [], loading: () => false },
+		space: () => {
+			throw new Error("unused");
+		},
+		viewer: { did: VIEWER, handle: "viewer.test", displayName: "Viewer" },
+		presenceOf: (did: Did) => {
+			version();
+			return presence.get(did);
+		},
+		inVoice: (channel: string) =>
+			version() >= 0 &&
+			[...presence.entries()]
+				.filter(([, value]) => value.voice?.channel === channel)
+				.map(([did]) => did as Did),
+		isSpeaking: () => true,
+		setVoice: async (state: VoiceState | undefined) => {
+			sent.push(state);
+			const next: Presence = { onlineState: "online" };
+			if (state) next.voice = state;
+			presence.set(VIEWER, next);
+			setVersion((value) => value + 1);
+			return next;
+		},
+	} as unknown as Parameters<typeof connect>[0]);
+	return { voice: controller, fake, notices, sent, played };
+};
+
+describe("voice with a media engine", () => {
+	it("starts the engine with the viewer's mute state", () => {
+		const { voice, fake } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE }, { muted: true });
+		expect(fake.monitor.start).toHaveBeenCalledWith({
+			channel: LOUNGE,
+			muted: true,
+			deafened: false,
+		});
+	});
+
+	it("passes mute and deafen changes to the engine", () => {
+		const { voice, fake } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		voice.toggleDeafen();
+		expect(fake.monitor.setDeafened).toHaveBeenLastCalledWith(true);
+		expect(fake.monitor.setMuted).toHaveBeenLastCalledWith(true);
+		voice.toggleMute();
+		expect(fake.monitor.setDeafened).toHaveBeenLastCalledWith(false);
+		expect(fake.monitor.setMuted).toHaveBeenLastCalledWith(false);
+	});
+
+	it("takes speaking state from the engine, only for the joined call", async () => {
+		const { voice, fake } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		await Promise.resolve();
+		expect(voice.participants(LOUNGE)[0]?.speaking).toBe(false);
+		fake.setSpeakers(new Set([VIEWER]));
+		expect(voice.participants(LOUNGE)[0]?.speaking).toBe(true);
+	});
+
+	it("keeps the viewer muted while a moderator has them muted", () => {
+		const { voice, fake, notices, played } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE }, { muted: true });
+		fake.setModeration({
+			[VIEWER]: { serverMuted: true, serverDeafened: false },
+		});
+		played.length = 0;
+		voice.toggleMute();
+		expect(voice.muted()).toBe(true);
+		expect(notices).toEqual(["serverMuted"]);
+		expect(played).toEqual([]);
+		expect(voice.moderationOf(VIEWER).serverMuted).toBe(true);
+	});
+
+	it("leaves and tells the viewer when the engine ends the call", () => {
+		const { voice, fake, notices, sent, played } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		played.length = 0;
+		fake.end("moderator");
+		expect(voice.current()).toBeUndefined();
+		expect(notices).toEqual(["moderator"]);
+		expect(played).toEqual(["leave"]);
+		expect(sent.at(-1)).toBeUndefined();
+	});
+
+	it("turns the camera back off when the engine can't start it", async () => {
+		const { voice, fake } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		fake.failCamera();
+		voice.toggleCamera();
+		expect(voice.camera()).toBe(true);
+		await vi.waitFor(() => expect(voice.camera()).toBe(false));
+		expect(fake.monitor.setCamera).toHaveBeenCalledWith(true);
 	});
 });

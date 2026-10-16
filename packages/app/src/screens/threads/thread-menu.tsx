@@ -26,6 +26,7 @@ import { channelSlug, skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
 import type { SpaceRef, ThreadView } from "../../data/types";
 import { TEXT_CHANNEL } from "../../data/types";
+import { openExternalUrl } from "../../native/open-external";
 import { layerPath } from "../../shell/layers";
 import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 
@@ -304,6 +305,13 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 					view().viewer.hasUnread ? () => markRead(view()) : undefined
 				}
 				onCopyLink={() => copyLink(view())}
+				developerMode={data.controls().developerMode}
+				onCopyAtUri={() =>
+					void copyText(view().space).then(() => toast.success("AT-URI copied"))
+				}
+				onShowOnPdsls={() =>
+					openExternalUrl(`https://pdsls.dev/${view().space}`)
+				}
 				onRename={
 					view().viewer.canManage
 						? () => showDialog(view(), "rename")
@@ -370,6 +378,12 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 									: undefined
 							}
 							onCopyLink={() => copyLink(view())}
+							developerMode={data.controls().developerMode}
+							developer={{
+								copyLabel: "Copy AT-URI",
+								copyValue: view().space,
+								pdslsHref: `https://pdsls.dev/${view().space}`,
+							}}
 							onRename={
 								manage()
 									? (name) =>

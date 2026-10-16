@@ -7,7 +7,7 @@ export default spaceProfile.view({
 			<s.Header />
 			<div
 				data-scroll-y=""
-				class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+				class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-safe-offset-6"
 			>
 				<Show
 					when={!m.missing()}
@@ -17,10 +17,11 @@ export default spaceProfile.view({
 						</div>
 					}
 				>
-					<div class="flex flex-col gap-6 p-4 pb-safe-offset-6">
-						<s.Images />
+					<s.Images />
+					<div class="flex flex-1 flex-col gap-6 px-4 pt-4">
 						<s.Fields />
 						<s.Access />
+						<s.Bar />
 					</div>
 				</Show>
 			</div>

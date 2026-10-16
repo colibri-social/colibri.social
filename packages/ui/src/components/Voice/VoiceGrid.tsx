@@ -9,6 +9,7 @@ import {
 	Show,
 } from "solid-js";
 import { cx } from "../../utils/cx";
+import { createMenuTrigger } from "../../utils/gestures";
 import { KeyedFor } from "../../utils/keyed";
 import type { AvatarSize } from "../Avatar/Avatar";
 import {
@@ -38,6 +39,7 @@ export type VoiceTileProps = {
 	portrait?: boolean;
 	focused?: boolean;
 	onSelect?: () => void;
+	onMenu?: () => void;
 	class?: string;
 	style?: JSX.CSSProperties;
 };
@@ -102,6 +104,13 @@ export const VoiceTile = (props: VoiceTileProps) => {
 	const [box, setBox] = createSignal({ w: 0, h: 0 });
 	let observer: ResizeObserver | undefined;
 	onCleanup(() => observer?.disconnect());
+	const bind = (element: HTMLElement) => {
+		observe(element);
+		createMenuTrigger(element, {
+			enabled: () => !!props.onMenu,
+			onMenu: () => props.onMenu?.(),
+		});
+	};
 	const observe = (element: HTMLElement) => {
 		observer?.disconnect();
 		const read = () =>
@@ -233,7 +242,7 @@ export const VoiceTile = (props: VoiceTileProps) => {
 			when={props.onSelect}
 			fallback={
 				<figure
-					ref={observe}
+					ref={bind}
 					data-voice-tile=""
 					data-speaking={speaking() ? "" : undefined}
 					data-kind={props.tile.kind ?? "participant"}
@@ -246,7 +255,7 @@ export const VoiceTile = (props: VoiceTileProps) => {
 			}
 		>
 			<button
-				ref={observe}
+				ref={bind}
 				type="button"
 				data-voice-tile=""
 				data-speaking={speaking() ? "" : undefined}
@@ -281,6 +290,8 @@ export type VoiceGridProps = {
 	focusedKey?: string | null;
 	onFocusChange?: (key: string | null) => void;
 	portrait?: boolean;
+	tileMenu?: (tile: VoiceTileData, element: JSX.Element) => JSX.Element;
+	onTileMenu?: (tile: VoiceTileData) => void;
 	class?: string;
 };
 
@@ -353,6 +364,17 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 		};
 	};
 
+	const menuFor = (tile: () => VoiceTileData | undefined) => {
+		if (!props.onTileMenu) return undefined;
+		return () => {
+			const current = tile();
+			if (current) props.onTileMenu?.(current);
+		};
+	};
+
+	const wrap = (tile: () => VoiceTileData, element: JSX.Element) =>
+		props.tileMenu ? props.tileMenu(tile(), element) : element;
+
 	const px = (value: number | undefined) =>
 		value === undefined ? undefined : `${Math.floor(value)}px`;
 
@@ -379,17 +401,21 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 								style={{ gap: `${gap()}px` }}
 							>
 								<KeyedFor each={row()} by={voiceTileKey}>
-									{(tile) => (
-										<VoiceTile
-											tile={tile()}
-											portrait={props.portrait}
-											onSelect={toggle(tile)}
-											style={{
-												width: px(tileSize()?.w),
-												height: px(tileSize()?.h),
-											}}
-										/>
-									)}
+									{(tile) =>
+										wrap(
+											tile,
+											<VoiceTile
+												tile={tile()}
+												portrait={props.portrait}
+												onSelect={toggle(tile)}
+												onMenu={menuFor(tile)}
+												style={{
+													width: px(tileSize()?.w),
+													height: px(tileSize()?.h),
+												}}
+											/>,
+										)
+									}
 								</KeyedFor>
 							</div>
 						)}
@@ -398,16 +424,20 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 			>
 				{(tile) => (
 					<>
-						<VoiceTile
-							tile={tile()}
-							portrait={props.portrait}
-							focused
-							onSelect={toggle(tile)}
-							style={{
-								width: px(focusedSize()?.w),
-								height: px(focusedSize()?.h),
-							}}
-						/>
+						{wrap(
+							tile,
+							<VoiceTile
+								tile={tile()}
+								portrait={props.portrait}
+								focused
+								onSelect={toggle(tile)}
+								onMenu={menuFor(tile)}
+								style={{
+									width: px(focusedSize()?.w),
+									height: px(focusedSize()?.h),
+								}}
+							/>,
+						)}
 						<Show when={others().length}>
 							<div
 								data-voice-strip=""
@@ -418,19 +448,23 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 								}}
 							>
 								<KeyedFor each={others()} by={voiceTileKey}>
-									{(other) => (
-										<VoiceTile
-											tile={other()}
-											portrait={props.portrait}
-											compact
-											onSelect={toggle(other)}
-											class="shrink-0"
-											style={{
-												height: `${STRIP_HEIGHT}px`,
-												width: `${Math.round((STRIP_HEIGHT * 16) / 9)}px`,
-											}}
-										/>
-									)}
+									{(other) =>
+										wrap(
+											other,
+											<VoiceTile
+												tile={other()}
+												portrait={props.portrait}
+												compact
+												onSelect={toggle(other)}
+												onMenu={menuFor(other)}
+												class="shrink-0"
+												style={{
+													height: `${STRIP_HEIGHT}px`,
+													width: `${Math.round((STRIP_HEIGHT * 16) / 9)}px`,
+												}}
+											/>,
+										)
+									}
 								</KeyedFor>
 							</div>
 						</Show>

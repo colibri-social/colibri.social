@@ -10,6 +10,7 @@ export default bridge.view({
 				<s.Toggles />
 				<s.Links />
 				<s.Danger />
+				<s.Bar />
 			</Show>
 		</>
 	),

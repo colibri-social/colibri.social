@@ -210,26 +210,31 @@ describe("roles", () => {
 		expect(roleRows(root).at(-1)?.textContent).toContain("Night crew");
 	});
 
-	it("edits a role, asks before discarding, and updates names everywhere", async () => {
+	it("edits a role, blocks going back while dirty, and updates names everywhere", async () => {
 		const { root, store } = await mount(`/app/c/${HQ}/manage/roles`);
 		await until(() => !!rowNamed(root, "Testers"));
 		rowNamed(root, "Testers")?.click();
 		await until(() => location.pathname.includes("/manage/role/testers"));
 		await until(() => nameField(root)?.value === "Testers");
+		const bar = () =>
+			activeScreen(root).querySelector<HTMLElement>(
+				"[data-unsaved-changes-bar]",
+			);
+		expect(bar()?.dataset.visible).toBeUndefined();
 		type(nameField(root) as HTMLInputElement, "QA crew");
+		await until(() => bar()?.dataset.visible !== undefined);
 		buttonNamed(activeScreen(root), "Back to roles")?.click();
-		await until(() => !!dialogNamed("Discard changes?"));
+		await until(() => bar()?.dataset.attention !== undefined);
 		await wait(300);
-		buttonNamed(
-			dialogNamed("Discard changes?") as HTMLElement,
-			"Cancel",
-		)?.click();
-		await until(() => !dialogNamed("Discard changes?"));
+		expect(dialogNamed("Discard changes?")).toBeUndefined();
 		expect(location.pathname.includes("/manage/role/testers")).toBe(true);
-		buttonNamed(activeScreen(root), "Save")?.click();
+		buttonNamed(bar() as HTMLElement, "Save")?.click();
+		await until(() => hqSpace(store).roleByKey("testers")?.name === "QA crew");
+		await until(() => bar()?.dataset.visible === undefined);
+		expect(location.pathname.includes("/manage/role/testers")).toBe(true);
+		buttonNamed(activeScreen(root), "Back to roles")?.click();
 		await until(() => location.pathname.endsWith("/manage/roles"));
 		await until(() => !!rowNamed(root, "QA crew"));
-		expect(hqSpace(store).roleByKey("testers")?.name).toBe("QA crew");
 	});
 
 	it("edits permissions on their own page and shows developer details", async () => {
@@ -283,10 +288,19 @@ describe("roles", () => {
 				).length ===
 				before + 1,
 		);
+		expect(
+			activeScreen(root).querySelector<HTMLElement>(
+				"[data-unsaved-changes-bar]",
+			)?.dataset.visible,
+		).toBeDefined();
 		history.back();
 		await until(() => location.pathname.endsWith("/manage/role/testers"));
 		await settled(root);
-		expect(buttonNamed(activeScreen(root), "Save")).toBeTruthy();
+		expect(
+			activeScreen(root).querySelector<HTMLElement>(
+				"[data-unsaved-changes-bar]",
+			)?.dataset.visible,
+		).toBeDefined();
 		expect(buttonNamed(activeScreen(root), "Delete role")).toBeTruthy();
 		store.setControls({ developerMode: false });
 	});

@@ -17,6 +17,9 @@ import {
 	resolveChromeMode,
 } from "../../shell/desktop/window-chrome";
 import { useStack } from "../../shell/stack";
+import { CameraPreviewHost } from "./camera-preview";
+import { installVoiceNotices } from "./notices";
+import { callTiles } from "./tiles";
 
 const CORNER_KEY = "colibri:voice-floating-corner";
 const WIDTH_KEY = "colibri:voice-floating-width";
@@ -36,6 +39,7 @@ const storedWidth = () => {
 };
 
 export default function VoiceDock() {
+	installVoiceNotices();
 	const data = useData();
 	const stack = useStack();
 	const shell = useOptionalDesktopShell();
@@ -64,7 +68,13 @@ export default function VoiceDock() {
 
 	const participants = createMemo((): VoiceTileData[] => {
 		const current = call();
-		return current ? voice.participants(current.channel) : [];
+		if (!current) return [];
+		return callTiles({
+			participants: voice.participants(current.channel),
+			videos: voice.videos(),
+			viewer: data.viewer.did,
+			view: data.preferences.client().voiceView,
+		});
 	});
 	const [lastSpeaker, setLastSpeaker] = createSignal<string>();
 	createEffect(() => {
@@ -86,7 +96,7 @@ export default function VoiceDock() {
 		);
 	});
 
-	const hasVideo = () => voice.camera();
+	const hasVideo = () => voice.camera() || voice.videos().length > 0;
 	const floating = () =>
 		voice.connection().state !== "disconnected" &&
 		!voice.floatingDismissed() &&
@@ -108,6 +118,7 @@ export default function VoiceDock() {
 		<Show when={call()}>
 			{(current) => (
 				<>
+					<CameraPreviewHost />
 					<VoiceStatusPanel
 						state={voice.connection().state}
 						quality={voice.connection().quality}

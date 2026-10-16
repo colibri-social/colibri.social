@@ -40,7 +40,7 @@ export const JumpCard = (props: JumpCardProps) => {
 			data-visible={props.visible || undefined}
 			inert={!props.visible || undefined}
 			class={cx(
-				"pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-4",
+				"pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center px-4",
 				props.animate && motion,
 				props.visible ? "opacity-100" : "translate-y-1 opacity-0",
 			)}

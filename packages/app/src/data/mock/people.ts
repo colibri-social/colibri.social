@@ -10,6 +10,8 @@ export type PersonSeed = {
 	name: string;
 	handle: string;
 	accent?: string;
+	gradient?: readonly [string, string];
+	pronouns?: string;
 	state: OnlineState;
 	status?: {
 		text: string;
@@ -21,6 +23,14 @@ export type PersonSeed = {
 	bridged?: { platform: string; remoteId: string };
 	noAvatar?: boolean;
 	bio?: string;
+	badges?: string[];
+	activity?: {
+		kind: "listening" | "playing";
+		title: string;
+		subtitle?: string;
+		detail?: string;
+		source: string;
+	};
 };
 
 export const VIEWER_KEY = "lou";
@@ -31,15 +41,19 @@ export const NAMED_PEOPLE: readonly PersonSeed[] = [
 		name: "Louis",
 		handle: "lou.gg",
 		accent: "#a579ff",
+		pronouns: "he/him",
 		state: "online",
 		status: { text: "Building the new client", emoji: "🛠️" },
 		bio: "Making Colibri. Birds, type, and too many side projects.",
+		badges: ["team"],
 	},
 	{
 		key: "mira",
 		name: "Mira Okafor",
 		handle: "mira.bsky.social",
 		accent: "#ff8fab",
+		gradient: ["#ff8fab", "#7c3aed"],
+		pronouns: "she/they, sie/ihr",
 		state: "online",
 		status: { text: "Sketching all day", emoji: "✏️" },
 	},
@@ -49,6 +63,7 @@ export const NAMED_PEOPLE: readonly PersonSeed[] = [
 		name: "Kris",
 		handle: "kris.colibri.social",
 		accent: "#5cadff",
+		pronouns: "they/them",
 		state: "away",
 		status: { text: "Back after lunch", emoji: "🥪", expiresInMinutes: 45 },
 	},
@@ -57,6 +72,8 @@ export const NAMED_PEOPLE: readonly PersonSeed[] = [
 		name: "Ana Lindqvist",
 		handle: "ana.lindqvist.se",
 		accent: "#7ee0a1",
+		gradient: ["#7ee0a1", "#1d4f5c"],
+		pronouns: "hon/henne, she/her",
 		state: "dnd",
 		status: { text: "Deep work, ping if urgent", emoji: "🎧" },
 	},
@@ -84,6 +101,14 @@ export const NAMED_PEOPLE: readonly PersonSeed[] = [
 		handle: "noor.haddad.me",
 		accent: "#ffc861",
 		state: "online",
+		badges: ["play-store-tester"],
+		activity: {
+			kind: "listening",
+			title: "Manual Drive 1991",
+			subtitle: "DUSQK",
+			detail: "Manual Drive 1991",
+			source: "teal.fm",
+		},
 	},
 	{ key: "eli", name: "Eli Brandt", handle: "eli.codes", state: "away" },
 	{
@@ -120,6 +145,13 @@ export const NAMED_PEOPLE: readonly PersonSeed[] = [
 		name: "Lena Fischer",
 		handle: "lena.bsky.social",
 		state: "online",
+		badges: ["supporter-ten"],
+		activity: {
+			kind: "playing",
+			title: "Celeste",
+			subtitle: "Chapter 7",
+			source: "Steam",
+		},
 	},
 	{
 		key: "dev",
@@ -406,6 +438,7 @@ export type PersonRecord = PersonSeed & { did: Did };
 export type ProfileEdit = {
 	displayName?: string;
 	description?: string | null;
+	pronouns?: string | null;
 	avatar?: string | null;
 	banner?: string | null;
 	syncBluesky?: boolean;
@@ -417,6 +450,8 @@ const applyEdit = (view: ProfileView, edit: ProfileEdit) => {
 	if (edit.displayName !== undefined) view.displayName = edit.displayName;
 	if (edit.description === null) delete view.description;
 	else if (edit.description !== undefined) view.description = edit.description;
+	if (edit.pronouns === null) delete view.pronouns;
+	else if (edit.pronouns !== undefined) view.pronouns = edit.pronouns;
 	if (edit.avatar === null) delete view.avatar;
 	else if (edit.avatar !== undefined) view.avatar = edit.avatar as never;
 	if (edit.banner === null) delete view.banner;
@@ -451,6 +486,14 @@ export const createPeople = (generatedCount: number, now: number) => {
 		const value: Presence = { onlineState: person.state };
 		const status = statusFor(person);
 		if (status) value.status = status;
+		if (person.activity) {
+			value.activities = [
+				{
+					...person.activity,
+					startedAt: asDatetime(now - 4 * 60_000),
+				},
+			];
+		}
 		presence.set(person.did, value);
 	}
 
@@ -468,7 +511,15 @@ export const createPeople = (generatedCount: number, now: number) => {
 		if (person.key === VIEWER_KEY)
 			view.banner = bannerUrl("colibri-lou-banner");
 		if (person.bio) view.description = person.bio;
-		if (person.accent) view.theme = { accentColor: person.accent };
+		if (person.pronouns) view.pronouns = person.pronouns;
+		if (person.accent || person.gradient) {
+			view.theme = {};
+			if (person.accent) view.theme.accentColor = person.accent;
+			if (person.gradient) {
+				const [primary, secondary] = person.gradient;
+				view.theme.gradient = { primary, secondary };
+			}
+		}
 		if (person.bridged) {
 			view.bridge = {
 				registration: "3lbridgereg22",

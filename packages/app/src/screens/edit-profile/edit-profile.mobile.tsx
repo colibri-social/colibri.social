@@ -36,13 +36,14 @@ export default editProfile.view({
 				<div
 					ref={scroller}
 					data-scroll-y=""
-					class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-safe-offset-6 scroll-pb-6"
+					class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-safe-offset-6 scroll-pb-24"
 				>
 					<s.Images />
-					<div class="flex flex-col gap-6 px-4 pt-4">
+					<div class="flex flex-1 flex-col gap-6 px-4 pt-4">
 						<s.Fields />
 						<s.Theme />
 						<s.Sync />
+						<s.Bar />
 					</div>
 				</div>
 			</div>

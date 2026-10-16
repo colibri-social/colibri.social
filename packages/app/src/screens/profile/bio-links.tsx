@@ -146,5 +146,7 @@ export const createBioRenderer = () => {
 				links.onExternalLink(href, { label, disguised: false }),
 		});
 	};
-	return { render, LinkWarningOutlet: links.LinkWarningOutlet };
+	const openLink = (href: string, label: string) =>
+		links.onExternalLink(href, { label, disguised: false });
+	return { render, openLink, LinkWarningOutlet: links.LinkWarningOutlet };
 };

@@ -10,6 +10,7 @@ import {
 	PROFILE_BANNER_MAX_BYTES,
 	ProfileImagePicker,
 	TextArea,
+	TextField,
 	ThemeColorPicker,
 	ToggleRow,
 	toast,
@@ -18,7 +19,12 @@ import {
 import { GalleryAddIcon } from "@solar-icons/solid/bold/gallery-add";
 import { GalleryRemoveIcon } from "@solar-icons/solid/bold/gallery-remove";
 import { createMemo, createSignal, Show } from "solid-js";
-import { bioError, displayNameError } from "../../data/profile-limits";
+import {
+	bioError,
+	displayNameError,
+	pronounsError,
+} from "../../data/profile-limits";
+import { themeColorsOf, themeFrom } from "../../data/profile-theme";
 import type { ProfileTheme } from "../../data/source";
 import {
 	type ProfileDraft,
@@ -27,31 +33,10 @@ import {
 } from "../../data/store";
 import { defineContract, slot } from "../../screen/define";
 import { useStack } from "../../shell/stack";
-import { useUnsavedChanges } from "../../shell/unsaved-changes";
+import { createUnsavedForm, UnsavedBar } from "../settings/unsaved-form";
 import { usePageHost } from "./page-host";
 
 type Platform = { platform?: "mobile" | "desktop" };
-
-const DEFAULT_BANNER = "#2b2b31";
-
-const themeColorsOf = (theme: ProfileTheme | undefined) => {
-	if (theme?.gradient?.primary && theme.gradient.secondary) {
-		return [theme.gradient.primary, theme.gradient.secondary];
-	}
-	return [theme?.bannerColor ?? DEFAULT_BANNER];
-};
-
-const themeFrom = (
-	accent: string | undefined,
-	colors: string[],
-): ProfileTheme => {
-	const theme: ProfileTheme = {};
-	if (accent) theme.accentColor = accent;
-	const [primary, secondary] = colors;
-	if (primary && secondary) theme.gradient = { primary, secondary };
-	else if (primary) theme.bannerColor = primary;
-	return theme;
-};
 
 const sameTheme = (a: ProfileTheme | undefined, b: ProfileTheme) =>
 	JSON.stringify(themeFrom(a?.accentColor, themeColorsOf(a))) ===
@@ -68,6 +53,7 @@ export const editProfile = defineContract({
 			viewer.displayName ?? "",
 		);
 		const [bio, setBio] = createSignal(viewer.description ?? "");
+		const [pronouns, setPronouns] = createSignal(viewer.pronouns ?? "");
 		const [accent, setAccent] = createSignal(viewer.theme?.accentColor);
 		const [themeColors, setThemeColors] = createSignal(
 			themeColorsOf(viewer.theme),
@@ -92,6 +78,7 @@ export const editProfile = defineContract({
 			() =>
 				displayName() !== (viewer.displayName ?? "") ||
 				bio() !== (viewer.description ?? "") ||
+				pronouns() !== (viewer.pronouns ?? "") ||
 				syncBluesky() !== !!viewer.syncBluesky ||
 				avatarFile() !== undefined ||
 				bannerFile() !== undefined ||
@@ -101,7 +88,9 @@ export const editProfile = defineContract({
 			syncBluesky() ? undefined : displayNameError(displayName());
 		const descriptionError = () =>
 			syncBluesky() ? undefined : bioError(bio());
-		const valid = () => !nameError() && !descriptionError();
+		const pronounsProblem = () => pronounsError(pronouns());
+		const valid = () =>
+			!nameError() && !descriptionError() && !pronounsProblem();
 
 		const depth = () =>
 			host
@@ -109,19 +98,10 @@ export const editProfile = defineContract({
 				: stack.mounted().findIndex((layer) => layer.kind === "editProfile") +
 					1;
 
-		useUnsavedChanges({
-			depth,
-			dirty: () => dirty() && !saving(),
-			description: () => "Your edits to your profile won't be saved.",
-		});
-
-		const leave = () => {
-			if (!host) stack.forcePop();
-		};
-
 		const reset = () => {
 			setDisplayName(viewer.displayName ?? "");
 			setBio(viewer.description ?? "");
+			setPronouns(viewer.pronouns ?? "");
 			setAccent(viewer.theme?.accentColor);
 			setThemeColors(themeColorsOf(viewer.theme));
 			setSyncBluesky(!!viewer.syncBluesky);
@@ -135,14 +115,11 @@ export const editProfile = defineContract({
 
 		const save = async () => {
 			setAttempted(true);
-			if (!valid() || saving()) return;
-			if (!dirty()) {
-				leave();
-				return;
-			}
+			if (!valid() || saving() || !dirty()) return;
 			const draft: ProfileDraft = {
 				displayName: displayName(),
 				description: bio(),
+				pronouns: pronouns(),
 				avatar: avatarFile(),
 				banner: bannerFile(),
 				syncBluesky: syncBluesky(),
@@ -152,10 +129,8 @@ export const editProfile = defineContract({
 			setProgress({});
 			try {
 				await data.saveProfile(draft, { onProgress: setProgress });
-				setAvatarFile(undefined);
-				setBannerFile(undefined);
+				reset();
 				toast.success("Profile updated");
-				leave();
 			} catch {
 				toast.error("Couldn't update your profile");
 			} finally {
@@ -163,12 +138,17 @@ export const editProfile = defineContract({
 			}
 		};
 
+		const form = createUnsavedForm({ depth, dirty, saving, save, reset });
+
 		return {
 			viewer,
 			displayName,
 			setDisplayName,
 			bio,
 			setBio,
+			pronouns,
+			setPronouns,
+			pronounsError: pronounsProblem,
 			accent,
 			setAccent,
 			themeColors,
@@ -203,46 +183,14 @@ export const editProfile = defineContract({
 			back: () => stack.pop(),
 			dirty,
 			reset,
+			form,
 		};
 	},
 	slots: {
-		Header: slot((m, p: Platform) => (
-			<Show
-				when={p.platform === "desktop"}
-				fallback={
-					<NavHeader
-						title="Edit profile"
-						kind="back"
-						onNavigate={m.back}
-						safeTop
-						action={{
-							type: "text",
-							label: "Save",
-							onClick: () => void m.save(),
-							loading: m.saving(),
-						}}
-					/>
-				}
-			>
-				<div
-					data-profile-save-bar=""
-					class="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-popover px-4 py-3"
-				>
-					<Show when={m.dirty() && !m.saving()}>
-						<Button variant="secondary" onClick={m.reset}>
-							Reset
-						</Button>
-					</Show>
-					<Button
-						loading={m.saving()}
-						disabled={!m.dirty()}
-						onClick={() => void m.save()}
-					>
-						Save changes
-					</Button>
-				</div>
-			</Show>
+		Header: slot((m) => (
+			<NavHeader title="Edit profile" kind="back" onNavigate={m.back} safeTop />
 		)),
+		Bar: slot((m) => <UnsavedBar form={m.form} />),
 		Images: slot((m, p: Platform) => (
 			<div data-profile-edit-images="" class="relative">
 				<ProfileImagePicker
@@ -376,6 +324,19 @@ export const editProfile = defineContract({
 					placeholder={m.viewer.handle}
 					error={m.nameError()}
 					disabled={m.syncBluesky() || m.saving()}
+				/>
+				<TextField
+					label="Pronouns"
+					placeholder="they/them"
+					description={
+						m.syncBluesky()
+							? "Leave this empty to show your Bluesky pronouns."
+							: "Shown next to your handle on your profile."
+					}
+					value={m.pronouns()}
+					onChange={m.setPronouns}
+					error={m.pronounsError()}
+					disabled={m.saving()}
 				/>
 				<TextArea
 					label="Bio"

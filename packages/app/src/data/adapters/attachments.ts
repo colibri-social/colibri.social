@@ -54,7 +54,7 @@ export const splitAttachments = (
 				width: attachment.width,
 				height: attachment.height,
 				name,
-				alt: name,
+				alt: attachment.alt,
 				kind,
 				downloadHref: attachment.url,
 				progress: uploading,

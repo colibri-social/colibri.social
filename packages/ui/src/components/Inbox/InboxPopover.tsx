@@ -120,8 +120,10 @@ const InboxPopoverFrame = (props: InboxPopoverFrameProps) => {
 				open={open()}
 				onOpenChange={setOpen}
 				anchorRef={() => button}
+				getAnchorRect={sidebarCornerRect}
+				slide={false}
 				placement="right-start"
-				gutter={8}
+				gutter={0}
 				modal={false}
 				overflowPadding={overflowPadding()}
 			>
@@ -268,6 +270,26 @@ const InboxDay = (props: {
 			<ul class="m-0 flex flex-col gap-0.5 px-2">{props.children}</ul>
 		</li>
 	);
+};
+
+const INBOX_RAIL_GUTTER = 8;
+
+const sidebarCornerRect = (anchor?: HTMLElement) => {
+	if (!anchor) return undefined;
+	const sidebar = anchor
+		.closest("[data-shell-navigation]")
+		?.querySelector<HTMLElement>("[data-shell-sidebar]");
+	const own = anchor.getBoundingClientRect();
+	if (!sidebar) {
+		return {
+			x: own.x + INBOX_RAIL_GUTTER,
+			y: own.y,
+			width: own.width,
+			height: own.height,
+		};
+	}
+	const corner = sidebar.getBoundingClientRect();
+	return { x: corner.left, y: corner.top, width: 0, height: own.height };
 };
 
 export const InboxPopover = (props: InboxPopoverProps) => {

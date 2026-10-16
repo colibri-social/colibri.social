@@ -71,6 +71,17 @@ const buttonNamed = (scope: ParentNode, name: string | RegExp) =>
 			: name.test(textOf(element)),
 	);
 
+const unsavedBar = (scope: ParentNode) =>
+	scope.querySelector<HTMLElement>("[data-unsaved-changes-bar]");
+
+const barShown = (scope: ParentNode) =>
+	unsavedBar(scope)?.dataset.visible !== undefined;
+
+const saveFromBar = async (scope: ParentNode) => {
+	await until(() => barShown(scope));
+	buttonNamed(unsavedBar(scope) as HTMLElement, "Save")?.click();
+};
+
 const dialogNamed = (name: string) =>
 	Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"]')).find(
 		(element) =>
@@ -248,7 +259,9 @@ describe("channel settings", () => {
 		const { root, space } = await mount(`/app/c/${HQ}/manage/channel/design`);
 		const page = await openPage(root, "Channel settings");
 		await expectNoLayoutIssues(page);
-		expect(buttonNamed(page, "Save")).toBeUndefined();
+		expect(barShown(page)).toBe(false);
+		expect(unsavedBar(page)?.hasAttribute("inert")).toBe(true);
+		expect(buttonNamed(topPane(root), "Save")?.closest("header")).toBeFalsy();
 		expect(buttonNamed(page, "Close channel settings")).toBeDefined();
 		const name = field(page, "Channel name") as HTMLInputElement;
 		expect(name.value).toBe("design");
@@ -270,13 +283,82 @@ describe("channel settings", () => {
 		staff?.click();
 		await until(() => category()?.textContent !== before);
 		expect(category()?.textContent).toContain("Staff");
-		await until(() => !!buttonNamed(page, "Save"));
-		buttonNamed(page, "Save")?.click();
+		await saveFromBar(page);
 		await until(() => space.channelBySlug("design")?.name === "design-review");
 		const view = space.channelBySlug("design");
 		expect(view?.description).toBe("Weekly critique of everything visual");
 		expect(view?.category).toBe("staff");
+		await until(() => !barShown(page));
+		expect(location.pathname).toBe(`/app/c/${HQ}/manage/channel/design`);
+	});
+
+	it("keeps the unsaved changes bar clear of the last control", async () => {
+		const { root } = await mount(`/app/c/${HQ}/manage/channel/design`);
+		const page = await openPage(root, "Channel settings");
+		typeInto(field(page, "Channel name") as HTMLInputElement, "design-2");
+		await until(() => barShown(page));
+		const scroller = page.querySelector<HTMLElement>("[data-scroll-y]");
+		if (scroller) scroller.scrollTop = scroller.scrollHeight;
+		await wait(250);
+		const last = buttonNamed(page, "Delete channel") as HTMLElement;
+		const bar = unsavedBar(page) as HTMLElement;
+		const card = bar.firstElementChild as HTMLElement;
+		expect(last.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+			card.getBoundingClientRect().top + 0.5,
+		);
+		const pane = topPane(root).getBoundingClientRect();
+		expect(card.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+			pane.bottom,
+		);
+		await expectNoLayoutIssues(page);
+	});
+
+	it("sets the channel's link previews and can follow the Space again", async () => {
+		const { root, space, store } = await mount(
+			`/app/c/${HQ}/manage/channel/design`,
+		);
+		const sent: Record<string, unknown>[] = [];
+		const update = store.source.updateChannel;
+		store.source.updateChannel = (input) => {
+			sent.push({ ...input });
+			return update(input);
+		};
+		const checked = (page: HTMLElement) =>
+			page.querySelector<HTMLInputElement>('input[type="radio"]:checked')
+				?.value;
+		const chooseAndSave = async (page: HTMLElement, title: string) => {
+			const row = Array.from(page.querySelectorAll<HTMLElement>("label")).find(
+				(element) => element.textContent?.trim().startsWith(title),
+			);
+			if (!row) throw new Error(`no ${title} choice`);
+			row.click();
+			await saveFromBar(page);
+			await until(() => !barShown(page));
+		};
+
+		const page = await openPage(root, "Channel settings");
+		await expectNoLayoutIssues(page);
+		expect(checked(page)).toBe("space");
+		expect(page.textContent).toContain("Previews are on there right now.");
+		await chooseAndSave(page, "Hide previews");
+		expect(space.channelBySlug("design")?.linkEmbeds).toBe(false);
+		expect(sent.at(-1)).toMatchObject({ linkEmbeds: false });
+		expect(sent.at(-1)).not.toHaveProperty("removeLinkEmbeds");
+		buttonNamed(page, "Close channel settings")?.click();
 		await until(() => location.pathname === `/app/c/${HQ}`);
+
+		await until(() => !!channelRow(root, "design"));
+		const drawer = await openDrawerFor(
+			channelRow(root, "design") as HTMLElement,
+			"design",
+		);
+		buttonNamed(drawer, "Edit channel")?.click();
+		const reopened = await openPage(root, "Channel settings");
+		await until(() => checked(reopened) === "off");
+		await chooseAndSave(reopened, "Follow the Space");
+		expect(sent.at(-1)).toMatchObject({ removeLinkEmbeds: true });
+		expect(sent.at(-1)).not.toHaveProperty("linkEmbeds");
+		expect(space.channelBySlug("design")?.linkEmbeds).toBeUndefined();
 	});
 
 	it("edits channel permissions on pushed pages that go back one level at a time", async () => {
@@ -300,19 +382,22 @@ describe("channel settings", () => {
 		await until(() => picker.querySelector("[data-audience-picker]") !== null);
 		await expectNoLayoutIssues(picker);
 		pick(picker, "Moderators");
+		await until(() => barShown(picker));
 		backFrom(root);
 		await until(
 			() => location.pathname === `/app/c/${HQ}/manage/channel-permissions/dev`,
 		);
 		await settledActive(root);
 		expect(row()?.textContent).toContain("1 role");
+		expect(barShown(permissions)).toBe(true);
 		backFrom(root);
 		await until(() => location.pathname === `/app/c/${HQ}/manage/channel/dev`);
 		await settledActive(root);
-		buttonNamed(page, "Save")?.click();
+		await saveFromBar(page);
 		await until(() => !!space.channelBySlug("dev")?.visibleToRoles?.length);
 		expect(space.channelBySlug("dev")?.visibleToRoles).toEqual(["mods"]);
-		await until(() => location.pathname === `/app/c/${HQ}`);
+		await until(() => !barShown(page));
+		expect(location.pathname).toBe(`/app/c/${HQ}/manage/channel/dev`);
 	});
 
 	it("opens the channel settings when a permissions link has no settings page under it", async () => {
@@ -343,16 +428,21 @@ describe("channel settings", () => {
 		await until(() => location.pathname === `/app/c/${HQ}`);
 	});
 
-	it("asks before discarding unsaved edits", async () => {
+	it("blocks closing with unsaved edits until they're cancelled", async () => {
 		const { root } = await mount(`/app/c/${HQ}/manage/channel/general`);
 		const page = await openPage(root, "Channel settings");
-		typeInto(field(page, "Channel name") as HTMLInputElement, "general-chat");
+		const name = field(page, "Channel name") as HTMLInputElement;
+		typeInto(name, "general-chat");
+		await until(() => barShown(page));
 		buttonNamed(page, "Close channel settings")?.click();
-		await until(() => !!dialogNamed("Discard changes?"));
-		const dialog = dialogNamed("Discard changes?") as HTMLElement;
+		await until(() => unsavedBar(page)?.dataset.attention !== undefined);
 		await wait(300);
-		await expectNoLayoutIssues(dialog);
-		buttonNamed(dialog, "Discard changes")?.click();
+		expect(dialogNamed("Discard changes?")).toBeUndefined();
+		expect(location.pathname).toBe(`/app/c/${HQ}/manage/channel/general`);
+		buttonNamed(unsavedBar(page) as HTMLElement, "Cancel")?.click();
+		await until(() => !barShown(page));
+		expect(name.value).toBe("general");
+		buttonNamed(page, "Close channel settings")?.click();
 		await until(() => location.pathname === `/app/c/${HQ}`);
 	});
 
@@ -515,8 +605,7 @@ describe("categories", () => {
 		);
 		await expectNoLayoutIssues(page);
 		typeInto(field(page, "Category name") as HTMLInputElement, "Engineering");
-		await until(() => !!buttonNamed(page, "Save"));
-		buttonNamed(page, "Save")?.click();
+		await saveFromBar(page);
 		await until(() =>
 			(space.categories.value() ?? []).some(
 				(category) =>
@@ -524,7 +613,8 @@ describe("categories", () => {
 			),
 		);
 		await until(() => !!categoryHeader(root, "Engineering"));
-		await until(() => location.pathname === `/app/c/${HQ}`);
+		await until(() => !barShown(page));
+		expect(location.pathname).toBe(`/app/c/${HQ}/manage/category/build`);
 	});
 
 	it("applies category see and post permissions to every channel in it", async () => {
@@ -559,7 +649,7 @@ describe("categories", () => {
 		backFrom(root);
 		await until(() => location.pathname.endsWith("/manage/category/build"));
 		await settledActive(root);
-		buttonNamed(page, "Save")?.click();
+		await saveFromBar(page);
 		const build = () =>
 			(space.categories.value() ?? []).find(
 				(category) => category.rkey === "build",
@@ -575,7 +665,7 @@ describe("categories", () => {
 					return served?.private === true && !served.visibleToRoles?.length;
 				}),
 		);
-		await until(() => location.pathname === `/app/c/${HQ}`);
+		await until(() => !barShown(page));
 	});
 
 	it("creates a private category whose new channels inherit its audience", async () => {

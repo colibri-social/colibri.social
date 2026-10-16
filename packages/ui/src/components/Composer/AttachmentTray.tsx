@@ -4,10 +4,11 @@ import { EyeIcon } from "@solar-icons/solid/bold/eye";
 import { EyeClosedIcon } from "@solar-icons/solid/bold/eye-closed";
 import { FileIcon } from "@solar-icons/solid/bold/file";
 import { RestartIcon } from "@solar-icons/solid/bold/restart";
-import { For, Show } from "solid-js";
+import { createSignal, For, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
+import { AttachmentAltDialog } from "./AttachmentAltDialog";
 
 export type PendingAttachment = {
 	id: string;
@@ -17,6 +18,7 @@ export type PendingAttachment = {
 	progress?: number;
 	failed?: boolean;
 	spoiler?: boolean;
+	alt?: string;
 };
 
 export type AttachmentTrayProps = {
@@ -25,6 +27,7 @@ export type AttachmentTrayProps = {
 	onRemove?: (id: string) => void;
 	onRetry?: (id: string) => void;
 	onToggleSpoiler?: (id: string) => void;
+	onAltChange?: (id: string, alt: string) => void;
 	class?: string;
 };
 
@@ -85,139 +88,192 @@ export const UploadProgress = (props: { progress: number; label?: string }) => (
 	</span>
 );
 
-export const AttachmentTray = (props: AttachmentTrayProps) => (
-	<Show when={props.items.length > 0}>
-		<div
-			data-attachment-tray=""
-			class={cx("flex flex-col gap-2 border-b border-border p-2", props.class)}
-		>
-			<Show when={props.max}>
-				{(max) => (
-					<span class="px-1 text-xs text-muted-foreground tabular-nums">
-						{props.items.length}/{max()} attachments
-					</span>
+export const AttachmentTray = (props: AttachmentTrayProps) => {
+	const [editingId, setEditingId] = createSignal<string>();
+	const [altOpen, setAltOpen] = createSignal(false);
+	const editing = () => props.items.find((item) => item.id === editingId());
+	return (
+		<Show when={props.items.length > 0}>
+			<div
+				data-attachment-tray=""
+				class={cx(
+					"flex flex-col gap-2 border-b border-border p-2",
+					props.class,
 				)}
-			</Show>
-			<ul class="-mx-1 -mt-1 -mb-1 flex list-none gap-2 overflow-x-auto p-1 pt-2.5 pr-2.5">
-				<For each={props.items}>
-					{(item) => (
-						<li
-							class="relative shrink-0"
-							data-spoiler={item.spoiler ? "" : undefined}
-							title={
-								item.size === undefined
-									? item.name
-									: `${item.name}, ${formatFileSize(item.size)}`
-							}
-						>
-							<div
-								class={cx(
-									"relative size-14 overflow-hidden rounded-control border bg-secondary",
-									item.failed ? "border-destructive" : "border-border",
-								)}
+			>
+				<Show when={props.max}>
+					{(max) => (
+						<span class="px-1 text-xs text-muted-foreground tabular-nums">
+							{props.items.length}/{max()} attachments
+						</span>
+					)}
+				</Show>
+				<ul class="-mx-1 -mt-1 -mb-1 flex list-none gap-2 overflow-x-auto p-1 pt-2.5 pr-2.5">
+					<For each={props.items}>
+						{(item) => (
+							<li
+								class="relative shrink-0"
+								data-spoiler={item.spoiler ? "" : undefined}
+								title={
+									item.size === undefined
+										? item.name
+										: `${item.name}, ${formatFileSize(item.size)}`
+								}
 							>
-								<Show
-									when={item.previewSrc}
-									fallback={
-										<span class="flex size-full flex-col items-center justify-center gap-0.5 text-muted-foreground">
-											<FileIcon class="size-5" />
-											<Show when={extensionOf(item.name)}>
-												{(extension) => (
-													<span class="text-xs leading-none font-semibold">
-														{extension()}
-													</span>
-												)}
-											</Show>
-										</span>
-									}
-								>
-									{(src) => (
-										<AnimatedImage
-											src={src()}
-											alt={item.name}
-											class={cx(
-												"size-full object-cover",
-												item.spoiler && "scale-110 blur-sm",
-											)}
-										/>
+								<div
+									class={cx(
+										"relative size-20 overflow-hidden rounded-control border bg-secondary",
+										item.failed ? "border-destructive" : "border-border",
 									)}
-								</Show>
-								<Show
-									when={
-										!item.failed &&
-										item.progress !== undefined &&
-										item.progress < 1
-									}
 								>
-									<UploadProgress progress={item.progress ?? 0} />
-								</Show>
-								<Show when={props.onToggleSpoiler && !item.failed}>
-									<Tooltip>
-										<TooltipTrigger
-											as="button"
-											type="button"
-											aria-label={`Mark ${item.name} as a spoiler`}
-											aria-pressed={!!item.spoiler}
-											data-attachment-spoiler=""
-											onClick={() => props.onToggleSpoiler?.(item.id)}
-											class={cx(
-												"focus-ring absolute bottom-1 left-1 flex size-6 cursor-pointer items-center justify-center rounded-control-xs border-0 [&>svg]:size-3.5",
-												"transition-colors duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)]",
-												item.spoiler
-													? "bg-primary-fill text-white hover:bg-primary-fill-highlight"
-													: "bg-black/60 text-white backdrop-blur-sm hover:bg-black/75",
-											)}
-										>
-											{item.spoiler ? <EyeClosedIcon /> : <EyeIcon />}
-										</TooltipTrigger>
-										<TooltipContent>
-											{item.spoiler ? "Hidden as a spoiler" : "Mark as spoiler"}
-										</TooltipContent>
-									</Tooltip>
-								</Show>
-								<Show when={item.failed}>
 									<Show
-										when={props.onRetry}
+										when={item.previewSrc}
 										fallback={
-											<span
-												role="img"
-												aria-label="Upload failed"
-												class="absolute inset-0 flex items-center justify-center bg-background/60 text-destructive"
-											>
-												<DangerTriangleIcon class="size-5" />
+											<span class="flex size-full flex-col items-center justify-center gap-0.5 text-muted-foreground">
+												<FileIcon class="size-5" />
+												<Show when={extensionOf(item.name)}>
+													{(extension) => (
+														<span class="text-xs leading-none font-semibold">
+															{extension()}
+														</span>
+													)}
+												</Show>
 											</span>
 										}
 									>
-										<button
-											type="button"
-											aria-label={`Upload failed, retry ${item.name}`}
-											data-attachment-retry=""
-											onClick={() => props.onRetry?.(item.id)}
-											class="focus-ring-inset absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-0.5 border-0 bg-background/70 text-destructive"
-										>
-											<RestartIcon class="size-5" />
-											<span class="text-xs leading-none font-semibold">
-												Retry
-											</span>
-										</button>
+										{(src) => (
+											<AnimatedImage
+												src={src()}
+												alt=""
+												class={cx(
+													"size-full object-cover",
+													item.spoiler && "scale-110 blur-sm",
+												)}
+											/>
+										)}
 									</Show>
-								</Show>
-							</div>
-							<button
-								type="button"
-								aria-label={`Remove ${item.name}`}
-								onClick={() => props.onRemove?.(item.id)}
-								class={cx(
-									"focus-ring absolute -top-1.5 -right-1.5 flex size-6 cursor-pointer items-center justify-center rounded-control-xs border border-border bg-popover text-muted-foreground",
-									"transition-colors duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)] hover:bg-secondary-highlight hover:text-foreground",
-								)}
-							>
-								<CloseIcon class="size-3.5" />
-							</button>
-						</li>
-					)}
-				</For>
-			</ul>
-		</div>
-	</Show>
-);
+									<Show
+										when={
+											!item.failed &&
+											item.progress !== undefined &&
+											item.progress < 1
+										}
+									>
+										<UploadProgress progress={item.progress ?? 0} />
+									</Show>
+									<Show when={props.onToggleSpoiler && !item.failed}>
+										<Tooltip>
+											<TooltipTrigger
+												as="button"
+												type="button"
+												aria-label={`Mark ${item.name} as a spoiler`}
+												aria-pressed={!!item.spoiler}
+												data-attachment-spoiler=""
+												onClick={() => props.onToggleSpoiler?.(item.id)}
+												class={cx(
+													"focus-ring absolute bottom-1 left-1 flex size-6 cursor-pointer items-center justify-center rounded-control-xs border-0 [&>svg]:size-3.5",
+													"transition-colors duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)]",
+													item.spoiler
+														? "bg-primary-fill text-white hover:bg-primary-fill-highlight"
+														: "bg-black/60 text-white backdrop-blur-sm hover:bg-black/75",
+												)}
+											>
+												{item.spoiler ? <EyeClosedIcon /> : <EyeIcon />}
+											</TooltipTrigger>
+											<TooltipContent>
+												{item.spoiler
+													? "Hidden as a spoiler"
+													: "Mark as spoiler"}
+											</TooltipContent>
+										</Tooltip>
+									</Show>
+									<Show
+										when={props.onAltChange && item.previewSrc && !item.failed}
+									>
+										<Tooltip>
+											<TooltipTrigger
+												as="button"
+												type="button"
+												aria-label={
+													item.alt
+														? `Edit alt text for ${item.name}`
+														: `Add alt text to ${item.name}`
+												}
+												data-attachment-alt=""
+												data-has-alt={item.alt ? "" : undefined}
+												onClick={() => {
+													setEditingId(item.id);
+													setAltOpen(true);
+												}}
+												class={cx(
+													"focus-ring absolute right-1 bottom-1 flex h-6 cursor-pointer items-center justify-center rounded-control-xs border-0 px-1.5 text-xs leading-none font-bold",
+													"transition-colors duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)]",
+													item.alt
+														? "bg-primary-fill text-white hover:bg-primary-fill-highlight"
+														: "bg-black/60 text-white backdrop-blur-sm hover:bg-black/75",
+												)}
+											>
+												ALT
+											</TooltipTrigger>
+											<TooltipContent>
+												{item.alt ? "Edit alt text" : "Add alt text"}
+											</TooltipContent>
+										</Tooltip>
+									</Show>
+									<Show when={item.failed}>
+										<Show
+											when={props.onRetry}
+											fallback={
+												<span
+													role="img"
+													aria-label="Upload failed"
+													class="absolute inset-0 flex items-center justify-center bg-background/60 text-destructive"
+												>
+													<DangerTriangleIcon class="size-5" />
+												</span>
+											}
+										>
+											<button
+												type="button"
+												aria-label={`Upload failed, retry ${item.name}`}
+												data-attachment-retry=""
+												onClick={() => props.onRetry?.(item.id)}
+												class="focus-ring-inset absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-0.5 border-0 bg-background/70 text-destructive"
+											>
+												<RestartIcon class="size-5" />
+												<span class="text-xs leading-none font-semibold">
+													Retry
+												</span>
+											</button>
+										</Show>
+									</Show>
+								</div>
+								<button
+									type="button"
+									aria-label={`Remove ${item.name}`}
+									onClick={() => props.onRemove?.(item.id)}
+									class={cx(
+										"focus-ring absolute -top-1.5 -right-1.5 flex size-6 cursor-pointer items-center justify-center rounded-control-xs border border-border bg-popover text-muted-foreground",
+										"transition-colors duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)] hover:bg-secondary-highlight hover:text-foreground",
+									)}
+								>
+									<CloseIcon class="size-3.5" />
+								</button>
+							</li>
+						)}
+					</For>
+				</ul>
+				<AttachmentAltDialog
+					open={altOpen() && !!editing()}
+					onOpenChange={setAltOpen}
+					previewSrc={editing()?.previewSrc}
+					value={editing()?.alt}
+					onSave={(alt) => {
+						const id = editingId();
+						if (id) props.onAltChange?.(id, alt);
+					}}
+				/>
+			</div>
+		</Show>
+	);
+};

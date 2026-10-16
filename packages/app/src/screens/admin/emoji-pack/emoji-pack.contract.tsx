@@ -22,6 +22,7 @@ import { NEW_ENTRY } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { useUnsavedChanges } from "../../../shell/unsaved-changes";
+import { createUnsavedForm, UnsavedBar } from "../../settings/unsaved-form";
 import { AdminNavHeader } from "../desktop/page-header";
 import {
 	createEmojiOptions,
@@ -148,19 +149,19 @@ export const adminEmojiPack = defineContract({
 						layer.id === args.id,
 				) + 1;
 
-		useUnsavedChanges({
-			depth,
-			dirty: () => dirty() && !saving(),
-			description: () =>
-				creating
-					? "This pack hasn't been created yet."
-					: "Your changes to the pack name haven't been saved.",
-		});
+		if (creating) {
+			useUnsavedChanges({
+				depth,
+				dirty: () => dirty() && !saving(),
+				description: () => "This pack hasn't been created yet.",
+			});
+		}
 
 		const save = async () => {
 			setAttempted(true);
 			const current = admin.community();
 			if (!current || packNameError(name()) || saving()) return;
+			if (!creating && !dirty()) return;
 			setSaving(true);
 			try {
 				if (creating) {
@@ -168,6 +169,7 @@ export const adminEmojiPack = defineContract({
 						...selected(),
 					]);
 					toast.success(`${name().trim()} created`);
+					stack.forcePop();
 				} else {
 					const target = pack();
 					if (!target) return;
@@ -177,9 +179,9 @@ export const adminEmojiPack = defineContract({
 						name: name().trim(),
 					});
 					setDraft(undefined);
+					setAttempted(false);
 					toast.success("Pack saved");
 				}
-				stack.forcePop();
 			} catch (error) {
 				toast.error(
 					emojiFailure(
@@ -191,6 +193,20 @@ export const adminEmojiPack = defineContract({
 				setSaving(false);
 			}
 		};
+
+		const unsaved = creating
+			? undefined
+			: createUnsavedForm({
+					depth,
+					dirty,
+					saving,
+					save,
+					saveDisabled: () => !!packNameError(name()),
+					reset: () => {
+						setDraft(undefined);
+						setAttempted(false);
+					},
+				});
 
 		const removePack = async () => {
 			const current = admin.community();
@@ -224,6 +240,7 @@ export const adminEmojiPack = defineContract({
 			saving,
 			canSave,
 			save,
+			unsaved,
 			deleteOpen,
 			setDeleteOpen,
 			removePack,
@@ -240,10 +257,10 @@ export const adminEmojiPack = defineContract({
 					m.creating ? "Create new Pack" : (m.pack()?.name ?? "Emoji pack")
 				}
 				action={
-					m.canManage() && !m.gone()
+					m.creating && m.canManage() && !m.gone()
 						? {
 								type: "text",
-								label: m.creating ? "Create" : "Save",
+								label: "Create",
 								onClick: () => void m.save(),
 								disabled: !m.canSave(),
 								loading: m.saving(),
@@ -252,6 +269,7 @@ export const adminEmojiPack = defineContract({
 				}
 			/>
 		)),
+		Bar: slot((m) => <UnsavedBar form={m.unsaved} />),
 		Unavailable: slot((m) => (
 			<Show when={m.missing() || m.gone() || !m.canManage()}>
 				<StatusScreen

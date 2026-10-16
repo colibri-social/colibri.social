@@ -31,8 +31,8 @@ const CHECKOUT = "https://opencollective.com/colibri-social";
 
 export const SUPPORT_TIERS: SupportTier[] = [
 	{
-		id: "supporter-five",
-		badge: badgeOf("supporter-five"),
+		id: "backer-five",
+		badge: badgeOf("backer-five"),
 		price: "$5",
 		cadence: "/ month",
 		blurb: "Keep the lights on and wear a badge for it on your profile.",

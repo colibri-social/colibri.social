@@ -100,6 +100,7 @@ const log = createLogger("store");
 export type ProfileDraft = {
 	displayName: string;
 	description: string;
+	pronouns?: string;
 	avatar?: File | null;
 	banner?: File | null;
 	syncBluesky: boolean;
@@ -132,6 +133,7 @@ export type PendingMessage = {
 	parent?: string;
 	attachments?: AttachmentView[];
 	uploads?: PendingUpload[];
+	suppressedEmbeds?: string[];
 	createdAt: string;
 	state: "pending" | "failed";
 };
@@ -141,6 +143,7 @@ export type PendingUpload = {
 	file: File;
 	previewSrc?: string;
 	spoiler?: boolean;
+	alt?: string;
 	progress: number;
 	attachment?: AttachmentView;
 	failed?: boolean;
@@ -185,7 +188,13 @@ export type ChannelData = {
 		facets?: Facet[];
 		parent?: string;
 		attachments?: AttachmentView[];
-		files?: { file: File; previewSrc?: string; spoiler?: boolean }[];
+		files?: {
+			file: File;
+			previewSrc?: string;
+			spoiler?: boolean;
+			alt?: string;
+		}[];
+		suppressedEmbeds?: string[];
 	}) => Promise<void>;
 	retry: (nonce: string) => Promise<void>;
 	discard: (nonce: string) => void;
@@ -1646,9 +1655,11 @@ export const createDataStore = (
 								onProgress: (progress) =>
 									patchUpload(entry.nonce, upload.id, { progress }),
 							});
-							const attachment: AttachmentView = upload.spoiler
-								? { ...uploaded, spoiler: true }
-								: uploaded;
+							const attachment: AttachmentView = {
+								...uploaded,
+								...(upload.spoiler ? { spoiler: true } : {}),
+								...(upload.alt ? { alt: upload.alt } : {}),
+							};
 							patchUpload(entry.nonce, upload.id, { attachment, progress: 1 });
 							return attachment;
 						} catch {
@@ -1686,6 +1697,9 @@ export const createDataStore = (
 						facets: entry.facets,
 						parent: entry.parent,
 						attachments: [...(entry.attachments ?? []), ...uploaded],
+						...(entry.suppressedEmbeds?.length
+							? { suppressedEmbeds: entry.suppressedEmbeds }
+							: {}),
 					});
 					sentNonces.set(message.rkey, entry.nonce);
 					settlePending(entry.nonce, message);
@@ -1874,11 +1888,15 @@ export const createDataStore = (
 						facets: input.facets,
 						parent: input.parent,
 						attachments: input.attachments,
+						...(input.suppressedEmbeds?.length
+							? { suppressedEmbeds: input.suppressedEmbeds }
+							: {}),
 						uploads: input.files?.map((file, index) => ({
 							id: `${index}`,
 							file: file.file,
 							previewSrc: file.previewSrc,
 							...(file.spoiler ? { spoiler: true } : {}),
+							...(file.alt ? { alt: file.alt } : {}),
 							progress: 0,
 						})),
 						createdAt: new Date().toISOString(),
@@ -2115,6 +2133,7 @@ export const createDataStore = (
 					options.onProgress?.({ ...progress });
 				};
 			const synced = draft.syncBluesky;
+			const pronouns = draft.pronouns?.trim();
 			const [avatar, banner] = await Promise.all([
 				synced ? undefined : uploadImage(draft.avatar, report("avatar")),
 				synced ? undefined : uploadImage(draft.banner, report("banner")),
@@ -2123,6 +2142,7 @@ export const createDataStore = (
 				syncBluesky: synced,
 				displayName: synced ? undefined : draft.displayName.trim(),
 				description: synced ? undefined : draft.description.trim(),
+				pronouns: synced && pronouns === "" ? null : pronouns,
 				avatar,
 				banner,
 				theme: draft.theme,

@@ -1,6 +1,5 @@
-import type { types as MediasoupTypes } from "mediasoup-client";
+import { channelSpace } from "@colibri-social/lexicons";
 import { describe, expect, it } from "vitest";
-import { channelSpace } from "./lexicons";
 import {
 	closeProducerFrame,
 	connectTransportFrame,
@@ -11,7 +10,6 @@ import {
 	encodeMediaSource,
 	encodeVoiceFrame,
 	getRtpCapabilitiesFrame,
-	heartbeatFrame,
 	isServerVoiceFrame,
 	joinFrame,
 	leaveFrame,
@@ -20,7 +18,8 @@ import {
 	setSelfStateFrame,
 	VOICE_SIGNAL_LXM,
 	VOICE_SIGNAL_PATH,
-} from "./voice-frames";
+	voiceHeartbeatFrame,
+} from "./frames.js";
 
 const CHANNEL = channelSpace(
 	"did:plc:examplecommunityauthority01",
@@ -95,7 +94,7 @@ describe("client frame round trips", () => {
 		const dtlsParameters = {
 			fingerprints: [{ algorithm: "sha-256", value: "aa:bb" }],
 			role: "client",
-		} as unknown as MediasoupTypes.DtlsParameters;
+		};
 		const frame = connectTransportFrame("transport-1", dtlsParameters);
 		expect(frame.transportId).toBe("transport-1");
 		const decoded = decodeVoiceFrame(encodeVoiceFrame(frame));
@@ -105,7 +104,7 @@ describe("client frame round trips", () => {
 	it("round-trips produce and encodes the source on the wire", () => {
 		const rtpParameters = {
 			codecs: [],
-		} as unknown as MediasoupTypes.RtpParameters;
+		};
 		const frame = produceFrame("transport-1", "audio", rtpParameters, "mic");
 		expect(frame.source).toBe("microphone");
 		expect(frame.kind).toBe("audio");
@@ -123,7 +122,7 @@ describe("client frame round trips", () => {
 	it("round-trips consume", () => {
 		const rtpCapabilities = {
 			codecs: [],
-		} as unknown as MediasoupTypes.RtpCapabilities;
+		};
 		const frame = consumeFrame("transport-2", "producer-1", rtpCapabilities);
 		const decoded = decodeVoiceFrame(encodeVoiceFrame(frame));
 		expect(decoded).toEqual(frame);
@@ -145,7 +144,7 @@ describe("client frame round trips", () => {
 	});
 
 	it("round-trips heartbeat", () => {
-		const frame = heartbeatFrame();
+		const frame = voiceHeartbeatFrame();
 		const decoded = decodeVoiceFrame(encodeVoiceFrame(frame));
 		expect(decoded).toEqual(frame);
 	});

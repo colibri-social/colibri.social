@@ -25,6 +25,29 @@ describe("createDirtyGuard", () => {
 		expect(guard.prompting()).toBe(false);
 	});
 
+	it("blocks a leave without prompting when every dirty source handles it", () => {
+		const guard = createDirtyGuard();
+		const onBlocked = vi.fn();
+		guard.register({ dirty: () => true, onBlocked });
+		guard.register({ dirty: () => false });
+		const leave = vi.fn();
+		guard.attempt(leave);
+		guard.attempt(leave);
+		expect(leave).not.toHaveBeenCalled();
+		expect(onBlocked).toHaveBeenCalledTimes(2);
+		expect(guard.prompting()).toBe(false);
+	});
+
+	it("prompts when a dirty source has no block handler", () => {
+		const guard = createDirtyGuard();
+		const onBlocked = vi.fn();
+		guard.register({ dirty: () => true, onBlocked });
+		guard.register({ dirty: () => true });
+		guard.attempt(vi.fn());
+		expect(onBlocked).not.toHaveBeenCalled();
+		expect(guard.prompting()).toBe(true);
+	});
+
 	it("drops the held leave when the person keeps editing", () => {
 		const guard = createDirtyGuard();
 		guard.register({ dirty: () => true });
