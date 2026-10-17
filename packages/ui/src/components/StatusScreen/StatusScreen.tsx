@@ -19,7 +19,7 @@ export const StatusScreen = (props: StatusScreenProps) => {
 			data-status-screen=""
 			role="status"
 			class={cx(
-				"flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 py-10 text-center",
+				"flex min-h-0 flex-1 flex-col items-center justify-center-safe gap-4 overflow-y-auto px-6 py-10 text-center",
 				props.class,
 			)}
 		>

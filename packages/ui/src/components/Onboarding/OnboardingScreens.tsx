@@ -79,6 +79,7 @@ export type SignInScreenProps = {
 	onHandleChange?: (handle: string) => void;
 	onHandleQuery?: (query: string) => void;
 	handleSuggestions?: readonly HandleSuggestion[];
+	highlightFirstSuggestion?: boolean;
 	onSignIn: (handle: string, account?: HandleSuggestion) => void;
 	onCreateAccount?: () => void;
 	error?: JSX.Element;
@@ -117,6 +118,7 @@ export const SignInScreen = (props: SignInScreenProps) => {
 					label="Handle or username"
 					placeholder="alice.bsky.social"
 					suggestions={props.handleSuggestions}
+					highlightFirst={props.highlightFirstSuggestion}
 					onQuery={props.onHandleQuery}
 					onInput={(value) => {
 						setHandle(value);

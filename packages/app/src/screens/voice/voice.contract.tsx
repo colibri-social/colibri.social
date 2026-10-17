@@ -2,12 +2,15 @@ import {
 	type CallControlSize,
 	CallControls,
 	ChannelHeader,
+	IconButton,
 	VoiceJoinActions,
+	VoiceJoinPrompt,
 	VoiceJoinRoster,
 	VoiceSheetHeader,
 	VoiceStage,
 	type VoiceTileData,
 } from "@colibri-social/ui";
+import { ChatRoundDotsIcon } from "@solar-icons/solid/bold/chat-round-dots";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
 import { batch, createMemo, createSignal, type JSX, Show } from "solid-js";
 import { skeyOf } from "../../data/ids";
@@ -219,6 +222,16 @@ export const voiceScreen = defineContract({
 					platform="desktop"
 					name={m.name()}
 					icon={<VolumeSmallIcon />}
+					actions={
+						<IconButton
+							variant="ghost"
+							size="md"
+							label={m.chatOpen() ? "Close chat" : "Open chat"}
+							aria-pressed={!!m.chatOpen()}
+							icon={<ChatRoundDotsIcon />}
+							onClick={m.openChat}
+						/>
+					}
 				/>
 			</Show>
 		)),
@@ -232,6 +245,14 @@ export const voiceScreen = defineContract({
 					m.memberMenuFor(participant.id, row)
 				}
 				emptyText={VOICE_COPY.empty}
+			/>
+		)),
+		DesktopJoin: slot((m) => (
+			<VoiceJoinPrompt
+				channelName={m.name()}
+				participants={m.participants()}
+				emptyText={VOICE_COPY.empty}
+				onJoin={m.join}
 			/>
 		)),
 		JoinActions: slot((m) => (

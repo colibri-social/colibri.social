@@ -5,9 +5,9 @@
 	"identifier": "social.colibri.app",
 	"build": {
 		"beforeDevCommand": "pnpm dev",
-		"devUrl": "http://127.0.0.1:1420",
+		"devUrl": "http://localhost:5173",
 		"beforeBuildCommand": "pnpm build",
-		"frontendDist": "../dist"
+		"frontendDist": "../../app/dist"
 	},
 	"app": {
 		"windows": [
@@ -29,9 +29,6 @@
 		"active": true,
 		"targets": "all",
 		"createUpdaterArtifacts": true,
-		"resources": {
-			"../../assets/files/twemoji/72x72": "twemoji/72x72"
-		},
 		"icon": [
 			"icons/32x32.png",
 			"icons/128x128.png",

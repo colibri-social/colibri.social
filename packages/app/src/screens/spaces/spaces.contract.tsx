@@ -723,6 +723,11 @@ export const spaces = defineContract({
 						desktop() ? undefined : (id) => m.openParticipantMenu(id)
 					}
 					onClick={() => m.openChannel(channel)}
+					onOpenChat={
+						desktop() && channel.viewer.canRead
+							? () => m.openVoiceChatPane(channel)
+							: undefined
+					}
 					onOpenSettings={
 						desktop() && m.can("channel.update")
 							? () => m.editChannel(channel)

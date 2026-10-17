@@ -23,6 +23,7 @@ import {
 	VoiceJoinActions,
 	VoiceJoinDrawer,
 	VoiceJoinPanel,
+	VoiceJoinPrompt,
 	VoiceJoinRoster,
 	VoiceParticipantRow,
 	VoiceSheetHeader,
@@ -1391,5 +1392,87 @@ export const FloatingWindowResize: Story = {
 		await userEvent.keyboard("{ArrowLeft}");
 		await expect(win).toHaveAttribute("data-corner", "bl");
 		await expect(Number(output.textContent)).toBeCloseTo(max, 0);
+	},
+};
+
+const joinFromPrompt = fn();
+
+export const DesktopJoinPrompt: Story = {
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => (
+		<Screen class="flex min-h-dvh flex-col items-center justify-center gap-12 bg-card p-6 text-foreground">
+			<div data-testid="empty" class="flex w-full justify-center">
+				<VoiceJoinPrompt channelName="Lounge" onJoin={joinFromPrompt} />
+			</div>
+			<div data-testid="two" class="flex w-full justify-center">
+				<VoiceJoinPrompt
+					channelName="Lounge"
+					participants={people.slice(0, 2)}
+					onJoin={joinFromPrompt}
+				/>
+			</div>
+			<div data-testid="many" class="flex w-full justify-center">
+				<VoiceJoinPrompt
+					channelName="Lounge"
+					participants={people}
+					onJoin={joinFromPrompt}
+				/>
+			</div>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		const text = (id: string) =>
+			canvasElement.querySelector(
+				`[data-testid="${id}"] [data-voice-join-text]`,
+			)?.textContent;
+		await expect(text("empty")).toBe(
+			"This voice channel is empty. Join to get the conversation started!",
+		);
+		await expect(text("two")).toBe("Lou and Lis are here.");
+		await expect(text("many")).toBe(
+			`Lou, Lis and ${people.length - 2} others are here.`,
+		);
+		const button = within(
+			canvasElement.querySelector('[data-testid="two"]') as HTMLElement,
+		).getByRole("button", { name: "Join voice" });
+		const prompt = button.closest("[data-voice-join-prompt]") as HTMLElement;
+		const buttonBox = button.getBoundingClientRect();
+		const promptBox = prompt.getBoundingClientRect();
+		await expect(buttonBox.height).toBe(36);
+		await expect(
+			Math.abs(
+				buttonBox.left +
+					buttonBox.width / 2 -
+					(promptBox.left + promptBox.width / 2),
+			),
+		).toBeLessThan(1);
+		await userEvent.click(button);
+		await expect(joinFromPrompt).toHaveBeenCalledTimes(1);
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
+export const TileBannerFill: Story = {
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => (
+		<Screen class="flex min-h-dvh bg-background p-4">
+			<div class="h-60 w-96">
+				<VoiceTile
+					tile={{
+						id: "banner",
+						name: "Banner",
+						avatarSrc: storyImages.tealIcon(),
+						bannerFill: "linear-gradient(135deg, #112233, #445566)",
+					}}
+				/>
+			</div>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		const tile = canvasElement.querySelector(
+			"[data-voice-tile]",
+		) as HTMLElement;
+		await expect(tile.style.background).toContain("linear-gradient");
+		await expect(tile.style.background).toContain("rgb(17, 34, 51)");
 	},
 };

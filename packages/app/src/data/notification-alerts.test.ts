@@ -32,6 +32,7 @@ const context = (
 	spaceMuted: false,
 	spaceLevel: "all",
 	channelMuted: false,
+	threadMuted: false,
 	now: NOW,
 	...overrides,
 });
@@ -41,10 +42,19 @@ describe("shouldAlertNotification", () => {
 		expect(shouldAlertNotification(view(), context())).toBe(true);
 	});
 
-	it("stays quiet while the app is hidden", () => {
+	it("alerts while the app is hidden", () => {
 		expect(shouldAlertNotification(view(), context({ visible: false }))).toBe(
-			false,
+			true,
 		);
+	});
+
+	it("alerts for the channel on screen while the app is hidden", () => {
+		expect(
+			shouldAlertNotification(
+				view(),
+				context({ visible: false, viewing: CHANNEL }),
+			),
+		).toBe(true);
 	});
 
 	it("stays quiet in do not disturb", () => {
@@ -134,6 +144,15 @@ describe("shouldAlertNotification", () => {
 		const muted = context({ channelMuted: true });
 		expect(shouldAlertNotification(view(), muted)).toBe(false);
 		expect(shouldAlertNotification(view({ kind: "mention" }), muted)).toBe(
+			true,
+		);
+	});
+
+	it("lets mentions and replies through a muted thread", () => {
+		const muted = context({ threadMuted: true });
+		const threaded = view({ thread: THREAD });
+		expect(shouldAlertNotification(threaded, muted)).toBe(false);
+		expect(shouldAlertNotification({ ...threaded, kind: "reply" }, muted)).toBe(
 			true,
 		);
 	});

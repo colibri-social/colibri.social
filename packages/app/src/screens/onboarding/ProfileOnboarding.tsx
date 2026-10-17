@@ -16,7 +16,6 @@ import {
 	ProfileSourceScreen,
 	profileSetupOptions,
 	renderDefaultAvatar,
-	requestBrowserNotificationPermission,
 	Spinner,
 	WelcomeScreen,
 } from "@colibri-social/ui";
@@ -35,6 +34,7 @@ import { describeError } from "../../data/error-copy";
 import { themeColorsOf, themeFrom } from "../../data/profile-theme";
 import type { ProfileSeed, ProfileSetup } from "../../data/source";
 import type { DataStore } from "../../data/store";
+import { deviceNotifications } from "../../native/notifications/device";
 
 const TITLES: Record<OnboardingStep, string> = {
 	welcome: "Welcome to Colibri Social",
@@ -106,6 +106,7 @@ export const ProfileOnboarding = (props: ProfileOnboardingProps) => {
 	};
 
 	const save = async (result: OnboardingResult) => {
+		deviceNotifications().dismissPrompt();
 		setSaving({ kind: "saving" });
 		try {
 			const profile = result.profile;
@@ -291,7 +292,7 @@ export const ProfileOnboarding = (props: ProfileOnboardingProps) => {
 						</Match>
 						<Match when={onboarding.step() === "notifications"}>
 							<NotificationsScreen
-								requestPermission={requestBrowserNotificationPermission}
+								requestPermission={() => deviceNotifications().request()}
 								onDone={onboarding.finish}
 							/>
 						</Match>

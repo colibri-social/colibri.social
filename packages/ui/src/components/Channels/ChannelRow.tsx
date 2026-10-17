@@ -1,4 +1,5 @@
 import { BellOffIcon } from "@solar-icons/solid/bold/bell-off";
+import { ChatRoundDotsIcon } from "@solar-icons/solid/bold/chat-round-dots";
 import { ChatSquareDotsIcon } from "@solar-icons/solid/bold/chat-square-dots";
 import { FileIcon } from "@solar-icons/solid/bold/file";
 import { GalleryMinimalisticIcon } from "@solar-icons/solid/bold/gallery-minimalistic";
@@ -78,7 +79,50 @@ const bindGestures = (
 	};
 };
 
-const SettingsButton = (props: { label: string; onClick: () => void }) => (
+const PRIVATE_ICON_MASK =
+	"radial-gradient(circle at calc(100% - 2px) calc(100% - 2px), transparent 6.5px, #000 7px)";
+
+const ChannelIcon = (props: {
+	private?: boolean;
+	class?: string;
+	children: JSX.Element;
+}) => (
+	<span
+		data-channel-icon=""
+		class={cx("relative flex size-4 shrink-0", props.class)}
+	>
+		<span
+			class="flex size-4 [&>svg]:size-4"
+			style={
+				props.private
+					? {
+							"mask-image": PRIVATE_ICON_MASK,
+							"-webkit-mask-image": PRIVATE_ICON_MASK,
+						}
+					: undefined
+			}
+		>
+			{props.children}
+		</span>
+		<Show when={props.private}>
+			<span
+				role="img"
+				aria-label="Private"
+				data-channel-private=""
+				class="absolute right-[-3px] bottom-[-3px] flex size-2.5 [&>svg]:size-2.5"
+			>
+				<LockKeyholeMinimalisticIcon />
+			</span>
+		</Show>
+	</span>
+);
+
+const RowActionButton = (props: {
+	label: string;
+	icon: JSX.Element;
+	action: "settings" | "chat";
+	onClick: () => void;
+}) => (
 	<button
 		type="button"
 		aria-label={props.label}
@@ -87,11 +131,21 @@ const SettingsButton = (props: { label: string; onClick: () => void }) => (
 			event.stopPropagation();
 			props.onClick();
 		}}
-		data-channel-settings=""
+		data-channel-settings={props.action === "settings" ? "" : undefined}
+		data-channel-chat={props.action === "chat" ? "" : undefined}
 		class="relative z-10 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-[4px] border-0 bg-transparent p-0 text-muted-foreground opacity-0 outline-none group-hover/channel:opacity-100 group-data-[active]/channel:opacity-100 hover:bg-secondary-highlight hover:text-foreground focus-visible:opacity-100 focus-ring [&>svg]:size-4"
 	>
-		<SettingsIcon />
+		{props.icon}
 	</button>
+);
+
+const SettingsButton = (props: { label: string; onClick: () => void }) => (
+	<RowActionButton
+		label={props.label}
+		icon={<SettingsIcon />}
+		action="settings"
+		onClick={props.onClick}
+	/>
 );
 
 export const ChannelRow = (props: ChannelRowProps) => {
@@ -136,15 +190,15 @@ export const ChannelRow = (props: ChannelRowProps) => {
 				)}
 			>
 				<span class="flex h-5 w-full min-w-0 items-center gap-2">
-					<span
+					<ChannelIcon
+						private={props.private}
 						class={cx(
-							"flex size-4 shrink-0 [&>svg]:size-4",
 							lit() ? "text-foreground" : "text-muted-foreground",
 							props.muted && "opacity-60",
 						)}
 					>
 						<ChatSquareDotsIcon />
-					</span>
+					</ChannelIcon>
 					<span
 						data-channel-name=""
 						class={cx(
@@ -156,15 +210,6 @@ export const ChannelRow = (props: ChannelRowProps) => {
 					>
 						{props.name}
 					</span>
-					<Show when={props.private}>
-						<span
-							role="img"
-							aria-label="Private"
-							class="flex size-3 shrink-0 text-muted-foreground [&>svg]:size-3"
-						>
-							<LockKeyholeMinimalisticIcon />
-						</span>
-					</Show>
 					<Show when={props.muted}>
 						<span
 							role="img"
@@ -293,15 +338,15 @@ export const ChannelThreadRow = (props: ChannelThreadRowProps) => {
 							: "bg-muted hover:bg-muted"),
 				)}
 			>
-				<span
+				<ChannelIcon
+					private={props.private}
 					class={cx(
-						"flex size-4 shrink-0 [&>svg]:size-4",
 						lit() ? "text-foreground" : "text-muted-foreground",
 						props.muted && "opacity-60",
 					)}
 				>
 					<ThreadIcon />
-				</span>
+				</ChannelIcon>
 				<span
 					data-thread-name=""
 					class={cx(
@@ -313,15 +358,6 @@ export const ChannelThreadRow = (props: ChannelThreadRowProps) => {
 				>
 					{props.name}
 				</span>
-				<Show when={props.private}>
-					<span
-						role="img"
-						aria-label="Private"
-						class="flex size-3 shrink-0 text-muted-foreground [&>svg]:size-3"
-					>
-						<LockKeyholeMinimalisticIcon />
-					</span>
-				</Show>
 				<Show when={props.muted}>
 					<span
 						role="img"
@@ -372,6 +408,8 @@ export const ChannelThreads = (props: ChannelThreadsProps) => (
 
 export type VoiceChannelRowProps = RowEvents & {
 	name: string;
+	onOpenChat?: () => void;
+	chatLabel?: string;
 	href?: string;
 	joined?: boolean;
 	active?: boolean;
@@ -408,6 +446,8 @@ export const VoiceChannelRow = (props: VoiceChannelRowProps) => {
 	const participants = () => props.participants ?? [];
 	const desktop = () => props.platform === "desktop";
 	const compact = () => props.density === "compact";
+	const actionCount = () =>
+		desktop() ? (props.onOpenSettings ? 1 : 0) + (props.onOpenChat ? 1 : 0) : 0;
 
 	return (
 		<div
@@ -440,11 +480,9 @@ export const VoiceChannelRow = (props: VoiceChannelRowProps) => {
 					props.joined ? { "background-image": joinedHighlight } : undefined
 				}
 			>
-				<span
-					class={cx(
-						"flex size-4 shrink-0 [&>svg]:size-4",
-						state() === "empty" ? "text-muted-foreground" : "text-primary",
-					)}
+				<ChannelIcon
+					private={props.private}
+					class={state() === "empty" ? "text-muted-foreground" : "text-primary"}
 				>
 					<Show
 						when={state() === "joined"}
@@ -456,7 +494,7 @@ export const VoiceChannelRow = (props: VoiceChannelRowProps) => {
 					>
 						<VolumeLoudIcon />
 					</Show>
-				</span>
+				</ChannelIcon>
 				<span
 					data-channel-name=""
 					class={cx(
@@ -466,36 +504,40 @@ export const VoiceChannelRow = (props: VoiceChannelRowProps) => {
 				>
 					{props.name}
 				</span>
-				<Show when={props.private}>
-					<span
-						role="img"
-						aria-label="Private"
-						class="flex size-3 shrink-0 text-muted-foreground [&>svg]:size-3"
-					>
-						<LockKeyholeMinimalisticIcon />
-					</span>
-				</Show>
 				<Show when={props.joined}>
 					<span class="sr-only">, connected</span>
 				</Show>
 				<Show when={participants().length > 0}>
 					<span class="sr-only">{`, ${participants().length} in voice`}</span>
 				</Show>
-				<Show when={desktop() && props.onOpenSettings}>
-					<span aria-hidden="true" class="h-5 w-5 shrink-0" />
+				<Show when={actionCount() > 0}>
+					<span
+						aria-hidden="true"
+						class={cx("h-5 shrink-0", actionCount() > 1 ? "w-[46px]" : "w-5")}
+					/>
 				</Show>
 			</Dynamic>
-			<Show when={desktop() && props.onOpenSettings}>
+			<Show when={actionCount() > 0}>
 				<span
 					class={cx(
-						"absolute right-1 flex h-6 items-center",
+						"absolute right-1 flex h-6 items-center gap-0.5",
 						compact() ? "top-2" : "top-1",
 					)}
 				>
-					<SettingsButton
-						label={props.settingsLabel ?? `Settings for ${props.name}`}
-						onClick={() => props.onOpenSettings?.()}
-					/>
+					<Show when={props.onOpenChat}>
+						<RowActionButton
+							label={props.chatLabel ?? `Open chat for ${props.name}`}
+							icon={<ChatRoundDotsIcon />}
+							action="chat"
+							onClick={() => props.onOpenChat?.()}
+						/>
+					</Show>
+					<Show when={props.onOpenSettings}>
+						<SettingsButton
+							label={props.settingsLabel ?? `Settings for ${props.name}`}
+							onClick={() => props.onOpenSettings?.()}
+						/>
+					</Show>
 				</span>
 			</Show>
 			<Show when={participants().length > 0}>

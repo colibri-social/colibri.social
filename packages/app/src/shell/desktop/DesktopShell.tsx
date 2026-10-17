@@ -27,6 +27,7 @@ import VoiceScreen from "../../screens/voice/voice.screen";
 import { lastViewedSpace } from "../cold-start";
 import type { Layer } from "../layers";
 import { LoadErrorState, NotFoundScreen } from "../load-error";
+import { NotificationHost } from "../NotificationHost";
 import { StackContext } from "../stack";
 import {
 	DesktopShellContext,
@@ -377,6 +378,7 @@ export const DesktopShell = () => {
 						<ModalHost layers={modalLayers()} depth={modalDepth()} />
 						<VoiceScreen args={{}} />
 						<DiscardChangesDialog guard={navigator.leaveGuard} />
+						<NotificationHost stack={navigator} />
 					</MemberMenuProvider>
 				</ProfileSheetProvider>
 			</StackContext.Provider>

@@ -82,19 +82,24 @@ export default function VoiceVideoPage(props: { platform: Platform }) {
 
 	const [stream, setStream] = createSignal<MediaStream>();
 	const [cameraState, setCameraState] =
-		createSignal<CameraPreviewState>("loading");
+		createSignal<CameraPreviewState>("idle");
 	const [cameraError, setCameraError] = createSignal<string>();
 	let cameraRun = 0;
 
-	const stopCamera = () => {
+	const releaseCamera = () => {
 		cameraRun += 1;
 		const current = stream();
 		if (current) stopMediaStream(current);
 		setStream(undefined);
 	};
 
+	const stopCamera = () => {
+		releaseCamera();
+		setCameraState("idle");
+	};
+
 	const startCamera = async () => {
-		stopCamera();
+		releaseCamera();
 		const run = cameraRun;
 		setCameraState("loading");
 		try {
@@ -118,10 +123,7 @@ export default function VoiceVideoPage(props: { platform: Platform }) {
 		}
 	};
 
-	onMount(() => {
-		refresh();
-		if (media) void startCamera();
-	});
+	onMount(refresh);
 	onCleanup(watchMediaDevices(refresh));
 	onCleanup(() => {
 		stopTest();
@@ -175,9 +177,14 @@ export default function VoiceVideoPage(props: { platform: Platform }) {
 			camera={voice.settings().camera}
 			onCameraChange={(id) => {
 				voice.update({ camera: id });
-				void startCamera();
+				if (cameraState() !== "idle") void startCamera();
 			}}
 			cameraPreviewState={cameraState()}
+			onCameraPreviewToggle={() => {
+				const state = cameraState();
+				if (state === "ready" || state === "loading") stopCamera();
+				else void startCamera();
+			}}
 			cameraError={cameraError()}
 			cameraPreview={
 				<video

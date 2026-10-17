@@ -57,17 +57,18 @@ const fileName = (url: string) =>
 		?.split("?")[0]
 		?.replace(/\.[^.]+$/, "") ?? url;
 
-export const createNativeSoundPlayer = (
+export const createNativeSoundPlayer = <Sound extends string = VoiceSound>(
 	bridge: NativeSoundBridge,
-): VoiceSoundPlayer => {
-	const stored = new Map<VoiceSound, Promise<string | undefined>>();
-	const ensure = (sound: VoiceSound) => {
+	sounds: Record<Sound, string> = VOICE_SOUNDS as Record<Sound, string>,
+): ((sound: Sound) => void) => {
+	const stored = new Map<Sound, Promise<string | undefined>>();
+	const ensure = (sound: Sound) => {
 		const cached = stored.get(sound);
 		if (cached) return cached;
-		const name = fileName(VOICE_SOUNDS[sound]);
+		const name = fileName(sounds[sound]);
 		const pending = bridge.hasSound(name)
 			? Promise.resolve(name)
-			: fetch(VOICE_SOUNDS[sound])
+			: fetch(sounds[sound])
 					.then((response) => {
 						if (!response.ok) throw new Error(`HTTP ${response.status}`);
 						return response.arrayBuffer();
@@ -90,12 +91,14 @@ export const createNativeSoundPlayer = (
 	};
 };
 
-export const createVoiceSoundPlayer = (): VoiceSoundPlayer => {
+export const createSoundPlayer = <Sound extends string>(
+	sounds: Record<Sound, string>,
+): ((sound: Sound) => void) => {
 	const native = nativeSoundBridge();
-	if (native) return createNativeSoundPlayer(native);
+	if (native) return createNativeSoundPlayer(native, sounds);
 	let context: AudioContext | undefined;
 	let unlockBound = false;
-	const buffers = new Map<VoiceSound, Promise<AudioBuffer | undefined>>();
+	const buffers = new Map<Sound, Promise<AudioBuffer | undefined>>();
 
 	const ensureContext = () => {
 		if (context) return context;
@@ -115,10 +118,10 @@ export const createVoiceSoundPlayer = (): VoiceSoundPlayer => {
 		}
 	};
 
-	const load = (ctx: AudioContext, sound: VoiceSound) => {
+	const load = (ctx: AudioContext, sound: Sound) => {
 		const cached = buffers.get(sound);
 		if (cached) return cached;
-		const pending = fetch(VOICE_SOUNDS[sound])
+		const pending = fetch(sounds[sound])
 			.then((response) => {
 				if (!response.ok) throw new Error(`HTTP ${response.status}`);
 				return response.arrayBuffer();
@@ -152,3 +155,6 @@ export const createVoiceSoundPlayer = (): VoiceSoundPlayer => {
 		})();
 	};
 };
+
+export const createVoiceSoundPlayer = (): VoiceSoundPlayer =>
+	createSoundPlayer(VOICE_SOUNDS);

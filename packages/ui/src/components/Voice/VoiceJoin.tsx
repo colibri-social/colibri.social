@@ -276,6 +276,65 @@ export const VoiceJoinActions = (props: VoiceJoinActionsProps) => (
 	</div>
 );
 
+export const voicePresenceText = (participants: VoiceParticipant[]) => {
+	const names = participants
+		.filter((participant) => !participant.pending)
+		.map((participant) => participant.name);
+	const others = participants.length - Math.min(names.length, 2);
+	const shown = names.slice(0, 2);
+	if (participants.length === 0) return undefined;
+	if (shown.length === 0)
+		return participants.length === 1
+			? "1 person is here."
+			: `${participants.length} people are here.`;
+	if (others === 0)
+		return shown.length === 1
+			? `${shown[0]} is here.`
+			: `${shown[0]} and ${shown[1]} are here.`;
+	return `${shown.join(", ")} and ${others} ${others === 1 ? "other" : "others"} are here.`;
+};
+
+export type VoiceJoinPromptProps = {
+	channelName: string;
+	participants?: VoiceParticipant[];
+	emptyText?: JSX.Element;
+	onJoin?: () => void;
+	joining?: boolean;
+	class?: string;
+};
+
+export const VoiceJoinPrompt = (props: VoiceJoinPromptProps) => (
+	<div
+		data-voice-join=""
+		data-voice-join-prompt=""
+		class={cx(
+			"flex w-full max-w-[400px] flex-col items-center gap-4 text-center",
+			props.class,
+		)}
+	>
+		<div class="flex flex-col gap-1">
+			<h2 class="m-0 text-lg font-semibold break-words text-foreground">
+				{props.channelName}
+			</h2>
+			<p
+				data-voice-join-text=""
+				class="m-0 text-base text-pretty text-muted-foreground"
+			>
+				{voicePresenceText(props.participants ?? []) ??
+					props.emptyText ??
+					"This voice channel is empty. Join to get the conversation started!"}
+			</p>
+		</div>
+		<Button
+			variant="primary"
+			loading={props.joining}
+			onClick={() => props.onJoin?.()}
+		>
+			Join voice
+		</Button>
+	</div>
+);
+
 export const VoiceJoinPanel = (props: VoiceJoinPanelProps) => (
 	<div
 		data-voice-join=""

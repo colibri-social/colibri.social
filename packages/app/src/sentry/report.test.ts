@@ -1,0 +1,309 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+let captured = 0;
+const captureException = vi.fn((_err: unknown) => {
+	captured += 1;
+	return `event-${captured}`;
+});
+
+let fingerprints: Array<Array<string>> = [];
+
+vi.mock("@sentry/solid", () => {
+	const scope = {
+		setTag: () => scope,
+		setUser: () => scope,
+		setContext: () => scope,
+		setExtra: () => scope,
+		setLevel: () => scope,
+		setFingerprint: (value: Array<string>) => {
+			fingerprints.push(value);
+			return scope;
+		},
+	};
+	return {
+		captureException: (err: unknown) => captureException(err),
+		captureMessage: () => "",
+		captureFeedback: () => "",
+		addBreadcrumb: () => {},
+		setUser: () => {},
+		withScope: (fn: (s: typeof scope) => unknown) => fn(scope),
+	};
+});
+
+const { reportError, resetReportSuppression } = await import("./report");
+const { ColibriError } = await import("@colibri-social/lib");
+const { classifyResponse } = await import("@colibri-social/lib");
+
+beforeEach(() => {
+	resetReportSuppression();
+	captured = 0;
+	fingerprints = [];
+	captureException.mockClear();
+});
+
+afterEach(() => vi.useRealTimers());
+
+const crash = () => new ColibriError({ code: "Unexpected", method: "boom" });
+
+describe("reportError", () => {
+	it("returns an event id for a first occurrence", () => {
+		expect(reportError(crash()).eventId).toBe("event-1");
+	});
+
+	it("only sends the same failure to Sentry once per window", () => {
+		reportError(crash());
+		reportError(crash());
+		expect(captureException).toHaveBeenCalledTimes(1);
+	});
+
+	it("still hands back the reference on a suppressed repeat", () => {
+		const first = reportError(crash()).eventId;
+		const second = reportError(crash()).eventId;
+
+		expect(first).toBe("event-1");
+		expect(second).toBe(first);
+	});
+
+	it("sends again once the window has passed", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+		reportError(crash());
+
+		vi.setSystemTime(new Date("2026-01-01T00:01:01Z"));
+		const later = reportError(crash());
+
+		expect(captureException).toHaveBeenCalledTimes(2);
+		expect(later.eventId).toBe("event-2");
+	});
+
+	it("treats a different failure as its own issue", () => {
+		reportError(crash());
+		const other = reportError(new ColibriError({ code: "Forbidden" }));
+
+		expect(captureException).toHaveBeenCalledTimes(2);
+		expect(other.eventId).toBe("event-2");
+	});
+
+	it.each([
+		"DevicePermissionDenied",
+		"DeviceUnavailable",
+		"NativeCancelled",
+		"HandleNotFound",
+		"OAuthDenied",
+		"Offline",
+	] as const)("does not send %s to Sentry", (code) => {
+		const classified = reportError(new ColibriError({ code }));
+
+		expect(captureException).not.toHaveBeenCalled();
+		expect(classified.code).toBe(code);
+		expect(classified.eventId).toBeUndefined();
+	});
+
+	it("ignores a one-off transport failure", () => {
+		reportError(new ColibriError({ code: "NetworkFailed", method: "a.b.c" }));
+
+		expect(captureException).not.toHaveBeenCalled();
+	});
+
+	it("reports a transport failure once it keeps repeating", () => {
+		const first = reportError(new ColibriError({ code: "NetworkFailed" }));
+		const second = reportError(new ColibriError({ code: "NetworkFailed" }));
+		const third = reportError(new ColibriError({ code: "NetworkFailed" }));
+
+		expect(captureException).toHaveBeenCalledTimes(1);
+		expect(first.eventId).toBeUndefined();
+		expect(second.eventId).toBeUndefined();
+		expect(third.eventId).toBe("event-1");
+	});
+
+	it("counts a repeating transport failure across methods", () => {
+		reportError(new ColibriError({ code: "NetworkFailed", method: "a.b" }));
+		reportError(new ColibriError({ code: "NetworkFailed", method: "c.d" }));
+		reportError(new ColibriError({ code: "NetworkFailed", method: "e.f" }));
+
+		expect(captureException).toHaveBeenCalledTimes(1);
+	});
+
+	it("only reports a repeating transport failure once per window", () => {
+		for (let attempt = 0; attempt < 6; attempt += 1) {
+			reportError(new ColibriError({ code: "Timeout" }));
+		}
+
+		expect(captureException).toHaveBeenCalledTimes(1);
+	});
+
+	it("hands back the reference on a transport repeat after it was reported", () => {
+		reportError(new ColibriError({ code: "Timeout" }));
+		reportError(new ColibriError({ code: "Timeout" }));
+		reportError(new ColibriError({ code: "Timeout" }));
+		const later = reportError(new ColibriError({ code: "Timeout" }));
+
+		expect(later.eventId).toBe("event-1");
+	});
+
+	it("forgets a transport failure that stops repeating", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+		reportError(new ColibriError({ code: "NetworkFailed" }));
+		reportError(new ColibriError({ code: "NetworkFailed" }));
+
+		vi.setSystemTime(new Date("2026-01-01T00:01:01Z"));
+		reportError(new ColibriError({ code: "NetworkFailed" }));
+		reportError(new ColibriError({ code: "NetworkFailed" }));
+
+		expect(captureException).not.toHaveBeenCalled();
+	});
+
+	it("collapses transport failures across methods into one issue", () => {
+		const methods = ["a.b.c", "d.e.f", "g.h.i", "j.k.l"];
+		for (const method of methods) {
+			reportError(new ColibriError({ code: "Timeout", method }), {
+				stage: "xrpc",
+			});
+		}
+		for (const method of methods) {
+			reportError(new ColibriError({ code: "NetworkFailed", method }));
+		}
+
+		expect(captureException).toHaveBeenCalledTimes(2);
+	});
+
+	it("collapses one AppView outage into a single issue", () => {
+		for (const method of ["a.b.c", "d.e.f", "g.h.i", "j.k.l"]) {
+			reportError(
+				new ColibriError({ code: "UpstreamFailure", status: 502, method }),
+				{ stage: "xrpc" },
+			);
+		}
+
+		expect(captureException).toHaveBeenCalledTimes(1);
+		expect(fingerprints).toEqual([["appview|UpstreamFailure"]]);
+	});
+
+	it("collapses a lexicon the AppView cannot serve at all", () => {
+		for (const method of ["a.b.c", "d.e.f", "g.h.i"]) {
+			reportError(
+				new ColibriError({
+					code: "NotFound",
+					status: 404,
+					method,
+					context: { unknownCode: "XRPCNotSupported" },
+				}),
+				{ stage: "xrpc" },
+			);
+		}
+
+		expect(captureException).toHaveBeenCalledTimes(1);
+		expect(fingerprints).toEqual([["appview|NotFound"]]);
+	});
+
+	it("keeps a rejected request separate from an outage", () => {
+		reportError(
+			new ColibriError({
+				code: "UpstreamFailure",
+				status: 400,
+				method: "social.colibri.beta.community.create",
+				serverMessage: "Handle too long",
+			}),
+			{ stage: "xrpc" },
+		);
+
+		expect(fingerprints).toEqual([
+			["UpstreamFailure|400|social.colibri.beta.community.create|xrpc"],
+		]);
+	});
+
+	it("still separates an ordinary missing record by method", () => {
+		reportError(
+			new ColibriError({ code: "NotFound", status: 404, method: "a.b" }),
+			{ stage: "xrpc" },
+		);
+		reportError(
+			new ColibriError({ code: "NotFound", status: 404, method: "c.d" }),
+			{ stage: "xrpc" },
+		);
+
+		expect(captureException).toHaveBeenCalledTimes(2);
+	});
+
+	it("keeps our own failures separated by method", () => {
+		reportError(new ColibriError({ code: "MalformedResponse", method: "a.b" }));
+		reportError(new ColibriError({ code: "MalformedResponse", method: "c.d" }));
+
+		expect(captureException).toHaveBeenCalledTimes(2);
+	});
+
+	it("groups a classified failure by its own key, not by message text", () => {
+		reportError(
+			new ColibriError({
+				code: "AuthRequired",
+				status: 401,
+				method: "social.colibri.actor.getData",
+				serverMessage: 'Unknown authorization session "Xpd91RsWd7yNPptJ_RDp7Q"',
+			}),
+			{ stage: "xrpc" },
+		);
+
+		expect(fingerprints).toEqual([
+			["AuthRequired|401|social.colibri.actor.getData|xrpc"],
+		]);
+	});
+
+	it("gives two sessions with different ids the same grouping key", () => {
+		const of = (id: string) =>
+			new ColibriError({
+				code: "AuthRequired",
+				status: 401,
+				method: "social.colibri.actor.getData",
+				serverMessage: `Unknown authorization session "${id}"`,
+			});
+
+		reportError(of("aaa"), { stage: "xrpc" });
+		resetReportSuppression();
+		reportError(of("bbb"), { stage: "xrpc" });
+
+		expect(fingerprints[0]).toEqual(fingerprints[1]);
+	});
+
+	it("keeps Sentry's own grouping for an unknown failure", () => {
+		reportError(new ColibriError({ code: "Unexpected", method: "boom" }));
+
+		expect(fingerprints[0]?.[0]).toBe("{{ default }}");
+	});
+
+	it("groups transport failures by code alone", () => {
+		for (const method of ["a.b.c", "d.e.f", "g.h.i"]) {
+			reportError(new ColibriError({ code: "Timeout", method }), {
+				stage: "xrpc",
+			});
+		}
+
+		expect(fingerprints).toEqual([["transport|Timeout"]]);
+	});
+
+	it("groups an appview outage seen across many lexicons into one issue", () => {
+		for (const method of [
+			"social.colibri.beta.actor.getProfile",
+			"social.colibri.beta.actor.listCommunities",
+			"social.colibri.beta.channel.listMessages",
+			"social.colibri.beta.actor.grantSpaceAccess",
+		]) {
+			reportError(
+				classifyResponse({
+					status: 400,
+					body: '{"error":"InvalidRequest","message":"could not resolve proxy did"}',
+					method,
+				}),
+				{ stage: "xrpc" },
+			);
+		}
+
+		expect(fingerprints).toEqual([["transport|Unreachable"]]);
+	});
+
+	it("still sends a failure that is ours to fix", () => {
+		reportError(new ColibriError({ code: "MalformedResponse" }));
+
+		expect(captureException).toHaveBeenCalledTimes(1);
+	});
+});

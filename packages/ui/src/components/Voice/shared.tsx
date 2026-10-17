@@ -17,6 +17,7 @@ export type VoiceParticipant = {
 	name: string;
 	avatarSrc?: string;
 	color?: string;
+	bannerFill?: string;
 	presence?: Presence;
 	speaking?: boolean;
 	muted?: boolean;

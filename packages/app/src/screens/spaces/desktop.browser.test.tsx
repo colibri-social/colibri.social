@@ -365,6 +365,20 @@ it("opens the voice chat in the right pane from the voice channel menu", async (
 		.not.toBeNull();
 });
 
+it("opens the voice chat in the right pane from the voice row chat button", async () => {
+	await mount(`/app/c/${HQ}/${TEXT}/general`);
+	await expect.poll(() => channelButton("Lounge")).toBeTruthy();
+	await userEvent.click(
+		page.getByRole("button", { name: "Open chat for Lounge" }),
+	);
+	await expect
+		.poll(() => location.pathname)
+		.toBe(`/app/c/${HQ}/${VOICE}/lounge`);
+	await expect
+		.poll(() => document.querySelector("[data-shell-thread]"))
+		.not.toBeNull();
+});
+
 it("insets the Inbox 8px from the top without a custom title bar", async () => {
 	await mount(`/app/c/${HQ}/${TEXT}/general`);
 	const inbox = page.getByRole("button", { name: /^Inbox/ });

@@ -56,14 +56,26 @@ afterEach(() => {
 it("tests the microphone, previews the camera and syncs voice view options", async () => {
 	const getUserMedia = stubDevices();
 	const { store } = await mountPage(() => <VoiceVideoPage platform="mobile" />);
+	const video = () =>
+		document.querySelector<HTMLVideoElement>("video[data-camera-video]");
 
 	await expect
-		.poll(
-			() =>
-				document.querySelector<HTMLVideoElement>("video[data-camera-video]")
-					?.srcObject,
-		)
-		.toBeTruthy();
+		.element(page.getByRole("button", { name: "Preview camera" }))
+		.toBeVisible();
+	expect(
+		getUserMedia.mock.calls.some(([constraints]) => !!constraints.video),
+	).toBe(false);
+	await userEvent.click(page.getByRole("button", { name: "Preview camera" }));
+	await expect.poll(() => video()?.srcObject).toBeTruthy();
+	const preview = video()?.srcObject as MediaStream;
+	await userEvent.click(page.getByRole("button", { name: "Stop preview" }));
+	await expect.poll(() => video()?.srcObject ?? null).toBeNull();
+	expect(
+		preview.getTracks().every((track) => track.readyState === "ended"),
+	).toBe(true);
+	await expect
+		.element(page.getByRole("button", { name: "Preview camera" }))
+		.toBeVisible();
 
 	await userEvent.click(page.getByRole("button", { name: "Test microphone" }));
 	await expect
@@ -99,11 +111,15 @@ it("tests the microphone, previews the camera and syncs voice view options", asy
 it("explains a blocked camera", async () => {
 	stubDevices({ cameraDenied: true });
 	await mountPage(() => <VoiceVideoPage platform="mobile" />);
+	await userEvent.click(page.getByRole("button", { name: "Preview camera" }));
 	await expect
 		.element(
 			page
 				.getByText("Allow access in your device settings", { exact: false })
 				.first(),
 		)
+		.toBeVisible();
+	await expect
+		.element(page.getByRole("button", { name: "Try again" }))
 		.toBeVisible();
 });

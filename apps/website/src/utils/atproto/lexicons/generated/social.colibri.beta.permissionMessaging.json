@@ -45,8 +45,15 @@
 					"resource": "space",
 					"spaceType": "social.colibri.beta.channel.voice",
 					"authority": "*",
+					"collection": [
+						"social.colibri.beta.message",
+						"social.colibri.beta.reaction"
+					],
 					"action": [
-						"read"
+						"read",
+						"create",
+						"update",
+						"delete"
 					]
 				},
 				{

@@ -225,6 +225,7 @@ export const SignInFlow = (props: SignInFlowProps) => {
 				<Match when={step() === "sign-in"}>
 					<SignInScreen
 						handleSuggestions={accounts.suggestions()}
+						highlightFirstSuggestion={props.platform === "desktop"}
 						onHandleQuery={accounts.query}
 						onHandleChange={() => props.auth.clearError()}
 						onSignIn={(handle, account) =>

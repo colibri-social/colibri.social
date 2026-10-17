@@ -12,7 +12,7 @@ export type DeviceOption = { id: string; label: string };
 
 export type MicTestState = "idle" | "starting" | "running";
 
-export type CameraPreviewState = "loading" | "ready" | "error";
+export type CameraPreviewState = "idle" | "loading" | "ready" | "error";
 
 export type ScreenShareResolution = "720" | "1080" | "1440" | "source";
 
@@ -119,6 +119,7 @@ export type VoiceVideoSettingsProps = {
 	onCameraChange?: (id: string) => void;
 	cameraPreview?: JSX.Element;
 	cameraPreviewState?: CameraPreviewState;
+	onCameraPreviewToggle?: () => void;
 	cameraError?: JSX.Element;
 	screenShare?: ScreenShareSettings;
 	onScreenShareChange?: (patch: Partial<ScreenShareSettings>) => void;
@@ -134,7 +135,7 @@ const VOLUME_MARKS = [{ value: 100 }];
 
 export const VoiceVideoSettings = (props: VoiceVideoSettingsProps) => {
 	const preview = createSlot(() => props.cameraPreview);
-	const previewState = () => props.cameraPreviewState ?? "loading";
+	const previewState = () => props.cameraPreviewState ?? "idle";
 
 	return (
 		<SettingsPage class={props.class}>
@@ -275,6 +276,20 @@ export const VoiceVideoSettings = (props: VoiceVideoSettingsProps) => {
 								</div>
 							</Show>
 							<Switch>
+								<Match when={previewState() === "idle"}>
+									<span class="flex flex-col items-center gap-3 px-6 text-center">
+										<span class="text-sm text-muted-foreground">
+											Check how you look before you turn your camera on in a
+											call. Only you see the preview.
+										</span>
+										<Button
+											variant="secondary"
+											onClick={() => props.onCameraPreviewToggle?.()}
+										>
+											Preview camera
+										</Button>
+									</span>
+								</Match>
 								<Match when={previewState() === "loading"}>
 									<span class="flex items-center gap-2 text-sm text-muted-foreground">
 										<Spinner size={16} />
@@ -282,12 +297,27 @@ export const VoiceVideoSettings = (props: VoiceVideoSettingsProps) => {
 									</span>
 								</Match>
 								<Match when={previewState() === "error"}>
-									<span
-										role="alert"
-										class="px-6 text-center text-sm text-destructive"
-									>
-										{props.cameraError ?? "Your camera couldn't start."}
+									<span class="flex flex-col items-center gap-3 px-6 text-center">
+										<span role="alert" class="text-sm text-destructive">
+											{props.cameraError ?? "Your camera couldn't start."}
+										</span>
+										<Button
+											variant="secondary"
+											onClick={() => props.onCameraPreviewToggle?.()}
+										>
+											Try again
+										</Button>
 									</span>
+								</Match>
+								<Match when={previewState() === "ready"}>
+									<Button
+										variant="secondary"
+										aria-pressed="true"
+										class="absolute right-3 bottom-3"
+										onClick={() => props.onCameraPreviewToggle?.()}
+									>
+										Stop preview
+									</Button>
 								</Match>
 							</Switch>
 						</div>

@@ -28,6 +28,7 @@ import {
 	getOwner,
 	onCleanup,
 } from "solid-js";
+import { reportError } from "../sentry/report";
 import { appViewDid } from "./appview";
 import {
 	callbackParamsFrom,
@@ -604,6 +605,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 	};
 
 	configureXrpc({
+		report: (error, options) => reportError(error, options),
 		sessionDead: health.dead,
 		sessionDeadCode: health.deadCode,
 		noteScopesRejected: () => health.noteScopesRejected(),

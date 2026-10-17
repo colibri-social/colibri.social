@@ -235,6 +235,12 @@
 				"spoiler": {
 					"type": "boolean",
 					"description": "Whether the author marked the file as a spoiler. Clients hide it behind a reveal step."
+				},
+				"alt": {
+					"type": "string",
+					"maxLength": 20000,
+					"maxGraphemes": 2000,
+					"description": "The author's text description of the file."
 				}
 			}
 		},

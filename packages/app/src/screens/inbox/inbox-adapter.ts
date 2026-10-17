@@ -137,7 +137,12 @@ export type InboxTarget = {
 	rkey?: string;
 };
 
-export const inboxTarget = (view: NotificationView): InboxTarget => {
+export type NotificationTargetView = Pick<
+	NotificationView,
+	"community" | "channel" | "thread"
+> & { message?: { rkey: string } };
+
+export const inboxTarget = (view: NotificationTargetView): InboxTarget => {
 	const target: InboxTarget = {
 		space: view.community,
 		channel: skeyOf(view.channel),
@@ -152,7 +157,7 @@ export const inboxTarget = (view: NotificationView): InboxTarget => {
 export const openNotificationTarget = (
 	stack: Pick<Navigator, "setRoot" | "push">,
 	requestJump: (request: JumpRequest) => void,
-	view: NotificationView,
+	view: NotificationTargetView,
 ) => {
 	const target = inboxTarget(view);
 	const chat = {

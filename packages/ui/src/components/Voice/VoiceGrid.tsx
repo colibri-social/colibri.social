@@ -131,7 +131,7 @@ export const VoiceTile = (props: VoiceTileProps) => {
 	);
 	const labelSmall = () => layout()?.labelSmall ?? !!props.compact;
 	const fill = createTileFill(() => ({
-		color: props.tile.color,
+		color: props.tile.bannerFill ?? props.tile.color,
 		tintFrom: props.tile.avatarSrc,
 	}));
 	const hasVideo = () => !!(props.tile.stream || props.tile.video);

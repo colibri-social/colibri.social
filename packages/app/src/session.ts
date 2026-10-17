@@ -24,7 +24,10 @@ import { installResumeSync } from "./data/resume";
 import { createSpaceCache } from "./data/space-cache";
 import { createDataStore, type DataStore } from "./data/store";
 import { installVoiceEngine } from "./data/voice/install";
+import { installBadge } from "./native/badge";
 import { installNativeCall } from "./native/call";
+import { osNotifier } from "./native/notifications/index";
+import { reportError } from "./sentry/report";
 
 const log = createLogger("session");
 
@@ -62,12 +65,16 @@ export const createSignedInSession = (
 			let uninstallCall: (() => void) | undefined;
 			let uninstallResume: (() => void) | undefined;
 			let uninstallVoice: (() => void) | undefined;
+			let uninstallBadge: (() => void) | undefined;
 			let stopPreferencesGrant: (() => void) | undefined;
 			const live = createLiveConnection({
 				agent,
 				appViewHost: appViewHost("ws"),
 				serviceRef: appViewServiceRef(),
-				onAuthFailure: (error) => auth.onAuthFailure(error.code),
+				onAuthFailure: (error) => {
+					reportError(error, { stage: "socket" });
+					auth.onAuthFailure(error.code);
+				},
 				isSessionDead: () => auth.health.dead(),
 			});
 			setState({ kind: "loading" });
@@ -103,6 +110,7 @@ export const createSignedInSession = (
 					stopPreferencesGrant = source.startPreferencesGrant();
 					uninstallCall = installNativeCall(store);
 					uninstallResume = installResumeSync(store, live);
+					uninstallBadge = installBadge(store);
 					uninstallVoice = installVoiceEngine({
 						agent,
 						appViewHost: appViewHost("ws"),
@@ -125,6 +133,7 @@ export const createSignedInSession = (
 				uninstallCall?.();
 				uninstallResume?.();
 				uninstallVoice?.();
+				uninstallBadge?.();
 				stopPreferencesGrant?.();
 				session?.store.dispose();
 				live.close();
@@ -136,6 +145,7 @@ export const createSignedInSession = (
 		on(auth.status, (status, previous) => {
 			if (status === "signedOut" && previous && previous !== "signedOut") {
 				void clearDeviceCache();
+				void osNotifier().then((notifier) => notifier.clearAll());
 			}
 		}),
 	);

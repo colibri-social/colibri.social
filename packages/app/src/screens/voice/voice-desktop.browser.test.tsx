@@ -1,4 +1,5 @@
 import "../../app.css";
+import { Suspense } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -54,7 +55,9 @@ const mountAt = async (path: string, connectMs = 30) => {
 		() => (
 			<DataContext.Provider value={store}>
 				<Providers>
-					<DesktopShell />
+					<Suspense fallback={<div data-shell-fallback="" />}>
+						<DesktopShell />
+					</Suspense>
 				</Providers>
 			</DataContext.Provider>
 		),
@@ -81,24 +84,32 @@ const button = (scope: ParentNode, name: string) =>
 			element.textContent?.trim() === name,
 	) as HTMLElement;
 
+const header = () =>
+	document.querySelector<HTMLElement>(
+		'[data-outlet="header"] [data-channel-header="desktop"]',
+	) as HTMLElement;
+
 const expectNoMobileOverlays = () => {
 	expect(document.querySelector('[role="dialog"]')).toBeNull();
 	expect(document.querySelector("[data-call-pill]")).toBeNull();
 };
 
-it("shows the join panel centered in the chat area with a desktop header", async () => {
+it("shows a centered join prompt with a desktop header", async () => {
 	await mount("lounge");
-	const join = stage().querySelector<HTMLElement>("[data-voice-join]");
+	const join = stage().querySelector<HTMLElement>("[data-voice-join-prompt]");
 	expect(join).not.toBeNull();
-	expect(join?.querySelector('[role="list"], ul')).not.toBeNull();
-	expect(button(stage(), "Join voice")).toBeTruthy();
-	expect(button(stage(), "Join muted")).toBeTruthy();
-	expect(button(stage(), "Open chat")).toBeTruthy();
-	const header = document.querySelector<HTMLElement>(
-		'[data-outlet="header"] [data-channel-header="desktop"]',
+	expect(join?.querySelector('[role="list"], ul')).toBeNull();
+	expect(join?.querySelector("[data-voice-join-text]")?.textContent).toMatch(
+		/ (is|are) here\.$/,
 	);
-	expect(header?.textContent).toContain("Lounge");
-	expect(header?.querySelector('[aria-label="Channel settings"]')).toBeNull();
+	const joinButton = button(stage(), "Join voice");
+	expect(joinButton.getBoundingClientRect().height).toBe(36);
+	expect(joinButton.getBoundingClientRect().width).toBeLessThan(200);
+	expect(button(stage(), "Join muted")).toBeUndefined();
+	expect(button(stage(), "Open chat")).toBeUndefined();
+	expect(header().textContent).toContain("Lounge");
+	expect(button(header(), "Open chat")).toBeTruthy();
+	expect(header().querySelector('[aria-label="Channel settings"]')).toBeNull();
 	const main = document.querySelector("[data-shell-main]") as HTMLElement;
 	const box = (join as HTMLElement).getBoundingClientRect();
 	const area = main.getBoundingClientRect();
@@ -113,41 +124,68 @@ it("joins into the grid with call controls and plays the join sound", async () =
 	await mount("standup");
 	const played: VoiceSound[] = [];
 	setVoiceSoundPlayer((sound) => played.push(sound));
-	await userEvent.click(button(stage(), "Join muted"));
 	await userEvent.click(button(stage(), "Join voice"));
 	await expect.poll(() => stage().hasAttribute("data-joined")).toBe(true);
-	expect(played).toEqual(["mute", "join"]);
+	expect(played).toEqual(["join"]);
 	expect(voice.current()?.channel.endsWith("/standup")).toBe(true);
-	expect(voice.muted()).toBe(true);
+	expect(voice.muted()).toBe(false);
 	expect(stage().querySelector("[data-voice-grid]")).not.toBeNull();
 	await expect
 		.poll(() => stage().querySelectorAll("[data-voice-tile]").length)
 		.toBe(1);
 	const toolbar = stage().querySelector('[role="toolbar"]') as HTMLElement;
 	expect(toolbar.getAttribute("aria-label")).toBe("Call controls");
-	button(toolbar, "Unmute").click();
-	expect(voice.muted()).toBe(false);
+	button(toolbar, "Mute").click();
+	expect(voice.muted()).toBe(true);
 	expectNoMobileOverlays();
 });
 
 it("opens and closes the voice chat in the right pane", async () => {
 	await mount("lounge");
 	expect(document.querySelector("[data-shell-thread]")).toBeNull();
-	expect(button(stage(), "Open chat").getAttribute("aria-pressed")).toBe(
+	expect(button(header(), "Open chat").getAttribute("aria-pressed")).toBe(
 		"false",
 	);
-	await userEvent.click(button(stage(), "Open chat"));
+	await userEvent.click(button(header(), "Open chat"));
 	await expect
 		.poll(() => document.querySelector("[data-shell-thread]"))
 		.not.toBeNull();
 	expect(location.pathname).toBe(`/app/c/${HQ}/${VOICE}/lounge`);
-	const close = button(stage(), "Close chat");
+	const close = button(header(), "Close chat");
 	expect(close.getAttribute("aria-pressed")).toBe("true");
-	expect(close.dataset.tone).toBe("active");
 	await userEvent.click(close);
 	await expect
 		.poll(() => document.querySelector("[data-shell-thread]"))
 		.toBeNull();
+});
+
+it("sends a message from the voice chat pane", async () => {
+	const { store } = await mountAt(`/app/c/${HQ}/${VOICE}/lounge`);
+	await expect
+		.poll(() => document.querySelector("[data-voice-desktop]"))
+		.not.toBeNull();
+	await userEvent.click(button(header(), "Open chat"));
+	const pane = () =>
+		document.querySelector<HTMLElement>("[data-shell-thread]") as HTMLElement;
+	await expect
+		.poll(() => pane()?.querySelector('[role="textbox"]') ?? null)
+		.not.toBeNull();
+	const editor = pane().querySelector<HTMLElement>(
+		'[role="textbox"]',
+	) as HTMLElement;
+	editor.focus();
+	const text = "Hello from the voice chat";
+	await userEvent.keyboard(text);
+	await userEvent.keyboard("{Enter}");
+	await expect
+		.poll(
+			() =>
+				Array.from(pane().querySelectorAll<HTMLElement>("[data-state]")).find(
+					(row) => row.textContent?.includes(text),
+				)?.dataset.state,
+		)
+		.toBe("sent");
+	void store;
 });
 
 it("keeps the call in the user panel after switching channels and returns to it", async () => {
@@ -376,6 +414,26 @@ it("joins a voice channel from the sidebar without leaving the current channel",
 	expect(location.pathname).toBe(`/app/c/${HQ}/${VOICE}/standup`);
 	expect(played).toEqual(["join"]);
 	expectNoMobileOverlays();
+});
+
+it("keeps the current text channel mounted while joining from the sidebar", async () => {
+	const { host } = await mountGeneral();
+	const view = () =>
+		document.querySelector<HTMLElement>('[data-channel-view="desktop"]');
+	await expect.poll(view).not.toBeNull();
+	const before = view();
+	const swaps: string[] = [];
+	const observer = new MutationObserver(() => {
+		if (view() !== before) swaps.push("view");
+		if (document.querySelector("[data-shell-fallback]")) swaps.push("fallback");
+	});
+	observer.observe(host, { childList: true, subtree: true });
+	await userEvent.click(sidebarRow(host, "Standup") as HTMLElement);
+	await expect.poll(() => voice.connection().state).toBe("connected");
+	await wait(300);
+	observer.disconnect();
+	expect(swaps).toEqual([]);
+	expect(view()).toBe(before);
 });
 
 it("switches calls from the sidebar with a leave and a join sound", async () => {

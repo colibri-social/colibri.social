@@ -4,7 +4,7 @@ import type {
 	ErrorCopy,
 } from "@colibri-social/lib";
 import { ErrorState } from "@colibri-social/ui";
-import { Show } from "solid-js";
+import { type JSX, Show } from "solid-js";
 import { describeError } from "../../data/error-copy";
 import { usePlatform } from "../../screen/platform";
 import { WindowChrome } from "../desktop/TitleBar";
@@ -32,6 +32,7 @@ export const startupCopy = (error: ColibriError): ErrorCopy =>
 export const StartupError = (props: {
 	error: ColibriError;
 	onRetry: () => unknown;
+	report?: JSX.Element;
 }) => {
 	const platform = usePlatform();
 	const copy = () => startupCopy(props.error);
@@ -49,6 +50,7 @@ export const StartupError = (props: {
 					description={copy().description}
 					code={props.error.code}
 					onRetry={props.onRetry}
+					report={props.report}
 				/>
 			</div>
 		</div>

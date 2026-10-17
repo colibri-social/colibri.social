@@ -1,5 +1,13 @@
+import { useComboboxContext } from "@kobalte/core/combobox";
 import { Search } from "@kobalte/core/search";
-import { createSignal, type JSX, Show } from "solid-js";
+import {
+	createEffect,
+	createSignal,
+	type JSX,
+	onCleanup,
+	Show,
+	untrack,
+} from "solid-js";
 import { cx } from "../../utils/cx";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
@@ -36,7 +44,37 @@ export type HandleFieldProps = {
 	onInput: (value: string) => void;
 	onQuery?: (query: string) => void;
 	onAccept: (suggestion: HandleSuggestion) => void;
+	highlightFirst?: boolean;
 	class?: string;
+};
+
+const HighlightFirstSuggestion = () => {
+	const context = useComboboxContext();
+	const manager = () => context.listState().selectionManager();
+	const collection = () => context.listState().collection();
+	const focusAfterRender = (resolve: () => string | undefined) => {
+		const frame = requestAnimationFrame(() => {
+			const target = resolve();
+			manager().setFocusedKey(undefined);
+			manager().setFocusedKey(target);
+		});
+		onCleanup(() => cancelAnimationFrame(frame));
+	};
+	const first = () => collection().getFirstKey() ?? undefined;
+	createEffect(() => {
+		const items = collection();
+		if (!context.isOpen() || items.getFirstKey() == null) return;
+		focusAfterRender(() => {
+			const focused = untrack(() => manager().focusedKey());
+			return focused != null && items.getItem(focused) ? focused : first();
+		});
+	});
+	createEffect(() => {
+		if (!context.isOpen() || first() == null) return;
+		if (manager().focusedKey() != null) return;
+		focusAfterRender(first);
+	});
+	return null;
 };
 
 export const HandleField = (props: HandleFieldProps) => {
@@ -138,6 +176,9 @@ export const HandleField = (props: HandleFieldProps) => {
 				</Search.Item>
 			)}
 		>
+			<Show when={props.highlightFirst}>
+				<HighlightFirstSuggestion />
+			</Show>
 			<Search.Label class="text-sm font-medium text-muted-foreground">
 				{props.label}
 			</Search.Label>

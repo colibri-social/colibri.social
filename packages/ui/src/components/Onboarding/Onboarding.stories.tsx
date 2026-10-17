@@ -394,6 +394,7 @@ const OnboardingDemo = (props: {
 						<Match when={onboarding.step() === "sign-in"}>
 							<SignInScreen
 								handleSuggestions={handleSuggestions()}
+								highlightFirstSuggestion={props.platform === "desktop"}
 								onHandleQuery={
 									props.suggestHandles
 										? (query) => {
@@ -1226,6 +1227,76 @@ export const WelcomeDesktop: Story = {
 export const SignInDesktop: Story = {
 	...desktop("sign-in"),
 	play: signInPlay("desktop"),
+};
+
+const suggestingDesktop: Story = {
+	parameters: desktopViewport,
+	render: (args) => (
+		<OnboardingDemo
+			platform="desktop"
+			start="sign-in"
+			suggestHandles
+			avatarSrc={DEMO_AVATAR}
+			onSignIn={args.onSignIn}
+			onHandleQuery={args.onHandleQuery}
+		/>
+	),
+};
+
+export const SuggestionEnterDesktop: Story = {
+	...suggestingDesktop,
+	play: async ({ args }) => {
+		const view = within(await screen.findByRole("dialog"));
+		const field = await typeHandleQuery(view, args);
+		await waitFor(() =>
+			expect(activeOption(field)).toHaveTextContent("alice.bsky.social"),
+		);
+		await expect(activeOption(field)).toHaveAttribute("data-highlighted");
+		await userEvent.keyboard("{Enter}");
+		await waitFor(() =>
+			expect(args.onSignIn).toHaveBeenCalledWith(
+				"alice.bsky.social",
+				expect.objectContaining({ did: DEMO_DID }),
+			),
+		);
+	},
+};
+
+export const SuggestionArrowKeysDesktop: Story = {
+	...suggestingDesktop,
+	play: async ({ args }) => {
+		const view = within(await screen.findByRole("dialog"));
+		const field = await typeHandleQuery(view, args);
+		await waitFor(() =>
+			expect(activeOption(field)).toHaveTextContent("alice.bsky.social"),
+		);
+		await userEvent.keyboard("{ArrowDown}");
+		await waitFor(() =>
+			expect(activeOption(field)).toHaveTextContent("alicia.tngl.sh"),
+		);
+		await userEvent.keyboard("{ArrowDown}");
+		await waitFor(() =>
+			expect(activeOption(field)).toHaveTextContent("albert.semble.so"),
+		);
+		await userEvent.keyboard("{ArrowUp}");
+		await waitFor(() =>
+			expect(activeOption(field)).toHaveTextContent("alicia.tngl.sh"),
+		);
+		await userEvent.type(field, "i");
+		await waitFor(() =>
+			expect(args.onHandleQuery).toHaveBeenLastCalledWith("ali"),
+		);
+		await waitFor(() =>
+			expect(activeOption(field)).toHaveTextContent("alice.bsky.social"),
+		);
+		await userEvent.keyboard("{ArrowDown}{Enter}");
+		await waitFor(() =>
+			expect(args.onSignIn).toHaveBeenCalledWith(
+				"alicia.tngl.sh",
+				expect.objectContaining({ did: "did:plc:alicia4tangled0000000000" }),
+			),
+		);
+	},
 };
 
 export const CreateAccountDesktop: Story = {

@@ -31,6 +31,10 @@
 					"type": "string",
 					"description": "Resolved bio."
 				},
+				"pronouns": {
+					"type": "string",
+					"description": "Resolved pronouns, taken from the profile record, or from Bluesky when the user syncs with Bluesky and set none here."
+				},
 				"avatar": {
 					"type": "string",
 					"format": "uri",

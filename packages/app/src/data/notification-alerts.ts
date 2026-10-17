@@ -11,6 +11,7 @@ export type NotificationAlertContext = {
 	spaceMuted: boolean;
 	spaceLevel: SpaceNotificationLevel;
 	channelMuted: boolean;
+	threadMuted: boolean;
 	now: number;
 };
 
@@ -26,14 +27,19 @@ export const shouldAlertNotification = (
 	view: NotificationView,
 	context: NotificationAlertContext,
 ): boolean => {
-	if (!context.visible || context.doNotDisturb) return false;
+	if (context.doNotDisturb) return false;
 	if (view.seenAt) return false;
 	if (view.author.did === context.viewer) return false;
-	if (notificationTarget(view) === context.viewing) return false;
+	if (context.visible && notificationTarget(view) === context.viewing)
+		return false;
 	const indexedAt = Date.parse(view.indexedAt);
 	if (Number.isFinite(indexedAt) && context.now - indexedAt > STALE_ALERT_MS)
 		return false;
 	if (context.spaceMuted || context.spaceLevel === "nothing") return false;
 	if (isPingNotification(view)) return true;
-	return context.spaceLevel === "all" && !context.channelMuted;
+	return (
+		context.spaceLevel === "all" &&
+		!context.channelMuted &&
+		!context.threadMuted
+	);
 };

@@ -13,6 +13,7 @@ export type ErrorStateProps = {
 	retrying?: boolean;
 	retryLabel?: string;
 	actions?: JSX.Element;
+	report?: JSX.Element;
 	variant?: "screen" | "inline";
 	class?: string;
 };
@@ -22,6 +23,7 @@ const DEFAULT_DESCRIPTION = "This didn't load. Try again in a moment.";
 
 export const ErrorState = (props: ErrorStateProps) => {
 	const actions = createSlot(() => props.actions);
+	const report = createSlot(() => props.report);
 	const [pending, setPending] = createSignal(false);
 	const busy = () => !!props.retrying || pending();
 	const retry = () => {
@@ -76,10 +78,13 @@ export const ErrorState = (props: ErrorStateProps) => {
 						</>
 					}
 					actions={
-						props.onRetry || actions.has() ? (
+						props.onRetry || actions.has() || report.has() ? (
 							<>
 								{retryButton(true)}
 								{actions()}
+								<Show when={report.has()}>
+									<div class="mt-4 flex w-full">{report()}</div>
+								</Show>
 							</>
 						) : undefined
 					}

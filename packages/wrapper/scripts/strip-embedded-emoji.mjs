@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 const distEmojiDir = join(
 	dirname(fileURLToPath(import.meta.url)),
 	"..",
+	"..",
+	"app",
 	"dist",
 	"twemoji",
 );

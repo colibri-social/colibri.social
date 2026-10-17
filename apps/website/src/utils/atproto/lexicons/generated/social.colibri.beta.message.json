@@ -133,6 +133,12 @@
 				"spoiler": {
 					"type": "boolean",
 					"description": "Whether clients hide the file behind a reveal step until the reader chooses to see it."
+				},
+				"alt": {
+					"type": "string",
+					"maxLength": 20000,
+					"maxGraphemes": 2000,
+					"description": "A text description of the file for readers who can't see it."
 				}
 			}
 		}

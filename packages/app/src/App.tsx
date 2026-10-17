@@ -1,15 +1,28 @@
-import { classifyThrown, createLogger } from "@colibri-social/lib";
-import { ErrorBoundary, lazy, Match, Show, Suspense, Switch } from "solid-js";
+import { createLogger } from "@colibri-social/lib";
+import {
+	createEffect,
+	ErrorBoundary,
+	lazy,
+	Match,
+	Show,
+	Suspense,
+	Switch,
+} from "solid-js";
 import { createAuth } from "./auth";
 import { AccountActionsContext } from "./auth/account-actions";
 import { LiveStatusContext } from "./data/live-context";
 import { createMockSource } from "./data/mock/source";
+import { reportAttribution } from "./data/report-attribution";
 import { createDataStore, DataContext, type DataStore } from "./data/store";
 import { installNativeCall } from "./native/call";
 import { Providers } from "./providers";
 import { usePlatform } from "./screen/platform";
 import { ProfileGate } from "./screens/onboarding/ProfileGate";
 import { AuthGate } from "./screens/signin/AuthGate";
+import { setReportingAccount } from "./sentry/account";
+import { CrashReport } from "./sentry/CrashReport";
+import { identifyUser } from "./sentry/init";
+import { reportError } from "./sentry/report";
 import { createSignedInSession } from "./session";
 import { ColdStart } from "./shell/boot-gate";
 import { LaunchScreen } from "./shell/launch/LaunchScreen";
@@ -95,6 +108,13 @@ const RemoteApp = () => {
 	const platform = usePlatform();
 	const auth = createAuth();
 	const session = createSignedInSession(auth);
+	const [includeAccount] = reportAttribution();
+	createEffect(() => {
+		const did = auth.did();
+		const optedIn = includeAccount();
+		identifyUser(optedIn ? did : undefined);
+		setReportingAccount({ did, optedIn });
+	});
 	return (
 		<AuthGate auth={auth} platform={platform()}>
 			<AccountActionsContext.Provider value={{ signOut: auth.signOut }}>
@@ -105,10 +125,18 @@ const RemoteApp = () => {
 };
 
 const AppCrashed = (props: { thrown: unknown }) => {
-	const error = classifyThrown(props.thrown, { method: "app.render" });
+	const error = reportError(props.thrown, {
+		method: "app.render",
+		stage: "render",
+		severity: "fatal",
+	});
 	log.error("the app stopped rendering", { code: error.code });
 	return (
-		<StartupError error={error} onRetry={() => window.location.reload()} />
+		<StartupError
+			error={error}
+			onRetry={() => window.location.reload()}
+			report={<CrashReport eventId={error.eventId} />}
+		/>
 	);
 };
 

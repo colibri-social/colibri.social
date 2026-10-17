@@ -46,6 +46,7 @@ sentry = { version = "0.48.4", optional = true }
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-deep-link = "2.4.9"
 tauri-plugin-os = "2"
+tauri-plugin-http = "2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.tokio]
 version = "1"
@@ -216,7 +217,12 @@ openssl = { version = "0.10", features = ["vendored"] }
 # Android only for now
 [target.'cfg(target_os = "android")'.dependencies]
 tauri-plugin-fcm = "0.2"
+jni = "0.21"
+ndk-context = "0.1"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 tauri-plugin-ios-webview-insets = "0.1"
 tauri-plugin-keyboard-inset = { path = "plugins" }
+
+[patch.crates-io]
+wry = { path = "vendor/wry" }

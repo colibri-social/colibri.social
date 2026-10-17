@@ -126,7 +126,7 @@ const Channels = (props: { platform?: "mobile" | "desktop" }) => {
 				/>
 			</ChannelCategory>
 			<ChannelCategory name="Voice">
-				<VoiceChannelRow name="Empty voice" platform={props.platform} />
+				<VoiceChannelRow name="Empty voice" platform={props.platform} private />
 				<VoiceChannelRow
 					name="Lounge"
 					platform={props.platform}
@@ -321,6 +321,26 @@ export const RowStates: Story = {
 			'[data-voice-row][data-state="empty"]',
 		) as HTMLElement;
 		await expect(empty.querySelector("[data-voice-participants]")).toBeNull();
+
+		const locks = Array.from(
+			canvasElement.querySelectorAll<HTMLElement>("[data-channel-private]"),
+		);
+		await expect(locks.length).toBe(2);
+		for (const lock of locks) {
+			const icon = lock.closest("[data-channel-icon]") as HTMLElement;
+			await expect(icon).not.toBeNull();
+			const row = icon.closest(
+				"[data-channel-row], [data-voice-row]",
+			) as HTMLElement;
+			const name = row.querySelector("[data-channel-name]") as HTMLElement;
+			const lockBox = lock.getBoundingClientRect();
+			const iconBox = icon.getBoundingClientRect();
+			await expect(lockBox.right).toBeLessThan(
+				name.getBoundingClientRect().left,
+			);
+			await expect(lockBox.left).toBeGreaterThan(iconBox.left);
+			await expect(lockBox.top).toBeGreaterThan(iconBox.top);
+		}
 	},
 };
 
@@ -1967,6 +1987,55 @@ export const DesktopRowWidths: Story = {
 		).find((preview) => preview.textContent?.includes("far longer"));
 		if (!long) throw new Error("long preview missing");
 		await expect(long.scrollWidth).toBeGreaterThan(long.clientWidth);
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
+const openVoiceChat = fn();
+const openVoiceRow = fn();
+
+export const DesktopVoiceRowActions: Story = {
+	name: "Desktop voice row actions",
+	parameters: desktop,
+	render: () => (
+		<div class="w-72 bg-card px-2 py-2 text-foreground">
+			<VoiceChannelRow
+				name="a-very-long-voice-channel-name-that-keeps-going"
+				platform="desktop"
+				private
+				participants={[lis]}
+				onClick={openVoiceRow}
+				onOpenChat={openVoiceChat}
+				onOpenSettings={() => {}}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const chat = canvas.getByRole("button", {
+			name: "Open chat for a-very-long-voice-channel-name-that-keeps-going",
+		});
+		const settings = canvas.getByRole("button", {
+			name: "Settings for a-very-long-voice-channel-name-that-keeps-going",
+		});
+		await expect(getComputedStyle(chat).opacity).toBe("0");
+		await expect(getComputedStyle(settings).opacity).toBe("0");
+		const chatBox = chat.getBoundingClientRect();
+		const settingsBox = settings.getBoundingClientRect();
+		await expect(Math.round(chatBox.top)).toBe(Math.round(settingsBox.top));
+		await expect(chatBox.right).toBeLessThanOrEqual(settingsBox.left);
+		const name = canvasElement.querySelector(
+			"[data-channel-name]",
+		) as HTMLElement;
+		await expect(name.getBoundingClientRect().right).toBeLessThanOrEqual(
+			chatBox.left,
+		);
+		await expect(name.scrollWidth).toBeGreaterThan(name.clientWidth);
+		chat.focus();
+		await expect(getComputedStyle(chat).opacity).toBe("1");
+		await userEvent.click(chat);
+		await expect(openVoiceChat).toHaveBeenCalledTimes(1);
+		await expect(openVoiceRow).not.toHaveBeenCalled();
 		await expectNoLayoutIssues(canvasElement);
 	},
 };

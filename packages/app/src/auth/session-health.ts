@@ -1,4 +1,5 @@
 import {
+	ColibriError,
 	type ColibriErrorCode,
 	classifyThrown,
 	createLogger,
@@ -6,6 +7,7 @@ import {
 	readEnvelope,
 } from "@colibri-social/lib";
 import { type Accessor, createSignal } from "solid-js";
+import { reportError } from "../sentry/report";
 
 const log = createLogger("session");
 
@@ -58,6 +60,9 @@ export const createSessionHealth = (
 		setDeadCode(code);
 		setDead(true);
 		log.warn("the session can no longer be used", { code });
+		reportError(new ColibriError({ code, severity: "warning" }), {
+			stage: "session",
+		});
 	};
 
 	const noteAuthFailure = (code: ColibriErrorCode) => {

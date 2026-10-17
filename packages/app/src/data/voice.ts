@@ -11,6 +11,7 @@ import { displayNameOf } from "./adapters/display-name";
 import { uiPresence } from "./adapters/presence";
 import type { VoiceNoticeKey } from "./error-copy";
 import { createSimulatedConnection } from "./mock/voice-connection";
+import { profileBannerFill } from "./profile-theme";
 import type { DataStore } from "./store";
 import type { Did, SpaceRef } from "./types";
 import type {
@@ -178,6 +179,7 @@ export const createVoice = (
 						? displayNameOf(actor, member)
 						: member?.nickname?.trim() || did,
 					avatarSrc: actor?.avatar,
+					bannerFill: profileBannerFill(actor?.theme),
 					presence: uiPresence(data.presenceOf(did)),
 					speaking: speakingIn(channelUri, did),
 					muted: voice?.muted,

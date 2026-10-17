@@ -67,9 +67,7 @@ export type SpaceRecordRef = social.colibri.beta.defs.SpaceRecordRef;
 export type Facet = social.colibri.beta.richtext.facet.Main;
 
 export type MessageRecord = social.colibri.beta.message.Main;
-export type MessageAttachment = social.colibri.beta.message.Attachment & {
-	alt?: string;
-};
+export type MessageAttachment = social.colibri.beta.message.Attachment;
 export type MessageForward = social.colibri.beta.message.Forward;
 export type ForwardSnapshot = Omit<MessageForward, "attachments">;
 export type ReactionRecord = social.colibri.beta.reaction.Main;

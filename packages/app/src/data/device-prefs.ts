@@ -12,6 +12,8 @@ export const DEVICE_KEYS = {
 	voiceSettings: "colibri:voice-settings",
 	voiceVolumes: "colibri:voice-volumes",
 	reportAttribution: "colibri:report-attribution",
+	nativeNotifications: "colibri:native-notifications",
+	notificationPrompt: "colibri:notification-prompt-answered",
 } as const;
 
 export const deviceString = (key: string) => {

@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 import { describe, expect, it, vi } from "vitest";
+import type { ProfileTheme } from "./source";
 import type { Did, Presence, VoiceState } from "./types";
 import { createVoice } from "./voice";
 import type {
@@ -16,7 +17,7 @@ const SPACE = "did:plc:space";
 const LOUNGE = `at://${SPACE}/space/social.colibri.beta.channel.voice/lounge`;
 const STANDUP = `at://${SPACE}/space/social.colibri.beta.channel.voice/standup`;
 
-const setup = () => {
+const setup = (theme?: ProfileTheme) => {
 	const sent: (VoiceState | undefined)[] = [];
 	const presence = new Map<string, Presence>();
 	const [version, setVersion] = createSignal(0);
@@ -36,7 +37,12 @@ const setup = () => {
 		space: () => {
 			throw new Error("unused");
 		},
-		viewer: { did: VIEWER, handle: "viewer.test", displayName: "Viewer" },
+		viewer: {
+			did: VIEWER,
+			handle: "viewer.test",
+			displayName: "Viewer",
+			theme,
+		},
 		presenceOf: (did: Did) => {
 			version();
 			return presence.get(did);
@@ -141,6 +147,24 @@ describe("voice", () => {
 			VIEWER,
 		]);
 		expect(voice.participants(STANDUP)).toEqual([]);
+	});
+
+	it("fills a participant's tile with their banner colors", async () => {
+		const cases: [ProfileTheme | undefined, string | undefined][] = [
+			[{ bannerColor: "#336699" }, "#336699"],
+			[
+				{ gradient: { primary: "#112233", secondary: "#445566" } },
+				"linear-gradient(135deg, #112233, #445566)",
+			],
+			[undefined, undefined],
+		];
+		for (const [theme, fill] of cases) {
+			const { voice } = setup(theme);
+			voice.join({ space: SPACE, channel: LOUNGE });
+			await Promise.resolve();
+			expect(voice.participants(LOUNGE)[0]?.bannerFill).toBe(fill);
+			voice.leave();
+		}
 	});
 
 	it("plays the call sounds for the viewer's own actions", () => {

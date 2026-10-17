@@ -31,7 +31,7 @@ import { installKeyboardInset } from "./keyboard-inset";
 import { LayerStack } from "./LayerStack";
 import type { Layer, Tab } from "./layers";
 import { LoadErrorState, NotFoundScreen } from "./load-error";
-import { MessageToastHost } from "./MessageToastHost";
+import { NotificationHost } from "./NotificationHost";
 import { installOverlayBack } from "./overlay-back";
 import { AdminScreen, AppScreen } from "./registry";
 import { createStack } from "./stack";
@@ -260,7 +260,7 @@ export const MobileShell = () => {
 				<MemberMenuProvider>
 					<LayerStack stack={stack} base={base()} renderLayer={renderLayer} />
 					<CallPillHost />
-					<MessageToastHost stack={stack} />
+					<NotificationHost stack={stack} />
 					<DiscardChangesDialog guard={stack.leaveGuard} />
 				</MemberMenuProvider>
 			</ProfileSheetProvider>

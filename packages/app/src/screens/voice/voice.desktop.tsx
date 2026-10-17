@@ -3,7 +3,8 @@ import { Outlet } from "../../shell/desktop/context";
 import { voiceScreen } from "./voice.contract";
 
 export default voiceScreen.view({
-	hidden: ["Header", "Roster", "JoinActions", "Stage", "Controls"] as const,
+	omit: ["Roster", "JoinActions"] as const,
+	hidden: ["Header", "DesktopJoin", "Stage", "Controls"] as const,
 	render: ({ slots: s, model: m }) => (
 		<Show when={m.pinned()}>
 			<Outlet name="header">
@@ -19,13 +20,7 @@ export default voiceScreen.view({
 					when={m.joined()}
 					fallback={
 						<div class="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6">
-							<div
-								data-voice-join=""
-								class="flex max-h-full w-full max-w-[400px] min-h-0 flex-col gap-4"
-							>
-								<s.Roster />
-								<s.JoinActions />
-							</div>
+							<s.DesktopJoin />
 						</div>
 					}
 				>

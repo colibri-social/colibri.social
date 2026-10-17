@@ -58,6 +58,7 @@ export * from "./components/EmojiPack/emoji-name";
 export * from "./components/EmojiPicker/EmojiPicker";
 export * from "./components/EmojiPicker/EmojiPickerPopover";
 export * from "./components/EmojiPicker/skin-tone";
+export * from "./components/ErrorState/ErrorReport";
 export * from "./components/ErrorState/ErrorState";
 export * from "./components/ErrorState/NotFound";
 export * from "./components/FullScreenSheet/FullScreenSheet";

@@ -5,6 +5,7 @@ import { clearAttachmentDrafts } from "./data/persist-drafts";
 beforeEach(() => {
 	try {
 		localStorage.clear();
+		localStorage.setItem("colibri:notification-prompt-answered", "true");
 	} catch {}
 	clearAttachmentDrafts();
 	clearToasts();

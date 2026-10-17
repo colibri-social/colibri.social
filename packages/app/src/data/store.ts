@@ -1703,7 +1703,10 @@ export const createDataStore = (
 					});
 					sentNonces.set(message.rkey, entry.nonce);
 					settlePending(entry.nonce, message);
-				} catch {
+				} catch (thrown) {
+					log.warn("a message was not sent", {
+						code: classifyThrown(thrown, { method: "message.send" }).code,
+					});
 					markFailed();
 				}
 			};

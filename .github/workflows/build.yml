@@ -23,6 +23,8 @@ jobs:
           filters: |
             client:
               - 'packages/wrapper/**'
+              - 'packages/app/**'
+              - 'packages/ui/**'
               - 'packages/client/**'
               - 'packages/assets/**'
               - 'packages/lib/**'

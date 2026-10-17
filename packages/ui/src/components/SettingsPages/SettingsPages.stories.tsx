@@ -10,7 +10,11 @@ import {
 	TEAM_BADGE_DEFINITION,
 	UserBadge,
 } from "../Badge/Badge";
-import { AdvancedSettings, ExperimentsSettings } from "./AdvancedSettings";
+import {
+	AdvancedSettings,
+	ExperimentsSettings,
+	type UpdateState,
+} from "./AdvancedSettings";
 import { DebugInformation, type DiagnosticsSection } from "./DebugInformation";
 import { type LogLine, LogsSettings } from "./LogsSettings";
 import { RELEASE_HISTORY_URL } from "./links";
@@ -21,6 +25,7 @@ import {
 	type SupportTier,
 } from "./SupportColibriSettings";
 import {
+	type CameraPreviewState,
 	type MicTestState,
 	type ScreenShareSettings,
 	VoiceVideoSettings,
@@ -40,6 +45,8 @@ type Args = {
 	onConnect?: () => void;
 	onDisconnect?: () => void;
 	onRefresh?: () => void;
+	onCheck?: () => void;
+	onRestart?: () => void;
 };
 
 const meta: Meta<Args> = {
@@ -105,13 +112,16 @@ const VoiceVideoStory = (props: {
 	platform: Platform;
 	speakers?: boolean;
 	screen?: boolean;
-	previewState?: "loading" | "ready" | "error";
+	previewState?: CameraPreviewState;
 	onChange?: (key: string, value: unknown) => void;
 }) => {
 	const [microphone, setMicrophone] = createSignal("default");
 	const [inputVolume, setInputVolume] = createSignal(100);
 	const [outputVolume, setOutputVolume] = createSignal(80);
 	const [micTest, setMicTest] = createSignal<MicTestState>("idle");
+	const [previewState, setPreviewState] = createSignal<CameraPreviewState>(
+		props.previewState ?? "ready",
+	);
 	const [noise, setNoise] = createSignal(true);
 	const [gate, setGate] = createSignal(false);
 	const [confirm, setConfirm] = createSignal(false);
@@ -165,9 +175,12 @@ const VoiceVideoStory = (props: {
 				cameras={CAMERAS}
 				camera="facetime"
 				cameraPreview={<FakePreview />}
-				cameraPreviewState={props.previewState ?? "ready"}
+				cameraPreviewState={previewState()}
+				onCameraPreviewToggle={() =>
+					setPreviewState((state) => (state === "ready" ? "idle" : "ready"))
+				}
 				cameraError={
-					props.previewState === "error"
+					previewState() === "error"
 						? "Colibri isn't allowed to use your camera. Allow it in your system settings, then come back."
 						: undefined
 				}
@@ -243,6 +256,26 @@ export const VoiceVideoDesktop: Story = {
 		await expect(args.onChange).toHaveBeenCalledWith("screenShare", {
 			shareAudio: false,
 		});
+		await expectNoLayoutIssues(frameOf(canvasElement));
+	},
+};
+
+export const VoiceVideoCameraIdle: Story = {
+	render: () => <VoiceVideoStory platform="mobile" previewState="idle" />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const preview = () =>
+			canvasElement.querySelector<HTMLElement>("[data-camera-preview]");
+		const height = preview()?.getBoundingClientRect().height;
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Preview camera" }),
+		);
+		await expect(preview()).toHaveAttribute("data-camera-preview", "ready");
+		await expect(preview()?.getBoundingClientRect().height).toBe(height);
+		await userEvent.click(canvas.getByRole("button", { name: "Stop preview" }));
+		await expect(
+			canvas.getByRole("button", { name: "Preview camera" }),
+		).toBeVisible();
 		await expectNoLayoutIssues(frameOf(canvasElement));
 	},
 };
@@ -332,6 +365,106 @@ export const AdvancedDesktop: Story = {
 		await expect(
 			canvas.getByRole("switch", { name: /Use system window controls/ }),
 		).not.toBeChecked();
+		await expectNoLayoutIssues(frameOf(canvasElement));
+	},
+};
+
+const UpdatesStory = (props: {
+	initial: UpdateState;
+	onCheck?: () => void;
+	onRestart?: () => void;
+}) => {
+	const [state, setState] = createSignal<UpdateState>(props.initial);
+	return (
+		<Frame platform="desktop">
+			<AdvancedSettings
+				developerMode={false}
+				updates={{
+					version: "0.18.2",
+					state: state(),
+					onCheck: () => {
+						props.onCheck?.();
+						setState({ status: "ready", version: "0.18.3" });
+					},
+					onRestart: props.onRestart,
+				}}
+			/>
+		</Frame>
+	);
+};
+
+export const AdvancedUpdates: Story = {
+	parameters: desktop,
+	render: (args) => (
+		<UpdatesStory
+			initial={{ status: "idle" }}
+			onCheck={args.onCheck}
+			onRestart={args.onRestart}
+		/>
+	),
+	args: { onCheck: fn(), onRestart: fn() },
+	play: async ({ canvasElement, args }) => {
+		const canvas = within(canvasElement);
+		await expect(canvas.getByText("Version 0.18.2")).toBeVisible();
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Check for updates" }),
+		);
+		await expect(args.onCheck).toHaveBeenCalledOnce();
+		await expect(
+			canvas.getByText("Version 0.18.3 is ready. Restart to finish."),
+		).toBeVisible();
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Restart to update" }),
+		);
+		await expect(args.onRestart).toHaveBeenCalledOnce();
+		await expectNoLayoutIssues(frameOf(canvasElement));
+	},
+};
+
+export const AdvancedUpdatesDownloading: Story = {
+	parameters: desktop,
+	render: () => (
+		<UpdatesStory initial={{ status: "downloading", version: "0.18.3" }} />
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expect(
+			canvas.getByRole("button", { name: "Check for updates" }),
+		).toBeDisabled();
+		await expectNoLayoutIssues(frameOf(canvasElement));
+	},
+};
+
+export const AdvancedUpdatesHomebrew: Story = {
+	parameters: desktop,
+	render: () => (
+		<UpdatesStory
+			initial={{
+				status: "managed",
+				version: "0.18.3",
+				command: "brew upgrade --cask colibri-social",
+			}}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expect(
+			canvas.getByText("brew upgrade --cask colibri-social"),
+		).toBeVisible();
+		await expectNoLayoutIssues(frameOf(canvasElement));
+	},
+};
+
+export const AdvancedUpdatesError: Story = {
+	parameters: desktop,
+	render: () => <UpdatesStory initial={{ status: "error" }} />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expect(
+			canvas.getByText(
+				"Couldn't check for updates. Check your connection and try again.",
+			),
+		).toBeVisible();
 		await expectNoLayoutIssues(frameOf(canvasElement));
 	},
 };

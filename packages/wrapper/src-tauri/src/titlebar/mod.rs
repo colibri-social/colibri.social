@@ -262,7 +262,8 @@ pub fn setup(window: &WebviewWindow) {
         WindowEvent::Resized(_)
         | WindowEvent::Moved(_)
         | WindowEvent::Focused(_)
-        | WindowEvent::ThemeChanged(_) => {
+        | WindowEvent::ThemeChanged(_)
+        | WindowEvent::ScaleFactorChanged { .. } => {
             #[cfg(target_os = "macos")]
             macos::reapply(&listener);
 

@@ -1,4 +1,8 @@
-import { OwnProfilePopover, UserPanel } from "@colibri-social/ui";
+import {
+	OwnProfilePopover,
+	UserPanel,
+	VoiceStatusPanelSkeleton,
+} from "@colibri-social/ui";
 import {
 	createEffect,
 	createMemo,
@@ -66,7 +70,9 @@ export const Dock = () => {
 						profileTrigger={trigger}
 						voice={
 							<Show when={voice.current()}>
-								<VoiceDock />
+								<Suspense fallback={<VoiceStatusPanelSkeleton />}>
+									<VoiceDock />
+								</Suspense>
 							</Show>
 						}
 						onOpenSettings={() => stack.push({ kind: "settings" })}
