@@ -24,11 +24,13 @@ import { MemberMenuProvider } from "../../screens/members/member-menu";
 import { ProfileSheetProvider } from "../../screens/profile/profile-sheet";
 import SpacesScreen from "../../screens/spaces/spaces.screen";
 import VoiceScreen from "../../screens/voice/voice.screen";
+import { AppLinkHost } from "../AppLinkHost";
 import { lastViewedSpace } from "../cold-start";
 import type { Layer } from "../layers";
 import { LoadErrorState, NotFoundScreen } from "../load-error";
 import { NotificationHost } from "../NotificationHost";
 import { StackContext } from "../stack";
+import { WriteFailureToasts } from "../WriteFailureToasts";
 import {
 	DesktopShellContext,
 	type OutletName,
@@ -379,6 +381,8 @@ export const DesktopShell = () => {
 						<VoiceScreen args={{}} />
 						<DiscardChangesDialog guard={navigator.leaveGuard} />
 						<NotificationHost stack={navigator} />
+						<AppLinkHost stack={navigator} />
+						<WriteFailureToasts />
 					</MemberMenuProvider>
 				</ProfileSheetProvider>
 			</StackContext.Provider>

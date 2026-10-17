@@ -1,5 +1,10 @@
 import { createRoot } from "solid-js";
 import { DEVICE_KEYS, devicePref } from "./device-prefs";
+import {
+	DEFAULT_SCREEN_SHARE,
+	isScreenShareOptions,
+	type ScreenShareOptions,
+} from "./screen-share";
 
 export const MAX_VOLUME = 200;
 
@@ -11,6 +16,11 @@ export type VoiceSettings = {
 	outputVolume: number;
 	noiseSuppression: boolean;
 	voiceGate: boolean;
+	screen: ScreenShareOptions;
+};
+
+type StoredVoiceSettings = Omit<VoiceSettings, "screen"> & {
+	screen?: ScreenShareOptions;
 };
 
 export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
@@ -18,6 +28,7 @@ export const DEFAULT_VOICE_SETTINGS: VoiceSettings = {
 	outputVolume: 100,
 	noiseSuppression: true,
 	voiceGate: false,
+	screen: DEFAULT_SCREEN_SHARE,
 };
 
 const optionalString = (value: unknown) =>
@@ -26,7 +37,9 @@ const optionalString = (value: unknown) =>
 const volume = (value: unknown) =>
 	typeof value === "number" && value >= 0 && value <= MAX_VOLUME;
 
-export const isVoiceSettings = (value: unknown): value is VoiceSettings => {
+export const isVoiceSettings = (
+	value: unknown,
+): value is StoredVoiceSettings => {
 	if (typeof value !== "object" || value === null) return false;
 	const settings = value as Record<string, unknown>;
 	return (
@@ -36,19 +49,26 @@ export const isVoiceSettings = (value: unknown): value is VoiceSettings => {
 		volume(settings.inputVolume) &&
 		volume(settings.outputVolume) &&
 		typeof settings.noiseSuppression === "boolean" &&
-		typeof settings.voiceGate === "boolean"
+		typeof settings.voiceGate === "boolean" &&
+		(settings.screen === undefined || isScreenShareOptions(settings.screen))
 	);
 };
 
 export const createVoiceSettings = () => {
-	const [settings, setSettings] = devicePref(
+	const [stored, setSettings] = devicePref<StoredVoiceSettings>(
 		DEVICE_KEYS.voiceSettings,
 		DEFAULT_VOICE_SETTINGS,
 		isVoiceSettings,
 	);
+	const settings = (): VoiceSettings => {
+		const current = stored();
+		return { ...current, screen: current.screen ?? DEFAULT_SCREEN_SHARE };
+	};
 	const update = (patch: Partial<VoiceSettings>) =>
 		setSettings({ ...settings(), ...patch });
-	return { settings, update };
+	const updateScreen = (patch: Partial<ScreenShareOptions>) =>
+		update({ screen: { ...settings().screen, ...patch } });
+	return { settings, update, updateScreen };
 };
 
 export type VoiceSettingsStore = ReturnType<typeof createVoiceSettings>;

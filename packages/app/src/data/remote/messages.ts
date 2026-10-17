@@ -12,6 +12,7 @@ import type {
 	EmbedSuppressionInput,
 	ForwardInput,
 	LiveEvent,
+	ReactInput,
 	SendMessageInput,
 } from "../source";
 import { MAX_ATTACHMENT_BYTES, MESSAGE_COLLECTION } from "../source";
@@ -261,16 +262,20 @@ export const createMessageWrites = (deps: {
 			const rkey = input.rkey ?? nextTid();
 			const createdAt = new Date().toISOString();
 			const parent = input.parent
-				? require(input.channel, input.parent, "message.parent")
+				? index.get(input.channel, input.parent)
 				: undefined;
+			const parentAuthor = parent?.author.did ?? input.parentAuthor;
+			if (input.parent && !parentAuthor)
+				throw messageNotFound("message.parent");
 			const attached = uploads.resolve(input.attachments);
 			const record = buildMessageRecord({
 				text: input.text,
 				facets: input.facets as never,
 				createdAt,
-				parent: parent
-					? ({ did: parent.author.did, rkey: parent.rkey } as never)
-					: undefined,
+				parent:
+					input.parent && parentAuthor
+						? ({ did: parentAuthor, rkey: input.parent } as never)
+						: undefined,
 				attachments: attached as never,
 				suppressedEmbeds: input.suppressedEmbeds as never,
 			});
@@ -316,8 +321,17 @@ export const createMessageWrites = (deps: {
 					updatedAt,
 				},
 			);
-			const known = index.get(input.channel, input.rkey);
-			if (!known) throw messageNotFound("message.edit");
+			const known =
+				index.get(input.channel, input.rkey) ??
+				viewOf({
+					channel: input.channel,
+					rkey: input.rkey,
+					text: input.text,
+					createdAt:
+						typeof current.createdAt === "string"
+							? current.createdAt
+							: updatedAt,
+				});
 			const next: MessageView = {
 				...known,
 				text: input.text,
@@ -338,17 +352,14 @@ export const createMessageWrites = (deps: {
 			index.remove(input.channel, input.rkey);
 		},
 
-		react: async (input: {
-			channel: SpaceRef;
-			rkey: string;
-			emoji: string;
-			add: boolean;
-		}) => {
-			const message = require(input.channel, input.rkey, "message.react");
-			const target = { did: message.author.did, rkey: message.rkey };
+		react: async (input: ReactInput) => {
+			const author =
+				index.get(input.channel, input.rkey)?.author.did ?? input.author;
+			if (!author) throw messageNotFound("message.react");
+			const target = { did: author, rkey: input.rkey };
 			const cacheKey = `${input.channel}\n${input.rkey}\n${input.emoji}`;
 			if (input.add) {
-				const rkey = nextTid();
+				const rkey = input.reaction ?? nextTid();
 				await records.createInSpace(
 					{ space: input.channel, collection: REACTION_COLLECTION, rkey },
 					{ emoji: input.emoji, target },
@@ -356,7 +367,7 @@ export const createMessageWrites = (deps: {
 				reactionKeys.set(cacheKey, rkey);
 				return;
 			}
-			let rkey = reactionKeys.get(cacheKey);
+			let rkey = reactionKeys.get(cacheKey) ?? input.reaction;
 			if (!rkey) {
 				const found = await records.findInSpace(
 					{ space: input.channel, collection: REACTION_COLLECTION },
@@ -437,7 +448,10 @@ export const createMessageWrites = (deps: {
 		},
 
 		forwardMessage: async (input: ForwardInput) => {
-			const message = require(input.from, input.rkey, "message.forward");
+			const message =
+				index.get(input.from, input.rkey) ??
+				input.message ??
+				require(input.from, input.rkey, "message.forward");
 			const carried = message.forward;
 			const snapshot = carried
 				? {
@@ -472,7 +486,7 @@ export const createMessageWrites = (deps: {
 					};
 				}),
 			);
-			const rkey = nextTid();
+			const rkey = input.forwardRkey ?? nextTid();
 			const createdAt = new Date().toISOString();
 			const text = input.text ?? "";
 			const record = buildMessageRecord({

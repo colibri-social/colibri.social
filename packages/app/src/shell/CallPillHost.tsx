@@ -4,6 +4,7 @@ import { useData } from "../data/store";
 import { voice } from "../data/voice";
 import { CameraPreviewHost } from "../screens/voice/camera-preview";
 import { installVoiceNotices } from "../screens/voice/notices";
+import { ScreenShareHost } from "../screens/voice/screen-share";
 
 const HEADER_HEIGHT = 48;
 const BOTTOM_BAR_HEIGHT = 64;
@@ -32,6 +33,7 @@ export const CallPillHost = () => {
 	return (
 		<>
 			<CameraPreviewHost />
+			<ScreenShareHost />
 			<Show when={!voice.expanded() && voice.current()}>
 				{(call) => (
 					<CallPill

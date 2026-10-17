@@ -5,6 +5,7 @@ import {
 	toast,
 } from "@colibri-social/ui";
 import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import { useLiveStatus } from "../data/live-context";
 import {
 	notificationTarget,
 	shouldAlertNotification,
@@ -14,7 +15,7 @@ import {
 	createNotificationSoundPlayer,
 	type NotificationSound,
 } from "../data/notification-sounds";
-import { spaceNotificationPrefs } from "../data/notifications";
+import { isUnread, spaceNotificationPrefs } from "../data/notifications";
 import { useData } from "../data/store";
 import type { Did, NotificationView, SpaceRef } from "../data/types";
 import { documentVisible } from "../data/visibility";
@@ -27,6 +28,14 @@ import {
 	type OsNotifier,
 	osNotifier,
 } from "../native/notifications/index";
+import {
+	currentPush,
+	installMarkReadDrain,
+	listenForPushActivations,
+	type Push,
+	pushActivations,
+} from "../native/push/index";
+import type { MarkReadTarget } from "../native/push/mark-read";
 import { openNotificationTarget } from "../screens/inbox/inbox-adapter";
 import { NotificationPrompt } from "./NotificationPrompt";
 import type { Navigator } from "./stack";
@@ -44,12 +53,16 @@ export const NotificationHost = (props: {
 	notifier?: () => Promise<OsNotifier>;
 	device?: DeviceNotifications;
 	play?: (sound: NotificationSound) => void;
+	push?: Push;
+	listenForPush?: () => () => void;
 }) => {
 	const data = useData();
 	const prefs = spaceNotificationPrefs(data);
 	const device = props.device ?? deviceNotifications();
 	const notifier = props.notifier ?? osNotifier;
 	const play = props.play ?? createNotificationSoundPlayer();
+	const push = () => props.push ?? currentPush();
+	const liveStatus = useLiveStatus();
 	const handled = new Set<string>();
 	const [shown, setShown] = createSignal<NotificationView>();
 	let disposed = false;
@@ -122,6 +135,7 @@ export const NotificationHost = (props: {
 		void notifier().then((current) =>
 			target ? current.dismiss(target) : current.clearAll(),
 		);
+		void push()?.dismiss(target);
 	};
 
 	const activate = (activation: OsActivation) => {
@@ -141,6 +155,23 @@ export const NotificationHost = (props: {
 			...(activation.rkey ? { message: { rkey: activation.rkey } } : {}),
 		});
 	};
+
+	const markReadFromNotification = async (target: MarkReadTarget) => {
+		await data.source.markRead(target.space as SpaceRef, target.rkey);
+		await data.source.flushReadCursors?.();
+		const ids = data.notifications
+			.items()
+			.filter(
+				(view) =>
+					(view.thread ?? view.channel) === target.space && isUnread(view),
+			)
+			.map((view) => view.id);
+		if (ids.length) await data.notifications.markRead(ids);
+	};
+
+	onCleanup(pushActivations.subscribe(activate));
+	onCleanup((props.listenForPush ?? listenForPushActivations)());
+	onCleanup(installMarkReadDrain(markReadFromNotification));
 
 	let stopActivation: (() => void) | undefined;
 	void notifier().then((current) => {
@@ -173,11 +204,20 @@ export const NotificationHost = (props: {
 				now: Date.now(),
 			});
 			if (!alert) return;
+			if (visible) {
+				play("ping");
+				showToast(view);
+				return;
+			}
+			if (push()?.active()) return;
 			play("ping");
-			if (visible) showToast(view);
-			else if (device.active()) showOs(view);
+			if (device.active()) showOs(view);
 		}),
 	);
+
+	createEffect(() => {
+		push()?.setLive(liveStatus?.status() === "open" && isAppVisible());
+	});
 
 	createEffect(() => {
 		const viewing = data.viewing();
@@ -194,6 +234,7 @@ export const NotificationHost = (props: {
 	onCleanup(() => {
 		disposed = true;
 		stopActivation?.();
+		push()?.setLive(false);
 		toast.dismiss(MESSAGE_TOAST_ID);
 	});
 

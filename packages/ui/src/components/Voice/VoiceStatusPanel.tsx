@@ -20,6 +20,10 @@ import {
 	deafenControl,
 	micControl,
 } from "./CallControls";
+import {
+	ScreenShareControl,
+	type ScreenShareMenuProps,
+} from "./ScreenShareMenu";
 
 export type VoiceConnectionState =
 	| "connected"
@@ -45,6 +49,7 @@ export type VoiceStatusPanelProps = CallMediaState & {
 	onToggleDeafen?: () => void;
 	onToggleCamera?: () => void;
 	onToggleScreenShare?: () => void;
+	screenShareMenu?: ScreenShareMenuProps;
 	onShowOverlay?: () => void;
 	onOpenCall?: () => void;
 	class?: string;
@@ -171,7 +176,12 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 					onClick={props.onDisconnect}
 				/>
 			</div>
-			<div class="grid w-full grid-cols-4 gap-2">
+			<div
+				class={cx(
+					"grid w-full gap-2",
+					props.onToggleScreenShare ? "grid-cols-4" : "grid-cols-3",
+				)}
+			>
 				<CallControlButton
 					label={mic.label()}
 					tooltip={mic.tooltip()}
@@ -203,15 +213,19 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 					icon={<AnimatedVideocameraIcon off={!props.cameraOn} />}
 					onClick={props.onToggleCamera}
 				/>
-				<CallControlButton
-					label={props.screenSharing ? "Stop sharing" : "Share screen"}
-					pressed={!!props.screenSharing}
-					tone={props.screenSharing ? "active" : "default"}
-					size="lg"
-					stretch
-					icon={<AnimatedScreencastIcon />}
-					onClick={props.onToggleScreenShare}
-				/>
+				<Show when={props.onToggleScreenShare}>
+					<ScreenShareControl menu={props.screenShareMenu} stretch>
+						<CallControlButton
+							label={props.screenSharing ? "Stop sharing" : "Share screen"}
+							pressed={!!props.screenSharing}
+							tone={props.screenSharing ? "active" : "default"}
+							size="lg"
+							stretch
+							icon={<AnimatedScreencastIcon />}
+							onClick={props.onToggleScreenShare}
+						/>
+					</ScreenShareControl>
+				</Show>
 			</div>
 			<Show when={props.onShowOverlay}>
 				<Button

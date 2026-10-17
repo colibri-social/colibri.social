@@ -42,10 +42,16 @@ class MainActivity : TauriActivity() {
 
   override fun onResume() {
     super.onResume()
+    NotificationTray.activityResumed = true
     webView?.evaluateJavascript(
       "window.dispatchEvent(new CustomEvent('colibri-mark-read-pending'));",
       null
     )
+  }
+
+  override fun onPause() {
+    NotificationTray.activityResumed = false
+    super.onPause()
   }
 
   override fun onNewIntent(intent: Intent) {

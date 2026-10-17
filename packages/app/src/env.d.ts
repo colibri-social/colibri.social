@@ -4,4 +4,5 @@ interface ImportMetaEnv {
 	readonly VITE_COLIBRI_MOCK?: string;
 	readonly VITE_SENTRY_DSN?: string;
 	readonly VITE_APP_VERSION?: string;
+	readonly PUBLIC_VAPID_KEY?: string;
 }

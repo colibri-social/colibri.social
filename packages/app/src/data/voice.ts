@@ -12,9 +12,11 @@ import { uiPresence } from "./adapters/presence";
 import type { VoiceNoticeKey } from "./error-copy";
 import { createSimulatedConnection } from "./mock/voice-connection";
 import { profileBannerFill } from "./profile-theme";
+import type { ScreenShareQuality } from "./screen-share";
 import type { DataStore } from "./store";
 import type { Did, SpaceRef } from "./types";
 import type {
+	ScreenCapture,
 	VoiceConnection,
 	VoiceConnectionMonitor,
 	VoiceModeration,
@@ -34,6 +36,7 @@ export type VoiceController = {
 	muted: Accessor<boolean>;
 	deafened: Accessor<boolean>;
 	camera: Accessor<boolean>;
+	screenSharing: Accessor<boolean>;
 	expanded: Accessor<boolean>;
 	startedAt: Accessor<number | undefined>;
 	connection: Accessor<VoiceConnection>;
@@ -50,6 +53,12 @@ export type VoiceController = {
 	toggleMute(): void;
 	toggleDeafen(): void;
 	toggleCamera(): void;
+	shareScreen(
+		capture: ScreenCapture,
+		quality: ScreenShareQuality,
+	): Promise<boolean>;
+	stopScreenShare(): void;
+	applyScreenQuality(quality: ScreenShareQuality): void;
 	expand(): void;
 	collapse(): void;
 	cue(sound: VoiceSound): void;
@@ -254,12 +263,18 @@ export const createVoice = (
 				ended();
 			});
 			const releaseNotice = active.onNotice?.(notify);
+			const releaseScreenShare = active.onScreenShare?.((sharing) => {
+				if (current()) play(sharing ? "screenShared" : "screenUnshared");
+			});
 			detach = () => {
 				releaseEnded?.();
 				releaseNotice?.();
+				releaseScreenShare?.();
 			};
 		};
 		attach(link());
+
+		const screenSharing = () => !!current() && !!link().screenSharing?.();
 
 		const selfModeration = () => {
 			const did = viewerDid();
@@ -274,6 +289,7 @@ export const createVoice = (
 			muted,
 			deafened,
 			camera,
+			screenSharing,
 			expanded,
 			startedAt,
 			connection: () => link().connection(),
@@ -355,6 +371,18 @@ export const createVoice = (
 					}
 				});
 			},
+			shareScreen: async (capture, quality) => {
+				const share = link().shareScreen;
+				if (!current() || !share) {
+					capture.video.stop();
+					capture.audio?.stop();
+					capture.release();
+					return false;
+				}
+				return share(capture, quality);
+			},
+			stopScreenShare: () => link().stopScreen?.(),
+			applyScreenQuality: (quality) => link().applyScreenQuality?.(quality),
 			expand: () => {
 				if (current()) setExpanded(true);
 			},

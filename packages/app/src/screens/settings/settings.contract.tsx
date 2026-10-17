@@ -84,6 +84,12 @@ export const settings = defineContract({
 							m.data.setSimulation({ slowNetwork: checked })
 						}
 					/>
+					<ToggleRow
+						title="Offline"
+						description="Makes every send, edit, delete and reaction fail as if the device had no connection."
+						checked={m.data.simulation().offline}
+						onChange={(checked) => m.data.setSimulation({ offline: checked })}
+					/>
 				</ListGroup>
 			</Show>
 		)),

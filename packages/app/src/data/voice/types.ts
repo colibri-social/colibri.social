@@ -2,6 +2,7 @@ import type {
 	VoiceConnectionQuality,
 	VoiceConnectionState,
 } from "@colibri-social/ui";
+import type { ScreenShareQuality } from "../screen-share";
 
 export type VoiceConnection = {
 	state: VoiceConnectionState;
@@ -44,7 +45,17 @@ export type VoiceModeration = {
 	serverDeafened: boolean;
 };
 
-export type VoiceNotice = "noMicrophone" | "streamFailed" | "cameraFailed";
+export type VoiceNotice =
+	| "noMicrophone"
+	| "streamFailed"
+	| "cameraFailed"
+	| "screenFailed";
+
+export type ScreenCapture = {
+	video: MediaStreamTrack;
+	audio: MediaStreamTrack | null;
+	release: () => void;
+};
 
 export type VoiceConnectionMonitor = {
 	connection: () => VoiceConnection;
@@ -53,6 +64,14 @@ export type VoiceConnectionMonitor = {
 	setMuted?: (muted: boolean) => void;
 	setDeafened?: (deafened: boolean) => void;
 	setCamera?: (on: boolean) => Promise<boolean>;
+	shareScreen?: (
+		capture: ScreenCapture,
+		quality: ScreenShareQuality,
+	) => Promise<boolean>;
+	stopScreen?: () => void;
+	applyScreenQuality?: (quality: ScreenShareQuality) => void;
+	screenSharing?: () => boolean;
+	onScreenShare?: (listener: (sharing: boolean) => void) => () => void;
 	speakers?: () => ReadonlySet<string>;
 	videos?: () => readonly VoiceVideo[];
 	moderation?: () => Readonly<Record<string, VoiceModeration>>;

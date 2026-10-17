@@ -23,10 +23,15 @@ export type Frame = { $type: string } & Record<string, unknown>;
 
 export class FakeTrack {
 	stopped = false;
+	contentHint = "";
+	constraints: MediaTrackConstraints[] = [];
 	listeners = new Map<string, () => void>();
 	constructor(readonly kind: string) {}
 	stop() {
 		this.stopped = true;
+	}
+	async applyConstraints(constraints: MediaTrackConstraints) {
+		this.constraints.push(constraints);
 	}
 	addEventListener(type: string, listener: () => void) {
 		this.listeners.set(type, listener);

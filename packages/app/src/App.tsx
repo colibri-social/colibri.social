@@ -117,7 +117,11 @@ const RemoteApp = () => {
 	});
 	return (
 		<AuthGate auth={auth} platform={platform()}>
-			<AccountActionsContext.Provider value={{ signOut: auth.signOut }}>
+			<AccountActionsContext.Provider
+				value={{
+					signOut: () => auth.signOut({ beforeSignOut: session.beforeSignOut }),
+				}}
+			>
 				<SignedInApp session={session} />
 			</AccountActionsContext.Provider>
 		</AuthGate>

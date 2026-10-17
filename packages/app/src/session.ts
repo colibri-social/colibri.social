@@ -7,8 +7,10 @@ import {
 	type Accessor,
 	createEffect,
 	createSignal,
+	getOwner,
 	on,
 	onCleanup,
+	runWithOwner,
 	untrack,
 } from "solid-js";
 import { type Auth, appViewDid, appViewHost, appViewServiceRef } from "./auth";
@@ -18,6 +20,7 @@ import {
 	clearDeviceCache,
 	createMessageCache,
 } from "./data/message-cache";
+import { createOutboxQueue } from "./data/outbox/queue";
 import { createLiveConnection, type LiveConnection } from "./data/remote/live";
 import { createRemoteSource } from "./data/remote/source";
 import { installResumeSync } from "./data/resume";
@@ -26,12 +29,28 @@ import { createDataStore, type DataStore } from "./data/store";
 import { installVoiceEngine } from "./data/voice/install";
 import { installBadge } from "./native/badge";
 import { installNativeCall } from "./native/call";
+import { deviceNotifications } from "./native/notifications/device";
 import { osNotifier } from "./native/notifications/index";
+import {
+	bindPush,
+	createPush,
+	createReadSweep,
+	currentPush,
+	pushActivations,
+	readTargets,
+	teardownLeftoverPush,
+} from "./native/push/index";
+import {
+	oauthRefreshSettled,
+	QUIT_DRAIN_MS,
+	setBeforeExit,
+} from "./native/quit-guard";
 import { reportError } from "./sentry/report";
 
 const log = createLogger("session");
 
 export const SESSION_START_TIMEOUT_MS = 30_000;
+export const SIGN_OUT_DRAIN_MS = 2_500;
 
 export type SignedInSession = {
 	store: DataStore;
@@ -52,6 +71,7 @@ export const createSignedInSession = (
 	const startTimeoutMs = options.startTimeoutMs ?? SESSION_START_TIMEOUT_MS;
 	const [state, setState] = createSignal<SessionState>({ kind: "idle" });
 	const [attempt, setAttempt] = createSignal(0);
+	let activeStore: DataStore | undefined;
 
 	createEffect(
 		on([auth.agent, attempt], ([agent]) => {
@@ -60,12 +80,15 @@ export const createSignedInSession = (
 				setState({ kind: "idle" });
 				return;
 			}
+			const owner = getOwner();
 			let cancelled = false;
 			let session: SignedInSession | undefined;
+			let clearBeforeExit: (() => void) | undefined;
 			let uninstallCall: (() => void) | undefined;
 			let uninstallResume: (() => void) | undefined;
 			let uninstallVoice: (() => void) | undefined;
 			let uninstallBadge: (() => void) | undefined;
+			let uninstallPush: (() => void) | undefined;
 			let stopPreferencesGrant: (() => void) | undefined;
 			const live = createLiveConnection({
 				agent,
@@ -106,10 +129,60 @@ export const createSignedInSession = (
 				({ source, warm }) => {
 					if (cancelled) return;
 					const cache = createMessageCache({ namespace });
-					const store = createDataStore(source, { cache, spaces });
+					const store = createDataStore(source, {
+						cache,
+						spaces,
+						outbox: {
+							queue: createOutboxQueue({ owner: namespace }),
+							held: () => auth.health.dead(),
+						},
+					});
+					activeStore = store;
+					clearBeforeExit = setBeforeExit(() =>
+						Promise.all([
+							store.outbox.drain(QUIT_DRAIN_MS),
+							oauthRefreshSettled(did),
+						]),
+					);
+					runWithOwner(owner, () => {
+						createEffect(
+							on(
+								[live.status, auth.health.dead],
+								([status, dead]) => {
+									if (status === "open" && !dead) store.outbox.flush();
+								},
+								{ defer: true },
+							),
+						);
+					});
 					stopPreferencesGrant = source.startPreferencesGrant();
 					uninstallCall = installNativeCall(store);
-					uninstallResume = installResumeSync(store, live);
+					const push = createPush({
+						source,
+						device: deviceNotifications(),
+					});
+					const sweep = createReadSweep({
+						targets: () => (push.active() ? readTargets(store) : []),
+						dismiss: (channels) => void push.dismissRead(channels),
+					});
+					const unbindPush = bindPush(push);
+					const stopPush = push.watch();
+					uninstallPush = () => {
+						sweep.cancel();
+						stopPush();
+						unbindPush();
+					};
+					uninstallResume = installResumeSync(
+						{
+							catchUp: () => {
+								store.catchUp();
+								store.outbox.flush();
+								sweep.schedule();
+							},
+							pauseCatchUp: store.pauseCatchUp,
+						},
+						live,
+					);
 					uninstallBadge = installBadge(store);
 					uninstallVoice = installVoiceEngine({
 						agent,
@@ -134,7 +207,10 @@ export const createSignedInSession = (
 				uninstallResume?.();
 				uninstallVoice?.();
 				uninstallBadge?.();
+				uninstallPush?.();
 				stopPreferencesGrant?.();
+				clearBeforeExit?.();
+				if (activeStore === session?.store) activeStore = undefined;
 				session?.store.dispose();
 				live.close();
 			});
@@ -146,6 +222,7 @@ export const createSignedInSession = (
 			if (status === "signedOut" && previous && previous !== "signedOut") {
 				void clearDeviceCache();
 				void osNotifier().then((notifier) => notifier.clearAll());
+				void teardownLeftoverPush();
 			}
 		}),
 	);
@@ -153,5 +230,12 @@ export const createSignedInSession = (
 	return {
 		state: state as Accessor<SessionState>,
 		retry: () => setAttempt((value) => value + 1),
+		beforeSignOut: async () => {
+			pushActivations.discard();
+			await Promise.all([
+				currentPush()?.disable(),
+				activeStore?.outbox.drain(SIGN_OUT_DRAIN_MS),
+			]);
+		},
 	};
 };

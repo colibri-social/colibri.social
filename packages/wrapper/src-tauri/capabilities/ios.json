@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/iOS-schema.json",
+  "identifier": "ios",
+  "description": "iOS-only capabilities.",
+  "platforms": ["iOS"],
+  "windows": ["main"],
+  "permissions": ["core:window:allow-set-badge-count"]
+}

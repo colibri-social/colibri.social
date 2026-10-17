@@ -3,6 +3,7 @@ import type {
 	AttachmentView,
 	Facet,
 	ForwardView,
+	LinkEmbed,
 	MemberView,
 	ProfileView,
 	ReactionView,
@@ -11,6 +12,8 @@ import type {
 import {
 	embedSuppression,
 	gifOfAttachments,
+	inlineMediaOf,
+	isGifSiteUrl,
 	splitAttachments,
 	toLinkEmbedProps,
 	visibleEmbeds,
@@ -464,6 +467,86 @@ describe("gif attachments", () => {
 			] as AttachmentView[]),
 		).toBeUndefined();
 		expect(gifOfAttachments(undefined)).toBeUndefined();
+	});
+});
+
+describe("inline media embeds", () => {
+	const embed = (value: Partial<LinkEmbed> & { uri: string }) =>
+		value as LinkEmbed;
+	const proxied =
+		"https://appview.test/xrpc/social.colibri.beta.embed.getImage?url=x";
+
+	it("shows a GIF site link as its animated image", () => {
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://tenor.com/view/touhou-fumo-plushie-plush-hello-gif-21004226",
+					siteName: "Tenor",
+					title: "Touhou Fumo GIF",
+					image: { url: proxied, width: 438, height: 498 },
+					video: {
+						url: "https://appview.test/video",
+						mimeType: "video/mp4",
+						width: 498,
+						height: 566,
+					},
+				}),
+			),
+		).toEqual({
+			src: proxied,
+			kind: "gif",
+			width: 438,
+			height: 498,
+			alt: "Touhou Fumo GIF",
+		});
+	});
+
+	it("shows direct image and video links as media", () => {
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://media.test/cat.webp?x=1",
+					image: { url: proxied },
+				}),
+			),
+		).toMatchObject({ kind: "gif", src: proxied });
+		expect(
+			inlineMediaOf(
+				embed({ uri: "https://media.test/cat.JPG", image: { url: proxied } }),
+			),
+		).toMatchObject({ kind: "image", src: proxied });
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://media.test/clip.mp4",
+					video: { url: "https://appview.test/video", mimeType: "video/mp4" },
+				}),
+			),
+		).toMatchObject({ kind: "video", src: "https://appview.test/video" });
+	});
+
+	it("leaves ordinary pages and imageless GIF links as cards", () => {
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://example.com/post",
+					title: "A post",
+					image: { url: proxied },
+				}),
+			),
+		).toBeUndefined();
+		expect(
+			inlineMediaOf(embed({ uri: "https://giphy.com/", title: "GIPHY" })),
+		).toBeUndefined();
+	});
+
+	it("matches GIF sites and their subdomains only", () => {
+		expect(isGifSiteUrl("https://media.giphy.com/media/x/giphy.gif")).toBe(
+			true,
+		);
+		expect(isGifSiteUrl("https://klipy.com/gifs/anime-maid-7")).toBe(true);
+		expect(isGifSiteUrl("https://nottenor.com/view/x")).toBe(false);
+		expect(isGifSiteUrl("not a url")).toBe(false);
 	});
 });
 

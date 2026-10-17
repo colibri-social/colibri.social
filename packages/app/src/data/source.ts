@@ -49,8 +49,18 @@ export type SendMessageInput = {
 	text: string;
 	facets?: Facet[];
 	parent?: string;
+	parentAuthor?: Did;
 	attachments?: AttachmentView[];
 	suppressedEmbeds?: string[];
+};
+
+export type ReactInput = {
+	channel: SpaceRef;
+	rkey: string;
+	emoji: string;
+	add: boolean;
+	author?: Did;
+	reaction?: string;
 };
 
 export type UploadOptions = {
@@ -63,9 +73,11 @@ export type ForwardInput = {
 	rkey: string;
 	to: SpaceRef;
 	text?: string;
+	forwardRkey?: string;
+	message?: MessageView;
 };
 
-export type Simulation = { slowNetwork: boolean };
+export type Simulation = { slowNetwork: boolean; offline: boolean };
 
 export const MAX_ATTACHMENTS = 10;
 export const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
@@ -368,6 +380,26 @@ export type EmbedSuppressionInput = {
 	uris: string[];
 };
 
+export type PushRegistration =
+	| {
+			provider: "webpush";
+			platform: "web";
+			endpoint: string;
+			p256dh: string;
+			auth: string;
+	  }
+	| { provider: "fcm"; platform: "android"; token: string }
+	| {
+			provider: "apns";
+			platform: "ios" | "macos";
+			token: string;
+			environment: "sandbox" | "production";
+	  };
+
+export type PushUnregistration =
+	| { provider: "webpush"; endpoint: string }
+	| { provider: "fcm" | "apns"; token: string };
+
 export type DeletionHost = { name?: string; contactEmail?: string };
 
 export type DeletionStatus = {
@@ -456,13 +488,9 @@ export type DataSource = AccessSource &
 			channel: SpaceRef;
 			rkey: string;
 		}) => Promise<void>;
-		react: (input: {
-			channel: SpaceRef;
-			rkey: string;
-			emoji: string;
-			add: boolean;
-		}) => Promise<void>;
+		react: (input: ReactInput) => Promise<void>;
 		markRead: (channel: SpaceRef, through?: string) => Promise<void>;
+		flushReadCursors?: () => Promise<void>;
 		setMemberRoles: (input: MemberRolesInput) => Promise<void>;
 		createRole: (input: CreateRoleInput) => Promise<RoleView>;
 		updateRole: (input: UpdateRoleInput) => Promise<RoleView>;
@@ -489,6 +517,8 @@ export type DataSource = AccessSource &
 			channel: SpaceRef;
 			message: RecordRef;
 		}) => Promise<void>;
+		registerPush: (input: PushRegistration) => Promise<void>;
+		unregisterPush: (input: PushUnregistration) => Promise<void>;
 		subscribe: (listener: (event: LiveEvent) => void) => () => void;
 		uploadBlob: (
 			file: File,

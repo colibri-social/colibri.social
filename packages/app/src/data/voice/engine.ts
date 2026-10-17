@@ -29,6 +29,14 @@ import {
 import { Device, type types } from "mediasoup-client";
 import { createEffect, createRoot, createSignal, on } from "solid-js";
 import type { ServiceAuthAgent } from "../remote/live/connection";
+import {
+	type ScreenShareQuality,
+	screenCodecOptions,
+	screenContentHint,
+	screenDegradationPreference,
+	screenEncodings,
+	screenVideoConstraints,
+} from "../screen-share";
 import { DEFAULT_VOICE_SETTINGS, type VoiceSettings } from "../voice-settings";
 import { applyAudioSink, type SinkableMediaElement } from "./audio-sink";
 import { pickVoiceHandler, supportsWebRtc } from "./device";
@@ -42,6 +50,7 @@ import { createProducerRegistry } from "./producer-registry";
 import {
 	DISCONNECTED,
 	qualityFor,
+	type ScreenCapture,
 	type VoiceConnection,
 	type VoiceConnectionMonitor,
 	type VoiceEndReason,
@@ -130,6 +139,11 @@ export type VoiceEngine = Required<
 		| "setMuted"
 		| "setDeafened"
 		| "setCamera"
+		| "shareScreen"
+		| "stopScreen"
+		| "applyScreenQuality"
+		| "screenSharing"
+		| "onScreenShare"
 		| "speakers"
 		| "videos"
 		| "moderation"
@@ -276,9 +290,11 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		const [moderation, setModeration] = createSignal<
 			Record<string, VoiceModeration>
 		>({});
+		const [screenSharing, setScreenSharing] = createSignal(false);
 
 		const endedListeners = new Set<(reason: VoiceEndReason) => void>();
 		const noticeListeners = new Set<(notice: VoiceNotice) => void>();
+		const screenShareListeners = new Set<(sharing: boolean) => void>();
 
 		let session: VoiceSession | null = null;
 		let ws: VoiceSocket | null = null;
@@ -292,6 +308,10 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		let micProducer: types.Producer | null = null;
 		let camProducer: types.Producer | null = null;
 		let camEndedListener: (() => void) | null = null;
+		let screenProducer: types.Producer | null = null;
+		let screenAudioProducer: types.Producer | null = null;
+		let screenCapture: ScreenCapture | null = null;
+		let screenEndedListener: (() => void) | null = null;
 		let micStream: MediaStream | null = null;
 		let suppressor: NoiseSuppressor | null = null;
 		let localSpeaking = false;
@@ -323,6 +343,10 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 
 		const notice = (value: VoiceNotice) => {
 			for (const listener of [...noticeListeners]) listener(value);
+		};
+
+		const emitScreenShare = (sharing: boolean) => {
+			for (const listener of [...screenShareListeners]) listener(sharing);
 		};
 
 		const recomputeSpeakers = () => {
@@ -502,6 +526,21 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			camEndedListener = null;
 		};
 
+		const releaseScreenCapture = () => {
+			const capture = screenCapture;
+			screenCapture = null;
+			if (capture && screenEndedListener) {
+				capture.video.removeEventListener("ended", screenEndedListener);
+			}
+			screenEndedListener = null;
+			setVideo("self:screen", undefined);
+			setScreenSharing(false);
+			if (!capture) return;
+			capture.video.stop();
+			capture.audio?.stop();
+			capture.release();
+		};
+
 		const teardownMedia = () => {
 			mediaEpoch += 1;
 			rejectAllPending();
@@ -517,6 +556,9 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			}
 			micProducer = null;
 			camProducer = null;
+			screenProducer = null;
+			screenAudioProducer = null;
+			releaseScreenCapture();
 
 			for (const consumer of consumers.values()) consumer.close();
 			consumers.clear();
@@ -887,8 +929,13 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				kind: frame.kind as types.MediaKind,
 				source,
 			});
-			if (ready) void consumeProducer(frame.producerId);
-			else producers.queue(frame.producerId);
+			if (ready) {
+				void consumeProducer(frame.producerId);
+				if (frame.kind === "video" && source === "screen")
+					emitScreenShare(true);
+			} else {
+				producers.queue(frame.producerId);
+			}
 		};
 
 		const dropPeer = (did: string) => {
@@ -935,9 +982,19 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				case `${DEFS}peerLeft`:
 					dropPeer(frame.did);
 					return;
-				case `${DEFS}producerRemoved`:
+				case `${DEFS}producerRemoved`: {
+					const owner = producers.owner(frame.producerId);
 					removeProducer(frame.producerId);
+					if (
+						ready &&
+						owner?.did !== viewer &&
+						owner?.kind === "video" &&
+						owner.source === "screen"
+					) {
+						emitScreenShare(false);
+					}
 					return;
+				}
 				case `${DEFS}speakingUpdate`:
 					serverSpeakers = frame.speaking
 						? serverSpeakers.includes(frame.did)
@@ -1120,11 +1177,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			sendSelfState();
 		};
 
-		const stopCamera = () => {
-			setVideo("self:cam", undefined);
-			const producer = camProducer;
-			if (!producer) return;
-			releaseCameraListener();
+		const closeProducer = (producer: types.Producer) => {
 			void sendAndWait(closeProducerFrame(producer.id)).catch(
 				(error: unknown) => {
 					log.debug("closeProducer failed", {
@@ -1134,7 +1187,9 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			);
 			producer.track?.stop();
 			producer.close();
-			camProducer = null;
+		};
+
+		const settleVideoTeardown = () => {
 			const settling = new Promise<void>((resolve) =>
 				setTimeout(resolve, VIDEO_SETTLE_MS),
 			);
@@ -1142,6 +1197,144 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			void settling.then(() => {
 				if (pendingVideoTeardown === settling) pendingVideoTeardown = null;
 			});
+		};
+
+		const stopCamera = () => {
+			setVideo("self:cam", undefined);
+			const producer = camProducer;
+			if (!producer) return;
+			releaseCameraListener();
+			closeProducer(producer);
+			camProducer = null;
+			settleVideoTeardown();
+		};
+
+		const stopScreen = () => {
+			const video = screenProducer;
+			const audio = screenAudioProducer;
+			screenProducer = null;
+			screenAudioProducer = null;
+			if (audio) closeProducer(audio);
+			if (video) closeProducer(video);
+			const sharing = screenSharing();
+			releaseScreenCapture();
+			if (video) settleVideoTeardown();
+			if (sharing) emitScreenShare(false);
+		};
+
+		const applyDegradation = (
+			producer: types.Producer,
+			quality: ScreenShareQuality,
+		) => {
+			const sender = producer.rtpSender;
+			if (!sender) return;
+			try {
+				const params = sender.getParameters() as RTCRtpSendParameters & {
+					degradationPreference?: RTCDegradationPreference;
+				};
+				const maxBitrate = screenEncodings(quality)[0]?.maxBitrate;
+				params.degradationPreference = screenDegradationPreference(quality);
+				for (const encoding of params.encodings ?? []) {
+					encoding.maxBitrate = maxBitrate;
+				}
+				void sender.setParameters(params).catch((error: unknown) => {
+					log.debug("screen parameters rejected", {
+						code: classifyThrown(error).code,
+					});
+				});
+			} catch (error) {
+				log.debug("screen parameters unavailable", {
+					code: classifyThrown(error).code,
+				});
+			}
+		};
+
+		const discardCapture = (capture: ScreenCapture) => {
+			capture.video.stop();
+			capture.audio?.stop();
+			capture.release();
+		};
+
+		const shareScreen = async (
+			capture: ScreenCapture,
+			quality: ScreenShareQuality,
+		): Promise<boolean> => {
+			const transport = sendTransport;
+			if (!transport || !ready) {
+				discardCapture(capture);
+				return false;
+			}
+			if (screenCapture) stopScreen();
+			const epoch = mediaEpoch;
+			const live = () => mediaEpoch === epoch && screenCapture === capture;
+			screenCapture = capture;
+			setScreenSharing(true);
+			capture.video.contentHint = screenContentHint(quality);
+			setVideo("self:screen", {
+				did: viewer,
+				source: "screen",
+				stream: new MediaStream([capture.video]),
+			});
+			let producer: types.Producer;
+			try {
+				producer = await transport.produce({
+					track: capture.video,
+					appData: { source: "screen" },
+					encodings: screenEncodings(quality),
+					codecOptions: screenCodecOptions(quality),
+				});
+			} catch (error) {
+				if (screenCapture === capture) releaseScreenCapture();
+				else discardCapture(capture);
+				log.warn("could not send the screen", {
+					code: classifyThrown(error).code,
+				});
+				notice("screenFailed");
+				return false;
+			}
+			if (!live()) {
+				if (mediaEpoch === epoch) closeProducer(producer);
+				else producer.close();
+				return false;
+			}
+			screenProducer = producer;
+			applyDegradation(producer, quality);
+			screenEndedListener = () => stopScreen();
+			capture.video.addEventListener("ended", screenEndedListener);
+			emitScreenShare(true);
+			if (!capture.audio) return true;
+			try {
+				const audio = await transport.produce({
+					track: capture.audio,
+					appData: { source: "screen" },
+				});
+				if (!live()) {
+					if (mediaEpoch === epoch) closeProducer(audio);
+					else audio.close();
+					return screenCapture !== null;
+				}
+				screenAudioProducer = audio;
+			} catch (error) {
+				log.warn("could not send the screen sound", {
+					code: classifyThrown(error).code,
+				});
+			}
+			return true;
+		};
+
+		const applyScreenQuality = (quality: ScreenShareQuality) => {
+			const producer = screenProducer;
+			const track = producer?.track;
+			if (!producer || !track) return;
+			track.contentHint = screenContentHint(quality);
+			void track
+				.applyConstraints(screenVideoConstraints(quality))
+				.catch((error: unknown) => {
+					log.debug("screen constraints rejected", {
+						code: classifyThrown(error).code,
+					});
+				});
+			applyDegradation(producer, quality);
 		};
 
 		const startCamera = async (): Promise<boolean> => {
@@ -1288,6 +1481,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			stopDeviceWatch?.();
 			endedListeners.clear();
 			noticeListeners.clear();
+			screenShareListeners.clear();
 			disposeRoot();
 		};
 
@@ -1298,6 +1492,10 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			setMuted,
 			setDeafened,
 			setCamera,
+			shareScreen,
+			stopScreen,
+			applyScreenQuality,
+			screenSharing,
 			speakers,
 			videos: () => Object.values(videoMap()),
 			moderation,
@@ -1308,6 +1506,10 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			onNotice: (listener) => {
 				noticeListeners.add(listener);
 				return () => noticeListeners.delete(listener);
+			},
+			onScreenShare: (listener) => {
+				screenShareListeners.add(listener);
+				return () => screenShareListeners.delete(listener);
 			},
 			dispose,
 		};

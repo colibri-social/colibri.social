@@ -302,6 +302,35 @@ describe("createAuth", () => {
 		expect(navigate).toHaveBeenLastCalledWith("/app/login");
 		expect(onSignedOut).toHaveBeenCalled();
 	});
+
+	it("runs the sign-out cleanup before revoking", async () => {
+		const { auth, fake } = setup(
+			{ stored: fakeSession(DID) },
+			{ storage: memoryStorage({ sub: DID }) },
+		);
+		await auth.init();
+		let revokedBeforeCleanup: boolean | undefined;
+		await auth.signOut({
+			beforeSignOut: async () => {
+				revokedBeforeCleanup = fake.calls.some(
+					(call) => call.method === "revoke",
+				);
+			},
+		});
+		expect(revokedBeforeCleanup).toBe(false);
+		expect(fake.calls.at(-1)).toEqual({ method: "revoke", input: DID });
+	});
+
+	it("stops waiting for a stuck sign-out cleanup", async () => {
+		const { auth, fake } = setup(
+			{ stored: fakeSession(DID) },
+			{ storage: memoryStorage({ sub: DID }), beforeSignOutTimeoutMs: 30 },
+		);
+		await auth.init();
+		await auth.signOut({ beforeSignOut: () => new Promise(() => {}) });
+		expect(fake.calls.at(-1)).toEqual({ method: "revoke", input: DID });
+		expect(auth.status()).toBe("signedOut");
+	});
 });
 
 const hangingOnce = (state: FakeClientState, settle?: () => Promise<never>) => {

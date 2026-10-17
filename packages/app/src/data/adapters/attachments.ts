@@ -152,6 +152,67 @@ export const gifOfAttachments = (
 	};
 };
 
+const GIF_HOSTS = ["tenor.com", "giphy.com", "klipy.com"];
+const ANIMATED_IMAGE_PATH = /\.(gif|webp)$/i;
+const STILL_IMAGE_PATH = /\.(png|jpe?g|avif)$/i;
+const VIDEO_PATH = /\.(mp4|m4v|webm)$/i;
+
+const parseUrl = (uri: string) => {
+	try {
+		return new URL(uri);
+	} catch {
+		return undefined;
+	}
+};
+
+const isGifHost = (host: string) =>
+	GIF_HOSTS.some((gifHost) => host === gifHost || host.endsWith(`.${gifHost}`));
+
+export const isGifSiteUrl = (uri: string) => {
+	const url = parseUrl(uri);
+	return !!url && isGifHost(url.hostname);
+};
+
+export const inlineMediaOf = (embed: LinkEmbed): MediaItem | undefined => {
+	const url = parseUrl(embed.uri);
+	if (!url) return undefined;
+	const alt = embed.image?.alt ?? embed.title;
+	if (isGifHost(url.hostname) && embed.image) {
+		return {
+			src: embed.image.url,
+			kind: "gif",
+			width: embed.image.width ?? embed.video?.width,
+			height: embed.image.height ?? embed.video?.height,
+			alt,
+		};
+	}
+	if (embed.image && ANIMATED_IMAGE_PATH.test(url.pathname)) {
+		return {
+			src: embed.image.url,
+			kind: "gif",
+			width: embed.image.width,
+			height: embed.image.height,
+		};
+	}
+	if (embed.image && STILL_IMAGE_PATH.test(url.pathname)) {
+		return {
+			src: embed.image.url,
+			kind: "image",
+			width: embed.image.width,
+			height: embed.image.height,
+		};
+	}
+	if (embed.video && VIDEO_PATH.test(url.pathname)) {
+		return {
+			src: embed.video.url,
+			kind: "video",
+			width: embed.video.width,
+			height: embed.video.height,
+		};
+	}
+	return undefined;
+};
+
 export const toLinkEmbedProps = (embed: LinkEmbed): LinkEmbedProps => ({
 	url: embed.uri,
 	siteName: embed.siteName,

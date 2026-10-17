@@ -220,6 +220,8 @@ export * from "./components/Voice/CallControls";
 export * from "./components/Voice/CallPill";
 export * from "./components/Voice/CallScreen";
 export * from "./components/Voice/CameraPreviewDialog";
+export * from "./components/Voice/ScreenShareMenu";
+export * from "./components/Voice/ScreenSharePicker";
 export * from "./components/Voice/shared";
 export * from "./components/Voice/VoiceFloatingWindow";
 export * from "./components/Voice/VoiceGrid";

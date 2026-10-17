@@ -728,6 +728,16 @@ export const createRemoteSource = async (
 				{ body: input },
 			);
 		},
+		registerPush: async (input) => {
+			await transport.procedure(colibri.notification.registerPush.main, {
+				body: input,
+			});
+		},
+		unregisterPush: async (input) => {
+			await transport.procedure(colibri.notification.unregisterPush.main, {
+				body: input,
+			});
+		},
 
 		subscribe: (listener) => {
 			localListeners.add(listener);
@@ -843,7 +853,7 @@ export const createRemoteSource = async (
 
 		getBlueskyPost: (url) => fetchBlueskyPost(url),
 
-		simulation: (): Simulation => ({ slowNetwork: false }),
+		simulation: (): Simulation => ({ slowNetwork: false, offline: false }),
 		setSimulation: () => {},
 		preferences,
 		labeler: createNetworkLabeler(),

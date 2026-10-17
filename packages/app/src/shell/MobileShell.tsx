@@ -24,6 +24,7 @@ import { ProfileSheetProvider } from "../screens/profile/profile-sheet";
 import { settingsPage } from "../screens/settings/nav";
 import SpacesScreen from "../screens/spaces/spaces.screen";
 import VoiceScreen from "../screens/voice/voice.screen";
+import { AppLinkHost } from "./AppLinkHost";
 import { CallPillHost } from "./CallPillHost";
 import { restoreLastViewed } from "./cold-start";
 import { installFlingGuard } from "./fling-guard";
@@ -36,6 +37,7 @@ import { installOverlayBack } from "./overlay-back";
 import { AdminScreen, AppScreen } from "./registry";
 import { createStack } from "./stack";
 import { installTapGuard } from "./tap-guard";
+import { WriteFailureToasts } from "./WriteFailureToasts";
 
 const SettingsScreen = lazy(
 	() => import("../screens/settings/settings.screen"),
@@ -261,6 +263,8 @@ export const MobileShell = () => {
 					<LayerStack stack={stack} base={base()} renderLayer={renderLayer} />
 					<CallPillHost />
 					<NotificationHost stack={stack} />
+					<AppLinkHost stack={stack} />
+					<WriteFailureToasts />
 					<DiscardChangesDialog guard={stack.leaveGuard} />
 				</MemberMenuProvider>
 			</ProfileSheetProvider>

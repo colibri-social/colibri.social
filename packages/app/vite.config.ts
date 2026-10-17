@@ -110,6 +110,7 @@ export default defineConfig({
 		tailwindcss(),
 		...sentryUpload,
 	],
+	envPrefix: ["VITE_", "PUBLIC_VAPID_KEY"],
 	resolve: { dedupe: ["solid-js"], alias: sentryStub },
 	server: { port: 5173, strictPort: true, host: true },
 	build: { target: "es2022", sourcemap: sentryUpload.length > 0 },

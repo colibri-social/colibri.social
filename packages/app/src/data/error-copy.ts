@@ -346,6 +346,11 @@ export const VOICE_NOTICE_COPY: Record<VoiceNoticeKey, ErrorCopy> = {
 		title: "Your camera didn't turn on",
 		description: "Make sure no other app is using it, then try again.",
 	},
+	screenFailed: {
+		title: "Couldn't share your screen",
+		description:
+			"Your call is still connected. Try sharing a different screen or window.",
+	},
 	serverMuted: {
 		title: "A moderator muted you",
 		description: "You can talk again once they unmute you.",

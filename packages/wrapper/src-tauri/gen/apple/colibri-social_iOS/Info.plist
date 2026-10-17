@@ -62,6 +62,10 @@
 	<array>
 		<string>INSendMessageIntent</string>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>Colibri captures the screen or app window you pick so you can share it in a voice channel.</string>
 </dict>

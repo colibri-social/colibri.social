@@ -1,6 +1,6 @@
 import { appActive } from "@colibri-social/ui";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { installAppActivity } from "./app-active";
+import { installAppActivity, installMobileActivity } from "./app-active";
 
 const fakeWindow = (focused: boolean) => {
 	let handler: ((event: { payload: boolean }) => void) | undefined;
@@ -52,5 +52,20 @@ describe("installAppActivity", () => {
 		const window = vi.fn();
 		uninstall = installAppActivity({ enabled: false, window });
 		expect(window).not.toHaveBeenCalled();
+	});
+
+	it("follows page visibility in the mobile shell", () => {
+		const target = new EventTarget() as EventTarget & {
+			visibilityState: DocumentVisibilityState;
+		};
+		target.visibilityState = "visible";
+		uninstall = installMobileActivity(target);
+		expect(appActive()).toBe(true);
+		target.visibilityState = "hidden";
+		target.dispatchEvent(new Event("visibilitychange"));
+		expect(appActive()).toBe(false);
+		target.visibilityState = "visible";
+		target.dispatchEvent(new Event("visibilitychange"));
+		expect(appActive()).toBe(true);
 	});
 });

@@ -63,6 +63,24 @@ describe("voice settings", () => {
 			false,
 		);
 	});
+
+	it("keeps settings saved before screen sharing existed", () => {
+		const { screen: _, ...older } = DEFAULT_VOICE_SETTINGS;
+		storage.set(
+			DEVICE_KEYS.voiceSettings,
+			JSON.stringify({ ...older, microphone: "mic-2" }),
+		);
+		const store = createVoiceSettings();
+		expect(store.settings()).toEqual({
+			...DEFAULT_VOICE_SETTINGS,
+			microphone: "mic-2",
+		});
+		store.updateScreen({ framerate: 60 });
+		expect(createVoiceSettings().settings().screen).toEqual({
+			...DEFAULT_VOICE_SETTINGS.screen,
+			framerate: 60,
+		});
+	});
 });
 
 describe("media devices", () => {

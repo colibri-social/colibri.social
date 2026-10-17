@@ -184,6 +184,7 @@ describe("message cache", () => {
 			kv: {
 				enabled: () => false,
 				get: async () => undefined,
+				values: async () => [],
 				put: async () => undefined,
 				remove: async () => undefined,
 				removeWhere: async () => undefined,

@@ -20,6 +20,7 @@ import {
 	Switch,
 } from "solid-js";
 import {
+	inlineMediaOf,
 	type SplitAttachments,
 	toLinkEmbedProps,
 } from "../../../data/adapters/attachments";
@@ -282,8 +283,7 @@ export const MessageAttachments = (props: {
 		<For each={props.split.files}>{(file) => <FileAttachment {...file} />}</For>
 		<For each={props.embeds}>
 			{(embed) => (
-				<Show
-					when={props.loadBlueskyPost && parseBlueskyPostUrl(embed.uri)}
+				<Switch
 					fallback={
 						<EmbedWithLightbox
 							embed={embed}
@@ -294,16 +294,30 @@ export const MessageAttachments = (props: {
 						/>
 					}
 				>
-					<BlueskyEmbed
-						url={embed.uri}
-						fallback={embed}
-						load={props.loadBlueskyPost}
-						author={props.author}
-						timestamp={props.timestamp}
-						locale={props.locale}
-						onRemove={props.onRemoveEmbed}
-					/>
-				</Show>
+					<Match when={inlineMediaOf(embed)}>
+						{(media) => (
+							<div data-inline-media="">
+								<MediaWithLightbox
+									items={[media()]}
+									author={props.author}
+									timestamp={props.timestamp}
+									locale={props.locale}
+								/>
+							</div>
+						)}
+					</Match>
+					<Match when={props.loadBlueskyPost && parseBlueskyPostUrl(embed.uri)}>
+						<BlueskyEmbed
+							url={embed.uri}
+							fallback={embed}
+							load={props.loadBlueskyPost}
+							author={props.author}
+							timestamp={props.timestamp}
+							locale={props.locale}
+							onRemove={props.onRemoveEmbed}
+						/>
+					</Match>
+				</Switch>
 			)}
 		</For>
 		<For each={props.blueskyLinks ?? []}>

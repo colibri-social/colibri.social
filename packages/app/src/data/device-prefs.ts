@@ -14,6 +14,10 @@ export const DEVICE_KEYS = {
 	reportAttribution: "colibri:report-attribution",
 	nativeNotifications: "colibri:native-notifications",
 	notificationPrompt: "colibri:notification-prompt-answered",
+	apnsToken: "colibri:apns:last-token",
+	fcmToken: "colibri:fcm:last-token",
+	webPushEndpoint: "colibri:webpush:last-endpoint",
+	pendingLink: "colibri:pending-link",
 } as const;
 
 export const deviceString = (key: string) => {

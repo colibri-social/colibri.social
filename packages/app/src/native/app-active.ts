@@ -1,4 +1,5 @@
 import { setAppActive } from "@colibri-social/ui";
+import { currentReleasePlatform } from "../data/release-notes";
 import { resolveChromeMode } from "../shell/desktop/window-chrome";
 
 type FocusWindow = {
@@ -13,9 +14,36 @@ const currentWindow = async (): Promise<FocusWindow> => {
 	return getCurrentWindow();
 };
 
-export const installAppActivity = (
-	options: { enabled?: boolean; window?: () => Promise<FocusWindow> } = {},
+type VisibilityDocument = Pick<
+	Document,
+	"visibilityState" | "addEventListener" | "removeEventListener"
+>;
+
+const isMobileShell = () => {
+	const platform = currentReleasePlatform();
+	return platform === "ios" || platform === "android";
+};
+
+export const installMobileActivity = (
+	target: VisibilityDocument = document,
 ): (() => void) => {
+	const sync = () => setAppActive(target.visibilityState === "visible");
+	target.addEventListener("visibilitychange", sync);
+	sync();
+	return () => {
+		target.removeEventListener("visibilitychange", sync);
+		setAppActive(undefined);
+	};
+};
+
+export const installAppActivity = (
+	options: {
+		enabled?: boolean;
+		mobile?: boolean;
+		window?: () => Promise<FocusWindow>;
+	} = {},
+): (() => void) => {
+	if (options.mobile ?? isMobileShell()) return installMobileActivity();
 	const enabled = options.enabled ?? resolveChromeMode() !== "none";
 	if (!enabled) return () => {};
 	let disposed = false;

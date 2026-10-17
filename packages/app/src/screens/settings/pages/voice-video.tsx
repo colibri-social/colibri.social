@@ -17,6 +17,11 @@ import {
 import { useData } from "../../../data/store";
 import { voiceSettings } from "../../../data/voice-settings";
 import type { Platform } from "../../../screen/platform";
+import {
+	changeScreenShareSettings,
+	screenShareAvailable,
+	screenShareSettings,
+} from "../../voice/screen-share";
 import { reportDeviceError } from "./device-error";
 
 const hasMediaDevices = () =>
@@ -186,6 +191,8 @@ export default function VoiceVideoPage(props: { platform: Platform }) {
 				else void startCamera();
 			}}
 			cameraError={cameraError()}
+			screenShare={screenShareAvailable() ? screenShareSettings() : undefined}
+			onScreenShareChange={changeScreenShareSettings}
 			cameraPreview={
 				<video
 					data-camera-video=""

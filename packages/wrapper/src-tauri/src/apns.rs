@@ -7,11 +7,15 @@ use serde::Serialize;
 use crate::native_error::{NativeError, NativeErrorCode};
 
 type RegisterCallback = extern "C" fn(*const c_char, *const c_char, *mut c_void);
+type ActivationCallback = extern "C" fn(*const c_char, *const c_char, *const c_char);
 
 unsafe extern "C" {
     fn colibri_apns_register(callback: RegisterCallback, ctx: *mut c_void);
     fn colibri_apns_environment() -> *const c_char;
     fn colibri_apns_remove_delivered(thread_id: *const c_char);
+    fn colibri_apns_remove_delivered_targets(targets: *const *const c_char, count: usize);
+    fn colibri_apns_set_live(live: bool);
+    fn colibri_apns_install_delegate(on_activate: Option<ActivationCallback>);
 }
 
 const REGISTER_TIMEOUT: Duration = Duration::from_secs(30);
@@ -71,6 +75,26 @@ pub fn apns_remove_delivered(channel_uri: String) -> Result<(), NativeError> {
     Ok(())
 }
 
+pub fn set_live(live: bool) {
+    unsafe { colibri_apns_set_live(live) };
+}
+
+pub fn remove_delivered_targets(targets: &[String]) -> Result<(), NativeError> {
+    let owned = targets
+        .iter()
+        .map(|target| CString::new(target.as_str()))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| NativeError::invalid_request(e.to_string()))?;
+    let pointers: Vec<*const c_char> = owned.iter().map(|target| target.as_ptr()).collect();
+    unsafe { colibri_apns_remove_delivered_targets(pointers.as_ptr(), pointers.len()) };
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+pub fn setup() {
+    unsafe { colibri_apns_install_delegate(None) };
+}
+
 #[cfg(target_os = "ios")]
 pub mod activation {
     use std::ffi::c_char;
@@ -79,21 +103,17 @@ pub mod activation {
     use serde::Serialize;
     use tauri::{AppHandle, Emitter};
 
-    use super::owned;
+    use super::{colibri_apns_install_delegate, owned};
     use crate::AppRuntime;
 
     const ACTIVATION_EVENT: &str = "colibri-notification-activated";
-
-    type ActivationCallback = extern "C" fn(*const c_char, *const c_char);
-
-    unsafe extern "C" {
-        fn colibri_apns_install_delegate(on_activate: ActivationCallback);
-    }
 
     #[derive(Debug, Clone, Serialize)]
     #[serde(rename_all = "camelCase")]
     pub struct Activation {
         pub channel_uri: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub thread_uri: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub message_uri: Option<String>,
     }
@@ -101,12 +121,17 @@ pub mod activation {
     static APP: OnceLock<AppHandle<AppRuntime>> = OnceLock::new();
     static PENDING: Mutex<Option<Activation>> = Mutex::new(None);
 
-    extern "C" fn on_activate(channel_uri: *const c_char, message_uri: *const c_char) {
+    extern "C" fn on_activate(
+        channel_uri: *const c_char,
+        thread_uri: *const c_char,
+        message_uri: *const c_char,
+    ) {
         let Some(channel_uri) = owned(channel_uri) else {
             return;
         };
         let activation = Activation {
             channel_uri,
+            thread_uri: owned(thread_uri).filter(|uri| !uri.is_empty()),
             message_uri: owned(message_uri).filter(|uri| !uri.is_empty()),
         };
         if let Ok(mut slot) = PENDING.lock() {
@@ -119,7 +144,7 @@ pub mod activation {
 
     pub fn setup(app: &AppHandle<AppRuntime>) {
         let _ = APP.set(app.clone());
-        unsafe { colibri_apns_install_delegate(on_activate) };
+        unsafe { colibri_apns_install_delegate(Some(on_activate)) };
     }
 
     #[tauri::command]

@@ -10,6 +10,10 @@ import {
 import { cx } from "../../utils/cx";
 import { useHaptics } from "../../utils/haptics";
 import { IconButton } from "../IconButton/IconButton";
+import {
+	ScreenShareControl,
+	type ScreenShareMenuProps,
+} from "./ScreenShareMenu";
 
 export type CallControlTone = "default" | "active" | "off" | "server";
 
@@ -137,6 +141,7 @@ export type CallControlsProps = CallMediaState & {
 	onToggleDeafen?: () => void;
 	onToggleCamera?: () => void;
 	onToggleScreenShare?: () => void;
+	screenShareMenu?: ScreenShareMenuProps;
 	onOpenChat?: () => void;
 	chatOpen?: boolean;
 	onLeave?: () => void;
@@ -191,14 +196,16 @@ export const CallControls = (props: CallControlsProps) => {
 				onClick={props.onToggleDeafen}
 			/>
 			<Show when={props.onToggleScreenShare}>
-				<CallControlButton
-					label={props.screenSharing ? "Stop sharing" : "Share screen"}
-					pressed={!!props.screenSharing}
-					tone={props.screenSharing ? "active" : "default"}
-					size={props.size}
-					icon={<AnimatedScreencastIcon />}
-					onClick={props.onToggleScreenShare}
-				/>
+				<ScreenShareControl menu={props.screenShareMenu}>
+					<CallControlButton
+						label={props.screenSharing ? "Stop sharing" : "Share screen"}
+						pressed={!!props.screenSharing}
+						tone={props.screenSharing ? "active" : "default"}
+						size={props.size}
+						icon={<AnimatedScreencastIcon />}
+						onClick={props.onToggleScreenShare}
+					/>
+				</ScreenShareControl>
 			</Show>
 			<Show when={props.onOpenChat}>
 				<CallControlButton

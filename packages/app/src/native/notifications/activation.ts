@@ -2,6 +2,9 @@ import type { OsActivation, OsNotification } from "./types";
 
 const PREFIX = "colibri-notification:";
 
+export const isActivationKey = (key: string | null | undefined): boolean =>
+	!!key?.startsWith(PREFIX);
+
 export const encodeActivation = (notification: OsNotification): string => {
 	const params = new URLSearchParams({ channel: notification.channel });
 	if (notification.thread) params.set("thread", notification.thread);

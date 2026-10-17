@@ -92,7 +92,7 @@ const mount = (
 			channels: { value: () => channels[space.did], loading: () => false },
 			categories: { value: () => [], loading: () => false },
 		}),
-		source: { forwardMessage },
+		forward: forwardMessage,
 	} as unknown as DataStore;
 	const picker = createForwardPicker(options);
 	dispose = render(

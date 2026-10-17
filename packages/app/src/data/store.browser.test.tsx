@@ -1,9 +1,15 @@
+import { createMemoryKvStore } from "@colibri-social/lib";
 import { createEffect, createRoot } from "solid-js";
 import { describe, expect, it } from "vitest";
 import { channelSlug, isVoiceChannel } from "./ids";
 import { createMockSource, setLatency } from "./mock/source";
-import type { LiveEvent } from "./source";
-import { createDataStore } from "./store";
+import { createOutboxQueue } from "./outbox/queue";
+import type { DataSource, LiveEvent } from "./source";
+import {
+	createDataStore,
+	type DataStoreOptions,
+	type WriteFailure,
+} from "./store";
 import type { MessageView, SpaceRef } from "./types";
 
 const until = async (check: () => boolean, timeout = 8000) => {
@@ -14,10 +20,12 @@ const until = async (check: () => boolean, timeout = 8000) => {
 	}
 };
 
-const setup = async () => {
+const setup = async (
+	options: { source?: DataSource; store?: DataStoreOptions } = {},
+) => {
 	setLatency(0);
-	const source = createMockSource({ live: false });
-	const store = createDataStore(source);
+	const source = options.source ?? createMockSource({ live: false });
+	const store = createDataStore(source, options.store);
 	await until(() => !!store.communities.value());
 	const hq = store.communities
 		.value()
@@ -30,7 +38,7 @@ const setup = async () => {
 	if (!general) throw new Error("general missing");
 	const channel = store.channel(general.space);
 	await until(() => channel.ready());
-	return { store, channel, hq };
+	return { store, channel, hq, source };
 };
 
 describe("upload on send", () => {
@@ -1010,5 +1018,112 @@ describe("catch-up on resume", () => {
 		await until(() => calls.members > counted);
 		await settle();
 		expect(space.members.value()).toBe(members);
+	});
+});
+
+describe("outbox", () => {
+	it("keeps a message pending while offline and sends it once back online", async () => {
+		const { store, channel } = await setup();
+		store.setSimulation({ offline: true });
+		void channel.send({ text: "sent from a tunnel" });
+		await until(() => channel.pending().length === 1);
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		expect(channel.pending()[0]?.state).toBe("pending");
+		expect(store.outbox.pendingCount()).toBe(1);
+		store.setSimulation({ offline: false });
+		await until(() => channel.pending().length === 0);
+		expect(channel.messages().at(-1)?.text).toBe("sent from a tunnel");
+		expect(store.outbox.pendingCount()).toBe(0);
+	});
+
+	it("shows queued messages again after a restart and sends them", async () => {
+		const kv = createMemoryKvStore();
+		const queue = () => createOutboxQueue({ owner: "app:did:plc:me", kv });
+		const source = createMockSource({ live: false });
+		const first = await setup({
+			source,
+			store: { outbox: { queue: queue() } },
+		});
+		first.store.setSimulation({ offline: true });
+		void first.channel.send({ text: "survives a restart" });
+		await until(() => first.channel.pending().length === 1);
+		first.store.dispose();
+		source.setSimulation({ offline: false });
+
+		const second = await setup({
+			source,
+			store: { outbox: { queue: queue() } },
+		});
+		await until(() =>
+			second.channel
+				.messages()
+				.some((message) => message.text === "survives a restart"),
+		);
+		expect(second.channel.pending()).toHaveLength(0);
+	});
+
+	it("puts an edit back when it fails for good", async () => {
+		const { store, channel, source } = await setup();
+		const failures: WriteFailure[] = [];
+		store.onWriteFailed((failure) => failures.push(failure));
+		const own = channel
+			.messages()
+			.find((message) => message.author.did === store.viewer.did);
+		if (!own) throw new Error("no own message");
+		source.editMessage = async () => {
+			throw new Error("rejected");
+		};
+		await channel.edit(own.rkey, "changed my mind");
+		expect(
+			channel.messages().find((message) => message.rkey === own.rkey)?.text,
+		).toBe("changed my mind");
+		await until(() => failures.length === 1);
+		expect(failures[0]?.kind).toBe("edit");
+		expect(
+			channel.messages().find((message) => message.rkey === own.rkey)?.text,
+		).toBe(own.text);
+	});
+
+	it("brings a message back when its delete fails for good", async () => {
+		const { store, channel, source } = await setup();
+		const failures: WriteFailure[] = [];
+		store.onWriteFailed((failure) => failures.push(failure));
+		const target = channel.messages().at(-1);
+		if (!target) throw new Error("no messages");
+		source.deleteMessage = async () => {
+			throw new Error("rejected");
+		};
+		await channel.remove(target.rkey);
+		expect(
+			channel.messages().some((message) => message.rkey === target.rkey),
+		).toBe(false);
+		await until(() => failures.length === 1);
+		expect(
+			channel.messages().some((message) => message.rkey === target.rkey),
+		).toBe(true);
+	});
+
+	it("takes a reaction back when it fails for good", async () => {
+		const { store, channel, source } = await setup();
+		const failures: WriteFailure[] = [];
+		store.onWriteFailed((failure) => failures.push(failure));
+		const target = channel.messages().at(-1);
+		if (!target) throw new Error("no messages");
+		const reacted = () =>
+			channel
+				.messages()
+				.find((message) => message.rkey === target.rkey)
+				?.reactions.some(
+					(reaction) =>
+						reaction.emoji === "🦉" &&
+						reaction.reactors.includes(store.viewer.did),
+				);
+		source.react = async () => {
+			throw new Error("rejected");
+		};
+		await channel.react(target.rkey, "🦉", true);
+		expect(reacted()).toBe(true);
+		await until(() => failures.length === 1);
+		expect(reacted()).toBe(false);
 	});
 });

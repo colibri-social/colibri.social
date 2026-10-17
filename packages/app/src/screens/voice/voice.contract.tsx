@@ -25,6 +25,11 @@ import { canInSpace } from "../admin/space-admin";
 import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 import { useMemberMenu } from "../members/member-menu";
 import { useProfileSheet } from "../profile/profile-sheet";
+import {
+	screenShareAvailable,
+	screenShareMenu,
+	toggleScreenShare,
+} from "./screen-share";
 import { callTiles } from "./tiles";
 import { closeVoicePrompt, voicePrompt } from "./voice-prompt";
 
@@ -283,7 +288,12 @@ export const voiceScreen = defineContract({
 				muted={voice.muted()}
 				deafened={voice.deafened()}
 				cameraOn={voice.camera()}
+				screenSharing={voice.screenSharing()}
 				onToggleCamera={voice.toggleCamera}
+				onToggleScreenShare={
+					screenShareAvailable() ? () => void toggleScreenShare() : undefined
+				}
+				screenShareMenu={screenShareAvailable() ? screenShareMenu() : undefined}
 				onToggleMute={voice.toggleMute}
 				onToggleDeafen={voice.toggleDeafen}
 				onOpenChat={m.openChat}

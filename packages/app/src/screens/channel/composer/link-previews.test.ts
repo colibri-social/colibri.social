@@ -13,6 +13,10 @@ const facets = [
 	link("https://media.example.com/cat.gif", 10),
 	link("https://example.com/photo.JPG?size=large", 20),
 	link("https://example.com/post", 30),
+	link(
+		"https://tenor.com/view/touhou-fumo-plushie-plush-hello-gif-21004226",
+		40,
+	),
 ];
 
 describe("composer link previews", () => {
@@ -20,7 +24,7 @@ describe("composer link previews", () => {
 		expect(suppressedLinksFor(facets, true)).toEqual([]);
 	});
 
-	it("hides previews for every link except direct images and GIFs", () => {
+	it("hides previews for every link except direct images, GIFs and GIF sites", () => {
 		expect(suppressedLinksFor(facets, false)).toEqual([
 			"https://example.com/post",
 		]);

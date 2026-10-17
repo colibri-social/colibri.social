@@ -1,3 +1,4 @@
+import { isOffline } from "@colibri-social/lib";
 import {
 	Button,
 	CheckboxRow,
@@ -156,18 +157,28 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 			if (!current || destinations.length === 0 || sending()) return;
 			setSending(true);
 			const text = note().trim();
-			const results = await Promise.allSettled(
-				destinations.map((destination) =>
-					Promise.resolve().then(() =>
-						data.source.forwardMessage({
-							from: current.channel,
-							rkey: current.rkey,
-							to: destination.channel.space,
-							...(text ? { text } : {}),
-						}),
-					),
-				),
+			const queued = destinations.map((destination) =>
+				data.forward({
+					from: current.channel,
+					rkey: current.rkey,
+					to: destination.channel.space,
+					...(text ? { text } : {}),
+				}),
 			);
+			if (isOffline()) {
+				setSending(false);
+				setOpen(false);
+				reset();
+				toast.success("Your forward sends when you're back online");
+				void Promise.allSettled(queued).then((late) => {
+					if (late.some((result) => result.status === "rejected"))
+						toast.error("A forward couldn't be sent", {
+							description: "Open the message and forward it again.",
+						});
+				});
+				return;
+			}
+			const results = await Promise.allSettled(queued);
 			setSending(false);
 			const sent = destinations.filter(
 				(_, index) => results[index]?.status === "fulfilled",

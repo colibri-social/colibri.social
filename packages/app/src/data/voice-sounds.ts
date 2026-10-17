@@ -4,6 +4,8 @@ import deafenUrl from "../../../assets/files/sounds/deafen.mp3";
 import joinUrl from "../../../assets/files/sounds/join.mp3";
 import leaveUrl from "../../../assets/files/sounds/leave.mp3";
 import muteUrl from "../../../assets/files/sounds/mute.mp3";
+import screenSharedUrl from "../../../assets/files/sounds/screen-shared.mp3";
+import screenUnsharedUrl from "../../../assets/files/sounds/screen-unshared.mp3";
 import undeafenUrl from "../../../assets/files/sounds/undeafen.mp3";
 import unmuteUrl from "../../../assets/files/sounds/unmute.mp3";
 
@@ -16,6 +18,8 @@ export const VOICE_SOUNDS = {
 	undeafen: undeafenUrl,
 	camOn: camOnUrl,
 	camOff: camOffUrl,
+	screenShared: screenSharedUrl,
+	screenUnshared: screenUnsharedUrl,
 } as const;
 
 export type VoiceSound = keyof typeof VOICE_SOUNDS;

@@ -6,6 +6,7 @@ mod apns;
 mod linux_cef;
 #[cfg(target_os = "macos")]
 mod macos_media;
+mod push;
 #[cfg(any(target_os = "android", test))]
 mod received_files;
 mod save_image;
@@ -292,6 +293,8 @@ pub fn run() {
             apns::apns_remove_delivered,
             #[cfg(target_os = "ios")]
             apns::activation::apns_take_activation,
+            push::push_set_live,
+            push::push_dismiss_read,
             #[cfg(desktop)]
             titlebar::titlebar_init,
             #[cfg(desktop)]
@@ -385,6 +388,9 @@ pub fn run() {
 
             #[cfg(target_os = "ios")]
             apns::activation::setup(app.handle());
+
+            #[cfg(target_os = "macos")]
+            apns::setup();
 
             #[cfg(not(any(target_os = "linux", windows, desktop)))]
             let _ = app;

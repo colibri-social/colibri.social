@@ -218,6 +218,8 @@ const fakeMonitor = () => {
 	>({});
 	let endedListener: ((reason: VoiceEndReason) => void) | undefined;
 	let cameraResult = true;
+	const [screenSharing, setScreenSharing] = createSignal(false);
+	let screenShareListener: ((sharing: boolean) => void) | undefined;
 	const monitor = {
 		connection,
 		start: vi.fn((session?: VoiceSession) => {
@@ -227,6 +229,23 @@ const fakeMonitor = () => {
 		setMuted: vi.fn(),
 		setDeafened: vi.fn(),
 		setCamera: vi.fn(async (on: boolean) => on && cameraResult),
+		shareScreen: vi.fn(async () => {
+			setScreenSharing(true);
+			screenShareListener?.(true);
+			return true;
+		}),
+		stopScreen: vi.fn(() => {
+			setScreenSharing(false);
+			screenShareListener?.(false);
+		}),
+		applyScreenQuality: vi.fn(),
+		screenSharing,
+		onScreenShare: (listener: (sharing: boolean) => void) => {
+			screenShareListener = listener;
+			return () => {
+				screenShareListener = undefined;
+			};
+		},
 		speakers,
 		videos: () => [],
 		moderation,
@@ -242,6 +261,7 @@ const fakeMonitor = () => {
 		setSpeakers,
 		setModeration,
 		end: (reason: VoiceEndReason) => endedListener?.(reason),
+		peerScreen: (sharing: boolean) => screenShareListener?.(sharing),
 		failCamera: () => {
 			cameraResult = false;
 		},
@@ -352,5 +372,58 @@ describe("voice with a media engine", () => {
 		expect(voice.camera()).toBe(true);
 		await vi.waitFor(() => expect(voice.camera()).toBe(false));
 		expect(fake.monitor.setCamera).toHaveBeenCalledWith(true);
+	});
+
+	it("shares the screen during a call and plays the share sounds", async () => {
+		const { voice, fake, played } = setupWithMonitor();
+		const capture = {
+			video: { stop: vi.fn() } as unknown as MediaStreamTrack,
+			audio: null,
+			release: vi.fn(),
+		};
+		const quality = { resolution: "1080", framerate: 30 } as const;
+		expect(await voice.shareScreen(capture, quality)).toBe(false);
+		expect(capture.release).toHaveBeenCalledOnce();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		played.length = 0;
+		expect(await voice.shareScreen(capture, quality)).toBe(true);
+		expect(fake.monitor.shareScreen).toHaveBeenCalledWith(capture, quality);
+		expect(voice.screenSharing()).toBe(true);
+		voice.applyScreenQuality({ resolution: "720", framerate: 15 });
+		expect(fake.monitor.applyScreenQuality).toHaveBeenCalledWith({
+			resolution: "720",
+			framerate: 15,
+		});
+		voice.stopScreenShare();
+		expect(voice.screenSharing()).toBe(false);
+		expect(played).toEqual(["screenShared", "screenUnshared"]);
+	});
+
+	it("plays the share sounds when someone else shares", () => {
+		const { voice, fake, played } = setupWithMonitor();
+		fake.peerScreen(true);
+		expect(played).toEqual([]);
+		voice.join({ space: SPACE, channel: LOUNGE });
+		played.length = 0;
+		fake.peerScreen(true);
+		fake.peerScreen(false);
+		expect(played).toEqual(["screenShared", "screenUnshared"]);
+	});
+
+	it("stays quiet about the share when leaving the call", async () => {
+		const { voice, played } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		await voice.shareScreen(
+			{
+				video: { stop: vi.fn() } as unknown as MediaStreamTrack,
+				audio: null,
+				release: vi.fn(),
+			},
+			{ resolution: "1080", framerate: 30 },
+		);
+		played.length = 0;
+		voice.leave();
+		expect(voice.screenSharing()).toBe(false);
+		expect(played).toEqual(["leave"]);
 	});
 });

@@ -28,6 +28,8 @@ import {
 	getOwner,
 	onCleanup,
 } from "solid-js";
+import { openAppLink } from "../native/deep-links";
+import { openNotificationLink } from "../native/push/activation";
 import { reportError } from "../sentry/report";
 import { appViewDid } from "./appview";
 import {
@@ -59,9 +61,15 @@ const log = createLogger("auth");
 
 const SUB_KEY = "sub";
 const RETURN_KEY = "colibri:return-to";
+const HANDLED_LINK_KEY = "colibri:handled-deep-link";
 const FALLBACK_FLAG_KEY = "colibri:oauth-storage-fallback";
 const SIGN_IN_TIMEOUT_MS = 75_000;
 export const STARTUP_TIMEOUT_MS = 30_000;
+export const BEFORE_SIGN_OUT_TIMEOUT_MS = 3_000;
+
+export type SignOutOptions = {
+	beforeSignOut?: () => Promise<unknown>;
+};
 
 const PRIMARY_DATABASE = {
 	durability: "strict",
@@ -112,6 +120,7 @@ export type AuthOptions = {
 	pdsHost?: (did: string) => Promise<string | undefined>;
 	spacesSupport?: (host: string) => Promise<boolean | undefined>;
 	startupTimeoutMs?: number;
+	beforeSignOutTimeoutMs?: number;
 };
 
 export type Auth = {
@@ -129,7 +138,7 @@ export type Auth = {
 	retryInit: () => Promise<void>;
 	signIn: (handle: string, options?: { create?: boolean }) => Promise<void>;
 	reauthorize: () => Promise<void>;
-	signOut: () => Promise<void>;
+	signOut: (options?: SignOutOptions) => Promise<void>;
 	completeCallback: (params: URLSearchParams) => Promise<boolean>;
 	cancelSignIn: () => void;
 	redirectToSignIn: () => void;
@@ -216,6 +225,8 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 	const pdsHost = options.pdsHost ?? resolvePdsHost;
 	const spacesSupport = options.spacesSupport ?? supportsSpaces;
 	const startupTimeoutMs = options.startupTimeoutMs ?? STARTUP_TIMEOUT_MS;
+	const beforeSignOutTimeoutMs =
+		options.beforeSignOutTimeoutMs ?? BEFORE_SIGN_OUT_TIMEOUT_MS;
 
 	const health = createSessionHealth();
 	const [base, setBase] = createSignal<AuthStatus>("loading");
@@ -393,16 +404,20 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 	const watchDeepLinks = async () => {
 		const handle = (urls: string[]) => {
 			for (const url of urls) {
+				session.set(HANDLED_LINK_KEY, url);
+				if (openNotificationLink(url)) continue;
 				const params = nativeCallbackParams(url);
 				if (params) {
 					void completeCallback(params);
 					return;
 				}
+				openAppLink(url);
 			}
 		};
 		try {
 			stopDeepLinks = await listenForDeepLinks(handle);
-			handle(await currentDeepLinks());
+			const handled = session.get(HANDLED_LINK_KEY);
+			handle((await currentDeepLinks()).filter((url) => url !== handled));
 		} catch {}
 	};
 
@@ -583,9 +598,22 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		await signIn(did);
 	};
 
-	const signOut = async () => {
+	const signOut = async (signOutOptions: SignOutOptions = {}) => {
 		health.suspend();
 		const did = agent()?.did;
+		const before = signOutOptions.beforeSignOut;
+		if (before) {
+			await withDeadline(
+				Promise.resolve().then(before),
+				beforeSignOutTimeoutMs,
+				() =>
+					new ColibriError({ code: "Timeout", method: "auth.beforeSignOut" }),
+			).catch((err: unknown) => {
+				log.warn("cleaning up before sign-out failed", {
+					code: classifyThrown(err).code,
+				});
+			});
+		}
 		try {
 			if (did) await client?.revoke(did);
 		} catch (err) {

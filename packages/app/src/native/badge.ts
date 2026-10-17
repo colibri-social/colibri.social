@@ -1,6 +1,7 @@
 import { createEffect, createRoot } from "solid-js";
 import { isPingNotification } from "../data/notification-alerts";
 import { isUnread, spaceNotificationPrefs } from "../data/notifications";
+import { currentReleasePlatform } from "../data/release-notes";
 import type { DataStore } from "../data/store";
 import type { NotificationView } from "../data/types";
 import { resolveChromeMode } from "../shell/desktop/window-chrome";
@@ -20,7 +21,11 @@ export const badgeCount = (
 
 const setPlatformBadge = async (count: number): Promise<void> => {
 	const mode = resolveChromeMode();
-	if (mode === "macos" || mode === "linux") {
+	if (
+		currentReleasePlatform() === "ios" ||
+		mode === "macos" ||
+		mode === "linux"
+	) {
 		const { getCurrentWindow } = await import("@tauri-apps/api/window");
 		await getCurrentWindow().setBadgeCount(count > 0 ? count : undefined);
 		return;

@@ -170,6 +170,33 @@ describe("createRemoteSource", () => {
 		});
 	});
 
+	it("registers and removes push endpoints through the body", async () => {
+		const { fake, source } = await setup((fake) => {
+			fake.on(colibri.notification.registerPush.main.nsid, json({}));
+			fake.on(colibri.notification.unregisterPush.main.nsid, json({}));
+		});
+
+		await source.registerPush({
+			provider: "apns",
+			platform: "ios",
+			token: "ab12",
+			environment: "sandbox",
+		});
+		await source.unregisterPush({ provider: "apns", token: "ab12" });
+
+		expect(
+			only(fake.callsTo(colibri.notification.registerPush.main.nsid)).body,
+		).toEqual({
+			provider: "apns",
+			platform: "ios",
+			token: "ab12",
+			environment: "sandbox",
+		});
+		expect(
+			only(fake.callsTo(colibri.notification.unregisterPush.main.nsid)).body,
+		).toEqual({ provider: "apns", token: "ab12" });
+	});
+
 	it("pages messages with the AppView cursor", async () => {
 		const { fake, source } = await setup((fake) =>
 			fake.on(
@@ -399,6 +426,54 @@ describe("createRemoteSource", () => {
 		expect(record.updatedAt).toBeTypeOf("string");
 		expect(next.text).toBe("new");
 		expect(next.updatedAt).toBe(record.updatedAt);
+	});
+
+	it("replays writes for messages it hasn't loaded", async () => {
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				"com.atproto.space.getRecord",
+				json({
+					uri: "x",
+					value: {
+						$type: "social.colibri.beta.message",
+						text: "old",
+						createdAt: "2026-10-14T10:00:00.000Z",
+					},
+				}),
+			);
+			fake.on("com.atproto.space.putRecord", json({ uri: "x", cid: "c" }));
+			fake.on("com.atproto.space.createRecord", json({ uri: "x", cid: "c" }));
+		});
+
+		const edited = await source.editMessage({
+			channel: CHANNEL,
+			rkey: "5",
+			text: "new",
+		});
+		await source.sendMessage({
+			channel: CHANNEL,
+			rkey: "6",
+			text: "reply",
+			parent: "4",
+			parentAuthor: OTHER,
+		});
+		await source.react({
+			channel: CHANNEL,
+			rkey: "4",
+			emoji: "🔥",
+			add: true,
+			author: OTHER,
+			reaction: "r1",
+		});
+
+		expect(edited.text).toBe("new");
+		expect(edited.createdAt).toBe("2026-10-14T10:00:00.000Z");
+		const [reply, reaction] = fake
+			.callsTo("com.atproto.space.createRecord")
+			.map((call) => call.body as Record<string, any>);
+		expect(reply?.record.parent).toEqual({ did: OTHER, rkey: "4" });
+		expect(reaction?.rkey).toBe("r1");
+		expect(reaction?.record.target).toEqual({ did: OTHER, rkey: "4" });
 	});
 
 	it("deletes a message record and treats a missing one as gone", async () => {

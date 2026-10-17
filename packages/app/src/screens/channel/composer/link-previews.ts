@@ -1,3 +1,4 @@
+import { isGifSiteUrl } from "../../../data/adapters/attachments";
 import { linkUris, spoileredLinkUris } from "../../../data/adapters/facets";
 import type { Facet } from "../../../data/types";
 
@@ -17,6 +18,6 @@ export const suppressedLinksFor = (
 ) => {
 	if (showPreviews) return [];
 	return [...linkUris(facets), ...spoileredLinkUris(facets)].filter(
-		(uri) => !isDirectMediaUrl(uri),
+		(uri) => !isDirectMediaUrl(uri) && !isGifSiteUrl(uri),
 	);
 };

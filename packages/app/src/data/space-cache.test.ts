@@ -1,4 +1,8 @@
-import { type KvStore, SPACE_SNAPSHOT_TTL_MS } from "@colibri-social/lib";
+import {
+	createMemoryKvStore,
+	type KvStore,
+	SPACE_SNAPSHOT_TTL_MS,
+} from "@colibri-social/lib";
 import { describe, expect, it } from "vitest";
 import { createSpaceCache } from "./space-cache";
 import type {
@@ -8,38 +12,7 @@ import type {
 	ThreadView,
 } from "./types";
 
-const memoryKv = (): KvStore & { data: Map<string, Map<string, unknown>> } => {
-	const data = new Map<string, Map<string, unknown>>();
-	const store = (name: string) => {
-		let entries = data.get(name);
-		if (!entries) {
-			entries = new Map();
-			data.set(name, entries);
-		}
-		return entries;
-	};
-	return {
-		data,
-		enabled: () => true,
-		get: async <T>(name: string, key: string) =>
-			structuredClone(store(name).get(key)) as T | undefined,
-		put: async (name, key, value) => {
-			store(name).set(key, structuredClone(value));
-		},
-		remove: async (name, key) => {
-			store(name).delete(key);
-		},
-		removeWhere: async (name, match) => {
-			for (const key of [...store(name).keys()])
-				if (match(key)) store(name).delete(key);
-		},
-		clear: async (names) => {
-			for (const name of names) store(name).clear();
-		},
-		evictOldest: async () => {},
-		close: () => {},
-	};
-};
+const memoryKv = createMemoryKvStore;
 
 const viewer = {
 	did: "did:plc:viewer",

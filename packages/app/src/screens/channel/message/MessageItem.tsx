@@ -44,6 +44,7 @@ import {
 import {
 	embedSuppression,
 	gifOfAttachments,
+	inlineMediaOf,
 	isEmbedSuppressed,
 	splitAttachments,
 	visibleEmbeds,
@@ -205,6 +206,13 @@ export const MessageItem = (props: MessageItemProps) => {
 		}
 		return uris;
 	});
+	const loneMediaLink = createMemo(() => {
+		if (view()?.forward) return false;
+		const links = linkUris(message().facets);
+		if (links.length !== 1 || message().text.trim() !== links[0]) return false;
+		const embed = embeds().find((entry) => entry.uri === links[0]);
+		return !!embed && !!inlineMediaOf(embed);
+	});
 	const attachmentContent = () =>
 		hasAttachmentContent(split(), embeds(), blueskyLinks());
 	const forward = createMemo(() => {
@@ -329,7 +337,7 @@ export const MessageItem = (props: MessageItemProps) => {
 
 	const body = () => (
 		<>
-			<Show when={text().text.length > 0}>
+			<Show when={text().text.length > 0 && !loneMediaLink()}>
 				<RichTextRenderer value={text()} platform={platform()} />
 			</Show>
 			<Show when={forward()}>

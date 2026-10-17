@@ -497,3 +497,76 @@ it("offers confirm before joining on the Voice and video settings page", async (
 	row.click();
 	await expect.poll(() => lastStore?.controls().confirmVoiceJoin).toBe(true);
 });
+
+it("opens the screen share picker and hands the quality to the browser picker", async () => {
+	await mount("standup");
+	await userEvent.click(button(stage(), "Join voice"));
+	await expect.poll(() => stage().hasAttribute("data-joined")).toBe(true);
+	const canvas = document.createElement("canvas");
+	const stream = canvas.captureStream(5);
+	const track = stream.getVideoTracks()[0] as MediaStreamTrack;
+	const requests: unknown[] = [];
+	const original = navigator.mediaDevices.getDisplayMedia;
+	navigator.mediaDevices.getDisplayMedia = async (request) => {
+		requests.push(request);
+		return stream;
+	};
+	try {
+		const toolbar = stage().querySelector('[role="toolbar"]') as HTMLElement;
+		await userEvent.click(button(toolbar, "Share screen"));
+		await expect
+			.poll(() =>
+				document.querySelector('[role="dialog"] [data-screen-share-quality]'),
+			)
+			.not.toBeNull();
+		const picker = document.querySelector('[role="dialog"]') as HTMLElement;
+		expect(picker.textContent).toContain("Share your screen");
+		await userEvent.click(button(picker, "Continue"));
+		await expect.poll(() => requests.length).toBe(1);
+		expect(requests[0]).toMatchObject({
+			video: { height: { ideal: 1080, max: 1080 } },
+			selfBrowserSurface: "exclude",
+		});
+		await expect.poll(() => track.readyState).toBe("ended");
+		expect(voice.screenSharing()).toBe(false);
+	} finally {
+		navigator.mediaDevices.getDisplayMedia = original;
+	}
+});
+
+it("changes the screen share quality from the caret menu", async () => {
+	await mount("standup");
+	await userEvent.click(button(stage(), "Join voice"));
+	await expect.poll(() => stage().hasAttribute("data-joined")).toBe(true);
+	const toolbar = stage().querySelector('[role="toolbar"]') as HTMLElement;
+	const caret = toolbar.querySelector(
+		"[data-screen-share-menu]",
+	) as HTMLElement;
+	await userEvent.click(caret);
+	await expect
+		.poll(() => document.querySelectorAll('[role="menuitemradio"]').length)
+		.toBeGreaterThan(0);
+	const item = Array.from(
+		document.querySelectorAll<HTMLElement>('[role="menuitemradio"]'),
+	).find((element) => element.textContent?.includes("720p")) as HTMLElement;
+	await userEvent.click(item);
+	await expect
+		.poll(
+			() =>
+				JSON.parse(localStorage.getItem("colibri:voice-settings") ?? "{}")
+					.screen?.resolution,
+		)
+		.toBe("720");
+	localStorage.removeItem("colibri:voice-settings");
+});
+
+it("shows the screen sharing options on the Voice and video settings page", async () => {
+	await mountAt("/app/settings/voiceVideo");
+	await expect
+		.poll(() => document.querySelector('[data-settings-page="voiceVideo"]'))
+		.not.toBeNull();
+	const settings = document.querySelector(
+		'[data-settings-page="voiceVideo"]',
+	) as HTMLElement;
+	expect(settings.textContent).toContain("Screen sharing");
+});

@@ -1,5 +1,6 @@
 import { AUTH_SUBPROTOCOL, VOICE_SIGNAL_LXM } from "@colibri-social/lib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_SCREEN_SHARE } from "../screen-share";
 import {
 	endReasonOf,
 	reconnectDelay,
@@ -11,6 +12,7 @@ import {
 	connect,
 	DEFS,
 	FakeStream,
+	FakeTrack,
 	type FakeTransport,
 	flush,
 	PEER,
@@ -102,6 +104,7 @@ describe("voice engine", () => {
 					outputVolume: 50,
 					noiseSuppression: true,
 					voiceGate: false,
+					screen: DEFAULT_SCREEN_SHARE,
 				}),
 				volumes: () => ({ [PEER]: { voice: 50 } }),
 			}),
@@ -274,6 +277,136 @@ describe("voice engine", () => {
 		expect(harness.engine.videos()).toEqual([]);
 		const close = await pending(socket, "closeProducer");
 		expect(close).toMatchObject({ producerId: "cam-1" });
+	});
+
+	it("shares the screen with sound and stops when the capture ends", async () => {
+		const harness = track(setup());
+		const { socket } = await connect(harness);
+		const changes: boolean[] = [];
+		harness.engine.onScreenShare((sharing) => changes.push(sharing));
+		const video = new FakeTrack("video");
+		const audio = new FakeTrack("audio");
+		const release = vi.fn();
+		const sharing = harness.engine.shareScreen(
+			{
+				video: video as unknown as MediaStreamTrack,
+				audio: audio as unknown as MediaStreamTrack,
+				release,
+			},
+			{ resolution: "1080", framerate: 15 },
+		);
+		expect(harness.engine.screenSharing()).toBe(true);
+		const produced = await reply(socket, "produce", {
+			$type: `${DEFS}producerInfo`,
+			producerId: "screen-1",
+			did: VIEWER,
+			kind: "video",
+			source: "screen",
+		});
+		expect(produced).toMatchObject({ kind: "video", source: "screen" });
+		await reply(socket, "produce", {
+			$type: `${DEFS}producerInfo`,
+			producerId: "screen-audio-1",
+			did: VIEWER,
+			kind: "audio",
+			source: "screen",
+		});
+		expect(await sharing).toBe(true);
+		expect(video.contentHint).toBe("detail");
+		expect(harness.engine.videos()).toEqual([
+			expect.objectContaining({ did: VIEWER, source: "screen" }),
+		]);
+		harness.engine.applyScreenQuality({ resolution: "720", framerate: 60 });
+		expect(video.contentHint).toBe("motion");
+		expect(video.constraints.at(-1)).toMatchObject({
+			height: { ideal: 720, max: 720 },
+		});
+		video.listeners.get("ended")?.();
+		expect(harness.engine.screenSharing()).toBe(false);
+		expect(harness.engine.videos()).toEqual([]);
+		expect(release).toHaveBeenCalledOnce();
+		expect(audio.stopped).toBe(true);
+		expect(changes).toEqual([true, false]);
+		const closed = [
+			await reply(socket, "closeProducer", { $type: `${DEFS}ack` }),
+			await pending(socket, "closeProducer"),
+		];
+		expect(closed.map((frame) => frame.producerId)).toEqual([
+			"screen-audio-1",
+			"screen-1",
+		]);
+	});
+
+	it("releases a capture it cannot send", async () => {
+		const harness = track(setup());
+		const { socket } = await connect(harness);
+		const video = new FakeTrack("video");
+		const release = vi.fn();
+		const sharing = harness.engine.shareScreen(
+			{ video: video as unknown as MediaStreamTrack, audio: null, release },
+			{ resolution: "1080", framerate: 30 },
+		);
+		await reply(socket, "produce", {
+			$type: `${DEFS}error`,
+			error: "InvalidRequest",
+		});
+		expect(await sharing).toBe(false);
+		expect(harness.notices).toEqual(["screenFailed"]);
+		expect(harness.engine.screenSharing()).toBe(false);
+		expect(video.stopped).toBe(true);
+		expect(release).toHaveBeenCalledOnce();
+	});
+
+	it("ends the share when the call stops", async () => {
+		const harness = track(setup());
+		const { socket } = await connect(harness);
+		const release = vi.fn();
+		const sharing = harness.engine.shareScreen(
+			{
+				video: new FakeTrack("video") as unknown as MediaStreamTrack,
+				audio: null,
+				release,
+			},
+			{ resolution: "1080", framerate: 30 },
+		);
+		await reply(socket, "produce", {
+			$type: `${DEFS}producerInfo`,
+			producerId: "screen-1",
+			did: VIEWER,
+			kind: "video",
+			source: "screen",
+		});
+		expect(await sharing).toBe(true);
+		harness.engine.stop();
+		await vi.waitFor(() => expect(release).toHaveBeenCalledOnce());
+		expect(harness.engine.screenSharing()).toBe(false);
+	});
+
+	it("reports when a peer starts and stops sharing", async () => {
+		const harness = track(setup());
+		const { socket } = await connect(harness);
+		const changes: boolean[] = [];
+		harness.engine.onScreenShare((sharing) => changes.push(sharing));
+		socket.serve({
+			$type: `${DEFS}producerInfo`,
+			producerId: "peer-screen",
+			did: PEER,
+			kind: "video",
+			source: "screen",
+		});
+		socket.serve({
+			$type: `${DEFS}producerInfo`,
+			producerId: "peer-cam",
+			did: PEER,
+			kind: "video",
+			source: "camera",
+		});
+		socket.serve({
+			$type: `${DEFS}producerRemoved`,
+			producerId: "peer-screen",
+			did: PEER,
+		});
+		expect(changes).toEqual([true, false]);
 	});
 
 	it("stops cleanly and ignores frames afterwards", async () => {

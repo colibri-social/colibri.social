@@ -19,6 +19,12 @@ import {
 import { useStack } from "../../shell/stack";
 import { CameraPreviewHost } from "./camera-preview";
 import { installVoiceNotices } from "./notices";
+import {
+	ScreenShareHost,
+	screenShareAvailable,
+	screenShareMenu,
+	toggleScreenShare,
+} from "./screen-share";
 import { callTiles } from "./tiles";
 
 const CORNER_KEY = "colibri:voice-floating-corner";
@@ -119,6 +125,7 @@ export default function VoiceDock() {
 			{(current) => (
 				<>
 					<CameraPreviewHost />
+					<ScreenShareHost />
 					<VoiceStatusPanel
 						state={voice.connection().state}
 						quality={voice.connection().quality}
@@ -128,11 +135,20 @@ export default function VoiceDock() {
 						muted={voice.muted()}
 						deafened={voice.deafened()}
 						cameraOn={voice.camera()}
+						screenSharing={voice.screenSharing()}
 						class="border-t-0"
 						onDisconnect={voice.leave}
 						onToggleMute={voice.toggleMute}
 						onToggleDeafen={voice.toggleDeafen}
 						onToggleCamera={voice.toggleCamera}
+						onToggleScreenShare={
+							screenShareAvailable()
+								? () => void toggleScreenShare()
+								: undefined
+						}
+						screenShareMenu={
+							screenShareAvailable() ? screenShareMenu() : undefined
+						}
 						onOpenCall={openCall}
 						onShowOverlay={
 							voice.floatingDismissed()
@@ -158,6 +174,8 @@ export default function VoiceDock() {
 								insets={{ top: BAR_HEIGHT[resolveChromeMode()] }}
 								cameraOn={voice.camera()}
 								onToggleCamera={voice.toggleCamera}
+								screenSharing={voice.screenSharing()}
+								onToggleScreenShare={voice.stopScreenShare}
 								onReturn={openCall}
 								onDismiss={() => voice.setFloatingDismissed(true)}
 								onDisconnect={voice.leave}

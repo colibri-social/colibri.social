@@ -35,8 +35,12 @@ export const SCREEN_SHARE_FRAMERATES: readonly ScreenShareFramerate[] = [
 	15, 30, 60,
 ];
 
-const resolutionLabel = (resolution: ScreenShareResolution) =>
-	resolution === "source" ? "Full size" : `${resolution}p`;
+export const screenShareResolutionLabel = (
+	resolution: ScreenShareResolution,
+) => (resolution === "source" ? "Full size" : `${resolution}p`);
+
+export const screenShareFramerateLabel = (framerate: ScreenShareFramerate) =>
+	`${framerate} per second`;
 
 export const MAX_DEVICE_VOLUME = 200;
 
@@ -334,7 +338,7 @@ export const VoiceVideoSettings = (props: VoiceVideoSettingsProps) => {
 								label="Resolution"
 								options={SCREEN_SHARE_RESOLUTIONS.map((resolution) => ({
 									value: resolution,
-									label: resolutionLabel(resolution),
+									label: screenShareResolutionLabel(resolution),
 								}))}
 								value={screen().resolution}
 								onChange={(value) =>
@@ -348,7 +352,7 @@ export const VoiceVideoSettings = (props: VoiceVideoSettingsProps) => {
 								label="Frame rate"
 								options={SCREEN_SHARE_FRAMERATES.map((framerate) => ({
 									value: String(framerate),
-									label: `${framerate} per second`,
+									label: screenShareFramerateLabel(framerate),
 								}))}
 								value={String(screen().framerate)}
 								onChange={(value) =>

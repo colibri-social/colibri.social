@@ -5,7 +5,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 pub const BEFORE_EXIT_EVENT: &str = "colibri-before-exit";
 
-const GRACE: Duration = Duration::from_secs(2);
+const GRACE: Duration = Duration::from_secs(5);
 
 static HOLDING: AtomicBool = AtomicBool::new(false);
 static RELEASED: AtomicBool = AtomicBool::new(false);

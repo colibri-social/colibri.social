@@ -1,4 +1,4 @@
-import type { KvStore } from "@colibri-social/lib";
+import { createMemoryKvStore, type KvStore } from "@colibri-social/lib";
 import { render } from "solid-js/web";
 import { afterEach, expect, it } from "vitest";
 import { Providers } from "../providers";
@@ -13,37 +13,7 @@ const SLOW = 60_000;
 const SKELETON =
 	"[data-skeleton],[data-skeleton-group],[data-skeleton-text],[data-session-loading]";
 
-const memoryKv = (): KvStore => {
-	const data = new Map<string, Map<string, unknown>>();
-	const store = (name: string) => {
-		let entries = data.get(name);
-		if (!entries) {
-			entries = new Map();
-			data.set(name, entries);
-		}
-		return entries;
-	};
-	return {
-		enabled: () => true,
-		get: async <T,>(name: string, key: string) =>
-			structuredClone(store(name).get(key)) as T | undefined,
-		put: async (name, key, value) => {
-			store(name).set(key, structuredClone(value));
-		},
-		remove: async (name, key) => {
-			store(name).delete(key);
-		},
-		removeWhere: async (name, match) => {
-			for (const key of [...store(name).keys()])
-				if (match(key)) store(name).delete(key);
-		},
-		clear: async (names) => {
-			for (const name of names) store(name).clear();
-		},
-		evictOldest: async () => {},
-		close: () => {},
-	};
-};
+const memoryKv = createMemoryKvStore;
 
 const until = async (check: () => boolean, timeout = 8000) => {
 	const started = performance.now();

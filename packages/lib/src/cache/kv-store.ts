@@ -16,6 +16,7 @@ export type KvStoreOptions = {
 export type KvStore = {
 	enabled: () => boolean;
 	get: <T>(store: string, key: string) => Promise<T | undefined>;
+	values: <T>(store: string, prefix: string) => Promise<T[]>;
 	put: (store: string, key: string, value: unknown) => Promise<void>;
 	remove: (store: string, key: string) => Promise<void>;
 	removeWhere: (
@@ -125,6 +126,12 @@ export const createKvStore = (options: KvStoreOptions): KvStore => {
 			run<T>(store, "readonly", (transaction) =>
 				transaction.objectStore(store).get(key),
 			),
+		values: async <T>(store: string, prefix: string) =>
+			(await run<T[]>(store, "readonly", (transaction) =>
+				transaction
+					.objectStore(store)
+					.getAll(IDBKeyRange.bound(prefix, `${prefix}\uffff`)),
+			)) ?? [],
 		put: async (store, key, value) => {
 			await run(store, "readwrite", (transaction) =>
 				transaction.objectStore(store).put(value, key),
@@ -179,5 +186,45 @@ export const createKvStore = (options: KvStoreOptions): KvStore => {
 			void opened?.then((db) => db.close()).catch(() => undefined);
 			opened = undefined;
 		},
+	};
+};
+
+export const createMemoryKvStore = (): KvStore & {
+	data: Map<string, Map<string, unknown>>;
+} => {
+	const data = new Map<string, Map<string, unknown>>();
+	const store = (name: string) => {
+		let entries = data.get(name);
+		if (!entries) {
+			entries = new Map();
+			data.set(name, entries);
+		}
+		return entries;
+	};
+	return {
+		data,
+		enabled: () => true,
+		get: async <T>(name: string, key: string) =>
+			structuredClone(store(name).get(key)) as T | undefined,
+		values: async <T>(name: string, prefix: string) =>
+			[...store(name).entries()]
+				.filter(([key]) => key.startsWith(prefix))
+				.sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+				.map(([, value]) => structuredClone(value) as T),
+		put: async (name, key, value) => {
+			store(name).set(key, structuredClone(value));
+		},
+		remove: async (name, key) => {
+			store(name).delete(key);
+		},
+		removeWhere: async (name, match) => {
+			for (const key of [...store(name).keys()])
+				if (match(key)) store(name).delete(key);
+		},
+		clear: async (names) => {
+			for (const name of names) store(name).clear();
+		},
+		evictOldest: async () => {},
+		close: () => {},
 	};
 };

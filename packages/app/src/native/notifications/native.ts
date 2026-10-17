@@ -3,6 +3,7 @@ import {
 	type ActivationBus,
 	decodeActivation,
 	encodeActivation,
+	isActivationKey,
 } from "./activation";
 import type { TauriPort } from "./tauri-port";
 import { type OsNotifier, targetOf } from "./types";
@@ -33,7 +34,7 @@ export const createNativeNotifier = (
 	let lastKey: string | undefined;
 
 	const activate = (activation: NativeActivation | null | undefined) => {
-		if (!activation) return;
+		if (!activation || !isActivationKey(activation.messageUri)) return;
 		const key = `${activation.channelUri} ${activation.messageUri ?? ""}`;
 		if (key === lastKey) return;
 		lastKey = key;

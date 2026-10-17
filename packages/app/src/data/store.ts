@@ -41,6 +41,8 @@ import {
 	createNotificationStore,
 	createSpaceNotificationPrefs,
 } from "./notifications";
+import { createOutbox } from "./outbox/outbox";
+import type { OutboxEvent, OutboxOp, OutboxQueue } from "./outbox/types";
 import { readStored, writeStored } from "./persist";
 import { orderCommunities } from "./preferences/order";
 import type { MuteSubject } from "./preferences/types";
@@ -58,6 +60,7 @@ import {
 	type CommunityImageKind,
 	type CreateChannelInput,
 	type DataSource,
+	type ForwardInput,
 	type LiveEvent,
 	MESSAGE_COLLECTION,
 	type ProfileTheme,
@@ -341,9 +344,6 @@ const createLazyLoad = <T>(
 	};
 };
 
-let nonceCounter = 0;
-const nextNonce = () => `local-${Date.now().toString(36)}-${nonceCounter++}`;
-
 type ChannelWatcher = {
 	watchChannel: (channel: SpaceRef) => () => void;
 	viewChannel: (channel?: SpaceRef) => void;
@@ -355,7 +355,29 @@ const watchesChannels = (
 	typeof (source as Partial<ChannelWatcher>).watchChannel === "function" &&
 	typeof (source as Partial<ChannelWatcher>).viewChannel === "function";
 
-export type DataStoreOptions = { cache?: MessageCache; spaces?: SpaceCache };
+export type DataStoreOptions = {
+	cache?: MessageCache;
+	spaces?: SpaceCache;
+	outbox?: { queue?: OutboxQueue; held?: () => boolean };
+};
+
+export type WriteFailure = {
+	kind: "edit" | "delete" | "react";
+	code: string;
+};
+
+const OUTBOX_NONCE = "outbox:";
+const outboxNonce = (seq: number) => `${OUTBOX_NONCE}${seq}`;
+const outboxSeq = (nonce: string) =>
+	nonce.startsWith(OUTBOX_NONCE)
+		? Number(nonce.slice(OUTBOX_NONCE.length))
+		: undefined;
+
+const channelOfOp = (op: OutboxOp): SpaceRef | undefined => {
+	if (op.t === "forward") return op.to;
+	if (op.t === "deleteThread") return undefined;
+	return op.channel;
+};
 
 const seededUnread = (snapshot: SpaceSnapshot | undefined) => {
 	const seeded: Record<string, Record<string, UnreadState>> = {};
@@ -561,6 +583,26 @@ export const createDataStore = (
 		const typingListeners = new Map<SpaceRef, (did: Did) => void>();
 		const typingStops = new Map<SpaceRef, (did: Did) => void>();
 		const sentNonces = new Map<string, string>();
+		const outbox = createOutbox({
+			source,
+			queue: options.outbox?.queue,
+			held: options.outbox?.held,
+		});
+		const outboxListeners = new Map<SpaceRef, (event: OutboxEvent) => void>();
+		outbox.subscribe((event) => {
+			const ref = channelOfOp(event.entry.op);
+			if (ref) outboxListeners.get(ref)?.(event);
+		});
+		const writeFailureListeners = new Set<(failure: WriteFailure) => void>();
+		const reportWriteFailure = (
+			kind: WriteFailure["kind"],
+			thrown: unknown,
+		) => {
+			const code = classifyThrown(thrown, { method: `outbox.${kind}` }).code;
+			for (const listener of [...writeFailureListeners])
+				listener({ kind, code });
+		};
+		const reactionKeys = new Map<string, string>();
 		const messageListeners = new Map<SpaceRef, (event: LiveEvent) => void>();
 		const notifications = createNotificationStore(source, (views, seen) => {
 			const counts = new Map<SpaceRef, number>();
@@ -1006,7 +1048,8 @@ export const createDataStore = (
 			remove: async (thread: ThreadView) => {
 				removeThread(thread);
 				try {
-					await source.deleteThread({ thread: thread.space });
+					await outbox.enqueue({ t: "deleteThread", thread: thread.space })
+						.settled;
 				} catch (error) {
 					upsertThread(thread);
 					throw error;
@@ -1644,34 +1687,6 @@ export const createDataStore = (
 					),
 				}));
 
-			const uploadAll = async (entry: PendingMessage) => {
-				const uploads = entry.uploads ?? [];
-				const results = await Promise.all(
-					uploads.map(async (upload) => {
-						if (upload.attachment) return upload.attachment;
-						patchUpload(entry.nonce, upload.id, { failed: false, progress: 0 });
-						try {
-							const uploaded = await source.uploadBlob(upload.file, {
-								onProgress: (progress) =>
-									patchUpload(entry.nonce, upload.id, { progress }),
-							});
-							const attachment: AttachmentView = {
-								...uploaded,
-								...(upload.spoiler ? { spoiler: true } : {}),
-								...(upload.alt ? { alt: upload.alt } : {}),
-							};
-							patchUpload(entry.nonce, upload.id, { attachment, progress: 1 });
-							return attachment;
-						} catch {
-							patchUpload(entry.nonce, upload.id, { failed: true });
-							return undefined;
-						}
-					}),
-				);
-				if (results.some((result) => !result)) return undefined;
-				return results as AttachmentView[];
-			};
-
 			const revokePreviews = (entry: PendingMessage) => {
 				for (const upload of entry.uploads ?? []) {
 					if (upload.previewSrc?.startsWith("blob:")) {
@@ -1680,35 +1695,51 @@ export const createDataStore = (
 				}
 			};
 
-			const deliver = async (entry: PendingMessage) => {
-				const markFailed = () =>
-					patchPending(entry.nonce, (item) => ({ ...item, state: "failed" }));
-				const uploaded = await uploadAll(entry);
-				if (!uploaded) {
-					markFailed();
-					return;
-				}
-				sentNonces.set(entry.rkey, entry.nonce);
-				try {
-					const message = await source.sendMessage({
+			const dropPending = (nonce: string) => {
+				const dropped = untrack(pending).find((entry) => entry.nonce === nonce);
+				if (!dropped) return;
+				setPending((list) => list.filter((entry) => entry.nonce !== nonce));
+				revokePreviews(dropped);
+			};
+
+			const adoptQueued = () => {
+				const known = new Set(untrack(pending).map((entry) => entry.rkey));
+				const adopted: PendingMessage[] = [];
+				for (const entry of untrack(outbox.entries)) {
+					const op = entry.op;
+					if (op.t !== "send" || op.channel !== ref || known.has(op.rkey))
+						continue;
+					const nonce = outboxNonce(entry.seq);
+					sentNonces.set(op.rkey, nonce);
+					adopted.push({
+						nonce,
+						rkey: op.rkey,
 						channel: ref,
-						rkey: entry.rkey,
-						text: entry.text,
-						facets: entry.facets,
-						parent: entry.parent,
-						attachments: [...(entry.attachments ?? []), ...uploaded],
-						...(entry.suppressedEmbeds?.length
-							? { suppressedEmbeds: entry.suppressedEmbeds }
+						text: op.text,
+						facets: op.facets,
+						parent: op.parent,
+						attachments: op.attachments,
+						...(op.suppressedEmbeds?.length
+							? { suppressedEmbeds: op.suppressedEmbeds }
 							: {}),
+						uploads: op.files.length
+							? op.files.map((file, index) => ({
+									id: `${index}`,
+									file: file.file,
+									previewSrc: file.file.type.startsWith("image/")
+										? URL.createObjectURL(file.file)
+										: undefined,
+									...(file.spoiler ? { spoiler: true } : {}),
+									...(file.alt ? { alt: file.alt } : {}),
+									progress: file.attachment ? 1 : 0,
+									...(file.attachment ? { attachment: file.attachment } : {}),
+								}))
+							: undefined,
+						createdAt: new Date(entry.createdAt).toISOString(),
+						state: entry.failed ? "failed" : "pending",
 					});
-					sentNonces.set(message.rkey, entry.nonce);
-					settlePending(entry.nonce, message);
-				} catch (thrown) {
-					log.warn("a message was not sent", {
-						code: classifyThrown(thrown, { method: "message.send" }).code,
-					});
-					markFailed();
 				}
+				if (adopted.length > 0) setPending((list) => [...list, ...adopted]);
 			};
 
 			const applyReaction = (
@@ -1752,6 +1783,36 @@ export const createDataStore = (
 				setMessages(react);
 				editLatest(react);
 			};
+
+			outboxListeners.set(ref, (event) => {
+				if (event.entry.op.t !== "send") return;
+				const nonce = outboxNonce(event.entry.seq);
+				if (event.type === "progress") {
+					patchUpload(
+						nonce,
+						`${event.file}`,
+						event.failed
+							? { failed: true }
+							: { progress: event.fraction, failed: false },
+					);
+					return;
+				}
+				if (event.type === "sent") {
+					if (event.message) {
+						settlePending(nonce, event.message);
+						return;
+					}
+					dropPending(nonce);
+					void feedControls.get(ref)?.refresh();
+					return;
+				}
+				if (event.type === "failed") {
+					patchPending(nonce, (item) => ({ ...item, state: "failed" }));
+					return;
+				}
+				dropPending(nonce);
+			});
+			void outbox.ready().then(adoptQueued);
 
 			messageListeners.set(ref, (event) => {
 				if (event.$type === "messageEvent") {
@@ -1883,9 +1944,35 @@ export const createDataStore = (
 				},
 				typing: typingSet,
 				send: async (input) => {
+					const rkey = nextTid();
+					const parentAuthor = input.parent
+						? untrack(messages).find((message) => message.rkey === input.parent)
+								?.author.did
+						: undefined;
+					const files = input.files ?? [];
+					const issued = outbox.enqueue({
+						t: "send",
+						channel: ref,
+						rkey,
+						text: input.text,
+						...(input.facets ? { facets: input.facets } : {}),
+						...(input.parent ? { parent: input.parent } : {}),
+						...(parentAuthor ? { parentAuthor } : {}),
+						...(input.attachments?.length
+							? { attachments: input.attachments }
+							: {}),
+						...(input.suppressedEmbeds?.length
+							? { suppressedEmbeds: input.suppressedEmbeds }
+							: {}),
+						files: files.map((file) => ({
+							file: file.file,
+							...(file.spoiler ? { spoiler: true } : {}),
+							...(file.alt ? { alt: file.alt } : {}),
+						})),
+					});
 					const entry: PendingMessage = {
-						nonce: nextNonce(),
-						rkey: nextTid(),
+						nonce: outboxNonce(issued.seq),
+						rkey,
 						channel: ref,
 						text: input.text,
 						facets: input.facets,
@@ -1894,46 +1981,88 @@ export const createDataStore = (
 						...(input.suppressedEmbeds?.length
 							? { suppressedEmbeds: input.suppressedEmbeds }
 							: {}),
-						uploads: input.files?.map((file, index) => ({
-							id: `${index}`,
-							file: file.file,
-							previewSrc: file.previewSrc,
-							...(file.spoiler ? { spoiler: true } : {}),
-							...(file.alt ? { alt: file.alt } : {}),
-							progress: 0,
-						})),
+						uploads: files.length
+							? files.map((file, index) => ({
+									id: `${index}`,
+									file: file.file,
+									previewSrc: file.previewSrc,
+									...(file.spoiler ? { spoiler: true } : {}),
+									...(file.alt ? { alt: file.alt } : {}),
+									progress: 0,
+								}))
+							: undefined,
 						createdAt: new Date().toISOString(),
 						state: "pending",
 					};
+					sentNonces.set(rkey, entry.nonce);
 					setPending((list) => [...list, entry]);
-					await deliver(entry);
+					await issued.settled.catch(() => undefined);
 				},
 				retry: async (nonce) => {
-					const entry = pending().find((item) => item.nonce === nonce);
-					if (!entry) return;
-					const next = { ...entry, state: "pending" as const };
-					setPending((list) =>
-						list.map((item) => (item.nonce === nonce ? next : item)),
-					);
-					await deliver(next);
+					const seq = outboxSeq(nonce);
+					if (seq === undefined) return;
+					patchPending(nonce, (item) => ({
+						...item,
+						state: "pending",
+						uploads: item.uploads?.map((upload) => ({
+							...upload,
+							failed: false,
+						})),
+					}));
+					outbox.retry(seq);
 				},
 				discard: (nonce) => {
-					const entry = pending().find((item) => item.nonce === nonce);
-					if (entry) revokePreviews(entry);
-					setPending((list) => list.filter((item) => item.nonce !== nonce));
+					const seq = outboxSeq(nonce);
+					if (seq !== undefined) outbox.discard(seq);
+					dropPending(nonce);
 				},
 				edit: async (rkey, text, facets) => {
-					const message = await source.editMessage({
+					const previous = untrack(messages).find(
+						(message) => message.rkey === rkey,
+					);
+					const queued = untrack(pending).find((entry) => entry.rkey === rkey);
+					if (queued)
+						patchPending(queued.nonce, (entry) => ({ ...entry, text, facets }));
+					if (previous) {
+						const next: MessageView = {
+							...previous,
+							text,
+							updatedAt: new Date().toISOString() as MessageView["updatedAt"],
+						};
+						if (facets?.length) next.facets = facets;
+						else delete next.facets;
+						upsert(next);
+					}
+					const issued = outbox.enqueue({
+						t: "edit",
 						channel: ref,
 						rkey,
 						text,
-						facets,
+						...(facets?.length ? { facets } : {}),
 					});
-					upsert(message);
+					void issued.settled.then(
+						(result) => {
+							if (result.message && !queued) upsert(result.message);
+						},
+						(thrown: unknown) => {
+							if (previous) upsert(previous);
+							reportWriteFailure("edit", thrown);
+						},
+					);
 				},
 				remove: async (rkey) => {
-					setMessages((list) => list.filter((entry) => entry.rkey !== rkey));
-					await source.deleteMessage({ channel: ref, rkey });
+					const previous = untrack(messages).find(
+						(message) => message.rkey === rkey,
+					);
+					const drop = (list: readonly MessageView[]) =>
+						list.filter((entry) => entry.rkey !== rkey);
+					setMessages(drop);
+					editLatest(drop);
+					const issued = outbox.enqueue({ t: "delete", channel: ref, rkey });
+					void issued.settled.catch((thrown: unknown) => {
+						if (previous) upsert(previous);
+						reportWriteFailure("delete", thrown);
+					});
 				},
 				setHidden: async (rkey, hidden) => {
 					const message = await source.setHidden({
@@ -1952,8 +2081,28 @@ export const createDataStore = (
 					upsert(message);
 				},
 				react: async (rkey, emoji, add) => {
+					const author = untrack(messages).find(
+						(message) => message.rkey === rkey,
+					)?.author.did;
+					if (!author) return;
 					applyReaction(rkey, emoji, viewer.did, add);
-					await source.react({ channel: ref, rkey, emoji, add });
+					const key = `${ref}\n${rkey}\n${emoji}`;
+					const reaction = add ? nextTid() : reactionKeys.get(key);
+					if (add && reaction) reactionKeys.set(key, reaction);
+					else reactionKeys.delete(key);
+					const issued = outbox.enqueue({
+						t: "react",
+						channel: ref,
+						rkey,
+						emoji,
+						add,
+						author,
+						...(reaction ? { reaction } : {}),
+					});
+					void issued.settled.catch((thrown: unknown) => {
+						applyReaction(rkey, emoji, viewer.did, !add);
+						reportWriteFailure("react", thrown);
+					});
 				},
 				markRead: () => {
 					const current = unread[community]?.[skeyOf(ref)];
@@ -2314,6 +2463,30 @@ export const createDataStore = (
 			isSpeaking: (did: Did) => !!speaking[did],
 			setVoice,
 			nonceFor: (rkey: string) => sentNonces.get(rkey),
+			forward: (input: ForwardInput): Promise<unknown> => {
+				const message = untrack(() =>
+					channels.get(input.from)?.messages(),
+				)?.find((entry) => entry.rkey === input.rkey);
+				const issued = outbox.enqueue({
+					t: "forward",
+					from: input.from,
+					rkey: input.rkey,
+					to: input.to,
+					...(input.text !== undefined ? { text: input.text } : {}),
+					forwardRkey: nextTid(),
+					...(message ? { message } : {}),
+				});
+				return issued.settled;
+			},
+			outbox: {
+				pendingCount: outbox.pendingCount,
+				flush: outbox.flush,
+				drain: outbox.drain,
+			},
+			onWriteFailed: (listener: (failure: WriteFailure) => void) => {
+				writeFailureListeners.add(listener);
+				return () => writeFailureListeners.delete(listener);
+			},
 			viewing,
 			setViewing,
 			holdChannel,
@@ -2334,12 +2507,16 @@ export const createDataStore = (
 			setSimulation: (next: Partial<Simulation>) => {
 				source.setSimulation(next);
 				setSimulationSignal(source.simulation());
+				outbox.flush();
 			},
 			setControls: source.preferences.setControls,
 			typing: (ref: SpaceRef) => source.typing(ref),
 			catchUp,
 			pauseCatchUp: backfill.cancel,
-			dispose,
+			dispose: () => {
+				outbox.dispose();
+				dispose();
+			},
 		};
 		connectVoice(store);
 		return store;

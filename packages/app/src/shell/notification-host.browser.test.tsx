@@ -1,8 +1,11 @@
 import "../app.css";
 import { clearToasts, setAppActive } from "@colibri-social/ui";
+import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, expect, it, vi } from "vitest";
+import { LiveStatusContext } from "../data/live-context";
 import { createMockSource, setLatency } from "../data/mock/source";
+import type { LiveStatus } from "../data/remote/live";
 import { createDataStore, DataContext } from "../data/store";
 import type { ChannelView, NotificationView, SpaceRef } from "../data/types";
 import { createDeviceNotifications } from "../native/notifications/device";
@@ -12,6 +15,7 @@ import type {
 	OsNotifier,
 	OsPermission,
 } from "../native/notifications/index";
+import { type Push, pushActivations } from "../native/push/index";
 import { Providers } from "../providers";
 import { NotificationHost } from "./NotificationHost";
 
@@ -71,8 +75,35 @@ const fakeNotifier = (permission: OsPermission = "granted") => {
 	};
 };
 
+const fakePush = (active = true) => {
+	const live: boolean[] = [];
+	const dismissed: (string | undefined)[] = [];
+	const [isActive] = createSignal(active);
+	const push: Push = {
+		kind: "apns",
+		active: isActive,
+		enable: async () => active,
+		reassert: async () => {},
+		disable: async () => {},
+		watch: () => () => {},
+		setLive: (next) => {
+			if (live.at(-1) !== next) live.push(next);
+		},
+		dismiss: async (target) => {
+			dismissed.push(target);
+		},
+		dismissRead: async () => {},
+	};
+	return { push, live, dismissed };
+};
+
 const mount = (
-	options: { enabled?: boolean; permission?: OsPermission } = {},
+	options: {
+		enabled?: boolean;
+		permission?: OsPermission;
+		push?: Push;
+		live?: () => LiveStatus;
+	} = {},
 ) => {
 	setLatency(0);
 	if (options.permission === "default") {
@@ -96,12 +127,22 @@ const mount = (
 		() => (
 			<DataContext.Provider value={store}>
 				<Providers>
-					<NotificationHost
-						stack={stack}
-						notifier={async () => os.notifier}
-						device={createDeviceNotifications(async () => os.notifier)}
-						play={play}
-					/>
+					<LiveStatusContext.Provider
+						value={{
+							status: options.live ?? (() => "open"),
+							retryAt: () => undefined,
+							retry: () => {},
+						}}
+					>
+						<NotificationHost
+							stack={stack}
+							notifier={async () => os.notifier}
+							device={createDeviceNotifications(async () => os.notifier)}
+							play={play}
+							{...(options.push ? { push: options.push } : {})}
+							listenForPush={() => () => {}}
+						/>
+					</LiveStatusContext.Provider>
 				</Providers>
 			</DataContext.Provider>
 		),
@@ -255,4 +296,112 @@ it("asks once to turn notifications on and remembers a dismissal", async () => {
 	expect(localStorage.getItem("colibri:notification-prompt-answered")).toBe(
 		"true",
 	);
+});
+
+it("leaves background delivery to push while push is on", async () => {
+	const { push } = fakePush();
+	const { source, store, os, play, channel } = mount({ push });
+	await until(() => !!store.communities.value());
+	await wait(50);
+	setAppActive(false);
+	source.emit({
+		$type: "notificationEvent",
+		notification: notification(channel.space),
+	});
+	await wait(200);
+	expect(os.shown).toHaveLength(0);
+	expect(play).not.toHaveBeenCalled();
+});
+
+it("keeps the in-app toast in front while push is on", async () => {
+	const { push } = fakePush();
+	const { source, store, os, play, channel } = mount({ push });
+	await until(() => !!store.communities.value());
+	source.emit({
+		$type: "notificationEvent",
+		notification: notification(channel.space),
+	});
+	await until(() => toasts().length === 1);
+	expect(play).toHaveBeenCalledWith("ping");
+	expect(os.shown).toHaveLength(0);
+});
+
+it("falls back to OS notifications when push registration failed", async () => {
+	const { push } = fakePush(false);
+	const { source, store, os, channel } = mount({ push });
+	await until(() => !!store.communities.value());
+	await wait(50);
+	setAppActive(false);
+	source.emit({
+		$type: "notificationEvent",
+		notification: notification(channel.space),
+	});
+	await until(() => os.shown.length === 1);
+});
+
+it("marks delivery live only while connected and in front", async () => {
+	const fake = fakePush();
+	const [status, setStatus] = createSignal<LiveStatus>("connecting");
+	const { store } = mount({ push: fake.push, live: status });
+	await until(() => !!store.communities.value());
+	setStatus("open");
+	await until(() => fake.live.at(-1) === true);
+	setAppActive(false);
+	await until(() => fake.live.at(-1) === false);
+	setAppActive(true);
+	await until(() => fake.live.at(-1) === true);
+	setStatus("reconnecting");
+	await until(() => fake.live.at(-1) === false);
+});
+
+it("clears pushed notifications for the channel on screen", async () => {
+	const fake = fakePush();
+	const { store, channel } = mount({ push: fake.push });
+	await until(() => !!store.communities.value());
+	store.setViewing(channel.space);
+	await until(() => fake.dismissed.includes(channel.space));
+	store.setViewing(undefined);
+});
+
+it("opens the conversation from a push tap", async () => {
+	const { store, stack, channel } = mount({ push: fakePush().push });
+	await until(() => !!store.communities.value());
+	pushActivations.emit({ channel: channel.space, rkey: "h1" });
+	expect(stack.setRoot).toHaveBeenCalledWith({ tab: "spaces", space: HQ });
+	expect(stack.push).toHaveBeenCalledWith(
+		expect.objectContaining({ kind: "chat", space: HQ }),
+	);
+});
+
+it("applies Mark as read actions taken from the notification shade", async () => {
+	const acked: string[] = [];
+	const actions = window as {
+		__colibriNotificationActions?: {
+			pendingMarkRead: () => string;
+			ackMarkRead: (channelUri: string) => void;
+		};
+	};
+	let pending: unknown[] = [];
+	actions.__colibriNotificationActions = {
+		pendingMarkRead: () => JSON.stringify(pending),
+		ackMarkRead: (channelUri) => acked.push(channelUri),
+	};
+	try {
+		const { source, store, channel } = mount({ push: fakePush().push });
+		const markRead = vi.spyOn(source, "markRead");
+		await until(() => !!store.communities.value());
+		pending = [
+			{
+				channelUri: channel.space,
+				messageUri: `${channel.space}/did:plc:hostauthor/social.colibri.beta.message/h9`,
+				actionedAt: Date.now(),
+			},
+		];
+		window.dispatchEvent(new Event("colibri-mark-read-pending"));
+		await until(() => acked.length === 1);
+		expect(markRead).toHaveBeenCalledWith(channel.space, "h9");
+		expect(acked).toEqual([channel.space]);
+	} finally {
+		delete actions.__colibriNotificationActions;
+	}
 });

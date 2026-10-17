@@ -39,7 +39,10 @@
 			"icons/Assets.car"
 		],
 		"macOS": {
-			"entitlements": "Entitlements.plist"
+			"entitlements": "Entitlements.plist",
+			"files": {
+				"Resources/ping.caf": "./sounds/ping.caf"
+			}
 		},
 		"iOS": {
 			"minimumSystemVersion": "15.0"

@@ -114,6 +114,11 @@ export const createMockSource = (
 	const listeners = new Set<(event: LiveEvent) => void>();
 	const failures = createRandom(0x5e7d);
 	let sendCount = 0;
+	let offline = false;
+	const whenOnline = <T>(work: () => Promise<T>): Promise<T> =>
+		offline
+			? Promise.reject(new ColibriError({ code: "Offline", method: "mock" }))
+			: work();
 	let stopLive: (() => void) | undefined;
 	const preferenceBackend = createMemoryPreferenceBackend(options.preferences);
 	const preferences = createPreferenceStore({
@@ -834,11 +839,13 @@ export const createMockSource = (
 				return view;
 			}),
 		deleteThread: (input) =>
-			withLatency(() => {
-				const { space, record } = manageableThread(input.thread);
-				space.threads.splice(space.threads.indexOf(record), 1);
-				emit({ $type: "threadEvent", event: "delete", thread: record.view });
-			}),
+			whenOnline(() =>
+				withLatency(() => {
+					const { space, record } = manageableThread(input.thread);
+					space.threads.splice(space.threads.indexOf(record), 1);
+					emit({ $type: "threadEvent", event: "delete", thread: record.view });
+				}),
+			),
 		followThread: (input) =>
 			withLatency(() => {
 				const record = threadRecord(input.thread);
@@ -1080,79 +1087,89 @@ export const createMockSource = (
 				});
 			}),
 		listUnreadStatus: (community) => withLatency(() => unreadFor(community)),
-		sendMessage: (input) => {
-			sendCount += 1;
-			const forced = /\bfail\b/i.test(input.text);
-			const fails = forced || (sendCount > 1 && failures.chance(1 / 15));
-			return withLatency(() => {
-				if (fails) throw new Error("Message could not be sent");
-				const view = createMessage({ ...input, author: world.viewerDid });
-				if (input.suppressedEmbeds?.length)
-					view.suppressedEmbeds =
-						input.suppressedEmbeds as MessageView["suppressedEmbeds"];
-				append(view);
-				const channel = channelRecord(input.channel);
-				if (channel) channel.readCursor = view.rkey;
-				emit({
-					$type: "messageEvent",
-					event: "create",
-					channel: input.channel,
-					message: view,
+		sendMessage: (input) =>
+			whenOnline(() => {
+				sendCount += 1;
+				const forced = /\bfail\b/i.test(input.text);
+				const fails = forced || (sendCount > 1 && failures.chance(1 / 15));
+				return withLatency(() => {
+					if (fails) throw new Error("Message could not be sent");
+					const view = createMessage({ ...input, author: world.viewerDid });
+					if (input.suppressedEmbeds?.length)
+						view.suppressedEmbeds =
+							input.suppressedEmbeds as MessageView["suppressedEmbeds"];
+					append(view);
+					const channel = channelRecord(input.channel);
+					if (channel) channel.readCursor = view.rkey;
+					emit({
+						$type: "messageEvent",
+						event: "create",
+						channel: input.channel,
+						message: view,
+					});
+					return view;
 				});
-				return view;
-			});
-		},
+			}),
 		editMessage: (input) =>
-			withLatency(() => {
-				const { list, index, message } = findMessage(input.channel, input.rkey);
-				const next: MessageView = {
-					...message,
-					text: input.text,
-					updatedAt: asDatetime(Date.now()),
-				};
-				if (input.facets?.length) next.facets = input.facets;
-				else delete next.facets;
-				list[index] = next;
-				emit({
-					$type: "messageEvent",
-					event: "update",
-					channel: input.channel,
-					message: next,
-				});
-				return next;
-			}),
+			whenOnline(() =>
+				withLatency(() => {
+					const { list, index, message } = findMessage(
+						input.channel,
+						input.rkey,
+					);
+					const next: MessageView = {
+						...message,
+						text: input.text,
+						updatedAt: asDatetime(Date.now()),
+					};
+					if (input.facets?.length) next.facets = input.facets;
+					else delete next.facets;
+					list[index] = next;
+					emit({
+						$type: "messageEvent",
+						event: "update",
+						channel: input.channel,
+						message: next,
+					});
+					return next;
+				}),
+			),
 		deleteMessage: (input) =>
-			withLatency(() => {
-				const { list, index } = findMessage(input.channel, input.rkey);
-				list.splice(index, 1);
-				touchThread(input.channel);
-				emit({
-					$type: "messageEvent",
-					event: "delete",
-					channel: input.channel,
-					rkey: input.rkey,
-				});
-			}),
+			whenOnline(() =>
+				withLatency(() => {
+					const { list, index } = findMessage(input.channel, input.rkey);
+					list.splice(index, 1);
+					touchThread(input.channel);
+					emit({
+						$type: "messageEvent",
+						event: "delete",
+						channel: input.channel,
+						rkey: input.rkey,
+					});
+				}),
+			),
 		react: (input) =>
-			withLatency(() => {
-				const changed = applyReaction(
-					input.channel,
-					input.rkey,
-					input.emoji,
-					world.viewerDid,
-					input.add,
-				);
-				if (!changed) return;
-				emit({
-					$type: "reactionEvent",
-					event: input.add ? "create" : "delete",
-					channel: input.channel,
-					target: input.rkey,
-					emoji: input.emoji,
-					actor: world.viewerDid,
-				});
-			}),
-		uploadBlob: (file, options) => mockUpload(file, options),
+			whenOnline(() =>
+				withLatency(() => {
+					const changed = applyReaction(
+						input.channel,
+						input.rkey,
+						input.emoji,
+						world.viewerDid,
+						input.add,
+					);
+					if (!changed) return;
+					emit({
+						$type: "reactionEvent",
+						event: input.add ? "create" : "delete",
+						channel: input.channel,
+						target: input.rkey,
+						emoji: input.emoji,
+						actor: world.viewerDid,
+					});
+				}),
+			),
+		uploadBlob: (file, options) => whenOnline(() => mockUpload(file, options)),
 		loadProfileSetup: () => withLatency(() => ({ complete: true as const })),
 		defaultCommunity: () => withLatency(() => undefined),
 		putProfile: (input) =>
@@ -1254,44 +1271,48 @@ export const createMockSource = (
 			void preferences.setGifFavorite(gif, favorite);
 		},
 		forwardMessage: (input) =>
-			withLatency(() => {
-				const { message } = findMessage(input.from, input.rkey);
-				const source = channelRecord(input.from);
-				const view = createMessage({
-					author: world.viewerDid,
-					channel: input.to,
-					text: input.text ?? "",
-					forward: {
-						source: {
-							space: input.from,
-							did: message.author.did,
-							rkey: message.rkey,
+			whenOnline(() =>
+				withLatency(() => {
+					const { message } = findMessage(input.from, input.rkey);
+					const source = channelRecord(input.from);
+					const view = createMessage({
+						author: world.viewerDid,
+						channel: input.to,
+						rkey: input.forwardRkey,
+						text: input.text ?? "",
+						forward: {
+							source: {
+								space: input.from,
+								did: message.author.did,
+								rkey: message.rkey,
+							},
+							sourceName: source?.view.name,
+							sourceCommunity: input.from.slice(
+								"at://".length,
+								input.from.indexOf("/space/"),
+							) as Did,
+							createdAt: message.createdAt,
+							text: message.text,
+							facets: message.facets,
+							attachments: message.attachments,
 						},
-						sourceName: source?.view.name,
-						sourceCommunity: input.from.slice(
-							"at://".length,
-							input.from.indexOf("/space/"),
-						) as Did,
-						createdAt: message.createdAt,
-						text: message.text,
-						facets: message.facets,
-						attachments: message.attachments,
-					},
-				});
-				append(view);
-				emit({
-					$type: "messageEvent",
-					event: "create",
-					channel: input.to,
-					message: view,
-				});
-				return view;
-			}),
-		simulation: () => ({ slowNetwork: latencyScale() > 1 }),
+					});
+					append(view);
+					emit({
+						$type: "messageEvent",
+						event: "create",
+						channel: input.to,
+						message: view,
+					});
+					return view;
+				}),
+			),
+		simulation: () => ({ slowNetwork: latencyScale() > 1, offline }),
 		setSimulation: (next) => {
 			if (next.slowNetwork !== undefined) {
 				setLatencyScale(next.slowNetwork ? 5 : 1);
 			}
+			if (next.offline !== undefined) offline = next.offline;
 		},
 		setHidden: (input) =>
 			withLatency(() => {
@@ -1425,6 +1446,8 @@ export const createMockSource = (
 					}
 				}
 			}),
+		registerPush: async () => {},
+		unregisterPush: async () => {},
 		subscribe: (listener) => {
 			listeners.add(listener);
 			if (listeners.size === 1 && options.live !== false) {

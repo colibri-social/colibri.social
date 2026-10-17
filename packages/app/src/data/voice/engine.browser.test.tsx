@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_SCREEN_SHARE } from "../screen-share";
 import type { VoiceSettings } from "../voice-settings";
 import type { VoiceEngine } from "./engine";
 import {
@@ -20,6 +21,7 @@ const BASE: VoiceSettings = {
 	outputVolume: 100,
 	noiseSuppression: true,
 	voiceGate: false,
+	screen: DEFAULT_SCREEN_SHARE,
 };
 
 let running: VoiceEngine[] = [];
