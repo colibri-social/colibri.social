@@ -225,6 +225,11 @@ export const Drawer = (props: DrawerProps) => {
 				side="bottom"
 				closeOnOutsidePointerStrategy="pointerdown"
 				closeOnOutsideFocus={false}
+				onOutsidePointer={(event) => {
+					if (event.target instanceof Node && !event.target.isConnected) {
+						event.preventDefault();
+					}
+				}}
 				velocityFunction={velocityFunction}
 				breakPoints={[CLOSE_BREAKPOINT]}
 				activeSnapPoint={snapPoint()}

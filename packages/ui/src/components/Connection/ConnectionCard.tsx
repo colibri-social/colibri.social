@@ -34,7 +34,7 @@ export const CONNECTION_CARD_INSET: Record<
 	ChatPlatform,
 	{ top: number; side: number }
 > = {
-	mobile: { top: 24, side: 12 },
+	mobile: { top: 12, side: 12 },
 	desktop: { top: 32, side: 16 },
 };
 

@@ -1,4 +1,5 @@
 import { Show } from "solid-js";
+import { reducedMotionActive } from "../../utils/playback";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import {
 	type ProfileAction,
@@ -42,6 +43,7 @@ export const ProfileDrawer = (props: ProfileDrawerProps) => {
 							<ProfileContentHeader
 								profile={profile()}
 								surface="popover"
+								avatarPlay={props.open && !reducedMotionActive()}
 								onAction={props.onAction}
 							/>
 						}
