@@ -345,6 +345,7 @@ describe("attachments", () => {
 			"video",
 		]);
 		expect(result.media[0]).toMatchObject({ width: 800, height: 600 });
+		expect(result.media[2]).toMatchObject({ mimeType: "video/mp4" });
 		expect(result.audio[0]).toMatchObject({ name: "song.mp3", size: 1000 });
 		expect(result.files[0]).toMatchObject({
 			name: "doc.pdf",

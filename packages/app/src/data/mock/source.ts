@@ -679,8 +679,17 @@ export const createMockSource = (
 				world.spaces
 					.flatMap((space) => space.threads)
 					.filter((thread) => thread.view.channel === channel)
-					.map((thread) => ({ ...thread.view })),
+					.map(({ view: { anchorMessage: _, ...view } }) => view),
 			),
+		getThread: (ref) =>
+			withLatency(() => {
+				const thread = world.spaces
+					.flatMap((space) => space.threads)
+					.find((entry) => entry.view.space === ref);
+				if (!thread)
+					throw new ColibriError({ code: "NotFound", method: "mock" });
+				return { ...thread.view };
+			}),
 		moveMessages: (input) =>
 			withLatency(() => {
 				const count = input.subjects.length;

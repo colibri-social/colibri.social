@@ -228,6 +228,34 @@ describe("toLiveEvents", () => {
 		).toEqual([]);
 	});
 
+	it("maps member joins with their view", () => {
+		const member = { actor: { did: ALICE }, roles: [], joinedAt: "x" };
+		expect(
+			toLiveEvents(
+				frame("memberEvent", { event: "join", community: COMMUNITY, member }),
+			),
+		).toEqual([{ $type: "memberJoinEvent", community: COMMUNITY, member }]);
+	});
+
+	it("maps member leaves to their subject", () => {
+		expect(
+			toLiveEvents(
+				frame("memberEvent", {
+					event: "leave",
+					community: COMMUNITY,
+					subject: ALICE,
+				}),
+			),
+		).toEqual([
+			{ $type: "memberLeaveEvent", community: COMMUNITY, subject: ALICE },
+		]);
+		expect(
+			toLiveEvents(
+				frame("memberEvent", { event: "leave", community: COMMUNITY }),
+			),
+		).toEqual([]);
+	});
+
 	it("turns application changes into an access refresh", () => {
 		expect(
 			toLiveEvents(
@@ -254,6 +282,52 @@ describe("toLiveEvents", () => {
 		).toEqual([
 			{ $type: "accessEvent", community: COMMUNITY, kind: "invitations" },
 		]);
+	});
+
+	it("replaces an emoji catalog, with images on the AppView", () => {
+		const catalog = {
+			owner: COMMUNITY,
+			emojis: [
+				{
+					uri: `at://${COMMUNITY}/blue.moji.collection.item/wave`,
+					provider: "blue.moji",
+					owner: COMMUNITY,
+					name: "wave",
+					images: [{ cid: "bafkcid", format: "png", animated: false }],
+					createdAt: "2026-10-18T00:00:00.000Z",
+				},
+			],
+			packs: [],
+		};
+		const [event] = toLiveEvents(
+			frame("emojiEvent", { owner: COMMUNITY, catalog }),
+			{
+				emojiBlobUrl: ({ did, cid }) => `https://appview.test/${did}/${cid}`,
+			},
+		);
+		expect(event).toMatchObject({
+			$type: "emojiEvent",
+			catalog: {
+				community: COMMUNITY,
+				emojis: [
+					{
+						id: `at://${COMMUNITY}/blue.moji.collection.item/wave`,
+						image: `https://appview.test/${COMMUNITY}/bafkcid`,
+					},
+				],
+			},
+		});
+	});
+
+	it("drops an emoji catalog when no blob locator is known", () => {
+		expect(
+			toLiveEvents(
+				frame("emojiEvent", {
+					owner: COMMUNITY,
+					catalog: { owner: COMMUNITY, emojis: [], packs: [] },
+				}),
+			),
+		).toEqual([]);
 	});
 
 	it("ignores frames the app has no event for", () => {

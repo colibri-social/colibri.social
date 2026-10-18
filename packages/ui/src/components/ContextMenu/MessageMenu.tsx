@@ -6,7 +6,6 @@ import { ForbiddenCircleIcon } from "@solar-icons/solid/bold/forbidden-circle";
 import { ForwardIcon } from "@solar-icons/solid/bold/forward";
 import { GalleryDownloadIcon } from "@solar-icons/solid/bold/gallery-download";
 import { HeartIcon } from "@solar-icons/solid/bold/heart";
-import { InfoCircleIcon } from "@solar-icons/solid/bold/info-circle";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
 import { LinkMinimalisticIcon } from "@solar-icons/solid/bold/link-minimalistic";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
@@ -15,7 +14,9 @@ import { StarIcon } from "@solar-icons/solid/bold/star";
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import { type JSX, Show } from "solid-js";
 import { ThreadIcon } from "../../icons/custom";
+import { MenuEntryGroups } from "../DropdownMenu/DropdownMenu";
 import { ContextMenu, MenuItem, MenuSeparator } from "./Menu";
+import { type DeveloperMenuActions, developerEntry } from "./menu-entries";
 
 export type MessageMenuLink = {
 	onCopy?: () => void;
@@ -54,7 +55,7 @@ export type MessageMenuGif = {
 	onToggle: () => void;
 };
 
-export type MessageMenuActions = {
+export type MessageMenuActions = DeveloperMenuActions & {
 	onCopySelection?: () => void;
 	link?: MessageMenuLink;
 	image?: MessageMenuImage;
@@ -67,7 +68,6 @@ export type MessageMenuActions = {
 	gif?: MessageMenuGif;
 	onLinkPreviews?: () => void;
 	onViewReactions?: () => void;
-	onDebugInfo?: () => void;
 	onDelete?: () => void;
 	hidden?: boolean;
 	onHide?: () => void;
@@ -75,6 +75,7 @@ export type MessageMenuActions = {
 };
 
 export const MessageMenuItems = (props: MessageMenuActions) => {
+	const developer = () => developerEntry(props);
 	const hasLink = () => !!(props.link?.onCopy || props.link?.onOpen);
 	const hasPrimary = () =>
 		!!(
@@ -90,7 +91,7 @@ export const MessageMenuItems = (props: MessageMenuActions) => {
 			props.gif ||
 			props.onLinkPreviews ||
 			props.onViewReactions ||
-			props.onDebugInfo
+			developer()
 		);
 	const hideAction = () => (props.hidden ? props.onUnhide : props.onHide);
 	const hasDanger = () => !!(props.onDelete || hideAction());
@@ -211,12 +212,8 @@ export const MessageMenuItems = (props: MessageMenuActions) => {
 					onSelect={props.onViewReactions}
 				/>
 			</Show>
-			<Show when={props.onDebugInfo}>
-				<MenuItem
-					icon={<InfoCircleIcon />}
-					label="Show debug information"
-					onSelect={props.onDebugInfo}
-				/>
+			<Show when={developer()}>
+				{(entry) => <MenuEntryGroups entries={[entry()]} />}
 			</Show>
 			<Show when={hasDanger() && (hasPrimary() || hasUtility())}>
 				<MenuSeparator />

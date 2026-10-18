@@ -174,6 +174,7 @@ export type ChannelData = {
 	messages: Accessor<readonly MessageView[]>;
 	pending: Accessor<readonly PendingMessage[]>;
 	ready: Accessor<boolean>;
+	confirmed: Accessor<boolean>;
 	loadError: Accessor<ColibriError | undefined>;
 	reload: () => void;
 	hasOlder: Accessor<boolean>;
@@ -1019,8 +1020,29 @@ export const createDataStore = (
 			}
 		};
 
+		const anchorLoads = new Map<
+			SpaceRef,
+			Promise<ThreadView["anchorMessage"]>
+		>();
+		const anchorMessageOf = (thread: ThreadView) => {
+			if (thread.anchorMessage) return Promise.resolve(thread.anchorMessage);
+			if (!thread.anchor) return Promise.resolve(undefined);
+			const existing = anchorLoads.get(thread.space);
+			if (existing) return existing;
+			const load = source
+				.getThread(thread.space)
+				.then((full) => full.anchorMessage)
+				.catch((error: unknown) => {
+					anchorLoads.delete(thread.space);
+					throw error;
+				});
+			anchorLoads.set(thread.space, load);
+			return load;
+		};
+
 		const threadActions = {
 			find: findThread,
+			anchorMessage: anchorMessageOf,
 			rename: (thread: ThreadView, name: string) =>
 				patchThread(thread, { ...thread, name: name.trim() }, () =>
 					source.updateThread({ thread: thread.space, name: name.trim() }),
@@ -1278,6 +1300,32 @@ export const createDataStore = (
 		};
 
 		source.subscribe((event) => {
+			if (event.$type === "memberJoinEvent") {
+				if (event.member.actor.did === viewer.did) {
+					void communities.refresh();
+					return;
+				}
+				memberLoads
+					.get(event.community)
+					?.update((list) =>
+						list.some((entry) => entry.actor.did === event.member.actor.did)
+							? list
+							: [...list, event.member],
+					);
+				return;
+			}
+			if (event.$type === "memberLeaveEvent") {
+				if (event.subject === viewer.did) {
+					dropCommunity(event.community);
+					return;
+				}
+				memberLoads
+					.get(event.community)
+					?.update((list) =>
+						list.filter((entry) => entry.actor.did !== event.subject),
+					);
+				return;
+			}
 			if (event.$type === "communityRemovedEvent") {
 				dropCommunity(event.community);
 				return;
@@ -1398,6 +1446,7 @@ export const createDataStore = (
 			);
 			const [pending, setPending] = createSignal<readonly PendingMessage[]>([]);
 			const [ready, setReady] = createSignal(false);
+			const [confirmed, setConfirmed] = createSignal(false);
 			const [openError, setOpenError] = createSignal<ColibriError>();
 			let opening = false;
 			const [cursor, setCursor] = createSignal<string>();
@@ -1573,6 +1622,7 @@ export const createDataStore = (
 				open().then(
 					() => {
 						opening = false;
+						setConfirmed(true);
 					},
 					(thrown: unknown) => {
 						opening = false;
@@ -1946,6 +1996,7 @@ export const createDataStore = (
 				messages,
 				pending,
 				ready,
+				confirmed,
 				loadError: openError,
 				reload: () => {
 					if (!ready()) openFeed();
@@ -2224,6 +2275,7 @@ export const createDataStore = (
 				).then(
 					() => {
 						opening = false;
+						setConfirmed(true);
 					},
 					(thrown: unknown) => {
 						opening = false;
@@ -2276,6 +2328,7 @@ export const createDataStore = (
 						setCursor(undefined);
 						setUnreadAfter(undefined);
 						setReady(false);
+						setConfirmed(false);
 					});
 				},
 			});
@@ -2523,8 +2576,16 @@ export const createDataStore = (
 			return !feed || feed.ready();
 		});
 
+		const accessStore = createAccessStore({ source, memberLoads });
 		const store = {
-			access: createAccessStore({ source, memberLoads }),
+			access: {
+				...accessStore,
+				join: async (community: Did, invitation?: string) => {
+					const result = await accessStore.join(community, invitation);
+					if (result.status === "joined") await communities.refresh();
+					return result;
+				},
+			},
 			emoji: createEmojiStore(
 				source,
 				() => viewer.did,

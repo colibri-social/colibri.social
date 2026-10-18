@@ -1,5 +1,5 @@
 import { For } from "solid-js";
-import { expect, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { Avatar } from "./Avatar";
 import {
@@ -127,6 +127,88 @@ export const SpaceIcon: Story = {
 			/>
 		</div>
 	),
+};
+
+const LARGE_PNG = (() => {
+	const canvas = document.createElement("canvas");
+	canvas.width = 256;
+	canvas.height = 256;
+	const context = canvas.getContext("2d");
+	if (context) {
+		context.fillStyle = "#9c66ff";
+		context.fillRect(0, 0, 256, 256);
+		context.fillStyle = "#4ade80";
+		context.fillRect(0, 0, 128, 128);
+	}
+	return canvas.toDataURL("image/png");
+})();
+
+const geometryOf = (element: Element) => {
+	const rect = element.getBoundingClientRect();
+	const style = getComputedStyle(element);
+	return {
+		x: rect.x,
+		y: rect.y,
+		width: rect.width,
+		height: rect.height,
+		objectFit: style.objectFit,
+		objectPosition: style.objectPosition,
+		radius: style.borderTopLeftRadius,
+		outlineOffset: style.outlineOffset,
+		boxSizing: style.boxSizing,
+	};
+};
+
+export const PausedFrameMatchesImage: Story = {
+	render: () => (
+		<div
+			data-media-play-host=""
+			data-row=""
+			class="flex w-72 items-center gap-3 bg-background"
+			style={{ padding: "10.3px 7.6px" }}
+		>
+			<Avatar name="Lou Escher" size="md" src={LARGE_PNG} />
+			<span class="text-sm">Hover this row</span>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const frame = await waitFor(
+			() => {
+				const found = canvasElement.querySelector<HTMLCanvasElement>(
+					"canvas[data-animated-image='paused']",
+				);
+				expect(found).not.toBeNull();
+				return found as HTMLCanvasElement;
+			},
+			{ timeout: 3000 },
+		);
+		const edge = Math.round(40 * Math.max(1, window.devicePixelRatio));
+		await expect(frame.width).toBe(edge);
+		await expect(frame.height).toBe(edge);
+		const paused = geometryOf(frame);
+		const row = canvasElement.querySelector("[data-row]") as HTMLElement;
+		await userEvent.hover(row);
+		const image = await waitFor(
+			() => {
+				const found = canvasElement.querySelector<HTMLImageElement>(
+					"img[data-animated-image='playing']",
+				);
+				expect(found).not.toBeNull();
+				expect(canvasElement.querySelector("canvas")).toBeNull();
+				return found as HTMLImageElement;
+			},
+			{ timeout: 3000 },
+		);
+		await expect(geometryOf(image)).toEqual(paused);
+		await userEvent.unhover(row);
+		await waitFor(
+			() =>
+				expect(
+					canvasElement.querySelector("canvas[data-animated-image='paused']"),
+				).not.toBeNull(),
+			{ timeout: 3000 },
+		);
+	},
 };
 
 export const BrokenImageFallsBack: Story = {

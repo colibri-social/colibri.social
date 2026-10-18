@@ -15,9 +15,16 @@ export const WILDCARD_RPC = [
 	"social.colibri.labeler.unlinkExternalAccount",
 ] as const;
 
+export const EMOJI_COLLECTIONS = [
+	"blue.moji.collection.item",
+	"blue.moji.packs.pack",
+	"blue.moji.packs.packitem",
+] as const;
+
 export const buildScopes = (appViewDid: string) => [
 	"atproto",
 	"blob:*/*",
+	...EMOJI_COLLECTIONS.map((collection) => `repo:${collection}`),
 	...WILDCARD_RPC.map((lxm) => `rpc:${lxm}?aud=*`),
 	...PERMISSION_SETS.map(
 		(nsid) => `include:${nsid}?aud=${appViewDid}#colibri_appview`,
@@ -38,6 +45,9 @@ export const PERMISSION_SET_LABELS: Record<string, string> = {
 	"social.colibri.beta.voice.moderate": "Voice channels",
 	"social.colibri.labeler.linkExternalAccount": "Supporter badges",
 	"social.colibri.labeler.unlinkExternalAccount": "Supporter badges",
+	...Object.fromEntries(
+		EMOJI_COLLECTIONS.map((collection) => [collection, "Custom emoji"]),
+	),
 };
 
 const PERMISSION_SET_MARKERS: Record<string, readonly string[]> = {
@@ -64,7 +74,13 @@ const PERMISSION_SET_MARKERS: Record<string, readonly string[]> = {
 };
 
 const STANDALONE_SCOPE_MARKERS: Record<string, readonly string[]> =
-	Object.fromEntries(WILDCARD_RPC.map((lxm) => [lxm, [`${lxm}?aud=*`]]));
+	Object.fromEntries([
+		...WILDCARD_RPC.map((lxm) => [lxm, [`${lxm}?aud=*`]]),
+		...EMOJI_COLLECTIONS.map((collection) => [
+			collection,
+			[`repo:${collection}`],
+		]),
+	]);
 
 export const scopeSetLabel = (nsid: string): string =>
 	PERMISSION_SET_LABELS[nsid] ?? "Core access";

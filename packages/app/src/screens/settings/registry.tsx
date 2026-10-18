@@ -18,6 +18,7 @@ import AppearancePage from "./pages/appearance";
 import ChatPage from "./pages/chat";
 import DebugInformationPage from "./pages/debug-information";
 import DeleteAccountPage from "./pages/delete-account";
+import EmojiPacksPage from "./pages/emoji-packs";
 import ExperimentsPage from "./pages/experiments";
 import LogsPage from "./pages/logs";
 import NotificationsPage from "./pages/notifications";
@@ -35,6 +36,11 @@ type PageInfo = {
 
 export const SETTINGS_PAGES: Record<SettingsPageId, PageInfo> = {
 	profile: { title: "Profile", entry: "profile" },
+	emojiPacks: {
+		title: SETTINGS_ENTRY_INFO.emojiPacks.label,
+		entry: "emojiPacks",
+		view: EmojiPacksPage,
+	},
 	deleteAccount: {
 		title: "Delete my Colibri data",
 		entry: "advanced",
@@ -119,6 +125,7 @@ export const settingsEntries = (
 	const accountPage = accountPageOf(data);
 	return {
 		profile: page("profile"),
+		emojiPacks: page("emojiPacks"),
 		...(accountPage ? { atmosphereAccount: external(accountPage) } : {}),
 		voiceVideo: page("voiceVideo"),
 		appearance: page("appearance"),

@@ -1,0 +1,107 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.emoji.updatePack",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Renames a community's pack or replaces its emoji. Omitted fields stay as they are.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"pack"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community that owns the emoji."
+						},
+						"pack": {
+							"type": "string",
+							"format": "at-uri",
+							"description": "The pack's record URI in the community's repo."
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 64,
+							"description": "The new name."
+						},
+						"description": {
+							"type": "string",
+							"maxLength": 3000,
+							"maxGraphemes": 300,
+							"description": "The new description. An empty string clears it."
+						},
+						"emojis": {
+							"type": "array",
+							"maxLength": 500,
+							"items": {
+								"type": "string",
+								"format": "at-uri"
+							},
+							"description": "The full new list of emoji URIs, in order."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"pack"
+					],
+					"properties": {
+						"pack": {
+							"type": "ref",
+							"ref": "social.colibri.beta.emoji.defs#packView",
+							"description": "The pack as stored."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the community.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "PackNotFound",
+					"description": "No pack of this community exists at the given URI."
+				},
+				{
+					"name": "EmojiNotFound",
+					"description": "No emoji of this community exists at the given URI."
+				},
+				{
+					"name": "UnsupportedProvider",
+					"description": "The emoji provider is unknown, or it does not support the requested operation."
+				},
+				{
+					"name": "InvalidName",
+					"description": "The pack name is empty or longer than 64 characters."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

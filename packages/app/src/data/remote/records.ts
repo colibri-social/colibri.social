@@ -120,6 +120,27 @@ export const createRecords = (transport: Transport) => {
 			}
 			return found;
 		},
+		listInRepo: async (collection: string): Promise<StoredRecord[]> => {
+			const found: StoredRecord[] = [];
+			let cursor: string | undefined;
+			for (let page = 0; page < RECORD_SCAN_LIMIT; page++) {
+				const result = await transport.pdsQuery<{
+					cursor?: string;
+					records: StoredRecord[];
+				}>("com.atproto.repo.listRecords", {
+					params: {
+						repo: transport.did,
+						collection,
+						limit: RECORD_PAGE,
+						cursor,
+					},
+				});
+				found.push(...result.records);
+				if (!result.cursor || result.records.length === 0) break;
+				cursor = result.cursor;
+			}
+			return found;
+		},
 		getInRepo: async (collection: string, rkey: string) => {
 			try {
 				return await transport.pdsQuery<StoredRecord>(
@@ -148,6 +169,11 @@ export const createRecords = (transport: Transport) => {
 					},
 				},
 			),
+		deleteInRepo: async (collection: string, rkey: string) => {
+			await transport.pdsProcedure("com.atproto.repo.deleteRecord", {
+				body: { repo: transport.did, collection, rkey },
+			});
+		},
 		uploadBlob: async (file: Blob, signal?: AbortSignal) => {
 			const result = await transport.pdsProcedure<{ blob: BlobRef }>(
 				"com.atproto.repo.uploadBlob",

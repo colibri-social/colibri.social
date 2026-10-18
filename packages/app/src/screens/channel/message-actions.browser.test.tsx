@@ -219,22 +219,27 @@ describe("link previews", () => {
 });
 
 describe("message menu extras", () => {
-	it("shows debug information only in developer mode", async () => {
+	it("shows the developer submenu only in developer mode", async () => {
 		const { store } = await mount();
 		const article = await findArticle("Signals docs");
 		await openMenu(article, "Copy text");
-		expect(menuItem("Show debug information")).toBeUndefined();
+		expect(menuItem("Developer mode")).toBeUndefined();
 		await closeMenu();
 		store.setControls({ developerMode: true });
-		await userEvent.click(
-			(await openMenu(article, "Show debug information")) as HTMLElement,
+		const trigger = (await openMenu(article, "Developer mode")) as HTMLElement;
+		expect(trigger).toBeTruthy();
+		trigger.focus();
+		await userEvent.keyboard("{ArrowRight}");
+		await until(() => !!menuItem("Show on PDSls"));
+		const opened = vi.spyOn(window, "open").mockReturnValue(null);
+		await userEvent.click(menuItem("Show on PDSls") as HTMLElement);
+		expect(opened).toHaveBeenCalledTimes(1);
+		expect(opened.mock.calls[0]?.[0]).toMatch(
+			/^https:\/\/pdsls\.dev\/at:\/\/.*social\.colibri\.beta\.message/,
 		);
-		await until(() => !!dialogWith("Debug information"));
-		const dialog = dialogWith("Debug information") as HTMLElement;
-		expect(buttonIn(dialog, "Copy AT-URI")).toBeTruthy();
-		expect(
-			dialog.querySelector<HTMLAnchorElement>("a[href*='pdsls.dev']")?.href,
-		).toContain("social.colibri.beta.message");
+		opened.mockRestore();
+		await waitDialogsClosed();
+		expect(dialogWith("Debug information")).toBeUndefined();
 	});
 
 	it("saves and removes a GIF", async () => {

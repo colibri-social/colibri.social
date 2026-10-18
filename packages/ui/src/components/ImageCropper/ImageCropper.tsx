@@ -20,6 +20,7 @@ import { TableText } from "../Table/TableText";
 import {
 	bandView,
 	CROP_ASPECT,
+	CROP_FALLBACK_TYPE,
 	CROP_OUTPUT,
 	type CropView,
 	clampView,
@@ -285,6 +286,7 @@ const CropStage = (props: {
 			output: CROP_OUTPUT[props.shape],
 			name: props.file.name,
 			maxBytes: props.maxBytes,
+			fallbackType: CROP_FALLBACK_TYPE[props.shape],
 		});
 	};
 

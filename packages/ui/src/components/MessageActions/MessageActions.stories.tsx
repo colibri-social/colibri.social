@@ -167,7 +167,9 @@ const StandInMessage = (props: { own: boolean; text: string }) => {
 			onSelect={fn()}
 			onCopyText={fn()}
 			onViewReactions={fn()}
-			onDebugInfo={fn()}
+			developerMode
+			onCopyAtUri={fn()}
+			onShowOnPdsls={fn()}
 			onDelete={props.own ? menuDelete : undefined}
 			onHide={props.own ? undefined : fn()}
 		/>
@@ -181,7 +183,9 @@ const StandInMessage = (props: { own: boolean; text: string }) => {
 			onSelect={fn()}
 			onCopyText={fn()}
 			onViewReactions={fn()}
-			onDebugInfo={fn()}
+			developerMode
+			onCopyAtUri={fn()}
+			onShowOnPdsls={fn()}
 			onDelete={props.own ? menuDelete : undefined}
 			onHide={props.own ? undefined : fn()}
 		>
@@ -532,7 +536,7 @@ export const RightClickMenu: Story = {
 			"Select messages",
 			"Copy text",
 			"View reactions",
-			"Show debug information",
+			"Developer mode",
 			"Hide message",
 		]);
 		await userEvent.keyboard("{ArrowDown}");

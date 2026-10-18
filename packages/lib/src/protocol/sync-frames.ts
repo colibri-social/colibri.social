@@ -127,6 +127,10 @@ export type VoiceEventFrame = FrameOf<
 	typeof colibri.sync.defs.voiceEvent,
 	"voiceEvent"
 >;
+export type EmojiEventFrame = FrameOf<
+	typeof colibri.sync.defs.emojiEvent,
+	"emojiEvent"
+>;
 export type CommunityProgressEventFrame = FrameOf<
 	typeof colibri.sync.defs.communityProgressEvent,
 	"communityProgressEvent"
@@ -155,6 +159,7 @@ export type ServerFrame =
 	| PreferencesEventFrame
 	| TypingEventFrame
 	| VoiceEventFrame
+	| EmojiEventFrame
 	| CommunityProgressEventFrame;
 
 type FrameSchema = {
@@ -184,6 +189,7 @@ const SERVER_FRAME_NAMES = [
 	"preferencesEvent",
 	"typingEvent",
 	"voiceEvent",
+	"emojiEvent",
 	"communityProgressEvent",
 ] as const;
 
@@ -212,6 +218,7 @@ const SERVER_FRAME_SCHEMAS: Record<ServerFrameName, FrameSchema> = {
 	preferencesEvent: colibri.sync.defs.preferencesEvent,
 	typingEvent: colibri.sync.defs.typingEvent,
 	voiceEvent: colibri.sync.defs.voiceEvent,
+	emojiEvent: colibri.sync.defs.emojiEvent,
 	communityProgressEvent: colibri.sync.defs.communityProgressEvent,
 };
 

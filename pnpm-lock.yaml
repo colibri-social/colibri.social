@@ -118,8 +118,8 @@ importers:
         specifier: workspace:0.4.0
         version: link:../../packages/client
       '@colibri-social/lexicons':
-        specifier: ^2.18.0
-        version: 2.18.0
+        specifier: ^2.19.0
+        version: 2.19.0
       '@colibri-social/lib':
         specifier: workspace:*
         version: link:../../packages/lib
@@ -387,8 +387,8 @@ importers:
         version: 1.9.15
     devDependencies:
       '@colibri-social/lexicons':
-        specifier: ^2.18.0
-        version: 2.18.0
+        specifier: ^2.19.0
+        version: 2.19.0
       '@sentry/vite-plugin':
         specifier: ^5.3.0
         version: 5.4.0(supports-color@11.0.0)
@@ -454,8 +454,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20261001173819
         version: 0.0.0-spaces-alpha-20261001173819(patch_hash=026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f)
       '@colibri-social/lexicons':
-        specifier: ^2.18.0
-        version: 2.18.0
+        specifier: ^2.19.0
+        version: 2.19.0
       '@kobalte/core':
         specifier: ^0.13.11
         version: 0.13.14(solid-js@1.9.15)
@@ -698,8 +698,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20261001173819
         version: 0.0.0-spaces-alpha-20261001173819
       '@colibri-social/lexicons':
-        specifier: ^2.18.0
-        version: 2.18.0
+        specifier: ^2.19.0
+        version: 2.19.0
       mdast-util-from-markdown:
         specifier: ^2.0.2
         version: 2.0.3(supports-color@11.0.0)
@@ -807,6 +807,9 @@ importers:
       emojilib:
         specifier: ^4.0.3
         version: 4.0.3
+      gifenc:
+        specifier: 1.0.3
+        version: 1.0.3
       minisearch:
         specifier: ^7.2.0
         version: 7.2.0
@@ -1647,8 +1650,8 @@ packages:
     resolution: {integrity: sha512-dlT1m5e/0yUL0kRNcQn7yGLVThkgbB0Ga/1AmfDDC/8ik6AIiSf2QLQO2zPYvefsHP0aFgxO93cVLCCfDp7kzQ==}
     engines: {node: '>= 20.12.0'}
 
-  '@colibri-social/lexicons@2.18.0':
-    resolution: {integrity: sha512-irCpluKfC/XS43VoCCBL/AKG9ufxKg2q8Uhcr1L5+TmOhmscNI02yfFzbMN+CDAxtDS/K3HugEOPx3L1vlH/yA==}
+  '@colibri-social/lexicons@2.19.0':
+    resolution: {integrity: sha512-X+5bKAcwLazkd3Ojej5wuDrLsPVWxq2xjp2qfGggzahlwwFcLpz0h5OWpbGz37iIODPu6b+ub+viezrMH0Cqgw==}
 
   '@corvu/dialog@0.2.4':
     resolution: {integrity: sha512-n54vJq+fOy8GVrnYBdJpD6JXNuyx7LOeMrRxwzAvZnYGpW8+AA12tnb/P/2emJj/HjOO5otheGKb0breshdFlA==}
@@ -4876,6 +4879,9 @@ packages:
   get-tsconfig@5.0.0-beta.5:
     resolution: {integrity: sha512-/6gFNr0N04nob252sTQxyFLi3eKFRqIg1I87YcqAMT1i6SQrSF6KujUEQrtrjMV0H/eejTCltLdDSTEMzHbnsQ==}
     engines: {node: '>=20.20.0'}
+
+  gifenc@1.0.3:
+    resolution: {integrity: sha512-xdr6AdrfGBcfzncONUOlXMBuc5wJDtOueE3c5rdG0oNgtINLD+f2iFZltrBRZYzACRbKr+mSVU/x98zv2u3jmw==}
 
   github-slugger@2.0.0:
     resolution: {integrity: sha512-IaOQ9puYtjrkq7Y0Ygl9KDZnrf/aiUJYUpVf89y8kyaxbRG7Y1SrX/jaumrv81vc61+kiMempujsM3Yw7w5qcw==}
@@ -8417,7 +8423,7 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
 
-  '@colibri-social/lexicons@2.18.0':
+  '@colibri-social/lexicons@2.19.0':
     dependencies:
       '@atproto/lex': 0.0.0-spaces-alpha-20261001173819
       '@atproto/lex-data': 0.0.0-spaces-alpha-20261001173819
@@ -11354,6 +11360,8 @@ snapshots:
   get-tsconfig@5.0.0-beta.5:
     dependencies:
       resolve-pkg-maps: 1.0.0
+
+  gifenc@1.0.3: {}
 
   github-slugger@2.0.0: {}
 

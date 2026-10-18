@@ -1,7 +1,8 @@
+import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { EyeIcon } from "@solar-icons/solid/bold/eye";
 import { PauseIcon } from "@solar-icons/solid/bold/pause";
 import { PlayIcon } from "@solar-icons/solid/bold/play";
-import { createSignal, For, type JSX, Show } from "solid-js";
+import { createEffect, createSignal, For, type JSX, on, Show } from "solid-js";
 import { AnimatedDownloadIcon } from "../../icons/animated/navigation";
 import { cx } from "../../utils/cx";
 import {
@@ -12,6 +13,7 @@ import {
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { UploadProgress } from "../Composer/AttachmentTray";
 import { VideoPlayer } from "../Media/VideoPlayer";
+import { VideoSource } from "../Media/VideoSource";
 import { Skeleton } from "../Skeleton/Skeleton";
 import { createPressRipple, pressSurfaceInset } from "./shared";
 
@@ -24,6 +26,7 @@ export type MediaItem = {
 	alt?: string;
 	name?: string;
 	kind?: MediaKind;
+	mimeType?: string;
 	poster?: string;
 	duration?: string;
 	spoiler?: boolean;
@@ -87,21 +90,105 @@ export type MediaTileProps = {
 	overflow?: number;
 	loading?: boolean;
 	onOpen?: (index: number) => void;
+	onMediaError?: MediaErrorHandler;
+	onRetry?: (index: number) => void;
 	onNaturalSize?: (size: { width: number; height: number }) => void;
 	class?: string;
 	style?: JSX.CSSProperties;
 };
+
+export type MediaErrorHandler = (index: number) => unknown;
+
+type MediaStatus = "ok" | "refreshing" | "broken";
+
+const MediaBroken = (props: {
+	kind: MediaKind | undefined;
+	onRetry: () => void;
+}) => (
+	<div
+		data-media-error=""
+		class="@container absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 bg-muted p-2 text-center text-muted-foreground"
+	>
+		<span aria-hidden="true" class="[&>svg]:size-5">
+			<DangerTriangleIcon />
+		</span>
+		<span class="sr-only @min-[140px]:not-sr-only @min-[140px]:text-xs @min-[140px]:font-medium">
+			{`Couldn't load this ${kindLabel(props.kind)}`}
+		</span>
+		<button
+			type="button"
+			data-media-retry=""
+			class="cursor-pointer rounded-control-xs border-0 bg-transparent px-1 py-0.5 text-xs font-semibold text-foreground underline-offset-2 outline-none hover:underline focus-ring"
+			onClick={() => props.onRetry()}
+		>
+			Try again
+		</button>
+	</div>
+);
+
+const VideoFrame = (props: {
+	src: string;
+	mimeType?: string;
+	class?: string;
+	onLoad: () => void;
+	onError: () => void;
+}) => (
+	<video
+		tabindex={-1}
+		muted
+		playsinline
+		preload="metadata"
+		class={props.class}
+		onLoadedData={() => props.onLoad()}
+		onError={() => props.onError()}
+	>
+		<VideoSource
+			src={props.src}
+			mimeType={props.mimeType}
+			onError={props.onError}
+		/>
+	</video>
+);
 
 export const MediaTile = (props: MediaTileProps) => {
 	const [revealed, setRevealed] = createSignal(false);
 	const [loaded, setLoaded] = createSignal(false);
 	const [started, setStarted] = createSignal(false);
 	const [playing, setPlaying] = createSignal(false);
+	const [status, setStatus] = createSignal<MediaStatus>("ok");
+	const [attempt, setAttempt] = createSignal(1);
+	createEffect(
+		on(
+			() => props.item.src,
+			() => {
+				setStatus("ok");
+				setLoaded(false);
+			},
+			{ defer: true },
+		),
+	);
+	const failMedia = async () => {
+		if (props.loading || status() !== "ok") return;
+		const failedSrc = props.item.src;
+		setStatus("refreshing");
+		await Promise.resolve(props.onMediaError?.(props.index)).catch(
+			() => undefined,
+		);
+		if (props.item.src === failedSrc) setStatus("broken");
+	};
+	const retry = () => {
+		props.onRetry?.(props.index);
+		setLoaded(false);
+		setStatus("ok");
+		setAttempt((value) => value + 1);
+	};
+	const working = () => status() === "ok";
 	const animates = () =>
 		props.item.kind === "gif" ||
 		(props.item.kind !== "video" && isAnimatedSource(props.item.src));
 	const showPlayToggle = () =>
 		!props.loading &&
+		working() &&
 		animates() &&
 		reducedMotionActive() &&
 		appActive() &&
@@ -111,6 +198,14 @@ export const MediaTile = (props: MediaTileProps) => {
 	const hidden = () => !!props.item.spoiler && !revealed();
 	const inlineVideo = () =>
 		props.item.kind === "video" && !hidden() && !props.overflow;
+	const posterlessVideo = () =>
+		props.item.kind === "video" && !props.item.poster;
+	const previewClass = () =>
+		cx(
+			"size-full object-cover transition-opacity duration-[calc(150ms*var(--motion-scale))] motion-reduce:transition-none reduced-motion:transition-none",
+			loaded() ? "opacity-100" : "opacity-0",
+			hidden() && "scale-110 blur-xl",
+		);
 	const label = () => {
 		if (hidden()) return `Reveal spoiler ${kindLabel(props.item.kind)}`;
 		if (props.overflow) return `Show ${props.overflow} more`;
@@ -121,8 +216,9 @@ export const MediaTile = (props: MediaTileProps) => {
 		<div
 			data-media-tile=""
 			data-index={props.index}
+			data-media-status={status()}
 			data-image-src={
-				props.item.kind === "video" || props.loading
+				props.item.kind === "video" || props.loading || !working()
 					? undefined
 					: (props.item.downloadHref ?? props.item.src)
 			}
@@ -135,7 +231,7 @@ export const MediaTile = (props: MediaTileProps) => {
 			)}
 			style={props.style}
 		>
-			<Show when={props.loading || !loaded()}>
+			<Show when={props.loading || (!loaded() && status() !== "broken")}>
 				<Skeleton class="absolute inset-0 size-full rounded-none" />
 			</Show>
 			<Show when={props.item.progress !== undefined && props.item.progress < 1}>
@@ -146,15 +242,23 @@ export const MediaTile = (props: MediaTileProps) => {
 					/>
 				</span>
 			</Show>
-			<Show when={!props.loading && inlineVideo()}>
+			<Show when={status() === "broken"}>
+				<MediaBroken kind={props.item.kind} onRetry={retry} />
+			</Show>
+			<Show
+				when={!props.loading && inlineVideo() && working() && attempt()}
+				keyed
+			>
 				<VideoPlayer
 					src={props.item.src}
+					mimeType={props.item.mimeType}
 					poster={props.item.poster}
 					label={props.item.alt ?? props.item.name ?? "Video"}
 					fit="cover"
 					handoff="inline"
 					class="absolute inset-0 size-full"
 					onReady={() => setLoaded(true)}
+					onError={() => void failMedia()}
 					onStartedChange={setStarted}
 					onExpand={
 						props.onOpen ? () => props.onOpen?.(props.index) : undefined
@@ -168,7 +272,10 @@ export const MediaTile = (props: MediaTileProps) => {
 					</Show>
 				</Show>
 			</Show>
-			<Show when={!props.loading && !inlineVideo()}>
+			<Show
+				when={!props.loading && !inlineVideo() && working() && attempt()}
+				keyed
+			>
 				<button
 					ref={press}
 					type="button"
@@ -185,32 +292,40 @@ export const MediaTile = (props: MediaTileProps) => {
 					}}
 				>
 					<span class="sr-only">{label()}</span>
-					<AnimatedImage
-						animated={props.item.kind === "gif" ? true : undefined}
-						playOnDemand="none"
-						play={playing()}
-						src={
-							props.item.kind === "video"
-								? (props.item.poster ?? "")
-								: props.item.src
+					<Show
+						when={!posterlessVideo()}
+						fallback={
+							<VideoFrame
+								src={props.item.src}
+								mimeType={props.item.mimeType}
+								onLoad={() => setLoaded(true)}
+								onError={() => void failMedia()}
+								class={previewClass()}
+							/>
 						}
-						alt=""
-						draggable={false}
-						onLoad={(event) => {
-							setLoaded(true);
-							const image = event.currentTarget;
-							if (image.naturalWidth && image.naturalHeight)
-								props.onNaturalSize?.({
-									width: image.naturalWidth,
-									height: image.naturalHeight,
-								});
-						}}
-						class={cx(
-							"size-full object-cover transition-opacity duration-[calc(150ms*var(--motion-scale))] motion-reduce:transition-none reduced-motion:transition-none",
-							loaded() ? "opacity-100" : "opacity-0",
-							hidden() && "scale-110 blur-xl",
-						)}
-					/>
+					>
+						<AnimatedImage
+							animated={props.item.kind === "gif" ? true : undefined}
+							playOnDemand="none"
+							play={playing()}
+							src={
+								props.item.kind === "video" ? props.item.poster : props.item.src
+							}
+							alt=""
+							draggable={false}
+							onLoad={(event) => {
+								setLoaded(true);
+								const image = event.currentTarget;
+								if (image.naturalWidth && image.naturalHeight)
+									props.onNaturalSize?.({
+										width: image.naturalWidth,
+										height: image.naturalHeight,
+									});
+							}}
+							onError={() => void failMedia()}
+							class={previewClass()}
+						/>
+					</Show>
 					<span
 						aria-hidden="true"
 						class="pointer-events-none absolute inset-0 hidden bg-white/6 group-hover/tile:block"
@@ -273,6 +388,7 @@ export const MediaTile = (props: MediaTileProps) => {
 			<Show
 				when={
 					!props.loading &&
+					working() &&
 					props.item.downloadHref &&
 					!hidden() &&
 					!props.overflow
@@ -295,6 +411,8 @@ export const MediaTile = (props: MediaTileProps) => {
 export type MediaGridProps = {
 	items: MediaItem[];
 	onOpen?: (index: number) => void;
+	onMediaError?: MediaErrorHandler;
+	onRetry?: (index: number) => void;
 	loading?: boolean;
 	maxTiles?: number;
 	class?: string;
@@ -343,6 +461,8 @@ export const MediaGrid = (props: MediaGridProps) => {
 									index={0}
 									loading={props.loading}
 									onOpen={props.onOpen}
+									onMediaError={props.onMediaError}
+									onRetry={props.onRetry}
 									onNaturalSize={known() ? undefined : setNatural}
 									class={cx("w-full", radius())}
 									style={{ "aspect-ratio": String(aspect()) }}
@@ -381,6 +501,8 @@ export const MediaGrid = (props: MediaGridProps) => {
 										index={tile.index}
 										loading={props.loading}
 										onOpen={props.onOpen}
+										onMediaError={props.onMediaError}
+										onRetry={props.onRetry}
 										class="flex-1"
 										overflow={
 											overflow() > 0 && tile.index === max() - 1

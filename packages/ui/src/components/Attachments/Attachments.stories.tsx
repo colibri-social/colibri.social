@@ -820,3 +820,199 @@ export const MediaUploading: Story = {
 		await expectNoLayoutIssues(canvas.getByTestId("uploading-host"));
 	},
 };
+
+const BROKEN_IMAGE = "data:image/png;base64,AAAA";
+const BROKEN_VIDEO = "data:video/mp4;base64,AAAAAAAAAAAA";
+const mediaError = fn();
+const mediaRetry = fn();
+
+const RefreshingGrid = () => {
+	const [items, setItems] = createSignal([
+		fixtureImage(0, 1600, 1000, { src: BROKEN_IMAGE, name: "refreshes.png" }),
+		fixtureImage(1, 1600, 1000),
+	]);
+	return (
+		<MediaGrid
+			items={items()}
+			onMediaError={async (index) => {
+				mediaError(index);
+				await new Promise((resolve) => setTimeout(resolve, 150));
+				setItems((list) =>
+					list.map((item, at) =>
+						at === index ? fixtureImage(0, 1600, 1000) : item,
+					),
+				);
+			}}
+		/>
+	);
+};
+
+const MediaErrorCases = (props: { desktop?: boolean }) => (
+	<Screen desktop={props.desktop}>
+		<Message
+			text="This one failed and stays broken"
+			attachments={
+				<MediaGrid
+					items={[
+						fixtureImage(0, 1600, 1000, {
+							src: BROKEN_IMAGE,
+							name: "broken.png",
+						}),
+					]}
+					onMediaError={(index) => mediaError(index)}
+					onRetry={mediaRetry}
+				/>
+			}
+		/>
+		<Message
+			name="Lis"
+			text="A broken video next to a working photo"
+			attachments={
+				<MediaGrid
+					items={[
+						fixtureImage(1, 1280, 720, {
+							kind: "video",
+							mimeType: "video/mp4",
+							src: BROKEN_VIDEO,
+							name: "clip.mp4",
+						}),
+						fixtureImage(2, 1600, 1000),
+					]}
+					onMediaError={(index) => mediaError(index)}
+					onRetry={mediaRetry}
+				/>
+			}
+		/>
+		<Message
+			name="Tim"
+			text="This one gets a fresh link and recovers"
+			attachments={<RefreshingGrid />}
+		/>
+	</Screen>
+);
+
+const brokenTileIn = async (canvasElement: HTMLElement, text: string) => {
+	const article = within(canvasElement).getByText(text).closest("article");
+	return waitFor(
+		() => {
+			const tile = (article as HTMLElement).querySelector(
+				"[data-media-status='broken']",
+			);
+			expect(tile).not.toBeNull();
+			return tile as HTMLElement;
+		},
+		{ timeout: 3000 },
+	);
+};
+
+export const MediaError: Story = {
+	parameters: mobile,
+	render: () => <MediaErrorCases />,
+	play: async ({ canvasElement }) => {
+		mediaError.mockClear();
+		mediaRetry.mockClear();
+		const canvas = within(canvasElement);
+		const image = await brokenTileIn(
+			canvasElement,
+			"This one failed and stays broken",
+		);
+		await expect(image).toHaveTextContent("Couldn't load this image");
+		await expect(image.querySelector("[data-skeleton]")).toBeNull();
+		await expect(image.querySelector("img")).toBeNull();
+		await expect(image.querySelector("a[download]")).toBeNull();
+		const video = await brokenTileIn(
+			canvasElement,
+			"A broken video next to a working photo",
+		);
+		await expect(video).toHaveTextContent("Couldn't load this video");
+		await expect(video.querySelector("[data-video-player]")).toBeNull();
+		const calls = mediaError.mock.calls.length;
+		await userEvent.click(
+			within(image).getByRole("button", { name: "Try again" }),
+		);
+		await expect(mediaRetry).toHaveBeenCalledWith(0);
+		await waitFor(() =>
+			expect(mediaError.mock.calls.length).toBeGreaterThan(calls),
+		);
+		await brokenTileIn(canvasElement, "This one failed and stays broken");
+		const recovered = canvas
+			.getByText("This one gets a fresh link and recovers")
+			.closest("article") as HTMLElement;
+		await waitFor(
+			() => {
+				const tile = recovered.querySelector("[data-media-tile]");
+				expect(tile).toHaveAttribute("data-media-status", "ok");
+				expect(tile?.querySelector("img")?.getAttribute("src")).not.toBe(
+					BROKEN_IMAGE,
+				);
+			},
+			{ timeout: 3000 },
+		);
+		await expect(recovered.querySelector("[data-media-error]")).toBeNull();
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
+export const MediaErrorDesktop: Story = {
+	render: () => <MediaErrorCases desktop />,
+	play: async ({ canvasElement }) => {
+		const tile = await brokenTileIn(
+			canvasElement,
+			"This one failed and stays broken",
+		);
+		await expectFocusRingVisible(
+			within(tile).getByRole("button", { name: "Try again" }),
+		);
+	},
+};
+
+const PosterlessVideo = () => {
+	const clip = createStoryClip(3);
+	return (
+		<MediaGrid
+			items={[
+				fixtureImage(3, 640, 360, {
+					kind: "video",
+					mimeType: "video/webm",
+					src: clip()?.src ?? "",
+					spoiler: true,
+					name: "spoiler.webm",
+				}),
+				fixtureImage(4, 1600, 1000),
+			]}
+		/>
+	);
+};
+
+export const PosterlessVideoFrame: Story = {
+	parameters: mobile,
+	render: () => (
+		<Screen>
+			<Message
+				text="A spoilered video without a poster"
+				attachments={<PosterlessVideo />}
+			/>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		const tile = await waitFor(
+			() => {
+				const found = canvasElement.querySelector(
+					"[data-media-tile][data-index='0'] video",
+				);
+				expect(found).not.toBeNull();
+				return found as HTMLVideoElement;
+			},
+			{ timeout: 8000 },
+		);
+		await expect(
+			canvasElement.querySelector("[data-media-tile][data-index='0'] img"),
+		).toBeNull();
+		await waitFor(() => expect(tile.readyState).toBeGreaterThanOrEqual(2), {
+			timeout: 3000,
+		});
+		await expect(tile.querySelector("source")?.getAttribute("src")).toMatch(
+			/#t=0\.001$/,
+		);
+	},
+};

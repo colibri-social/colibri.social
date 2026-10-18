@@ -51,13 +51,18 @@ export const encodeCrop = async (options: {
 	output: Size;
 	name: string;
 	maxBytes?: number;
+	fallbackType?: string;
 }): Promise<File> => {
 	const canvas = drawCrop(options.bitmap, options.rect, options.output);
 	let blob: Blob | null = null;
 	for (const quality of QUALITIES) {
 		blob = await toBlob(canvas, "image/webp", quality);
 		if (blob?.type !== "image/webp") {
-			blob = await toBlob(canvas, "image/jpeg", quality);
+			blob = await toBlob(
+				canvas,
+				options.fallbackType ?? "image/jpeg",
+				quality,
+			);
 		}
 		if (!blob) break;
 		if (!options.maxBytes || blob.size <= options.maxBytes) break;

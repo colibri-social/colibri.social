@@ -43,7 +43,9 @@ export class EmojiError extends Error {
 			| "EmojiNotFound"
 			| "PackNotFound"
 			| "UploadFailed"
-			| "UnsupportedProvider",
+			| "UnsupportedProvider"
+			| "ImageTooLarge"
+			| "UnsupportedImage",
 	) {
 		super(code);
 		this.name = "EmojiError";

@@ -32,6 +32,10 @@ import { authorForDid, displayNameOf } from "../../data/adapters/authors";
 import { fromComposerValue, toTextValue } from "../../data/adapters/facets";
 import { channelSlug, skeyOf } from "../../data/ids";
 import {
+	createMediaLinkRefresher,
+	MediaLinkContext,
+} from "../../data/media-link";
+import {
 	createComposerDraft,
 	editDraftKey,
 	readEditDraft,
@@ -84,6 +88,7 @@ import {
 	toChatMessage,
 } from "./message/types";
 import { createMessageSelection } from "./selection/selection";
+import { indexThreadAnchors, threadAnchorKey } from "./thread-anchors";
 
 export type ConversationOptions = {
 	space: string;
@@ -211,6 +216,7 @@ export const createConversation = (options: ConversationOptions) => {
 		list?.scrollToBottom({ smooth: false });
 	};
 	const [deletedPing, setDeletedPing] = createSignal(false);
+	const [jumping, setJumping] = createSignal(0);
 	const handledOrphans = new Set<string>();
 	createEffect(
 		on(options.target, () => {
@@ -218,10 +224,36 @@ export const createConversation = (options: ConversationOptions) => {
 			handledOrphans.clear();
 		}),
 	);
+	const confirmOrphans = async (
+		ref: SpaceRef,
+		current: ChannelData,
+		orphans: readonly { id: string; message?: { rkey: string } }[],
+	) => {
+		const missing: string[] = [];
+		for (const entry of orphans) {
+			const rkey = entry.message?.rkey;
+			if (!rkey) continue;
+			try {
+				if (!(await current.loadAround(rkey))) missing.push(entry.id);
+			} catch (thrown) {
+				handledOrphans.delete(entry.id);
+				log.warn("checking a pinged message failed", {
+					code: classifyThrown(thrown, { method: "channel.listMessages" }).code,
+				});
+			}
+		}
+		if (missing.length === 0 || options.target() !== ref) return;
+		setDeletedPing(true);
+		void data.notifications.markRead(missing).catch(() => {});
+	};
+
 	createEffect(() => {
 		const ref = options.target();
 		const current = feed();
-		if (!ref || !current?.ready()) return;
+		if (!ref || !current?.ready() || !current.confirmed()) return;
+		if (current.hasNewer() || current.loadingOlder() || current.loadingNewer())
+			return;
+		if (jumping() > 0 || data.jumps.pending()?.channel === ref) return;
 		const messages = current.messages();
 		const oldest = messages[0]?.rkey;
 		const newest = messages.at(-1)?.rkey;
@@ -237,12 +269,7 @@ export const createConversation = (options: ConversationOptions) => {
 		});
 		if (orphans.length === 0) return;
 		for (const entry of orphans) handledOrphans.add(entry.id);
-		untrack(() => {
-			setDeletedPing(true);
-			void data.notifications
-				.markRead(orphans.map((entry) => entry.id))
-				.catch(() => {});
-		});
+		untrack(() => void confirmOrphans(ref, current, orphans));
 	});
 
 	const isActive = options.isActive;
@@ -303,11 +330,14 @@ export const createConversation = (options: ConversationOptions) => {
 				]),
 			),
 	);
-	const threadsByAnchor = createMemo(() => {
+	const threadsByAnchor = createMemo(() =>
+		indexThreadAnchors(feed()?.threads.value() ?? [], options.target()),
+	);
+	const threadsByAnchorRkey = createMemo(() => {
 		const map = new Map<string, ThreadView>();
-		for (const thread of feed()?.threads.value() ?? []) {
-			const anchor = thread.anchorMessage as { rkey?: string } | undefined;
-			if (anchor?.rkey) map.set(anchor.rkey, thread);
+		for (const thread of threadsByAnchor().values()) {
+			const rkey = thread.anchor?.rkey;
+			if (rkey && !map.has(rkey)) map.set(rkey, thread);
 		}
 		return map;
 	});
@@ -330,6 +360,7 @@ export const createConversation = (options: ConversationOptions) => {
 	createEffect(() => {
 		const current = feed();
 		if (
+			!isActive() ||
 			!atBottom() ||
 			!revealed() ||
 			activeFeed() !== current ||
@@ -348,6 +379,15 @@ export const createConversation = (options: ConversationOptions) => {
 		);
 
 	const jumpWhenLoaded = async (rkey: string) => {
+		setJumping((count) => count + 1);
+		try {
+			await jumpTo(rkey);
+		} finally {
+			setJumping((count) => count - 1);
+		}
+	};
+
+	const jumpTo = async (rkey: string) => {
 		await nextFrame();
 		if (list?.jumpTo(keyFor(rkey))) return;
 		const current = feed();
@@ -425,7 +465,9 @@ export const createConversation = (options: ConversationOptions) => {
 					!isHiddenMessage(message),
 			)
 			.map((message) => {
-				const thread = threads.get(message.rkey);
+				const thread = threads.get(
+					threadAnchorKey(message.author.did, message.rkey),
+				);
 				const key = data.nonceFor(message.rkey);
 				const cached = cache.get(message);
 				if (
@@ -556,7 +598,7 @@ export const createConversation = (options: ConversationOptions) => {
 		space,
 		feed,
 		parent: view,
-		anchoredThreads: threadsByAnchor,
+		anchoredThreads: threadsByAnchorRkey,
 		isActive,
 		desktop,
 	});
@@ -989,52 +1031,58 @@ export const ConversationMessages = (props: {
 	platform?: "mobile" | "desktop";
 }) => {
 	const m = props.m;
+	const mediaLinks = createMediaLinkRefresher({
+		feed: m.feed,
+		listMessages: (params) => m.data.source.listMessages(params),
+	});
 	return (
 		<ChatContextProvider value={m.chat}>
-			<ChatRichTextProvider>
-				<MessageList
-					label={`Messages in ${m.options.label()}`}
-					platform={props.platform ?? "mobile"}
-					messages={m.items()}
-					getKey={(message) => message.key}
-					unreadAfter={(() => {
-						const rkey = m.feed()?.unreadAfter();
-						return rkey ? (m.data.nonceFor(rkey) ?? rkey) : undefined;
-					})()}
-					isOwnMessage={(message) => message.author === m.data.viewer.did}
-					getAuthorName={(message) => m.nameOf(message.author)}
-					locale="en-GB"
-					hasOlder={!m.revealed() || (m.feed()?.hasOlder() ?? false)}
-					bottomInset={COMPOSER_TYPING_INSET}
-					jumpLift={COMPOSER_TYPING_INSET - 4}
-					loadingOlder={m.feed()?.loadingOlder() || !m.revealed()}
-					onLoadOlder={() => m.feed()?.loadOlder()}
-					hasNewer={m.feed()?.hasNewer() ?? false}
-					loadingNewer={m.feed()?.loadingNewer() ?? false}
-					onLoadNewer={() => m.feed()?.loadNewer()}
-					onJumpToLatest={() => m.feed()?.jumpToLatest()}
-					onAtBottomChange={m.setAtBottom}
-					ref={m.setList}
-					header={props.header}
-					empty={
-						props.header ? undefined : (
-							<div class="flex flex-1 flex-col items-center justify-center gap-1 px-8 text-center">
-								<span class="text-base font-semibold">No messages yet</span>
-								<span class="text-sm text-muted-foreground">
-									{`Say hi in #${m.options.label()}.`}
-								</span>
-							</div>
-						)
-					}
-				>
-					{(entry) => <MessageItem entry={entry} />}
-				</MessageList>
-				<m.links.LinkWarningOutlet />
-				<m.forwardPicker.Sheet />
-				<m.media.Sheet />
-				<m.reactionPicker.Sheet />
-				<m.selection.Sheets />
-			</ChatRichTextProvider>
+			<MediaLinkContext.Provider value={mediaLinks}>
+				<ChatRichTextProvider>
+					<MessageList
+						label={`Messages in ${m.options.label()}`}
+						platform={props.platform ?? "mobile"}
+						messages={m.items()}
+						getKey={(message) => message.key}
+						unreadAfter={(() => {
+							const rkey = m.feed()?.unreadAfter();
+							return rkey ? (m.data.nonceFor(rkey) ?? rkey) : undefined;
+						})()}
+						isOwnMessage={(message) => message.author === m.data.viewer.did}
+						getAuthorName={(message) => m.nameOf(message.author)}
+						locale="en-GB"
+						hasOlder={!m.revealed() || (m.feed()?.hasOlder() ?? false)}
+						bottomInset={COMPOSER_TYPING_INSET}
+						jumpLift={COMPOSER_TYPING_INSET - 4}
+						loadingOlder={m.feed()?.loadingOlder() || !m.revealed()}
+						onLoadOlder={() => m.feed()?.loadOlder()}
+						hasNewer={m.feed()?.hasNewer() ?? false}
+						loadingNewer={m.feed()?.loadingNewer() ?? false}
+						onLoadNewer={() => m.feed()?.loadNewer()}
+						onJumpToLatest={() => m.feed()?.jumpToLatest()}
+						onAtBottomChange={m.setAtBottom}
+						ref={m.setList}
+						header={props.header}
+						empty={
+							props.header ? undefined : (
+								<div class="flex flex-1 flex-col items-center justify-center gap-1 px-8 text-center">
+									<span class="text-base font-semibold">No messages yet</span>
+									<span class="text-sm text-muted-foreground">
+										{`Say hi in #${m.options.label()}.`}
+									</span>
+								</div>
+							)
+						}
+					>
+						{(entry) => <MessageItem entry={entry} />}
+					</MessageList>
+					<m.links.LinkWarningOutlet />
+					<m.forwardPicker.Sheet />
+					<m.media.Sheet />
+					<m.reactionPicker.Sheet />
+					<m.selection.Sheets />
+				</ChatRichTextProvider>
+			</MediaLinkContext.Provider>
 		</ChatContextProvider>
 	);
 };

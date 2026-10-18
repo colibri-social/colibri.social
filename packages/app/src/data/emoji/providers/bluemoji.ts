@@ -265,6 +265,7 @@ const writeCopy: EmojiProvider["writeCopy"] = (draft) => {
 export const bluemojiProvider: EmojiProvider = {
 	id: BLUEMOJI.provider,
 	label: "Bluemoji",
+	maxImageBytes: 128_000,
 	collections: {
 		item: BLUEMOJI.item,
 		pack: BLUEMOJI.pack,

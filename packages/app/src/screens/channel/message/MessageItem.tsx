@@ -2,7 +2,6 @@ import {
 	ConfirmDialog,
 	copyMessageToClipboard,
 	copyText,
-	DeveloperModeCard,
 	Emoji,
 	EmojiPickerPopover,
 	ForwardedMessage,
@@ -20,8 +19,6 @@ import {
 	MessageRow,
 	MessageSelectFrame,
 	MessageToolbar,
-	Modal,
-	ModalContent,
 	MovedFromLine,
 	pdslsHrefFor,
 	ReactionBar,
@@ -74,6 +71,7 @@ import {
 } from "../../../data/adapters/reactions";
 import { formatAge } from "../../../data/adapters/time";
 import type { ProfileView } from "../../../data/types";
+import { openExternalUrl } from "../../../native/open-external";
 import { PrimaryBadge } from "../../profile/user-badges";
 import { mediaSession } from "../composer/media/session";
 import { whenOverlaysClosed } from "../forward/overlay-wait";
@@ -618,15 +616,17 @@ export const MessageItem = (props: MessageItemProps) => {
 			pdslsHref: pdslsHrefFor(uri),
 		};
 	};
-	const [debugOpen, setDebugOpen] = createSignal(false);
-	const [debugMounted, setDebugMounted] = createSignal(false);
-	const debugAction = () =>
-		developer()
-			? () => {
-					setDebugMounted(true);
-					void whenOverlaysClosed().then(() => setDebugOpen(true));
-				}
-			: undefined;
+	const copyAtUri = () => {
+		const uri = developer()?.atUri;
+		if (!uri) return;
+		void copyText(uri).then((copied) => {
+			if (copied) toast.success("AT-URI copied");
+		});
+	};
+	const showOnPdsls = () => {
+		const href = developer()?.pdslsHref;
+		if (href) openExternalUrl(href);
+	};
 	const viewReactionsAction = () =>
 		reactions().length > 0
 			? () => openReactors(reactions()[0]?.emoji ?? "")
@@ -652,7 +652,9 @@ export const MessageItem = (props: MessageItemProps) => {
 			gif={gifAction()}
 			onLinkPreviews={linkPreviewsAction()}
 			onViewReactions={viewReactionsAction()}
-			onDebugInfo={debugAction()}
+			developerMode={!!developer()}
+			onCopyAtUri={copyAtUri}
+			onShowOnPdsls={showOnPdsls}
 			onDelete={confirmDeleteAction()}
 			hidden={hidden()}
 			onHide={confirmHideAction()}
@@ -876,7 +878,9 @@ export const MessageItem = (props: MessageItemProps) => {
 			gif={gifAction()}
 			onLinkPreviews={linkPreviewsAction()}
 			onViewReactions={viewReactionsAction()}
-			onDebugInfo={debugAction()}
+			developerMode={!!developer()}
+			onCopyAtUri={copyAtUri}
+			onShowOnPdsls={showOnPdsls}
 			onDelete={confirmDeleteAction()}
 			hidden={hidden()}
 			onHide={confirmHideAction()}
@@ -939,19 +943,6 @@ export const MessageItem = (props: MessageItemProps) => {
 					moderator={embedEditor() === "moderator"}
 					onSave={saveEmbeds}
 				/>
-			</Show>
-			<Show when={debugMounted() && developer()}>
-				{(info) => (
-					<Modal open={debugOpen()} onOpenChange={setDebugOpen}>
-						<ModalContent title="Debug information">
-							<DeveloperModeCard
-								copyLabel="Copy AT-URI"
-								copyValue={info().atUri}
-								pdslsHref={info().pdslsHref}
-							/>
-						</ModalContent>
-					</Modal>
-				)}
 			</Show>
 			<Show when={pickerAnchor()}>
 				{(anchorElement) => (

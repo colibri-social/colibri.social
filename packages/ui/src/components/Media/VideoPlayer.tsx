@@ -27,6 +27,7 @@ import {
 	stashPlayback,
 } from "./handoff";
 import { Scrubber } from "./Scrubber";
+import { VideoSource } from "./VideoSource";
 
 export type VideoPlayerHandle = {
 	currentTime: () => number;
@@ -41,6 +42,7 @@ export type VideoPlayerHandoff = "inline" | "viewer";
 
 export type VideoPlayerProps = {
 	src: string;
+	mimeType?: string;
 	poster?: string;
 	width?: number;
 	height?: number;
@@ -57,6 +59,7 @@ export type VideoPlayerProps = {
 	onPlayingChange?: (playing: boolean) => void;
 	onStartedChange?: (started: boolean) => void;
 	onReady?: (video: HTMLVideoElement) => void;
+	onError?: () => void;
 	ref?: (handle: VideoPlayerHandle) => void;
 	class?: string;
 	style?: JSX.CSSProperties;
@@ -271,6 +274,14 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 		props.onTimeUpdate?.(video.currentTime);
 	};
 
+	const fail = () => {
+		if (failed()) return;
+		setFailed(true);
+		setWaiting(false);
+		if (video) props.onReady?.(video);
+		props.onError?.();
+	};
+
 	const onFullscreenChange = () =>
 		setFullscreen(document.fullscreenElement === root);
 
@@ -402,7 +413,6 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 			>
 				<video
 					ref={video}
-					src={props.src}
 					poster={props.poster}
 					muted={props.muted}
 					playsinline
@@ -428,16 +438,18 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 					onPlaying={() => setWaiting(false)}
 					onCanPlay={() => setWaiting(false)}
 					onSeeked={() => setWaiting(false)}
-					onError={() => {
-						setFailed(true);
-						setWaiting(false);
-						if (video) props.onReady?.(video);
-					}}
+					onError={fail}
 					onVolumeChange={(event) => {
 						setMuted(event.currentTarget.muted);
 						setVolume(event.currentTarget.volume);
 					}}
-				/>
+				>
+					<VideoSource
+						src={props.src}
+						mimeType={props.mimeType}
+						onError={fail}
+					/>
+				</video>
 			</div>
 			<Show when={!playing() && !failed() && !waiting()}>
 				<span

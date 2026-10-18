@@ -12,6 +12,7 @@ import {
 } from "./appview";
 import {
 	buildScopes,
+	EMOJI_COLLECTIONS,
 	getMissingScopeSets,
 	PERMISSION_SET_LABELS,
 	scopeSetLabel,
@@ -163,6 +164,20 @@ describe("getMissingScopeSets", () => {
 		expect(missing).toContain("social.colibri.labeler.unlinkExternalAccount");
 	});
 
+	it("reports the emoji collections as missing for a session granted before them", () => {
+		const granted = buildScopes(APPVIEW)
+			.filter((scope) => !scope.startsWith("repo:blue.moji."))
+			.join(" ");
+		expect(getMissingScopeSets(granted)).toEqual([...EMOJI_COLLECTIONS]);
+	});
+
+	it("asks for write access to every emoji collection", () => {
+		for (const collection of EMOJI_COLLECTIONS) {
+			expect(buildScopes(APPVIEW)).toContain(`repo:${collection}`);
+		}
+		expect(scopeSetLabel(EMOJI_COLLECTIONS[0])).toBe("Custom emoji");
+	});
+
 	it("does not confuse the two voice scopes", () => {
 		const missing = getMissingScopeSets(
 			"rpc:social.colibri.beta.voice.subscribeSignals?aud=*",
@@ -195,6 +210,7 @@ describe("getMissingScopeSets against an expanded grant", () => {
 		"atproto",
 		"blob:*/*",
 		...WILDCARD_RPC.map((lxm) => `rpc:${lxm}?aud=*`),
+		...EMOJI_COLLECTIONS.map((collection) => `repo:${collection}`),
 		...PERMISSION_SET_DOCUMENTS.flatMap(([, doc]) => expandPermissionSet(doc)),
 	].join(" ");
 
@@ -208,6 +224,7 @@ describe("getMissingScopeSets against an expanded grant", () => {
 				"atproto",
 				"blob:*/*",
 				...WILDCARD_RPC.map((lxm) => `rpc:${lxm}?aud=*`),
+				...EMOJI_COLLECTIONS.map((collection) => `repo:${collection}`),
 				...PERMISSION_SET_DOCUMENTS.filter(([other]) => other !== nsid).flatMap(
 					([, doc]) => expandPermissionSet(doc),
 				),

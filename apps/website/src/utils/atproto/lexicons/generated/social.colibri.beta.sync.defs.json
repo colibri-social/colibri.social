@@ -560,6 +560,26 @@
 				}
 			}
 		},
+		"emojiEvent": {
+			"type": "object",
+			"description": "A repo's custom emoji or packs changed. Sent to a community's subscribers for its own emoji, and to a user's own connections for theirs. Carries the whole catalog so clients replace it in one step.",
+			"required": [
+				"owner",
+				"catalog"
+			],
+			"properties": {
+				"owner": {
+					"type": "string",
+					"format": "did",
+					"description": "The community or user whose catalog changed."
+				},
+				"catalog": {
+					"type": "ref",
+					"ref": "social.colibri.beta.emoji.defs#catalogView",
+					"description": "The catalog after the change."
+				}
+			}
+		},
 		"labelEvent": {
 			"type": "object",
 			"description": "A label was applied or retracted on a record in a subscribed space.",

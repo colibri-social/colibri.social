@@ -1,4 +1,5 @@
 import { frameIs, type ServerFrame } from "@colibri-social/lib";
+import type { BlobLocator } from "../../emoji";
 import { fromWire } from "../../preferences/wire";
 import type { LiveEvent } from "../../source";
 import type {
@@ -7,6 +8,7 @@ import type {
 	CommunityView,
 	Datetime,
 	Did,
+	MemberView,
 	MessageView,
 	NotificationView,
 	Presence,
@@ -14,6 +16,7 @@ import type {
 	SpaceRef,
 	ThreadView,
 } from "../../types";
+import { catalogFromWire } from "../emoji";
 
 const asSpace = (value: string): SpaceRef => value as SpaceRef;
 const asDid = (value: string): Did => value as Did;
@@ -71,7 +74,12 @@ const voiceEvents = (
 	return [];
 };
 
-export const toLiveEvents = (frame: ServerFrame): LiveEvent[] => {
+export type FrameContext = { emojiBlobUrl?: BlobLocator };
+
+export const toLiveEvents = (
+	frame: ServerFrame,
+	context: FrameContext = {},
+): LiveEvent[] => {
 	if (frameIs(frame, "messageEvent")) return messageEvents(frame);
 
 	if (frameIs(frame, "reactionEvent")) {
@@ -266,6 +274,27 @@ export const toLiveEvents = (frame: ServerFrame): LiveEvent[] => {
 
 	if (frameIs(frame, "memberEvent")) {
 		const member = frame.member;
+		if (frame.event === "join") {
+			if (!member) return [];
+			return [
+				{
+					$type: "memberJoinEvent",
+					community: asDid(frame.community),
+					member: member as MemberView,
+				},
+			];
+		}
+		if (frame.event === "leave") {
+			const subject = frame.subject ?? member?.actor.did;
+			if (!subject) return [];
+			return [
+				{
+					$type: "memberLeaveEvent",
+					community: asDid(frame.community),
+					subject: asDid(subject),
+				},
+			];
+		}
 		if (frame.event !== "update" || !member) return [];
 		return [
 			{
@@ -283,6 +312,16 @@ export const toLiveEvents = (frame: ServerFrame): LiveEvent[] => {
 				$type: "accessEvent",
 				community: asDid(frame.community),
 				kind: "applications",
+			},
+		];
+	}
+
+	if (frameIs(frame, "emojiEvent")) {
+		if (!context.emojiBlobUrl) return [];
+		return [
+			{
+				$type: "emojiEvent",
+				catalog: catalogFromWire(frame.catalog, context.emojiBlobUrl),
 			},
 		];
 	}

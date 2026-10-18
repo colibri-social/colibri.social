@@ -15,6 +15,7 @@ export type ChatMessageState = "sent" | "pending" | "failed";
 export type ChatMessage = {
 	key: string;
 	author: string;
+	groupKey?: string;
 	timestamp: string;
 	reply?: boolean;
 	forward?: boolean;
@@ -42,12 +43,18 @@ export const isDeletedParent = (
 ): parent is DeletedMessageView & { $type: string } =>
 	!!parent && !isVisibleParent(parent);
 
+export const authorGroupKey = (author: Pick<ProfileView, "did" | "bridge">) =>
+	author.bridge
+		? `${author.did} ${author.bridge.registration} ${author.bridge.remoteId}`
+		: author.did;
+
 export const toChatMessage = (
 	view: MessageView,
 	options: { key?: string; thread?: ThreadView } = {},
 ): ChatMessage => ({
 	key: options.key ?? view.rkey,
 	author: view.author.did,
+	groupKey: authorGroupKey(view.author),
 	timestamp: view.createdAt,
 	reply: !!view.parent,
 	forward: !!view.forward,

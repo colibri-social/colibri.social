@@ -72,5 +72,6 @@ describe("crop math", () => {
 			"holiday.photo.webp",
 		);
 		expect(outputName("scan", "image/jpeg")).toBe("scan.jpg");
+		expect(outputName("wave.gif", "image/png")).toBe("wave.png");
 	});
 });

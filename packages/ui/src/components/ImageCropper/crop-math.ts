@@ -125,7 +125,18 @@ export const workingSize = (image: Size, max = MAX_WORKING_SIDE): Size => {
 	};
 };
 
+const EXTENSIONS: Record<string, string> = {
+	"image/webp": "webp",
+	"image/png": "png",
+};
+
+export const CROP_FALLBACK_TYPE: Record<ImageCropShape, string> = {
+	avatar: "image/jpeg",
+	banner: "image/jpeg",
+	emoji: "image/png",
+};
+
 export const outputName = (name: string, type: string) => {
 	const base = name.replace(/\.[^./\\]+$/, "") || "image";
-	return `${base}.${type === "image/webp" ? "webp" : "jpg"}`;
+	return `${base}.${EXTENSIONS[type] ?? "jpg"}`;
 };

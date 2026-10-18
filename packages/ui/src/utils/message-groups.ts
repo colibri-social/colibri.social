@@ -4,6 +4,7 @@ export const MESSAGE_GROUP_WINDOW_MS = 5 * 60_000;
 
 export type GroupableMessage = {
 	author: string;
+	groupKey?: string;
 	timestamp: TimeInput;
 	reply?: boolean;
 	forward?: boolean;
@@ -26,6 +27,9 @@ export type GroupMessagesOptions = {
 const timeOf = (value: TimeInput) =>
 	value instanceof Date ? value.getTime() : new Date(value).getTime();
 
+const groupKeyOf = (message: GroupableMessage) =>
+	message.groupKey ?? message.author;
+
 const breaksGroup = (message: GroupableMessage) =>
 	!!message.failed || !!message.system;
 
@@ -35,7 +39,7 @@ const joins = (
 	windowMs: number,
 ) => {
 	if (!previous) return false;
-	if (previous.author !== current.author) return false;
+	if (groupKeyOf(previous) !== groupKeyOf(current)) return false;
 	if (!isSameDay(previous.timestamp, current.timestamp)) return false;
 	if (
 		Math.abs(timeOf(current.timestamp) - timeOf(previous.timestamp)) >= windowMs

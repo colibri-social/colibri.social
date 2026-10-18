@@ -5,6 +5,7 @@ import { HapticsProvider } from "../../utils/haptics";
 import { Scrubber } from "./Scrubber";
 import { createStoryClip } from "./story-clip";
 import { VideoPlayer } from "./VideoPlayer";
+import { FIRST_FRAME_FRAGMENT } from "./VideoSource";
 
 const meta = {
 	title: "Messaging/Media player",
@@ -38,6 +39,7 @@ const Section = (props: { title: string; children: JSX.Element }) => (
 const seek = fn();
 const seekEnd = fn();
 const selection = fn();
+const videoError = fn();
 
 const ControlledScrubber = (props: {
 	initial: number;
@@ -169,6 +171,7 @@ const ClipPlayer = (props: {
 	hideDelay?: number;
 	broken?: boolean;
 	label?: string;
+	mimeType?: string;
 }) => {
 	const clip = createStoryClip(3);
 	return (
@@ -178,6 +181,8 @@ const ClipPlayer = (props: {
 					src={
 						props.broken ? "data:video/webm;base64,AAAAAAAAAAAA" : value().src
 					}
+					mimeType={props.mimeType}
+					onError={videoError}
 					poster={value().poster}
 					width={640}
 					height={360}
@@ -218,12 +223,18 @@ export const Inline: Story = {
 	render: () => (
 		<Screen>
 			<Section title="Tap the video to play">
-				<ClipPlayer muted hideDelay={300} />
+				<ClipPlayer muted hideDelay={300} mimeType="video/webm" />
 			</Section>
 		</Screen>
 	),
 	play: async ({ canvasElement }) => {
 		const { root, video } = await playerIn(canvasElement);
+		const source = video.querySelector("source") as HTMLSourceElement;
+		await expect(source.getAttribute("src")).toMatch(
+			new RegExp(`${FIRST_FRAME_FRAGMENT}$`),
+		);
+		await expect(source).toHaveAttribute("type", "video/webm");
+		await expect(video).not.toHaveAttribute("src");
 		const player = within(root);
 		const play = player.getByRole("button", { name: "Play" });
 		await expect(play).toHaveAttribute("aria-pressed", "false");
@@ -379,14 +390,19 @@ export const PlaybackError: Story = {
 		</Screen>
 	),
 	play: async ({ canvasElement }) => {
-		const alert = await within(canvasElement).findByRole(
-			"alert",
-			{},
-			{ timeout: 3000 },
-		);
+		videoError.mockClear();
+		const canvas = within(canvasElement);
+		const alert = await canvas.findByRole("alert", {}, { timeout: 3000 });
 		await expect(alert).toHaveTextContent("This video can't be played");
-		await expect(
+		await expect(videoError).toHaveBeenCalledTimes(1);
+		await userEvent.click(
 			within(alert).getByRole("button", { name: "Try again" }),
-		).toBeInTheDocument();
+		);
+		await waitFor(() => expect(videoError).toHaveBeenCalledTimes(2), {
+			timeout: 3000,
+		});
+		await expect(
+			await canvas.findByRole("alert", {}, { timeout: 3000 }),
+		).toHaveTextContent("This video can't be played");
 	},
 };

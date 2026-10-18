@@ -128,6 +128,22 @@ describe("desktop route", () => {
 });
 
 describe("full thread presentation", () => {
+	it("hides the channel behind a full thread and shows it beside a split one", () => {
+		const full = route([
+			{ kind: "chat", ...target },
+			{ kind: "thread", ...target, thread: "t1", presentation: "full" },
+		]);
+		expect(visibleLayers(full).map((layer) => layer.kind)).toEqual(["thread"]);
+		const split = route([
+			{ kind: "chat", ...target },
+			{ kind: "thread", ...target, thread: "t1" },
+		]);
+		expect(visibleLayers(split).map((layer) => layer.kind)).toEqual([
+			"chat",
+			"thread",
+		]);
+	});
+
 	it("round-trips the full segment and keeps it in the route", () => {
 		const path = `/app/c/${SPACE}/social.colibri.beta.channel.text/general/t/t1/full`;
 		const parsed = parseDesktopPath(path);

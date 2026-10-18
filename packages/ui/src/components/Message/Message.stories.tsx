@@ -1766,3 +1766,75 @@ export const BridgedAuthor: Story = {
 		await expect(within(bridged).getByText("via Matrix")).toBeVisible();
 	},
 };
+
+const BRIDGE_DID = "did:plc:matrixbridge";
+
+const bridgedConversation = [
+	{
+		id: "max-1",
+		name: "Max",
+		seed: SEED_A,
+		author: BRIDGE_DID,
+		groupKey: `${BRIDGE_DID} 3lbridgereg22 @max:matrix.org`,
+		timestamp: at(9, 30),
+		text: "Anyone around for the canal walk?",
+	},
+	{
+		id: "june-1",
+		name: "June",
+		seed: SEED_B,
+		author: BRIDGE_DID,
+		groupKey: `${BRIDGE_DID} 3lbridgereg22 @june:matrix.org`,
+		timestamp: at(9, 31),
+		text: "Count me in",
+	},
+	{
+		id: "june-2",
+		name: "June",
+		seed: SEED_B,
+		author: BRIDGE_DID,
+		groupKey: `${BRIDGE_DID} 3lbridgereg22 @june:matrix.org`,
+		timestamp: at(9, 32),
+		text: "Bringing bread for the ducks",
+	},
+];
+
+export const BridgedAuthorsGroupSeparately: Story = {
+	render: () => (
+		<div class="flex flex-col bg-background py-4">
+			<For each={groupMessages(bridgedConversation)}>
+				{(entry) => (
+					<MessageRow
+						platform="desktop"
+						author={{ name: entry.message.name, seed: entry.message.seed }}
+						via="Matrix"
+						timestamp={entry.message.timestamp}
+						now={NOW}
+						locale="en-GB"
+						continuation={entry.continuation}
+						data-testid={`message-${entry.message.id}`}
+					>
+						{entry.message.text}
+					</MessageRow>
+				)}
+			</For>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const row = (id: string) =>
+			canvasElement.querySelector(
+				`[data-testid="message-${id}"]`,
+			) as HTMLElement;
+		await expect(
+			row("june-1").querySelector("[data-message-header]"),
+		).not.toBeNull();
+		await expect(
+			row("june-1").querySelector("[data-author-name]"),
+		).toHaveTextContent("June");
+		await expect(row("june-1")).not.toHaveAttribute("data-continuation");
+		await expect(row("june-2")).toHaveAttribute("data-continuation");
+		await expect(
+			row("june-2").querySelector("[data-message-header]"),
+		).toBeNull();
+	},
+};

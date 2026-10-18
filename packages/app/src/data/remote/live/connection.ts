@@ -15,6 +15,7 @@ import {
 	unsubscribeFrame,
 } from "@colibri-social/lib";
 import { type Accessor, createSignal } from "solid-js";
+import type { BlobLocator } from "../../emoji";
 import type { LiveEvent } from "../../source";
 import { toLiveEvents } from "./frames";
 import {
@@ -57,6 +58,7 @@ export type LiveConnectionOptions = {
 	agent: ServiceAuthAgent;
 	appViewHost: string;
 	serviceRef: string;
+	emojiBlobUrl?: BlobLocator;
 	onAuthFailure?: (error: ColibriError) => void;
 	isSessionDead?: () => boolean;
 	createSocket?: (url: string, protocols: string[]) => LiveSocket;
@@ -347,7 +349,10 @@ export const createLiveConnection = (
 				return;
 			}
 
-			for (const event of toLiveEvents(frame)) dispatch(event);
+			for (const event of toLiveEvents(frame, {
+				emojiBlobUrl: options.emojiBlobUrl,
+			}))
+				dispatch(event);
 		});
 
 		socket.addEventListener("close", (event) => {

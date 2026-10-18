@@ -1426,14 +1426,11 @@ describe("createRemoteSource", () => {
 
 	it("rejects features the AppView does not offer yet", async () => {
 		const { source } = await setup();
-		for (const attempt of [
-			source.listEmoji(COMMUNITY),
-			source.listDiscoverable(),
-		]) {
-			const failure = await attempt.catch((error: unknown) => error);
-			expect(isNotEnabled(failure)).toBe(true);
-			expect((failure as ColibriError).code).toBe("NotEnabled");
-		}
+		const failure = await source
+			.listDiscoverable()
+			.catch((error: unknown) => error);
+		expect(isNotEnabled(failure)).toBe(true);
+		expect((failure as ColibriError).code).toBe("NotEnabled");
 	});
 
 	it("transfers ownership and returns both members", async () => {

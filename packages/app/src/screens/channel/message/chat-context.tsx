@@ -35,6 +35,7 @@ import type {
 	RoleView,
 	ThreadView,
 } from "../../../data/types";
+import { openAppLink, routeFromLink } from "../../../native/deep-links";
 import { toListMember } from "../../members/member-adapter";
 import type { MessageSelection } from "../selection/selection";
 import { highlightCode } from "./code-highlight";
@@ -219,6 +220,13 @@ export const createChatRichTextResolvers = (
 			if (!chat.onOpenChannel) return;
 			event.preventDefault();
 			chat.onOpenChannel(skey);
+		},
+		linkTarget: (uri) =>
+			routeFromLink(uri) ? { kind: "internal", href: uri } : undefined,
+		onNavigate: (href, event) => {
+			event.preventDefault();
+			if (openAppLink(href)) return;
+			chat.onExternalLink?.(href, { label: href, disguised: false });
 		},
 		bridgePlatformName,
 		highlight: highlightCode,

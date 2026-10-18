@@ -38,6 +38,7 @@ export type EmojiPackSource = {
 export type EmojiProvider = {
 	id: string;
 	label: string;
+	maxImageBytes: number;
 	collections: {
 		item: string;
 		pack?: string;

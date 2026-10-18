@@ -146,6 +146,8 @@ export type LiveEvent =
 			subject: Did;
 			roles: string[];
 	  }
+	| { $type: "memberJoinEvent"; community: Did; member: MemberView }
+	| { $type: "memberLeaveEvent"; community: Did; subject: Did }
 	| {
 			$type: "seenEvent";
 			channel?: SpaceRef;
@@ -462,6 +464,7 @@ export type DataSource = AccessSource &
 		) => Promise<Page<MemberView>>;
 		listMessages: (params: ListMessagesParams) => Promise<MessagePage>;
 		listThreads: (channel: SpaceRef) => Promise<ThreadView[]>;
+		getThread: (thread: SpaceRef) => Promise<ThreadView>;
 		createThread: (input: CreateThreadInput) => Promise<ThreadView>;
 		moveMessages: (input: MoveMessagesInput) => Promise<MoveMessagesResult>;
 		repoint: (input: RepointInput) => Promise<ThreadView>;

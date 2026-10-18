@@ -8,12 +8,17 @@ import { createSlot } from "../../utils/slot";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { ThemeColorPicker } from "../ColorPicker/ColorPicker";
 import { Hummingbird } from "../Hummingbird/Hummingbird";
-import type { ImageCropShape } from "../ImageCropper/crop-math";
+import { CROP_OUTPUT, type ImageCropShape } from "../ImageCropper/crop-math";
 import {
 	ImageCropper,
 	type ImageCropperPlatform,
 } from "../ImageCropper/ImageCropper";
+import {
+	frameCountOf,
+	shrinkAnimation,
+} from "../ImageCropper/shrink-animation";
 import { ToggleRow } from "../List/List";
+import { ConfirmDialog } from "../Modal/ConfirmDialog";
 import { DisplayNameField } from "../Profile/DisplayNameField";
 import { TextArea, TextField } from "../TextField/TextField";
 import type { OnboardingProfile } from "./create-onboarding";
@@ -261,16 +266,51 @@ export const ProfileImagePicker = (props: ProfileImagePickerProps) => {
 	let input: HTMLInputElement | undefined;
 	const [cropping, setCropping] = createSignal<File>();
 	const [cropOpen, setCropOpen] = createSignal(false);
+	const [reduce, setReduce] = createSignal<() => Promise<File | undefined>>();
+	const shrink = async (file: File, shape: ImageCropShape) => {
+		try {
+			const result = await shrinkAnimation(file, {
+				box: CROP_OUTPUT[shape],
+				maxBytes: props.maxBytes,
+			});
+			if (result.kind === "fits") {
+				props.onFile?.(result.file);
+				return;
+			}
+			setReduce(() => result.reduce);
+		} catch {
+			props.onError("This GIF couldn't be read.");
+		}
+	};
+	const applyReduced = async () => {
+		const reduced = await reduce()?.();
+		if (!reduced) {
+			props.onError(
+				"This GIF is still too large, even at lower quality. Try a shorter or smaller one.",
+			);
+			return;
+		}
+		props.onError(undefined);
+		props.onFile?.(reduced);
+	};
 	const pick = async (file: File | undefined) => {
 		if (!file) return;
-		const crops = !!props.crop && file.type !== "image/gif";
+		const gif = file.type === "image/gif";
+		const frames = props.crop && gif ? await frameCountOf(file) : undefined;
+		const animated = gif && frames !== 1;
+		const crops = !!props.crop && !animated;
+		const shrinks = !!props.crop && animated && frames !== undefined;
 		const rejection = await validateImageFile(
 			file,
 			PROFILE_IMAGE_ACCEPT,
-			crops ? PROFILE_CROP_INPUT_MAX_BYTES : props.maxBytes,
+			crops || shrinks ? PROFILE_CROP_INPUT_MAX_BYTES : props.maxBytes,
 		);
 		props.onError(rejection?.message);
 		if (rejection) return;
+		if (shrinks && props.crop) {
+			await shrink(file, props.crop);
+			return;
+		}
 		if (!crops) {
 			props.onFile?.(file);
 			return;
@@ -301,6 +341,16 @@ export const ProfileImagePicker = (props: ProfileImagePickerProps) => {
 					/>
 				)}
 			</Show>
+			<ConfirmDialog
+				open={!!reduce()}
+				onOpenChange={(next) => {
+					if (!next) setReduce(undefined);
+				}}
+				title="This GIF is too large"
+				description="Colibri can lower its quality so it fits. It may play less smoothly and show fewer colors."
+				confirmLabel="Lower quality"
+				onConfirm={applyReduced}
+			/>
 			<input
 				ref={input}
 				type="file"

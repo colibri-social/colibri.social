@@ -385,7 +385,7 @@ const UploadDemo = () => {
 				suggestedName={src() ? "party_parrot" : ""}
 				takenNames={new Set(["tux"])}
 				packName="Party pack"
-				imageHint="Up to 256 KB. Square images work best."
+				imageHint="Square images work best. Bigger ones are scaled down to fit."
 				onPickImage={() => setSrc(parrot)}
 				onUpload={async (name) => {
 					spy.rename(name);

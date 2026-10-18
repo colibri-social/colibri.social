@@ -94,6 +94,8 @@ export const Generic: Story = {
 };
 
 const onOpenLink = fn();
+const onCopyMessageAtUri = fn();
+const onShowMessageOnPdsls = fn();
 
 const onCopyImage = fn();
 const onDownloadImage = fn();
@@ -171,7 +173,9 @@ export const MessageMenu: Story = {
 				gif={{ saved: true, onToggle: fn() }}
 				onLinkPreviews={fn()}
 				onViewReactions={fn()}
-				onDebugInfo={fn()}
+				developerMode
+				onCopyAtUri={onCopyMessageAtUri}
+				onShowOnPdsls={onShowMessageOnPdsls}
 				onDelete={fn()}
 			>
 				<div
@@ -206,14 +210,34 @@ export const MessageMenu: Story = {
 			"Remove saved GIF",
 			"Link previews",
 			"View reactions",
-			"Show debug information",
+			"Developer mode",
 			"Delete message",
 		]);
 		await expect(
 			within(menu).getByRole("menuitem", { name: "Delete message" }),
 		).toHaveAttribute("data-tone", "destructive");
+		await expectNoLayoutIssues(menu);
+		onCopyMessageAtUri.mockClear();
+		onShowMessageOnPdsls.mockClear();
+		await userEvent.keyboard("{End}");
+		await expectHighlighted(menu, "Delete message");
+		await userEvent.keyboard("{ArrowUp}");
+		await expectHighlighted(menu, "Developer mode");
+		await userEvent.keyboard("{ArrowRight}");
+		const submenu = await screen.findByRole("menu", { name: "Developer mode" });
+		await expect(itemNames(submenu)).toEqual(["Copy AT-URI", "Show on PDSls"]);
+		await expectNoLayoutIssues(submenu);
+		await expectHighlighted(submenu, "Copy AT-URI");
+		await userEvent.keyboard("{Enter}");
+		await expect(onCopyMessageAtUri).toHaveBeenCalledTimes(1);
+		await expect(onShowMessageOnPdsls).not.toHaveBeenCalled();
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		const again = await waitFor(() => {
+			if (!screen.queryByRole("menu")) rightClick(message);
+			return screen.getByRole("menu");
+		});
 		await userEvent.click(
-			within(menu).getByRole("menuitem", { name: "Open link" }),
+			within(again).getByRole("menuitem", { name: "Open link" }),
 		);
 		await expect(onOpenLink).toHaveBeenCalledTimes(1);
 		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());

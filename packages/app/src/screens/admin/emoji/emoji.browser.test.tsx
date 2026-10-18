@@ -227,7 +227,7 @@ describe("Space emoji", () => {
 		);
 	});
 
-	it("uploads a GIF emoji after naming it", async () => {
+	it("uploads an animated GIF emoji after naming it", async () => {
 		const { root } = await mount(EMOJI);
 		await until(() => rowNames(activeScreen(root)).includes("coffee"));
 		const input = activeScreen(root).querySelector<HTMLInputElement>(
@@ -236,7 +236,9 @@ describe("Space emoji", () => {
 		const gif = new File(
 			[
 				Uint8Array.from(
-					atob("R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="),
+					atob(
+						"R0lGODlhAgACAPAAAP8AAAAA/yH/C05FVFNDQVBFMi4wAwEAAAAh+QQACgAAACwAAAAAAgACAAAIBgABCAQQEAAh+QQACgAAACwAAAAAAgACAID/AAAAAP8IBgADCAwQEAA7",
+					),
 					(char) => char.charCodeAt(0),
 				),
 			],

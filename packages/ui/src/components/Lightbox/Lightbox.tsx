@@ -36,6 +36,7 @@ import type { MediaItem } from "../Attachments/MediaGrid";
 import { ImageContextMenu } from "../ContextMenu/MessageMenu";
 import { IconButton, iconButtonVariants } from "../IconButton/IconButton";
 import { VideoPlayer } from "../Media/VideoPlayer";
+import { VideoSource } from "../Media/VideoSource";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 
 export type LightboxAuthor = {
@@ -1082,7 +1083,6 @@ export const Lightbox = (props: LightboxProps) => {
 															fallback={
 																<video
 																	data-lightbox-media=""
-																	src={entry()?.src}
 																	aria-label={
 																		entry()?.alt ?? entry()?.name ?? "Video"
 																	}
@@ -1091,7 +1091,12 @@ export const Lightbox = (props: LightboxProps) => {
 																	playsinline
 																	preload="metadata"
 																	class="block size-full bg-black object-contain"
-																/>
+																>
+																	<VideoSource
+																		src={entry()?.src ?? ""}
+																		mimeType={entry()?.mimeType}
+																	/>
+																</video>
 															}
 														>
 															{(poster) => (
@@ -1108,6 +1113,7 @@ export const Lightbox = (props: LightboxProps) => {
 												>
 													<VideoPlayer
 														src={entry()?.src ?? ""}
+														mimeType={entry()?.mimeType}
 														poster={entry()?.poster}
 														label={entry()?.alt ?? entry()?.name ?? "Video"}
 														handoff="viewer"

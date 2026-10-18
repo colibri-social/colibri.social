@@ -29,6 +29,7 @@ import {
 	toBlueskyPost,
 } from "../../../data/adapters/bluesky-post";
 import { blueskyClientOf } from "../../../data/bluesky-client";
+import { useMediaLinkRefresher } from "../../../data/media-link-context";
 import { useData } from "../../../data/store";
 import type {
 	BlueskyPostView,
@@ -77,10 +78,20 @@ export const MediaWithLightbox = (props: {
 	const [open, setOpen] = createSignal(false);
 	const [mounted, setMounted] = createSignal(false);
 	const [index, setIndex] = createSignal(0);
+	const links = useMediaLinkRefresher();
+	const srcAt = (at: number) => props.items[at]?.src;
 	return (
 		<>
 			<MediaGrid
 				items={props.items}
+				onMediaError={(at) => {
+					const src = srcAt(at);
+					return src && links ? links.refresh(src) : undefined;
+				}}
+				onRetry={(at) => {
+					const src = srcAt(at);
+					if (src) links?.retry(src);
+				}}
 				onOpen={(next) => {
 					setIndex(next);
 					setMounted(true);

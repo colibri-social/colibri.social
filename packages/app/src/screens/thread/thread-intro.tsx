@@ -3,7 +3,7 @@ import {
 	type MessageListEntry,
 	ThreadStartDivider,
 } from "@colibri-social/ui";
-import { createMemo, Show } from "solid-js";
+import { createMemo, createResource, Show } from "solid-js";
 import { useData } from "../../data/store";
 import type { MessageView, ThreadView } from "../../data/types";
 import {
@@ -36,16 +36,30 @@ export const ThreadIntro = (props: { thread: ThreadView }) => {
 	const data = useData();
 	const chat = anchorChat(useChat(), (message, emoji, add) => {
 		if (message.rkey)
-			void data.channel(props.thread.channel).react(message.rkey, emoji, add);
+			void data
+				.channel(props.thread.anchor?.space ?? props.thread.channel)
+				.react(message.rkey, emoji, add);
 	});
+	const [fetched] = createResource(
+		() => (props.thread.anchor ? props.thread : undefined),
+		(thread) => data.threads.anchorMessage(thread).catch(() => undefined),
+	);
 	const anchorView = createMemo<MessageView | undefined>(() => {
-		const stored = props.thread.anchorMessage as MessageParent | undefined;
-		if (!isVisibleParent(stored)) return undefined;
-		const live = data
-			.channel(props.thread.channel)
-			.messages()
-			.find((message) => message.rkey === stored.rkey);
-		return live ?? stored;
+		const anchor = props.thread.anchor;
+		const live = anchor
+			? data
+					.channel(anchor.space)
+					.messages()
+					.find(
+						(message) =>
+							message.rkey === anchor.rkey && message.author.did === anchor.did,
+					)
+			: undefined;
+		if (live) return live;
+		const stored = (props.thread.anchorMessage ?? fetched()) as
+			| MessageParent
+			| undefined;
+		return isVisibleParent(stored) ? stored : undefined;
 	});
 	const entry = createMemo<MessageListEntry<ChatMessage> | undefined>(() => {
 		const view = anchorView();

@@ -5,6 +5,7 @@ import {
 } from "@colibri-social/ui";
 import { createRoot, createSignal } from "solid-js";
 import { useData } from "../../../data/store";
+import { openAppLink } from "../../../native/deep-links";
 import { openExternalUrl } from "../../../native/open-external";
 import { usePlatform } from "../../../screen/platform";
 
@@ -38,6 +39,7 @@ export const createLinkOpener = () => {
 	const [open, setOpen] = createSignal(false);
 
 	const onExternalLink = (url: string, link: RichTextExternalLink) => {
+		if (!link.disguised && openAppLink(url)) return;
 		const host = linkWarningHost(url);
 		if (!host) return;
 		const warn = data.preferences.client().warnOnExternalLinks;

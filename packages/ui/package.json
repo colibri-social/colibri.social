@@ -40,6 +40,7 @@
 		"chrono-node": "^2.10.1",
 		"cva": "1.0.0-beta.4",
 		"emojilib": "^4.0.3",
+		"gifenc": "1.0.3",
 		"minisearch": "^7.2.0",
 		"prosemirror-history": "^1.5.0",
 		"prosemirror-model": "^1.25.11",

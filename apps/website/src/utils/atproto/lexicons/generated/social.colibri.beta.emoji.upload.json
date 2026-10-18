@@ -1,0 +1,108 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.emoji.upload",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Adds a custom emoji to a community. The bytes are uploaded to the community's own repo and the AppView writes the provider's record there with the community's credentials.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"name"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community that owns the emoji."
+					},
+					"name": {
+						"type": "string",
+						"minLength": 2,
+						"maxLength": 32,
+						"description": "The emoji's name without colons. Lowercase letters, digits and underscores."
+					},
+					"pack": {
+						"type": "string",
+						"format": "at-uri",
+						"description": "A pack of the community to add the emoji to."
+					},
+					"provider": {
+						"type": "string",
+						"description": "The emoji provider that writes the records. Defaults to the AppView's default provider.",
+						"knownValues": [
+							"blue.moji"
+						]
+					}
+				}
+			},
+			"input": {
+				"encoding": "image/*",
+				"description": "The raw image bytes. The provider sets the size limit and the accepted types, which is 128000 bytes of image/png, image/webp or image/gif for blue.moji. The content type is sniffed rather than trusted."
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"emoji"
+					],
+					"properties": {
+						"emoji": {
+							"type": "ref",
+							"ref": "social.colibri.beta.emoji.defs#emojiView",
+							"description": "The emoji as stored."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the community.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "InvalidName",
+					"description": "The name is not 2 to 32 characters of lowercase letters, digits and underscores."
+				},
+				{
+					"name": "NameTaken",
+					"description": "The community already has an emoji with this name."
+				},
+				{
+					"name": "PackNotFound",
+					"description": "No pack of this community exists at the given URI."
+				},
+				{
+					"name": "UnsupportedProvider",
+					"description": "The emoji provider is unknown, or it does not support the requested operation."
+				},
+				{
+					"name": "UnsupportedImage",
+					"description": "The bytes are not an image type the provider accepts."
+				},
+				{
+					"name": "ImageTooLarge",
+					"description": "The image exceeds the provider's size limit."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

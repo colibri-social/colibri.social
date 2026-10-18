@@ -16,7 +16,6 @@ import type { InvitationPreview, JoinResult } from "../access";
 import { createActivitySourceDetector } from "../activity-source";
 import { createNetworkLabeler } from "../badges/labeler";
 import { summarizeChannel } from "../channel-summary";
-import type { EmojiSource } from "../emoji";
 import { createPreferencesGrant } from "../preferences/grant";
 import { importLegacyPreferences } from "../preferences/legacy";
 import {
@@ -49,6 +48,7 @@ import type {
 } from "../types";
 import { fetchBlueskyPost } from "./bluesky";
 import { createDeletion } from "./deletion";
+import { appViewOrigin, createRemoteEmoji, emojiBlobLocator } from "./emoji";
 import {
 	createMessageIndex,
 	createMessageWrites,
@@ -114,14 +114,6 @@ export const isNotEnabled = (error: unknown) =>
 
 const rejectNotEnabled = (method: string) => () =>
 	Promise.reject(notEnabled(method));
-
-const appViewOrigin = (did: string) => {
-	if (!did.startsWith("did:web:")) return undefined;
-	const host = decodeURIComponent(did.slice("did:web:".length));
-	return host.startsWith("localhost")
-		? `http://${host.replace("localhost", "127.0.0.1")}`
-		: `https://${host}`;
-};
 
 export const createRemoteSource = async (
 	options: RemoteSourceOptions,
@@ -310,21 +302,15 @@ export const createRemoteSource = async (
 			})
 		).channels as ChannelView[];
 
-	const emojiNotEnabled: Omit<EmojiSource, "emojiBlobUrl"> = {
-		listEmoji: rejectNotEnabled("emoji.list"),
-		uploadEmoji: rejectNotEnabled("emoji.upload"),
-		renameEmoji: rejectNotEnabled("emoji.rename"),
-		deleteEmoji: rejectNotEnabled("emoji.delete"),
-		createEmojiPack: rejectNotEnabled("emoji.createPack"),
-		updateEmojiPack: rejectNotEnabled("emoji.updatePack"),
-		deleteEmojiPack: rejectNotEnabled("emoji.deletePack"),
-		followEmoji: rejectNotEnabled("emoji.follow"),
-		unfollowEmoji: rejectNotEnabled("emoji.unfollow"),
-		followEmojiPack: rejectNotEnabled("emoji.followPack"),
-		unfollowEmojiPack: rejectNotEnabled("emoji.unfollowPack"),
-	};
-
-	const origin = appViewOrigin(options.appViewDid);
+	const emojiBlobUrl = emojiBlobLocator(appViewOrigin(options.appViewDid));
+	const { observe: observeEmoji, ...emoji } = createRemoteEmoji({
+		transport,
+		records,
+		viewer: options.session.did as Did,
+		locate: emojiBlobUrl,
+		emit: emitLocal,
+	});
+	options.live.subscribe(observeEmoji);
 
 	let releaseCommunities: (() => void) | undefined;
 	const watchCommunities = (communities: readonly CommunityView[]) => {
@@ -337,11 +323,8 @@ export const createRemoteSource = async (
 
 	const source: RemoteDataSource = {
 		startPreferencesGrant: preferencesGrant.start,
-		...emojiNotEnabled,
-		emojiBlobUrl: (blob) => {
-			const query = new URLSearchParams({ did: blob.did, cid: blob.cid });
-			return `${origin ?? ""}/xrpc/${colibri.blob.get.main.nsid}?${query}`;
-		},
+		...emoji,
+		emojiBlobUrl,
 
 		viewer: () => viewer,
 
@@ -637,6 +620,12 @@ export const createRemoteSource = async (
 				})
 			).threads;
 		},
+		getThread: async (thread) =>
+			(
+				await transport.query(colibri.thread.getThread.main, {
+					params: { thread },
+				})
+			).thread,
 		createThread: async (input) =>
 			(
 				await transport.procedure(colibri.thread.create.main, {

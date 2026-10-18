@@ -20,17 +20,22 @@ import {
 	Show,
 } from "solid-js";
 import {
+	DEFAULT_EMOJI_PROVIDER,
 	EMOJI_PERMISSION,
 	EmojiError,
 	type EmojiPackView,
 	type EmojiView,
+	emojiRegistry,
 } from "../../../data/emoji";
+import type { DataStore } from "../../../data/store";
+import type { Did } from "../../../data/types";
 import { usePlatform } from "../../../screen/platform";
 import { afterOverlaysClose } from "../../channel/composer/media/composer-media";
 import { afterClosed, EMOJI_POPOVER_SELECTOR } from "../desktop/after-closed";
 import { canInSpace, useAdminSpace } from "../space-admin";
 
-export const EMOJI_MAX_BYTES = 256 * 1024;
+export const EMOJI_MAX_BYTES =
+	emojiRegistry.get(DEFAULT_EMOJI_PROVIDER)?.maxImageBytes ?? 0;
 
 export const emojiFailure = (error: unknown, fallback: string) => {
 	if (error instanceof EmojiError) {
@@ -38,6 +43,12 @@ export const emojiFailure = (error: unknown, fallback: string) => {
 		if (error.code === "Forbidden")
 			return "You don't have permission to manage emoji here.";
 		if (error.code === "UploadFailed") return "Couldn't upload the image.";
+		if (error.code === "ImageTooLarge")
+			return `That image is too big. Emoji can be up to ${Math.floor(EMOJI_MAX_BYTES / 1000)} KB.`;
+		if (error.code === "UnsupportedImage")
+			return "That file isn't a supported image. Use a PNG, WebP or GIF.";
+		if (error.code === "InvalidName")
+			return "Names can use lowercase letters, numbers and underscores.";
 	}
 	return fallback;
 };
@@ -67,6 +78,7 @@ export const useEmojiAdmin = (space: string) => {
 	};
 	return {
 		...admin,
+		owner: () => admin.community()?.did,
 		catalog,
 		view,
 		loading: () => catalog()?.loading() ?? true,
@@ -77,6 +89,15 @@ export const useEmojiAdmin = (space: string) => {
 };
 
 export type EmojiAdmin = ReturnType<typeof useEmojiAdmin>;
+
+export type EmojiOwner = {
+	owner: () => Did | undefined;
+	data: DataStore;
+	takenNames: () => ReadonlySet<string>;
+	uploaderOf: (
+		emoji: EmojiView,
+	) => { handle: string; avatar?: string } | undefined;
+};
 
 export const matchesQuery = (emoji: EmojiView, query: string) => {
 	const needle = query
@@ -104,7 +125,7 @@ const EmojiEditor = (
 };
 
 export const createEmojiUploader = (
-	admin: EmojiAdmin,
+	admin: EmojiOwner,
 	options: {
 		pack?: () => string | undefined;
 		packName?: () => string | undefined;
@@ -135,12 +156,12 @@ export const createEmojiUploader = (
 	};
 
 	const upload = async (name: string) => {
-		const current = admin.community();
+		const current = admin.owner();
 		const picked = file();
 		if (!current || !picked) return;
 		try {
 			const emoji = await admin.data.emoji.upload({
-				community: current.did,
+				community: current,
 				name,
 				file: picked,
 				pack: options.pack?.(),
@@ -188,7 +209,7 @@ export const createEmojiUploader = (
 				suggestedName={suggested()}
 				takenNames={admin.takenNames()}
 				packName={options.packName?.()}
-				imageHint="Up to 256 KB. Square images work best."
+				imageHint="Square images work best. Bigger ones are scaled down to fit."
 				onPickImage={() => openFile?.()}
 				onUpload={upload}
 			/>
@@ -214,10 +235,11 @@ export const createEmojiUploader = (
 };
 
 export const createEmojiOptions = (
-	admin: EmojiAdmin,
+	admin: EmojiOwner,
 	options: {
 		pack?: () => EmojiPackView | undefined;
 		onRemoveFromPack?: (emoji: EmojiView) => Promise<void>;
+		deleteDescription?: string;
 	} = {},
 ) => {
 	const [target, setTarget] = createSignal<EmojiView>();
@@ -241,11 +263,11 @@ export const createEmojiOptions = (
 	};
 
 	const rename = async (name: string) => {
-		const current = admin.community();
+		const current = admin.owner();
 		const emoji = target();
 		if (!current || !emoji) return;
 		try {
-			await admin.data.emoji.rename(current.did, emoji.id, name);
+			await admin.data.emoji.rename(current, emoji.id, name);
 		} catch (error) {
 			toast.error(emojiFailure(error, "Couldn't rename the emoji"));
 			throw error;
@@ -253,11 +275,11 @@ export const createEmojiOptions = (
 	};
 
 	const remove = async () => {
-		const current = admin.community();
+		const current = admin.owner();
 		const emoji = confirming();
 		if (!current || !emoji) return;
 		try {
-			await admin.data.emoji.remove(current.did, emoji.id);
+			await admin.data.emoji.remove(current, emoji.id);
 			toast.success(`:${emoji.name}: deleted`);
 		} catch (error) {
 			toast.error(emojiFailure(error, "Couldn't delete the emoji"));
@@ -300,7 +322,10 @@ export const createEmojiOptions = (
 					if (!next) setConfirming(undefined);
 				}}
 				title={`Delete :${confirming()?.name ?? ""}:?`}
-				description="It's removed from every pack in this Space, and messages that use it show the plain shortcode."
+				description={
+					options.deleteDescription ??
+					"It's removed from every pack in this Space, and messages that use it show the plain shortcode."
+				}
 				confirmLabel="Delete emoji"
 				tone="destructive"
 				onConfirm={remove}
@@ -312,7 +337,7 @@ export const createEmojiOptions = (
 };
 
 export const EmojiRows = (props: {
-	admin: EmojiAdmin;
+	admin: EmojiOwner;
 	emojis: readonly EmojiView[];
 	onMenu?: (emoji: EmojiView, event?: MouseEvent) => void;
 	selected?: ReadonlySet<string>;

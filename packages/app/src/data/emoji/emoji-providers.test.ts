@@ -162,6 +162,7 @@ describe("Bluemoji adapter", () => {
 const fakeProvider: EmojiProvider = {
 	id: "test.sticker",
 	label: "Test stickers",
+	maxImageBytes: 1000,
 	collections: { item: "test.sticker.item" },
 	readItem: (record, find) => {
 		const value = record.value as { code: string; blob: string };

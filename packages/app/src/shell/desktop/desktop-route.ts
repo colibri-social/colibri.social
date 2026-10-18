@@ -131,9 +131,16 @@ export const routeLayers = (route: DesktopRoute): Layer[] => [
 	...route.modal,
 ];
 
+const isFullThread = (pane: PaneLayer | undefined) =>
+	pane?.kind === "thread" && pane.presentation === "full";
+
 export const visibleLayers = (route: DesktopRoute): Layer[] => [
 	...(route.notFound ? [route.notFound] : []),
-	...(route.overlay ? [route.overlay] : route.chat ? [route.chat] : []),
+	...(route.overlay
+		? [route.overlay]
+		: route.chat && !isFullThread(route.pane)
+			? [route.chat]
+			: []),
 	...(route.pane ? [route.pane] : []),
 	...route.modal.slice(-1),
 ];

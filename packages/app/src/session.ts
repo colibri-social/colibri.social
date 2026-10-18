@@ -21,6 +21,7 @@ import {
 	createMessageCache,
 } from "./data/message-cache";
 import { createOutboxQueue } from "./data/outbox/queue";
+import { appViewOrigin, emojiBlobLocator } from "./data/remote/emoji";
 import { createLiveConnection, type LiveConnection } from "./data/remote/live";
 import { createRemoteSource } from "./data/remote/source";
 import { installResumeSync } from "./data/resume";
@@ -94,6 +95,7 @@ export const createSignedInSession = (
 				agent,
 				appViewHost: appViewHost("ws"),
 				serviceRef: appViewServiceRef(),
+				emojiBlobUrl: emojiBlobLocator(appViewOrigin(appViewDid())),
 				onAuthFailure: (error) => {
 					reportError(error, { stage: "socket" });
 					auth.onAuthFailure(error.code);
