@@ -1,4 +1,4 @@
-import type { Facet } from "../types";
+import type { Did, Facet } from "../types";
 
 const encoder = new TextEncoder();
 
@@ -110,6 +110,16 @@ export const mentionsDid = (
 				feature.$type === "social.colibri.beta.richtext.facet#mention" &&
 				"did" in feature &&
 				feature.did === did,
+		),
+	);
+
+export const mentionedDids = (facets: readonly Facet[] | undefined) =>
+	(facets ?? []).flatMap((facet) =>
+		facet.features.flatMap((feature) =>
+			feature.$type === "social.colibri.beta.richtext.facet#mention" &&
+			"did" in feature
+				? [feature.did as Did]
+				: [],
 		),
 	);
 

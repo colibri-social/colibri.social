@@ -328,3 +328,27 @@ describe("channel summaries", () => {
 		).toMatchObject({ rkey: newest?.rkey, author: newest?.author.did });
 	});
 });
+
+describe("thread members", () => {
+	it("lists the anchor author and posters, and leaves out the rest of the Space", async () => {
+		const mock = source();
+		let checked = 0;
+		for (const community of await mock.listCommunities()) {
+			const everyone = (await mock.listMembers(community.did, { limit: 1000 }))
+				.items;
+			for (const channel of await mock.listChannels(community.did)) {
+				for (const thread of await mock.listThreads(channel.space)) {
+					const members = await mock.listThreadMembers(thread.space);
+					const posters = (await allMessages(mock, thread.space)).map(
+						(message) => message.author.did,
+					);
+					expect(members[0]).toBe(thread.anchor?.did);
+					for (const did of posters) expect(members).toContain(did);
+					expect(members.length).toBeLessThan(everyone.length);
+					checked++;
+				}
+			}
+		}
+		expect(checked).toBeGreaterThan(0);
+	});
+});

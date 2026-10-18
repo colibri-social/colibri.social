@@ -2,7 +2,15 @@ import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { EyeIcon } from "@solar-icons/solid/bold/eye";
 import { PauseIcon } from "@solar-icons/solid/bold/pause";
 import { PlayIcon } from "@solar-icons/solid/bold/play";
-import { createEffect, createSignal, For, type JSX, on, Show } from "solid-js";
+import {
+	createEffect,
+	createMemo,
+	createSignal,
+	For,
+	type JSX,
+	on,
+	Show,
+} from "solid-js";
 import { AnimatedDownloadIcon } from "../../icons/animated/navigation";
 import { cx } from "../../utils/cx";
 import {
@@ -157,9 +165,10 @@ export const MediaTile = (props: MediaTileProps) => {
 	const [playing, setPlaying] = createSignal(false);
 	const [status, setStatus] = createSignal<MediaStatus>("ok");
 	const [attempt, setAttempt] = createSignal(1);
+	const src = createMemo(() => props.item.src);
 	createEffect(
 		on(
-			() => props.item.src,
+			src,
 			() => {
 				setStatus("ok");
 				setLoaded(false);

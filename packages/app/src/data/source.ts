@@ -467,6 +467,7 @@ export type DataSource = AccessSource &
 		listMessages: (params: ListMessagesParams) => Promise<MessagePage>;
 		listThreads: (channel: SpaceRef) => Promise<ThreadView[]>;
 		getThread: (thread: SpaceRef) => Promise<ThreadView>;
+		listThreadMembers: (thread: SpaceRef) => Promise<Did[]>;
 		createThread: (input: CreateThreadInput) => Promise<ThreadView>;
 		moveMessages: (input: MoveMessagesInput) => Promise<MoveMessagesResult>;
 		repoint: (input: RepointInput) => Promise<ThreadView>;

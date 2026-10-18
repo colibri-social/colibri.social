@@ -163,7 +163,12 @@ export const DesktopShell = () => {
 	};
 	const splitPane = () => (fullThread() ? undefined : route().pane);
 	const isVoice = () => chat()?.channelType === VOICE_CHANNEL;
-	const membersTarget = () => (isVoice() ? undefined : chat());
+	const membersTarget = () => {
+		if (isVoice()) return undefined;
+		const current = chat();
+		if (!current) return undefined;
+		return { ...current, thread: fullThread()?.thread };
+	};
 
 	const loadFailure = createMemo(() => {
 		if (!data.communities.value()) {
@@ -360,6 +365,9 @@ export const DesktopShell = () => {
 														},
 														get channel() {
 															return current().channel;
+														},
+														get thread() {
+															return current().thread;
 														},
 													}}
 												/>

@@ -25,6 +25,7 @@ import {
 } from "solid-js";
 import { createStore, produce, reconcile } from "solid-js/store";
 import { createAccessStore } from "./access-store";
+import { mentionedDids } from "./adapters/facets";
 import { normalizeChannelLayout, sameChannel } from "./channel-layout";
 import {
 	type ChannelSummary,
@@ -1040,6 +1041,42 @@ export const createDataStore = (
 			return load;
 		};
 
+		const threadMemberLoads = new Map<SpaceRef, MutableLoad<Did[]>>();
+		const threadMembersOf = (
+			thread: SpaceRef,
+		): Load<Did[]> & {
+			refresh: () => Promise<void>;
+		} => {
+			let load = threadMemberLoads.get(thread);
+			if (!load) {
+				load = createLazyLoad(
+					() => source.listThreadMembers(thread),
+					"thread.listMembers",
+				);
+				threadMemberLoads.set(thread, load);
+			}
+			const fetched = load;
+			return {
+				value: () => {
+					const roster = fetched.value();
+					if (!roster) return undefined;
+					const live = (channels.get(thread)?.messages() ?? []).flatMap(
+						(message) => [message.author.did, ...mentionedDids(message.facets)],
+					);
+					const added = live.filter((did) => !roster.includes(did));
+					return added.length ? [...roster, ...new Set(added)] : roster;
+				},
+				loading: fetched.loading,
+				error: fetched.error,
+				retry: fetched.retry,
+				refresh: fetched.refresh,
+			};
+		};
+		const addThreadMember = (thread: SpaceRef, did: Did) =>
+			threadMemberLoads
+				.get(thread)
+				?.update((list) => (list.includes(did) ? list : [...list, did]));
+
 		const threadActions = {
 			find: findThread,
 			anchorMessage: anchorMessageOf,
@@ -1047,12 +1084,15 @@ export const createDataStore = (
 				patchThread(thread, { ...thread, name: name.trim() }, () =>
 					source.updateThread({ thread: thread.space, name: name.trim() }),
 				),
-			follow: (thread: ThreadView, follow: boolean) =>
-				patchThread(
+			follow: async (thread: ThreadView, follow: boolean) => {
+				if (follow) addThreadMember(thread.space, viewer.did);
+				await patchThread(
 					thread,
 					{ ...thread, viewer: { ...thread.viewer, following: follow } },
 					() => source.followThread({ thread: thread.space, follow }),
-				),
+				);
+				void threadMemberLoads.get(thread.space)?.refresh();
+			},
 			markRead: (thread: ThreadView) => {
 				const ids = notifications
 					.items()
@@ -2604,6 +2644,7 @@ export const createDataStore = (
 			jumps,
 			threads: threadActions,
 			threadsOf,
+			threadMembersOf,
 			channels: channelActions,
 			categories: categoryActions,
 			community: communityActions,

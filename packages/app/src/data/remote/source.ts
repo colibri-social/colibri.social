@@ -629,6 +629,12 @@ export const createRemoteSource = async (
 					params: { thread },
 				})
 			).thread,
+		listThreadMembers: async (thread) =>
+			(
+				await transport.query(colibri.thread.listMembers.main, {
+					params: { thread },
+				})
+			).members,
 		createThread: async (input) =>
 			(
 				await transport.procedure(colibri.thread.create.main, {

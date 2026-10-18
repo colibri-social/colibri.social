@@ -1,4 +1,5 @@
 import { ColibriError } from "@colibri-social/lib";
+import { mentionedDids } from "../adapters/facets";
 import { summarizeMessage } from "../channel-summary";
 import { createMemoryPreferenceBackend } from "../preferences/memory";
 import { createPreferenceStore } from "../preferences/store";
@@ -689,6 +690,43 @@ export const createMockSource = (
 				if (!thread)
 					throw new ColibriError({ code: "NotFound", method: "mock" });
 				return { ...thread.view };
+			}),
+		listThreadMembers: (ref) =>
+			withLatency(() => {
+				const space = world.spaces.find((entry) =>
+					entry.threads.some((thread) => thread.view.space === ref),
+				);
+				const thread = space?.threads.find((entry) => entry.view.space === ref);
+				if (!space || !thread)
+					throw new ColibriError({ code: "NotFound", method: "mock" });
+				const newestFirst = [...thread.messages].reverse();
+				const roles = new Set(
+					thread.messages.flatMap((message) =>
+						(message.facets ?? []).flatMap((facet) =>
+							facet.features.flatMap((feature) =>
+								feature.$type === "social.colibri.beta.richtext.facet#role" &&
+								"role" in feature
+									? [feature.role as string]
+									: [],
+							),
+						),
+					),
+				);
+				const candidates = [
+					...(thread.view.anchor ? [thread.view.anchor.did] : []),
+					...newestFirst.map((message) => message.author.did),
+					...newestFirst.flatMap((message) => mentionedDids(message.facets)),
+					...space.members
+						.filter((member) =>
+							(member.roles ?? []).some((role) => roles.has(role)),
+						)
+						.map((member) => member.actor.did),
+					...(thread.view.viewer.following ? [world.viewerDid] : []),
+				];
+				const memberDids = new Set(
+					space.members.map((member) => member.actor.did),
+				);
+				return [...new Set(candidates)].filter((did) => memberDids.has(did));
 			}),
 		moveMessages: (input) =>
 			withLatency(() => {

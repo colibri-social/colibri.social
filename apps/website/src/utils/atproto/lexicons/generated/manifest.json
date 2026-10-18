@@ -1,5 +1,5 @@
 {
-	"count": 163,
+	"count": 164,
 	"lexicons": {
 		"social.colibri.beta.actor.clientPreferences": "fb63a4156666455cd23199012ee57405400bd9ee838f642880e79220c730029a",
 		"social.colibri.beta.actor.composerState": "abe7e1c4d10e30b449e8b487ab49d599157f9a14282d868f8a7f0dba2cda92d7",
@@ -140,7 +140,7 @@
 		"social.colibri.beta.permissionAccount": "8e249f46b5c78a89ef4a21fe7300c3578aa03fc62d09c4da652ef70ab6e5cc04",
 		"social.colibri.beta.permissionBridge": "0ff8a52a14a1f1dbef19f6e62d5fda332143dc32569a2765f58d95d47515fa35",
 		"social.colibri.beta.permissionCommunity": "9dc05a1772fed7bb8f85cc38c62302aeb31b4cab35bba1177da39b9c30e2b4ba",
-		"social.colibri.beta.permissionMessaging": "6006b0e5bad44efceb144135d64376210200a349536cbe4a460253d67c982ee5",
+		"social.colibri.beta.permissionMessaging": "a3db22b95c5c9bb9e2e04403d065f322751a780f37e0dde1f1b304a0144633cd",
 		"social.colibri.beta.permissionNotification": "6882f2baf996c43968b2ef464ffaee0bdedab95d5e3dfb24f7a07b4d3595b000",
 		"social.colibri.beta.permissionPush": "fd3f70df690054de3775aa4d9fce297158dd0805396fec5f2fb06beac21ee16b",
 		"social.colibri.beta.reaction": "96c84b3cdcfa02a0126b212149bca13349e3936f0ad26cc58c17da4cb8be72e8",
@@ -158,6 +158,7 @@
 		"social.colibri.beta.thread.delete": "7aabf41bff606589e84568c18a870062957bdae865c32b96aee8f140df5d9915",
 		"social.colibri.beta.thread.follow": "40bfbd92522d03a552d93b417ec9f4e7983adb084f7218467d2e6b2d462ad673",
 		"social.colibri.beta.thread.getThread": "b9a73ea9d5618d9c24c63c5ef01adfc62a7f9b05774b5d0c234a4bd3f1c38407",
+		"social.colibri.beta.thread.listMembers": "ee906ee209f67dcb2a59f54b8d36066a9d1521d4009d324652e7dc4f698786ee",
 		"social.colibri.beta.thread.listThreads": "fcef262fefc985e5bcfdb93c417625b3115c9f4798dc79a655d4bb21ae316413",
 		"social.colibri.beta.thread.moveMessages": "0d8d867935a6fda38dd81294728c49dbf87dc041738d2619d7984ddf6b8192bd",
 		"social.colibri.beta.thread.repoint": "5a68e6078ece36bac6e90ab33d75fb0da1a97d447d92d1bfcb7bd3887d591ab4",

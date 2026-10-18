@@ -7,13 +7,22 @@ import {
 	MemberList,
 	MemberRowSkeleton,
 } from "@colibri-social/ui";
-import { createComputed, createMemo, For, type JSX, Show } from "solid-js";
+import {
+	createComputed,
+	createEffect,
+	createMemo,
+	For,
+	type JSX,
+	on,
+	Show,
+} from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { useBadges } from "../../data/badges";
 import {
 	canReadChannel,
 	isAdminRoleSet,
 } from "../../data/category-permissions";
+import { skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
 import type { Did } from "../../data/types";
 import { defineContract, slot } from "../../screen/define";
@@ -25,7 +34,7 @@ import { type ProfileAnchor, useProfileSheet } from "../profile/profile-sheet";
 import { hoistedRoles, toListMember } from "./member-adapter";
 import { useMemberMenu } from "./member-menu";
 
-export type MembersArgs = { space: string; channel: string };
+export type MembersArgs = { space: string; channel: string; thread?: string };
 
 export const members = defineContract({
 	id: "members",
@@ -41,6 +50,24 @@ export const members = defineContract({
 			return current ? data.space(current) : undefined;
 		});
 		const channel = createMemo(() => space()?.channelBySlug(args.channel));
+		const thread = createMemo(() => {
+			const key = args.thread;
+			const ref = channel()?.space;
+			if (!key || !ref) return undefined;
+			return data
+				.channel(ref)
+				.threads.value()
+				?.find((entry) => skeyOf(entry.space) === key);
+		});
+		const roster = createMemo(() => {
+			const current = thread();
+			return current ? data.threadMembersOf(current.space) : undefined;
+		});
+		createEffect(
+			on(roster, (current) => {
+				void current?.refresh();
+			}),
+		);
 		const unavailable = createMemo<"space" | "channel" | undefined>(() => {
 			if (data.communities.loading()) return undefined;
 			const current = space();
@@ -73,12 +100,19 @@ export const members = defineContract({
 						.value()
 						?.find((entry) => entry.rkey === view.category)
 				: undefined;
+			const threadMembers = args.thread ? roster()?.value() : undefined;
+			if (args.thread && !threadMembers) return undefined;
+			const included = threadMembers
+				? new Set<string>(threadMembers)
+				: undefined;
 			const readers = list.filter((member) =>
-				canReadChannel(view, category, {
-					did: member.actor.did,
-					roles: member.roles ?? [],
-					admin: isAdminRoleSet(member.roles ?? [], roles),
-				}),
+				included
+					? included.has(member.actor.did)
+					: canReadChannel(view, category, {
+							did: member.actor.did,
+							roles: member.roles ?? [],
+							admin: isAdminRoleSet(member.roles ?? [], roles),
+						}),
 			);
 			const mapped = readers.map((member) =>
 				toListMember(member, {
@@ -96,9 +130,16 @@ export const members = defineContract({
 		});
 		const loadError = () => {
 			const current = space();
-			return current?.members.value() ? undefined : current?.members.error();
+			const membersError = current?.members.value()
+				? undefined
+				: current?.members.error();
+			const list = roster();
+			return membersError ?? (list?.value() ? undefined : list?.error());
 		};
-		const retryMembers = () => space()?.members.retry();
+		const retryMembers = () => {
+			space()?.members.retry();
+			roster()?.retry();
+		};
 		return {
 			unavailable,
 			loadError,
