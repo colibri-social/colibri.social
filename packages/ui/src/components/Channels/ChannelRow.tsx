@@ -5,6 +5,7 @@ import { FileIcon } from "@solar-icons/solid/bold/file";
 import { GalleryMinimalisticIcon } from "@solar-icons/solid/bold/gallery-minimalistic";
 import { LockKeyholeMinimalisticIcon } from "@solar-icons/solid/bold/lock-keyhole-minimalistic";
 import { SettingsIcon } from "@solar-icons/solid/bold/settings";
+import { VideocameraIcon } from "@solar-icons/solid/bold/videocamera";
 import { VolumeIcon } from "@solar-icons/solid/bold/volume";
 import { VolumeLoudIcon } from "@solar-icons/solid/bold/volume-loud";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
@@ -20,7 +21,7 @@ import { createLongPress, createMenuTrigger } from "../../utils/gestures";
 import { KeyedFor } from "../../utils/keyed";
 import { createRipple } from "../../utils/ripple";
 import { Avatar } from "../Avatar/Avatar";
-import { CountBadge } from "../Badge/Badge";
+import { Badge, CountBadge } from "../Badge/Badge";
 import { SkeletonCircle, SkeletonText } from "../Skeleton/Skeleton";
 import type { VoiceParticipant } from "../Voice/shared";
 
@@ -598,6 +599,20 @@ const ParticipantContent = (props: {
 		</span>
 		<Show when={props.live && props.person.speaking}>
 			<span class="sr-only">, speaking</span>
+		</Show>
+		<Show when={props.person.streaming}>
+			<span
+				data-voice-streaming=""
+				class="flex shrink-0 items-center gap-1 text-muted-foreground"
+			>
+				<span aria-hidden="true" class="flex size-4 [&>svg]:size-4">
+					<VideocameraIcon />
+				</span>
+				<Badge variant="live" aria-hidden="true">
+					Live
+				</Badge>
+				<span class="sr-only">, live</span>
+			</span>
 		</Show>
 		<Show when={props.person.deafened}>
 			<span

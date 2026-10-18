@@ -39,13 +39,13 @@ export const resolveNotifier = async (
 			: createWebNotifier(bus);
 	}
 	const port = options.port ?? tauriPort();
-	if (options.mobile ?? isMobileAgent()) return createPluginNotifier(port);
+	if (options.mobile ?? isMobileAgent()) return createPluginNotifier(port, bus);
 	const supported = await port
 		.invoke<boolean>("native_notify_supported")
 		.catch(() => false);
 	return supported
 		? createNativeNotifier(port, bus)
-		: createPluginNotifier(port);
+		: createPluginNotifier(port, bus);
 };
 
 let shared: Promise<OsNotifier> | undefined;

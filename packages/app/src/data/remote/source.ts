@@ -15,7 +15,7 @@ import { resolvePdsHost } from "../../auth/identity";
 import type { InvitationPreview, JoinResult } from "../access";
 import { createActivitySourceDetector } from "../activity-source";
 import { createNetworkLabeler } from "../badges/labeler";
-import { type ChannelSummary, summarizeMessage } from "../channel-summary";
+import { summarizeChannel } from "../channel-summary";
 import type { EmojiSource } from "../emoji";
 import { createPreferencesGrant } from "../preferences/grant";
 import { importLegacyPreferences } from "../preferences/legacy";
@@ -35,18 +35,17 @@ import type {
 	ProfileTheme,
 	Simulation,
 } from "../source";
-import {
-	type CategoryView,
-	type ChannelView,
-	type CommunityView,
-	type Did,
-	type GifView,
-	type MemberView,
-	type MessageView,
-	type ProfileView,
-	type RoleView,
-	type SpaceRef,
-	TEXT_CHANNEL,
+import type {
+	CategoryView,
+	ChannelView,
+	CommunityView,
+	Did,
+	GifView,
+	MemberView,
+	MessageView,
+	ProfileView,
+	RoleView,
+	SpaceRef,
 } from "../types";
 import { fetchBlueskyPost } from "./bluesky";
 import { createDeletion } from "./deletion";
@@ -57,6 +56,7 @@ import {
 } from "./messages";
 import { createReadCursorWriter } from "./read-cursors";
 import { type BlobRef, createRecords } from "./records";
+import { createTransferOwnership } from "./transfer";
 import { createTransport, type RemoteSession } from "./transport";
 
 const log = createLogger("remote/source");
@@ -65,7 +65,6 @@ const PROFILE_COLLECTION = "social.colibri.beta.actor.profile";
 const LEGACY_PROFILE_COLLECTION = "social.colibri.actor.profile";
 const BLUESKY_PROFILE_COLLECTION = "app.bsky.actor.profile";
 const THREAD_FOLLOW_COLLECTION = "social.colibri.beta.thread.follow";
-const SUMMARY_CONCURRENCY = 4;
 
 type ProfileRecordValue = Record<string, unknown> & { syncBluesky?: unknown };
 
@@ -122,25 +121,6 @@ const appViewOrigin = (did: string) => {
 	return host.startsWith("localhost")
 		? `http://${host.replace("localhost", "127.0.0.1")}`
 		: `https://${host}`;
-};
-
-const mapLimit = async <T, R>(
-	items: readonly T[],
-	limit: number,
-	run: (item: T) => Promise<R>,
-): Promise<R[]> => {
-	const results: R[] = new Array(items.length);
-	let next = 0;
-	const worker = async () => {
-		while (next < items.length) {
-			const position = next++;
-			results[position] = await run(items[position] as T);
-		}
-	};
-	await Promise.all(
-		Array.from({ length: Math.min(limit, items.length) }, worker),
-	);
-	return results;
 };
 
 export const createRemoteSource = async (
@@ -311,11 +291,16 @@ export const createRemoteSource = async (
 				limit: params.limit,
 				cursor: params.cursor,
 				reverse: params.reverse,
+				around: params.around,
 			},
 		});
 		const items = result.messages as MessageView[];
 		for (const message of items) index.put(message);
-		return result.cursor ? { items, cursor: result.cursor } : { items };
+		return {
+			items,
+			...(result.cursor ? { cursor: result.cursor } : {}),
+			...(result.forwardCursor ? { forwardCursor: result.forwardCursor } : {}),
+		};
 	};
 
 	const listChannels = async (community: Did) =>
@@ -425,7 +410,7 @@ export const createRemoteSource = async (
 			options.session.accountHost?.() ?? resolvePdsHost(options.session.did),
 		getDeletionStatus: deletion.getDeletionStatus,
 		deleteColibriData: deletion.deleteColibriData,
-		transferOwnership: rejectNotEnabled("community.transferOwnership"),
+		transferOwnership: createTransferOwnership(transport),
 		listDiscoverable: rejectNotEnabled("community.listDiscoverable"),
 
 		listBridges: async (community) =>
@@ -469,31 +454,12 @@ export const createRemoteSource = async (
 				})
 			).categories as CategoryView[],
 		listChannels,
-		listChannelSummaries: async (community) => {
-			const channels = (await listChannels(community)).filter(
-				(channel) => channel.type === TEXT_CHANNEL,
-			);
-			const latest = await mapLimit(
-				channels,
-				SUMMARY_CONCURRENCY,
-				async (channel): Promise<ChannelSummary | undefined> => {
-					try {
-						const page = await listMessages({
-							channel: channel.space,
-							limit: 1,
-						});
-						const last = page.items[0];
-						return last ? summarizeMessage(last) : undefined;
-					} catch (error) {
-						log.warn("could not load a channel preview", {
-							code: classifyThrown(error).code,
-						});
-						return undefined;
-					}
-				},
-			);
-			return latest.filter((entry): entry is ChannelSummary => !!entry);
-		},
+		listChannelSummaries: async (community) =>
+			(
+				await transport.query(colibri.channel.listSummaries.main, {
+					params: { community },
+				})
+			).summaries.map(summarizeChannel),
 		createChannel: async (input) =>
 			(
 				await transport.procedure(colibri.channel.create.main, {
@@ -722,6 +688,11 @@ export const createRemoteSource = async (
 				body: input,
 			});
 		},
+		clearNotifications: async (input) => {
+			await transport.procedure(colibri.notification.clear.main, {
+				body: input,
+			});
+		},
 		updateSeenForMessage: async (input) => {
 			await transport.procedure(
 				colibri.notification.updateSeenForMessage.main,
@@ -762,6 +733,9 @@ export const createRemoteSource = async (
 			if (input.description !== undefined)
 				record.description = input.description;
 			if (input.theme !== undefined) record.theme = input.theme;
+			if (input.preferredBadge === null) delete record.preferredBadge;
+			else if (input.preferredBadge !== undefined)
+				record.preferredBadge = input.preferredBadge;
 			if (input.pronouns === null) delete record.pronouns;
 			else if (input.pronouns !== undefined) record.pronouns = input.pronouns;
 			for (const field of ["avatar", "banner"] as const) {

@@ -20,7 +20,7 @@ afterEach(() => {
 	document.body.innerHTML = "";
 });
 
-const setup = async () => {
+const setup = async (handle?: string) => {
 	setLatency(0);
 	const store = createDataStore(createMockSource({ live: false }));
 	await until(() => !!store.communities.value());
@@ -34,6 +34,7 @@ const setup = async () => {
 		.value()
 		?.find(
 			(member) =>
+				(!handle || member.actor.handle === handle) &&
 				member.actor.did !== store.viewer.did &&
 				!space.roles
 					.value()
@@ -79,6 +80,17 @@ describe("member menu", () => {
 		button(/^Ban$/)?.click();
 		await until(() => !space.memberByDid(target.actor.did as Did));
 		await until(() => !dialog());
+	});
+
+	it("shows the member's badge next to their name", async () => {
+		const { open } = await setup("noor.haddad.me");
+		open();
+		await until(
+			() =>
+				!!document.querySelector(
+					'[data-member-drawer-badge] [data-user-badge="play-store-tester"]',
+				),
+		);
 	});
 
 	it("updates roles in place", async () => {

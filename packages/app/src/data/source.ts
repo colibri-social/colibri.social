@@ -36,11 +36,14 @@ import type {
 
 export type Page<T> = { items: T[]; cursor?: string };
 
+export type MessagePage = Page<MessageView> & { forwardCursor?: string };
+
 export type ListMessagesParams = {
 	channel: SpaceRef;
 	limit?: number;
 	cursor?: string;
 	reverse?: boolean;
+	around?: string;
 };
 
 export type SendMessageInput = {
@@ -149,6 +152,7 @@ export type LiveEvent =
 			message?: { did: Did; rkey: string };
 			unread: number;
 			seenAt: Datetime;
+			clearedAt?: Datetime;
 	  }
 	| {
 			$type: "readCursorEvent";
@@ -256,6 +260,7 @@ export type ProfileRecordInput = {
 	banner?: AttachmentView | null;
 	syncBluesky: boolean;
 	theme?: ProfileTheme;
+	preferredBadge?: string | null;
 };
 
 export type ProfileSeed = {
@@ -455,7 +460,7 @@ export type DataSource = AccessSource &
 			community: Did,
 			options?: { limit?: number; cursor?: string },
 		) => Promise<Page<MemberView>>;
-		listMessages: (params: ListMessagesParams) => Promise<Page<MessageView>>;
+		listMessages: (params: ListMessagesParams) => Promise<MessagePage>;
 		listThreads: (channel: SpaceRef) => Promise<ThreadView[]>;
 		createThread: (input: CreateThreadInput) => Promise<ThreadView>;
 		moveMessages: (input: MoveMessagesInput) => Promise<MoveMessagesResult>;
@@ -513,6 +518,7 @@ export type DataSource = AccessSource &
 			cursor?: string;
 		}) => Promise<Page<NotificationView>>;
 		updateSeen: (input: { seenAt: Datetime }) => Promise<void>;
+		clearNotifications: (input: { clearedAt: Datetime }) => Promise<void>;
 		updateSeenForMessage: (input: {
 			channel: SpaceRef;
 			message: RecordRef;

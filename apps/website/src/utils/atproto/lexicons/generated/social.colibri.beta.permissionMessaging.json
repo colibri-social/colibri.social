@@ -100,6 +100,7 @@
 						"social.colibri.beta.channel.listMessages",
 						"social.colibri.beta.channel.listReactions",
 						"social.colibri.beta.channel.listUnreadStatus",
+						"social.colibri.beta.channel.listSummaries",
 						"social.colibri.beta.channel.putReadCursors",
 						"social.colibri.beta.embed.getMetadata",
 						"social.colibri.beta.embed.searchGifs",

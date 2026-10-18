@@ -26,6 +26,7 @@ import { type SpaceData, useData } from "../../data/store";
 import type { Did, MemberView, RoleView } from "../../data/types";
 import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 import { useProfileSheet } from "../profile/profile-sheet";
+import { PrimaryBadge } from "../profile/user-badges";
 import { voiceMenuFor, withVoiceMenu } from "../voice/member-voice";
 
 type Target = { did: Did; space: string };
@@ -254,6 +255,9 @@ export const MemberMenuProvider = (props: ParentProps) => {
 							handle={current().member.actor.handle}
 							avatarSrc={current().member.actor.avatar}
 							avatarSeed={current().member.actor.did}
+							badge={
+								<PrimaryBadge profile={current().member.actor} size="sm" />
+							}
 							onViewProfile={() => {
 								const value = target();
 								if (value) profileSheet.open(value.did, value.space);

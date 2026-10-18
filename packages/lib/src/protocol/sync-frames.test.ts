@@ -215,6 +215,18 @@ describe("decodeFrame server shapes", () => {
 		expect(decoded).toMatchObject({ event: "approve", subject: DID });
 	});
 
+	it("decodes an invitationEvent", () => {
+		const decoded = decodeFrame(
+			JSON.stringify({
+				$type: "social.colibri.beta.sync.defs#invitationEvent",
+				event: "create",
+				community: DID,
+				code: "abc123",
+			}),
+		);
+		expect(decoded).toMatchObject({ event: "create", code: "abc123" });
+	});
+
 	it("decodes a labelEvent", () => {
 		const decoded = decodeFrame(
 			JSON.stringify({

@@ -24,6 +24,7 @@ export type VoiceParticipant = {
 	deafened?: boolean;
 	serverMuted?: boolean;
 	serverDeafened?: boolean;
+	streaming?: boolean;
 	pending?: boolean;
 };
 

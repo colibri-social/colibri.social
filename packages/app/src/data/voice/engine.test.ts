@@ -133,6 +133,48 @@ describe("voice engine", () => {
 		expect(recv.consumers[0].paused).toBe(true);
 	});
 
+	it("boosts a peer above 100% through a gain node", async () => {
+		const boosted = { id: "boosted" } as unknown as MediaStream;
+		const gain = { gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() };
+		const harness = track(
+			setup({
+				volumes: () => ({ [PEER]: { voice: 150 } }),
+				createAudioContext: () => ({
+					createMediaStreamSource: () => ({
+						connect: vi.fn(),
+						disconnect: vi.fn(),
+					}),
+					createGain: () => gain,
+					createMediaStreamDestination: () => ({
+						stream: boosted,
+						connect: vi.fn(),
+						disconnect: vi.fn(),
+					}),
+				}),
+			}),
+		);
+		const { socket } = await connect(harness);
+		socket.serve({
+			$type: `${DEFS}producerInfo`,
+			producerId: "peer-mic",
+			did: PEER,
+			kind: "audio",
+			source: "microphone",
+		});
+		await reply(socket, "consume", {
+			$type: `${DEFS}consumerOptions`,
+			id: "consumer-1",
+			producerId: "peer-mic",
+			kind: "audio",
+			rtpParameters: { codecs: [] },
+		});
+		await reply(socket, "resumeConsumer", { $type: `${DEFS}ack` });
+		await vi.waitFor(() => expect(harness.audio.length).toBeGreaterThan(0));
+		expect(harness.audio[0].volume).toBe(1);
+		expect(harness.audio[0].srcObject).toBe(boosted);
+		expect(gain.gain.value).toBe(1.5);
+	});
+
 	it("shows a peer's camera until the producer goes away", async () => {
 		const harness = track(setup());
 		const { socket } = await connect(harness);

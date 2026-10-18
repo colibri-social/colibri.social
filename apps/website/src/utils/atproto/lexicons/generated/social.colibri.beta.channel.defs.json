@@ -313,6 +313,62 @@
 					"description": "The user's current read cursor."
 				}
 			}
+		},
+		"channelSummary": {
+			"type": "object",
+			"description": "The latest message in a channel, reduced to what a channel list preview shows.",
+			"required": [
+				"channel",
+				"rkey",
+				"author",
+				"text",
+				"attachmentCount",
+				"forward",
+				"createdAt"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The channel."
+				},
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The latest message's record key."
+				},
+				"author": {
+					"type": "string",
+					"format": "did",
+					"description": "Who wrote the latest message."
+				},
+				"text": {
+					"type": "string",
+					"description": "The latest message's text, which is empty when it only carries attachments or a forward."
+				},
+				"attachmentKind": {
+					"type": "string",
+					"knownValues": [
+						"image",
+						"file"
+					],
+					"description": "What the first attachment is, when the message has any. Images and videos are image, everything else is file."
+				},
+				"attachmentCount": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "How many attachments the message has."
+				},
+				"forward": {
+					"type": "boolean",
+					"description": "Whether the message forwards another message."
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the latest message was written."
+				}
+			}
 		}
 	}
 }

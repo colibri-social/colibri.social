@@ -3,7 +3,13 @@ import type {
 	RichEditorHandle,
 	RichText,
 } from "@colibri-social/ui";
-import { type Accessor, createEffect, on, onCleanup } from "solid-js";
+import {
+	type Accessor,
+	createEffect,
+	createSignal,
+	on,
+	onCleanup,
+} from "solid-js";
 import {
 	readStored,
 	readStoredJSON,
@@ -14,6 +20,7 @@ import {
 const DRAFT_PREFIX = "colibri:draft:";
 const EDIT_PREFIX = "colibri:edit:";
 const THREAD_NAME_PREFIX = "colibri:thread-name:";
+const LINK_PREVIEWS_PREFIX = "colibri:link-previews:";
 const SAVE_DELAY_MS = 300;
 const READY_FRAMES = 30;
 
@@ -51,6 +58,22 @@ export const readThreadNameDraft = (key: string) =>
 
 export const writeThreadNameDraft = (key: string, name: string) =>
 	writeStored(THREAD_NAME_PREFIX + key, name.trim() ? name : undefined);
+
+export const readLinkPreviewsDraft = (key: string): boolean | undefined => {
+	const stored = readStored(LINK_PREVIEWS_PREFIX + key);
+	if (stored === "on") return true;
+	if (stored === "off") return false;
+	return undefined;
+};
+
+export const writeLinkPreviewsDraft = (
+	key: string,
+	show: boolean | undefined,
+) =>
+	writeStored(
+		LINK_PREVIEWS_PREFIX + key,
+		show === undefined ? undefined : show ? "on" : "off",
+	);
 
 const attachmentDrafts = new Map<string, File[]>();
 
@@ -91,13 +114,23 @@ export const createComposerDraft = (options: ComposerDraftOptions) => {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let pendingKey: string | undefined;
 	let alive = true;
+	const [linkPreviews, setLinkPreviewsSignal] = createSignal<
+		boolean | undefined
+	>();
+
+	const forgetLinkPreviews = (key: string) => {
+		writeLinkPreviewsDraft(key, undefined);
+		if (options.key() === key) setLinkPreviewsSignal(undefined);
+	};
 
 	const save = (key: string) => {
 		const current = handle;
 		if (!current) return;
 		const json = current.getJSON();
 		if (json === undefined) return;
-		writeComposerDraft(key, current.isEmpty() ? undefined : json);
+		const empty = current.isEmpty();
+		writeComposerDraft(key, empty ? undefined : json);
+		if (empty) forgetLinkPreviews(key);
 	};
 
 	const flush = () => {
@@ -136,12 +169,14 @@ export const createComposerDraft = (options: ComposerDraftOptions) => {
 		if (key) {
 			writeComposerDraft(key, undefined);
 			writeAttachmentDraft(key, []);
+			forgetLinkPreviews(key);
 		}
 	};
 
 	createEffect(
 		on(options.key, (key, previous) => {
 			if (previous && previous !== key) flush();
+			setLinkPreviewsSignal(key ? readLinkPreviewsDraft(key) : undefined);
 			if (!key) return;
 			restore(key);
 			const attachments = options.attachments;
@@ -188,6 +223,12 @@ export const createComposerDraft = (options: ComposerDraftOptions) => {
 		changed,
 		flush,
 		clear,
+		linkPreviews,
+		setLinkPreviews: (show: boolean) => {
+			setLinkPreviewsSignal(show);
+			const key = options.key();
+			if (key) writeLinkPreviewsDraft(key, show);
+		},
 	};
 };
 

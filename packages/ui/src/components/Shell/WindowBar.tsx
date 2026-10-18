@@ -29,14 +29,16 @@ export type WindowControlsProps = {
 	onMinimize?: () => void;
 	onMaximize?: () => void;
 	onClose?: () => void;
+	hoveredControl?: WindowControl;
+	maximizeRef?: (element: HTMLButtonElement) => void;
 	class?: string;
 };
 
 const CELL =
-	"inline-flex h-full w-[46px] shrink-0 cursor-default items-center justify-center border-0 bg-transparent p-0 text-foreground/85 outline-none hover:bg-foreground/10 active:bg-foreground/5 focus-ring-inset";
+	"inline-flex h-full w-[46px] shrink-0 cursor-default items-center justify-center border-0 bg-transparent p-0 text-foreground/85 outline-none hover:bg-foreground/10 active:bg-foreground/5 data-hovered:bg-foreground/10 focus-ring-inset";
 
 const CLOSE =
-	"hover:bg-[#c42b1c] hover:text-white active:bg-[#b2261a] active:text-white";
+	"hover:bg-[#c42b1c] hover:text-white active:bg-[#b2261a] active:text-white data-hovered:bg-[#c42b1c] data-hovered:text-white";
 
 const Glyph = (props: { d: string; diagonal?: boolean }) => (
 	<svg
@@ -84,9 +86,13 @@ export const WindowControls = (props: WindowControlsProps) => {
 			<For each={order()}>
 				{(control) => (
 					<button
+						ref={(element) => {
+							if (control === "maximize") props.maximizeRef?.(element);
+						}}
 						type="button"
 						aria-label={label(control)}
 						data-control={control}
+						data-hovered={props.hoveredControl === control ? "" : undefined}
 						onClick={() => activate(control)}
 						class={cx(CELL, control === "close" && CLOSE)}
 					>

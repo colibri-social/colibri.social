@@ -8,6 +8,7 @@ import {
 	spaceRecordUri,
 	spaceSkey,
 } from "@colibri-social/lib";
+import { measureMedia } from "../media-size";
 import type {
 	EmbedSuppressionInput,
 	ForwardInput,
@@ -38,6 +39,8 @@ type Label = MessageView["labels"][number];
 type Attached = {
 	blob: BlobRef;
 	name?: string;
+	width?: number;
+	height?: number;
 	spoiler?: boolean;
 	alt?: string;
 };
@@ -249,12 +252,15 @@ export const createMessageWrites = (deps: {
 			const blob = await records.uploadBlob(file, options?.signal);
 			options?.onProgress?.(1);
 			const url = URL.createObjectURL(file);
-			uploads.remember(url, { blob, name: file.name });
+			const mimeType = blob.mimeType || file.type;
+			const dimensions = await measureMedia(file, url, mimeType);
+			uploads.remember(url, { blob, name: file.name, ...dimensions });
 			return {
 				url: url as AttachmentView["url"],
 				name: file.name,
-				mimeType: blob.mimeType || file.type,
+				mimeType,
 				size: blob.size ?? file.size,
+				...dimensions,
 			};
 		},
 
@@ -481,6 +487,9 @@ export const createMessageWrites = (deps: {
 					return {
 						blob: await records.uploadBlob(file),
 						name: file.name,
+						...(original?.width && original.height
+							? { width: original.width, height: original.height }
+							: {}),
 						...(original?.spoiler ? { spoiler: true } : {}),
 						...(original?.alt ? { alt: original.alt } : {}),
 					};

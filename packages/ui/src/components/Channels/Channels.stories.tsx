@@ -1465,6 +1465,55 @@ export const VoiceParticipants: Story = {
 	},
 };
 
+export const StreamingParticipants: Story = {
+	render: () => (
+		<Panel class="flex w-[280px] flex-col gap-2 px-2">
+			<VoiceChannelRow
+				name="Birdwatch call"
+				participants={[
+					{ ...lou, speaking: false, streaming: true },
+					{
+						...lis,
+						name: "Lis with a display name long enough to truncate",
+						streaming: true,
+					},
+					tim,
+				]}
+				onOpenParticipant={openParticipant}
+			/>
+		</Panel>
+	),
+	play: async ({ canvasElement }) => {
+		const list = within(canvasElement).getByRole("list", {
+			name: "In Birdwatch call",
+		});
+		const rows = [
+			...list.querySelectorAll<HTMLElement>("[data-voice-participant]"),
+		];
+		await expect(
+			rows[0]?.querySelector("[data-voice-streaming]"),
+		).not.toBeNull();
+		await expect(rows[2]?.querySelector("[data-voice-streaming]")).toBeNull();
+		await expect(
+			within(list).getByRole("button", { name: /^Lou.*, live$/ }),
+		).toBeVisible();
+		const muted = within(rows[1] as HTMLElement).getByRole("img", {
+			name: "Muted",
+		});
+		const indicator = rows[1]?.querySelector(
+			"[data-voice-streaming]",
+		) as HTMLElement;
+		await expect(indicator.getBoundingClientRect().right).toBeLessThanOrEqual(
+			muted.getBoundingClientRect().left,
+		);
+		const heights = rows.map((row) =>
+			Math.round(row.getBoundingClientRect().height),
+		);
+		await expect(new Set(heights).size).toBe(1);
+		await expectNoLayoutIssues(list);
+	},
+};
+
 export const Skeletons: Story = {
 	render: () => (
 		<Panel class="flex flex-col gap-4">

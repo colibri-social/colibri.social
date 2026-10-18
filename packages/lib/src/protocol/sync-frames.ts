@@ -87,6 +87,10 @@ export type ApplicationEventFrame = FrameOf<
 	typeof colibri.sync.defs.applicationEvent,
 	"applicationEvent"
 >;
+export type InvitationEventFrame = FrameOf<
+	typeof colibri.sync.defs.invitationEvent,
+	"invitationEvent"
+>;
 export type LabelEventFrame = FrameOf<
 	typeof colibri.sync.defs.labelEvent,
 	"labelEvent"
@@ -141,6 +145,7 @@ export type ServerFrame =
 	| MemberEventFrame
 	| CommunityEventFrame
 	| ApplicationEventFrame
+	| InvitationEventFrame
 	| LabelEventFrame
 	| ModerationEventFrame
 	| NotificationEventFrame
@@ -169,6 +174,7 @@ const SERVER_FRAME_NAMES = [
 	"memberEvent",
 	"communityEvent",
 	"applicationEvent",
+	"invitationEvent",
 	"labelEvent",
 	"moderationEvent",
 	"notificationEvent",
@@ -196,6 +202,7 @@ const SERVER_FRAME_SCHEMAS: Record<ServerFrameName, FrameSchema> = {
 	memberEvent: colibri.sync.defs.memberEvent,
 	communityEvent: colibri.sync.defs.communityEvent,
 	applicationEvent: colibri.sync.defs.applicationEvent,
+	invitationEvent: colibri.sync.defs.invitationEvent,
 	labelEvent: colibri.sync.defs.labelEvent,
 	moderationEvent: colibri.sync.defs.moderationEvent,
 	notificationEvent: colibri.sync.defs.notificationEvent,

@@ -18,6 +18,7 @@ import {
 	createEffect,
 	createMemo,
 	createSignal,
+	type JSX,
 	Match,
 	on,
 	onCleanup,
@@ -36,6 +37,7 @@ import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { useUnsavedChanges } from "../../../shell/unsaved-changes";
 import { uiPresence } from "../../members/member-adapter";
+import { usePrimaryBadgeOf } from "../../profile/user-badges";
 import { createUnsavedForm, UnsavedBar } from "../../settings/unsaved-form";
 import { AdminNavHeader } from "../desktop/page-header";
 import { AdminDeveloper } from "../developer";
@@ -57,6 +59,7 @@ import { openRolePage, provideRoleDraft } from "./role-pages";
 const memberIdentity = (
 	member: MemberView,
 	presence: ReturnType<typeof uiPresence>,
+	badge: JSX.Element,
 ) => ({
 	id: member.actor.did,
 	name: displayNameOf(member.actor, member),
@@ -64,6 +67,7 @@ const memberIdentity = (
 	avatarSrc: member.actor.avatar,
 	presence,
 	bot: member.actor.isBot,
+	badge,
 });
 
 export const adminRole = defineContract({
@@ -243,16 +247,21 @@ export const adminRole = defineContract({
 		const members = createMemo(() => access.space()?.members.value() ?? []);
 		const presenceOf = (member: MemberView) =>
 			uiPresence(access.data.presenceOf(member.actor.did));
+		const primaryBadgeOf = usePrimaryBadgeOf();
+		const identityOf = (member: MemberView) =>
+			memberIdentity(
+				member,
+				presenceOf(member),
+				primaryBadgeOf(member.actor, { withoutBot: true }),
+			);
 		const holders = createMemo(() => {
 			const current = role();
 			if (!current) return [];
 			return members()
 				.filter((member) => member.roles?.includes(current.rkey))
-				.map((member) => memberIdentity(member, presenceOf(member)));
+				.map(identityOf);
 		});
-		const candidates = createMemo(() =>
-			members().map((member) => memberIdentity(member, presenceOf(member))),
-		);
+		const candidates = createMemo(() => members().map(identityOf));
 		const setHolding = async (dids: readonly string[], holding: boolean) => {
 			const space = access.space();
 			const current = role();

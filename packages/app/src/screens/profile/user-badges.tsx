@@ -29,10 +29,13 @@ export const PrimaryBadge = (props: {
 	profile: BadgeProfile;
 	size?: UserBadgeSize;
 	describe?: boolean;
+	withoutBot?: boolean;
 }) => {
 	const badges = useBadges();
 	return (
-		<Show when={badges.primary(props.profile)}>
+		<Show
+			when={badges.primary(props.profile, { withoutBot: props.withoutBot })}
+		>
 			{(definition) => (
 				<UserBadge
 					definition={definition()}
@@ -42,4 +45,12 @@ export const PrimaryBadge = (props: {
 			)}
 		</Show>
 	);
+};
+
+export const usePrimaryBadgeOf = () => {
+	const badges = useBadges();
+	return (profile: BadgeProfile, options: { withoutBot?: boolean } = {}) => {
+		const definition = badges.primary(profile, options);
+		return definition ? <UserBadge definition={definition} /> : undefined;
+	};
 };

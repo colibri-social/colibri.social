@@ -12,6 +12,7 @@ export const DEVICE_KEYS = {
 	voiceSettings: "colibri:voice-settings",
 	voiceVolumes: "colibri:voice-volumes",
 	reportAttribution: "colibri:report-attribution",
+	systemWindowControls: "colibri:system-window-controls",
 	nativeNotifications: "colibri:native-notifications",
 	notificationPrompt: "colibri:notification-prompt-answered",
 	apnsToken: "colibri:apns:last-token",

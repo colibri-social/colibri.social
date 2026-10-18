@@ -242,6 +242,20 @@ describe("toLiveEvents", () => {
 		]);
 	});
 
+	it("refreshes the invite list when an invitation changes", () => {
+		expect(
+			toLiveEvents(
+				frame("invitationEvent", {
+					event: "delete",
+					community: COMMUNITY,
+					code: "abc123",
+				}),
+			),
+		).toEqual([
+			{ $type: "accessEvent", community: COMMUNITY, kind: "invitations" },
+		]);
+	});
+
 	it("ignores frames the app has no event for", () => {
 		expect(toLiveEvents(frame("ack", {}))).toEqual([]);
 		expect(

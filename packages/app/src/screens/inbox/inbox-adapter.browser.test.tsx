@@ -44,7 +44,6 @@ const context = {
 		{ rkey: "mods", name: "Moderators", color: "#f97316", position: 3 },
 	],
 	channelName: () => "general",
-	threadName: () => "Hut logistics",
 } as never;
 
 describe("inbox adapter", () => {
@@ -91,6 +90,7 @@ describe("inbox adapter", () => {
 			view({
 				kind: "reply",
 				thread: THREAD as never,
+				threadName: "Hut logistics",
 				seenAt: "2026-10-10T11:00:00.000Z" as never,
 				message: {
 					rkey: "m2",

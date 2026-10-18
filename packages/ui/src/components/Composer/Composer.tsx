@@ -1,6 +1,8 @@
 import { AddIcon } from "@solar-icons/solid/bold/add";
 import { CheckCircleIcon } from "@solar-icons/solid/bold/check-circle";
+import { LinkIcon } from "@solar-icons/solid/bold/link";
 import { SmileCircleIcon } from "@solar-icons/solid/bold/smile-circle";
+import { UnlinkIcon } from "@solar-icons/solid/bold/unlink";
 import { createEffect, createSignal, type JSX, on, Show } from "solid-js";
 import type { AnimatedIconHandle } from "../../icons/animated/AnimatedIcon";
 import { AnimatedGifIcon } from "../../icons/animated/brand";
@@ -68,6 +70,8 @@ export type ComposerProps = {
 	typing?: JSX.Element;
 	editing?: ComposerEditing;
 	editorRef?: (handle: RichEditorHandle) => void;
+	linkPreviews?: boolean;
+	onLinkPreviewsChange?: (show: boolean) => void;
 	"aria-label"?: string;
 	safeBottom?: boolean;
 	class?: string;
@@ -80,11 +84,24 @@ const keepEditorFocus = (event: Event) => event.preventDefault();
 const toolButtonClass =
 	"text-muted-foreground not-aria-disabled:hover:text-foreground data-pressed:text-foreground";
 
+const linkTogglePopClass = cx(
+	"[&_svg]:scale-50 [&_svg]:opacity-0 [[data-visible]>&_svg]:scale-100 [[data-visible]>&_svg]:opacity-100",
+	"[&_svg]:transition-[scale,opacity] [&_svg]:duration-[calc(var(--duration-pop,320ms)*var(--motion-scale))] [&_svg]:ease-[var(--ease-pop,cubic-bezier(0.34,1.56,0.64,1))]",
+	"motion-reduce:[&_svg]:transition-none reduced-motion:[&_svg]:transition-none",
+);
+
 const toRichText = (value: RichText | string): RichText =>
 	typeof value === "string" ? { text: value, facets: [] } : value;
 
 const textOf = (value: RichText | string | undefined) =>
 	typeof value === "string" ? value : (value?.text ?? "");
+
+const LINK_FEATURE = "social.colibri.beta.richtext.facet#link";
+
+const hasLinkFacet = (value: RichText | undefined) =>
+	!!value?.facets.some((facet) =>
+		facet.features.some((feature) => feature.$type === LINK_FEATURE),
+	);
 
 const matches = (value: RichText | string, current: RichText) =>
 	typeof value === "string"
@@ -173,6 +190,9 @@ export const Composer = (props: ComposerProps) => {
 		}
 		props.onEscape?.();
 	};
+
+	const linkToggleVisible = () =>
+		props.linkPreviews !== undefined && !editing() && hasLinkFacet(current());
 
 	const ringVisible = () =>
 		utf8Length(text()) / max() >= (props.ringThreshold ?? 0.8);
@@ -283,6 +303,40 @@ export const Composer = (props: ComposerProps) => {
 									}}
 								/>
 							</div>
+							<span
+								data-link-preview-slot=""
+								data-visible={linkToggleVisible() || undefined}
+								inert={!linkToggleVisible() || undefined}
+								class={cx(
+									ringSlotClass,
+									platform() === "desktop" ? "-ml-3" : "-ml-2",
+								)}
+							>
+								<IconButton
+									data-composer-link-previews=""
+									data-off={props.linkPreviews === false || undefined}
+									variant="ghost"
+									label={
+										props.linkPreviews === false
+											? "Show link previews"
+											: "Hide link previews"
+									}
+									icon={
+										props.linkPreviews === false ? <UnlinkIcon /> : <LinkIcon />
+									}
+									class={cx(
+										props.linkPreviews === false
+											? toolButtonClass
+											: "text-primary-highlight not-aria-disabled:hover:text-primary-highlight",
+										linkTogglePopClass,
+									)}
+									onPointerDown={keepEditorFocus}
+									onMouseDown={keepEditorFocus}
+									onClick={() =>
+										props.onLinkPreviewsChange?.(props.linkPreviews === false)
+									}
+								/>
+							</span>
 							<Show when={platform() === "desktop"}>
 								<IconButton
 									variant="ghost"

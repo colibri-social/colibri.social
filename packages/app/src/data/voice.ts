@@ -123,6 +123,12 @@ export const createVoice = (
 			return !!store()?.isSpeaking(did);
 		};
 
+		const sharingIn = (channelUri: string, did: Did) =>
+			current()?.channel === channelUri &&
+			!!link()
+				.videos?.()
+				.some((video) => video.did === did);
+
 		const channelOf = (did: string) =>
 			store()?.presenceOf(did as Did)?.voice?.channel;
 
@@ -193,6 +199,10 @@ export const createVoice = (
 					speaking: speakingIn(channelUri, did),
 					muted: voice?.muted,
 					deafened: voice?.deafened,
+					streaming:
+						!!(voice?.camera || voice?.screen) ||
+						sharingIn(channelUri, did) ||
+						undefined,
 					...moderated(channelUri, did, voice),
 				};
 			});

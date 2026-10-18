@@ -6,7 +6,14 @@ import {
 } from "./activation";
 import { resolveNotifier } from "./index";
 import { createNativeNotifier } from "./native";
-import { createPluginNotifier, notificationId } from "./plugin";
+import {
+	type ActivationMemory,
+	createActivationMemory,
+	createPluginNotifier,
+	notificationId,
+	type PluginAction,
+	type RememberedActivations,
+} from "./plugin";
 import type { TauriPort } from "./tauri-port";
 import type { OsActivation, OsNotification } from "./types";
 
@@ -54,6 +61,16 @@ const fakePort = (
 };
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+const memoryOf = (): ActivationMemory => {
+	const entries = new Map<number, string>();
+	return {
+		remember: (id, key) => {
+			entries.set(id, key);
+		},
+		recall: (id) => entries.get(id),
+	};
+};
 
 describe("activation keys", () => {
 	it("round-trips the channel, thread and message", () => {
@@ -111,8 +128,14 @@ describe("plugin notifier", () => {
 
 	it("posts one notification per conversation and dismisses it by id", async () => {
 		const port = fakePort();
-		const notifier = createPluginNotifier(port);
-		await notifier.show(notification({ thread: THREAD }));
+		const notifier = createPluginNotifier(
+			port,
+			createActivationBus(),
+			async () => () => {},
+			memoryOf(),
+		);
+		const shown = notification({ thread: THREAD });
+		await notifier.show(shown);
 		await notifier.dismiss(THREAD);
 		expect(port.calls).toEqual([
 			{
@@ -124,6 +147,7 @@ describe("plugin notifier", () => {
 						body: "Mentioned you · HQ › #general\nhey, look at this",
 						group: THREAD,
 						autoCancel: true,
+						extra: { activation: encodeActivation(shown) },
 					},
 				},
 			},
@@ -136,6 +160,74 @@ describe("plugin notifier", () => {
 
 	it("matches the Java string hash", () => {
 		expect(notificationId("abc")).toBe(96354);
+	});
+
+	it("opens the conversation from the payload of a tapped notification", async () => {
+		let tap: ((action: PluginAction) => void) | undefined;
+		const notifier = createPluginNotifier(
+			fakePort(),
+			createActivationBus(),
+			async (handler) => {
+				tap = handler;
+				return () => {};
+			},
+			memoryOf(),
+		);
+		const seen: OsActivation[] = [];
+		notifier.onActivation((activation) => seen.push(activation));
+		await flush();
+		tap?.({
+			actionId: "tap",
+			notification: {
+				id: notificationId(THREAD),
+				group: THREAD,
+				extra: {
+					activation: encodeActivation(notification({ thread: THREAD })),
+				},
+			},
+		});
+		tap?.({
+			actionId: "dismiss",
+			notification: { extra: { activation: encodeActivation(notification()) } },
+		});
+		expect(seen).toEqual([{ channel: CHANNEL, thread: THREAD, rkey: "m1" }]);
+	});
+
+	it("finds the conversation by id when the tap carries no payload", async () => {
+		let tap: ((action: PluginAction) => void) | undefined;
+		const memory = memoryOf();
+		const notifier = createPluginNotifier(
+			fakePort(),
+			createActivationBus(),
+			async (handler) => {
+				tap = handler;
+				return () => {};
+			},
+			memory,
+		);
+		const seen: OsActivation[] = [];
+		notifier.onActivation((activation) => seen.push(activation));
+		await notifier.show(notification({ rkey: "m7" }));
+		tap?.({ actionId: "tap", notification: { id: notificationId(CHANNEL) } });
+		tap?.({ actionId: "tap", notification: { id: 42 } });
+		expect(seen).toEqual([{ channel: CHANNEL, rkey: "m7" }]);
+	});
+
+	it("keeps a bounded memory of shown notifications across restarts", () => {
+		let stored: RememberedActivations | undefined;
+		const open = () =>
+			createActivationMemory(
+				() => stored,
+				(entries) => {
+					stored = entries;
+				},
+			);
+		const first = open();
+		for (let id = 0; id < 60; id++) first.remember(id, `key-${id}`);
+		const second = open();
+		expect(second.recall(59)).toBe("key-59");
+		expect(second.recall(10)).toBe("key-10");
+		expect(second.recall(9)).toBeUndefined();
 	});
 });
 

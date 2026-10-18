@@ -13,6 +13,7 @@ export default editProfile.view({
 			</div>
 			<s.Fields platform="desktop" />
 			<s.Theme platform="desktop" />
+			<s.Badge />
 			<s.Sync />
 			<s.Bar />
 		</div>

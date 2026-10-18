@@ -16,7 +16,8 @@
 						"social.colibri.beta.notification.getUnreadCount",
 						"social.colibri.beta.notification.getUnseen",
 						"social.colibri.beta.notification.updateSeen",
-						"social.colibri.beta.notification.updateSeenForMessage"
+						"social.colibri.beta.notification.updateSeenForMessage",
+						"social.colibri.beta.notification.clear"
 					]
 				}
 			]

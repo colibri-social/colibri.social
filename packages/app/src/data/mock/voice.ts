@@ -4,9 +4,19 @@ import type { Did, Presence, SpaceRef, VoiceState } from "../types";
 import { createRandom } from "./seed";
 import type { World } from "./world";
 
-const SEEDED_ROOMS: { space: string; skey: string; count: number }[] = [
+const SEEDED_ROOMS: {
+	space: string;
+	skey: string;
+	count: number;
+	sharing?: Partial<Record<number, "camera" | "screen">>;
+}[] = [
 	{ space: "hq", skey: "lounge", count: 3 },
-	{ space: "owls", skey: "draw-along", count: 4 },
+	{
+		space: "owls",
+		skey: "draw-along",
+		count: 4,
+		sharing: { 0: "screen", 3: "camera" },
+	},
 	{ space: "owls", skey: "quiet-studio", count: 1 },
 ];
 
@@ -50,6 +60,7 @@ export const seedVoice = (world: World) => {
 				channel,
 				muted: index === 1 ? true : undefined,
 				deafened: index === 2 && room.count > 3 ? true : undefined,
+				...(room.sharing?.[index] ? { [room.sharing[index]]: true } : {}),
 			});
 		});
 	}

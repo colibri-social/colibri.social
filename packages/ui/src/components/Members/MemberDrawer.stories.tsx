@@ -2,6 +2,7 @@ import { createSignal } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
+import { FALLBACK_BADGE_DEFINITIONS, UserBadge } from "../Badge/Badge";
 import { storyImages } from "../Banner/story-images";
 import { Button } from "../Button/Button";
 import type { MemberMenuRole } from "../ContextMenu/MemberMenu";
@@ -89,7 +90,10 @@ type DemoProps = {
 	moderator?: boolean;
 	name?: string;
 	handle?: string;
+	badge?: boolean;
 };
+
+const STORY_BADGE = FALLBACK_BADGE_DEFINITIONS[0];
 
 const MemberDrawerDemo = (props: DemoProps) => {
 	const [open, setOpen] = createSignal(false);
@@ -133,6 +137,11 @@ const MemberDrawerDemo = (props: DemoProps) => {
 				handle={props.handle ?? "lis.colibri.social"}
 				avatarSrc={storyImages.tealIcon()}
 				avatarSeed="did:plc:lis"
+				badge={
+					props.badge && STORY_BADGE ? (
+						<UserBadge definition={STORY_BADGE} size="sm" />
+					) : undefined
+				}
 				onViewProfile={spy.viewProfile}
 				onCopyDid={spy.copyDid}
 				developerMode
@@ -332,6 +341,26 @@ export const LongNameAndHandle: Story = {
 		});
 		await new Promise((resolve) => setTimeout(resolve, 300));
 		await expectNoLayoutIssues(dialog);
+	},
+};
+
+export const WithBadge: Story = {
+	render: () => (
+		<MemberDrawerDemo badge name={LONG_NAME} handle={LONG_HANDLE} />
+	),
+	play: async ({ canvasElement }) => {
+		const dialog = await openDrawer(canvasElement, LONG_NAME);
+		await expectNoLayoutIssues(dialog);
+		const header = dialog.querySelector(
+			"[data-member-drawer-header]",
+		) as HTMLElement;
+		const badge = header.querySelector(
+			"[data-member-drawer-badge]",
+		) as HTMLElement;
+		await expect(badge).toBeVisible();
+		await expect(badge.getBoundingClientRect().right).toBeLessThanOrEqual(
+			header.getBoundingClientRect().right,
+		);
 	},
 };
 

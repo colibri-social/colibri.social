@@ -261,6 +261,39 @@ describe("thread draft", () => {
 		});
 	});
 
+	it("hides link previews on the first message when the toggle is off", async () => {
+		const { store, root } = await mount(`${GENERAL}/t/new`);
+		await until(() => !!pane(root, 2)?.querySelector('[role="textbox"]'));
+		await until(() => settled(root, 2));
+		const draft = pane(root, 2) as HTMLElement;
+		const editor = draft.querySelector<HTMLElement>('[role="textbox"]');
+		editor?.focus();
+		await userEvent.keyboard("Read https://example.com/field-notes ");
+		await until(() => !!button(draft, "Hide link previews"));
+		button(draft, "Hide link previews")?.click();
+		await until(() => !!button(draft, "Show link previews"));
+		await typeAndSend(draft, "today");
+		await until(() => /\/t\/[^/]+$/.test(location.pathname));
+		const ref = generalRef(store);
+		await until(() => {
+			const created = ref
+				? store
+						.channel(ref)
+						.threads.value()
+						?.find((entry) =>
+							location.pathname.endsWith(entry.space.split("/").at(-1) ?? ""),
+						)
+				: undefined;
+			const first = created
+				? store.channel(created.space).messages()[0]
+				: undefined;
+			return (
+				JSON.stringify(first?.suppressedEmbeds) ===
+				JSON.stringify(["https://example.com/field-notes"])
+			);
+		});
+	});
+
 	it("keeps the draft when creating the thread fails", async () => {
 		const { store, root } = await mount(`${GENERAL}/t/new`);
 		await until(() => settled(root, 2));

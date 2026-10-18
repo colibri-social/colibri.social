@@ -925,6 +925,62 @@ describe("catch-up on resume", () => {
 		store.setViewing(undefined);
 	});
 
+	it("jumps to an old message in one request and fills the gap above it", async () => {
+		const { base, store, ref, listed } = await setupQuiet();
+		const general = store.channel(ref("general"));
+		await until(() => general.ready());
+		const author = general.messages()[0]?.author.did;
+		if (!author) throw new Error("no author");
+		const sent = flood(base, ref("dev"), author, 300);
+		const dev = store.channel(ref("dev"));
+		await until(() => dev.ready());
+		const target = sent[150];
+		if (!target) throw new Error("no target");
+		expect(dev.messages().some((m) => m.rkey === target.rkey)).toBe(false);
+
+		listed.length = 0;
+		expect(await dev.loadAround(target.rkey)).toBe(true);
+		expect(listed).toHaveLength(1);
+		expect(dev.messages().some((m) => m.rkey === target.rkey)).toBe(true);
+		expect(dev.hasNewer()).toBe(true);
+
+		while (dev.hasNewer()) {
+			dev.loadNewer();
+			await until(() => !dev.loadingNewer());
+		}
+		const rkeys = dev.messages().map((message) => message.rkey);
+		expect(new Set(rkeys).size).toBe(rkeys.length);
+		expect([...rkeys].sort()).toEqual(rkeys);
+		expect(rkeys.at(-1)).toBe(sent.at(-1)?.rkey);
+	});
+
+	it("opens a channel far behind at its unread marker in one request", async () => {
+		const { base, store, ref, listed } = await setupQuiet();
+		const general = store.channel(ref("general"));
+		await until(() => general.ready());
+		const author = general.messages()[0]?.author.did;
+		if (!author) throw new Error("no author");
+		const sent = flood(base, ref("dev"), author, 300);
+		listed.length = 0;
+		const dev = store.channel(ref("dev"));
+		await until(() => dev.ready());
+		const first = sent[0];
+		if (!first) throw new Error("nothing sent");
+		expect(listed.filter((entry) => entry === ref("dev"))).toHaveLength(2);
+		expect(dev.messages().some((m) => m.rkey === first.rkey)).toBe(true);
+		expect(dev.unreadAfter()).toBeDefined();
+		expect(dev.hasNewer()).toBe(true);
+		dev.jumpToLatest();
+		expect(dev.messages().at(-1)?.rkey).toBe(sent.at(-1)?.rkey);
+	});
+
+	it("reports a message it can't find when jumping", async () => {
+		const { store, ref } = await setupQuiet();
+		const general = store.channel(ref("general"));
+		await until(() => general.ready());
+		expect(await general.loadAround("0000000000000")).toBe(false);
+	});
+
 	it("marks read only through the loaded messages while a gap is open", async () => {
 		const { base, store, ref } = await setupQuiet();
 		const general = store.channel(ref("general"));
@@ -1062,6 +1118,37 @@ describe("outbox", () => {
 		expect(second.channel.pending()).toHaveLength(0);
 	});
 
+	it("shows queued edits and reactions again after a restart", async () => {
+		const kv = createMemoryKvStore();
+		const queue = () => createOutboxQueue({ owner: "app:did:plc:me", kv });
+		const source = createMockSource({ live: false });
+		const first = await setup({
+			source,
+			store: { outbox: { queue: queue() } },
+		});
+		const own = first.channel
+			.messages()
+			.find((message) => message.author.did === first.store.viewer.did);
+		if (!own) throw new Error("no own message");
+		first.store.setSimulation({ offline: true });
+		await first.channel.edit(own.rkey, "edited offline");
+		await first.channel.react(own.rkey, "🪺", true);
+		await until(() => first.store.outbox.pendingCount() === 2);
+		first.store.dispose();
+		source.setSimulation({ offline: false });
+
+		const second = await setup({
+			source,
+			store: { outbox: { queue: queue(), held: () => true } },
+		});
+		const shown = () =>
+			second.channel.messages().find((message) => message.rkey === own.rkey);
+		await until(() => shown()?.text === "edited offline");
+		const reaction = shown()?.reactions.find((entry) => entry.emoji === "🪺");
+		expect(reaction?.viewerReacted).toBe(true);
+		expect(reaction?.reactors).toContain(second.store.viewer.did);
+	});
+
 	it("puts an edit back when it fails for good", async () => {
 		const { store, channel, source } = await setup();
 		const failures: WriteFailure[] = [];
@@ -1125,5 +1212,29 @@ describe("outbox", () => {
 		expect(reacted()).toBe(true);
 		await until(() => failures.length === 1);
 		expect(reacted()).toBe(false);
+	});
+});
+
+describe("ownership transfer", () => {
+	it("refreshes the Space so the previous owner loses owner access", async () => {
+		const source = createMockSource({ live: false });
+		const { store, hq } = await setup({ source });
+		const getCommunity = source.getCommunity;
+		source.getCommunity = async (did) => {
+			const view = await getCommunity(did);
+			return { ...view, viewer: { ...view.viewer, isOwner: false } };
+		};
+		source.transferOwnership = async () =>
+			({ owner: {}, previousOwner: {} }) as Awaited<
+				ReturnType<DataSource["transferOwnership"]>
+			>;
+		const owner = () =>
+			store.communities.value()?.find((entry) => entry.did === hq.did)?.viewer
+				.isOwner;
+		expect(owner()).toBe(true);
+
+		await store.community.transferOwnership(hq.did, "did:plc:someoneelse");
+
+		expect(owner()).toBe(false);
 	});
 });

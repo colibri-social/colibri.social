@@ -23,6 +23,7 @@ import type { ThreadAnchor } from "../../data/source";
 import { useData } from "../../data/store";
 import { defineContract, slot } from "../../screen/define";
 import { useStack } from "../../shell/stack";
+import { suppressedLinksFor } from "../channel/composer/link-previews";
 import { createConversation } from "../channel/conversation";
 import { closePane } from "../thread/close-pane";
 import {
@@ -79,6 +80,12 @@ export const threadDraft = defineContract({
 				add: (files) => conversation.attachments.addFiles(files),
 			},
 		});
+		const showLinkPreviews = () =>
+			draft.linkPreviews() ?? conversation.linkPreviewsByDefault();
+		const linkPreviews = () =>
+			conversation.chat.linkEmbedsEnabled?.() === false
+				? undefined
+				: showLinkPreviews();
 		const [name, setNameSignal] = createSignal("");
 		createEffect(
 			on(draftKey, (key) => {
@@ -131,6 +138,7 @@ export const threadDraft = defineContract({
 			const anchor: ThreadAnchor | undefined = message
 				? { space: ref, did: message.author.did, rkey: message.rkey }
 				: undefined;
+			const showPreviews = showLinkPreviews();
 			setBusy(true);
 			try {
 				const created = await data.channel(ref).createThread({
@@ -143,11 +151,16 @@ export const threadDraft = defineContract({
 					payload.text,
 					payload.facets,
 				);
+				const suppressedEmbeds = suppressedLinksFor(
+					converted.facets,
+					showPreviews,
+				);
 				void data.channel(created.space).send({
 					...payload,
 					text: converted.text,
 					facets: converted.facets,
 					files: conversation.attachments.take(),
+					suppressedEmbeds,
 				});
 				stack.replaceTop({
 					kind: "thread",
@@ -181,6 +194,7 @@ export const threadDraft = defineContract({
 			tooLong,
 			submit,
 			draft,
+			linkPreviews,
 			discard,
 		};
 	},
@@ -300,6 +314,8 @@ export const threadDraft = defineContract({
 					disabled={m.parent()?.viewer.canPost === false}
 					disabledReason="You can't post in this channel."
 					top={<m.conversation.attachments.Tray />}
+					linkPreviews={m.linkPreviews()}
+					onLinkPreviewsChange={m.draft.setLinkPreviews}
 				/>
 				<m.conversation.media.Sheet />
 			</>

@@ -376,7 +376,9 @@ export const MessageRow = (props: MessageRowProps) => {
 						? highlightClass[highlight() as MessageHighlight]
 						: failed()
 							? "hover:bg-destructive/10"
-							: "hover:bg-popover",
+							: mobile()
+								? "hover:bg-popover"
+								: "hover:bg-popover-highlight",
 					failed() && mobile() && "cursor-pointer",
 					listItem && "focus-ring-inset",
 					local.class,

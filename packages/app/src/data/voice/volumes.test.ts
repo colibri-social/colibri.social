@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	clampVolume,
 	isParticipantVolumes,
-	playbackVolume,
+	playbackGain,
 	volumeOf,
 	withVolume,
 } from "./volumes";
@@ -31,10 +31,11 @@ describe("participant volumes", () => {
 	});
 
 	it("combines the output and participant volume for playback", () => {
-		expect(playbackVolume(100, 100)).toBe(1);
-		expect(playbackVolume(50, 50)).toBe(0.25);
-		expect(playbackVolume(200, 200)).toBe(1);
-		expect(playbackVolume(0, 150)).toBe(0);
+		expect(playbackGain(100, 100)).toBe(1);
+		expect(playbackGain(50, 50)).toBe(0.25);
+		expect(playbackGain(200, 200)).toBe(4);
+		expect(playbackGain(100, 150)).toBe(1.5);
+		expect(playbackGain(0, 150)).toBe(0);
 	});
 
 	it("rejects stored values it can't use", () => {

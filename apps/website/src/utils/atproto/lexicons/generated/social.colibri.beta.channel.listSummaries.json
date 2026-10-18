@@ -1,0 +1,56 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.listSummaries",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets the latest message of every text channel in a community that the requesting user may read, for channel list previews. Channels with no message the user may see are absent.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community to summarize channels of."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"summaries"
+					],
+					"properties": {
+						"summaries": {
+							"type": "array",
+							"description": "One summary per readable text channel that has a visible message.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.channel.defs#channelSummary"
+							}
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user is not a member of this community, or is banned from it."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists with that DID."
+				}
+			]
+		}
+	}
+}

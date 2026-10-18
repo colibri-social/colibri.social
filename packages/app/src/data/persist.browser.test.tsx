@@ -8,9 +8,11 @@ import {
 	readAttachmentDraft,
 	readComposerDraft,
 	readEditDraft,
+	readLinkPreviewsDraft,
 	writeAttachmentDraft,
 	writeComposerDraft,
 	writeEditDraft,
+	writeLinkPreviewsDraft,
 } from "./persist-drafts";
 import { createDataStore } from "./store";
 
@@ -174,6 +176,69 @@ describe("composer drafts", () => {
 		await wait(400);
 		dispose();
 		expect(textOf(readComposerDraft(key))).toBe("kept");
+	});
+
+	it("keeps the link preview choice with each channel's draft", async () => {
+		const key = "at://did:plc:test/space/link-previews";
+		const other = "at://did:plc:test/space/link-previews-other";
+		remember(`colibri:draft:${key}`);
+		remember(`colibri:link-previews:${key}`);
+		const [channel, setChannel] = createSignal(key);
+		const editor = fakeEditor();
+		let draft: ReturnType<typeof createComposerDraft> | undefined;
+		const dispose = createRoot((dispose) => {
+			draft = createComposerDraft({ key: channel });
+			draft.bind(editor);
+			return dispose;
+		});
+		expect(draft?.linkPreviews()).toBeUndefined();
+		editor.type("see https://example.com");
+		draft?.changed();
+		draft?.setLinkPreviews(false);
+		expect(draft?.linkPreviews()).toBe(false);
+		expect(readLinkPreviewsDraft(key)).toBe(false);
+		setChannel(other);
+		expect(draft?.linkPreviews()).toBeUndefined();
+		setChannel(key);
+		expect(draft?.linkPreviews()).toBe(false);
+		dispose();
+
+		const remounted = fakeEditor();
+		let clear: () => void = () => {};
+		let restored: (() => boolean | undefined) | undefined;
+		const disposeSecond = createRoot((dispose) => {
+			const next = createComposerDraft({ key: () => key });
+			next.bind(remounted);
+			clear = next.clear;
+			restored = next.linkPreviews;
+			return dispose;
+		});
+		expect(restored?.()).toBe(false);
+		clear();
+		expect(restored?.()).toBeUndefined();
+		expect(readLinkPreviewsDraft(key)).toBeUndefined();
+		disposeSecond();
+	});
+
+	it("forgets the link preview choice once the draft is emptied", async () => {
+		const key = "at://did:plc:test/space/link-previews-empty";
+		remember(`colibri:draft:${key}`);
+		remember(`colibri:link-previews:${key}`);
+		writeLinkPreviewsDraft(key, true);
+		const editor = fakeEditor("https://example.com");
+		let draft: ReturnType<typeof createComposerDraft> | undefined;
+		const dispose = createRoot((dispose) => {
+			draft = createComposerDraft({ key: () => key });
+			draft.bind(editor);
+			return dispose;
+		});
+		expect(draft?.linkPreviews()).toBe(true);
+		editor.type("");
+		draft?.changed();
+		await wait(400);
+		expect(draft?.linkPreviews()).toBeUndefined();
+		expect(readLinkPreviewsDraft(key)).toBeUndefined();
+		dispose();
 	});
 
 	it("keeps attachments for a channel across composer remounts", async () => {

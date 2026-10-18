@@ -226,6 +226,14 @@
 				"serverDeafened": {
 					"type": "boolean",
 					"description": "Whether a moderator deafened them. When this is true they cannot undeafen themselves."
+				},
+				"camera": {
+					"type": "boolean",
+					"description": "Whether the user is sharing their camera."
+				},
+				"screen": {
+					"type": "boolean",
+					"description": "Whether the user is sharing their screen."
 				}
 			}
 		},

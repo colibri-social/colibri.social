@@ -4,5 +4,10 @@
   "description": "iOS-only capabilities.",
   "platforms": ["iOS"],
   "windows": ["main"],
-  "permissions": ["core:window:allow-set-badge-count"]
+  "permissions": [
+    "core:window:allow-set-badge-count",
+    "haptics:allow-impact-feedback",
+    "haptics:allow-notification-feedback",
+    "haptics:allow-selection-feedback"
+  ]
 }

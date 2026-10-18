@@ -18,6 +18,10 @@ body {
 	overflow: hidden;
 }
 
+[data-chrome="macos"] * {
+	overscroll-behavior: none;
+}
+
 #root {
 	height: 100dvh;
 }

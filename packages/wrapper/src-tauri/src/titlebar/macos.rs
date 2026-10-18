@@ -120,7 +120,12 @@ fn restore(window: &WebviewWindow) {
         if let Some(close) = ns_window.standardWindowButton(NSWindowButton::CloseButton) {
             if let Some(titlebar) = unsafe { close.superview() } {
                 if let Some(container) = unsafe { titlebar.superview() } {
-                    container.setFrame(snapshot.container);
+                    let window_size = ns_window.frame().size;
+                    let height = snapshot.container.size.height;
+                    container.setFrame(NSRect::new(
+                        NSPoint::new(0.0, window_size.height - height),
+                        NSSize::new(window_size.width, height),
+                    ));
                 }
             }
         }

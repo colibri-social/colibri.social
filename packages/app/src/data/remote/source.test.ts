@@ -1,7 +1,7 @@
 import { type ColibriError, colibri } from "@colibri-social/lib";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_COMPOSER } from "../preferences/types";
-import type { DataSource } from "../source";
+import { type DataSource, TransferOwnershipError } from "../source";
 import type { MessageView, SpaceRef } from "../types";
 import {
 	createFakeLive,
@@ -216,6 +216,30 @@ describe("createRemoteSource", () => {
 		const call = only(fake.callsTo(colibri.channel.listMessages.main.nsid));
 		expect(call.params.get("channel")).toBe(CHANNEL);
 		expect(call.params.get("cursor")).toBe("4");
+	});
+
+	it("loads messages around one and keeps both cursors", async () => {
+		const { fake, source } = await setup((fake) =>
+			fake.on(
+				colibri.channel.listMessages.main.nsid,
+				json({
+					messages: [message("6"), message("5"), message("4")],
+					cursor: "4",
+					forwardCursor: "6",
+				}),
+			),
+		);
+
+		const page = await source.listMessages({
+			channel: CHANNEL,
+			limit: 3,
+			around: "5",
+		});
+
+		expect(page.cursor).toBe("4");
+		expect(page.forwardCursor).toBe("6");
+		const call = only(fake.callsTo(colibri.channel.listMessages.main.nsid));
+		expect(call.params.get("around")).toBe("5");
 	});
 
 	it("writes a message record into the channel space", async () => {
@@ -869,30 +893,50 @@ describe("createRemoteSource", () => {
 		);
 	});
 
-	it("builds channel previews from each text channel's newest message", async () => {
-		const { fake, source } = await setup((fake) => {
+	it("loads channel previews for a Space in one request", async () => {
+		const { fake, source } = await setup((fake) =>
 			fake.on(
-				colibri.community.listChannels.main.nsid,
+				colibri.channel.listSummaries.main.nsid,
 				json({
-					channels: [
-						{ space: CHANNEL, type: "social.colibri.beta.channel.text" },
-						{ space: VOICE, type: "social.colibri.beta.channel.voice" },
+					summaries: [
+						{
+							channel: CHANNEL,
+							rkey: "20",
+							author: OTHER,
+							text: "  latest\n line ",
+							attachmentCount: 0,
+							forward: false,
+							createdAt: "2026-10-17T10:00:00.000Z",
+						},
+						{
+							channel: CHANNEL,
+							rkey: "21",
+							author: OTHER,
+							text: "",
+							attachmentKind: "image",
+							attachmentCount: 2,
+							forward: false,
+							createdAt: "2026-10-17T10:01:00.000Z",
+						},
 					],
 				}),
-			);
-			fake.on(
-				colibri.channel.listMessages.main.nsid,
-				json({ messages: [message("20", OTHER, "latest")] }),
-			);
-		});
+			),
+		);
 
 		const summaries = await source.listChannelSummaries(COMMUNITY);
 
 		expect(summaries).toEqual([
-			expect.objectContaining({ channel: CHANNEL, rkey: "20", text: "latest" }),
+			expect.objectContaining({ rkey: "20", text: "latest line" }),
+			expect.objectContaining({
+				rkey: "21",
+				text: "Sent 2 images",
+				attachment: "image",
+			}),
 		]);
+		const call = only(fake.callsTo(colibri.channel.listSummaries.main.nsid));
+		expect(call.params.get("community")).toBe(COMMUNITY);
 		expect(fake.callsTo(colibri.channel.listMessages.main.nsid)).toHaveLength(
-			1,
+			0,
 		);
 	});
 
@@ -1065,6 +1109,38 @@ describe("createRemoteSource", () => {
 		const body = only(fake.callsTo("com.atproto.repo.putRecord"))
 			.body as Record<string, any>;
 		expect(body.record.pronouns).toBe(expected);
+	});
+
+	it.each([
+		{ existing: {}, preferredBadge: "team", expected: "team" },
+		{
+			existing: { preferredBadge: "team" },
+			preferredBadge: null,
+			expected: undefined,
+		},
+		{
+			existing: { preferredBadge: "team" },
+			preferredBadge: undefined,
+			expected: "team",
+		},
+	])("writes preferred badge $preferredBadge over $existing", async ({
+		existing,
+		preferredBadge,
+		expected,
+	}) => {
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				"com.atproto.repo.getRecord",
+				json({ uri: "x", value: { syncBluesky: true, ...existing } }),
+			);
+			fake.on("com.atproto.repo.putRecord", json({ uri: "x", cid: "c" }));
+		});
+
+		await source.putProfile({ syncBluesky: true, preferredBadge });
+
+		const body = only(fake.callsTo("com.atproto.repo.putRecord"))
+			.body as Record<string, any>;
+		expect(body.record.preferredBadge).toBe(expected);
 	});
 
 	const profileRecords =
@@ -1353,12 +1429,75 @@ describe("createRemoteSource", () => {
 		for (const attempt of [
 			source.listEmoji(COMMUNITY),
 			source.listDiscoverable(),
-			source.transferOwnership({ community: COMMUNITY, subject: OTHER }),
 		]) {
 			const failure = await attempt.catch((error: unknown) => error);
 			expect(isNotEnabled(failure)).toBe(true);
 			expect((failure as ColibriError).code).toBe("NotEnabled");
 		}
+	});
+
+	it("transfers ownership and returns both members", async () => {
+		const member = (did: string, roles: string[]) => ({
+			actor: profileOf(did),
+			roles,
+			joinedAt: "2026-01-01T00:00:00.000Z",
+		});
+		const { fake, source } = await setup((fake) =>
+			fake.on(
+				colibri.community.transferOwnership.main.nsid,
+				json({
+					owner: member(OTHER, ["owner", "mod"]),
+					previousOwner: member(VIEWER, ["mod"]),
+				}),
+			),
+		);
+
+		const result = await source.transferOwnership({
+			community: COMMUNITY,
+			subject: OTHER,
+		});
+
+		expect(
+			only(fake.callsTo(colibri.community.transferOwnership.main.nsid)).body,
+		).toEqual({ community: COMMUNITY, subject: OTHER });
+		expect(result.owner.actor.did).toBe(OTHER);
+		expect(result.owner.roles).toEqual(["owner", "mod"]);
+		expect(result.previousOwner.actor.did).toBe(VIEWER);
+		expect(result.previousOwner.roles).toEqual(["mod"]);
+	});
+
+	it("turns ownership transfer refusals into transfer errors", async () => {
+		const cases: [Response, string][] = [
+			[xrpcError(400, "AlreadyOwner"), "AlreadyOwner"],
+			[xrpcError(400, "Banned"), "Banned"],
+			[xrpcError(400, "MemberNotFound"), "MemberNotFound"],
+			[xrpcError(404, "CommunityNotFound"), "CommunityNotFound"],
+			[xrpcError(403, "Forbidden"), "Forbidden"],
+		];
+		for (const [reply, code] of cases) {
+			const { source } = await setup((fake) =>
+				fake.on(colibri.community.transferOwnership.main.nsid, reply),
+			);
+			const failure = await source
+				.transferOwnership({ community: COMMUNITY, subject: OTHER })
+				.catch((error: unknown) => error);
+			expect(failure).toBeInstanceOf(TransferOwnershipError);
+			expect((failure as TransferOwnershipError).code).toBe(code);
+		}
+	});
+
+	it("keeps other ownership transfer failures as Colibri errors", async () => {
+		const { source } = await setup((fake) =>
+			fake.on(
+				colibri.community.transferOwnership.main.nsid,
+				xrpcError(400, "CredentialsUnavailable"),
+			),
+		);
+		const failure = await source
+			.transferOwnership({ community: COMMUNITY, subject: OTHER })
+			.catch((error: unknown) => error);
+		expect(failure).not.toBeInstanceOf(TransferOwnershipError);
+		expect((failure as ColibriError).code).toBe("CredentialsUnavailable");
 	});
 
 	it("watches the viewer's communities and swaps the set on reload", async () => {

@@ -30,7 +30,6 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
-import { createStore } from "solid-js/store";
 import type { AuthorDirectory } from "../../data/adapters/authors";
 import { displayNameOf } from "../../data/adapters/authors";
 import { skeyOf, spaceKey } from "../../data/ids";
@@ -92,10 +91,6 @@ export const inbox = defineContract({
 		const stack = useStack();
 		const store = data.notifications;
 		const [filter, setFilter] = createSignal<InboxFilter>("all");
-		const [threadNames, setThreadNames] = createStore<Record<string, string>>(
-			{},
-		);
-		const requestedThreads = new Set<string>();
 
 		const communities = createMemo(
 			() =>
@@ -138,19 +133,6 @@ export const inbox = defineContract({
 			return map;
 		});
 
-		createEffect(() => {
-			for (const view of store.items()) {
-				const parent = view.channel;
-				if (!view.thread || requestedThreads.has(parent)) continue;
-				requestedThreads.add(parent);
-				void data.source.listThreads(parent).then((threads) => {
-					for (const thread of threads) {
-						setThreadNames(thread.space, thread.name);
-					}
-				});
-			}
-		});
-
 		const viewerLabel = () => {
 			const viewer = data.viewer;
 			return displayNameOf(viewer).split(/\s+/)[0] ?? "you";
@@ -166,7 +148,6 @@ export const inbox = defineContract({
 				roles: (community: string) => spaceOf(community)?.roles.value() ?? [],
 				channelName: (community: string, channel: SpaceRef) =>
 					spaceOf(community)?.channelBySlug(skeyOf(channel))?.name,
-				threadName: (thread: SpaceRef) => threadNames[thread],
 			};
 			const byId = new Map<string, NotificationView>();
 			const list = views.map((view) => {

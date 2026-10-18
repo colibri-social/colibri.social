@@ -532,6 +532,34 @@
 				}
 			}
 		},
+		"invitationEvent": {
+			"type": "object",
+			"description": "A community's invitation list changed. Only sent to members who can create invitations.",
+			"required": [
+				"event",
+				"community",
+				"code"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened.",
+					"knownValues": [
+						"create",
+						"delete"
+					]
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community."
+				},
+				"code": {
+					"type": "string",
+					"description": "The invitation code that was created or deleted."
+				}
+			}
+		},
 		"labelEvent": {
 			"type": "object",
 			"description": "A label was applied or retracted on a record in a subscribed space.",
@@ -631,6 +659,11 @@
 					"type": "string",
 					"format": "datetime",
 					"description": "The point everything was marked seen up to."
+				},
+				"clearedAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "Set when the user cleared their inbox. Notifications raised at or before this time are gone from it."
 				}
 			}
 		},

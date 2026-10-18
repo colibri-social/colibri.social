@@ -13,7 +13,8 @@
 					"inheritAud": true,
 					"lxm": [
 						"social.colibri.beta.notification.registerPush",
-						"social.colibri.beta.notification.unregisterPush"
+						"social.colibri.beta.notification.unregisterPush",
+						"social.colibri.beta.notification.markReadFromNotification"
 					]
 				}
 			]

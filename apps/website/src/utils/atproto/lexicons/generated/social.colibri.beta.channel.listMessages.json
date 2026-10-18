@@ -31,6 +31,11 @@
 						"type": "boolean",
 						"default": false,
 						"description": "Whether to return the oldest messages first instead of the newest."
+					},
+					"around": {
+						"type": "string",
+						"format": "record-key",
+						"description": "Centres the page on this message record key. The page holds up to limit messages, newest first: the newer half, then the message itself and the older half. cursor and reverse are ignored when this is set."
 					}
 				}
 			},
@@ -44,7 +49,11 @@
 					"properties": {
 						"cursor": {
 							"type": "string",
-							"description": "Pagination cursor for the next page."
+							"description": "Pagination cursor for the next page. With around, it continues towards older messages."
+						},
+						"forwardCursor": {
+							"type": "string",
+							"description": "Only set with around, when newer messages remain. Pass it as cursor with reverse set to continue towards newer messages."
 						},
 						"messages": {
 							"type": "array",

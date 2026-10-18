@@ -29,10 +29,11 @@ export const describeNotification = (
 	const channelName =
 		space?.channelBySlug(skeyOf(view.channel))?.name ?? skeyOf(view.channel);
 	const threadName = view.thread
-		? data
+		? (view.threadName ??
+			data
 				.threadsOf(view.channel)
 				.value()
-				?.find((thread) => thread.space === view.thread)?.name
+				?.find((thread) => thread.space === view.thread)?.name)
 		: undefined;
 	const location = view.thread
 		? (threadName ?? `Thread in #${channelName}`)

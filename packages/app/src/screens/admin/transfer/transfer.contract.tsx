@@ -1,3 +1,4 @@
+import { classifyThrown, createLogger } from "@colibri-social/lib";
 import {
 	Avatar,
 	Button,
@@ -11,6 +12,7 @@ import {
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { displayNameOf } from "../../../data/adapters/authors";
+import { describeError } from "../../../data/error-copy";
 import {
 	TransferOwnershipError,
 	type TransferOwnershipErrorCode,
@@ -20,10 +22,13 @@ import { defineContract, slot } from "../../../screen/define";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { useUnsavedChanges } from "../../../shell/unsaved-changes";
+import { PrimaryBadge } from "../../profile/user-badges";
 import { AdminNavHeader } from "../desktop/page-header";
 import { useAdminSpace } from "../space-admin";
 
 const MAX_RESULTS = 8;
+
+const log = createLogger("admin-transfer");
 
 export const TRANSFER_COPY = {
 	warning:
@@ -42,10 +47,13 @@ export const TRANSFER_COPY = {
 	} satisfies Record<TransferOwnershipErrorCode, string>,
 } as const;
 
-export const transferErrorMessage = (error: unknown) =>
-	error instanceof TransferOwnershipError
-		? TRANSFER_COPY.errors[error.code]
-		: TRANSFER_COPY.failed;
+export const transferErrorCopy = (error: unknown) => ({
+	title: TRANSFER_COPY.failed,
+	description:
+		error instanceof TransferOwnershipError
+			? TRANSFER_COPY.errors[error.code]
+			: describeError(error).description,
+});
 
 const matchesQuery = (member: MemberView, query: string) => {
 	const needle = query.toLowerCase();
@@ -113,7 +121,14 @@ export const spaceTransfer = defineContract({
 				);
 				stack.pop();
 			} catch (error) {
-				toast.error(transferErrorMessage(error));
+				log.warn("transfer failed", {
+					code:
+						error instanceof TransferOwnershipError
+							? error.code
+							: classifyThrown(error).code,
+				});
+				const copy = transferErrorCopy(error);
+				toast.error(copy.title, { description: copy.description });
 			} finally {
 				setTransferring(false);
 			}
@@ -214,7 +229,14 @@ export const spaceTransfer = defineContract({
 											seed={member.actor.did}
 										/>
 									}
-									title={displayNameOf(member.actor, member)}
+									title={
+										<span class="flex min-w-0 items-center gap-1">
+											<span class="truncate">
+												{displayNameOf(member.actor, member)}
+											</span>
+											<PrimaryBadge profile={member.actor} />
+										</span>
+									}
 									description={`@${member.actor.handle}`}
 								/>
 							)}

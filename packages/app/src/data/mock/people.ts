@@ -443,6 +443,7 @@ export type ProfileEdit = {
 	banner?: string | null;
 	syncBluesky?: boolean;
 	theme?: ProfileView["theme"] | null;
+	preferredBadge?: string | null;
 };
 
 const applyEdit = (view: ProfileView, edit: ProfileEdit) => {
@@ -456,6 +457,9 @@ const applyEdit = (view: ProfileView, edit: ProfileEdit) => {
 	else if (edit.avatar !== undefined) view.avatar = edit.avatar as never;
 	if (edit.banner === null) delete view.banner;
 	else if (edit.banner !== undefined) view.banner = edit.banner as never;
+	if (edit.preferredBadge === null) delete view.preferredBadge;
+	else if (edit.preferredBadge !== undefined)
+		view.preferredBadge = edit.preferredBadge;
 	if (edit.theme === null) delete view.theme;
 	else if (edit.theme !== undefined) view.theme = edit.theme;
 };

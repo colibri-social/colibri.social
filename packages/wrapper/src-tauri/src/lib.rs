@@ -268,6 +268,11 @@ pub fn run() {
         }
     }
 
+    #[cfg(mobile)]
+    {
+        builder = builder.plugin(tauri_plugin_haptics::init());
+    }
+
     #[cfg(target_os = "android")]
     {
         builder = builder

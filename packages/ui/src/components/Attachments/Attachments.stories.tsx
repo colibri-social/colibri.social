@@ -3,6 +3,7 @@ import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectFocusRingVisible } from "../../foundations/focus-ring-test";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
+import { paintImage } from "../Banner/story-images";
 import { createStoryClip } from "../Media/story-clip";
 import { MessageRow } from "../Message/MessageRow";
 import {
@@ -80,6 +81,28 @@ const MediaCases = (props: { desktop?: boolean }) => {
 				}
 			/>
 			<Message
+				text="Tiny one"
+				attachments={
+					<MediaGrid items={[fixtureImage(2, 160, 120)]} onOpen={onOpen} />
+				}
+			/>
+			<Message
+				name="Lis"
+				text="Unsized"
+				attachments={
+					<MediaGrid
+						items={[
+							{
+								src: paintImage(140, 80, ["#60a5fa", "#1e3a8a"]),
+								alt: "Unsized photo",
+								name: "unsized.png",
+							},
+						]}
+						onOpen={onOpen}
+					/>
+				}
+			/>
+			<Message
 				text="Two of them"
 				attachments={<MediaGrid items={fixtureImages(2)} onOpen={onOpen} />}
 			/>
@@ -135,6 +158,22 @@ export const Media: Story = {
 		});
 		await userEvent.click(tiles[1] as HTMLElement);
 		await expect(onOpen).toHaveBeenCalledWith(1);
+		const tiny = canvas
+			.getByText("Tiny one")
+			.closest("article")
+			?.querySelector("[data-media-grid]");
+		const box = (tiny as HTMLElement).getBoundingClientRect();
+		await expect(box.width).toBe(160);
+		await expect(box.height).toBe(120);
+		const unsized = canvas
+			.getByText("Unsized")
+			.closest("article")
+			?.querySelector("[data-media-grid]") as HTMLElement;
+		await waitFor(() => {
+			const measured = unsized.getBoundingClientRect();
+			expect(measured.width).toBe(140);
+			expect(measured.height).toBe(80);
+		});
 		await expect(canvas.getByText("+4")).toBeInTheDocument();
 		const more = canvas.getByRole("button", { name: "Show 4 more" });
 		await userEvent.click(more);

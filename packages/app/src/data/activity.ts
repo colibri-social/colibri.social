@@ -1,5 +1,6 @@
 import type { social } from "@colibri-social/lexicons";
 import type { NowPlayingCardProps } from "@colibri-social/ui";
+import { createSignal } from "solid-js";
 import type { Presence } from "./types";
 
 export type Activity = social.colibri.beta.actor.defs.Activity;
@@ -29,6 +30,54 @@ export const activityIsLive = (
 	return Number.isNaN(endsAt) || endsAt > now;
 };
 
+const MAX_TIMER_MS = 2_147_483_647;
+const EXPIRY_SLACK_MS = 50;
+
+export const nextActivityEnd = (
+	presence: Presence | undefined,
+	now = Date.now(),
+): number | undefined => {
+	let next: number | undefined;
+	for (const activity of presence?.activities ?? []) {
+		if (activity.endsAt === undefined) continue;
+		const endsAt = Date.parse(activity.endsAt);
+		if (Number.isNaN(endsAt) || endsAt <= now) continue;
+		if (next === undefined || endsAt < next) next = endsAt;
+	}
+	return next;
+};
+
+export const createActivityClock = (
+	clock: { now: () => number } = { now: Date.now },
+) => {
+	const [tick, setTick] = createSignal(0);
+	let wakeAt: number | undefined;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const wakeBy = (at: number) => {
+		const now = clock.now();
+		if (wakeAt !== undefined && wakeAt > now && wakeAt <= at) return;
+		if (timer !== undefined) clearTimeout(timer);
+		wakeAt = at;
+		timer = setTimeout(
+			() => {
+				timer = undefined;
+				wakeAt = undefined;
+				setTick((value) => value + 1);
+			},
+			Math.min(Math.max(0, at - now) + EXPIRY_SLACK_MS, MAX_TIMER_MS),
+		);
+	};
+	return (presence: Presence | undefined) => {
+		tick();
+		const now = clock.now();
+		const next = nextActivityEnd(presence, now);
+		if (next !== undefined) wakeBy(next);
+		return now;
+	};
+};
+
+export const activityNow = createActivityClock();
+
 const startedAt = (activity: Activity) => {
 	const value = activity.startedAt ? Date.parse(activity.startedAt) : 0;
 	return Number.isNaN(value) ? 0 : value;
@@ -36,7 +85,7 @@ const startedAt = (activity: Activity) => {
 
 export const liveActivitiesOf = (
 	presence: Presence | undefined,
-	now = Date.now(),
+	now = activityNow(presence),
 ): Activity[] =>
 	(presence?.activities ?? [])
 		.filter((activity) => activityIsLive(activity, now))
@@ -77,7 +126,7 @@ export const toNowPlaying = (
 export const nowPlayingOf = (
 	presence: Presence | undefined,
 	onOpen?: (href: string, label: string) => void,
-	now = Date.now(),
+	now = activityNow(presence),
 ) => {
 	const live = liveActivitiesOf(presence, now);
 	return live.length > 0
@@ -93,7 +142,7 @@ export type MemberActivityLine = {
 
 export const memberActivityOf = (
 	presence: Presence | undefined,
-	now = Date.now(),
+	now = activityNow(presence),
 ): MemberActivityLine | undefined => {
 	const live = liveActivitiesOf(presence, now);
 	const [current] = live;

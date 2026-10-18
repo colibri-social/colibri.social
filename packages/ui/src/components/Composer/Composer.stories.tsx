@@ -772,6 +772,108 @@ export const DesktopIconsFlushRight: Story = {
 	},
 };
 
+let linkPreviewEditor: RichEditorHandle | undefined;
+
+const LinkPreviewHost = (props: {
+	platform: "mobile" | "desktop";
+	initial?: boolean;
+}) => {
+	const [show, setShow] = createSignal(props.initial ?? true);
+	const Screen = props.platform === "desktop" ? DesktopScreen : MobileScreen;
+	return (
+		<Screen>
+			<div data-testid="link-preview-host">
+				<Composer
+					platform={props.platform}
+					channelName="general"
+					onSend={onSend}
+					linkPreviews={show()}
+					onLinkPreviewsChange={setShow}
+					editorRef={(handle) => {
+						linkPreviewEditor = handle;
+					}}
+				/>
+			</div>
+		</Screen>
+	);
+};
+
+const linkPreviewSlot = (canvasElement: HTMLElement) =>
+	canvasElement.querySelector("[data-link-preview-slot]") as HTMLElement;
+
+const playLinkPreviewToggle = async (canvasElement: HTMLElement) => {
+	const canvas = within(canvasElement);
+	const slot = linkPreviewSlot(canvasElement);
+	const emoji = canvas.getByRole("button", { name: "Add an emoji" });
+	const restingEmoji = rect(emoji).left;
+	await expect(slot).not.toHaveAttribute("data-visible");
+	await expect(slot).toHaveAttribute("inert");
+	const field = textarea(canvasElement);
+	await userEvent.click(field);
+	await userEvent.keyboard("Field notes https://example.com/notes ");
+	await waitFor(() => expect(slot).toHaveAttribute("data-visible"));
+	await expect(slot).not.toHaveAttribute("inert");
+	await waitFor(() =>
+		expect(Math.abs(rect(emoji).left - restingEmoji)).toBeLessThanOrEqual(1),
+	);
+	const hide = canvas.getByRole("button", { name: "Hide link previews" });
+	await userEvent.click(hide);
+	await expect(document.activeElement).toBe(field);
+	const showButton = canvas.getByRole("button", { name: "Show link previews" });
+	await expect(showButton).toHaveAttribute("data-off");
+	await waitFor(() => expect(rect(slot).width).toBeCloseTo(32, 0));
+	await expectNoLayoutIssues(canvas.getByTestId("link-preview-host"));
+	await userEvent.click(showButton);
+	await expect(
+		canvas.getByRole("button", { name: "Hide link previews" }),
+	).not.toHaveAttribute("data-off");
+	linkPreviewEditor?.setValue("");
+	await waitFor(() => expect(slot).not.toHaveAttribute("data-visible"));
+	await expect(slot).toHaveAttribute("inert");
+};
+
+export const DesktopLinkPreviewToggle: Story = {
+	render: () => <LinkPreviewHost platform="desktop" />,
+	play: async ({ canvasElement }) => playLinkPreviewToggle(canvasElement),
+};
+
+export const MobileLinkPreviewToggle: Story = {
+	render: () => <LinkPreviewHost platform="mobile" />,
+	play: async ({ canvasElement }) => playLinkPreviewToggle(canvasElement),
+};
+
+export const LinkPreviewsStartOff: Story = {
+	render: () => <LinkPreviewHost platform="desktop" initial={false} />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(textarea(canvasElement));
+		await userEvent.keyboard("See example.com/notes ");
+		await waitFor(() =>
+			expect(linkPreviewSlot(canvasElement)).toHaveAttribute("data-visible"),
+		);
+		await expect(
+			canvas.getByRole("button", { name: "Show link previews" }),
+		).toBeVisible();
+		await expectNoLayoutIssues(canvas.getByTestId("link-preview-host"));
+	},
+};
+
+export const LinkPreviewToggleHiddenWithoutSetting: Story = {
+	render: () => (
+		<DesktopScreen>
+			<Composer platform="desktop" channelName="general" onSend={onSend} />
+		</DesktopScreen>
+	),
+	play: async ({ canvasElement }) => {
+		await userEvent.click(textarea(canvasElement));
+		await userEvent.keyboard("Field notes https://example.com/notes ");
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		await expect(linkPreviewSlot(canvasElement)).not.toHaveAttribute(
+			"data-visible",
+		);
+	},
+};
+
 let editorHandle: RichEditorHandle | undefined;
 
 const liveStart = "Crows remember faces. ".repeat(100).slice(0, 2040);

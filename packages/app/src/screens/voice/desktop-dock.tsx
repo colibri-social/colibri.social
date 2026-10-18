@@ -12,10 +12,7 @@ import { useData } from "../../data/store";
 import { VOICE_CHANNEL } from "../../data/types";
 import { voice } from "../../data/voice";
 import { useOptionalDesktopShell } from "../../shell/desktop/context";
-import {
-	BAR_HEIGHT,
-	resolveChromeMode,
-} from "../../shell/desktop/window-chrome";
+import { windowBarHeight } from "../../shell/desktop/window-chrome";
 import { useStack } from "../../shell/stack";
 import { CameraPreviewHost } from "./camera-preview";
 import { installVoiceNotices } from "./notices";
@@ -171,7 +168,7 @@ export default function VoiceDock() {
 									setWidth(next);
 									writeStored(WIDTH_KEY, String(next));
 								}}
-								insets={{ top: BAR_HEIGHT[resolveChromeMode()] }}
+								insets={{ top: windowBarHeight() }}
 								cameraOn={voice.camera()}
 								onToggleCamera={voice.toggleCamera}
 								screenSharing={voice.screenSharing()}

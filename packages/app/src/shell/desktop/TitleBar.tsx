@@ -12,15 +12,16 @@ import {
 } from "solid-js";
 import { useData } from "../../data/store";
 import { useDesktopShell } from "./context";
+import { createSnapLayouts } from "./snap-layouts";
 import {
 	BAR_HEIGHT,
 	type ChromeMode,
-	type ControlsLayout,
 	composeWindowTitle,
-	controlsLayoutFrom,
 	nativeWindow,
 	resolveChromeMode,
+	windowBarShown,
 } from "./window-chrome";
+import { createWindowState } from "./window-state";
 
 type NavigationLike = EventTarget & {
 	canGoBack?: boolean;
@@ -81,40 +82,36 @@ export const WindowChrome = (props: {
 	iconSrc?: string;
 }) => {
 	const mode = () => props.mode ?? resolveChromeMode();
-	const [maximized, setMaximized] = createSignal(false);
-	const [fullscreen, setFullscreen] = createSignal(false);
-	const [layout, setLayout] = createSignal<ControlsLayout>(
-		controlsLayoutFrom(null),
-	);
+	const { maximized, fullscreen, layout } = createWindowState(mode);
+	const [maximizeButton, setMaximizeButton] = createSignal<HTMLElement>();
 
-	onMount(() => {
-		if (mode() === "none") return;
-		const refresh = () =>
-			void Promise.all([
-				nativeWindow.isMaximized(),
-				nativeWindow.isFullscreen(),
-			]).then(([isMaximized, isFullscreen]) =>
-				batch(() => {
-					setMaximized(isMaximized);
-					setFullscreen(isFullscreen);
-				}),
-			);
-		refresh();
-		window.addEventListener("resize", refresh);
-		onCleanup(() => window.removeEventListener("resize", refresh));
-		if (mode() === "linux") {
-			void nativeWindow
-				.buttonLayout()
-				.then((next) => setLayout(controlsLayoutFrom(next)));
-		}
-	});
-
+	const shown = () => windowBarShown(mode());
 	const controlsOnLeft = () => mode() === "linux" && layout().side === "left";
+	const showControls = () => shown() && mode() !== "macos";
+
+	const snapHovering =
+		mode() === "windows"
+			? createSnapLayouts({
+					element: maximizeButton,
+					enabled: () =>
+						showControls() &&
+						!fullscreen() &&
+						layout().order.includes("maximize"),
+				})
+			: () => false;
+
+	const onContextMenu = (event: MouseEvent) => {
+		if (mode() !== "windows" || event.defaultPrevented) return;
+		event.preventDefault();
+		void nativeWindow.showSystemMenu();
+	};
 
 	const controls = () => (
 		<WindowControls
 			order={layout().order}
 			maximized={maximized()}
+			hoveredControl={snapHovering() ? "maximize" : undefined}
+			maximizeRef={setMaximizeButton}
 			onMinimize={nativeWindow.minimize}
 			onMaximize={nativeWindow.toggleMaximize}
 			onClose={nativeWindow.close}
@@ -122,16 +119,17 @@ export const WindowChrome = (props: {
 	);
 
 	return (
-		<Show when={mode() !== "none"}>
+		<Show when={shown()}>
 			<WindowBar
 				dragRegion
 				title={props.title}
 				iconSrc={props.iconSrc}
 				macInset={mode() === "macos" && !fullscreen()}
 				roundedCorners={mode() === "macos"}
+				onContextMenu={onContextMenu}
 				leading={
 					<>
-						<Show when={controlsOnLeft()}>
+						<Show when={showControls() && controlsOnLeft()}>
 							<div data-tauri-drag-region="false" class="-ml-2 h-full">
 								{controls()}
 							</div>
@@ -140,9 +138,7 @@ export const WindowChrome = (props: {
 					</>
 				}
 				controls={
-					<Show when={mode() !== "macos" && !controlsOnLeft()}>
-						{controls()}
-					</Show>
+					<Show when={showControls() && !controlsOnLeft()}>{controls()}</Show>
 				}
 				class={
 					BAR_HEIGHT[mode()] === 36

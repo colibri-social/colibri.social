@@ -68,7 +68,6 @@ export type InboxContext = {
 	directory: (community: string) => AuthorDirectory | undefined;
 	roles: (community: string) => readonly RoleView[];
 	channelName: (community: string, channel: SpaceRef) => string | undefined;
-	threadName: (thread: SpaceRef) => string | undefined;
 };
 
 export const toInboxSpace = (community: CommunityView): InboxSpace => ({
@@ -116,7 +115,7 @@ export const toInboxNotification = (
 		read: !isUnread(view),
 	};
 	if (view.thread) {
-		notification.threadName = context.threadName(view.thread) ?? "Thread";
+		notification.threadName = view.threadName ?? "Thread";
 	}
 	if (!reply) {
 		notification.mentionLabel = role

@@ -1,6 +1,8 @@
 import { createSignal } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
+import { DEVICE_KEYS } from "../../../data/device-prefs";
+import { systemWindowControls } from "../../../data/system-window-controls";
 import { type SettingsNav, SettingsNavContext } from "../nav";
 import AdvancedPage from "./advanced";
 import { cleanup, mountPage } from "./page-test-kit";
@@ -31,6 +33,10 @@ vi.mock("@tauri-apps/api/app", () => ({
 afterEach(() => {
 	cleanup();
 	updater.setSupported(false);
+	systemWindowControls()[1](false);
+	delete (window as unknown as { __TAURI_INTERNALS__?: unknown })
+		.__TAURI_INTERNALS__;
+	vi.restoreAllMocks();
 });
 
 const mountAdvanced = () => {
@@ -91,4 +97,29 @@ it("shows the version and restarts into a downloaded update", async () => {
 		page.getByRole("button", { name: "Restart to update" }),
 	);
 	expect(updater.restartToApply).toHaveBeenCalledOnce();
+});
+
+it("hands the window frame to the system on desktop", async () => {
+	vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Edg/130.0",
+	);
+	const invoke = vi.fn(async () => null);
+	(window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ =
+		{ invoke };
+	const { mounted } = mountAdvanced();
+	await mounted;
+	const toggle = page.getByRole("switch", {
+		name: /Use system window controls/,
+	});
+	await expect.element(toggle).not.toBeChecked();
+	await userEvent.click(page.getByText("Use system window controls"));
+	await expect.element(toggle).toBeChecked();
+	await expect
+		.poll(() => invoke.mock.calls)
+		.toContainEqual([
+			"titlebar_set_native_decorations",
+			{ enabled: true },
+			undefined,
+		]);
+	expect(localStorage.getItem(DEVICE_KEYS.systemWindowControls)).toBe("true");
 });

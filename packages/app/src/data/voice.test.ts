@@ -9,6 +9,7 @@ import type {
 	VoiceEndReason,
 	VoiceModeration,
 	VoiceSession,
+	VoiceVideo,
 } from "./voice/types";
 import type { VoiceSound } from "./voice-sounds";
 
@@ -55,7 +56,11 @@ const setup = (theme?: ProfileTheme) => {
 		isSpeaking: () => false,
 		setVoice,
 	} as unknown as Parameters<typeof connect>[0]);
-	return { voice: controller, sent, setVoice, played };
+	const setPresence = (did: Did, voice: VoiceState) => {
+		presence.set(did, { onlineState: "online", voice });
+		bump();
+	};
+	return { voice: controller, sent, setVoice, played, setPresence };
 };
 
 describe("voice", () => {
@@ -167,6 +172,31 @@ describe("voice", () => {
 		}
 	});
 
+	it("marks participants sharing a camera or screen as streaming, joined or not", () => {
+		const { voice, setPresence } = setup();
+		const alice = "did:plc:alice" as Did;
+		const bob = "did:plc:bob" as Did;
+		const carol = "did:plc:carol" as Did;
+		setPresence(alice, {
+			channel: STANDUP as VoiceState["channel"],
+			camera: true,
+		});
+		setPresence(bob, {
+			channel: STANDUP as VoiceState["channel"],
+			screen: true,
+		});
+		setPresence(carol, { channel: STANDUP as VoiceState["channel"] });
+		expect(
+			voice
+				.participants(STANDUP)
+				.map((person) => [person.id, person.streaming]),
+		).toEqual([
+			[alice, true],
+			[bob, true],
+			[carol, undefined],
+		]);
+	});
+
 	it("plays the call sounds for the viewer's own actions", () => {
 		const { voice, played } = setup();
 		voice.toggleMute();
@@ -213,6 +243,7 @@ const fakeMonitor = () => {
 		latency: null,
 	});
 	const [speakers, setSpeakers] = createSignal<ReadonlySet<string>>(new Set());
+	const [videos, setVideos] = createSignal<readonly VoiceVideo[]>([]);
 	const [moderation, setModeration] = createSignal<
 		Record<string, VoiceModeration>
 	>({});
@@ -247,7 +278,7 @@ const fakeMonitor = () => {
 			};
 		},
 		speakers,
-		videos: () => [],
+		videos,
 		moderation,
 		onEnded: (listener: (reason: VoiceEndReason) => void) => {
 			endedListener = listener;
@@ -259,6 +290,7 @@ const fakeMonitor = () => {
 	return {
 		monitor,
 		setSpeakers,
+		setVideos,
 		setModeration,
 		end: (reason: VoiceEndReason) => endedListener?.(reason),
 		peerScreen: (sharing: boolean) => screenShareListener?.(sharing),
@@ -337,6 +369,17 @@ describe("voice with a media engine", () => {
 		expect(voice.participants(LOUNGE)[0]?.speaking).toBe(false);
 		fake.setSpeakers(new Set([VIEWER]));
 		expect(voice.participants(LOUNGE)[0]?.speaking).toBe(true);
+	});
+
+	it("takes streaming from the engine's videos, only for the joined call", async () => {
+		const { voice, fake } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		await Promise.resolve();
+		expect(voice.participants(LOUNGE)[0]?.streaming).toBeUndefined();
+		fake.setVideos([{ did: VIEWER, source: "cam", stream: {} as MediaStream }]);
+		expect(voice.participants(LOUNGE)[0]?.streaming).toBe(true);
+		voice.leave();
+		expect(voice.participants(LOUNGE)).toEqual([]);
 	});
 
 	it("keeps the viewer muted while a moderator has them muted", () => {

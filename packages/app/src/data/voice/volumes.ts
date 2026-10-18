@@ -52,8 +52,8 @@ export const withVolume = (
 	return next;
 };
 
-export const playbackVolume = (output: number, participant: number) =>
-	Math.max(0, Math.min(1, (output / 100) * (participant / 100)));
+export const playbackGain = (output: number, participant: number) =>
+	Math.max(0, (output / 100) * (participant / 100));
 
 export const createParticipantVolumes = () => {
 	const [volumes, setVolumes] = devicePref<ParticipantVolumes>(

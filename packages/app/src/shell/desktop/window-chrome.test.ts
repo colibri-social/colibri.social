@@ -3,6 +3,7 @@ import {
 	chromeModeFor,
 	composeWindowTitle,
 	controlsLayoutFrom,
+	toPhysicalRect,
 } from "./window-chrome";
 
 const MAC =
@@ -40,5 +41,11 @@ describe("window chrome", () => {
 		expect(
 			controlsLayoutFrom({ left: ["appmenu"], right: ["spacer", "close"] }),
 		).toEqual({ side: "right", order: ["close"] });
+	});
+
+	it("covers every device pixel of the snap target", () => {
+		expect(
+			toPhysicalRect({ left: 10.4, top: 0, right: 56.2, bottom: 32 }, 1.5),
+		).toEqual({ x: 15, y: 0, width: 70, height: 48 });
 	});
 });

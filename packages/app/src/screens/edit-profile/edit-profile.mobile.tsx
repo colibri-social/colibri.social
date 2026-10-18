@@ -42,6 +42,7 @@ export default editProfile.view({
 					<div class="flex flex-1 flex-col gap-6 px-4 pt-4">
 						<s.Fields />
 						<s.Theme />
+						<s.Badge />
 						<s.Sync />
 						<s.Bar />
 					</div>

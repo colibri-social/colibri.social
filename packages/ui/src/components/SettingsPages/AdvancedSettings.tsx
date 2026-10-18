@@ -124,7 +124,7 @@ export const AdvancedSettings = (props: AdvancedSettingsProps) => (
 			<ListGroup label="Window">
 				<ToggleRow
 					title="Use system window controls"
-					description="Lets your computer draw the window frame. Takes effect after a restart."
+					description="Lets your computer draw the window frame and its buttons."
 					checked={props.systemWindowControls}
 					onChange={(checked) => props.onSystemWindowControlsChange?.(checked)}
 				/>

@@ -1,4 +1,5 @@
 import type { WindowControl } from "@colibri-social/ui";
+import { systemWindowControls } from "../../data/system-window-controls";
 
 export type ChromeMode = "macos" | "windows" | "linux" | "none";
 
@@ -20,9 +21,9 @@ export const resolveChromeMode = (): ChromeMode =>
 		isNativeShell(),
 	);
 
-export const desktopRailPaddingTop = (
-	mode: ChromeMode = resolveChromeMode(),
-) => (mode === "none" ? 8 : undefined);
+export const markChromeMode = () => {
+	document.documentElement.dataset.chrome = resolveChromeMode();
+};
 
 export const BAR_HEIGHT: Record<ChromeMode, number> = {
 	macos: 36,
@@ -30,6 +31,16 @@ export const BAR_HEIGHT: Record<ChromeMode, number> = {
 	linux: 32,
 	none: 0,
 };
+
+export const windowBarShown = (mode: ChromeMode = resolveChromeMode()) =>
+	mode !== "none" && !systemWindowControls()[0]();
+
+export const windowBarHeight = (mode: ChromeMode = resolveChromeMode()) =>
+	windowBarShown(mode) ? BAR_HEIGHT[mode] : 0;
+
+export const desktopRailPaddingTop = (
+	mode: ChromeMode = resolveChromeMode(),
+) => (windowBarShown(mode) ? undefined : 8);
 
 export const composeWindowTitle = (
 	spaceName: string | undefined,
@@ -64,6 +75,42 @@ export const controlsLayoutFrom = (
 	}
 	return { side: "right", order: right };
 };
+
+export type PhysicalRect = {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+};
+
+export const toPhysicalRect = (
+	rect: { left: number; top: number; right: number; bottom: number },
+	dpr: number,
+): PhysicalRect => {
+	const x = Math.floor(rect.left * dpr);
+	const y = Math.floor(rect.top * dpr);
+	return {
+		x,
+		y,
+		width: Math.ceil(rect.right * dpr) - x,
+		height: Math.ceil(rect.bottom * dpr) - y,
+	};
+};
+
+export type WindowState = {
+	fullscreen: boolean;
+	maximized: boolean;
+	nativeDecorations: boolean;
+};
+
+export type TitlebarInfo = {
+	state?: WindowState;
+	buttonLayout?: ButtonLayout | null;
+};
+
+export const WINDOW_STATE_EVENT = "colibri-titlebar-state";
+
+export const WINDOW_CONTROLS_EVENT = "colibri-titlebar-controls";
 
 const tauriWindow = async () => {
 	if (!isNativeShell()) throw new Error("No native shell");
@@ -103,9 +150,36 @@ export const nativeWindow = {
 		tauriWindow()
 			.then((current) => current.isFullscreen())
 			.catch(() => false),
-	buttonLayout: () =>
-		tauriInvoke<{ buttonLayout?: ButtonLayout | null }>("titlebar_init").then(
-			(info) => info?.buttonLayout ?? null,
-			() => null,
+	init: () =>
+		tauriInvoke<TitlebarInfo | null>("titlebar_init").then(
+			(info) => info ?? {},
+			(): TitlebarInfo => ({}),
 		),
+	listen: <T>(event: string, handler: (payload: T) => void) =>
+		tauriWindow()
+			.then((current) =>
+				current.listen<T>(event, (message) => handler(message.payload)),
+			)
+			.then(
+				(stop) => () =>
+					void Promise.resolve()
+						.then(stop)
+						.catch(() => {}),
+				() => () => {},
+			),
+	setSystemControls: (enabled: boolean) =>
+		tauriInvoke<WindowState>("titlebar_set_native_decorations", {
+			enabled,
+		}).catch(() => undefined),
+	showSystemMenu: () =>
+		tauriInvoke("titlebar_show_system_menu").catch(() => {}),
+	setSnapRect: (rect: PhysicalRect) =>
+		tauriInvoke("titlebar_set_snap_rect", rect).catch(() => {}),
+	clearSnapRect: () => tauriInvoke("titlebar_clear_snap_rect").catch(() => {}),
+};
+
+export const restoreSystemWindowControls = () => {
+	if (resolveChromeMode() === "none") return;
+	const [enabled] = systemWindowControls();
+	if (enabled()) void nativeWindow.setSystemControls(true);
 };

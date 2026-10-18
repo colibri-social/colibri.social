@@ -41,6 +41,12 @@ import { DEFAULT_VOICE_SETTINGS, type VoiceSettings } from "../voice-settings";
 import { applyAudioSink, type SinkableMediaElement } from "./audio-sink";
 import { pickVoiceHandler, supportsWebRtc } from "./device";
 import {
+	type AudioBoost,
+	type BoostAudioContext,
+	browserAudioContext,
+	createAudioBoost,
+} from "./gain";
+import {
 	captureConstraints,
 	createNoiseSuppressor,
 	type NoiseSuppressor,
@@ -61,7 +67,7 @@ import {
 } from "./types";
 import {
 	type ParticipantVolumes,
-	playbackVolume,
+	playbackGain,
 	type VolumeChannel,
 	volumeOf,
 } from "./volumes";
@@ -121,6 +127,7 @@ export type VoiceEngineOptions = {
 	createSocket?: (url: string, protocols: string[]) => VoiceSocket;
 	createDevice?: (handlerName?: types.BuiltinHandlerName) => types.Device;
 	createAudio?: () => AudioOutput;
+	createAudioContext?: () => BoostAudioContext | undefined;
 	createSuppressor?: (
 		track: MediaStreamTrack,
 		options: NoiseSuppressorOptions,
@@ -163,6 +170,7 @@ type AudioEntry = {
 	el: AudioOutput;
 	did: string;
 	channel: VolumeChannel;
+	boost: AudioBoost;
 };
 
 type Waiter = {
@@ -274,6 +282,14 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		const createAudio =
 			options.createAudio ?? (() => new Audio() as unknown as AudioOutput);
 		const createSuppressor = options.createSuppressor ?? createNoiseSuppressor;
+		const createAudioContext =
+			options.createAudioContext ?? browserAudioContext;
+		let boostContext: BoostAudioContext | null | undefined;
+		const sharedBoostContext = () => {
+			if (boostContext === undefined)
+				boostContext = createAudioContext() ?? null;
+			return boostContext ?? undefined;
+		};
 		const media = options.media ?? browserMedia();
 		const webRtc = options.webRtc ?? supportsWebRtc;
 		const handlerName = options.handlerName ?? (() => pickVoiceHandler());
@@ -445,9 +461,11 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 
 		const applyAudioSettings = (entry: AudioEntry, force = false) => {
 			const current = settings();
-			entry.el.volume = playbackVolume(
-				current.outputVolume,
-				volumeOf(volumes(), entry.did, entry.channel),
+			entry.boost.apply(
+				playbackGain(
+					current.outputVolume,
+					volumeOf(volumes(), entry.did, entry.channel),
+				),
 			);
 			void applyAudioSink(entry.el, current.speaker, { force }).catch(
 				(error: unknown) => {
@@ -562,7 +580,8 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 
 			for (const consumer of consumers.values()) consumer.close();
 			consumers.clear();
-			for (const { el } of audioEls.values()) {
+			for (const { el, boost } of audioEls.values()) {
+				boost.dispose();
 				el.pause();
 				el.srcObject = null;
 			}
@@ -774,12 +793,19 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 
 			if (consumer.kind === "audio") {
 				const el = createAudio();
+				const stream = new MediaStream([consumer.track]);
 				el.autoplay = true;
-				el.srcObject = new MediaStream([consumer.track]);
+				el.srcObject = stream;
 				const entry: AudioEntry = {
 					el,
 					did: owner.did,
 					channel: owner.source === "screen" ? "stream" : "voice",
+					boost: createAudioBoost({
+						el,
+						stream,
+						context: sharedBoostContext,
+						createHolder: createAudio,
+					}),
 				};
 				applyAudioSettings(entry);
 				audioEls.set(consumer.id, entry);
@@ -803,6 +829,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				consumers.delete(id);
 				const entry = audioEls.get(id);
 				if (!entry) continue;
+				entry.boost.dispose();
 				entry.el.pause();
 				entry.el.srcObject = null;
 				audioEls.delete(id);

@@ -21,6 +21,7 @@ export const badgeVariants = cva({
 			),
 			count:
 				"h-4 min-w-4 rounded-full bg-destructive-fill px-1 text-[11px] leading-none tabular-nums text-destructive-foreground",
+			live: "h-4 rounded-[4px] bg-destructive-fill px-1 text-[10px] leading-none tracking-wide text-destructive-foreground uppercase",
 		},
 	},
 	defaultVariants: {

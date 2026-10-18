@@ -1,28 +1,8 @@
+import { measureMedia } from "../media-size";
 import { MAX_ATTACHMENT_BYTES, type UploadOptions } from "../source";
 import type { AttachmentView } from "../types";
 import { latencyScale } from "./latency";
 import { asUri } from "./refs";
-
-const measureImage = async (file: File) => {
-	try {
-		const bitmap = await createImageBitmap(file);
-		const size = { width: bitmap.width, height: bitmap.height };
-		bitmap.close();
-		return size;
-	} catch {
-		return undefined;
-	}
-};
-
-const measureVideo = (url: string) =>
-	new Promise<{ width: number; height: number } | undefined>((resolve) => {
-		const video = document.createElement("video");
-		video.preload = "metadata";
-		video.onloadedmetadata = () =>
-			resolve({ width: video.videoWidth, height: video.videoHeight });
-		video.onerror = () => resolve(undefined);
-		video.src = url;
-	});
 
 export const mockUpload = (
 	file: File,
@@ -40,11 +20,7 @@ export const mockUpload = (
 		const finish = async () => {
 			const url = URL.createObjectURL(file);
 			const mimeType = file.type || "application/octet-stream";
-			const size = mimeType.startsWith("image/")
-				? await measureImage(file)
-				: mimeType.startsWith("video/")
-					? await measureVideo(url)
-					: undefined;
+			const size = await measureMedia(file, url, mimeType);
 			resolve({
 				url: asUri(url),
 				mimeType,

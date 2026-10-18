@@ -136,6 +136,7 @@ export const toLiveEvents = (frame: ServerFrame): LiveEvent[] => {
 					: {}),
 				unread: frame.unread,
 				seenAt: frame.seenAt as Datetime,
+				...(frame.clearedAt ? { clearedAt: frame.clearedAt as Datetime } : {}),
 			},
 		];
 	}
@@ -282,6 +283,16 @@ export const toLiveEvents = (frame: ServerFrame): LiveEvent[] => {
 				$type: "accessEvent",
 				community: asDid(frame.community),
 				kind: "applications",
+			},
+		];
+	}
+
+	if (frameIs(frame, "invitationEvent")) {
+		return [
+			{
+				$type: "accessEvent",
+				community: asDid(frame.community),
+				kind: "invitations",
 			},
 		];
 	}

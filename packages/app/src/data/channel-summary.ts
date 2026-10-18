@@ -1,3 +1,4 @@
+import type { social } from "@colibri-social/lexicons";
 import type { Did, MessageView, SpaceRef } from "./types";
 
 export type ChannelSummary = {
@@ -25,22 +26,63 @@ const fallbackText = (kind: "image" | "file" | undefined, count: number) => {
 	return "";
 };
 
-export const summarizeMessage = (message: MessageView): ChannelSummary => {
-	const attachment = attachmentKind(message);
+type SummaryFields = {
+	channel: string;
+	rkey: string;
+	author: string;
+	text: string;
+	attachment: "image" | "file" | undefined;
+	attachmentCount: number;
+	forward: boolean;
+	createdAt: string;
+};
+
+const summaryOf = (fields: SummaryFields): ChannelSummary => {
 	const text =
-		message.text.replace(/\s+/g, " ").trim() ||
-		fallbackText(attachment, message.attachments.length) ||
-		(message.forward ? "Forwarded a message" : "");
+		fields.text.replace(/\s+/g, " ").trim() ||
+		fallbackText(fields.attachment, fields.attachmentCount) ||
+		(fields.forward ? "Forwarded a message" : "");
 	const summary: ChannelSummary = {
-		channel: message.channel as SpaceRef,
-		rkey: message.rkey,
-		author: message.author.did as Did,
+		channel: fields.channel as SpaceRef,
+		rkey: fields.rkey,
+		author: fields.author as Did,
 		text,
-		createdAt: message.createdAt,
+		createdAt: fields.createdAt,
 	};
-	if (attachment) summary.attachment = attachment;
+	if (fields.attachment) summary.attachment = fields.attachment;
 	return summary;
 };
+
+export const summarizeMessage = (message: MessageView): ChannelSummary =>
+	summaryOf({
+		channel: message.channel,
+		rkey: message.rkey,
+		author: message.author.did,
+		text: message.text,
+		attachment: attachmentKind(message),
+		attachmentCount: message.attachments.length,
+		forward: !!message.forward,
+		createdAt: message.createdAt,
+	});
+
+export const summarizeChannel = (
+	view: social.colibri.beta.channel.defs.ChannelSummary,
+): ChannelSummary =>
+	summaryOf({
+		channel: view.channel,
+		rkey: view.rkey,
+		author: view.author,
+		text: view.text,
+		attachment:
+			view.attachmentKind === "image"
+				? "image"
+				: view.attachmentKind === "file"
+					? "file"
+					: undefined,
+		attachmentCount: view.attachmentCount,
+		forward: view.forward,
+		createdAt: view.createdAt,
+	});
 
 export const newerSummary = (
 	current: ChannelSummary | undefined,

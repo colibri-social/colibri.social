@@ -42,6 +42,7 @@ import {
 	createSpaceNotificationPrefs,
 } from "./notifications";
 import { createOutbox } from "./outbox/outbox";
+import { withQueuedWrites } from "./outbox/overlay";
 import type { OutboxEvent, OutboxOp, OutboxQueue } from "./outbox/types";
 import { readStored, writeStored } from "./persist";
 import { orderCommunities } from "./preferences/order";
@@ -93,7 +94,6 @@ import { documentVisible } from "./visibility";
 import { connectVoice } from "./voice";
 
 const PAGE_SIZE = 60;
-const UNREAD_SEARCH_LIMIT = 400;
 const CATCH_UP_PAGES = 4;
 const CATCH_UP_SPACING_MS = 1_000;
 const TYPING_MS = 6000;
@@ -108,6 +108,7 @@ export type ProfileDraft = {
 	banner?: File | null;
 	syncBluesky: boolean;
 	theme?: ProfileTheme;
+	preferredBadge?: string | null;
 };
 
 export type ProfileSaveProgress = { avatar?: number; banner?: number };
@@ -182,6 +183,7 @@ export type ChannelData = {
 	loadingNewer: Accessor<boolean>;
 	loadNewer: () => void;
 	jumpToLatest: () => void;
+	loadAround: (rkey: string) => Promise<boolean>;
 	unreadAfter: Accessor<string | undefined>;
 	enter: (fresh: boolean) => string | undefined;
 	threads: Load<ThreadView[]>;
@@ -1314,8 +1316,20 @@ export const createDataStore = (
 				await source.leaveCommunity({ community });
 				dropCommunity(community);
 			},
-			transferOwnership: (community: Did, subject: Did) =>
-				source.transferOwnership({ community, subject }),
+			transferOwnership: async (community: Did, subject: Did) => {
+				const result = await source.transferOwnership({ community, subject });
+				try {
+					const view = await source.getCommunity(community);
+					communities.update((list) =>
+						list.map((entry) => (entry.did === community ? view : entry)),
+					);
+				} catch (error) {
+					log.warn("community refresh after transfer failed", {
+						code: classifyThrown(error).code,
+					});
+				}
+				return result;
+			},
 			markRead: async (community: Did) => {
 				const views =
 					channelLoads.get(community)?.value() ??
@@ -1373,8 +1387,14 @@ export const createDataStore = (
 				return existing;
 			}
 
-			const [messages, setMessageList] = createSignal<readonly MessageView[]>(
-				[],
+			const [storedMessages, setMessageList] = createSignal<
+				readonly MessageView[]
+			>([]);
+			const messages = withQueuedWrites(
+				storedMessages,
+				outbox.entries,
+				ref,
+				viewer.did,
 			);
 			const [pending, setPending] = createSignal<readonly PendingMessage[]>([]);
 			const [ready, setReady] = createSignal(false);
@@ -1490,29 +1510,50 @@ export const createDataStore = (
 				const statuses = await source.listUnreadStatus(community);
 				const status = statuses.find((entry) => entry.channel === ref);
 				const readCursor = status?.hasUnread ? status.cursor : undefined;
-				let collected: MessageView[] = [];
-				let next: string | undefined;
-				do {
-					const page = await source.listMessages({
-						channel: ref,
-						limit: PAGE_SIZE,
-						cursor: next,
-					});
-					collected = [...page.items.slice().reverse(), ...collected];
-					next = page.cursor;
-					if (
-						!readCursor ||
-						collected.some((message) => message.rkey <= readCursor) ||
-						collected.length >= UNREAD_SEARCH_LIMIT
-					) {
-						break;
-					}
-				} while (next);
+				const [latestPage, aroundPage] = await Promise.all([
+					source.listMessages({ channel: ref, limit: PAGE_SIZE }),
+					readCursor
+						? source.listMessages({
+								channel: ref,
+								limit: PAGE_SIZE,
+								around: readCursor,
+							})
+						: undefined,
+				]);
+				const latest = latestPage.items.slice().sort(byRkey);
+				const around = aroundPage?.items.slice().sort(byRkey) ?? [];
+				const aroundNewest = around.at(-1)?.rkey;
+				const joinAt = latest[0]?.rkey;
+				const detached =
+					!!aroundPage?.forwardCursor &&
+					!!aroundNewest &&
+					!!joinAt &&
+					aroundNewest < joinAt;
+				const collected = detached
+					? around
+					: [
+							...new Map(
+								[...around, ...latest].map((message) => [
+									message.rkey,
+									message,
+								]),
+							).values(),
+						].sort(byRkey);
+				const oldest = collected[0]?.rkey;
+				const next =
+					aroundPage && (detached || (oldest && joinAt && oldest < joinAt))
+						? aroundPage.cursor
+						: latestPage.cursor;
 				const firstUnread = readCursor
 					? collected.find((message) => message.rkey > readCursor)
 					: undefined;
-				readThrough = status?.cursor ?? collected.at(-1)?.rkey;
+				readThrough = status?.cursor ?? latest.at(-1)?.rkey;
 				batch(() => {
+					setGap(
+						detached && aroundNewest
+							? { after: aroundNewest, latest, cursor: latestPage.cursor }
+							: undefined,
+					);
 					setMessages(collected);
 					setCursor(next);
 					setUnreadAfter(
@@ -1624,6 +1665,46 @@ export const createDataStore = (
 							setLoadingNewer(false);
 						},
 					);
+			};
+
+			const loadAround = async (rkey: string) => {
+				if (untrack(storedMessages).some((message) => message.rkey === rkey))
+					return true;
+				const page = await source.listMessages({
+					channel: ref,
+					limit: PAGE_SIZE,
+					around: rkey,
+				});
+				const items = page.items.slice().sort(byRkey);
+				const oldest = items[0]?.rkey;
+				const newest = items.at(-1)?.rkey;
+				if (!oldest || !newest) return false;
+				const held = untrack(gap);
+				const latest = held ? held.latest : untrack(storedMessages);
+				const latestCursor = held ? held.cursor : untrack(cursor);
+				const joinAt = latest[0]?.rkey;
+				const joined = !page.forwardCursor || (!!joinAt && newest >= joinAt);
+				batch(() => {
+					if (joined) {
+						setGap(undefined);
+						setMessages(
+							[
+								...new Map(
+									[...items, ...latest].map((message) => [
+										message.rkey,
+										message,
+									]),
+								).values(),
+							].sort(byRkey),
+						);
+						setCursor(!joinAt || oldest < joinAt ? page.cursor : latestCursor);
+					} else {
+						setGap({ after: newest, latest, cursor: latestCursor });
+						setMessages(items);
+						setCursor(page.cursor);
+					}
+				});
+				return items.some((message) => message.rkey === rkey);
 			};
 
 			const jumpToLatest = () => {
@@ -1874,6 +1955,7 @@ export const createDataStore = (
 				loadingNewer,
 				loadNewer,
 				jumpToLatest,
+				loadAround,
 				loadingOlder,
 				loadOlder,
 				unreadAfter,
@@ -2259,7 +2341,14 @@ export const createDataStore = (
 				load.update((list) =>
 					list.map((member) =>
 						member.actor.did === next.did
-							? { ...member, actor: { ...member.actor, ...profile } }
+							? {
+									...member,
+									actor: {
+										...member.actor,
+										preferredBadge: undefined,
+										...profile,
+									},
+								}
 							: member,
 					),
 				);
@@ -2298,6 +2387,9 @@ export const createDataStore = (
 				avatar,
 				banner,
 				theme: draft.theme,
+				...(draft.preferredBadge !== undefined
+					? { preferredBadge: draft.preferredBadge }
+					: {}),
 			});
 			applyViewer(next);
 		};

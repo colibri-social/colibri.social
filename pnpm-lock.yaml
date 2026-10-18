@@ -118,8 +118,8 @@ importers:
         specifier: workspace:0.4.0
         version: link:../../packages/client
       '@colibri-social/lexicons':
-        specifier: ^2.17.0
-        version: 2.17.0
+        specifier: ^2.18.0
+        version: 2.18.0
       '@colibri-social/lib':
         specifier: workspace:*
         version: link:../../packages/lib
@@ -367,6 +367,9 @@ importers:
       '@tauri-apps/plugin-fs':
         specifier: ^2.5.2
         version: 2.5.2
+      '@tauri-apps/plugin-haptics':
+        specifier: ~2.3.3
+        version: 2.3.3
       '@tauri-apps/plugin-http':
         specifier: ^2.8.2
         version: 2.8.2
@@ -384,8 +387,8 @@ importers:
         version: 1.9.15
     devDependencies:
       '@colibri-social/lexicons':
-        specifier: ^2.17.0
-        version: 2.17.0
+        specifier: ^2.18.0
+        version: 2.18.0
       '@sentry/vite-plugin':
         specifier: ^5.3.0
         version: 5.4.0(supports-color@11.0.0)
@@ -451,8 +454,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20261001173819
         version: 0.0.0-spaces-alpha-20261001173819(patch_hash=026615cbad8dbd4f622fab54ef7ae657ab58df91f42908df1d40504bded84b9f)
       '@colibri-social/lexicons':
-        specifier: ^2.17.0
-        version: 2.17.0
+        specifier: ^2.18.0
+        version: 2.18.0
       '@kobalte/core':
         specifier: ^0.13.11
         version: 0.13.14(solid-js@1.9.15)
@@ -695,8 +698,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20261001173819
         version: 0.0.0-spaces-alpha-20261001173819
       '@colibri-social/lexicons':
-        specifier: ^2.17.0
-        version: 2.17.0
+        specifier: ^2.18.0
+        version: 2.18.0
       mdast-util-from-markdown:
         specifier: ^2.0.2
         version: 2.0.3(supports-color@11.0.0)
@@ -1644,8 +1647,8 @@ packages:
     resolution: {integrity: sha512-dlT1m5e/0yUL0kRNcQn7yGLVThkgbB0Ga/1AmfDDC/8ik6AIiSf2QLQO2zPYvefsHP0aFgxO93cVLCCfDp7kzQ==}
     engines: {node: '>= 20.12.0'}
 
-  '@colibri-social/lexicons@2.17.0':
-    resolution: {integrity: sha512-IiI4ll47P+esG8BncD2OdTMPtxK3SCAuu7yipbeLgXlwGiINDiJuwgJJiqnS8PwSr1g6pQ6no+ZY91luDPx9ww==}
+  '@colibri-social/lexicons@2.18.0':
+    resolution: {integrity: sha512-irCpluKfC/XS43VoCCBL/AKG9ufxKg2q8Uhcr1L5+TmOhmscNI02yfFzbMN+CDAxtDS/K3HugEOPx3L1vlH/yA==}
 
   '@corvu/dialog@0.2.4':
     resolution: {integrity: sha512-n54vJq+fOy8GVrnYBdJpD6JXNuyx7LOeMrRxwzAvZnYGpW8+AA12tnb/P/2emJj/HjOO5otheGKb0breshdFlA==}
@@ -3451,6 +3454,9 @@ packages:
 
   '@tauri-apps/plugin-fs@2.5.2':
     resolution: {integrity: sha512-XXvMSnFiob+G1H+YHCDf+bzWVumseQuEIhzpbOJzevUfL4k0U+sTApZWJHpoLiamggnVPJm5dJ5sDsniRyWxlg==}
+
+  '@tauri-apps/plugin-haptics@2.3.3':
+    resolution: {integrity: sha512-NueC58Woi2BMVIrOQHWl+mq5LqqiMDtAgaqk5sJHi7GF1dba+SNWPhKblKjTcjRdFZZ+X+gf4rl/GUhMJDyKOg==}
 
   '@tauri-apps/plugin-http@2.8.2':
     resolution: {integrity: sha512-xVHnZdIkPY9+/ejg0ycVpVvJ5yuILFl6IEbE/wQFDsDgZmHTbFg7+vkkvIQeVtydhHrSFzQk3BWzSjWEVAvvUA==}
@@ -8411,7 +8417,7 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
 
-  '@colibri-social/lexicons@2.17.0':
+  '@colibri-social/lexicons@2.18.0':
     dependencies:
       '@atproto/lex': 0.0.0-spaces-alpha-20261001173819
       '@atproto/lex-data': 0.0.0-spaces-alpha-20261001173819
@@ -9855,6 +9861,10 @@ snapshots:
       '@tauri-apps/api': 2.11.1
 
   '@tauri-apps/plugin-fs@2.5.2':
+    dependencies:
+      '@tauri-apps/api': 2.12.3
+
+  '@tauri-apps/plugin-haptics@2.3.3':
     dependencies:
       '@tauri-apps/api': 2.12.3
 

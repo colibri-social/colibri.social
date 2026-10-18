@@ -6,6 +6,7 @@ import {
 	activitySummary,
 	liveActivitiesOf,
 	memberActivityOf,
+	nextActivityEnd,
 	nowPlayingOf,
 } from "./activity";
 import type { Presence } from "./types";
@@ -117,5 +118,20 @@ describe("memberActivityOf", () => {
 			more: 1,
 		});
 		expect(memberActivityOf(presenceWith(), NOW)).toBeUndefined();
+	});
+});
+
+describe("activity expiry", () => {
+	it("finds the nearest end that is still ahead", () => {
+		const presence = presenceWith(
+			withEnd("2026-06-01T12:05:00.000Z"),
+			withEnd("2026-06-01T12:01:00.000Z"),
+			withEnd("2026-06-01T11:59:00.000Z"),
+			playing,
+		);
+		expect(nextActivityEnd(presence, NOW)).toBe(
+			Date.parse("2026-06-01T12:01:00.000Z"),
+		);
+		expect(nextActivityEnd(presenceWith(playing), NOW)).toBeUndefined();
 	});
 });

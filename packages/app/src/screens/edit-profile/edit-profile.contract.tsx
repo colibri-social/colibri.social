@@ -9,16 +9,20 @@ import {
 	PROFILE_AVATAR_MAX_BYTES,
 	PROFILE_BANNER_MAX_BYTES,
 	ProfileImagePicker,
+	RadioRow,
+	RadioRowGroup,
 	TextArea,
 	TextField,
 	ThemeColorPicker,
 	ToggleRow,
 	toast,
 	UploadProgress,
+	UserBadge,
 } from "@colibri-social/ui";
 import { GalleryAddIcon } from "@solar-icons/solid/bold/gallery-add";
 import { GalleryRemoveIcon } from "@solar-icons/solid/bold/gallery-remove";
-import { createMemo, createSignal, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
+import { useBadges } from "../../data/badges";
 import {
 	bioError,
 	displayNameError,
@@ -49,6 +53,7 @@ export const editProfile = defineContract({
 		const stack = useStack();
 		const host = usePageHost();
 		const viewer = data.viewer;
+		const badges = useBadges();
 		const [displayName, setDisplayName] = createSignal(
 			viewer.displayName ?? "",
 		);
@@ -59,6 +64,16 @@ export const editProfile = defineContract({
 			themeColorsOf(viewer.theme),
 		);
 		const [syncBluesky, setSyncBluesky] = createSignal(!!viewer.syncBluesky);
+		const [preferredBadge, setPreferredBadge] = createSignal(
+			viewer.preferredBadge ?? "",
+		);
+		const badgeChoices = () => badges.all(viewer);
+		const selectedBadge = () =>
+			badgeChoices().some(
+				(definition) => definition.identifier === preferredBadge(),
+			)
+				? preferredBadge()
+				: "";
 		const [avatarFile, setAvatarFile] = createSignal<File | null>();
 		const [bannerFile, setBannerFile] = createSignal<File | null>();
 		const [imageError, setImageError] = createSignal<string>();
@@ -80,6 +95,7 @@ export const editProfile = defineContract({
 				bio() !== (viewer.description ?? "") ||
 				pronouns() !== (viewer.pronouns ?? "") ||
 				syncBluesky() !== !!viewer.syncBluesky ||
+				preferredBadge() !== (viewer.preferredBadge ?? "") ||
 				avatarFile() !== undefined ||
 				bannerFile() !== undefined ||
 				!sameTheme(viewer.theme, theme()),
@@ -105,6 +121,7 @@ export const editProfile = defineContract({
 			setAccent(viewer.theme?.accentColor);
 			setThemeColors(themeColorsOf(viewer.theme));
 			setSyncBluesky(!!viewer.syncBluesky);
+			setPreferredBadge(viewer.preferredBadge ?? "");
 			avatar.clear();
 			banner.clear();
 			setAvatarFile(undefined);
@@ -125,6 +142,8 @@ export const editProfile = defineContract({
 				syncBluesky: syncBluesky(),
 				theme: theme(),
 			};
+			if (preferredBadge() !== (viewer.preferredBadge ?? ""))
+				draft.preferredBadge = preferredBadge() || null;
 			setSaving(true);
 			setProgress({});
 			try {
@@ -155,6 +174,9 @@ export const editProfile = defineContract({
 			setThemeColors,
 			syncBluesky,
 			setSyncBluesky,
+			badgeChoices,
+			selectedBadge,
+			setPreferredBadge,
 			avatar,
 			banner,
 			pickAvatar: (file: File) => {
@@ -363,6 +385,37 @@ export const editProfile = defineContract({
 					disabled={m.saving()}
 				/>
 			</div>
+		)),
+		Badge: slot((m) => (
+			<Show when={m.badgeChoices().length > 1}>
+				<RadioRowGroup
+					label="Badge"
+					value={m.selectedBadge()}
+					onChange={m.setPreferredBadge}
+					disabled={m.saving()}
+				>
+					<RadioRow
+						value=""
+						title="Automatic"
+						description="Shows your highest-ranked badge."
+					/>
+					<For each={m.badgeChoices()}>
+						{(definition) => (
+							<RadioRow
+								value={definition.identifier}
+								title={
+									<UserBadge
+										definition={definition}
+										size="sm"
+										describe={false}
+									/>
+								}
+								description={definition.description || undefined}
+							/>
+						)}
+					</For>
+				</RadioRowGroup>
+			</Show>
 		)),
 		Sync: slot((m) => (
 			<ListGroup>

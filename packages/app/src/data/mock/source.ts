@@ -9,7 +9,7 @@ import {
 	type ListMessagesParams,
 	type LiveEvent,
 	MAX_MOVE_SUBJECTS,
-	type Page,
+	type MessagePage,
 	TransferOwnershipError,
 } from "../source";
 import type {
@@ -331,9 +331,25 @@ export const createMockSource = (
 		return true;
 	};
 
-	const page = (params: ListMessagesParams): Page<MessageView> => {
+	const page = (params: ListMessagesParams): MessagePage => {
 		const list = messagesFor(params.channel);
 		const limit = Math.max(1, Math.min(100, params.limit ?? DEFAULT_PAGE));
+		if (params.around) {
+			const around = params.around;
+			const newerAll = list.filter((message) => message.rkey > around);
+			const newer = newerAll.slice(0, Math.floor(limit / 2));
+			const olderAll = list.filter((message) => message.rkey <= around);
+			const older = olderAll.slice(
+				Math.max(0, olderAll.length - (limit - newer.length)),
+			);
+			const items = [...older, ...newer].reverse();
+			const result: MessagePage = { items };
+			if (older.length < olderAll.length && older[0])
+				result.cursor = older[0].rkey;
+			if (newer.length < newerAll.length)
+				result.forwardCursor = newer.at(-1)?.rkey ?? around;
+			return result;
+		}
 		if (params.reverse) {
 			const start = params.cursor
 				? list.findIndex((message) => message.rkey > (params.cursor as string))
@@ -1203,6 +1219,10 @@ export const createMockSource = (
 						theme: input.theme ?? null,
 					});
 				}
+				if (input.preferredBadge !== undefined)
+					world.people.setProfile(did, {
+						preferredBadge: input.preferredBadge,
+					});
 				return world.people.profile(did);
 			}),
 		setVoice: (voice) =>
@@ -1431,6 +1451,13 @@ export const createMockSource = (
 						view.seenAt = input.seenAt;
 					}
 				}
+			}),
+		clearNotifications: (input) =>
+			withLatency(() => {
+				const cutoff = Date.parse(input.clearedAt);
+				notifications = allNotifications().filter(
+					(view) => Date.parse(view.indexedAt) > cutoff,
+				);
 			}),
 		updateSeenForMessage: (input) =>
 			withLatency(() => {

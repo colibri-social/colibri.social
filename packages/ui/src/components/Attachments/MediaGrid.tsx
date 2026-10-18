@@ -87,6 +87,7 @@ export type MediaTileProps = {
 	overflow?: number;
 	loading?: boolean;
 	onOpen?: (index: number) => void;
+	onNaturalSize?: (size: { width: number; height: number }) => void;
 	class?: string;
 	style?: JSX.CSSProperties;
 };
@@ -195,7 +196,15 @@ export const MediaTile = (props: MediaTileProps) => {
 						}
 						alt=""
 						draggable={false}
-						onLoad={() => setLoaded(true)}
+						onLoad={(event) => {
+							setLoaded(true);
+							const image = event.currentTarget;
+							if (image.naturalWidth && image.naturalHeight)
+								props.onNaturalSize?.({
+									width: image.naturalWidth,
+									height: image.naturalHeight,
+								});
+						}}
 						class={cx(
 							"size-full object-cover transition-opacity duration-[calc(150ms*var(--motion-scale))] motion-reduce:transition-none reduced-motion:transition-none",
 							loaded() ? "opacity-100" : "opacity-0",
@@ -311,21 +320,30 @@ export const MediaGrid = (props: MediaGridProps) => {
 			fallback={
 				<Show when={shown()[0]}>
 					{(item) => {
+						const [natural, setNatural] =
+							createSignal<Pick<MediaItem, "width" | "height">>();
+						const known = () => !!item().width && !!item().height;
+						const size = () => (known() ? item() : (natural() ?? item()));
 						const aspect = () =>
-							clamp(aspectOf(item()), SINGLE_MIN_ASPECT, SINGLE_MAX_ASPECT);
+							clamp(aspectOf(size()), SINGLE_MIN_ASPECT, SINGLE_MAX_ASPECT);
+						const maxWidth = () => {
+							const { width, height } = size();
+							const limits = [SINGLE_MAX_WIDTH, SINGLE_MAX_HEIGHT * aspect()];
+							if (width && height) limits.push(width, height * aspect());
+							return `${Math.min(...limits)}px`;
+						};
 						return (
 							<div
 								data-media-grid=""
 								class={cx("w-full", props.class)}
-								style={{
-									"max-width": `min(${SINGLE_MAX_WIDTH}px, ${SINGLE_MAX_HEIGHT * aspect()}px)`,
-								}}
+								style={{ "max-width": maxWidth() }}
 							>
 								<MediaTile
 									item={item()}
 									index={0}
 									loading={props.loading}
 									onOpen={props.onOpen}
+									onNaturalSize={known() ? undefined : setNatural}
 									class={cx("w-full", radius())}
 									style={{ "aspect-ratio": String(aspect()) }}
 								/>
@@ -392,8 +410,8 @@ export const MediaGridSkeleton = (props: MediaGridSkeletonProps) => {
 		(
 			props.items ??
 			Array.from({ length: props.count ?? 1 }, () => ({
-				width: 4,
-				height: 3,
+				width: SINGLE_MAX_WIDTH,
+				height: (SINGLE_MAX_WIDTH * 3) / 4,
 			}))
 		).map((item) => ({ ...item, src: "" }));
 	return (

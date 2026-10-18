@@ -30,6 +30,7 @@ import { usePlatform } from "../../../screen/platform";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { useMemberMenu } from "../../members/member-menu";
+import { usePrimaryBadgeOf } from "../../profile/user-badges";
 import {
 	identityOf,
 	LoadFailed,
@@ -103,6 +104,7 @@ export const members = defineContract({
 			space()
 				?.roles.value()
 				?.find((role) => role.protected)?.rkey;
+		const primaryBadgeOf = usePrimaryBadgeOf();
 		const identity = (member: MemberView): MemberIdentityData => {
 			const current = space();
 			const roles = current ? rolesOf(member, current.roleByKey) : [];
@@ -116,6 +118,7 @@ export const members = defineContract({
 				role: colored ? roleIdentity(colored) : undefined,
 				bot: member.actor.isBot,
 				owner: owner ? member.roles.includes(owner) : false,
+				badge: primaryBadgeOf(member.actor, { withoutBot: true }),
 			};
 		};
 		const matching = createMemo(() => {

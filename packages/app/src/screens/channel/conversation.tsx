@@ -93,7 +93,7 @@ export type ConversationOptions = {
 	isActive: () => boolean;
 };
 
-const MAX_JUMP_PAGES = 12;
+const JUMP_FRAMES = 12;
 
 export const DELETED_PING_COPY = "The message that pinged you was deleted.";
 const QUICK_REACTION_COUNT = 4;
@@ -348,20 +348,29 @@ export const createConversation = (options: ConversationOptions) => {
 		);
 
 	const jumpWhenLoaded = async (rkey: string) => {
-		for (let attempt = 0; attempt < MAX_JUMP_PAGES; attempt++) {
+		await nextFrame();
+		if (list?.jumpTo(keyFor(rkey))) return;
+		const current = feed();
+		if (!current) return;
+		let found: boolean;
+		try {
+			found = await current.loadAround(rkey);
+		} catch (thrown) {
+			log.warn("jumping to a message failed", {
+				code: classifyThrown(thrown, { method: "channel.listMessages" }).code,
+			});
+			toast.error(
+				"Couldn't open that message. Check your connection and try again.",
+			);
+			return;
+		}
+		if (!found) {
+			setDeletedPing(true);
+			return;
+		}
+		for (let attempt = 0; attempt < JUMP_FRAMES; attempt++) {
 			await nextFrame();
 			if (list?.jumpTo(keyFor(rkey))) return;
-			const current = feed();
-			if (!current) return;
-			if (current.messages().some((message) => message.rkey === rkey)) {
-				continue;
-			}
-			if (!current.hasOlder()) {
-				setDeletedPing(true);
-				return;
-			}
-			current.loadOlder();
-			while (current.loadingOlder()) await nextFrame();
 		}
 		toast.info("That message is not loaded");
 	};
@@ -836,7 +845,13 @@ export const createConversation = (options: ConversationOptions) => {
 		),
 	);
 
-	const send = async (value: { text: string; facets: unknown[] }) => {
+	const linkPreviewsByDefault = () =>
+		data.preferences.client().linkEmbedsByDefault;
+
+	const send = async (
+		value: { text: string; facets: unknown[] },
+		sendOptions: { linkPreviews?: boolean } = {},
+	) => {
 		const current = feed();
 		if (!current) return false;
 		const payload = fromComposerValue(
@@ -854,7 +869,7 @@ export const createConversation = (options: ConversationOptions) => {
 		const parent = replyTo()?.rkey;
 		const suppressedEmbeds = suppressedLinksFor(
 			payload.facets,
-			data.preferences.client().linkEmbedsByDefault,
+			sendOptions.linkPreviews ?? linkPreviewsByDefault(),
 		);
 		setReplyTo(undefined);
 		pinWhile(
@@ -952,6 +967,7 @@ export const createConversation = (options: ConversationOptions) => {
 		setMuted,
 		nameOf,
 		send,
+		linkPreviewsByDefault,
 		saveEdit,
 		typingUsers,
 		onInput,
@@ -1093,8 +1109,10 @@ export const ConversationComposer = (props: {
 		const key = editKey(target);
 		if (key) writeEditDraft(key, value);
 	};
+	const showLinkPreviews = () =>
+		draft.linkPreviews() ?? m.linkPreviewsByDefault();
 	const send = async (value: Parameters<typeof m.send>[0]) => {
-		const sent = await m.send(value);
+		const sent = await m.send(value, { linkPreviews: showLinkPreviews() });
 		if (sent) draft.clear();
 		return sent;
 	};
@@ -1109,6 +1127,7 @@ export const ConversationComposer = (props: {
 						platform={props.platform ?? "mobile"}
 						safeBottom={!desktop()}
 						onEditLast={desktop() ? m.editLast : undefined}
+						onEscape={m.replyTo() ? () => m.setReplyTo(undefined) : undefined}
 						channelName={m.options.label()}
 						sources={m.sources}
 						onSend={send}
@@ -1154,6 +1173,12 @@ export const ConversationComposer = (props: {
 							</>
 						}
 						editing={editing()}
+						linkPreviews={
+							m.chat.linkEmbedsEnabled?.() === false
+								? undefined
+								: showLinkPreviews()
+						}
+						onLinkPreviewsChange={draft.setLinkPreviews}
 					/>
 				</Show>
 			)}

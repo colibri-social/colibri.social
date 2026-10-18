@@ -21,14 +21,16 @@ export const createNotificationStore = (
 	onSeenChange?: NotificationSeenListener,
 ) => {
 	const [all, setItems] = createSignal<readonly NotificationView[]>([]);
-	const [cleared, setCleared] = createSignal<ReadonlySet<string>>(new Set());
+	const [clearedAt, setClearedAt] = createSignal<number>();
 	const items = () => {
-		const hidden = cleared();
+		const cutoff = clearedAt();
 		const current = all();
-		return hidden.size === 0
+		return cutoff === undefined
 			? current
-			: current.filter((entry) => !hidden.has(entry.id));
+			: current.filter((entry) => Date.parse(entry.indexedAt) > cutoff);
 	};
+	const advanceClear = (at: Datetime) =>
+		setClearedAt((current) => Math.max(current ?? 0, Date.parse(at)));
 	const [status, setStatus] = createSignal<NotificationStatus>("loading");
 
 	const load = async (quiet = false) => {
@@ -93,6 +95,7 @@ export const createNotificationStore = (
 
 	source.subscribe((event) => {
 		if (event.$type === "seenEvent") {
+			if (event.clearedAt) advanceClear(event.clearedAt);
 			if (event.message) applySeenMessage(event.seenAt, event.message);
 			applySeen(event.seenAt, event.unread, !event.channel);
 			return;
@@ -163,12 +166,19 @@ export const createNotificationStore = (
 	};
 
 	const clear = async () => {
-		const previous = cleared();
-		setCleared(new Set(all().map((entry) => entry.id)));
+		const previous = clearedAt();
+		const at = new Date().toISOString() as Datetime;
+		const targets = all().filter(isUnread);
+		const keys = new Set(targets.map((entry) => entry.id));
+		advanceClear(at);
+		patch(keys, at);
+		if (targets.length > 0) onSeenChange?.(targets, true);
 		try {
-			await markAllRead();
+			await source.clearNotifications({ clearedAt: at });
 		} catch (error) {
-			setCleared(previous);
+			setClearedAt(previous);
+			patch(keys, undefined);
+			if (targets.length > 0) onSeenChange?.(targets, false);
 			throw error;
 		}
 	};

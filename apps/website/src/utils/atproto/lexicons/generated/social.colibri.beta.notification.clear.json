@@ -1,0 +1,53 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.notification.clear",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Clears the requesting user's inbox up to a point in time. Every notification raised at or before it is marked seen and left out of listNotifications, getUnreadCount and getUnseen from then on.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"clearedAt"
+					],
+					"properties": {
+						"clearedAt": {
+							"type": "string",
+							"format": "datetime",
+							"description": "Notifications raised at or before this time are cleared. A time in the future is treated as now, and a time before an earlier clear leaves that clear in place."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"clearedAt",
+						"unread"
+					],
+					"properties": {
+						"clearedAt": {
+							"type": "string",
+							"format": "datetime",
+							"description": "The point the inbox is now cleared up to."
+						},
+						"unread": {
+							"type": "integer",
+							"description": "Number of unread notifications remaining."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				}
+			]
+		}
+	}
+}

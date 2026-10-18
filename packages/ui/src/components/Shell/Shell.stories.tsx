@@ -500,6 +500,11 @@ export const WindowBars: Story = {
 				iconSrc={storyImages.tealIcon()}
 				controls={<WindowControls maximized />}
 			/>
+			<WindowBar
+				title="Colibri Social Flock"
+				iconSrc={storyImages.tealIcon()}
+				controls={<WindowControls hoveredControl="maximize" />}
+			/>
 		</div>
 	),
 	play: async ({ canvasElement }) => {
@@ -538,6 +543,11 @@ export const WindowBars: Story = {
 			const icon = bar.querySelector("img, canvas") as HTMLElement;
 			await expect(icon).not.toBeNull();
 		}
+		const snapping = bars[3] as HTMLElement;
+		const background = (name: string) =>
+			getComputedStyle(within(snapping).getByRole("button", { name }))
+				.backgroundColor;
+		await expect(background("Maximize")).not.toBe(background("Minimize"));
 	},
 };
 

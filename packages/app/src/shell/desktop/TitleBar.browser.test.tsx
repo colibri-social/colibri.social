@@ -4,8 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { createMockSource, setLatency } from "../../data/mock/source";
 import { createDataStore, DataContext } from "../../data/store";
+import { systemWindowControls } from "../../data/system-window-controls";
 import { Providers } from "../../providers";
 import { DesktopShell } from "./DesktopShell";
+import { desktopRailPaddingTop, windowBarHeight } from "./window-chrome";
 
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
 const WINDOWS =
@@ -16,33 +18,58 @@ const LINUX = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15";
 
 type Internals = {
 	invoke: ReturnType<typeof vi.fn>;
+	transformCallback: (callback: (message: unknown) => void) => number;
 	metadata?: unknown;
 };
 
 let dispose: (() => void) | undefined;
 
 afterEach(() => {
+	systemWindowControls()[1](false);
 	dispose?.();
 	dispose = undefined;
 	document.body.replaceChildren();
 	delete (window as unknown as { __TAURI_INTERNALS__?: Internals })
 		.__TAURI_INTERNALS__;
+	delete (window as unknown as { __TAURI_EVENT_PLUGIN_INTERNALS__?: unknown })
+		.__TAURI_EVENT_PLUGIN_INTERNALS__;
 	vi.restoreAllMocks();
 });
 
 const fakeShell = (
 	agent: string | undefined,
-	state: { maximized: boolean; layout?: unknown } = { maximized: false },
+	state: {
+		maximized: boolean;
+		layout?: unknown;
+		nativeDecorations?: boolean;
+	} = { maximized: false },
 ) => {
 	if (agent) {
 		vi.spyOn(Navigator.prototype, "userAgent", "get").mockReturnValue(agent);
 	}
+	const callbacks = new Map<number, (message: unknown) => void>();
+	const listeners = new Map<string, number[]>();
 	const invoke = vi.fn(
-		async (command: string, _args?: Record<string, unknown>) => {
+		async (command: string, args?: Record<string, unknown>) => {
 			if (command === "plugin:window|is_maximized") return state.maximized;
 			if (command === "plugin:window|is_fullscreen") return false;
 			if (command === "titlebar_init")
-				return { buttonLayout: state.layout ?? null };
+				return {
+					state: {
+						maximized: state.maximized,
+						fullscreen: false,
+						nativeDecorations: state.nativeDecorations ?? false,
+					},
+					buttonLayout: state.layout ?? null,
+				};
+			if (command === "plugin:event|listen") {
+				const event = args?.event as string;
+				listeners.set(event, [
+					...(listeners.get(event) ?? []),
+					args?.handler as number,
+				]);
+				return callbacks.size;
+			}
 			return null;
 		},
 	);
@@ -50,13 +77,30 @@ const fakeShell = (
 		window as unknown as { __TAURI_INTERNALS__: Internals }
 	).__TAURI_INTERNALS__ = {
 		invoke,
+		transformCallback: (callback) => {
+			const id = callbacks.size + 1;
+			callbacks.set(id, callback);
+			return id;
+		},
 		metadata: {
 			currentWindow: { label: "main" },
 			currentWebview: { windowLabel: "main", label: "main" },
 		},
 	};
-	return invoke;
+	(
+		window as unknown as { __TAURI_EVENT_PLUGIN_INTERNALS__: unknown }
+	).__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+	const emit = (event: string, payload: unknown) => {
+		for (const id of listeners.get(event) ?? []) {
+			callbacks.get(id)?.({ event, id, payload });
+		}
+	};
+	const listening = (event: string) => listeners.has(event);
+	return Object.assign(invoke, { emit, listening });
 };
+
+const commands = (invoke: ReturnType<typeof vi.fn>) =>
+	invoke.mock.calls.map(([command]) => command);
 
 const mount = async () => {
 	setLatency(0);
@@ -178,5 +222,76 @@ describe("desktop title bar", () => {
 			bar()?.querySelectorAll<HTMLElement>("[data-control]") ?? [],
 		).map((button) => button.dataset.control);
 		expect(order).toEqual(["close", "minimize", "maximize"]);
+	});
+
+	it("hands the maximize button to Windows snap layouts and opens the system menu", async () => {
+		const invoke = fakeShell(WINDOWS);
+		await mount();
+		await expect.poll(bar).not.toBeNull();
+		const element = bar() as HTMLElement;
+		await expect
+			.poll(() =>
+				invoke.mock.calls.find(
+					([command]) => command === "titlebar_set_snap_rect",
+				),
+			)
+			.toBeTruthy();
+		const maximize = element.querySelector<HTMLElement>(
+			'[data-control="maximize"]',
+		) as HTMLElement;
+		const box = maximize.getBoundingClientRect();
+		const dpr = window.devicePixelRatio;
+		const sent = invoke.mock.calls.findLast(
+			([command]) => command === "titlebar_set_snap_rect",
+		)?.[1];
+		expect(sent).toEqual({
+			x: Math.floor(box.left * dpr),
+			y: Math.floor(box.top * dpr),
+			width: Math.ceil(box.right * dpr) - Math.floor(box.left * dpr),
+			height: Math.ceil(box.bottom * dpr) - Math.floor(box.top * dpr),
+		});
+
+		await expect
+			.poll(() => invoke.listening("colibri-titlebar-controls"))
+			.toBe(true);
+		invoke.emit("colibri-titlebar-controls", { button: "maximize" });
+		await expect.poll(() => maximize.hasAttribute("data-hovered")).toBe(true);
+		invoke.emit("colibri-titlebar-controls", { button: null });
+		await expect.poll(() => maximize.hasAttribute("data-hovered")).toBe(false);
+
+		element.dispatchEvent(
+			new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+		);
+		await expect
+			.poll(() => commands(invoke))
+			.toContain("titlebar_show_system_menu");
+
+		dispose?.();
+		dispose = undefined;
+		await expect
+			.poll(() => commands(invoke))
+			.toContain("titlebar_clear_snap_rect");
+	});
+
+	it("hides the bar while the system draws the window frame", async () => {
+		fakeShell(MAC);
+		await mount();
+		await expect.poll(bar).not.toBeNull();
+		systemWindowControls()[1](true);
+		await expect.poll(bar).toBeNull();
+		expect(windowBarHeight()).toBe(0);
+		expect(desktopRailPaddingTop()).toBe(8);
+		systemWindowControls()[1](false);
+		await expect.poll(bar).not.toBeNull();
+		expect(windowBarHeight()).toBe(36);
+	});
+
+	it("skips snap layouts and the system menu under the system frame", async () => {
+		const invoke = fakeShell(WINDOWS);
+		systemWindowControls()[1](true);
+		await mount();
+		await expect.poll(() => commands(invoke)).toContain("titlebar_set_title");
+		expect(bar()).toBeNull();
+		expect(commands(invoke)).not.toContain("titlebar_set_snap_rect");
 	});
 });
