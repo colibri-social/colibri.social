@@ -3,9 +3,9 @@ import { nativeRedirectUri } from "@/utils/atproto/native-scheme";
 import { scopes } from "@/utils/atproto/scopes";
 
 export const EMOJI_COLLECTIONS = [
-	"blue.moji.collection.item",
-	"blue.moji.packs.pack",
-	"blue.moji.packs.packitem",
+	"repo:blue.moji.collection.item",
+	"repo:blue.moji.packs.pack",
+	"repo:blue.moji.packs.packitem",
 ] as const;
 
 /**
