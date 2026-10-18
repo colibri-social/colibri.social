@@ -2,12 +2,6 @@ import type { APIRoute } from "astro";
 import { nativeRedirectUri } from "@/utils/atproto/native-scheme";
 import { scopes } from "@/utils/atproto/scopes";
 
-export const EMOJI_COLLECTIONS = [
-	"repo:blue.moji.collection.item",
-	"repo:blue.moji.packs.pack",
-	"repo:blue.moji.packs.packitem",
-] as const;
-
 /**
  * OAuth client metadata for the NATIVE app (Tauri desktop / mobile), pinned to
  * the default AppView. Differs from the web document (see
@@ -24,7 +18,7 @@ export const GET: APIRoute = () => {
 		tos_uri: `${import.meta.env.SITE}/tos`,
 		policy_uri: `${import.meta.env.SITE}/policy`,
 		redirect_uris: [nativeRedirectUri()],
-		scope: [...scopes, ...EMOJI_COLLECTIONS].join(" "),
+		scope: scopes.join(" "),
 		grant_types: ["authorization_code", "refresh_token"],
 		response_types: ["code"],
 		application_type: "native",
