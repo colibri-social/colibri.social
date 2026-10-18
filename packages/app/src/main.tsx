@@ -2,6 +2,7 @@ import "./app.css";
 import { configureLogger } from "@colibri-social/lib";
 import { render } from "solid-js/web";
 import { App } from "./App";
+import { captureWebLinkOutcome } from "./data/supporter-link";
 import { installExternalLinkInterceptor } from "./native/open-external";
 import { installQuitGuard } from "./native/quit-guard";
 import { installUpdater } from "./native/updater";
@@ -19,6 +20,7 @@ if (import.meta.env.PROD) {
 	});
 }
 configureLogger({ dev: import.meta.env.DEV, breadcrumb: logBreadcrumb });
+captureWebLinkOutcome();
 installExternalLinkInterceptor();
 installQuitGuard();
 installUpdater();

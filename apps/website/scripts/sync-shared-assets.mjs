@@ -3,7 +3,7 @@
 // embedded client app's root-absolute asset URLs (/twemoji.woff2, /login/*.svg,
 // /logo.png, ...) resolve from. The assets package remains the single source of
 // truth; the copies here are gitignored (see public/.gitignore).
-import { cpSync } from "node:fs";
+import { cpSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assetsDir } from "@colibri-social/assets/node";
@@ -12,3 +12,19 @@ const publicDir = join(dirname(fileURLToPath(import.meta.url)), "..", "public");
 
 cpSync(assetsDir, publicDir, { recursive: true });
 console.log(`Synced shared assets from ${assetsDir} -> ${publicDir}`);
+
+const appDist = dirname(
+	fileURLToPath(import.meta.resolve("@colibri-social/app/dist/index.html")),
+);
+
+if (existsSync(join(appDist, "index.html"))) {
+	cpSync(appDist, publicDir, {
+		recursive: true,
+		filter: (source) => source !== join(appDist, "index.html"),
+	});
+	console.log(`Synced the app build from ${appDist} -> ${publicDir}`);
+} else {
+	console.warn(
+		`No app build at ${appDist}. Run "pnpm --filter @colibri-social/app build" to serve /app.`,
+	);
+}

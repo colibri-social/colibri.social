@@ -1,3 +1,4 @@
+import { classifyThrown, createLogger } from "@colibri-social/lib";
 import {
 	FALLBACK_BADGE_DEFINITIONS,
 	SupportColibriSettings,
@@ -7,14 +8,20 @@ import {
 	toast,
 	UserBadge,
 } from "@colibri-social/ui";
-import { createResource } from "solid-js";
+import { createResource, createSignal } from "solid-js";
+import { isNativeShell } from "../../../auth/native";
 import { displayNameOf } from "../../../data/adapters/authors";
+import { useBadges } from "../../../data/badges";
 import { useData } from "../../../data/store";
 import {
 	fetchSupporterAccount,
 	formatVerifiedAt,
+	supporterLinkVersion,
 } from "../../../data/supporter-link";
+import { openExternalUrl } from "../../../native/open-external";
 import type { Platform } from "../../../screen/platform";
+
+const log = createLogger("badges");
 
 const badgeOf = (identifier: string, size: "xs" | "sm" = "sm") => (
 	<UserBadge
@@ -58,13 +65,15 @@ export const SUPPORT_TIERS: SupportTier[] = [
 ];
 
 export const LINKING_UNAVAILABLE =
-	"Connecting your Open Collective account isn't available in this version of Colibri yet.";
+	"Linking Open Collective isn't available in this version of Colibri.";
 
 export default function SupportPage(_props: { platform: Platform }) {
 	const data = useData();
-	const [account, { refetch }] = createResource(
-		() => data.viewer.did,
-		(did) => fetchSupporterAccount(did).catch(() => null),
+	const badges = useBadges();
+	const [working, setWorking] = createSignal(false);
+	const [account, { refetch, mutate }] = createResource(
+		() => ({ did: data.viewer.did, version: supporterLinkVersion() }),
+		({ did }) => fetchSupporterAccount(did).catch(() => null),
 	);
 	const link = (): SupporterLink => {
 		if (account.loading && account() === undefined) return { state: "loading" };
@@ -76,14 +85,72 @@ export default function SupportPage(_props: { platform: Platform }) {
 			verifiedAt: formatVerifiedAt(current.verifiedAt),
 		};
 	};
-	const unavailable = () => toast.info(LINKING_UNAVAILABLE);
+	const connect = async () => {
+		const transport = data.source.supporterLink;
+		if (!transport) {
+			toast.info(LINKING_UNAVAILABLE);
+			return;
+		}
+		setWorking(true);
+		const id = toast.loading("Opening Open Collective...");
+		try {
+			const url = await transport.start();
+			if (isNativeShell()) {
+				toast.success("Finish up in your browser, then come back here.", {
+					id,
+				});
+				openExternalUrl(url);
+			} else {
+				toast.dismiss(id);
+				window.location.assign(url);
+			}
+		} catch (error) {
+			log.error("starting the Open Collective link failed", {
+				code: classifyThrown(error).code,
+			});
+			toast.error("Couldn't open Open Collective. Try again.", { id });
+		} finally {
+			setWorking(false);
+		}
+	};
+	const disconnect = async () => {
+		const transport = data.source.supporterLink;
+		if (!transport) {
+			toast.info(LINKING_UNAVAILABLE);
+			return;
+		}
+		setWorking(true);
+		const id = toast.loading("Disconnecting...");
+		try {
+			const result = await transport.unlink();
+			badges.invalidate(data.viewer.did);
+			mutate(null);
+			toast.success(
+				result.negatedLabelVals.length > 0
+					? "Disconnected. Your supporter badge is gone."
+					: "Disconnected.",
+				{ id },
+			);
+		} catch (error) {
+			log.error("unlinking the Open Collective account failed", {
+				code: classifyThrown(error).code,
+			});
+			toast.error("Couldn't disconnect. Try again.", { id });
+		} finally {
+			setWorking(false);
+		}
+	};
+	const refresh = () => {
+		badges.invalidate(data.viewer.did);
+		void refetch();
+	};
 	return (
 		<SupportColibriSettings
 			link={link()}
-			busy={account.loading}
-			onConnect={unavailable}
-			onDisconnect={unavailable}
-			onRefresh={() => void refetch()}
+			busy={account.loading || working()}
+			onConnect={() => void connect()}
+			onDisconnect={() => void disconnect()}
+			onRefresh={refresh}
 			tiers={SUPPORT_TIERS}
 			preview={{
 				name: displayNameOf(data.viewer),

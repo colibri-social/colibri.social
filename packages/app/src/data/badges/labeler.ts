@@ -1,9 +1,7 @@
 import { classifyResponse } from "@colibri-social/lib";
 import { resolvePdsHost } from "../../auth/identity";
-import { LABELER_DID } from "../supporter-link";
+import { LABELER_DID, LABELER_URL } from "../supporter-link";
 import { type BadgeDefinition, parseDefinitions, type RawLabel } from "./parse";
-
-export const LABELER_URL = "https://labeler.colibri.social";
 
 export const QUERY_LABELS_METHOD = "com.atproto.label.queryLabels";
 export const DEFINITIONS_METHOD = "com.atproto.repo.getRecord";

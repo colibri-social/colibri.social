@@ -5,6 +5,9 @@
 	"version": "0.0.0",
 	"description": "The Colibri Social client, built on the component library.",
 	"license": "MIT",
+	"exports": {
+		"./dist/*": "./dist/*"
+	},
 	"scripts": {
 		"dev": "pnpm --filter @colibri-social/assets build-worklets && vite",
 		"build": "pnpm --filter @colibri-social/assets build-worklets && vite build",

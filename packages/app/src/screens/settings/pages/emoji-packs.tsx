@@ -1,61 +1,41 @@
-import {
-	Button,
-	ConfirmDialog,
-	ListGroup,
-	SearchField,
-	Skeleton,
-	toast,
-} from "@colibri-social/ui";
+import { Button, ListGroup, SearchField, Skeleton } from "@colibri-social/ui";
 import { EmojiFunnyCircleIcon } from "@solar-icons/solid/bold/emoji-funny-circle";
 import { createMemo, createSignal, For, Show } from "solid-js";
-import {
-	type EmojiPackView,
-	packEmoji,
-	ungroupedEmoji,
-} from "../../../data/emoji";
+import { packEmoji, ungroupedEmoji } from "../../../data/emoji";
 import { useData } from "../../../data/store";
 import type { Platform } from "../../../screen/platform";
 import {
 	createEmojiOptions,
 	createEmojiUploader,
-	type EmojiOwner,
 	EmojiRows,
-	emojiFailure,
 	matchesQuery,
 } from "../../admin/emoji/emoji-shared";
+import { useSettingsNav } from "../nav";
+import {
+	OWN_EMOJI_DELETE_DESCRIPTION,
+	ownEmoji,
+	setEditingPack,
+} from "./own-emoji";
 
 export default function EmojiPacksPage(_props: { platform: Platform }) {
 	const data = useData();
-	const catalog = () => data.emoji.followed();
-	const view = () => catalog().value();
-	const loading = () => catalog().loading() && !view();
+	const nav = useSettingsNav();
+	const owner = ownEmoji(data);
 	const [query, setQuery] = createSignal("");
-	const [removing, setRemoving] = createSignal<EmojiPackView>();
-
-	const takenNames = createMemo(
-		() => new Set((view()?.emojis ?? []).map((emoji) => emoji.name)),
-	);
-	const owner: EmojiOwner = {
-		owner: () => data.viewer.did,
-		data,
-		takenNames,
-		uploaderOf: () => undefined,
-	};
 	const uploader = createEmojiUploader(owner);
 	const options = createEmojiOptions(owner, {
-		deleteDescription:
-			"It's removed from your emoji, and messages that use it show the plain shortcode.",
+		deleteDescription: OWN_EMOJI_DELETE_DESCRIPTION,
 	});
 
 	const ungrouped = createMemo(() => {
-		const current = view();
+		const current = owner.view();
 		if (!current) return [];
 		return ungroupedEmoji(current).filter((emoji) =>
 			matchesQuery(emoji, query()),
 		);
 	});
 	const packs = createMemo(() => {
-		const current = view();
+		const current = owner.view();
 		if (!current) return [];
 		const searching = query().trim().length > 0;
 		return current.packs
@@ -68,34 +48,18 @@ export default function EmojiPacksPage(_props: { platform: Platform }) {
 			.filter((section) => !searching || section.emojis.length > 0);
 	});
 	const empty = () =>
-		!loading() &&
-		(view()?.emojis.length ?? 0) === 0 &&
-		(view()?.packs.length ?? 0) === 0;
+		!owner.loading() &&
+		(owner.view()?.emojis.length ?? 0) === 0 &&
+		(owner.view()?.packs.length ?? 0) === 0;
 	const noMatches = () =>
 		!empty() &&
 		query().trim().length > 0 &&
 		ungrouped().length === 0 &&
 		packs().length === 0;
 
-	const removePack = async () => {
-		const pack = removing();
-		const current = view();
-		if (!pack || !current) return;
-		const elsewhere = new Set(
-			current.packs
-				.filter((entry) => entry.id !== pack.id)
-				.flatMap((entry) => entry.emojis),
-		);
-		try {
-			await data.emoji.removePack(data.viewer.did, pack.id);
-			for (const emoji of pack.emojis) {
-				if (!elsewhere.has(emoji))
-					await data.emoji.remove(data.viewer.did, emoji);
-			}
-			toast.success(`${pack.name} removed`);
-		} catch (error) {
-			toast.error(emojiFailure(error, "Couldn't remove the pack"));
-		}
+	const openPack = (pack?: string) => {
+		setEditingPack(pack);
+		nav.open("emojiPack");
 	};
 
 	return (
@@ -104,13 +68,18 @@ export default function EmojiPacksPage(_props: { platform: Platform }) {
 				Emoji you add from Spaces or upload yourself. You can use them in any
 				Space that allows emoji from elsewhere.
 			</p>
-			<uploader.Picker>
-				{(pick) => (
-					<Button block onClick={pick}>
-						Upload Emoji
-					</Button>
-				)}
-			</uploader.Picker>
+			<div class="grid grid-cols-2 gap-4">
+				<uploader.Picker>
+					{(pick) => (
+						<Button block onClick={pick}>
+							Upload Emoji
+						</Button>
+					)}
+				</uploader.Picker>
+				<Button variant="secondary" block onClick={() => openPack()}>
+					Create new Pack
+				</Button>
+			</div>
 			<Show when={!empty()}>
 				<SearchField
 					aria-label="Search your emoji"
@@ -120,7 +89,7 @@ export default function EmojiPacksPage(_props: { platform: Platform }) {
 				/>
 			</Show>
 			<Show
-				when={!loading()}
+				when={!owner.loading()}
 				fallback={
 					<div class="flex flex-col gap-2" aria-busy="true">
 						<Skeleton class="h-4 w-24" />
@@ -131,7 +100,7 @@ export default function EmojiPacksPage(_props: { platform: Platform }) {
 				<Show when={!empty()} fallback={<EmptyEmoji />}>
 					<div class="flex flex-col gap-6">
 						<Show when={ungrouped().length > 0}>
-							<ListGroup label="Your emoji">
+							<ListGroup label="Ungrouped">
 								<EmojiRows
 									admin={owner}
 									emojis={ungrouped()}
@@ -164,10 +133,10 @@ export default function EmojiPacksPage(_props: { platform: Platform }) {
 									<Button
 										variant="secondary"
 										block
-										aria-label={`Remove ${section.pack.name}`}
-										onClick={() => setRemoving(section.pack)}
+										aria-label={`Edit ${section.pack.name}`}
+										onClick={() => openPack(section.pack.id)}
 									>
-										Remove Pack
+										Edit Pack
 									</Button>
 								</div>
 							)}
@@ -181,17 +150,6 @@ export default function EmojiPacksPage(_props: { platform: Platform }) {
 				</Show>
 			</Show>
 			<options.Overlay />
-			<ConfirmDialog
-				open={!!removing()}
-				onOpenChange={(next) => {
-					if (!next) setRemoving(undefined);
-				}}
-				title={`Remove ${removing()?.name ?? ""}?`}
-				description="Its emoji are removed from your emoji too, unless another of your packs has them."
-				confirmLabel="Remove pack"
-				tone="destructive"
-				onConfirm={removePack}
-			/>
 		</div>
 	);
 }

@@ -129,21 +129,6 @@ export default defineConfig({
 				access: "secret",
 				optional: true,
 			}),
-			SENTRY_DSN: envField.string({
-				context: "client",
-				access: "public",
-				optional: true,
-			}),
-			SENTRY_RELEASE: envField.string({
-				context: "client",
-				access: "public",
-				optional: true,
-			}),
-			PUBLIC_VAPID_KEY: envField.string({
-				context: "client",
-				access: "public",
-				optional: true,
-			}),
 		},
 	},
 	security: {

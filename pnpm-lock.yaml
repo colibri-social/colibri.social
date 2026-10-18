@@ -111,6 +111,9 @@ importers:
       '@atproto/ws-client':
         specifier: ^0.0.4
         version: 0.0.4
+      '@colibri-social/app':
+        specifier: workspace:*
+        version: link:../../packages/app
       '@colibri-social/assets':
         specifier: workspace:0.0.2
         version: link:../../packages/assets

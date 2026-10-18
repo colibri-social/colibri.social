@@ -12,6 +12,7 @@ import {
 	viewChannelFrame,
 } from "@colibri-social/lib";
 import { resolvePdsHost } from "../../auth/identity";
+import { isNativeShell } from "../../auth/native";
 import type { InvitationPreview, JoinResult } from "../access";
 import { createActivitySourceDetector } from "../activity-source";
 import { createNetworkLabeler } from "../badges/labeler";
@@ -34,6 +35,7 @@ import type {
 	ProfileTheme,
 	Simulation,
 } from "../source";
+import { createSupporterLinkTransport } from "../supporter-link";
 import type {
 	CategoryView,
 	ChannelView,
@@ -820,6 +822,16 @@ export const createRemoteSource = async (
 		setSimulation: () => {},
 		preferences,
 		labeler: createNetworkLabeler(),
+		supporterLink: createSupporterLinkTransport({
+			serviceAuth: async (params) =>
+				(
+					await transport.pdsQuery<{ token: string }>(
+						"com.atproto.server.getServiceAuth",
+						{ params },
+					)
+				).token,
+			native: isNativeShell,
+		}),
 		detectActivitySource: createActivitySourceDetector().detect,
 	};
 

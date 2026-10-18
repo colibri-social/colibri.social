@@ -1,5 +1,6 @@
 import { DEVICE_KEYS } from "../data/device-prefs";
 import { readStoredJSON, writeStoredJSON } from "../data/persist";
+import { deliverLinkOutcome, readLinkOutcome } from "../data/supporter-link";
 import { parsePath, type Route } from "../shell/layers";
 
 export const PENDING_LINK_TTL_MS = 24 * 60 * 60 * 1000;
@@ -70,6 +71,18 @@ export const appPathFromLink = (link: string): string | undefined => {
 	return undefined;
 };
 
+const supporterReturn = (link: string) => {
+	let url: URL;
+	try {
+		url = new URL(link.trim());
+	} catch {
+		return undefined;
+	}
+	if (!url.protocol.startsWith("social.colibri")) return undefined;
+	const [head] = [url.host, ...url.pathname.split("/")].filter(Boolean);
+	return head === "oc" ? readLinkOutcome(url.searchParams) : undefined;
+};
+
 export const routeFromLink = (link: string): Route | undefined => {
 	const path = appPathFromLink(link);
 	if (!path) return undefined;
@@ -85,6 +98,11 @@ export const openAppLink = (
 	link: string,
 	now: () => number = Date.now,
 ): boolean => {
+	const outcome = supporterReturn(link);
+	if (outcome) {
+		deliverLinkOutcome(outcome);
+		return true;
+	}
 	const route = routeFromLink(link);
 	if (!route) return false;
 	const path = appPathFromLink(link) as string;

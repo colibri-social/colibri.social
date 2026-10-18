@@ -1,4 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	type LinkOutcome,
+	listenForLinkOutcomes,
+} from "../data/supporter-link";
 import type { Route } from "../shell/layers";
 import {
 	appPathFromLink,
@@ -120,5 +124,21 @@ describe("app link delivery", () => {
 
 	it("reports links it can't route", () => {
 		expect(openAppLink("social.colibri:/oauth/callback")).toBe(false);
+	});
+});
+
+describe("Open Collective returns", () => {
+	it("hands the outcome to the link listener", () => {
+		const seen: LinkOutcome[] = [];
+		const stop = listenForLinkOutcomes((outcome) => seen.push(outcome));
+		expect(
+			openAppLink("social.colibri:/oc/callback?oc=linked&account=lou"),
+		).toBe(true);
+		expect(seen).toEqual([{ status: "linked", account: "lou" }]);
+		stop();
+	});
+
+	it("ignores an oc link without an outcome", () => {
+		expect(openAppLink("social.colibri:/oc/callback")).toBe(false);
 	});
 });

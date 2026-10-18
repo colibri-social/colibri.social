@@ -3,6 +3,7 @@ import { createContext, useContext } from "solid-js";
 export const SETTINGS_PAGE_IDS = [
 	"profile",
 	"emojiPacks",
+	"emojiPack",
 	"deleteAccount",
 	"voiceVideo",
 	"appearance",

@@ -5,6 +5,7 @@ import type { ChannelSummary } from "./channel-summary";
 import type { EmojiEvent, EmojiSource } from "./emoji";
 import type { PreferenceStore } from "./preferences/store";
 import type { Preferences } from "./preferences/types";
+import type { SupporterLinkTransport } from "./supporter-link";
 import type {
 	AttachmentView,
 	BlueskyPostView,
@@ -550,5 +551,6 @@ export type DataSource = AccessSource &
 		setSimulation: (next: Partial<Simulation>) => void;
 		preferences: PreferenceStore;
 		labeler?: LabelerTransport;
+		supporterLink?: SupporterLinkTransport;
 		detectActivitySource?: (did: Did) => Promise<ActivityProvider | null>;
 	};

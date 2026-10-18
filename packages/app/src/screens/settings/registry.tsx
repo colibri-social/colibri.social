@@ -18,6 +18,7 @@ import AppearancePage from "./pages/appearance";
 import ChatPage from "./pages/chat";
 import DebugInformationPage from "./pages/debug-information";
 import DeleteAccountPage from "./pages/delete-account";
+import EmojiPackPage from "./pages/emoji-pack";
 import EmojiPacksPage from "./pages/emoji-packs";
 import ExperimentsPage from "./pages/experiments";
 import LogsPage from "./pages/logs";
@@ -40,6 +41,11 @@ export const SETTINGS_PAGES: Record<SettingsPageId, PageInfo> = {
 		title: SETTINGS_ENTRY_INFO.emojiPacks.label,
 		entry: "emojiPacks",
 		view: EmojiPacksPage,
+	},
+	emojiPack: {
+		title: "Emoji Pack",
+		entry: "emojiPacks",
+		view: EmojiPackPage,
 	},
 	deleteAccount: {
 		title: "Delete my Colibri data",

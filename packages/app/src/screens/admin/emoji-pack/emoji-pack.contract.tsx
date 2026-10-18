@@ -1,22 +1,12 @@
 import {
 	Button,
 	ConfirmDialog,
-	EMOJI_PACK_NAME_MAX,
-	ListGroup,
 	SearchField,
 	StatusScreen,
-	TextField,
-	toast,
 } from "@colibri-social/ui";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { EmojiFunnyCircleIcon } from "@solar-icons/solid/bold/emoji-funny-circle";
-import { createMemo, createSignal, For, Show } from "solid-js";
-import {
-	type EmojiPackView,
-	type EmojiView,
-	packEmoji,
-	ungroupedEmoji,
-} from "../../../data/emoji";
+import { Show } from "solid-js";
 import { defineContract, slot } from "../../../screen/define";
 import { NEW_ENTRY } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
@@ -24,119 +14,19 @@ import { useStack } from "../../../shell/stack";
 import { useUnsavedChanges } from "../../../shell/unsaved-changes";
 import { createUnsavedForm, UnsavedBar } from "../../settings/unsaved-form";
 import { AdminNavHeader } from "../desktop/page-header";
-import {
-	createEmojiOptions,
-	createEmojiUploader,
-	EmojiRows,
-	emojiFailure,
-	matchesQuery,
-	useEmojiAdmin,
-} from "../emoji/emoji-shared";
-
-type SelectSection = { id: string; label: string; emojis: EmojiView[] };
-
-export const packNameError = (value: string) => {
-	const name = value.trim();
-	if (!name) return "Give the pack a name.";
-	if (name.length > EMOJI_PACK_NAME_MAX)
-		return `Use at most ${EMOJI_PACK_NAME_MAX} characters.`;
-	return undefined;
-};
+import { useEmojiAdmin } from "../emoji/emoji-shared";
+import { createPackEditor, PackEmojis, PackNameField } from "./pack-editor";
 
 export const adminEmojiPack = defineContract({
 	id: "adminEmojiPack",
 	model: (args: AdminArgs) => {
 		const stack = useStack();
 		const admin = useEmojiAdmin(args.space);
-		const creating = args.id === NEW_ENTRY || !args.id;
-		const pack = createMemo<EmojiPackView | undefined>(() =>
-			creating
-				? undefined
-				: admin.view()?.packs.find((entry) => entry.id === args.id),
-		);
-		const gone = () =>
-			!creating && !admin.loading() && !!admin.view() && !pack();
-		const [draft, setDraft] = createSignal<string>();
-		const name = () => draft() ?? pack()?.name ?? "";
-		const [attempted, setAttempted] = createSignal(false);
-		const [selected, setSelected] = createSignal<ReadonlySet<string>>(
-			new Set(),
-		);
-		const [query, setQuery] = createSignal("");
-		const [saving, setSaving] = createSignal(false);
-		const [deleteOpen, setDeleteOpen] = createSignal(false);
-
-		const toggle = (emoji: EmojiView, next: boolean) =>
-			setSelected((current) => {
-				const copy = new Set(current);
-				if (next) copy.add(emoji.id);
-				else copy.delete(emoji.id);
-				return copy;
-			});
-
-		const uploader = createEmojiUploader(admin, {
-			pack: () => (creating ? undefined : pack()?.id),
-			packName: () => (creating ? name() || "the new pack" : pack()?.name),
-			onUploaded: (emoji) => {
-				if (creating) toggle(emoji, true);
-			},
+		const editor = createPackEditor(admin, {
+			packId: () => (args.id === NEW_ENTRY ? undefined : args.id),
+			onCreated: () => stack.forcePop(),
+			onDeleted: () => stack.forcePop(),
 		});
-
-		const options = createEmojiOptions(admin, {
-			pack,
-			onRemoveFromPack: async (emoji) => {
-				const current = admin.community();
-				const target = pack();
-				if (!current || !target) return;
-				try {
-					await admin.data.emoji.updatePack({
-						community: current.did,
-						pack: target.id,
-						emojis: target.emojis.filter((id) => id !== emoji.id),
-					});
-					toast.success(`:${emoji.name}: removed from ${target.name}`);
-				} catch (error) {
-					toast.error(emojiFailure(error, "Couldn't update the pack"));
-				}
-			},
-		});
-
-		const members = createMemo(() => {
-			const view = admin.view();
-			const target = pack();
-			if (!view || !target) return [];
-			return packEmoji(view, target).filter((emoji) =>
-				matchesQuery(emoji, query()),
-			);
-		});
-
-		const sections = createMemo((): SelectSection[] => {
-			const view = admin.view();
-			if (!view) return [];
-			const filter = (list: EmojiView[]) =>
-				list.filter((emoji) => matchesQuery(emoji, query()));
-			return [
-				{
-					id: "ungrouped",
-					label: "Ungrouped",
-					emojis: filter(ungroupedEmoji(view)),
-				},
-				...view.packs.map((entry) => ({
-					id: entry.id,
-					label: entry.name,
-					emojis: filter(packEmoji(view, entry)),
-				})),
-			].filter((section) => section.emojis.length > 0);
-		});
-
-		const nameError = () => (attempted() ? packNameError(name()) : undefined);
-		const dirty = createMemo(() =>
-			creating
-				? name().trim().length > 0 || selected().size > 0
-				: name().trim() !== (pack()?.name ?? ""),
-		);
-		const canSave = () =>
-			!saving() && !packNameError(name()) && (creating || dirty());
 
 		const depth = () =>
 			stack
@@ -149,101 +39,30 @@ export const adminEmojiPack = defineContract({
 						layer.id === args.id,
 				) + 1;
 
-		if (creating) {
+		if (editor.creating) {
 			useUnsavedChanges({
 				depth,
-				dirty: () => dirty() && !saving(),
+				dirty: () => editor.dirty() && !editor.saving(),
 				description: () => "This pack hasn't been created yet.",
 			});
 		}
 
-		const save = async () => {
-			setAttempted(true);
-			const current = admin.community();
-			if (!current || packNameError(name()) || saving()) return;
-			if (!creating && !dirty()) return;
-			setSaving(true);
-			try {
-				if (creating) {
-					await admin.data.emoji.createPack(current.did, name().trim(), [
-						...selected(),
-					]);
-					toast.success(`${name().trim()} created`);
-					stack.forcePop();
-				} else {
-					const target = pack();
-					if (!target) return;
-					await admin.data.emoji.updatePack({
-						community: current.did,
-						pack: target.id,
-						name: name().trim(),
-					});
-					setDraft(undefined);
-					setAttempted(false);
-					toast.success("Pack saved");
-				}
-			} catch (error) {
-				toast.error(
-					emojiFailure(
-						error,
-						creating ? "Couldn't create the pack" : "Couldn't save the pack",
-					),
-				);
-			} finally {
-				setSaving(false);
-			}
-		};
-
-		const unsaved = creating
+		const unsaved = editor.creating
 			? undefined
 			: createUnsavedForm({
 					depth,
-					dirty,
-					saving,
-					save,
-					saveDisabled: () => !!packNameError(name()),
-					reset: () => {
-						setDraft(undefined);
-						setAttempted(false);
-					},
+					dirty: editor.dirty,
+					saving: editor.saving,
+					save: editor.save,
+					saveDisabled: () => !!editor.nameError(),
+					reset: editor.reset,
 				});
-
-		const removePack = async () => {
-			const current = admin.community();
-			const target = pack();
-			if (!current || !target) return;
-			try {
-				await admin.data.emoji.removePack(current.did, target.id);
-				toast.success(`${target.name} deleted`);
-				stack.forcePop();
-			} catch (error) {
-				toast.error(emojiFailure(error, "Couldn't delete the pack"));
-			}
-		};
 
 		return {
 			...admin,
-			creating,
-			pack,
-			gone,
-			name,
-			setName: setDraft,
-			nameError,
-			query,
-			setQuery,
-			selected,
-			toggle,
-			uploader,
-			options,
-			members,
-			sections,
-			saving,
-			canSave,
-			save,
+			...editor,
+			editor,
 			unsaved,
-			deleteOpen,
-			setDeleteOpen,
-			removePack,
 			back: () => stack.pop(),
 		};
 	},
@@ -297,16 +116,7 @@ export const adminEmojiPack = defineContract({
 				/>
 			</Show>
 		)),
-		Name: slot((m) => (
-			<TextField
-				label="Pack Name"
-				placeholder="My Awesome Pack"
-				value={m.name()}
-				onChange={m.setName}
-				maxLength={EMOJI_PACK_NAME_MAX}
-				error={m.nameError()}
-			/>
-		)),
+		Name: slot((m) => <PackNameField editor={m.editor} />),
 		Search: slot((m) => (
 			<SearchField
 				aria-label="Search emojis"
@@ -324,57 +134,7 @@ export const adminEmojiPack = defineContract({
 				)}
 			</m.uploader.Picker>
 		)),
-		Emojis: slot((m) => (
-			<Show
-				when={m.creating}
-				fallback={
-					<Show
-						when={m.members().length > 0}
-						fallback={
-							<p class="m-0 py-4 text-center text-sm text-muted-foreground">
-								{m.query().trim()
-									? `No emoji in this pack match "${m.query().trim()}".`
-									: "This pack is empty. Upload an emoji to add it here."}
-							</p>
-						}
-					>
-						<ListGroup>
-							<EmojiRows
-								admin={m}
-								emojis={m.members()}
-								onMenu={m.options.show}
-							/>
-						</ListGroup>
-					</Show>
-				}
-			>
-				<Show
-					when={m.sections().length > 0}
-					fallback={
-						<p class="m-0 py-4 text-center text-sm text-muted-foreground">
-							{m.query().trim()
-								? `No emoji match "${m.query().trim()}".`
-								: "Upload an emoji to start this pack."}
-						</p>
-					}
-				>
-					<div class="flex flex-col gap-6">
-						<For each={m.sections()}>
-							{(section) => (
-								<ListGroup label={section.label}>
-									<EmojiRows
-										admin={m}
-										emojis={section.emojis}
-										selected={m.selected()}
-										onSelectedChange={m.toggle}
-									/>
-								</ListGroup>
-							)}
-						</For>
-					</div>
-				</Show>
-			</Show>
-		)),
+		Emojis: slot((m) => <PackEmojis owner={m} editor={m.editor} />),
 		Danger: slot((m) => (
 			<Show when={!m.creating}>
 				<Button

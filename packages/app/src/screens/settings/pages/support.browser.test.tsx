@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
+import type { SupporterLinkTransport } from "../../../data/supporter-link";
 import { cleanup, mountPage } from "./page-test-kit";
 import SupportPage, { LINKING_UNAVAILABLE } from "./support";
 
@@ -31,8 +32,9 @@ beforeEach(() => {
 	);
 });
 
-it("offers the tiers and explains that linking isn't available yet", async () => {
-	await mountPage(() => <SupportPage platform="mobile" />);
+it("offers the tiers and explains when linking isn't available", async () => {
+	const { store } = await mountPage(() => <SupportPage platform="mobile" />);
+	store.source.supporterLink = undefined;
 	const connect = page.getByRole("button", { name: "Connect Open Collective" });
 	await expect.element(connect).toBeVisible();
 	expect(document.querySelectorAll("[data-support-tier]")).toHaveLength(3);
@@ -40,4 +42,28 @@ it("offers the tiers and explains that linking isn't available yet", async () =>
 	await expect
 		.element(page.getByText(LINKING_UNAVAILABLE, { exact: true }))
 		.toBeVisible();
+});
+
+const withTransport = async (transport: SupporterLinkTransport) => {
+	const { store } = await mountPage(() => <SupportPage platform="mobile" />);
+	store.source.supporterLink = transport;
+	return store;
+};
+
+it("tells the viewer when Open Collective can't be opened", async () => {
+	const start = vi.fn(async () => {
+		throw new Error("offline");
+	});
+	await withTransport({ start, unlink: vi.fn() });
+	await userEvent.click(
+		page.getByRole("button", { name: "Connect Open Collective" }),
+	);
+	await expect
+		.element(
+			page
+				.getByText("Couldn't open Open Collective. Try again.", { exact: true })
+				.first(),
+		)
+		.toBeVisible();
+	expect(start).toHaveBeenCalledOnce();
 });
