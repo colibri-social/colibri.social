@@ -39,6 +39,10 @@ export type MuteSubject =
 
 export type Mute = { subject: MuteSubject; createdAt: Datetime };
 
+export const INBOX_PRESENTATIONS = ["popover", "modal"] as const;
+
+export type InboxPresentation = (typeof INBOX_PRESENTATIONS)[number];
+
 export type ClientPreferences = Omit<
 	ClientPreferencesWire,
 	"$type" | "controls" | "voiceView"

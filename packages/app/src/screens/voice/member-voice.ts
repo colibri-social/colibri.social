@@ -141,6 +141,22 @@ export const voiceMemberMenu = (
 	return Object.keys(menu).length > 0 ? menu : undefined;
 };
 
+export const streamVolumeMenu = (
+	data: Pick<DataStore, "viewer">,
+	did: string,
+): MemberMenuVoice | undefined => {
+	const channel = voice.channelOf(did);
+	if (!channel || did === data.viewer.did) return undefined;
+	if (voice.current()?.channel !== channel || !hasScreenShare(did)) {
+		return undefined;
+	}
+	const volumes = participantVolumes();
+	return {
+		streamVolume: volumes.volume(did, "stream"),
+		onStreamVolumeChange: (value) => volumes.setVolume(did, "stream", value),
+	};
+};
+
 export const voiceMenuFor = (
 	data: VoiceMemberStore,
 	target: VoiceMemberTarget | undefined,

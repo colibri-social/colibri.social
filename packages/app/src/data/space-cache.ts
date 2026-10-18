@@ -12,12 +12,16 @@ import {
 	WINDOW_WRITE_DEBOUNCE_MS,
 	WINDOW_WRITE_MAX_INTERVAL_MS,
 } from "@colibri-social/lib";
+import type { ChannelSummary } from "./channel-summary";
+import type { EmojiCatalogView, EmojiLibraryView } from "./emoji";
 import { prepareNamespace, SPACES_STORE, sharedStore } from "./message-cache";
 import type {
 	CategoryView,
 	ChannelView,
 	CommunityView,
+	Did,
 	MemberView,
+	Presence,
 	ProfileView,
 	RoleView,
 	ThreadView,
@@ -25,24 +29,60 @@ import type {
 
 export type CachedUnread = { hasUnread: boolean; mentions: number };
 
+export type CachedRead = { cursor?: string; hasUnread: boolean };
+
 export type SpaceEntry = {
 	categories?: CategoryView[];
 	channels?: ChannelView[];
 	roles?: RoleView[];
 	members?: MemberView[];
 	unread?: Record<string, CachedUnread>;
+	reads?: Record<string, CachedRead>;
+	summaries?: ChannelSummary[];
 	threads?: Record<string, ThreadView[]>;
+	threadMembers?: Record<string, Did[]>;
 	ts: number;
+};
+
+export type EmojiSnapshot = {
+	library?: EmojiLibraryView;
+	catalogs?: Record<string, EmojiCatalogView>;
 };
 
 export type SpaceSnapshot = {
 	viewer?: ProfileView;
 	communities?: CommunityView[];
+	presence?: Record<string, Presence>;
+	emoji?: EmojiSnapshot;
 	spaces: Record<string, SpaceEntry>;
 	ts: number;
 };
 
-export type SpacePatch = Partial<Omit<SpaceEntry, "ts" | "threads">>;
+export type SpacePatch = Partial<
+	Omit<SpaceEntry, "ts" | "threads" | "threadMembers">
+>;
+
+export const PRESENCE_LIMIT = 2_000;
+
+export const EMOJI_CATALOG_LIMIT = 40;
+
+const lastEntries = <T>(record: Record<string, T>, limit: number) =>
+	Object.fromEntries(Object.entries(record).slice(-limit));
+
+const withLatest = <T>(
+	previous: Record<string, T> | undefined,
+	latest: Record<string, T>,
+) => ({
+	...Object.fromEntries(
+		Object.entries(previous ?? {}).filter(([key]) => !(key in latest)),
+	),
+	...latest,
+});
+
+const withoutVoice = (presence: Presence): Presence => {
+	const { voice: _voice, ...rest } = presence;
+	return rest;
+};
 
 export type SpaceCache = {
 	snapshot: () => SpaceSnapshot | undefined;
@@ -55,6 +95,13 @@ export type SpaceCache = {
 		channel: string,
 		threads: readonly ThreadView[],
 	) => void;
+	offerThreadMembers: (
+		community: string,
+		thread: string,
+		members: readonly Did[],
+	) => void;
+	offerPresence: (presence: Readonly<Record<string, Presence>>) => void;
+	offerEmoji: (emoji: EmojiSnapshot) => void;
 	forgetCommunity: (community: string) => void;
 	isGone: (community: string) => boolean;
 	flush: () => Promise<void>;
@@ -175,6 +222,8 @@ export const createSpaceCache = (options: {
 			if (patch.members)
 				next.members = plain(capList(patch.members, SPACE_MEMBER_LIMIT));
 			if (patch.unread) next.unread = plain(patch.unread);
+			if (patch.reads) next.reads = plain(patch.reads);
+			if (patch.summaries) next.summaries = plain(patch.summaries);
 			current = {
 				...current,
 				spaces: { ...current.spaces, [community]: next },
@@ -198,6 +247,46 @@ export const createSpaceCache = (options: {
 						ts: now(),
 					},
 				},
+			};
+			commit();
+		},
+		offerThreadMembers: (community, thread, members) => {
+			if (gone.has(community)) return;
+			const entry = entryFor(community);
+			current = {
+				...current,
+				spaces: {
+					...current.spaces,
+					[community]: {
+						...entry,
+						threadMembers: lastEntries(
+							withLatest(entry.threadMembers, { [thread]: [...members] }),
+							SPACE_THREAD_CHANNEL_LIMIT,
+						),
+						ts: now(),
+					},
+				},
+			};
+			commit();
+		},
+		offerPresence: (presence) => {
+			const entries = Object.entries(plain(presence))
+				.filter((entry): entry is [string, Presence] => !!entry[1])
+				.slice(-PRESENCE_LIMIT)
+				.map(([did, value]) => [did, withoutVoice(value)] as const);
+			current = { ...current, presence: Object.fromEntries(entries) };
+			commit();
+		},
+		offerEmoji: (emoji) => {
+			current = {
+				...current,
+				emoji: plain({
+					library: emoji.library ?? current.emoji?.library,
+					catalogs: lastEntries(
+						withLatest(current.emoji?.catalogs, emoji.catalogs ?? {}),
+						EMOJI_CATALOG_LIMIT,
+					),
+				}),
 			};
 			commit();
 		},

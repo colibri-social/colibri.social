@@ -17,6 +17,16 @@ const header = () =>
 const membersToggle = () =>
 	header().querySelector("button[aria-pressed][aria-label$='members']");
 
+const viewLabel = (name: string) =>
+	Array.from(header().querySelectorAll("label")).find((label) =>
+		label.textContent?.startsWith(name),
+	) as HTMLElement;
+
+const checkedView = () =>
+	header().querySelector<HTMLInputElement>(
+		"[data-segmented-control] input:checked",
+	)?.value;
+
 const cardButton = (card: HTMLElement) =>
 	(card.matches("button") ? card : card.querySelector("button")) ?? card;
 
@@ -84,17 +94,22 @@ it("opens a thread card in the split pane, and in the full view with Shift", asy
 	shiftClick(cardButton(await springCard()) as HTMLElement);
 	await until(() => !!document.querySelector("[data-thread-full]"));
 	expect(location.pathname).toMatch(/\/t\/[^/]+\/full$/);
-	await until(
-		() => header().querySelector("h1")?.textContent === "Spring tuning",
-	);
+	await until(() => header().querySelector("h1")?.textContent === "dev");
 	expect(document.querySelector("[data-shell-thread]")).toBeNull();
-	expect(header().querySelector("h1")?.textContent).toBe("Spring tuning");
 	expect(header().querySelectorAll("[data-channel-header]")).toHaveLength(1);
+	expect(
+		header().querySelector("[data-channel-description]")?.textContent,
+	).toBe("Spring tuning");
+	expect(
+		header().querySelector("button[aria-label='Close thread']"),
+	).toBeNull();
+	expect(header().querySelector("button[aria-label^='Back to']")).toBeNull();
+	expect(checkedView()).toBe("threads");
 	expect(membersToggle()).not.toBeNull();
-	const back = header().querySelector<HTMLElement>(
-		"button[aria-label='Back to #dev']",
-	) as HTMLElement;
-	await userEvent.click(back);
+	expect(
+		header().querySelector("button[aria-label$='thread'][aria-pressed]"),
+	).not.toBeNull();
+	await userEvent.click(viewLabel("Chat"));
 	await until(() => !document.querySelector("[data-thread-full]"));
 	expect(location.pathname).toBe(DEV_PATH);
 	expect(header().querySelector("h1")?.textContent).toBe("dev");
@@ -106,10 +121,9 @@ it("opens threads from the overlay in the full view, and in the pane with Shift"
 	await userEvent.click(await openOverlay());
 	await until(() => !!document.querySelector("[data-thread-full]"));
 	expect(document.querySelector("[data-threads-overlay]")).toBeNull();
-	await userEvent.click(
-		header().querySelector("button[aria-label='Back to #dev']") as HTMLElement,
-	);
+	await userEvent.keyboard("{Escape}");
 	await until(() => !document.querySelector("[data-thread-full]"));
+	expect(location.pathname).toBe(DEV_PATH);
 	shiftClick(await openOverlay());
 	await until(
 		() =>
@@ -132,6 +146,39 @@ it("expands the split pane into the full view", async () => {
 	await until(() => !!document.querySelector("[data-thread-full]"));
 	expect(document.querySelector("[data-shell-thread]")).toBeNull();
 	expect(location.pathname).toMatch(/\/full$/);
+});
+
+it("opens the thread list from the full view and returns to chat from there", async () => {
+	await mount();
+	await userEvent.click(await openOverlay());
+	await until(() => !!document.querySelector("[data-thread-full]"));
+	await until(() => checkedView() === "threads");
+	await userEvent.click(viewLabel("Threads"));
+	await until(() => !!document.querySelector("[data-threads-overlay]"));
+	expect(document.querySelector("[data-thread-full]")).not.toBeNull();
+	await userEvent.click(viewLabel("Chat"));
+	await until(
+		() =>
+			!document.querySelector("[data-threads-overlay]") &&
+			!document.querySelector("[data-thread-full]"),
+	);
+	expect(location.pathname).toBe(DEV_PATH);
+	expect(checkedView()).toBe("chat");
+});
+
+it("mutes the thread from the full view and leaves the channel unmuted", async () => {
+	await mount();
+	await userEvent.click(await openOverlay());
+	await until(() => !!document.querySelector("[data-thread-full]"));
+	const muteButton = (label: string) =>
+		header().querySelector<HTMLElement>(`button[aria-label='${label}']`);
+	await until(() => !!muteButton("Mute thread"));
+	await userEvent.click(muteButton("Mute thread") as HTMLElement);
+	await until(() => !!muteButton("Unmute thread"));
+	await userEvent.click(viewLabel("Chat"));
+	await until(() => !document.querySelector("[data-thread-full]"));
+	await until(() => !!muteButton("Mute channel"));
+	expect(muteButton("Unmute channel")).toBeNull();
 });
 
 it("opens a thread created from a draft in the split pane", async () => {

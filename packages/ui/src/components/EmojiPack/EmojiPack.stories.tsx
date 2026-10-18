@@ -521,6 +521,7 @@ const FollowDemo = (props: { fail?: boolean; withPack?: boolean }) => {
 				src={parrot}
 				alt="A parrot dancing"
 				source="The Night Owls Art Club and Friends Collective"
+				handle={LONG_HANDLE}
 				packName={props.withPack === false ? undefined : LONG_PACK}
 				followed={followed()}
 				packFollowed={packFollowed()}
@@ -546,6 +547,9 @@ export const FollowEmoji: Story = {
 		await expect(
 			dialog.querySelector("[data-custom-emoji-preview]"),
 		).toHaveAttribute("alt", "A parrot dancing");
+		await expect(
+			dialog.querySelector("[data-custom-emoji-handle]"),
+		).toHaveTextContent(`@${LONG_HANDLE}`);
 		await expectNoLayoutIssues(dialog);
 		await userEvent.click(
 			within(dialog).getByRole("button", { name: "Follow emoji" }),
@@ -604,6 +608,7 @@ const DesktopEmojiInfo = () => {
 				name={LONG_NAME}
 				src={parrot}
 				source="The Night Owls Art Club"
+				handle="nightowls.example.social"
 				packName={LONG_PACK}
 				followed={followed()}
 				packFollowed={false}
@@ -642,6 +647,9 @@ export const EmojiInfoDesktop: Story = {
 		await expect(box.bottom).toBeLessThanOrEqual(anchorBox.top);
 		await expect(
 			within(popover).getByText(LONG_PACK, { exact: false }),
+		).toBeVisible();
+		await expect(
+			within(popover).getByText("@nightowls.example.social"),
 		).toBeVisible();
 		await expectNoLayoutIssues(popover);
 		await userEvent.click(

@@ -4,6 +4,8 @@ import {
 	type RichTextExternalLink,
 } from "@colibri-social/ui";
 import { createRoot, createSignal } from "solid-js";
+import { blueskyClientOf } from "../../../data/bluesky-client";
+import type { PreferenceStore } from "../../../data/preferences/store";
 import { useData } from "../../../data/store";
 import { openAppLink } from "../../../native/deep-links";
 import { openExternalUrl } from "../../../native/open-external";
@@ -29,6 +31,13 @@ export const isTrustedHost = (host: string) => trustedHosts.has(host);
 
 export const trustHost = (host: string) => trustedHosts.add(host);
 
+export const trustsHost = (
+	host: string,
+	preferences: Pick<PreferenceStore, "client">,
+) =>
+	isTrustedHost(host) ||
+	host.toLowerCase() === blueskyClientOf(preferences).base;
+
 export const createLinkOpener = () => {
 	const platform = usePlatform();
 	const data = useData();
@@ -43,7 +52,7 @@ export const createLinkOpener = () => {
 		const host = linkWarningHost(url);
 		if (!host) return;
 		const warn = data.preferences.client().warnOnExternalLinks;
-		if (!link.disguised && (!warn || isTrustedHost(host))) {
+		if (!link.disguised && (!warn || trustsHost(host, data.preferences))) {
 			openExternalUrl(url);
 			return;
 		}

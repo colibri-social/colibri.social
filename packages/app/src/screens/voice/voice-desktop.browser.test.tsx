@@ -570,3 +570,73 @@ it("shows the screen sharing options on the Voice and video settings page", asyn
 	) as HTMLElement;
 	expect(settings.textContent).toContain("Screen sharing");
 });
+
+const rightClick = (element: HTMLElement) => {
+	const box = element.getBoundingClientRect();
+	element.dispatchEvent(
+		new MouseEvent("contextmenu", {
+			bubbles: true,
+			cancelable: true,
+			button: 2,
+			clientX: box.left + 20,
+			clientY: box.top + 20,
+		}),
+	);
+};
+
+const menuSliders = () =>
+	Array.from(
+		document.querySelectorAll<HTMLElement>("[role='menu'] [data-menu-slider]"),
+	).map((slider) => slider.textContent?.replace(/\d+%$/, "").trim());
+
+it("opens the member menu with Volume when right-clicking a call tile", async () => {
+	await mount("lounge");
+	await userEvent.click(button(stage(), "Join voice"));
+	await expect
+		.poll(() => stage().querySelectorAll("[data-voice-tile]").length)
+		.toBe(4);
+	const peer = Array.from(
+		stage().querySelectorAll<HTMLElement>("[data-voice-tile]"),
+	).find((tile) => !tile.textContent?.includes(voiceSelfName())) as HTMLElement;
+	rightClick(peer);
+	await expect.poll(() => document.querySelector("[role='menu']")).toBeTruthy();
+	expect(menuSliders()).toContain("Volume");
+	expect(document.querySelector("[role='dialog']")).toBeNull();
+	await userEvent.keyboard("{Escape}");
+	await expect.poll(() => document.querySelector("[role='menu']")).toBeNull();
+});
+
+it("offers only Stream volume when right-clicking a screen share tile", async () => {
+	await mount("lounge");
+	const simulated = createSimulatedConnection({ connectMs: 30, tickMs: 60 });
+	const sharer = () => {
+		const channel = voice.current()?.channel;
+		const viewer = lastStore?.viewer.did;
+		return channel
+			? lastStore?.inVoice(channel).find((did) => did !== viewer)
+			: undefined;
+	};
+	const stream = new MediaStream();
+	setVoiceConnectionMonitor({
+		...simulated,
+		videos: () => {
+			const did = sharer();
+			return did ? [{ did, source: "screen", stream }] : [];
+		},
+	});
+	await userEvent.click(button(stage(), "Join voice"));
+	await expect
+		.poll(() => stage().querySelector("[data-voice-tile][data-kind='screen']"))
+		.toBeTruthy();
+	rightClick(
+		stage().querySelector(
+			"[data-voice-tile][data-kind='screen']",
+		) as HTMLElement,
+	);
+	await expect.poll(() => document.querySelector("[role='menu']")).toBeTruthy();
+	expect(menuSliders()).toEqual(["Stream volume"]);
+	expect(document.querySelector("[role='menu']")?.textContent).not.toContain(
+		"View profile",
+	);
+	await userEvent.keyboard("{Escape}");
+});

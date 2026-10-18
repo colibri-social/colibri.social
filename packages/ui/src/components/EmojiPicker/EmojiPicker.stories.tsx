@@ -69,6 +69,11 @@ export const Desktop: Story = {
 				frequent.querySelector("[data-emoji-key='👍🏽']"),
 			).not.toBeNull();
 		});
+		await step("shows the pack author as given", async () => {
+			await expect(
+				canvas.getByText("· by @timtinkers.online"),
+			).toBeInTheDocument();
+		});
 		await step("search and pick with Enter", async () => {
 			const search = canvas.getByRole("searchbox", { name: "Search emoji" });
 			await userEvent.type(search, "salute");

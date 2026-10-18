@@ -288,6 +288,19 @@ describe("client preferences", () => {
 		expect(store.client().blueskyClient).toBe("bluesky");
 		expect(store.controls().doubleTapAction).toBe("react");
 	});
+
+	it("opens the inbox as a popover unless the synced record says modal", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const store = create(memory.backend);
+		expect(store.client().inboxPresentation).toBe("popover");
+
+		await store.setClient({ inboxPresentation: "modal" });
+		expect(store.client().inboxPresentation).toBe("modal");
+		expect(memory.state().client).toEqual({ inboxPresentation: "modal" });
+
+		store.adopt(prefs({ client: { inboxPresentation: "sheet" } }));
+		expect(store.client().inboxPresentation).toBe("popover");
+	});
 });
 
 describe("composer state", () => {

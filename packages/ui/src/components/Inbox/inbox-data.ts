@@ -42,6 +42,8 @@ export type InboxPopoverProps = {
 	open?: boolean;
 	defaultOpen?: boolean;
 	onOpenChange?: (open: boolean) => void;
+	presentation?: "popover" | "modal";
+	onOpenModal?: () => void;
 	onOpenNotification: (id: string) => void;
 	onMarkRead: (id: string) => void;
 	onMarkAllRead: () => void;

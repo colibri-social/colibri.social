@@ -3,6 +3,8 @@ import {
 	BLUESKY_CLIENTS,
 	type BlueskyClient,
 	type ClientPreferences,
+	INBOX_PRESENTATIONS,
+	type InboxPresentation,
 	THEMES,
 	type Theme,
 } from "./types";
@@ -15,6 +17,7 @@ export type ResolvedClient = {
 	blueskyClient: BlueskyClient;
 	customBlueskyClientBase: string;
 	developerMode: boolean;
+	inboxPresentation: InboxPresentation;
 	controls: {
 		swipeLeftAction: ControlsPreferences["swipeLeftAction"];
 		doubleTapEnabled: boolean;
@@ -49,6 +52,11 @@ export const resolveClient = (
 	blueskyClient: oneOf(BLUESKY_CLIENTS, client.blueskyClient, "bluesky"),
 	customBlueskyClientBase: client.customBlueskyClientBase ?? "",
 	developerMode: client.developerMode ?? defaults.developerMode,
+	inboxPresentation: oneOf(
+		INBOX_PRESENTATIONS,
+		client.inboxPresentation,
+		"popover",
+	),
 	controls: {
 		swipeLeftAction: oneOf(
 			["members", "reply"],

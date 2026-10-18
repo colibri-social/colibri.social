@@ -12,6 +12,7 @@ import {
 import type { Platform } from "../../../screen/platform";
 import { sentryActive } from "../../../sentry/init";
 import {
+	fixedFrame,
 	nativeWindow,
 	resolveChromeMode,
 } from "../../../shell/desktop/window-chrome";
@@ -59,7 +60,9 @@ export default function AdvancedPage(_props: { platform: Platform }) {
 			includeAccountInReports={sentryActive() ? includeAccount() : undefined}
 			onIncludeAccountInReportsChange={setIncludeAccount}
 			systemWindowControls={
-				resolveChromeMode() === "none" ? undefined : systemControls()
+				resolveChromeMode() === "none" || fixedFrame()
+					? undefined
+					: systemControls()
 			}
 			onSystemWindowControlsChange={changeSystemControls}
 			onDeleteAccount={() => nav.open("deleteAccount")}

@@ -24,6 +24,7 @@ import { isUnread, spaceNotificationPrefs } from "../data/notifications";
 import { useData } from "../data/store";
 import type { Did, NotificationView, SpaceRef } from "../data/types";
 import { appVisible } from "../data/visibility";
+import { voice } from "../data/voice";
 import {
 	type DeviceNotifications,
 	deviceNotifications,
@@ -42,6 +43,7 @@ import {
 } from "../native/push/index";
 import type { MarkReadTarget } from "../native/push/mark-read";
 import { openNotificationTarget } from "../screens/inbox/inbox-adapter";
+import { useOptionalDesktopShell } from "./desktop/context";
 import { NotificationPrompt } from "./NotificationPrompt";
 import type { Navigator } from "./stack";
 
@@ -60,6 +62,7 @@ export const NotificationHost = (props: {
 	listenForPush?: () => () => void;
 }) => {
 	const data = useData();
+	const desktop = useOptionalDesktopShell();
 	const prefs = spaceNotificationPrefs(data);
 	const device = props.device ?? deviceNotifications();
 	const notifier = props.notifier ?? osNotifier;
@@ -84,7 +87,12 @@ export const NotificationHost = (props: {
 
 	const open = (view: NotificationView) => {
 		void data.notifications.markRead([view.id]).catch(() => {});
-		openNotificationTarget(props.stack, data.jumps.request, view);
+		openNotificationTarget(
+			props.stack,
+			data.jumps.request,
+			view,
+			desktop?.setVoiceChatOpen,
+		);
 	};
 
 	const showToast = (view: NotificationView) => {
@@ -176,12 +184,17 @@ export const NotificationHost = (props: {
 
 	const activate = (activation: OsActivation) => {
 		markActivated(activation);
-		openNotificationTarget(props.stack, data.jumps.request, {
-			community: communityOfRef(activation.channel) as Did,
-			channel: activation.channel as SpaceRef,
-			...(activation.thread ? { thread: activation.thread as SpaceRef } : {}),
-			...(activation.rkey ? { message: { rkey: activation.rkey } } : {}),
-		});
+		openNotificationTarget(
+			props.stack,
+			data.jumps.request,
+			{
+				community: communityOfRef(activation.channel) as Did,
+				channel: activation.channel as SpaceRef,
+				...(activation.thread ? { thread: activation.thread as SpaceRef } : {}),
+				...(activation.rkey ? { message: { rkey: activation.rkey } } : {}),
+			},
+			desktop?.setVoiceChatOpen,
+		);
 	};
 
 	const markReadFromNotification = async (target: MarkReadTarget) => {
@@ -229,6 +242,7 @@ export const NotificationHost = (props: {
 				threadMuted: view.thread
 					? data.isMuted(view.thread as SpaceRef)
 					: false,
+				voiceChannel: voice.current()?.channel,
 				now: Date.now(),
 			});
 			if (!alert) return;

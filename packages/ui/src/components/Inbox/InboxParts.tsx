@@ -43,7 +43,9 @@ export const focusFirstRow = (content: HTMLElement) =>
 	) ?? undefined;
 
 export const focusFirstRowFrom = (element: HTMLElement) => {
-	const dialog = element.closest<HTMLElement>("[data-inbox-popover]");
+	const dialog = element.closest<HTMLElement>(
+		"[data-inbox-popover], [data-inbox-modal]",
+	);
 	if (dialog) focusFirstRow(dialog)?.focus();
 };
 

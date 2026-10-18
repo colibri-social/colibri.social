@@ -143,6 +143,36 @@ export const Reactions: Story = {
 	},
 };
 
+export const ReactionTooltip: Story = {
+	render: () => (
+		<div class="min-h-screen bg-background p-4">
+			<ReactionBar
+				reactions={[
+					{
+						emoji: "🐦",
+						label: "bird",
+						count: 3,
+						reactors: ["Lou", "Ana", "Ben"],
+					},
+				]}
+				onToggle={() => {}}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const chip = within(canvasElement).getByRole("button", { name: "bird 3" });
+		document.body.dispatchEvent(
+			new PointerEvent("pointermove", { bubbles: true, pointerType: "mouse" }),
+		);
+		await userEvent.hover(chip);
+		const tooltip = await screen.findByRole("tooltip", {}, { timeout: 2000 });
+		await expect(tooltip).toHaveTextContent(
+			"Lou, Ana, and Ben reacted with :bird:",
+		);
+		await userEvent.unhover(chip);
+	},
+};
+
 const toolbarReply = fn();
 const toolbarEdit = fn();
 const toolbarForward = fn();

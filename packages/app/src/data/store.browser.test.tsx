@@ -1261,6 +1261,33 @@ describe("outbox", () => {
 		await until(() => failures.length === 1);
 		expect(reacted()).toBe(false);
 	});
+
+	it("shows a reaction the viewer made on another device", async () => {
+		const source = createMockSource({ live: false });
+		const { store, channel, hq } = await setup({ source });
+		const general = store.space(hq).channelBySlug("general");
+		const target = channel.messages().at(-1);
+		if (!target || !general) throw new Error("no messages");
+		const owl = () =>
+			channel
+				.messages()
+				.find((message) => message.rkey === target.rkey)
+				?.reactions.find((reaction) => reaction.emoji === "🦉");
+		const event = {
+			$type: "reactionEvent" as const,
+			channel: general.space,
+			target: target.rkey,
+			emoji: "🦉",
+			actor: store.viewer.did,
+		};
+		source.emit({ ...event, event: "create" });
+		expect(owl()?.count).toBe(1);
+		expect(owl()?.viewerReacted).toBe(true);
+		source.emit({ ...event, event: "create" });
+		expect(owl()?.count).toBe(1);
+		source.emit({ ...event, event: "delete" });
+		expect(owl()).toBeUndefined();
+	});
 });
 
 describe("ownership transfer", () => {

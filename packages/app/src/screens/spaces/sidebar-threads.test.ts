@@ -3,7 +3,6 @@ import type { NotificationView, SpaceRef, ThreadView } from "../../data/types";
 import {
 	belongsInSidebar,
 	capKeepingPinned,
-	SIDEBAR_ACTIVITY_WINDOW_MS,
 	SIDEBAR_THREAD_LIMIT,
 	unseenThreadPings,
 } from "./sidebar-threads";
@@ -20,22 +19,55 @@ const threadAt = (tkey: string, ago: number): ThreadView =>
 	}) as unknown as ThreadView;
 
 describe("sidebar threads", () => {
-	it("keeps a pinned thread that has gone quiet", () => {
-		const quiet = threadAt("quiet", SIDEBAR_ACTIVITY_WINDOW_MS * 2);
-		expect(belongsInSidebar(quiet, NOW)).toBe(false);
-		expect(belongsInSidebar(quiet, NOW, "quiet")).toBe(true);
+	const withViewer = (
+		thread: ThreadView,
+		viewer: Partial<ThreadView["viewer"]>,
+		extra: Partial<ThreadView> = {},
+	) =>
+		({
+			...thread,
+			...extra,
+			viewer: { ...thread.viewer, ...viewer },
+		}) as ThreadView;
+
+	it("keeps followed threads and drops closed ones", () => {
+		const followed = withViewer(threadAt("followed", 0), { following: true });
+		expect(belongsInSidebar(followed, 0)).toBe(true);
+		const closed = withViewer(
+			followed,
+			{},
+			{ closedAt: new Date(NOW).toISOString() as ThreadView["closedAt"] },
+		);
+		expect(belongsInSidebar(closed, 0)).toBe(false);
 	});
 
-	it("drops a closed thread unless it is unread or pinned", () => {
-		const closed = (viewer: Partial<ThreadView["viewer"]> = {}) =>
-			({
-				...threadAt("closed", 0),
-				closedAt: new Date(NOW).toISOString(),
-				viewer: { hasUnread: false, following: true, ...viewer },
-			}) as unknown as ThreadView;
-		expect(belongsInSidebar(closed(), NOW)).toBe(false);
-		expect(belongsInSidebar(closed({ hasUnread: true }), NOW)).toBe(true);
-		expect(belongsInSidebar(closed(), NOW, "closed")).toBe(true);
+	it("keeps the thread that is open right now even when unfollowed", () => {
+		const open = threadAt("open", 0);
+		expect(belongsInSidebar(open, 0)).toBe(false);
+		expect(belongsInSidebar(open, 0, "open")).toBe(true);
+		const closed = withViewer(
+			open,
+			{},
+			{ closedAt: new Date(NOW).toISOString() as ThreadView["closedAt"] },
+		);
+		expect(belongsInSidebar(closed, 0, "open")).toBe(true);
+	});
+
+	it("drops an unfollowed thread that is only unread or recently active", () => {
+		const unread = withViewer(threadAt("unread", 0), { hasUnread: true });
+		expect(belongsInSidebar(unread, 0)).toBe(false);
+		expect(belongsInSidebar(threadAt("recent", 1000), 0)).toBe(false);
+	});
+
+	it("keeps an unfollowed thread that pings you", () => {
+		const mentioned = threadAt("mentioned", 0);
+		expect(belongsInSidebar(mentioned, 1)).toBe(true);
+		const closed = withViewer(
+			mentioned,
+			{},
+			{ closedAt: new Date(NOW).toISOString() as ThreadView["closedAt"] },
+		);
+		expect(belongsInSidebar(closed, 2)).toBe(true);
 	});
 
 	it("keeps a pinned thread past the row limit in the last slot", () => {

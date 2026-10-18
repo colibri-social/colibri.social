@@ -49,6 +49,13 @@ export const clampSidebarWidth = (value: unknown) =>
 const squareFlushCorner =
 	"[[data-app-shell]>:not([data-window-bar-rounded]+*)_&:has([data-banner-flush])]:rounded-tl-none";
 
+const squareChromelessCorner = "[[data-chrome=none]_&]:rounded-tl-none";
+
+const squareSystemFrameCorner =
+	"[[data-window-frame=system]_&]:rounded-tl-none";
+
+const flushSystemFrameTop = "[[data-window-frame=system]_&]:border-t-0";
+
 export const AppShell = (props: AppShellProps) => {
 	const windowBar = createSlot(() => props.windowBar);
 	const dock = createSlot(() => props.dock);
@@ -127,6 +134,9 @@ export const AppShell = (props: AppShellProps) => {
 							class={cx(
 								"rail-join relative flex h-full w-(--channel-sidebar-width) min-w-(--channel-sidebar-width) flex-col rounded-tl-sheet border-t border-l border-muted bg-background",
 								squareFlushCorner,
+								squareChromelessCorner,
+								squareSystemFrameCorner,
+								flushSystemFrameTop,
 							)}
 						>
 							<div
@@ -134,6 +144,8 @@ export const AppShell = (props: AppShellProps) => {
 								class={cx(
 									"isolate flex min-h-0 flex-1 flex-col overflow-hidden rounded-tl-[calc(var(--radius-sheet)-1px)]",
 									squareFlushCorner,
+									squareChromelessCorner,
+									squareSystemFrameCorner,
 								)}
 							>
 								{props.sidebar}
@@ -152,14 +164,20 @@ export const AppShell = (props: AppShellProps) => {
 						</div>
 					</div>
 					<Show when={dock.has()}>
-						<div data-shell-dock="" class="relative z-30 shrink-0 px-4 pb-4">
+						<div
+							data-shell-dock=""
+							class="relative z-30 w-0 min-w-full shrink-0 px-4 pb-4"
+						>
 							{dock()}
 						</div>
 					</Show>
 				</div>
 				<div
 					data-shell-content=""
-					class="flex h-full min-w-(--min-chat-width,360px) flex-1 flex-col border-t border-l border-muted bg-card"
+					class={cx(
+						"flex h-full min-w-(--min-chat-width,360px) flex-1 flex-col border-t border-l border-muted bg-card",
+						flushSystemFrameTop,
+					)}
 				>
 					<Show when={header.has()}>
 						<div data-shell-header="" class="shrink-0">

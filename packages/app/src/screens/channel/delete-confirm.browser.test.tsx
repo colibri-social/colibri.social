@@ -1,10 +1,17 @@
 import { render } from "solid-js/web";
 import { afterEach, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 import "../../app.css";
 import { createMockSource, setLatency } from "../../data/mock/source";
 import { createDataStore, DataContext } from "../../data/store";
 import { Providers } from "../../providers";
 import { MobileShell } from "../../shell/MobileShell";
+import {
+	articleWithText as desktopArticle,
+	main,
+	mount as mountDesktop,
+	send,
+} from "./desktop-test-kit";
 
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
 const DEV_PATH = `/app/c/${HQ}/social.colibri.beta.channel.text/dev`;
@@ -59,7 +66,7 @@ const buttonNamed = (scope: ParentNode, name: string) =>
 			name,
 	);
 
-it("asks before deleting a message from the mobile hold drawer", async () => {
+const mountMobile = async () => {
 	setLatency(0);
 	history.replaceState(null, "", DEV_PATH);
 	const store = createDataStore(createMockSource({ live: false }));
@@ -86,6 +93,11 @@ it("asks before deleting a message from the mobile hold drawer", async () => {
 		? store.space(community).channelBySlug("dev")
 		: undefined;
 	if (!dev) throw new Error("dev missing");
+	return { store, dev };
+};
+
+it("asks before deleting a message from the mobile hold drawer", async () => {
+	const { store, dev } = await mountMobile();
 	await store.channel(dev.space).send({ text: "Hold to delete me" });
 	await until(() => !!articleWithText("Hold to delete me"));
 	await wait(400);
@@ -119,4 +131,88 @@ it("asks before deleting a message from the mobile hold drawer", async () => {
 		buttonNamed(confirm() as HTMLElement, "Delete message") as HTMLElement
 	).click();
 	await until(() => !articleWithText("Hold to delete me"));
+});
+
+it("asks to delete when a mobile edit is saved empty", async () => {
+	const { store, dev } = await mountMobile();
+	await store.channel(dev.space).send({ text: "Empty me out" });
+	await until(() => !!articleWithText("Empty me out"));
+	await wait(400);
+	await hold(articleWithText("Empty me out") as HTMLElement);
+	const drawerEdit = () =>
+		Array.from(document.querySelectorAll<HTMLElement>("[role='dialog']"))
+			.map((dialog) => buttonNamed(dialog, "Edit message"))
+			.find(Boolean);
+	await until(() => !!drawerEdit());
+	await wait(300);
+	(drawerEdit() as HTMLElement).click();
+	const composer = () =>
+		pane().querySelector<HTMLElement>("[contenteditable='true']");
+	await until(() => composer()?.textContent === "Empty me out");
+	await userEvent.click(composer() as HTMLElement);
+	await userEvent.keyboard("{ControlOrMeta>}a{/ControlOrMeta}{Backspace}");
+	await until(() => composer()?.textContent?.trim() === "");
+	const save = buttonNamed(pane(), "Save edit") as HTMLElement;
+	await until(() => !save.hasAttribute("disabled"));
+	save.click();
+	await until(() => !!confirmDialog());
+	await wait(200);
+	(
+		buttonNamed(confirmDialog() as HTMLElement, "Delete message") as HTMLElement
+	).click();
+	await until(() => !articleWithText("Empty me out"));
+	expect(buttonNamed(pane(), "Save edit")).toBeUndefined();
+});
+
+const confirmDialog = () =>
+	Array.from(
+		document.querySelectorAll<HTMLElement>(
+			"[role='alertdialog'], [role='dialog']",
+		),
+	).find((dialog) => dialog.textContent?.includes("Delete message?"));
+
+const inlineEditor = () =>
+	main().querySelector<HTMLElement>(
+		"[data-message-editor] [contenteditable='true']",
+	);
+
+const clearAndSubmit = async () => {
+	await until(() => !!inlineEditor());
+	await wait(150);
+	await userEvent.click(inlineEditor() as HTMLElement);
+	await userEvent.keyboard("{ControlOrMeta>}a{/ControlOrMeta}{Backspace}");
+	await until(() => inlineEditor()?.textContent?.trim() === "");
+	await userEvent.keyboard("{Enter}");
+};
+
+it("asks to delete when an edit is submitted empty, and Enter confirms", async () => {
+	await mountDesktop();
+	const article = await send("Edit me away");
+	const key = article.dataset.messageKey;
+	const present = () =>
+		!!main().querySelector(`article[data-message-key="${key}"]`);
+	await userEvent.keyboard("{ArrowUp}");
+	await clearAndSubmit();
+	await until(() => !!confirmDialog());
+	const confirmButton = buttonNamed(
+		confirmDialog() as HTMLElement,
+		"Delete message",
+	);
+	await until(() => document.activeElement === confirmButton);
+	await userEvent.keyboard("{Escape}");
+	await until(() => !confirmDialog());
+	expect(present()).toBe(true);
+	expect(inlineEditor()).not.toBeNull();
+
+	await clearAndSubmit();
+	await until(() => !!confirmDialog());
+	await until(
+		() =>
+			document.activeElement ===
+			buttonNamed(confirmDialog() as HTMLElement, "Delete message"),
+	);
+	await userEvent.keyboard("{Enter}");
+	await until(() => !present());
+	expect(inlineEditor()).toBeNull();
+	expect(desktopArticle(main(), "Edit me away")).toBeUndefined();
 });

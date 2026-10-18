@@ -4,7 +4,6 @@ import type { DataStore, SpaceData } from "../../data/store";
 import type { NotificationView, SpaceRef, ThreadView } from "../../data/types";
 
 export const SIDEBAR_THREAD_LIMIT = 5;
-export const SIDEBAR_ACTIVITY_WINDOW_MS = 6 * 60 * 60 * 1000;
 
 const newestFirst = (a: ThreadView, b: ThreadView) => {
 	if (a.lastActivityAt === b.lastActivityAt) return a.space < b.space ? -1 : 1;
@@ -13,15 +12,12 @@ const newestFirst = (a: ThreadView, b: ThreadView) => {
 
 export const belongsInSidebar = (
 	thread: ThreadView,
-	now: number,
-	pinnedThread?: string,
+	mentions: number,
+	activeThread?: string,
 ) => {
-	if (thread.viewer.hasUnread) return true;
-	if (pinnedThread === skeyOf(thread.space)) return true;
-	if (thread.closedAt) return false;
-	if (thread.viewer.following) return true;
-	const at = new Date(thread.lastActivityAt).getTime();
-	return !Number.isNaN(at) && now - at <= SIDEBAR_ACTIVITY_WINDOW_MS;
+	if (activeThread === skeyOf(thread.space)) return true;
+	if (mentions > 0) return true;
+	return !!thread.viewer.following && !thread.closedAt;
 };
 
 export const capKeepingPinned = <T extends { thread: ThreadView }>(
@@ -59,8 +55,7 @@ export const sidebarThreadsFor = (
 	data: DataStore,
 	space: SpaceData | undefined,
 	channel: SpaceRef,
-	now: number,
-	pinnedThread?: string,
+	activeThread?: string,
 ): SidebarThreadState[] => {
 	const unseen = unseenThreadPings(data.notifications.items());
 	const listed = sidebarThreads(data, channel)
@@ -75,12 +70,9 @@ export const sidebarThreadsFor = (
 				mentions: Math.max(thread.viewer.unreadMentions ?? 0, pings),
 			};
 		})
-		.filter(
-			(state) =>
-				state.unread ||
-				state.mentions > 0 ||
-				belongsInSidebar(state.thread, now, pinnedThread),
+		.filter((state) =>
+			belongsInSidebar(state.thread, state.mentions, activeThread),
 		)
 		.sort((a, b) => newestFirst(a.thread, b.thread));
-	return capKeepingPinned(listed, pinnedThread);
+	return capKeepingPinned(listed, activeThread);
 };

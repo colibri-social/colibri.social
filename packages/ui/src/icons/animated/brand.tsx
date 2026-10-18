@@ -3,6 +3,7 @@ import {
 	anisotaMark,
 	type BrandMark,
 	blackskyMark,
+	deerMark,
 	muMark,
 	northskyGradient,
 	northskyMark,
@@ -211,6 +212,7 @@ export type BlueskyClientLogoId =
 	| "anisota"
 	| "blacksky"
 	| "bluesky"
+	| "deer"
 	| "mu"
 	| "northsky"
 	| "witchsky";
@@ -224,6 +226,7 @@ const BLUESKY_CLIENT_MARKS: Record<BlueskyClientLogoId, BrandMark> = {
 	anisota: anisotaMark,
 	blacksky: blackskyMark,
 	bluesky: blueskyMark,
+	deer: deerMark,
 	mu: muMark,
 	northsky: northskyMark,
 	witchsky: witchskyMark,

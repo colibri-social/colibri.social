@@ -16,6 +16,7 @@ export type SegmentedControlProps = {
 	value?: string;
 	defaultValue?: string;
 	onChange?: (value: string) => void;
+	onReselect?: (value: string) => void;
 	size?: SegmentedControlSize;
 	disabled?: boolean;
 	name?: string;
@@ -34,7 +35,12 @@ const indicatorRadius: Record<SegmentedControlSize, string> = {
 };
 
 export const SegmentedControl = (props: SegmentedControlProps) => {
-	const [local, rest] = splitProps(props, ["options", "size", "class"]);
+	const [local, rest] = splitProps(props, [
+		"options",
+		"size",
+		"class",
+		"onReselect",
+	]);
 	const size = () => local.size ?? "md";
 
 	return (
@@ -61,6 +67,10 @@ export const SegmentedControl = (props: SegmentedControlProps) => {
 						value={option.value}
 						disabled={option.disabled}
 						class="relative flex min-w-0"
+						onClick={(event) => {
+							if (!(event.target instanceof HTMLInputElement)) return;
+							if (option.value === rest.value) local.onReselect?.(option.value);
+						}}
 					>
 						<KobalteSegmentedControl.ItemInput class="peer sr-only" />
 						<KobalteSegmentedControl.ItemLabel

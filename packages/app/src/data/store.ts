@@ -455,6 +455,7 @@ export const createDataStore = (
 			onEvict: (ref) => summaryAnchors.delete(ref),
 		});
 		const readStates = new Map<string, ReadState>();
+		const cachedReads = new Map<string, ReadState>();
 		const readKey = (community: string, slug: string) => `${community} ${slug}`;
 		const summaries = createRecordStore<ChannelSummary>();
 		const lastMessages = summaries.state;
@@ -552,8 +553,19 @@ export const createDataStore = (
 		>();
 		const cache = options.cache;
 		const recentFeeds = createLru<true>(MEMORY_WINDOW_COUNT);
-		const presences = createRecordStore<Presence>();
+		const presences = createRecordStore<Presence>(
+			snapshot?.presence ? { ...snapshot.presence } : {},
+		);
 		const presence = presences.state;
+		const seededPresence = new Set(Object.keys(snapshot?.presence ?? {}));
+		persist(() => {
+			const known: Record<string, Presence> = {};
+			for (const did of Object.keys(presence)) {
+				const entry = presence[did];
+				if (entry) known[did] = entry;
+			}
+			spaceCache?.offerPresence(known);
+		});
 		const [speaking, setSpeaking] = createStore<Record<string, boolean>>({});
 		const voiceRoster = createMemo(() => {
 			const roster = new Map<string, Did[]>();
@@ -710,8 +722,10 @@ export const createDataStore = (
 			const known = knownReadState(ref);
 			if (known) return Promise.resolve(known);
 			const community = communityOfRef(ref);
-			return (unreadLoads.get(community) ?? loadUnread(community)).then(() =>
-				knownReadState(ref),
+			return (unreadLoads.get(community) ?? loadUnread(community)).then(
+				() =>
+					knownReadState(ref) ??
+					cachedReads.get(readKey(community, skeyOf(ref))),
 			);
 		};
 		const noteRead = (ref: SpaceRef, cursor?: string) => {
@@ -725,6 +739,15 @@ export const createDataStore = (
 				...(next ? { cursor: next } : {}),
 				hasUnread: false,
 			});
+		};
+
+		const readsOf = (community: Did) => {
+			const prefix = `${community} `;
+			const reads: Record<string, ReadState> = {};
+			for (const known of [cachedReads, readStates])
+				for (const [key, state] of known)
+					if (key.startsWith(prefix)) reads[key.slice(prefix.length)] = state;
+			return Object.keys(reads).length > 0 ? reads : undefined;
 		};
 
 		const space = (community: CommunityView): SpaceData => {
@@ -741,6 +764,9 @@ export const createDataStore = (
 				"channel.list",
 				cached?.channels,
 			);
+			for (const summary of cached?.summaries ?? []) putSummary(summary);
+			for (const [slug, read] of Object.entries(cached?.reads ?? {}))
+				cachedReads.set(readKey(community.did, slug), read);
 			void loadSummaries(community.did);
 			categoryLoads.set(community.did, categories);
 			channelLoads.set(community.did, channelList);
@@ -765,9 +791,12 @@ export const createDataStore = (
 					} while (cursor);
 					presences.putAll(
 						all.flatMap((member) => {
+							const did = member.actor.did;
 							const current = member.actor.presence;
-							return current && !untrack(() => presence[member.actor.did])
-								? [[member.actor.did, current] as const]
+							const stale = seededPresence.delete(did);
+							if (stale && !current) presences.remove(did);
+							return current && (stale || !untrack(() => presence[did]))
+								? [[did, current] as const]
 								: [];
 						}),
 					);
@@ -894,8 +923,17 @@ export const createDataStore = (
 							{ hasUnread: state.hasUnread, mentions: state.mentions },
 						]),
 					),
+					reads: readsOf(community.did),
 				};
 				spaceCache?.offerSpace(community.did, patch);
+			});
+			persist(() => {
+				const summaries = (channelList.value() ?? []).flatMap((channel) => {
+					const summary = lastMessages[channel.space];
+					return summary ? [summary] : [];
+				});
+				if (summaries.length > 0)
+					spaceCache?.offerSpace(community.did, { summaries });
 			});
 			return data;
 		};
@@ -1122,11 +1160,18 @@ export const createDataStore = (
 		} => {
 			let load = threadMemberLoads.get(thread);
 			if (!load) {
-				load = createLazyLoad(
+				const community = communityOfRef(thread);
+				const created = createLazyLoad(
 					() => source.listThreadMembers(thread),
 					"thread.listMembers",
+					snapshot?.spaces[community]?.threadMembers?.[thread],
 				);
+				load = created;
 				threadMemberLoads.set(thread, load);
+				persist(() => {
+					const roster = created.peek?.();
+					if (roster) spaceCache?.offerThreadMembers(community, thread, roster);
+				});
 			}
 			const fetched = load;
 			return {
@@ -2195,7 +2240,7 @@ export const createDataStore = (
 					if (event.message) upsert(event.message);
 					return true;
 				}
-				if (event.$type === "reactionEvent" && event.actor !== viewer.did) {
+				if (event.$type === "reactionEvent") {
 					applyReaction(
 						event.target,
 						event.emoji,
@@ -2722,11 +2767,15 @@ export const createDataStore = (
 					typingListeners.get(event.channel)?.(event.did);
 					return;
 				case "presenceEvent":
+					seededPresence.delete(event.did);
 					presences.put(event.did, event.presence);
 					if (!event.presence.voice) setSpeaking(event.did, false);
 					return;
 				case "voiceActivityEvent":
 					setSpeaking(event.did, event.speaking);
+					return;
+				case "voiceStateEvent":
+					applyVoiceState(event.did, event.channel, event.voice);
 					return;
 				case "viewerEvent":
 					applyViewer(event.profile);
@@ -2738,6 +2787,19 @@ export const createDataStore = (
 					return;
 			}
 		});
+
+		const applyVoiceState = (
+			did: Did,
+			channel: SpaceRef,
+			voice: VoiceState | undefined,
+		) => {
+			presences.update(did, (current) => {
+				if (voice) return { onlineState: "online", ...current, voice };
+				if (current?.voice?.channel !== channel) return current;
+				const { voice: _left, ...rest } = current;
+				return rest;
+			});
+		};
 
 		const applyViewer = (next: ProfileView) => {
 			const { presence: nextPresence, ...profile } = next;
@@ -2868,6 +2930,10 @@ export const createDataStore = (
 			source,
 			() => viewer.did,
 			() => communities.value() ?? [],
+			{
+				seed: snapshot?.emoji,
+				offer: (emoji) => spaceCache?.offerEmoji(emoji),
+			},
 		);
 
 		const backfill = createCatchUpQueue();

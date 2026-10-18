@@ -34,6 +34,8 @@ export type EditProfileLayer = { kind: "editProfile" };
 
 export type SettingsLayer = { kind: "settings"; page?: string };
 
+export type InboxLayer = { kind: "inbox" };
+
 export const ADMIN_PAGES = [
 	"overview",
 	"profile",
@@ -109,6 +111,7 @@ export type Layer =
 	| ChannelLayer
 	| EditProfileLayer
 	| SettingsLayer
+	| InboxLayer
 	| AdminLayer
 	| AppLayer;
 
@@ -142,6 +145,7 @@ export const PROFILE_EDIT_PATH = "/app/profile/edit";
 export const CREATE_SPACE_PATH = "/app/new";
 export const DISCOVER_PATH = "/app/discover";
 export const SETTINGS_PATH = "/app/settings";
+export const INBOX_PATH = "/app/inbox";
 
 export const adminPath = (layer: Omit<AdminLayer, "kind">) => {
 	const base = `/app/c/${layer.space}/manage/${layer.page}`;
@@ -191,6 +195,7 @@ export const layerPath = (layer: Layer) => {
 			? `${SETTINGS_PATH}/${segment(layer.page)}`
 			: SETTINGS_PATH;
 	}
+	if (layer.kind === "inbox") return INBOX_PATH;
 	if (layer.kind === "createSpace") return CREATE_SPACE_PATH;
 	if (layer.kind === "discover") return DISCOVER_PATH;
 	if (layer.kind === "join") return `/app/invite/${segment(layer.code)}`;

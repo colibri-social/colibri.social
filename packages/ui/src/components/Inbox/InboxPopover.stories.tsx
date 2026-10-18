@@ -1,4 +1,4 @@
-import { For } from "solid-js";
+import { createSignal, For } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import {
@@ -6,11 +6,12 @@ import {
 	ChannelListHeaderSkeleton,
 } from "../Channels/ChannelSkeletons";
 import { MessageRowSkeleton } from "../Message/MessageSkeletons";
+import { Modal } from "../Modal/Modal";
 import { AppShell } from "../Shell/AppShell";
 import { SpaceRail, SpaceRailItem } from "../SpaceRail/SpaceRail";
 import { TOOLTIP_OPEN_DELAY } from "../Tooltip/Tooltip";
 import { createInboxStore, INBOX_NOW, inboxNotifications } from "./fixtures";
-import { InboxPopover } from "./InboxPopover";
+import { InboxModalContent, InboxPopover } from "./InboxPopover";
 import {
 	type InboxNotification,
 	type InboxStatus,
@@ -401,5 +402,98 @@ export const LoadFailed: Story = {
 		await waitFor(() =>
 			expect(dialog.querySelector("[data-inbox-list]")).not.toBeNull(),
 		);
+	},
+};
+
+const ModalScene = () => {
+	const store = createInboxStore();
+	const [open, setOpen] = createSignal(false);
+	const shared = {
+		get spaces() {
+			return store.state.spaces;
+		},
+		get notifications() {
+			return store.state.notifications;
+		},
+		get status() {
+			return store.state.status;
+		},
+		now: INBOX_NOW,
+		locale: "en-GB",
+		onOpenNotification: (id: string) => {
+			store.markRead(id);
+			onOpenNotification(id);
+			setOpen(false);
+		},
+		onMarkRead: store.markRead,
+		onMarkAllRead: store.markAllRead,
+		onMarkCategoryRead: store.markCategoryRead,
+		onMarkSpaceRead: store.markSpaceRead,
+	};
+	return (
+		<div class="h-dvh w-full bg-background">
+			<AppShell
+				class="h-full"
+				rail={
+					<SpaceRail
+						platform="desktop"
+						leading={
+							<InboxPopover
+								{...shared}
+								presentation="modal"
+								open={open()}
+								onOpenModal={() => setOpen(true)}
+							/>
+						}
+					/>
+				}
+				sidebar={<div />}
+			>
+				<div class="flex-1" />
+			</AppShell>
+			<Modal open={open()} onOpenChange={setOpen}>
+				<InboxModalContent {...shared} />
+			</Modal>
+		</div>
+	);
+};
+
+export const ModalPresentation: Story = {
+	render: () => <ModalScene />,
+	play: async ({ canvasElement }) => {
+		const button = railButton(canvasElement);
+		await expect(button).toHaveAttribute("aria-expanded", "false");
+		await userEvent.click(button);
+		const dialog = await screen.findByRole("dialog", { name: "All" });
+		await waitFor(() => expect(dialog).toBeVisible());
+		await expect(dialog).toHaveAttribute("data-inbox-modal");
+		await expect(document.querySelector("[data-inbox-popover]")).toBeNull();
+		await expect(button).toHaveAttribute("aria-expanded", "true");
+		await expect(
+			within(dialog).getByRole("navigation", { name: "Breadcrumb" }),
+		).toHaveTextContent("Inbox");
+		const box = dialog.getBoundingClientRect();
+		await expect(box.width).toBeGreaterThan(680);
+
+		const rows = listRows(dialog);
+		await expect(rows.length).toBeGreaterThan(0);
+		await userEvent.click(
+			within(
+				within(dialog).getByRole("navigation", { name: "Inbox views" }),
+			).getByRole("button", { name: /Mentions/ }),
+		);
+		await waitFor(() =>
+			expect(screen.getByRole("dialog", { name: "Mentions" })).toBe(dialog),
+		);
+
+		const first = listRows(dialog)[0];
+		if (!first) throw new Error("no mention rows");
+		onOpenNotification.mockClear();
+		first.querySelector<HTMLElement>("[data-inbox-open]")?.click();
+		await expect(onOpenNotification).toHaveBeenCalledWith(
+			first.dataset.inboxId,
+		);
+		await waitFor(() => expect(dialog.isConnected).toBe(false));
+		await expect(button).toHaveAttribute("aria-expanded", "false");
 	},
 };

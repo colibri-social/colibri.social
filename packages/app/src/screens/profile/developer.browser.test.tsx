@@ -1,11 +1,13 @@
 import "../../app.css";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { page } from "vitest/browser";
 import { expectNoLayoutIssues } from "../../../../ui/src/foundations/layout-test";
 import { createMockSource, setLatency } from "../../data/mock/source";
 import { createDataStore, DataContext } from "../../data/store";
 import { Providers } from "../../providers";
 import { MobileShell } from "../../shell/MobileShell";
+import { ProfileSheetProvider, useProfileSheet } from "./profile-sheet";
 
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
 
@@ -115,5 +117,54 @@ describe("developer mode cards", () => {
 		const drawer = await openRailDrawer(root);
 		expect(pdslsLink(drawer)).toBeUndefined();
 		expect(copyDid(drawer)).toBeUndefined();
+	});
+
+	it("shows another member's DID in the profile popover only in developer mode", async () => {
+		setLatency(0);
+		await page.viewport(1440, 900);
+		const store = createDataStore(createMockSource({ live: false }));
+		store.setControls({ developerMode: false });
+		await until(() => !!store.communities.value());
+		const hq = store.spaceByKey(HQ);
+		if (!hq) throw new Error("hq missing");
+		const space = store.space(hq);
+		await until(() => !!space.members.value());
+		const other = space.members
+			.value()
+			?.find((member) => member.actor.did !== store.viewer.did);
+		if (!other) throw new Error("no other member");
+		let open: ReturnType<typeof useProfileSheet>["open"] = () => {};
+		let anchor: HTMLButtonElement | undefined;
+		const Capture = () => {
+			open = useProfileSheet().open;
+			return null;
+		};
+		host = document.createElement("div");
+		host.style.cssText = "position:fixed;inset:0;width:1440px;height:900px";
+		document.body.append(host);
+		stop = render(
+			() => (
+				<DataContext.Provider value={store}>
+					<Providers>
+						<ProfileSheetProvider>
+							<Capture />
+							<button type="button" ref={anchor} style={{ margin: "200px" }}>
+								Anchor
+							</button>
+						</ProfileSheetProvider>
+					</Providers>
+				</DataContext.Provider>
+			),
+			host,
+		);
+		open(other.actor.did, HQ, { element: anchor });
+		await until(() => !!document.querySelector("[data-profile-link]"));
+		expect(pdslsLink(document)).toBeUndefined();
+		expect(copyDid(document)).toBeUndefined();
+		store.setControls({ developerMode: true });
+		await until(() => !!pdslsLink(document));
+		expect(pdslsLink(document)?.href).toBe(
+			`https://pdsls.dev/at://${other.actor.did}`,
+		);
 	});
 });

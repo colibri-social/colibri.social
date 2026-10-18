@@ -22,6 +22,7 @@ export type MessageEditing = {
 	onCancel: () => void;
 	onChange?: (value: RichText) => void;
 	allowEmpty?: boolean;
+	onEmptySubmit?: () => void;
 	maxLength?: number;
 	sources?: RichEditorSources;
 	placeholder?: string;
@@ -61,9 +62,12 @@ export const MessageEditor = (props: MessageEditorProps) => {
 	const ringVisible = () =>
 		utf8Length(current().text) / max() >= RING_THRESHOLD;
 	const max = () => props.editing.maxLength ?? CHARACTER_LIMIT;
+	const isEmpty = (value: RichText) => value.text.trim().length === 0;
+	const deletesWhenEmpty = () =>
+		!props.editing.allowEmpty && !!props.editing.onEmptySubmit;
 	const saveable = (value: RichText) => {
 		if (utf8Length(value.text) > max()) return false;
-		if (value.text.trim().length === 0) return !!props.editing.allowEmpty;
+		if (isEmpty(value)) return !!props.editing.allowEmpty || deletesWhenEmpty();
 		return true;
 	};
 
@@ -72,6 +76,10 @@ export const MessageEditor = (props: MessageEditorProps) => {
 		if (sameRichText(value, baseline)) {
 			props.editing.onCancel();
 			return true;
+		}
+		if (isEmpty(value) && deletesWhenEmpty()) {
+			props.editing.onEmptySubmit?.();
+			return false;
 		}
 		setSaving(true);
 		try {

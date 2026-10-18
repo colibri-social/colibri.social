@@ -33,12 +33,12 @@ const openFullThread = async () => {
 };
 
 const closeFullThread = async () => {
-	const back = () =>
-		document.querySelector<HTMLElement>(
-			"[data-outlet='header'] button[aria-label='Back to #dev']",
-		);
-	await until(() => !!back());
-	back()?.click();
+	const chat = () =>
+		Array.from(
+			document.querySelectorAll<HTMLElement>("[data-outlet='header'] label"),
+		).find((label) => label.textContent === "Chat");
+	await until(() => !!chat());
+	chat()?.click();
 	await until(() => !document.querySelector("[data-thread-full]"));
 	await wait(300);
 };

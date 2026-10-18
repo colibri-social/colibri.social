@@ -20,6 +20,7 @@ import { ForwardedMessage } from "./ForwardedMessage";
 import { HiddenMessage } from "./HiddenMessage";
 import { LinkEmbed, LinkEmbedSkeleton } from "./LinkEmbed";
 import { MediaGrid, MediaGridSkeleton, type MediaItem } from "./MediaGrid";
+import { type RichTextBlock, SocialPostEmbed } from "./SocialPostEmbed";
 import { fixtureImage, fixtureImages } from "./story-fixtures";
 
 const meta = {
@@ -423,9 +424,31 @@ export const Links: Story = {
 			"https://atproto.com/guides/overview",
 		);
 		await expect(link).toHaveAttribute("target", "_blank");
+		await expect(link).toHaveAccessibleName("Protocol overview");
+		await expect(link).toHaveAttribute("draggable", "false");
 		await expect(
-			canvas.getByRole("link", { name: /^example\.org Release notes/ }),
+			canvas.getByRole("link", { name: "Release notes" }),
 		).toBeInTheDocument();
+		const embed = link.closest("[data-link-embed]") as HTMLElement;
+		await expect(embed.querySelectorAll("a")).toHaveLength(1);
+		const site = canvas.getByText("AT Protocol");
+		const description = canvas.getByText(/open, decentralized network/);
+		await expect(site.closest("a")).toBeNull();
+		await expect(description.closest("a")).toBeNull();
+		await expect(getComputedStyle(site).userSelect).toBe("text");
+		await expect(getComputedStyle(description).userSelect).toBe("text");
+		await expect(getComputedStyle(embed).cursor).not.toBe("pointer");
+		await expect(
+			getComputedStyle(link, "::after").content === "none" ||
+				getComputedStyle(link, "::after").content === "normal",
+		).toBe(true);
+		const hit = description.getBoundingClientRect();
+		await expect(
+			document.elementFromPoint(hit.left + 4, hit.top + hit.height / 2),
+		).toBe(description);
+		link.focus();
+		await expect(document.activeElement).toBe(link);
+		await expect(link.className).toContain("focus-ring");
 	},
 };
 
@@ -1075,4 +1098,364 @@ export const PosterlessVideoFrame: Story = {
 			/#t=0\.001$/,
 		);
 	},
+};
+
+const FX_ACCENT = "#6363ff";
+const providerIcon = paintImage(32, 32, ["#6363ff", "#1e1b4b"]);
+
+const longBody: RichTextBlock[] = [
+	{
+		kind: "paragraph",
+		spans: [
+			{
+				text: "Spent the weekend rebuilding the bird feeder. It now has a roof, a perch on both sides and a tray that drains when it rains.\nThe sparrows moved in within an hour.",
+			},
+		],
+	},
+	{
+		kind: "paragraph",
+		spans: [
+			{ text: "Plans are on " },
+			{ text: "example.org/feeder", href: "https://example.org/feeder" },
+			{
+				text: " if anyone wants to build one. It takes about two hours and one plank of pine. Bring a drill, sandpaper and patience for the roof angle, which took me three tries.",
+			},
+		],
+	},
+	{
+		kind: "paragraph",
+		spans: [{ text: "Next up is a bath for them. Suggestions welcome!" }],
+	},
+];
+
+const SocialPostCases = (props: { desktop?: boolean }) => {
+	const clip = createStoryClip(3);
+	return (
+		<Screen desktop={props.desktop}>
+			<div data-testid="social-posts">
+				<Message
+					attachments={
+						<SocialPostEmbed
+							url="https://fixupx.com/lis/status/1/en"
+							accent={FX_ACCENT}
+							author={{
+								name: "Lis",
+								handle: "lis",
+								url: "https://x.com/lis",
+								avatarSrc: fixtureImage(3, 200, 200).src,
+							}}
+							body={[]}
+							quote={{
+								url: "https://x.com/frank/status/2",
+								author: { name: "Frank", handle: "frank" },
+								time: "1d",
+								translatedFrom: "zh",
+								body: [
+									{
+										kind: "paragraph",
+										spans: [{ text: "Outlook has gone crazy" }],
+									},
+								],
+							}}
+							stats={{ replies: 18, reposts: 42, likes: 373, views: 12_428 }}
+							media={
+								clip()
+									? [
+											{
+												src: clip()?.src ?? "",
+												poster: clip()?.poster,
+												kind: "video",
+												mimeType: "video/webm",
+												width: 720,
+												height: 1564,
+											},
+										]
+									: []
+							}
+							footer={{
+								label: "FixupX",
+								url: "https://fixupx.com",
+								iconSrc: providerIcon,
+								time: "10/14/26, 11:19 AM",
+							}}
+							onOpenMedia={onOpen}
+						/>
+					}
+				/>
+				<Message
+					name="Tim"
+					attachments={
+						<SocialPostEmbed
+							url="https://social.example/@birds/2"
+							accent="#181820"
+							author={{
+								name: "Bird atlas",
+								handle: "birds@social.example",
+								url: "https://social.example/@birds",
+							}}
+							body={[
+								{
+									kind: "paragraph",
+									spans: [
+										{ text: "Four visitors this morning, spotted by " },
+										{
+											text: "@lis",
+											href: "https://social.example/@lis",
+										},
+										{ text: "." },
+									],
+								},
+								{
+									kind: "quote",
+									spans: [{ text: "<script>alert(1)</script> stays text" }],
+								},
+							]}
+							stats={{ replies: 3, reposts: 12, likes: 80 }}
+							media={fixtureImages(4)}
+							footer={{ label: "social.example", time: "10/17/26, 6:22 PM" }}
+							onOpenMedia={onOpen}
+						/>
+					}
+				/>
+				<Message
+					name="Lis"
+					attachments={
+						<SocialPostEmbed
+							url="https://social.example/@lis/3"
+							author={{ name: "Lis", handle: "lis@social.example" }}
+							body={longBody}
+							footer={{ label: "social.example" }}
+						/>
+					}
+				/>
+				<Message
+					name="Tim"
+					attachments={
+						<SocialPostEmbed
+							url="https://social.example/@tim/4"
+							author={{ name: "Tim", handle: "tim@social.example" }}
+							contentWarning="Spiders, close up"
+							body={[
+								{
+									kind: "paragraph",
+									spans: [{ text: "Found this one in the shed." }],
+								},
+							]}
+							media={[fixtureImage(5, 1200, 900)]}
+							footer={{ label: "social.example" }}
+						/>
+					}
+				/>
+				<Message
+					name="Lis"
+					attachments={
+						<SocialPostEmbed
+							url="https://social.example/@lis/5"
+							author={{ name: "Lis", handle: "lis@social.example" }}
+							body={[
+								{ kind: "paragraph", spans: [{ text: "Loop of the feeder" }] },
+							]}
+							media={
+								clip()
+									? [
+											{
+												src: clip()?.src ?? "",
+												poster: clip()?.poster,
+												kind: "gif",
+												mimeType: "video/webm",
+												width: 640,
+												height: 360,
+											},
+										]
+									: []
+							}
+							footer={{ label: "social.example" }}
+						/>
+					}
+				/>
+			</div>
+		</Screen>
+	);
+};
+
+export const SocialPosts: Story = {
+	parameters: mobile,
+	render: () => <SocialPostCases />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const host = canvas.getByTestId("social-posts");
+		const author = canvas.getAllByRole("link", { name: /Lis \(@lis\)/ })[0];
+		await expect(author).toHaveAttribute("href", "https://x.com/lis");
+		await expect(author).toHaveAttribute("target", "_blank");
+		await expect(
+			canvas.getByText("Outlook has gone crazy"),
+		).toBeInTheDocument();
+		await expect(
+			canvas.getByText("Translated from Chinese"),
+		).toBeInTheDocument();
+		await expect(canvas.getByText("12K")).toBeInTheDocument();
+		await expect(canvas.getAllByText("Views")[0]).toHaveClass("sr-only");
+		await expect(canvas.getByRole("link", { name: "FixupX" })).toHaveAttribute(
+			"href",
+			"https://fixupx.com",
+		);
+		await expect(
+			canvas.getByText("<script>alert(1)</script> stays text"),
+		).toBeInTheDocument();
+		await expect(host.querySelector("script")).toBeNull();
+		await expect(
+			canvas.getByRole("link", { name: "@lis" }).closest("blockquote"),
+		).toBeNull();
+
+		const more = canvas.getByRole("button", { name: "Show more" });
+		const body = more.parentElement?.querySelector(
+			"[data-rich-body]",
+		) as HTMLElement;
+		const clamped = body.getBoundingClientRect().height;
+		await userEvent.click(more);
+		await waitFor(() =>
+			expect(body.getBoundingClientRect().height).toBeGreaterThan(clamped),
+		);
+		await expect(
+			canvas.getByRole("button", { name: "Show less" }),
+		).toBeVisible();
+
+		await expect(canvas.getByText("Spiders, close up")).toBeVisible();
+		const reveal = canvas.getByRole("button", {
+			name: "Reveal sensitive post",
+		});
+		await expect(
+			canvas.getByText("Found this one in the shed.").closest("[inert]"),
+		).not.toBeNull();
+		await userEvent.click(reveal);
+		await waitFor(() =>
+			expect(
+				canvas.getByText("Found this one in the shed.").closest("[inert]"),
+			).toBeNull(),
+		);
+
+		await waitFor(() =>
+			expect(host.querySelector("video[loop]")).not.toBeNull(),
+		);
+		await expectNoLayoutIssues(host);
+	},
+};
+
+export const SocialPostsDesktop: Story = {
+	render: () => <SocialPostCases desktop />,
+	play: async ({ canvasElement }) => {
+		const host = within(canvasElement).getByTestId("social-posts");
+		for (const card of host.querySelectorAll<HTMLElement>(
+			"[data-social-embed]",
+		)) {
+			await expect(card.getBoundingClientRect().width).toBeLessThanOrEqual(416);
+		}
+		await expectNoLayoutIssues(host);
+	},
+};
+
+const RichLinkCases = (props: { desktop?: boolean }) => {
+	const clip = createStoryClip(3);
+	return (
+		<Screen desktop={props.desktop}>
+			<div data-testid="rich-links">
+				<Message
+					attachments={
+						<LinkEmbed
+							url="https://videos.example/watch/42"
+							accent="#e11d48"
+							provider={{
+								name: "Example Videos",
+								url: "https://videos.example",
+								iconSrc: providerIcon,
+							}}
+							author={{
+								name: "Bird atlas",
+								url: "https://videos.example/birds",
+								avatarSrc: fixtureImage(1, 200, 200).src,
+							}}
+							title="Kingfisher dive, slowed down"
+							description="A kingfisher catching a fish, filmed at 240 frames per second."
+							media={
+								clip()
+									? [
+											{
+												src: clip()?.src ?? "",
+												poster: clip()?.poster,
+												kind: "video",
+												mimeType: "video/webm",
+												width: 1280,
+												height: 720,
+											},
+										]
+									: []
+							}
+							onOpenMedia={onOpen}
+						/>
+					}
+				/>
+				<Message
+					name="Lis"
+					attachments={
+						<LinkEmbed
+							url="https://news.example/birds"
+							accent="#1e2327"
+							provider={{ name: "News", iconSrc: providerIcon }}
+							title="Birds return early this spring"
+							description="Ringing stations report arrivals two weeks ahead of the average."
+							image={fixtureImage(2, 1200, 630)}
+							imageStyle="thumbnail"
+						/>
+					}
+				/>
+				<Message
+					name="Tim"
+					attachments={
+						<LinkEmbed
+							url="https://gallery.example/set/9"
+							siteName="Gallery"
+							title="Morning at the lake"
+							media={fixtureImages(3)}
+							onOpenMedia={onOpen}
+						/>
+					}
+				/>
+			</div>
+		</Screen>
+	);
+};
+
+export const RichLinks: Story = {
+	parameters: mobile,
+	render: () => <RichLinkCases />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const host = canvas.getByTestId("rich-links");
+		await expect(
+			canvas.getByRole("link", { name: "Example Videos" }),
+		).toHaveAttribute("href", "https://videos.example");
+		await expect(
+			canvas.getByRole("link", { name: "Bird atlas" }),
+		).toHaveAttribute("href", "https://videos.example/birds");
+		const bar = host.querySelector<HTMLElement>(
+			"[data-link-embed] > span[aria-hidden]",
+		);
+		await expect(bar?.style.background).toBe("rgb(225, 29, 72)");
+		const thumbnail = canvas
+			.getByText("Birds return early this spring")
+			.closest("[data-link-embed]") as HTMLElement;
+		await expect(thumbnail.querySelector(".size-18")).not.toBeNull();
+		await waitFor(() => expect(host.querySelector("video")).not.toBeNull());
+		await expect(
+			canvas
+				.getByText("Morning at the lake")
+				.closest("[data-link-embed]")
+				?.querySelectorAll("[data-media-tile]"),
+		).toHaveLength(3);
+		await expectNoLayoutIssues(host);
+	},
+};
+
+export const RichLinksDesktop: Story = {
+	render: () => <RichLinkCases desktop />,
 };

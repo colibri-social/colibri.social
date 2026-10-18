@@ -15,6 +15,7 @@ export type ConfirmDialogProps = {
 
 export const ConfirmDialog = (props: ConfirmDialogProps) => {
 	const [busy, setBusy] = createSignal(false);
+	let confirmButton: HTMLButtonElement | undefined;
 
 	const open = createMemo(() => props.open);
 	createEffect(
@@ -42,6 +43,10 @@ export const ConfirmDialog = (props: ConfirmDialogProps) => {
 	return (
 		<Modal open={props.open} onOpenChange={handleOpenChange}>
 			<ModalContent
+				onOpenAutoFocus={(event) => {
+					event.preventDefault();
+					confirmButton?.focus();
+				}}
 				title={props.title}
 				description={props.description}
 				footer={
@@ -54,6 +59,7 @@ export const ConfirmDialog = (props: ConfirmDialogProps) => {
 							{props.cancelLabel ?? "Cancel"}
 						</Button>
 						<Button
+							ref={confirmButton}
 							variant={props.tone === "destructive" ? "destructive" : "primary"}
 							loading={busy()}
 							onClick={confirm}

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
 use tauri::{AppHandle, Manager};
-use tauri_runtime_cef::{CefConfig, DenyReason, PermissionKind, Verdict};
+use tauri_runtime_cef::{CefConfig, DenyReason, LinuxWindowing, PermissionKind, Verdict};
 
 use crate::AppRuntime;
 
@@ -16,19 +16,33 @@ const MAIN_WINDOW: &str = "main";
 
 static APP: OnceLock<AppHandle<AppRuntime>> = OnceLock::new();
 static PENDING: Mutex<Vec<String>> = Mutex::new(Vec::new());
+static NATIVE_WAYLAND: OnceLock<bool> = OnceLock::new();
 
 pub enum Launch {
     Primary,
     Handled,
 }
 
+pub fn native_wayland() -> bool {
+    *NATIVE_WAYLAND.get_or_init(|| {
+        std::env::var_os("WAYLAND_DISPLAY").is_some()
+            && std::env::var_os("COLIBRI_X11").is_none()
+    })
+}
+
 pub fn bootstrap() -> Launch {
-    if std::env::var_os("GDK_BACKEND").is_none() {
+    let wayland = native_wayland();
+    if !wayland && std::env::var_os("GDK_BACKEND").is_none() {
         std::env::set_var("GDK_BACKEND", "x11");
     }
     expose_cef_library_dir();
 
     tauri_runtime_cef::configure(CefConfig {
+        linux_windowing: if wayland {
+            LinuxWindowing::Wayland
+        } else {
+            LinuxWindowing::X11
+        },
         identifier: IDENTIFIER.into(),
         custom_schemes: vec![
             "tauri".into(),

@@ -3,8 +3,9 @@ import {
 	type RichTextCustomEmoji,
 	toast,
 } from "@colibri-social/ui";
-import { createMemo, createSignal, Show } from "solid-js";
+import { createMemo, createResource, createSignal, Show } from "solid-js";
 import { repoOfUri } from "../../../data/emoji";
+import { knownOwner, loadOwner } from "../../../data/emoji/pack-preview";
 import { emojiOwnerName, OWN_EMOJI_LABEL } from "../../../data/emoji-store";
 import type { DataStore } from "../../../data/store";
 import type { Did } from "../../../data/types";
@@ -52,6 +53,24 @@ export const createCustomEmojiDrawer = (options: {
 		};
 	});
 
+	const ownerDid = createMemo(() => {
+		const source = target()?.id;
+		return source ? repoOfUri(source) || undefined : undefined;
+	});
+	const [fetchedOwner] = createResource(
+		() => {
+			const did = ownerDid();
+			return did && !knownOwner(data, did) ? did : undefined;
+		},
+		(did) => loadOwner(data, did),
+	);
+	const ownerHandle = () => {
+		const did = ownerDid();
+		if (!did) return undefined;
+		const owner = knownOwner(data, did) ?? fetchedOwner();
+		return owner?.did === did && owner.handle ? owner.handle : undefined;
+	};
+
 	const fail = (message: string) => (error: unknown) => {
 		toast.error(message);
 		throw error;
@@ -69,6 +88,7 @@ export const createCustomEmojiDrawer = (options: {
 					src={emoji().src}
 					alt={emoji().alt}
 					source={details()?.sourceLabel}
+					handle={ownerHandle()}
 					packName={details()?.pack?.name}
 					followed={details()?.followed}
 					packFollowed={details()?.packFollowed}

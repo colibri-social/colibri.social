@@ -9,6 +9,7 @@ import {
 	createMemo,
 	createRoot,
 	createSignal,
+	untrack,
 } from "solid-js";
 import {
 	allowsEmojiUri,
@@ -45,9 +46,13 @@ export type EmojiCatalog = EmojiLoad<EmojiCatalogView>;
 
 export type EmojiLibrary = EmojiLoad<EmojiLibraryView>;
 
-const createLoad = <T>(fetch: () => Promise<T>): EmojiLoad<T> =>
+const createLoad = <T>(
+	fetch: () => Promise<T>,
+	seed?: T,
+	onChange?: () => void,
+): EmojiLoad<T> =>
 	createRoot(() => {
-		const [value, setValue] = createSignal<T>();
+		const [value, setValue] = createSignal<T | undefined>(seed);
 		const [loading, setLoading] = createSignal(true);
 		const [error, setError] = createSignal<unknown>();
 		let generation = 0;
@@ -61,6 +66,7 @@ const createLoad = <T>(fetch: () => Promise<T>): EmojiLoad<T> =>
 					setValue(() => next);
 					setError(undefined);
 				});
+				onChange?.();
 			} catch (failure) {
 				if (current === generation) setError(() => failure);
 			} finally {
@@ -79,9 +85,15 @@ const createLoad = <T>(fetch: () => Promise<T>): EmojiLoad<T> =>
 					setValue(() => next);
 					setLoading(false);
 				});
+				onChange?.();
 			},
 		};
 	});
+
+export type EmojiSeed = {
+	library?: EmojiLibraryView;
+	catalogs?: Readonly<Record<string, EmojiCatalogView>>;
+};
 
 export const pickerPacks = (
 	catalog: EmojiCatalogView | undefined,
@@ -113,13 +125,22 @@ export const pickerPacks = (
 
 export const OWN_EMOJI_LABEL = "Your emoji";
 
-export const FOLLOWED_SINGLES_LABEL = "Followed emoji";
-
 export const emojiOwnerName = (owner: EmojiOwner) =>
 	owner.displayName || owner.handle || "Someone on Colibri";
 
+export const emojiAuthorName = (owner: EmojiOwner) =>
+	owner.displayName ||
+	(owner.handle ? `@${owner.handle}` : emojiOwnerName(owner));
+
+export type FollowOrigin = {
+	listed: (owner: Did) => boolean;
+	packOf: (emoji: EmojiView) => EmojiPackView | undefined;
+	ownerLabel: (owner: EmojiOwner) => string;
+};
+
 export const followedScope = (
 	follows: readonly EmojiFollowView[],
+	origin: FollowOrigin,
 ): EmojiScopeEntry[] => {
 	const available = follows.filter((follow) => follow.state === "available");
 	const packs = available
@@ -128,7 +149,7 @@ export const followedScope = (
 			(follow): EmojiScopeEntry => ({
 				id: `follow:${follow.subject}`,
 				label: follow.pack?.name ?? "",
-				author: emojiOwnerName(follow.owner),
+				author: emojiAuthorName(follow.owner),
 				catalog: {
 					community: follow.owner.did,
 					emojis: follow.emojis,
@@ -137,23 +158,27 @@ export const followedScope = (
 				local: false,
 			}),
 		);
-	const singles = available
-		.filter((follow) => follow.kind === "emoji")
-		.flatMap((follow) => follow.emojis);
-	if (singles.length === 0) return packs;
-	return [
-		...packs,
-		{
-			id: "follow:emoji",
-			label: FOLLOWED_SINGLES_LABEL,
-			catalog: {
-				community: "" as Did,
-				emojis: singles,
-				packs: [],
-			},
-			local: false,
-		},
-	];
+	const sections = new Map<string, EmojiScopeEntry>();
+	for (const follow of available) {
+		if (follow.kind !== "emoji" || origin.listed(follow.owner.did)) continue;
+		for (const emoji of follow.emojis) {
+			const pack = origin.packOf(emoji);
+			const id = pack ? `origin:${pack.id}` : `origin:${follow.owner.did}`;
+			const existing = sections.get(id);
+			if (existing?.catalog) {
+				existing.catalog.emojis.push(emoji);
+				continue;
+			}
+			sections.set(id, {
+				id,
+				label: pack ? pack.name : origin.ownerLabel(follow.owner),
+				author: pack ? emojiAuthorName(follow.owner) : undefined,
+				catalog: { community: follow.owner.did, emojis: [emoji], packs: [] },
+				local: false,
+			});
+		}
+	}
+	return [...packs, ...sections.values()];
 };
 
 const sameEmoji = (a: EmojiView | undefined, b: EmojiView | undefined) =>
@@ -182,20 +207,43 @@ export const createEmojiStore = (
 	source: DataSource,
 	viewer: () => Did,
 	communities: () => readonly CommunityView[] = () => [],
+	cache: { seed?: EmojiSeed; offer?: (emoji: EmojiSeed) => void } = {},
 ) => {
 	const catalogs = new Map<Did, EmojiCatalog>();
+	let libraryLoad: EmojiLibrary | undefined;
+
+	const loaded = (): EmojiSeed => {
+		const views: Record<string, EmojiCatalogView> = {};
+		for (const [community, load] of catalogs) {
+			const view = untrack(load.value);
+			if (view) views[community] = view;
+		}
+		return {
+			library: libraryLoad && untrack(libraryLoad.value),
+			catalogs: views,
+		};
+	};
+
+	const offer = () => cache.offer?.(loaded());
 
 	const catalog = (community: Did) => {
 		const existing = catalogs.get(community);
 		if (existing) return existing;
-		const created = createLoad(() => source.listEmoji(community));
+		const created = createLoad(
+			() => source.listEmoji(community),
+			cache.seed?.catalogs?.[community],
+			offer,
+		);
 		catalogs.set(community, created);
 		return created;
 	};
 
-	let libraryLoad: EmojiLibrary | undefined;
 	const library = () => {
-		libraryLoad ??= createLoad(() => source.getEmojiLibrary());
+		libraryLoad ??= createLoad(
+			() => source.getEmojiLibrary(),
+			cache.seed?.library,
+			offer,
+		);
 		return libraryLoad;
 	};
 
@@ -254,14 +302,26 @@ export const createEmojiStore = (
 	const allows = (community: Did | undefined, uri: string) =>
 		!community || allowsEmojiUri(policy(community), community, uri);
 
-	const personal = (): EmojiScopeEntry[] => [
+	const packOf = (emoji: EmojiView) =>
+		catalog(emoji.ref.owner)
+			.value()
+			?.packs.find((pack) => pack.emojis.includes(emoji.id));
+
+	const ownerLabel = (owner: EmojiOwner) =>
+		communityOf(owner.did)?.name ?? emojiAuthorName(owner);
+
+	const personal = (listed: readonly Did[] = []): EmojiScopeEntry[] => [
 		{
 			id: `own:${viewer()}`,
 			label: OWN_EMOJI_LABEL,
 			catalog: own().value() ?? library().value()?.own,
 			local: false,
 		},
-		...followedScope(follows()),
+		...followedScope(follows(), {
+			listed: (owner) => listed.includes(owner),
+			packOf,
+			ownerLabel,
+		}),
 	];
 
 	const scope = (community: Did | undefined): EmojiScopeEntry[] => {
@@ -285,7 +345,11 @@ export const createEmojiStore = (
 					local: false,
 				}),
 			);
-		return [own, ...personal(), ...others];
+		return [
+			own,
+			...personal([community, ...others.map((entry) => entry.id as Did)]),
+			...others,
+		];
 	};
 
 	const available = (community: Did | undefined) => {

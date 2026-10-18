@@ -12,6 +12,7 @@ import {
 } from "solid-js";
 import { useData } from "../../data/store";
 import { useDesktopShell } from "./context";
+import { ResizeEdges } from "./ResizeEdges";
 import { createSnapLayouts } from "./snap-layouts";
 import {
 	BAR_HEIGHT,
@@ -120,6 +121,9 @@ export const WindowChrome = (props: {
 
 	return (
 		<Show when={shown()}>
+			<Show when={mode() === "linux" && !maximized() && !fullscreen()}>
+				<ResizeEdges />
+			</Show>
 			<WindowBar
 				dragRegion
 				title={props.title}
@@ -140,11 +144,11 @@ export const WindowChrome = (props: {
 				controls={
 					<Show when={showControls() && !controlsOnLeft()}>{controls()}</Show>
 				}
-				class={
+				class={`${
 					BAR_HEIGHT[mode()] === 36
 						? "[--titlebar-height:36px]"
 						: "[--titlebar-height:32px]"
-				}
+				}${showControls() ? " pointer-events-auto z-[85]" : ""}`}
 			/>
 		</Show>
 	);

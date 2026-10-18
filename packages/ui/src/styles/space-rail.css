@@ -68,3 +68,7 @@
 :root[data-reduced-motion="true"] .rail-join::before {
 	transition: none;
 }
+
+[data-window-frame="system"] [data-shell-sidebar].rail-join::before {
+	top: calc(0px - var(--rail-fade-top));
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Layer } from "../layers";
+import { type Layer, layerPath } from "../layers";
 import {
 	desktopRoute,
 	parseDesktopPath,
@@ -14,6 +14,23 @@ const target = { space: SPACE, channel: "general" };
 const route = (layers: Layer[]) => desktopRoute({ tab: "spaces" }, layers);
 
 describe("desktop route", () => {
+	it("opens the inbox modal over the open channel and from its own path", () => {
+		const over = route([{ kind: "chat", ...target }, { kind: "inbox" }]);
+		expect(over.chat).toMatchObject({ channel: "general" });
+		expect(over.modal).toEqual([{ kind: "inbox" }]);
+		expect(layerPath({ kind: "inbox" })).toBe("/app/inbox");
+		const parsed = parseDesktopPath("/app/inbox");
+		expect(desktopRoute(parsed.root, parsed.layers).modal).toEqual([
+			{ kind: "inbox" },
+		]);
+		const closed = route([
+			{ kind: "chat", ...target },
+			{ kind: "inbox" },
+			{ kind: "chat", space: OTHER, channel: "art" },
+		]);
+		expect(closed.modal).toEqual([]);
+	});
+
 	it("keeps one chat and replaces it when another channel opens", () => {
 		const result = route([
 			{ kind: "chat", ...target },

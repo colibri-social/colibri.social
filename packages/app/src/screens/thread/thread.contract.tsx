@@ -7,9 +7,11 @@ import {
 import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { MaximizeSquareIcon } from "@solar-icons/solid/bold/maximize-square";
 import { MenuDotsIcon } from "@solar-icons/solid/bold/menu-dots";
-import { createEffect, createMemo, Show } from "solid-js";
-import { skeyOf } from "../../data/ids";
+import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
+import { createMemo, onCleanup, Show } from "solid-js";
+import { isVoiceChannel, skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
+import type { ChannelView, ThreadView } from "../../data/types";
 import { defineContract, slot } from "../../screen/define";
 import { useOptionalDesktopShell } from "../../shell/desktop/context";
 import type { ThreadLayer } from "../../shell/layers";
@@ -21,7 +23,6 @@ import {
 	ConversationUnavailable,
 	createConversation,
 } from "../channel/conversation";
-import { rememberThread } from "../spaces/recent-thread";
 import { createThreadMenu } from "../threads/thread-menu";
 import { closePane } from "./close-pane";
 import { ThreadIntro } from "./thread-intro";
@@ -30,71 +31,139 @@ export type ThreadArgs = { space: string; channel: string; thread: string };
 
 type ThreadModel = {
 	stack: Navigator;
-	options: { label: () => string; channel: string };
+	options: { label: () => string; channel: string; space: string };
 	unavailable: () => string | undefined;
-	parent: () => { name: string } | undefined;
+	parent: () => ChannelView | undefined;
+	thread: () => ThreadView | undefined;
 };
 
-const DesktopThreadHeader = (props: { m: ThreadModel; full: boolean }) => {
+const SplitThreadHeader = (props: { m: ThreadModel }) => {
 	const m = props.m;
-	const shell = useOptionalDesktopShell();
 	const current = () =>
 		m.stack
 			.mounted()
 			.find(
 				(layer): layer is ThreadLayer =>
-					layer.kind === "thread" &&
-					layer.presentation === (props.full ? "full" : undefined),
+					layer.kind === "thread" && layer.presentation !== "full",
 			);
-	const channelName = () => m.parent()?.name ?? m.options.channel;
 	return (
 		<ChannelHeader
 			platform="desktop"
 			name={m.unavailable() ? "Unavailable" : m.options.label()}
 			icon={<ThreadIcon />}
-			description={props.full ? `in #${channelName()}` : undefined}
-			membersOpen={props.full ? shell?.stack.membersOpen() : undefined}
-			onToggleMembers={
-				props.full && shell
-					? () => shell.stack.setMembersOpen(!shell.stack.membersOpen())
-					: undefined
-			}
 			actions={
-				<Show
-					when={props.full}
-					fallback={
-						<>
-							<Show when={current()}>
-								{(layer) => (
-									<IconButton
-										variant="ghost"
-										size="md"
-										label="Expand thread"
-										icon={<MaximizeSquareIcon />}
-										onClick={() =>
-											m.stack.replaceTop({ ...layer(), presentation: "full" })
-										}
-									/>
-								)}
-							</Show>
+				<>
+					<Show when={current()}>
+						{(layer) => (
 							<IconButton
 								variant="ghost"
 								size="md"
-								label="Close thread"
-								icon={<CloseIcon />}
-								onClick={() => closePane(m.stack)}
+								label="Expand thread"
+								icon={<MaximizeSquareIcon />}
+								onClick={() =>
+									m.stack.replaceTop({ ...layer(), presentation: "full" })
+								}
 							/>
-						</>
-					}
-				>
+						)}
+					</Show>
 					<IconButton
 						variant="ghost"
 						size="md"
-						label={`Back to #${channelName()}`}
+						label="Close thread"
 						icon={<CloseIcon />}
 						onClick={() => closePane(m.stack)}
 					/>
-				</Show>
+				</>
+			}
+		/>
+	);
+};
+
+const blockingOverlay = '[role="dialog"], [role="menu"], [role="listbox"]';
+
+const FullThreadHeader = (props: { m: ThreadModel }) => {
+	const m = props.m;
+	const data = useData();
+	const shell = useOptionalDesktopShell();
+	const parentRef = () => m.parent()?.space;
+	const threadIndex = () =>
+		m.stack
+			.mounted()
+			.findLastIndex(
+				(layer) => layer.kind === "thread" && layer.presentation === "full",
+			);
+	const threadsOpen = () => {
+		const overlay = shell?.stack.route().overlay;
+		return (
+			!!overlay &&
+			overlay.space === m.options.space &&
+			overlay.channel === m.options.channel
+		);
+	};
+	const backToChannel = () => {
+		const index = threadIndex();
+		if (index >= 0) m.stack.popTo(index);
+	};
+	const openThreads = () => {
+		if (threadsOpen()) return;
+		m.stack.push({
+			kind: "threads",
+			space: m.options.space,
+			channel: m.options.channel,
+			channelType: m.parent()?.type,
+		});
+	};
+	const threadsUnread = () => {
+		const ref = parentRef();
+		return (
+			!!ref &&
+			(data.channel(ref).threads.value() ?? []).some(
+				(entry) => entry.viewer.hasUnread,
+			)
+		);
+	};
+	const threadRef = () => m.thread()?.space;
+	const muted = () => {
+		const ref = threadRef();
+		return ref ? data.isMuted(ref) : false;
+	};
+	const setMuted = (next: boolean) => {
+		const ref = threadRef();
+		if (ref) data.setMuted(ref, next);
+	};
+	const icon = () => {
+		const parent = m.parent();
+		return parent && isVoiceChannel(parent) ? <VolumeSmallIcon /> : undefined;
+	};
+	const onKeyDown = (event: KeyboardEvent) => {
+		if (event.key !== "Escape" || event.defaultPrevented) return;
+		if (document.querySelector(blockingOverlay)) return;
+		const index = threadIndex();
+		if (index < 0 || index !== m.stack.mounted().length - 1) return;
+		event.preventDefault();
+		backToChannel();
+	};
+	window.addEventListener("keydown", onKeyDown);
+	onCleanup(() => window.removeEventListener("keydown", onKeyDown));
+	return (
+		<ChannelHeader
+			platform="desktop"
+			name={m.parent()?.name ?? m.options.channel}
+			icon={icon()}
+			description={m.unavailable() ? undefined : m.options.label()}
+			view="threads"
+			threadsUnread={threadsUnread()}
+			onViewChange={(next) =>
+				next === "chat" ? backToChannel() : openThreads()
+			}
+			muted={muted()}
+			onMutedChange={threadRef() ? setMuted : undefined}
+			muteSubject="thread"
+			membersOpen={shell?.stack.membersOpen()}
+			onToggleMembers={
+				shell
+					? () => shell.stack.setMembersOpen(!shell.stack.membersOpen())
+					: undefined
 			}
 		/>
 	);
@@ -130,15 +199,6 @@ export const thread = defineContract({
 				stack.isVisible(
 					(layer) => layer.kind === "thread" && layer.thread === args.thread,
 				),
-		});
-		createEffect(() => {
-			if (
-				stack.isVisible(
-					(layer) => layer.kind === "thread" && layer.thread === args.thread,
-				)
-			) {
-				rememberThread(data, args);
-			}
 		});
 		const loadFailure = createMemo(() => {
 			const current = community();
@@ -213,7 +273,11 @@ export const thread = defineContract({
 			(m, p: { platform?: "mobile" | "desktop"; full?: boolean }) => (
 				<Show
 					when={p.platform !== "desktop"}
-					fallback={<DesktopThreadHeader m={m} full={!!p.full} />}
+					fallback={
+						<Show when={p.full} fallback={<SplitThreadHeader m={m} />}>
+							<FullThreadHeader m={m} />
+						</Show>
+					}
 				>
 					<NavHeader
 						safeTop

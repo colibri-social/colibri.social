@@ -446,6 +446,15 @@
 					"maxLength": 253,
 					"description": "The domain of the client used when blueskyClient is custom."
 				},
+				"inboxPresentation": {
+					"type": "string",
+					"maxLength": 32,
+					"knownValues": [
+						"popover",
+						"modal"
+					],
+					"description": "How the inbox opens on desktop. popover anchors it to the inbox button, modal opens it in a large dialog."
+				},
 				"developerMode": {
 					"type": "boolean",
 					"description": "Whether the client shows identifiers and links to inspect records."

@@ -90,7 +90,7 @@ describe("toLiveEvents", () => {
 		]);
 	});
 
-	it("maps speaking and leaving voice frames to voice activity", () => {
+	it("maps speaking voice frames to voice activity", () => {
 		expect(
 			toLiveEvents(
 				frame("voiceEvent", {
@@ -101,16 +101,67 @@ describe("toLiveEvents", () => {
 				}),
 			),
 		).toEqual([{ $type: "voiceActivityEvent", did: ALICE, speaking: true }]);
+	});
+
+	it("maps a leave to a cleared voice state and stops speaking", () => {
 		expect(
 			toLiveEvents(
 				frame("voiceEvent", { event: "leave", channel: GENERAL, did: ALICE }),
 			),
-		).toEqual([{ $type: "voiceActivityEvent", did: ALICE, speaking: false }]);
+		).toEqual([
+			{ $type: "voiceStateEvent", did: ALICE, channel: GENERAL },
+			{ $type: "voiceActivityEvent", did: ALICE, speaking: false },
+		]);
+	});
+
+	it("maps join and update frames to the voice state they carry", () => {
+		const voice = {
+			channel: GENERAL,
+			muted: true,
+			deafened: false,
+			serverMuted: false,
+			serverDeafened: false,
+			screen: true,
+		};
+		expect(
+			toLiveEvents(
+				frame("voiceEvent", {
+					event: "join",
+					channel: GENERAL,
+					did: ALICE,
+					voice,
+				}),
+			),
+		).toEqual([
+			{ $type: "voiceStateEvent", did: ALICE, channel: GENERAL, voice },
+		]);
+		expect(
+			toLiveEvents(
+				frame("voiceEvent", {
+					event: "update",
+					channel: GENERAL,
+					did: ALICE,
+					voice,
+				}),
+			),
+		).toEqual([
+			{ $type: "voiceStateEvent", did: ALICE, channel: GENERAL, voice },
+		]);
+	});
+
+	it("falls back to the frame's channel when a join carries no voice state", () => {
 		expect(
 			toLiveEvents(
 				frame("voiceEvent", { event: "join", channel: GENERAL, did: ALICE }),
 			),
-		).toEqual([]);
+		).toEqual([
+			{
+				$type: "voiceStateEvent",
+				did: ALICE,
+				channel: GENERAL,
+				voice: { channel: GENERAL },
+			},
+		]);
 	});
 
 	it("keeps seen frames only when they name a channel and a time", () => {

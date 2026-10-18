@@ -1,7 +1,7 @@
 import { MonitorSmartphoneIcon } from "@solar-icons/solid/bold/monitor-smartphone";
 import { MoonIcon } from "@solar-icons/solid/bold/moon";
 import { SunIcon } from "@solar-icons/solid/bold/sun";
-import { For, type JSX } from "solid-js";
+import { For, type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { ListGroup, RadioRow, RadioRowGroup, ToggleRow } from "../List/List";
 import type { ThemePreference } from "./types";
@@ -11,6 +11,8 @@ export type AppearanceSettingsProps = {
 	onThemeChange: (theme: ThemePreference) => void;
 	messagePreviews: boolean;
 	onMessagePreviewsChange: (show: boolean) => void;
+	inboxAsModal?: boolean;
+	onInboxAsModalChange?: (modal: boolean) => void;
 	class?: string;
 };
 
@@ -39,6 +41,10 @@ export const APPEARANCE_SETTINGS_COPY = {
 	messagePreviews: "Show message previews",
 	messagePreviewsDescription:
 		"Shows the latest message under each channel name.",
+	inbox: "Inbox",
+	inboxAsModal: "Open the Inbox in a large window",
+	inboxAsModalDescription:
+		"Shows the Inbox in the middle of the screen instead of next to the Inbox button.",
 } as const;
 
 export const AppearanceSettings = (props: AppearanceSettingsProps) => (
@@ -73,5 +79,17 @@ export const AppearanceSettings = (props: AppearanceSettingsProps) => (
 				onChange={props.onMessagePreviewsChange}
 			/>
 		</ListGroup>
+		<Show when={props.onInboxAsModalChange}>
+			{(onChange) => (
+				<ListGroup label={APPEARANCE_SETTINGS_COPY.inbox}>
+					<ToggleRow
+						title={APPEARANCE_SETTINGS_COPY.inboxAsModal}
+						description={APPEARANCE_SETTINGS_COPY.inboxAsModalDescription}
+						checked={props.inboxAsModal ?? false}
+						onChange={(modal) => onChange()(modal)}
+					/>
+				</ListGroup>
+			)}
+		</Show>
 	</div>
 );

@@ -114,11 +114,13 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 					icon: identity.badge ? <RoleBadge role={identity} /> : undefined,
 				};
 			}),
-			developer: {
-				copyLabel: "Copy DID",
-				copyValue: actor.did,
-				pdslsHref: `https://pdsls.dev/at://${actor.did}`,
-			},
+			developer: data.controls().developerMode
+				? {
+						copyLabel: "Copy DID",
+						copyValue: actor.did,
+						pdslsHref: `https://pdsls.dev/at://${actor.did}`,
+					}
+				: undefined,
 		};
 	});
 

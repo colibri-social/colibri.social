@@ -253,7 +253,7 @@ export const RichTextRenderer = (props: RichTextRendererProps) => {
 			data-jumbo={jumbo() || undefined}
 			style={jumbo() ? { "font-size": `${JUMBO_FONT_SCALE}em` } : undefined}
 			class={cx(
-				"relative min-w-0 whitespace-pre-line select-text [overflow-wrap:anywhere]",
+				"relative block w-full min-w-0 whitespace-pre-line select-text [overflow-wrap:anywhere] [&_a]:[-webkit-user-drag:none]",
 				jumbo() && "leading-[1.3]",
 				local.class,
 			)}

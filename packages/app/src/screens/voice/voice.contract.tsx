@@ -3,6 +3,7 @@ import {
 	CallControls,
 	ChannelHeader,
 	IconButton,
+	MemberContextMenu,
 	VoiceJoinActions,
 	VoiceJoinPrompt,
 	VoiceJoinRoster,
@@ -25,6 +26,7 @@ import { canInSpace } from "../admin/space-admin";
 import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 import { useMemberMenu } from "../members/member-menu";
 import { useProfileSheet } from "../profile/profile-sheet";
+import { streamVolumeMenu } from "./member-voice";
 import {
 	screenShareAvailable,
 	screenShareMenu,
@@ -125,6 +127,21 @@ export const voiceScreen = defineContract({
 			if (!space || platform() !== "desktop") return element;
 			return memberMenu.contextMenu(did, space, element, "contents");
 		};
+		const tileMenuFor = (tile: VoiceTileData, element: JSX.Element) => {
+			if (tile.kind !== "screen") return memberMenuFor(tile.id, element);
+			if (platform() !== "desktop") return element;
+			const menu = () => streamVolumeMenu(data, tile.id);
+			return (
+				<MemberContextMenu
+					name={tile.name}
+					voice={menu()}
+					disabled={!menu()}
+					class="contents"
+				>
+					{element}
+				</MemberContextMenu>
+			);
+		};
 		const openMemberMenu = (did: string) => {
 			const space = target()?.space;
 			if (!space || platform() === "desktop") return;
@@ -196,7 +213,9 @@ export const voiceScreen = defineContract({
 			participants,
 			openParticipant,
 			memberMenuFor,
+			tileMenuFor,
 			openMemberMenu,
+			mobile: () => platform() !== "desktop",
 			tiles,
 			canManage,
 			joinMuted,
@@ -278,8 +297,10 @@ export const voiceScreen = defineContract({
 				portrait={p.portrait}
 				focusedKey={p.shareFocus ? voice.focusedKey() : undefined}
 				onFocusChange={p.shareFocus ? voice.setFocusedKey : undefined}
-				tileMenu={(tile, element) => m.memberMenuFor(tile.id, element)}
-				onTileMenu={(tile) => m.openMemberMenu(tile.id)}
+				tileMenu={m.tileMenuFor}
+				onTileMenu={
+					m.mobile() ? (tile) => m.openMemberMenu(tile.id) : undefined
+				}
 			/>
 		)),
 		Controls: slot((m, p: { size?: CallControlSize }) => (

@@ -35,6 +35,49 @@
 					"type": "ref",
 					"ref": "#embedVideo",
 					"description": "Playable video."
+				},
+				"themeColor": {
+					"type": "string",
+					"maxLength": 7,
+					"description": "Accent color the page declares, as #rrggbb."
+				},
+				"layout": {
+					"type": "string",
+					"knownValues": [
+						"summary",
+						"largeImage",
+						"player"
+					],
+					"description": "Card layout the page asks for."
+				},
+				"provider": {
+					"type": "ref",
+					"ref": "#embedProvider",
+					"description": "Service that published the page."
+				},
+				"author": {
+					"type": "ref",
+					"ref": "#embedAuthor",
+					"description": "Author of the page or post."
+				},
+				"publishedAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the page or post was published."
+				},
+				"media": {
+					"type": "array",
+					"maxLength": 4,
+					"items": {
+						"type": "ref",
+						"ref": "#embedMedia"
+					},
+					"description": "Gallery of images and videos, in page order."
+				},
+				"post": {
+					"type": "ref",
+					"ref": "#embedPost",
+					"description": "Social post content, present when the link resolves to one."
 				}
 			}
 		},
@@ -96,6 +139,269 @@
 				"duration": {
 					"type": "integer",
 					"description": "Duration in seconds."
+				}
+			}
+		},
+		"embedProvider": {
+			"type": "object",
+			"description": "The service behind a link preview.",
+			"required": [
+				"name"
+			],
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Display name."
+				},
+				"url": {
+					"type": "string",
+					"format": "uri",
+					"description": "Home page."
+				},
+				"icon": {
+					"type": "string",
+					"format": "uri",
+					"description": "Icon URL served by this AppView's image proxy."
+				}
+			}
+		},
+		"embedAuthor": {
+			"type": "object",
+			"description": "The author of a link preview.",
+			"required": [
+				"name"
+			],
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Display name."
+				},
+				"handle": {
+					"type": "string",
+					"description": "Account handle, without a leading @."
+				},
+				"url": {
+					"type": "string",
+					"format": "uri",
+					"description": "Profile or post URL."
+				},
+				"avatar": {
+					"type": "string",
+					"format": "uri",
+					"description": "Avatar URL served by this AppView's image proxy."
+				}
+			}
+		},
+		"embedMedia": {
+			"type": "object",
+			"description": "One gallery item.",
+			"required": [
+				"kind",
+				"url"
+			],
+			"properties": {
+				"kind": {
+					"type": "string",
+					"knownValues": [
+						"image",
+						"video",
+						"gifv"
+					],
+					"description": "Media kind. gifv is a silent looping video."
+				},
+				"url": {
+					"type": "string",
+					"format": "uri",
+					"description": "URL served by this AppView's image or video proxy."
+				},
+				"previewUrl": {
+					"type": "string",
+					"format": "uri",
+					"description": "Poster image for a video, served by this AppView's image proxy."
+				},
+				"mimeType": {
+					"type": "string",
+					"description": "Content type of a video.",
+					"knownValues": [
+						"video/mp4",
+						"video/webm"
+					]
+				},
+				"width": {
+					"type": "integer",
+					"description": "Intrinsic pixel width."
+				},
+				"height": {
+					"type": "integer",
+					"description": "Intrinsic pixel height."
+				},
+				"alt": {
+					"type": "string",
+					"description": "Alternative text."
+				}
+			}
+		},
+		"embedPost": {
+			"type": "object",
+			"description": "Content of a social post.",
+			"required": [
+				"body"
+			],
+			"properties": {
+				"body": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#richBlock"
+					},
+					"description": "Formatted post text."
+				},
+				"sensitive": {
+					"type": "boolean",
+					"description": "Whether the author marked the post as sensitive."
+				},
+				"contentWarning": {
+					"type": "string",
+					"description": "Content warning text."
+				},
+				"stats": {
+					"type": "ref",
+					"ref": "#embedStats",
+					"description": "Engagement counts."
+				},
+				"quote": {
+					"type": "ref",
+					"ref": "#embedQuote",
+					"description": "The post this post quotes."
+				},
+				"translatedFrom": {
+					"type": "string",
+					"description": "Source language code when body holds a translation."
+				}
+			}
+		},
+		"embedStats": {
+			"type": "object",
+			"description": "Engagement counts on a post.",
+			"properties": {
+				"replies": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "Reply count."
+				},
+				"reposts": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "Repost count."
+				},
+				"likes": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "Like count."
+				},
+				"views": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "View count."
+				}
+			}
+		},
+		"embedQuote": {
+			"type": "object",
+			"description": "A quoted post.",
+			"required": [
+				"uri",
+				"author",
+				"body"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "uri",
+					"description": "URL of the quoted post."
+				},
+				"author": {
+					"type": "ref",
+					"ref": "#embedAuthor",
+					"description": "Author of the quoted post."
+				},
+				"body": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#richBlock"
+					},
+					"description": "Formatted text of the quoted post."
+				},
+				"media": {
+					"type": "array",
+					"maxLength": 4,
+					"items": {
+						"type": "ref",
+						"ref": "#embedMedia"
+					},
+					"description": "Media on the quoted post."
+				},
+				"publishedAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the quoted post was published."
+				},
+				"translatedFrom": {
+					"type": "string",
+					"description": "Source language code when body holds a translation."
+				}
+			}
+		},
+		"richBlock": {
+			"type": "object",
+			"description": "A block of formatted text.",
+			"required": [
+				"kind",
+				"spans"
+			],
+			"properties": {
+				"kind": {
+					"type": "string",
+					"knownValues": [
+						"paragraph",
+						"quote"
+					],
+					"description": "Block kind."
+				},
+				"spans": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#richSpan"
+					},
+					"description": "Inline runs. A newline in text is a line break."
+				}
+			}
+		},
+		"richSpan": {
+			"type": "object",
+			"description": "An inline run of formatted text.",
+			"required": [
+				"text"
+			],
+			"properties": {
+				"text": {
+					"type": "string",
+					"description": "Plain text."
+				},
+				"bold": {
+					"type": "boolean",
+					"description": "Bold."
+				},
+				"italic": {
+					"type": "boolean",
+					"description": "Italic."
+				},
+				"href": {
+					"type": "string",
+					"format": "uri",
+					"description": "Link target."
 				}
 			}
 		},

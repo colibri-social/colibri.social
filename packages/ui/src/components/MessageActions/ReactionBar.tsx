@@ -37,14 +37,24 @@ const EMOJI_POP: Keyframe[] = [
 	{ transform: "scale(1)" },
 ];
 
-const reactedBy = (reactors: string[], count: number) => {
-	if (reactors.length === 0) return `${count} reacted`;
+const listNames = (names: string[]) => {
+	if (names.length <= 1) return names.join("");
+	if (names.length === 2) return `${names[0]} and ${names[1]}`;
+	return `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
+};
+
+const reactedBy = (reactors: string[], count: number, label?: string) => {
 	const shown = reactors.slice(0, 3);
 	const others = count - shown.length;
-	if (others > 0)
-		return `${shown.join(", ")} and ${others} ${others === 1 ? "other" : "others"} reacted`;
-	if (shown.length === 1) return `${shown[0]} reacted`;
-	return `${shown.slice(0, -1).join(", ")} and ${shown.at(-1)} reacted`;
+	const who =
+		shown.length === 0
+			? `${count} ${count === 1 ? "person" : "people"}`
+			: listNames(
+					others > 0
+						? [...shown, `${others} ${others === 1 ? "other" : "others"}`]
+						: shown,
+				);
+	return label ? `${who} reacted with :${label}:` : `${who} reacted`;
 };
 
 export type ReactionChipProps = Reaction & {
@@ -139,7 +149,7 @@ export const ReactionChip = (props: ReactionChipProps) => {
 				</span>
 			</TooltipTrigger>
 			<TooltipContent>
-				{reactedBy(props.reactors ?? [], props.count)}
+				{reactedBy(props.reactors ?? [], props.count, props.label)}
 			</TooltipContent>
 		</Tooltip>
 	);

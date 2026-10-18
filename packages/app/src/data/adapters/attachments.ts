@@ -1,16 +1,24 @@
 import type {
 	AudioAttachmentProps,
 	FileAttachmentProps,
+	LinkEmbedImageStyle,
 	LinkEmbedProps,
 	MediaItem,
+	RichTextBlock,
+	SocialPostAuthor,
+	SocialPostEmbedProps,
 } from "@colibri-social/ui";
 import {
 	type AttachmentView,
 	EMBEDS_SUPPRESSED_LABEL,
+	type EmbedAuthor,
+	type EmbedMedia,
+	type EmbedRichBlock,
 	type GifView,
 	type LinkEmbed,
 	type MessageView,
 } from "../types";
+import { formatAge } from "./time";
 
 export type SplitAttachments = {
 	media: MediaItem[];
@@ -214,16 +222,179 @@ export const inlineMediaOf = (embed: LinkEmbed): MediaItem | undefined => {
 	return undefined;
 };
 
-export const toLinkEmbedProps = (embed: LinkEmbed): LinkEmbedProps => ({
-	url: embed.uri,
-	siteName: embed.siteName,
-	title: embed.title,
-	description: embed.description,
-	image: embed.image
-		? {
-				src: embed.image.url,
-				width: embed.image.width,
-				height: embed.image.height,
-			}
-		: undefined,
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+const accentOf = (embed: LinkEmbed) =>
+	embed.themeColor && HEX_COLOR.test(embed.themeColor)
+		? embed.themeColor
+		: undefined;
+
+const IMAGE_STYLES: Record<string, LinkEmbedImageStyle> = {
+	summary: "thumbnail",
+	largeImage: "large",
+	player: "large",
+};
+
+export const embedMediaItem = (media: EmbedMedia): MediaItem | undefined => {
+	const sized = {
+		width: media.width,
+		height: media.height,
+		alt: media.alt,
+	};
+	if (media.kind === "image")
+		return { src: media.url, kind: "image", ...sized };
+	if (media.kind === "video" || media.kind === "gifv") {
+		return {
+			src: media.url,
+			kind: media.kind === "gifv" ? "gif" : "video",
+			mimeType: media.mimeType ?? "video/mp4",
+			poster: media.previewUrl,
+			...sized,
+		};
+	}
+	return undefined;
+};
+
+const mediaItems = (media: readonly EmbedMedia[] | undefined): MediaItem[] =>
+	(media ?? [])
+		.map(embedMediaItem)
+		.filter((item): item is MediaItem => item !== undefined);
+
+export const lightboxMediaOf = (items: readonly MediaItem[]): MediaItem[] =>
+	items.map((item) =>
+		item.kind === "gif" && item.mimeType?.startsWith("video/")
+			? { ...item, kind: "video" }
+			: item,
+	);
+
+const playerMedia = (embed: LinkEmbed): MediaItem[] => {
+	if (!embed.video) return [];
+	return [
+		{
+			src: embed.video.url,
+			kind: "video",
+			mimeType: embed.video.mimeType,
+			width: embed.video.width ?? embed.image?.width,
+			height: embed.video.height ?? embed.image?.height,
+			poster: embed.image?.url,
+			alt: embed.image?.alt ?? embed.title,
+		},
+	];
+};
+
+export const linkEmbedMedia = (embed: LinkEmbed): MediaItem[] => {
+	const gallery = mediaItems(embed.media);
+	return gallery.length > 0 ? gallery : playerMedia(embed);
+};
+
+export const toLinkEmbedProps = (embed: LinkEmbed): LinkEmbedProps => {
+	const media = linkEmbedMedia(embed);
+	return {
+		url: embed.uri,
+		siteName: embed.siteName,
+		title: embed.title,
+		description: embed.description,
+		accent: accentOf(embed),
+		imageStyle: embed.layout ? IMAGE_STYLES[embed.layout] : undefined,
+		provider: embed.provider
+			? {
+					name: embed.provider.name,
+					url: embed.provider.url,
+					iconSrc: embed.provider.icon,
+				}
+			: undefined,
+		author: embed.author
+			? {
+					name: embed.author.name,
+					url: embed.author.url,
+					avatarSrc: embed.author.avatar,
+				}
+			: undefined,
+		media: media.length > 0 ? media : undefined,
+		image: embed.image
+			? {
+					src: embed.image.url,
+					width: embed.image.width,
+					height: embed.image.height,
+				}
+			: undefined,
+	};
+};
+
+const richBlocks = (blocks: readonly EmbedRichBlock[]): RichTextBlock[] =>
+	blocks.map((block) => ({
+		kind: block.kind === "quote" ? "quote" : "paragraph",
+		spans: block.spans.map((span) => ({
+			text: span.text,
+			bold: span.bold,
+			italic: span.italic,
+			href: span.href,
+		})),
+	}));
+
+const postAuthor = (author: EmbedAuthor): SocialPostAuthor => ({
+	name: author.name,
+	handle: author.handle,
+	url: author.url,
+	avatarSrc: author.avatar,
 });
+
+const formatPublished = (value: string, locale?: string) => {
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) return undefined;
+	try {
+		return new Intl.DateTimeFormat(locale, {
+			dateStyle: "short",
+			timeStyle: "short",
+		}).format(date);
+	} catch {
+		return date.toLocaleString();
+	}
+};
+
+export const isSocialPostEmbed = (embed: LinkEmbed) =>
+	!!embed.post && !!embed.author;
+
+export const toSocialPostProps = (
+	embed: LinkEmbed,
+	options: { locale?: string; now?: Date } = {},
+): SocialPostEmbedProps | undefined => {
+	const post = embed.post;
+	const author = embed.author;
+	if (!post || !author) return undefined;
+	const quote = post.quote;
+	const footerLabel = embed.provider?.name ?? embed.siteName;
+	return {
+		url: embed.uri,
+		accent: accentOf(embed),
+		author: postAuthor(author),
+		body: richBlocks(post.body),
+		translatedFrom: post.translatedFrom,
+		sensitive: post.sensitive,
+		contentWarning: post.contentWarning,
+		stats: post.stats,
+		media: mediaItems(embed.media),
+		quote: quote
+			? {
+					url: quote.uri,
+					author: postAuthor(quote.author),
+					body: richBlocks(quote.body),
+					media: mediaItems(quote.media),
+					time: quote.publishedAt
+						? formatAge(quote.publishedAt, options.now)
+						: undefined,
+					translatedFrom: quote.translatedFrom,
+				}
+			: undefined,
+		footer: footerLabel
+			? {
+					label: footerLabel,
+					url: embed.provider?.url,
+					iconSrc: embed.provider?.icon,
+					time: embed.publishedAt
+						? formatPublished(embed.publishedAt, options.locale)
+						: undefined,
+				}
+			: undefined,
+	};
+};

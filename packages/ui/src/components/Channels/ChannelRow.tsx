@@ -9,7 +9,7 @@ import { VideocameraIcon } from "@solar-icons/solid/bold/videocamera";
 import { VolumeIcon } from "@solar-icons/solid/bold/volume";
 import { VolumeLoudIcon } from "@solar-icons/solid/bold/volume-loud";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
-import { For, type JSX, Show } from "solid-js";
+import { For, type JSX, Show, untrack } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import {
 	HeadphonesSlashIcon,
@@ -661,7 +661,7 @@ const ParticipantContent = (props: {
 const wrapRow = (
 	wrap: ((row: JSX.Element) => JSX.Element) | undefined,
 	row: JSX.Element,
-) => (wrap ? wrap(row) : row);
+) => (wrap ? untrack(() => wrap(row)) : row);
 
 const ParticipantRow = (props: {
 	person: VoiceParticipant;

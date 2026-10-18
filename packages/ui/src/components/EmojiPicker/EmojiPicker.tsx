@@ -232,7 +232,7 @@ export const EmojiPicker = (props: EmojiPickerProps) => {
 			sections.push({
 				id: `pack:${pack.id}`,
 				title: pack.name,
-				byline: pack.author ? `· by @${pack.author}` : undefined,
+				byline: pack.author ? `· by ${pack.author}` : undefined,
 				icon: () => <PackIcon pack={pack} />,
 				items: pack.emojis.map((emoji) => customItem(emoji, pack)),
 			});

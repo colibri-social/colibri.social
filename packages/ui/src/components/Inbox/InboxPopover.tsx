@@ -24,6 +24,7 @@ import {
 	type InboxMenuActions,
 } from "../ContextMenu/InboxMenu";
 import { MarkAllReadIcon } from "../ContextMenu/menu-entries";
+import { LargeModalContent } from "../Modal/Modal";
 import { Skeleton, SkeletonText } from "../Skeleton/Skeleton";
 import { SpaceIcon } from "../Space/SpaceIcon";
 import { SpaceRailAction } from "../SpaceRail/SpaceRail";
@@ -53,6 +54,8 @@ import { createRoving, focusPastRows, syncRoving } from "./inbox-roving";
 type InboxPopoverFrameProps = {
 	unread: number;
 	open?: boolean;
+	expanded?: boolean;
+	onTrigger?: () => void;
 	defaultOpen?: boolean;
 	onOpenChange?: (open: boolean) => void;
 	class?: string;
@@ -99,7 +102,7 @@ const InboxPopoverFrame = (props: InboxPopoverFrameProps) => {
 					label="Inbox"
 					icon={<InboxIcon />}
 					aria-haspopup="dialog"
-					aria-expanded={open()}
+					aria-expanded={props.expanded ?? open()}
 					aria-controls={open() ? contentId : undefined}
 					badge={
 						<CountBadge
@@ -113,7 +116,10 @@ const InboxPopoverFrame = (props: InboxPopoverFrameProps) => {
 							? `${props.unread} unread`
 							: "No unread notifications"
 					}
-					onClick={() => setOpen(!open())}
+					onClick={() => {
+						if (props.onTrigger) props.onTrigger();
+						else setOpen(!open());
+					}}
 				/>
 			</InboxContextMenu>
 			<KobaltePopover
@@ -292,8 +298,12 @@ const sidebarCornerRect = (anchor?: HTMLElement) => {
 	return { x: corner.left, y: corner.top, width: 0, height: own.height };
 };
 
-export const InboxPopover = (props: InboxPopoverProps) => {
-	const [open, setOpen] = createOpenState(props);
+type InboxContentProps = Omit<
+	InboxPopoverProps,
+	"open" | "defaultOpen" | "onOpenChange" | "presentation" | "onOpenModal"
+>;
+
+const createInboxContent = (props: InboxContentProps, onOpened: () => void) => {
 	const [view, setView] = createSignal<SplitView>({
 		kind: "filter",
 		filter: "all",
@@ -355,7 +365,9 @@ export const InboxPopover = (props: InboxPopoverProps) => {
 	const viewTitle = () => {
 		const current = view();
 		if (current.kind === "space") return activeSpace()?.name ?? "";
-		return FILTER_VIEWS.find((entry) => entry.filter === current.filter)?.label;
+		return (
+			FILTER_VIEWS.find((entry) => entry.filter === current.filter)?.label ?? ""
+		);
 	};
 
 	const emptyFilter = () => {
@@ -370,7 +382,7 @@ export const InboxPopover = (props: InboxPopoverProps) => {
 
 	const openNotification = (id: string) => {
 		props.onOpenNotification(id);
-		setOpen(false);
+		onOpened();
 	};
 
 	const viewUnread = () => {
@@ -398,209 +410,264 @@ export const InboxPopover = (props: InboxPopoverProps) => {
 		if (sameView(view(), next)) return;
 		presence.clear();
 		setView(next);
-		list?.parentElement?.scrollTo({ top: 0 });
+		list
+			?.closest("[data-inbox-scroll], [data-modal-scroll]")
+			?.scrollTo({ top: 0 });
 	};
+
+	const Views = () => (
+		<>
+			<ul class="m-0 flex flex-col gap-0.5 p-0">
+				<For each={FILTER_VIEWS}>
+					{(entry) => (
+						<SidebarItem
+							label={entry.label}
+							icon={entry.icon()}
+							count={countFor(props.notifications, entry.filter)}
+							current={sameView(view(), {
+								kind: "filter",
+								filter: entry.filter,
+							})}
+							onSelect={() => select({ kind: "filter", filter: entry.filter })}
+						/>
+					)}
+				</For>
+			</ul>
+			<Show when={status() === "ready" && inboxSpaces().length > 0}>
+				<p
+					id={spacesLabelId}
+					class="m-0 mt-3 px-2 pb-1 text-xs font-semibold text-muted-foreground"
+				>
+					Spaces
+				</p>
+				<ul
+					aria-labelledby={spacesLabelId}
+					class="m-0 flex flex-col gap-0.5 p-0"
+				>
+					<For each={inboxSpaces()}>
+						{(space) => (
+							<SidebarItem
+								label={space.name}
+								icon={
+									<SpaceIcon
+										name={space.name}
+										src={space.iconSrc}
+										class="size-5 rounded-[5px] text-[9px]"
+									/>
+								}
+								count={spaceUnread(space.id)}
+								current={sameView(view(), {
+									kind: "space",
+									spaceId: space.id,
+								})}
+								onSelect={() => select({ kind: "space", spaceId: space.id })}
+							/>
+						)}
+					</For>
+				</ul>
+			</Show>
+			<Show when={status() === "loading"}>
+				<div aria-hidden="true" class="mt-3 flex flex-col gap-2 px-2">
+					<SkeletonText size="xs" leading={16} width={48} />
+					<For each={[0, 1, 2]}>
+						{() => (
+							<span class="flex h-7 items-center gap-2">
+								<Skeleton class="size-5 rounded-[5px]" />
+								<SkeletonText size="sm" leading={16} width="70%" />
+							</span>
+						)}
+					</For>
+				</div>
+			</Show>
+		</>
+	);
+
+	const Sidebar = (sidebarProps: { class?: string }) => (
+		<nav
+			ref={(element) => {
+				sidebar = element;
+				queueMicrotask(() => syncRoving(element));
+			}}
+			aria-label="Inbox views"
+			onKeyDown={sidebarRoving.onKeyDown}
+			onFocusIn={sidebarRoving.onFocusIn}
+			class={cx("flex flex-col gap-1", sidebarProps.class)}
+		>
+			<Views />
+		</nav>
+	);
+
+	const MarkViewRead = () => (
+		<Show when={status() === "ready" && viewUnread() > 0}>
+			<Button
+				variant="tertiary"
+				icon={<MarkAllReadIcon />}
+				onClick={(event) => {
+					focusFirstRowFrom(event.currentTarget);
+					markViewRead();
+				}}
+				class="h-8 pr-3 pl-2.5 [&_svg]:size-4"
+			>
+				{markViewReadLabel()}
+			</Button>
+		</Show>
+	);
+
+	const Body = (bodyProps: { listClass?: string }) => (
+		<Switch>
+			<Match when={status() === "loading"}>
+				<InboxLoading class="p-2">
+					<SkeletonText size="xs" leading={24} width={64} class="px-2" />
+					<For each={[2, 1, 2, 1, 1, 2]}>
+						{(lines) => <InboxRowSkeleton lines={lines} />}
+					</For>
+				</InboxLoading>
+			</Match>
+			<Match when={status() === "error"}>
+				<InboxError onRetry={props.onRetry} />
+			</Match>
+			<Match when={visible().length === 0}>
+				<InboxEmpty
+					filter={emptyFilter()}
+					spaceName={activeSpace()?.name}
+					onOpenSettings={props.onOpenSettings}
+				/>
+			</Match>
+			<Match when={visible().length > 0}>
+				<ul
+					ref={(element) => {
+						list = element;
+						queueMicrotask(() => syncRoving(element));
+					}}
+					data-inbox-list=""
+					onKeyDown={roving.onKeyDown}
+					onFocusIn={roving.onFocusIn}
+					class={cx("m-0 flex flex-col p-0 pb-2", bodyProps.listClass)}
+				>
+					<For each={dayKeys()}>
+						{(key) => {
+							const notifications = () => dayFor(key)?.notifications ?? [];
+							return (
+								<InboxDay
+									label={dayFor(key)?.label ?? ""}
+									exiting={
+										notifications().length > 0 &&
+										notifications().every((item) => presence.isExiting(item.id))
+									}
+								>
+									<For each={notifications()}>
+										{(notification) => (
+											<InboxRow
+												notification={notification}
+												space={spaceOf(notification.spaceId)}
+												showSpace={view().kind === "filter"}
+												now={props.now}
+												locale={props.locale}
+												onOpen={openNotification}
+												onMarkRead={props.onMarkRead}
+												exiting={presence.isExiting(notification.id)}
+												onExited={presence.release}
+												class="[&_[data-inbox-open]]:scroll-mt-9"
+											/>
+										)}
+									</For>
+								</InboxDay>
+							);
+						}}
+					</For>
+				</ul>
+			</Match>
+		</Switch>
+	);
+
+	return {
+		status,
+		unread,
+		pending,
+		viewTitle,
+		Sidebar,
+		MarkViewRead,
+		Body,
+	};
+};
+
+export const InboxPopover = (props: InboxPopoverProps) => {
+	const [open, setOpen] = createOpenState(props);
+	const modal = () => props.presentation === "modal";
+	const content = createInboxContent(props, () => setOpen(false));
 
 	return (
 		<InboxPopoverFrame
-			unread={unread()}
-			open={open()}
+			unread={content.unread()}
+			open={modal() ? false : open()}
+			expanded={modal() ? props.open === true : undefined}
 			onOpenChange={setOpen}
+			onTrigger={modal() ? () => props.onOpenModal?.() : undefined}
 			initialFocus={focusFirstRow}
 			menu={{
-				count: pending().length,
-				unread: unread(),
+				count: content.pending().length,
+				unread: content.unread(),
 				onClearInbox: props.onClearInbox,
 				onMarkAllRead: props.onMarkAllRead,
 			}}
 			class="w-[680px]"
 		>
 			<InboxHeader
-				unread={unread()}
+				unread={content.unread()}
 				onOpenSettings={props.onOpenSettings}
 				class="border-b border-border"
 			/>
 			<div class="flex min-h-0 flex-1">
-				<nav
-					ref={(element) => {
-						sidebar = element;
-						queueMicrotask(() => syncRoving(element));
-					}}
-					aria-label="Inbox views"
-					onKeyDown={sidebarRoving.onKeyDown}
-					onFocusIn={sidebarRoving.onFocusIn}
-					class="flex w-52 shrink-0 flex-col gap-1 overflow-y-auto overscroll-contain border-r border-border p-2"
-				>
-					<ul class="m-0 flex flex-col gap-0.5 p-0">
-						<For each={FILTER_VIEWS}>
-							{(entry) => (
-								<SidebarItem
-									label={entry.label}
-									icon={entry.icon()}
-									count={countFor(props.notifications, entry.filter)}
-									current={sameView(view(), {
-										kind: "filter",
-										filter: entry.filter,
-									})}
-									onSelect={() =>
-										select({ kind: "filter", filter: entry.filter })
-									}
-								/>
-							)}
-						</For>
-					</ul>
-					<Show when={status() === "ready" && inboxSpaces().length > 0}>
-						<p
-							id={spacesLabelId}
-							class="m-0 mt-3 px-2 pb-1 text-xs font-semibold text-muted-foreground"
-						>
-							Spaces
-						</p>
-						<ul
-							aria-labelledby={spacesLabelId}
-							class="m-0 flex flex-col gap-0.5 p-0"
-						>
-							<For each={inboxSpaces()}>
-								{(space) => (
-									<SidebarItem
-										label={space.name}
-										icon={
-											<SpaceIcon
-												name={space.name}
-												src={space.iconSrc}
-												class="size-5 rounded-[5px] text-[9px]"
-											/>
-										}
-										count={spaceUnread(space.id)}
-										current={sameView(view(), {
-											kind: "space",
-											spaceId: space.id,
-										})}
-										onSelect={() =>
-											select({ kind: "space", spaceId: space.id })
-										}
-									/>
-								)}
-							</For>
-						</ul>
-					</Show>
-					<Show when={status() === "loading"}>
-						<div aria-hidden="true" class="mt-3 flex flex-col gap-2 px-2">
-							<SkeletonText size="xs" leading={16} width={48} />
-							<For each={[0, 1, 2]}>
-								{() => (
-									<span class="flex h-7 items-center gap-2">
-										<Skeleton class="size-5 rounded-[5px]" />
-										<SkeletonText size="sm" leading={16} width="70%" />
-									</span>
-								)}
-							</For>
-						</div>
-					</Show>
-				</nav>
+				<content.Sidebar class="w-52 shrink-0 overflow-y-auto overscroll-contain border-r border-border p-2" />
 				<section
-					aria-label={`${viewTitle()} notifications`}
+					aria-label={`${content.viewTitle()} notifications`}
 					class="flex min-w-0 flex-1 flex-col"
 				>
-					<Show when={status() === "ready"}>
+					<Show when={content.status() === "ready"}>
 						<div
 							data-inbox-view-bar=""
 							class="flex h-12 shrink-0 items-center gap-2 border-b border-border pr-2 pl-4"
 						>
 							<p class="m-0 min-w-0 flex-1 truncate text-sm font-semibold">
-								<TableText text={viewTitle() ?? ""} />
+								<TableText text={content.viewTitle()} />
 							</p>
-							<Show when={viewUnread() > 0}>
-								<Button
-									variant="tertiary"
-									icon={<MarkAllReadIcon />}
-									onClick={(event) => {
-										focusFirstRowFrom(event.currentTarget);
-										markViewRead();
-									}}
-									class="h-8 pr-3 pl-2.5 [&_svg]:size-4"
-								>
-									{markViewReadLabel()}
-								</Button>
-							</Show>
+							<content.MarkViewRead />
 						</div>
 					</Show>
-					<div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-						<Switch>
-							<Match when={status() === "loading"}>
-								<InboxLoading class="p-2">
-									<SkeletonText
-										size="xs"
-										leading={24}
-										width={64}
-										class="px-2"
-									/>
-									<For each={[2, 1, 2, 1, 1, 2]}>
-										{(lines) => <InboxRowSkeleton lines={lines} />}
-									</For>
-								</InboxLoading>
-							</Match>
-							<Match when={status() === "error"}>
-								<InboxError onRetry={props.onRetry} />
-							</Match>
-							<Match when={visible().length === 0}>
-								<InboxEmpty
-									filter={emptyFilter()}
-									spaceName={activeSpace()?.name}
-									onOpenSettings={props.onOpenSettings}
-								/>
-							</Match>
-							<Match when={visible().length > 0}>
-								<ul
-									ref={(element) => {
-										list = element;
-										queueMicrotask(() => syncRoving(element));
-									}}
-									data-inbox-list=""
-									onKeyDown={roving.onKeyDown}
-									onFocusIn={roving.onFocusIn}
-									class="m-0 flex flex-col p-0 pb-2"
-								>
-									<For each={dayKeys()}>
-										{(key) => {
-											const notifications = () =>
-												dayFor(key)?.notifications ?? [];
-											return (
-												<InboxDay
-													label={dayFor(key)?.label ?? ""}
-													exiting={
-														notifications().length > 0 &&
-														notifications().every((item) =>
-															presence.isExiting(item.id),
-														)
-													}
-												>
-													<For each={notifications()}>
-														{(notification) => (
-															<InboxRow
-																notification={notification}
-																space={spaceOf(notification.spaceId)}
-																showSpace={view().kind === "filter"}
-																now={props.now}
-																locale={props.locale}
-																onOpen={openNotification}
-																onMarkRead={props.onMarkRead}
-																exiting={presence.isExiting(notification.id)}
-																onExited={presence.release}
-																class="[&_[data-inbox-open]]:scroll-mt-9"
-															/>
-														)}
-													</For>
-												</InboxDay>
-											);
-										}}
-									</For>
-								</ul>
-							</Match>
-						</Switch>
+					<div
+						data-inbox-scroll=""
+						class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+					>
+						<content.Body />
 					</div>
 				</section>
 			</div>
 		</InboxPopoverFrame>
+	);
+};
+
+export type InboxModalContentProps = InboxContentProps & {
+	closeLabel?: string;
+};
+
+export const InboxModalContent = (props: InboxModalContentProps) => {
+	const content = createInboxContent(props, () => undefined);
+	return (
+		<LargeModalContent
+			data-inbox-modal=""
+			title={content.viewTitle()}
+			trail={[{ label: "Inbox" }]}
+			closeLabel={props.closeLabel ?? "Close Inbox"}
+			sidebar={<content.Sidebar />}
+			actions={<content.MarkViewRead />}
+			class="[&_[data-modal-scroll]]:p-0"
+		>
+			<section
+				aria-label={`${content.viewTitle()} notifications`}
+				class="flex min-h-full flex-col"
+			>
+				<content.Body listClass="pt-1" />
+			</section>
+		</LargeModalContent>
 	);
 };

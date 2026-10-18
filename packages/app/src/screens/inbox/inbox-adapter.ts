@@ -7,13 +7,14 @@ import { previewText } from "../../data/adapters/facets";
 import { skeyOf, spaceKey } from "../../data/ids";
 import type { JumpRequest } from "../../data/jump";
 import { isUnread } from "../../data/notifications";
-import type {
-	CommunityView,
-	Facet,
-	MessageView,
-	NotificationView,
-	RoleView,
-	SpaceRef,
+import {
+	type CommunityView,
+	type Facet,
+	type MessageView,
+	type NotificationView,
+	type RoleView,
+	type SpaceRef,
+	VOICE_CHANNEL,
 } from "../../data/types";
 import type { Navigator } from "../../shell/stack";
 
@@ -157,6 +158,7 @@ export const openNotificationTarget = (
 	stack: Pick<Navigator, "setRoot" | "push">,
 	requestJump: (request: JumpRequest) => void,
 	view: NotificationTargetView,
+	openVoiceChat?: (open: boolean) => void,
 ) => {
 	const target = inboxTarget(view);
 	const chat = {
@@ -173,4 +175,5 @@ export const openNotificationTarget = (
 	if (target.thread) {
 		stack.push({ ...chat, kind: "thread", thread: target.thread });
 	}
+	if (target.channelType === VOICE_CHANNEL) openVoiceChat?.(true);
 };

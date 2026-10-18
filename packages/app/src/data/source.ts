@@ -112,6 +112,12 @@ export type LiveEvent =
 	| { $type: "presenceEvent"; did: Did; presence: Presence }
 	| { $type: "typingEvent"; did: Did; channel: SpaceRef }
 	| { $type: "voiceActivityEvent"; did: Did; speaking: boolean }
+	| {
+			$type: "voiceStateEvent";
+			did: Did;
+			channel: SpaceRef;
+			voice?: VoiceState;
+	  }
 	| { $type: "notificationEvent"; notification: NotificationView }
 	| {
 			$type: "threadEvent";

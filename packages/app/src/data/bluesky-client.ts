@@ -5,6 +5,7 @@ export type BlueskyClientID =
 	| "blacksky"
 	| "bluesky"
 	| "custom"
+	| "deer"
 	| "mu"
 	| "northsky"
 	| "witchsky";
@@ -25,6 +26,7 @@ export const BSKY_ALTERNATIVES: Array<BlueskyAlternative> = [
 		id: "blacksky",
 	},
 	{ name: "Bluesky", base: "bsky.app", color: "#0f73ff", id: "bluesky" },
+	{ name: "Deer Social", base: "deer.social", color: "#729f7c", id: "deer" },
 	{ name: "Mu Social", base: "mu.social", color: "#db4aa6", id: "mu" },
 	{
 		name: "Northsky",
@@ -156,3 +158,27 @@ export const setBlueskyClient = (
 			? {}
 			: { customBlueskyClientBase: normalizeBskyClientBase(customBase) ?? "" }),
 	});
+
+const BLUESKY_HOSTS = new Set(BSKY_ALTERNATIVES.map((entry) => entry.base));
+
+export const rewriteBskyUrl = (
+	uri: string,
+	client: Pick<ResolvedBlueskyClient, "base">,
+): string => {
+	let url: URL;
+	try {
+		url = new URL(uri);
+	} catch {
+		return uri;
+	}
+	if (url.protocol !== "https:" && url.protocol !== "http:") return uri;
+	if (!BLUESKY_HOSTS.has(url.hostname) || url.hostname === client.base)
+		return uri;
+	url.hostname = client.base;
+	return url.toString();
+};
+
+export const blueskyUrlRewriter =
+	(preferences: Pick<PreferenceStore, "client">) =>
+	(uri: string): string =>
+		rewriteBskyUrl(uri, blueskyClientOf(preferences));

@@ -33,11 +33,44 @@ const context = (
 	spaceLevel: "all",
 	channelMuted: false,
 	threadMuted: false,
+	voiceChannel: undefined,
 	now: NOW,
 	...overrides,
 });
 
+const VOICE = "at://did:plc:hq/space/social.colibri.beta.channel.voice/lounge";
+
 describe("shouldAlertNotification", () => {
+	it("stays quiet for a voice channel message while the viewer isn't in that call", () => {
+		expect(shouldAlertNotification(view({ channel: VOICE }), context())).toBe(
+			false,
+		);
+		expect(
+			shouldAlertNotification(
+				view({ channel: VOICE, kind: "mention" }),
+				context({
+					voiceChannel:
+						"at://did:plc:hq/space/social.colibri.beta.channel.voice/standup",
+				}),
+			),
+		).toBe(false);
+	});
+
+	it("alerts for a voice channel message while the viewer is in that call", () => {
+		expect(
+			shouldAlertNotification(
+				view({ channel: VOICE }),
+				context({ voiceChannel: VOICE }),
+			),
+		).toBe(true);
+	});
+
+	it("keeps alerting for text channels while the viewer is in a call", () => {
+		expect(
+			shouldAlertNotification(view(), context({ voiceChannel: VOICE })),
+		).toBe(true);
+	});
+
 	it("alerts for a fresh message with the default level", () => {
 		expect(shouldAlertNotification(view(), context())).toBe(true);
 	});

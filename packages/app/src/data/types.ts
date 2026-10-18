@@ -44,7 +44,62 @@ export type ThreadView = social.colibri.beta.thread.defs.ThreadView;
 export type NotificationView =
 	social.colibri.beta.notification.defs.NotificationView;
 export type RecordRef = social.colibri.beta.defs.RecordRef;
-export type LinkEmbed = social.colibri.beta.embed.defs.LinkEmbed;
+export type EmbedRichSpan = {
+	text: string;
+	bold?: boolean;
+	italic?: boolean;
+	href?: string;
+};
+export type EmbedRichBlock = {
+	kind: "paragraph" | "quote" | (string & {});
+	spans: EmbedRichSpan[];
+};
+export type EmbedAuthor = {
+	name: string;
+	handle?: string;
+	url?: string;
+	avatar?: string;
+};
+export type EmbedMedia = {
+	kind: "image" | "video" | "gifv" | (string & {});
+	url: string;
+	previewUrl?: string;
+	mimeType?: string;
+	width?: number;
+	height?: number;
+	alt?: string;
+};
+export type EmbedStats = {
+	replies?: number;
+	reposts?: number;
+	likes?: number;
+	views?: number;
+};
+export type EmbedQuote = {
+	uri: string;
+	author: EmbedAuthor;
+	body: EmbedRichBlock[];
+	media?: EmbedMedia[];
+	publishedAt?: string;
+	translatedFrom?: string;
+};
+export type EmbedPost = {
+	body: EmbedRichBlock[];
+	sensitive?: boolean;
+	contentWarning?: string;
+	stats?: EmbedStats;
+	quote?: EmbedQuote;
+	translatedFrom?: string;
+};
+export type LinkEmbed = social.colibri.beta.embed.defs.LinkEmbed & {
+	themeColor?: string;
+	layout?: "summary" | "largeImage" | "player" | (string & {});
+	provider?: { name: string; url?: string; icon?: string };
+	author?: EmbedAuthor;
+	publishedAt?: string;
+	media?: EmbedMedia[];
+	post?: EmbedPost;
+};
 export type GifView = social.colibri.beta.embed.defs.GifView;
 export type Facet = social.colibri.beta.richtext.facet.Main;
 

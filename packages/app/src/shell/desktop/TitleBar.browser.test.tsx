@@ -7,7 +7,13 @@ import { createDataStore, DataContext } from "../../data/store";
 import { systemWindowControls } from "../../data/system-window-controls";
 import { Providers } from "../../providers";
 import { DesktopShell } from "./DesktopShell";
-import { desktopRailPaddingTop, windowBarHeight } from "./window-chrome";
+import {
+	desktopRailPaddingTop,
+	fixedFrame,
+	markChromeMode,
+	syncFixedFrame,
+	windowBarHeight,
+} from "./window-chrome";
 
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
 const WINDOWS =
@@ -42,6 +48,7 @@ const fakeShell = (
 		maximized: boolean;
 		layout?: unknown;
 		nativeDecorations?: boolean;
+		fixedFrame?: boolean;
 	} = { maximized: false },
 ) => {
 	if (agent) {
@@ -61,6 +68,7 @@ const fakeShell = (
 						nativeDecorations: state.nativeDecorations ?? false,
 					},
 					buttonLayout: state.layout ?? null,
+					fixedFrame: state.fixedFrame ?? false,
 				};
 			if (command === "plugin:event|listen") {
 				const event = args?.event as string;
@@ -222,6 +230,74 @@ describe("desktop title bar", () => {
 			bar()?.querySelectorAll<HTMLElement>("[data-control]") ?? [],
 		).map((button) => button.dataset.control);
 		expect(order).toEqual(["close", "minimize", "maximize"]);
+	});
+
+	it("resizes the frameless Linux window from its edges until it is maximized", async () => {
+		const state = { maximized: false };
+		const invoke = fakeShell(LINUX, state);
+		await mount();
+		await expect.poll(bar).not.toBeNull();
+		const edges = () =>
+			Array.from(
+				document.querySelectorAll<HTMLElement>("[data-resize-edge]"),
+			).map((edge) => edge.dataset.resizeEdge);
+		await expect.poll(edges).toHaveLength(8);
+
+		const corner = document.querySelector<HTMLElement>(
+			'[data-resize-edge="SouthEast"]',
+		) as HTMLElement;
+		const box = corner.getBoundingClientRect();
+		expect(box.right).toBe(window.innerWidth);
+		expect(box.bottom).toBe(window.innerHeight);
+		corner.dispatchEvent(
+			new PointerEvent("pointerdown", {
+				bubbles: true,
+				cancelable: true,
+				button: 0,
+			}),
+		);
+		await expect
+			.poll(() =>
+				invoke.mock.calls.find(
+					([command]) => command === "plugin:window|start_resize_dragging",
+				),
+			)
+			.toBeTruthy();
+		expect(
+			invoke.mock.calls.find(
+				([command]) => command === "plugin:window|start_resize_dragging",
+			)?.[1],
+		).toMatchObject({ value: "SouthEast" });
+
+		state.maximized = true;
+		window.dispatchEvent(new Event("resize"));
+		await expect.poll(edges).toHaveLength(0);
+	});
+
+	it("hides the bar when the Linux compositor draws a fixed frame", async () => {
+		const state = { maximized: false, fixedFrame: true };
+		fakeShell(LINUX, state);
+		syncFixedFrame();
+		await expect.poll(fixedFrame).toBe(true);
+		await mount();
+		await expect.poll(() => location.pathname).toContain("channel.text");
+		expect(bar()).toBeNull();
+		expect(document.querySelector("[data-resize-edges]")).toBeNull();
+		expect(windowBarHeight()).toBe(0);
+		markChromeMode();
+		expect(document.documentElement.dataset.windowFrame).toBe("system");
+		state.fixedFrame = false;
+		syncFixedFrame();
+		await expect.poll(fixedFrame).toBe(false);
+		await expect.poll(bar).not.toBeNull();
+		expect(document.documentElement.dataset.windowFrame).toBeUndefined();
+	});
+
+	it("leaves resizing to the system frame on Windows", async () => {
+		fakeShell(WINDOWS);
+		await mount();
+		await expect.poll(bar).not.toBeNull();
+		expect(document.querySelector("[data-resize-edges]")).toBeNull();
 	});
 
 	it("hands the maximize button to Windows snap layouts and opens the system menu", async () => {

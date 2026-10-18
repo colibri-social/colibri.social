@@ -95,10 +95,12 @@ it("opens the threads overlay, then a thread over the chat, and closes it", asyn
 		() => !!document.querySelector("[data-thread-full] [data-thread-view]"),
 	);
 	expect(location.pathname).toMatch(new RegExp(`^${DEV_PATH}/t/.+/full$`));
-	const back = () =>
-		header().querySelector<HTMLElement>("button[aria-label='Back to #dev']");
-	await until(() => !!back());
-	await userEvent.click(back() as HTMLElement);
+	const chat = () =>
+		Array.from(header().querySelectorAll<HTMLElement>("label")).find(
+			(label) => label.textContent === "Chat",
+		);
+	await until(() => header().querySelector("h1")?.textContent === "dev");
+	await userEvent.click(chat() as HTMLElement);
 	await until(() => !document.querySelector("[data-thread-full]"));
 	expect(location.pathname).toBe(DEV_PATH);
 });

@@ -1,6 +1,6 @@
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
-import { SidebarNavSection } from "../List/List";
+import { SidebarNavItem, SidebarNavSection } from "../List/List";
 import { DeveloperModeCard } from "./DeveloperModeCard";
 import { DeveloperNavSection } from "./DeveloperNavSection";
 
@@ -96,7 +96,9 @@ export const SidebarSection: Story = {
 		<nav class="flex h-96 w-72 flex-col gap-6 bg-card p-4">
 			<div class="mt-auto flex flex-col gap-6">
 				<DeveloperNavSection copyValue="at://did:plc:colibrisocialflock/social.colibri.beta.role/bots" />
-				<SidebarNavSection label="Danger zone" />
+				<SidebarNavSection label="Danger zone">
+					<SidebarNavItem label="Delete role" tone="destructive" />
+				</SidebarNavSection>
 			</div>
 		</nav>
 	),

@@ -22,6 +22,7 @@ type Area =
 	| "space"
 	| "channel"
 	| "settings"
+	| "inbox"
 	| "createSpace"
 	| "discover"
 	| "join"
@@ -33,6 +34,7 @@ const areas: Record<Area, (props: ModalAreaProps) => JSX.Element> = {
 		() => import("../../screens/admin/desktop/channel-settings-modal"),
 	),
 	settings: lazy(() => import("../../screens/settings/desktop/settings-modal")),
+	inbox: lazy(() => import("../../screens/inbox/desktop-modal")),
 	createSpace: lazy(() => import("../../screens/create-space/desktop-modal")),
 	discover: lazy(() => import("../../screens/discover/desktop-modal")),
 	join: lazy(() => import("../../screens/join/desktop-modal")),
@@ -54,6 +56,7 @@ export const areaOf = (layer: Layer | undefined): Area | undefined => {
 		return STANDALONE.includes(layer.page) ? "channel" : "space";
 	}
 	if (layer.kind === "settings") return "settings";
+	if (layer.kind === "inbox") return "inbox";
 	if (layer.kind === "createSpace") return "createSpace";
 	if (layer.kind === "discover") return "discover";
 	if (layer.kind === "join") return "join";

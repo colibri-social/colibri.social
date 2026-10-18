@@ -114,7 +114,7 @@ const failedLinkButton =
 	"cursor-pointer rounded-control-xs text-destructive-highlight underline underline-offset-2 outline-none hover:text-foreground focus-ring";
 
 const contentText =
-	"text-base leading-message [overflow-wrap:anywhere] [&>[data-rich-text]]:inline [&_a:not([data-chip])]:text-primary-highlight [&_a:not([data-chip])]:underline-offset-2 [&_a:not([data-chip])]:decoration-1 [&_a:not([data-chip]):hover]:underline";
+	"text-base leading-message select-text [overflow-wrap:anywhere] [&>[data-rich-text]]:inline [&_a:not([data-chip])]:text-primary-highlight [&_a:not([data-chip])]:underline-offset-2 [&_a:not([data-chip])]:decoration-1 [&_a:not([data-chip]):hover]:underline";
 
 const ReplyLine = (props: { reply: MessageReply }) => {
 	const interactive = () => !!props.reply.onClick && !props.reply.unavailable;
@@ -535,7 +535,7 @@ export const MessageRow = (props: MessageRowProps) => {
 								<Show when={headless() && local.edited}>
 									<span
 										class={cx(
-											"ml-1 text-xs",
+											"ml-1 text-xs select-none",
 											failed() ? "text-destructive" : "text-muted-foreground",
 										)}
 									>

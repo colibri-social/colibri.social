@@ -1,4 +1,11 @@
-import type { Reaction, ReactionGroup, Reactor } from "@colibri-social/ui";
+import {
+	aliasesForSlug,
+	type Reaction,
+	type ReactionGroup,
+	type Reactor,
+	slugForEmoji,
+	stripSkinTone,
+} from "@colibri-social/ui";
 import type { MemberView, ReactionEmojiRef, ReactionView } from "../types";
 import { bridgePlatformName, displayNameOf } from "./authors";
 
@@ -31,6 +38,19 @@ export const customReactionResolver =
 		return uri ? byUri?.(uri) : byName?.(name);
 	};
 
+const unicodeName = (emoji: string) => {
+	const slug = slugForEmoji(emoji) ?? slugForEmoji(stripSkinTone(emoji));
+	return slug ? (aliasesForSlug(slug)[0] ?? slug) : undefined;
+};
+
+export const reactionName = (
+	reaction: ReactionEmoji,
+	resolve?: ResolveReactionEmoji,
+) =>
+	resolve?.(reaction)?.name ??
+	reactionShortcode(reaction.emoji) ??
+	unicodeName(reaction.emoji);
+
 export const reactionFor = (
 	reactions: readonly ReactionView[] | undefined,
 	emoji: string,
@@ -43,11 +63,13 @@ const reactorDids = (reaction: ReactionView) =>
 export const toReactions = (
 	reactions: readonly ReactionView[] = [],
 	members: Members,
+	resolve?: ResolveReactionEmoji,
 ): Reaction[] =>
 	reactions
 		.filter((reaction) => reaction.count > 0)
 		.map((reaction) => ({
 			emoji: reaction.emoji,
+			label: reactionName(reaction, resolve),
 			count: reaction.count,
 			mine: !!reaction.viewerReacted,
 			reactors: [

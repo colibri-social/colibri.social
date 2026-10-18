@@ -15,6 +15,7 @@ import {
 	Suspense,
 	Switch,
 } from "solid-js";
+import { ThreadIcon } from "../../icons/custom";
 import { copyText } from "../../utils/clipboard";
 import { cx } from "../../utils/cx";
 import { useNow } from "../../utils/now";
@@ -216,16 +217,24 @@ export const ChannelChip = (props: {
 	channel: string;
 	text: string;
 	ctx: RichTextResolvers;
+	thread?: { thread: string; href: string };
 }) => {
 	const resolved = createMemo(() => props.ctx.channel?.(props.channel));
+	const facetType = () => (props.thread ? "thread" : "channel");
+	const threadName = () => {
+		const target = props.thread;
+		if (!target) return undefined;
+		return props.ctx.threadName?.(props.channel, target.thread) ?? "Thread";
+	};
 
 	const locked = () => (
 		<button
 			type="button"
-			data-facet-type="channel"
+			data-facet-type={facetType()}
 			data-chip=""
 			data-locked=""
 			data-channel={props.channel}
+			data-thread={props.thread?.thread}
 			class={cx(
 				LOCKED_CLASS,
 				"inline border-0 font-[inherit] text-[length:inherit] leading-[inherit]",
@@ -244,10 +253,11 @@ export const ChannelChip = (props: {
 		<Switch fallback={locked()}>
 			<Match when={resolved()?.state === "loading"}>
 				<span
-					data-facet-type="channel"
+					data-facet-type={facetType()}
 					data-chip=""
 					data-loading=""
 					data-channel={props.channel}
+					data-thread={props.thread?.thread}
 					class={cx(CHIP_CLASS, "text-muted-foreground")}
 				>
 					{props.text}
@@ -263,12 +273,18 @@ export const ChannelChip = (props: {
 					<Tooltip disabled={!ready().space?.name}>
 						<TooltipTrigger
 							as="a"
-							data-facet-type="channel"
+							data-facet-type={facetType()}
 							data-chip=""
 							data-channel={props.channel}
-							href={ready().href ?? "#"}
+							data-thread={props.thread?.thread}
+							href={props.thread?.href ?? ready().href ?? "#"}
 							class={CHANNEL_CLASS}
 							onClick={(event) => {
+								const target = props.thread;
+								if (target) {
+									props.ctx.onNavigate?.(target.href, event);
+									return;
+								}
 								if (!ready().href) event.preventDefault();
 								props.ctx.onChannelOpen?.(props.channel, event);
 							}}
@@ -314,6 +330,18 @@ export const ChannelChip = (props: {
 								)}
 							</Show>
 							{`#${ready().name}`}
+							<Show when={threadName()}>
+								{(name) => (
+									<>
+										<AltArrowRightIcon
+											class={CHIP_GLYPH_CLASS}
+											aria-hidden="true"
+										/>
+										<ThreadIcon class={CHIP_GLYPH_CLASS} aria-hidden="true" />
+										{name()}
+									</>
+								)}
+							</Show>
 						</TooltipTrigger>
 						<TooltipContent>{ready().space?.name}</TooltipContent>
 					</Tooltip>
@@ -358,6 +386,7 @@ export const LinkFacet = (props: {
 						href={href()}
 						target="_blank"
 						rel="noreferrer noopener"
+						draggable={false}
 						data-disguised={disguised() || undefined}
 						class={LINK_CLASS}
 						onClick={open}
@@ -390,6 +419,21 @@ export const LinkFacet = (props: {
 			<Match
 				when={(() => {
 					const value = target();
+					return value?.kind === "thread" ? value : undefined;
+				})()}
+			>
+				{(thread) => (
+					<ChannelChip
+						channel={thread().channel}
+						text={props.label}
+						ctx={props.ctx}
+						thread={{ thread: thread().thread, href: props.uri }}
+					/>
+				)}
+			</Match>
+			<Match
+				when={(() => {
+					const value = target();
 					return value?.kind === "internal" ? value : undefined;
 				})()}
 			>
@@ -398,6 +442,7 @@ export const LinkFacet = (props: {
 						data-facet-type="link"
 						data-uri={props.uri}
 						href={internal().href}
+						draggable={false}
 						class={LINK_CLASS}
 						onClick={(event) => props.ctx.onNavigate?.(internal().href, event)}
 					>

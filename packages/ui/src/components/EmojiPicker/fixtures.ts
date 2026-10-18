@@ -10,7 +10,7 @@ export const fixturePacks: EmojiPack[] = [
 	{
 		id: "pixelart",
 		name: "Pixelart by Lis",
-		author: "timtinkers.online",
+		author: "@timtinkers.online",
 		emojis: [
 			{ id: "tux", name: "tux", src: glyph("#334155", "TX") },
 			{ id: "opsec", name: "opsec", src: glyph("#b45309", "OP") },

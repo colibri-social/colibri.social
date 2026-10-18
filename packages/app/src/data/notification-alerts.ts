@@ -1,5 +1,5 @@
 import type { SpaceNotificationLevel } from "./notifications";
-import type { NotificationView } from "./types";
+import { type NotificationView, VOICE_CHANNEL } from "./types";
 
 export const STALE_ALERT_MS = 5000;
 
@@ -12,6 +12,7 @@ export type NotificationAlertContext = {
 	spaceLevel: SpaceNotificationLevel;
 	channelMuted: boolean;
 	threadMuted: boolean;
+	voiceChannel: string | undefined;
 	now: number;
 };
 
@@ -22,6 +23,9 @@ export const isPingNotification = (
 export const notificationTarget = (
 	view: Pick<NotificationView, "channel" | "thread">,
 ): string => view.thread ?? view.channel;
+
+export const isVoiceChannelRef = (ref: string): boolean =>
+	ref.includes(`/${VOICE_CHANNEL}/`);
 
 export const shouldAlertNotification = (
 	view: NotificationView,
@@ -36,6 +40,8 @@ export const shouldAlertNotification = (
 	if (Number.isFinite(indexedAt) && context.now - indexedAt > STALE_ALERT_MS)
 		return false;
 	if (context.spaceMuted || context.spaceLevel === "nothing") return false;
+	if (isVoiceChannelRef(view.channel) && context.voiceChannel !== view.channel)
+		return false;
 	if (isPingNotification(view)) return true;
 	return (
 		context.spaceLevel === "all" &&

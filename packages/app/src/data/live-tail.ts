@@ -52,6 +52,7 @@ export const reactTo = (
 	const current = reactions[index];
 	if (add) {
 		if (current?.reactors.includes(actor)) return message;
+		if (actor === viewer && current?.viewerReacted) return message;
 		const next: ReactionView = current
 			? {
 					...current,
@@ -69,7 +70,8 @@ export const reactTo = (
 		if (current) reactions[index] = next;
 		else reactions.push(next);
 	} else {
-		if (!current?.reactors.includes(actor)) return message;
+		const ownReaction = actor === viewer && current?.viewerReacted;
+		if (!current?.reactors.includes(actor) && !ownReaction) return message;
 		const next = {
 			...current,
 			count: current.count - 1,

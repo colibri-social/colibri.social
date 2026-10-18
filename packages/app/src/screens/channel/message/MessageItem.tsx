@@ -311,7 +311,7 @@ export const MessageItem = (props: MessageItemProps) => {
 	const renderToolbarEmoji = reactionEmojiAt(18);
 	const renderQuickReactionEmoji = reactionEmojiAt(24);
 	const reactions = createMemo(() =>
-		toReactions(view()?.reactions, chat.members()),
+		toReactions(view()?.reactions, chat.members(), resolveReactionEmoji),
 	);
 
 	const [drawerOpen, setDrawerOpen] = createSignal(false);
@@ -465,11 +465,15 @@ export const MessageItem = (props: MessageItemProps) => {
 	const deleteAction = () =>
 		writableOwn() ? () => chat.onDelete(message()) : undefined;
 	const [confirmingDelete, setConfirmingDelete] = createSignal(false);
+	const deleteMessage = () => {
+		if (chat.editingKey?.() === message().key) chat.onCancelEdit?.();
+		chat.onDelete(message());
+	};
 	const confirmDeleteAction = () =>
 		writableOwn()
 			? () => {
 					if (desktop() && shiftHeld()) {
-						chat.onDelete(message());
+						deleteMessage();
 						return;
 					}
 					void whenOverlaysClosed().then(() => setConfirmingDelete(true));
@@ -727,6 +731,7 @@ export const MessageItem = (props: MessageItemProps) => {
 					emoji: { packs: chat.emojiPacks?.() },
 					onSave: (value: RichText) => chat.onSaveEdit?.(value),
 					onCancel: () => chat.onCancelEdit?.(),
+					onEmptySubmit: () => confirmDeleteAction()?.(),
 				}
 			: undefined;
 
@@ -983,7 +988,7 @@ export const MessageItem = (props: MessageItemProps) => {
 					description={DELETE_CONFIRM_COPY.description}
 					confirmLabel={DELETE_CONFIRM_COPY.confirm}
 					tone="destructive"
-					onConfirm={() => chat.onDelete(message())}
+					onConfirm={deleteMessage}
 				/>
 			</Show>
 			<Show when={canModerate()}>

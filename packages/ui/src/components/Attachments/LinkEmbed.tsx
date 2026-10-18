@@ -2,9 +2,10 @@ import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
+import { Avatar } from "../Avatar/Avatar";
 import { IconButton } from "../IconButton/IconButton";
 import { Skeleton, SkeletonText } from "../Skeleton/Skeleton";
-import { createPressRipple, pressSurface } from "./shared";
+import { MediaGrid, type MediaItem } from "./MediaGrid";
 
 export type LinkEmbedImage = {
 	src: string;
@@ -13,6 +14,18 @@ export type LinkEmbedImage = {
 };
 
 export type LinkEmbedImageStyle = "large" | "thumbnail";
+
+export type LinkEmbedProvider = {
+	name: string;
+	url?: string;
+	iconSrc?: string;
+};
+
+export type LinkEmbedAuthor = {
+	name: string;
+	url?: string;
+	avatarSrc?: string;
+};
 
 export type LinkEmbedProps = {
 	url: string;
@@ -23,6 +36,10 @@ export type LinkEmbedProps = {
 	image?: LinkEmbedImage;
 	imageStyle?: LinkEmbedImageStyle;
 	accent?: string;
+	provider?: LinkEmbedProvider;
+	author?: LinkEmbedAuthor;
+	media?: MediaItem[];
+	onOpenMedia?: (index: number) => void;
 	onOpenImage?: () => void;
 	onRemove?: (event: MouseEvent) => void;
 	removeLabel?: string;
@@ -51,10 +68,15 @@ export const resolveLinkImageStyle = (
 	return "large";
 };
 
-const frameClass =
+export const linkEmbedFrameClass =
 	"relative flex w-full max-w-[416px] flex-col gap-2 overflow-hidden rounded-[6px] border border-border bg-card py-3 pr-3 pl-4 text-foreground";
 
-const AccentBar = (props: { color?: string }) => (
+const frameClass = linkEmbedFrameClass;
+
+export const embedLinkClass =
+	"max-w-full self-start rounded-control-xs no-underline decoration-1 underline-offset-2 outline-none select-text [-webkit-user-drag:none] hover:underline focus-ring";
+
+export const EmbedAccentBar = (props: { color?: string }) => (
 	<span
 		aria-hidden="true"
 		class="absolute inset-y-0 left-0 w-1"
@@ -62,10 +84,61 @@ const AccentBar = (props: { color?: string }) => (
 	/>
 );
 
+export const ProviderIcon = (props: { src?: string }) => (
+	<Show when={props.src}>
+		{(src) => (
+			<img
+				src={src()}
+				alt=""
+				aria-hidden="true"
+				draggable={false}
+				loading="lazy"
+				class="size-4 shrink-0 rounded-[3px] object-contain"
+			/>
+		)}
+	</Show>
+);
+
+const EmbedAuthorLine = (props: { author: LinkEmbedAuthor }) => (
+	<span class="flex min-w-0 items-center gap-1.5 pt-0.5">
+		<Show when={props.author.avatarSrc}>
+			<Avatar
+				name={props.author.name}
+				src={props.author.avatarSrc}
+				size="xs"
+				class="shrink-0"
+			/>
+		</Show>
+		<Show
+			when={props.author.url}
+			fallback={
+				<span class="truncate text-sm font-semibold">{props.author.name}</span>
+			}
+		>
+			{(href) => (
+				<a
+					href={href()}
+					target="_blank"
+					rel="noreferrer"
+					draggable={false}
+					class={cx("truncate text-sm font-semibold", embedLinkClass)}
+				>
+					{props.author.name}
+				</a>
+			)}
+		</Show>
+	</span>
+);
+
 export const LinkEmbed = (props: LinkEmbedProps) => {
-	const press = createPressRipple();
-	const style = () => resolveLinkImageStyle(props.image, props.imageStyle);
-	const label = () => props.siteName ?? props.domain ?? domainOf(props.url);
+	const style = () => resolveLinkImageStyle(image(), props.imageStyle);
+	const label = () =>
+		props.provider?.name ??
+		props.siteName ??
+		props.domain ??
+		domainOf(props.url);
+	const media = () => props.media ?? [];
+	const image = () => (media().length > 0 ? undefined : props.image);
 
 	const Image = (imageProps: { image: LinkEmbedImage; class: string }) => (
 		<Show
@@ -102,17 +175,8 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 	);
 
 	return (
-		<div
-			ref={press}
-			data-link-embed=""
-			class={cx(
-				frameClass,
-				"group/embed hover:bg-popover",
-				pressSurface,
-				props.class,
-			)}
-		>
-			<AccentBar color={props.accent} />
+		<div data-link-embed="" class={cx(frameClass, "group/embed", props.class)}>
+			<EmbedAccentBar color={props.accent} />
 			<Show when={props.onRemove}>
 				<IconButton
 					variant="secondary"
@@ -127,25 +191,76 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 				/>
 			</Show>
 			<span class="flex gap-3">
-				<a
-					href={props.url}
-					target="_blank"
-					rel="noreferrer"
-					class="flex min-w-0 flex-1 flex-col gap-0.5 no-underline outline-none select-text after:absolute after:inset-0 after:content-[''] focus-visible:after:rounded-[6px] focus-visible:after:shadow-[inset_0_0_0_2px_var(--primary)]"
-				>
-					<span class="truncate text-xs text-muted-foreground">{label()}</span>
-					<Show when={props.title}>
-						<span class="line-clamp-2 text-sm font-semibold text-primary-highlight">
-							{props.title}
+				<span class="flex min-w-0 flex-1 flex-col gap-0.5 select-text">
+					<Show
+						when={props.title}
+						fallback={
+							<span class="flex min-w-0 items-center gap-1.5">
+								<ProviderIcon src={props.provider?.iconSrc} />
+								<a
+									href={props.url}
+									target="_blank"
+									rel="noreferrer"
+									draggable={false}
+									class={cx(
+										"truncate text-xs text-muted-foreground",
+										embedLinkClass,
+									)}
+								>
+									{label()}
+								</a>
+							</span>
+						}
+					>
+						<span class="flex min-w-0 items-center gap-1.5">
+							<ProviderIcon src={props.provider?.iconSrc} />
+							<Show
+								when={props.provider?.url}
+								fallback={
+									<span class="truncate text-xs text-muted-foreground">
+										{label()}
+									</span>
+								}
+							>
+								{(href) => (
+									<a
+										href={href()}
+										target="_blank"
+										rel="noreferrer"
+										draggable={false}
+										class={cx(
+											"truncate text-xs text-muted-foreground",
+											embedLinkClass,
+										)}
+									>
+										{label()}
+									</a>
+								)}
+							</Show>
 						</span>
+						<Show when={props.author}>
+							{(author) => <EmbedAuthorLine author={author()} />}
+						</Show>
+						<a
+							href={props.url}
+							target="_blank"
+							rel="noreferrer"
+							draggable={false}
+							class={cx(
+								"line-clamp-2 text-sm font-semibold text-primary-highlight",
+								embedLinkClass,
+							)}
+						>
+							{props.title}
+						</a>
 					</Show>
 					<Show when={props.description}>
 						<span class="line-clamp-2 text-sm leading-prose text-muted-foreground">
 							{props.description}
 						</span>
 					</Show>
-				</a>
-				<Show when={style() === "thumbnail" && props.image}>
+				</span>
+				<Show when={style() === "thumbnail" && image()}>
 					{(image) => (
 						<Image
 							image={image()}
@@ -154,13 +269,21 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 					)}
 				</Show>
 			</span>
-			<Show when={style() === "large" && props.image}>
+			<Show when={style() === "large" && image()}>
 				{(image) => (
 					<Image
 						image={image()}
 						class="aspect-[1.91] w-full rounded-[2px] bg-muted object-cover"
 					/>
 				)}
+			</Show>
+			<Show when={media().length > 0}>
+				<MediaGrid
+					items={media()}
+					onOpen={props.onOpenMedia}
+					maxTiles={4}
+					radiusClass="rounded-[2px]"
+				/>
 			</Show>
 		</div>
 	);
@@ -174,7 +297,7 @@ export type LinkEmbedSkeletonProps = {
 
 export const LinkEmbedSkeleton = (props: LinkEmbedSkeletonProps) => (
 	<div aria-hidden="true" class={cx(frameClass, props.class)}>
-		<AccentBar color="var(--muted)" />
+		<EmbedAccentBar color="var(--muted)" />
 		<span class="flex gap-3">
 			<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 				<SkeletonText size="xs" width="30%" />

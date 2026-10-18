@@ -9,6 +9,7 @@ import {
 	InboxError,
 	type InboxFilter,
 	InboxGroupCard,
+	InboxModalContent,
 	type InboxNotification,
 	InboxPopover,
 	InboxRow,
@@ -43,6 +44,7 @@ import type {
 	SpaceRef,
 } from "../../data/types";
 import { defineContract, slot } from "../../screen/define";
+import { useOptionalDesktopShell } from "../../shell/desktop/context";
 import { useStack } from "../../shell/stack";
 import {
 	openNotificationTarget,
@@ -90,6 +92,7 @@ export const inbox = defineContract({
 	model: (_args: InboxArgs) => {
 		const data = useData();
 		const stack = useStack();
+		const shell = useOptionalDesktopShell();
 		const store = data.notifications;
 		const [filter, setFilter] = createSignal<InboxFilter>("all");
 
@@ -186,7 +189,12 @@ export const inbox = defineContract({
 			const view = mapped().byId.get(id);
 			if (!view) return;
 			markRead([id]);
-			openNotificationTarget(stack, data.jumps.request, view);
+			openNotificationTarget(
+				stack,
+				data.jumps.request,
+				view,
+				shell?.setVoiceChatOpen,
+			);
 		};
 
 		const unreadIds = (match: (entry: InboxNotification) => boolean) =>
@@ -201,8 +209,21 @@ export const inbox = defineContract({
 			else markRead(unreadIds((entry) => matchesFilter(entry, current)));
 		};
 
+		const modalOpen = () => stack.top()?.kind === "inbox";
+
 		return {
 			store,
+			presentation: () => data.preferences.client().inboxPresentation,
+			modalOpen,
+			openModal: () => {
+				if (!modalOpen()) stack.push({ kind: "inbox" });
+			},
+			status: () =>
+				store.status() === "error" && notifications().length === 0
+					? ("error" as const)
+					: store.status() === "loading" && notifications().length === 0
+						? ("loading" as const)
+						: ("ready" as const),
 			spaceList: () => [...spaces().values()],
 			unreadIds,
 			filter,
@@ -233,13 +254,28 @@ export const inbox = defineContract({
 			<InboxPopover
 				spaces={m.spaceList()}
 				notifications={m.notifications()}
-				status={
-					m.store.status() === "error" && m.notifications().length === 0
-						? "error"
-						: m.store.status() === "loading" && m.notifications().length === 0
-							? "loading"
-							: "ready"
+				status={m.status()}
+				presentation={m.presentation()}
+				open={m.presentation() === "modal" ? m.modalOpen() : undefined}
+				onOpenModal={m.openModal}
+				onOpenNotification={m.open}
+				onMarkRead={(id) => m.markRead([id])}
+				onMarkAllRead={m.markAllRead}
+				onClearInbox={m.clearInbox}
+				onMarkCategoryRead={(category) =>
+					m.markRead(m.unreadIds((entry) => matchesFilter(entry, category)))
 				}
+				onMarkSpaceRead={(spaceId) =>
+					m.markRead(m.unreadIds((entry) => entry.spaceId === spaceId))
+				}
+				onRetry={() => void m.store.reload()}
+			/>
+		)),
+		Modal: slot((m) => (
+			<InboxModalContent
+				spaces={m.spaceList()}
+				notifications={m.notifications()}
+				status={m.status()}
 				onOpenNotification={m.open}
 				onMarkRead={(id) => m.markRead([id])}
 				onMarkAllRead={m.markAllRead}

@@ -10,6 +10,7 @@ export type CustomEmojiDrawerProps = {
 	src: string;
 	alt?: string;
 	source?: string;
+	handle?: string;
 	packName?: string;
 	followed?: boolean;
 	packFollowed?: boolean;
@@ -75,6 +76,16 @@ export const CustomEmojiDrawer = (props: CustomEmojiDrawerProps) => {
 					<span class="min-w-0 truncate text-sm leading-5 font-semibold">
 						{shortcode()}
 					</span>
+					<Show when={props.handle}>
+						{(handle) => (
+							<span
+								data-custom-emoji-handle=""
+								class="min-w-0 truncate text-xs leading-4 text-muted-foreground"
+							>
+								@{handle()}
+							</span>
+						)}
+					</Show>
 					<Show when={props.source || props.packName}>
 						<span class="min-w-0 truncate text-xs leading-4 text-muted-foreground">
 							{[props.source, props.packName].filter(Boolean).join(" · ")}

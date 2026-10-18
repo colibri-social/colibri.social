@@ -10,6 +10,7 @@ import { initSentry, logBreadcrumb } from "./sentry/init";
 import {
 	markChromeMode,
 	restoreSystemWindowControls,
+	syncFixedFrame,
 } from "./shell/desktop/window-chrome";
 import { dismissDocumentLaunchScreen } from "./shell/launch/LaunchScreen";
 
@@ -25,6 +26,7 @@ installExternalLinkInterceptor();
 installQuitGuard();
 installUpdater();
 restoreSystemWindowControls();
+syncFixedFrame();
 markChromeMode();
 
 const root = document.getElementById("root");

@@ -50,6 +50,10 @@ const CHANNELS: Record<string, RichTextChannel> = {
 	pending: { state: "loading" },
 };
 
+const THREADS: Record<string, string> = {
+	"spring-tuning": "Spring tuning",
+};
+
 const onLinkOpen = fn((_href: string, event: MouseEvent) =>
 	event.preventDefault(),
 ).mockName("onLinkOpen");
@@ -86,10 +90,16 @@ const resolvers: RichTextResolvers = {
 	linkTarget: (uri) => {
 		const invite = uri.match(/^https:\/\/colibri\.social\/invite\/(\w+)$/);
 		if (invite) return { kind: "internal", href: `/app/invite/${invite[1]}` };
+		const thread = uri.match(
+			/^https:\/\/colibri\.social\/c\/(\w+)\/t\/([\w-]+)$/,
+		);
+		if (thread)
+			return { kind: "thread", channel: thread[1], thread: thread[2] };
 		const channel = uri.match(/^https:\/\/colibri\.social\/c\/(\w+)$/);
 		if (channel) return { kind: "channel", channel: channel[1] };
 		return undefined;
 	},
+	threadName: (_channel, thread) => THREADS[thread],
 	rewriteUrl: (uri) =>
 		uri.replace("https://bsky.app/", "https://witchsky.app/"),
 	onLinkOpen,
@@ -391,6 +401,52 @@ const ConfirmedLinks = () => {
 			/>
 		</RichTextProvider>
 	);
+};
+
+const THREAD_LINKS = build([
+	"See ",
+	mark("spring", f.link("https://colibri.social/c/general/t/spring-tuning")),
+	"\n",
+	mark("unknown", f.link("https://colibri.social/c/rules/t/missing")),
+	"\n",
+	mark("hidden", f.link("https://colibri.social/c/secret/t/spring-tuning")),
+	"\n",
+	mark("waiting", f.link("https://colibri.social/c/pending/t/spring-tuning")),
+]);
+
+export const ThreadLinks: Story = {
+	render: () => <Frame value={THREAD_LINKS} platform="desktop" />,
+	play: async ({ canvasElement }) => {
+		onNavigate.mockClear();
+		onChannelOpen.mockClear();
+		const chips = () =>
+			Array.from(
+				canvasElement.querySelectorAll<HTMLElement>(
+					"[data-facet-type='thread']",
+				),
+			);
+		await expect(chips()).toHaveLength(4);
+		const [spring, unknown, hidden, waiting] = chips();
+		await expect(spring).toHaveTextContent("#general");
+		await expect(spring).toHaveTextContent("Spring tuning");
+		await expect(spring.querySelector("[data-icon='thread']")).not.toBeNull();
+		await expect(spring).toHaveAttribute(
+			"href",
+			"https://colibri.social/c/general/t/spring-tuning",
+		);
+		await expect(unknown).toHaveTextContent("Info");
+		await expect(unknown).toHaveTextContent("#rules");
+		await expect(unknown).toHaveTextContent("Thread");
+		await expect(hidden).toHaveAttribute("data-locked");
+		await expect(hidden).toHaveTextContent("No access");
+		await expect(waiting).toHaveAttribute("data-loading");
+		await userEvent.click(spring);
+		await expect(onNavigate).toHaveBeenCalledWith(
+			"https://colibri.social/c/general/t/spring-tuning",
+			expect.anything(),
+		);
+		await expect(onChannelOpen).not.toHaveBeenCalled();
+	},
 };
 
 export const LinksWithConfirmation: Story = {

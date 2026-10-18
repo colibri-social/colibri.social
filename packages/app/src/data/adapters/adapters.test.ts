@@ -15,8 +15,10 @@ import {
 	gifOfAttachments,
 	inlineMediaOf,
 	isGifSiteUrl,
+	lightboxMediaOf,
 	splitAttachments,
 	toLinkEmbedProps,
+	toSocialPostProps,
 	visibleEmbeds,
 } from "./attachments";
 import {
@@ -49,6 +51,9 @@ import { formatAge } from "./time";
 vi.mock("@colibri-social/ui", () => ({
 	isRoleBadgeIconName: (name: string) =>
 		["shield-check", "star", "crown"].includes(name),
+	slugForEmoji: () => undefined,
+	aliasesForSlug: () => [],
+	stripSkinTone: (emoji: string) => emoji,
 }));
 
 const encoder = new TextEncoder();
@@ -885,5 +890,143 @@ describe("formatAge", () => {
 		expect(formatAge("2026-10-10T03:00:00Z", now)).toBe("9h");
 		expect(formatAge("2026-10-07T12:00:00Z", now)).toBe("3d");
 		expect(formatAge("2026-09-20T12:00:00Z", now)).toBe("2w");
+	});
+});
+
+describe("rich link embeds", () => {
+	const post = {
+		uri: "https://fixupx.com/a/status/1/en",
+		title: "A (@a)",
+		siteName: "FixupX",
+		themeColor: "#6363ff",
+		provider: {
+			name: "FixupX",
+			url: "https://fixupx.com",
+			icon: "https://appview.test/icon.png",
+		},
+		author: {
+			name: "A",
+			handle: "a",
+			url: "https://x.com/a",
+			avatar: "https://appview.test/a.jpg",
+		},
+		publishedAt: "2026-10-14T09:19:55.000Z",
+		media: [
+			{
+				kind: "video",
+				url: "https://appview.test/v.mp4",
+				previewUrl: "https://appview.test/v.jpg",
+				mimeType: "video/mp4",
+				width: 720,
+				height: 1564,
+			},
+			{ kind: "gifv", url: "https://appview.test/g.mp4", width: 4, height: 3 },
+			{ kind: "audio", url: "https://appview.test/a.mp3" },
+		],
+		post: {
+			body: [{ kind: "paragraph", spans: [{ text: "Hi", bold: true }] }],
+			stats: { replies: 18, likes: 373 },
+			translatedFrom: "zh",
+			quote: {
+				uri: "https://x.com/b/status/2",
+				author: { name: "B", handle: "b" },
+				body: [{ kind: "quote", spans: [{ text: "Quoted" }] }],
+				publishedAt: "2026-10-13T09:19:55.000Z",
+			},
+		},
+	};
+
+	it("maps a post embed to the social post card", () => {
+		const props = toSocialPostProps(post as never, {
+			locale: "en-US",
+			now: new Date("2026-10-14T10:19:55.000Z"),
+		});
+		expect(props?.accent).toBe("#6363ff");
+		expect(props?.author).toEqual({
+			name: "A",
+			handle: "a",
+			url: "https://x.com/a",
+			avatarSrc: "https://appview.test/a.jpg",
+		});
+		expect(props?.body).toEqual([
+			{ kind: "paragraph", spans: [{ text: "Hi", bold: true }] },
+		]);
+		expect(props?.media).toEqual([
+			{
+				src: "https://appview.test/v.mp4",
+				kind: "video",
+				mimeType: "video/mp4",
+				poster: "https://appview.test/v.jpg",
+				width: 720,
+				height: 1564,
+			},
+			{
+				src: "https://appview.test/g.mp4",
+				kind: "gif",
+				mimeType: "video/mp4",
+				width: 4,
+				height: 3,
+			},
+		]);
+		expect(props?.quote?.time).toBe("1d");
+		expect(props?.footer?.label).toBe("FixupX");
+		expect(props?.footer?.iconSrc).toBe("https://appview.test/icon.png");
+		expect(props?.footer?.time).toMatch(/10\/14\/26/);
+	});
+
+	it("leaves plain pages to the link card", () => {
+		expect(
+			toSocialPostProps({ uri: "https://a.test" } as never),
+		).toBeUndefined();
+	});
+
+	it("plays looping GIF videos as videos in the lightbox", () => {
+		expect(
+			lightboxMediaOf([{ src: "g.mp4", kind: "gif", mimeType: "video/mp4" }]),
+		).toEqual([{ src: "g.mp4", kind: "video", mimeType: "video/mp4" }]);
+	});
+
+	it("passes theme color, layout, provider and a playable video to the link card", () => {
+		const props = toLinkEmbedProps({
+			uri: "https://example.com/watch",
+			title: "Clip",
+			themeColor: "#1e2327",
+			layout: "summary",
+			provider: { name: "Example", icon: "https://appview.test/i.png" },
+			author: { name: "Jane" },
+			image: { url: "https://appview.test/p.jpg", width: 640, height: 360 },
+			video: {
+				url: "https://appview.test/v.mp4",
+				mimeType: "video/mp4",
+				width: 640,
+				height: 360,
+			},
+		} as never);
+		expect(props.accent).toBe("#1e2327");
+		expect(props.imageStyle).toBe("thumbnail");
+		expect(props.provider).toEqual({
+			name: "Example",
+			url: undefined,
+			iconSrc: "https://appview.test/i.png",
+		});
+		expect(props.author?.name).toBe("Jane");
+		expect(props.media).toEqual([
+			{
+				src: "https://appview.test/v.mp4",
+				kind: "video",
+				mimeType: "video/mp4",
+				width: 640,
+				height: 360,
+				poster: "https://appview.test/p.jpg",
+				alt: "Clip",
+			},
+		]);
+	});
+
+	it("ignores theme colors that are not hex", () => {
+		expect(
+			toLinkEmbedProps({ uri: "https://a.test", themeColor: "red" } as never)
+				.accent,
+		).toBeUndefined();
 	});
 });

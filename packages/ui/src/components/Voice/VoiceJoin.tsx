@@ -1,7 +1,7 @@
 import { ChatRoundDotsIcon } from "@solar-icons/solid/bold/chat-round-dots";
 import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { SettingsIcon } from "@solar-icons/solid/bold/settings";
-import { createSignal, type JSX, Show } from "solid-js";
+import { createSignal, type JSX, Show, untrack } from "solid-js";
 import { AnimatedMicrophoneIcon } from "../../icons/animated/icons";
 import { cx } from "../../utils/cx";
 import { createMenuTrigger } from "../../utils/gestures";
@@ -33,7 +33,7 @@ export type VoiceParticipantRowProps = {
 const wrapRow = (
 	wrap: ((row: JSX.Element) => JSX.Element) | undefined,
 	row: JSX.Element,
-) => (wrap ? wrap(row) : row);
+) => (wrap ? untrack(() => wrap(row)) : row);
 
 const participantRowClass =
 	"flex w-full min-w-0 items-center gap-3 rounded-control bg-secondary py-2 pr-3 pl-2";

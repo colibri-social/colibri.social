@@ -1,9 +1,18 @@
+import { classifyThrown, createLogger } from "@colibri-social/lib";
 import {
 	ConversationStart,
 	type MessageListEntry,
 	ThreadStartDivider,
 } from "@colibri-social/ui";
-import { createMemo, createResource, Show } from "solid-js";
+import {
+	createEffect,
+	createMemo,
+	createSignal,
+	on,
+	onCleanup,
+	Show,
+	untrack,
+} from "solid-js";
 import { useData } from "../../data/store";
 import type { MessageView, ThreadView } from "../../data/types";
 import {
@@ -20,6 +29,10 @@ import {
 } from "../channel/message/types";
 
 export const ANCHOR_KEY_PREFIX = "anchor:";
+
+const log = createLogger("thread-intro");
+
+type StoredAnchor = ThreadView["anchorMessage"];
 
 const anchorChat = (
 	chat: ChatContextValue,
@@ -40,9 +53,32 @@ export const ThreadIntro = (props: { thread: ThreadView }) => {
 				.channel(props.thread.anchor?.space ?? props.thread.channel)
 				.react(message.rkey, emoji, add);
 	});
-	const [fetched] = createResource(
-		() => (props.thread.anchor ? props.thread : undefined),
-		(thread) => data.threads.anchorMessage(thread).catch(() => undefined),
+	const anchorKey = createMemo(() => {
+		const anchor = props.thread.anchor;
+		return anchor
+			? `${props.thread.space} ${anchor.space} ${anchor.did} ${anchor.rkey}`
+			: undefined;
+	});
+	const [fetched, setFetched] = createSignal<StoredAnchor>();
+	createEffect(
+		on(anchorKey, (key) => {
+			setFetched(undefined);
+			if (!key) return;
+			let current = true;
+			onCleanup(() => {
+				current = false;
+			});
+			data.threads.anchorMessage(untrack(() => props.thread)).then(
+				(message) => {
+					if (current) setFetched(() => message);
+				},
+				(thrown: unknown) => {
+					log.warn("anchor message failed to load", {
+						code: classifyThrown(thrown, { method: "thread.getThread" }).code,
+					});
+				},
+			);
+		}),
 	);
 	const anchorView = createMemo<MessageView | undefined>(() => {
 		const anchor = props.thread.anchor;

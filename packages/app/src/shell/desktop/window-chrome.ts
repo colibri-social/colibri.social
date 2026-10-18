@@ -1,7 +1,12 @@
 import type { WindowControl } from "@colibri-social/ui";
+import { createEffect, createRoot, createSignal } from "solid-js";
 import { systemWindowControls } from "../../data/system-window-controls";
 
 export type ChromeMode = "macos" | "windows" | "linux" | "none";
+
+const [fixedFrame, setFixedFrame] = createSignal(false);
+
+export { fixedFrame };
 
 export const isNativeShell = () =>
 	typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -22,7 +27,18 @@ export const resolveChromeMode = (): ChromeMode =>
 	);
 
 export const markChromeMode = () => {
-	document.documentElement.dataset.chrome = resolveChromeMode();
+	const mode = resolveChromeMode();
+	const root = document.documentElement;
+	root.dataset.chrome = mode;
+	createRoot(() =>
+		createEffect(() => {
+			if (mode !== "none" && !windowBarShown(mode)) {
+				root.dataset.windowFrame = "system";
+			} else {
+				delete root.dataset.windowFrame;
+			}
+		}),
+	);
 };
 
 export const BAR_HEIGHT: Record<ChromeMode, number> = {
@@ -33,7 +49,7 @@ export const BAR_HEIGHT: Record<ChromeMode, number> = {
 };
 
 export const windowBarShown = (mode: ChromeMode = resolveChromeMode()) =>
-	mode !== "none" && !systemWindowControls()[0]();
+	mode !== "none" && !systemWindowControls()[0]() && !fixedFrame();
 
 export const windowBarHeight = (mode: ChromeMode = resolveChromeMode()) =>
 	windowBarShown(mode) ? BAR_HEIGHT[mode] : 0;
@@ -97,6 +113,16 @@ export const toPhysicalRect = (
 	};
 };
 
+export type ResizeDirection =
+	| "North"
+	| "South"
+	| "East"
+	| "West"
+	| "NorthEast"
+	| "NorthWest"
+	| "SouthEast"
+	| "SouthWest";
+
 export type WindowState = {
 	fullscreen: boolean;
 	maximized: boolean;
@@ -106,6 +132,7 @@ export type WindowState = {
 export type TitlebarInfo = {
 	state?: WindowState;
 	buttonLayout?: ButtonLayout | null;
+	fixedFrame?: boolean;
 };
 
 export const WINDOW_STATE_EVENT = "colibri-titlebar-state";
@@ -139,6 +166,10 @@ export const nativeWindow = {
 	close: () =>
 		tauriWindow()
 			.then((current) => current.close())
+			.catch(() => {}),
+	startResizeDragging: (direction: ResizeDirection) =>
+		tauriWindow()
+			.then((current) => current.startResizeDragging(direction))
 			.catch(() => {}),
 	setTitle: (value: string) =>
 		tauriInvoke("titlebar_set_title", { title: value }).catch(() => {}),
@@ -182,4 +213,11 @@ export const restoreSystemWindowControls = () => {
 	if (resolveChromeMode() === "none") return;
 	const [enabled] = systemWindowControls();
 	if (enabled()) void nativeWindow.setSystemControls(true);
+};
+
+export const syncFixedFrame = () => {
+	if (resolveChromeMode() !== "linux") return;
+	void nativeWindow
+		.init()
+		.then((info) => setFixedFrame(info.fixedFrame === true));
 };

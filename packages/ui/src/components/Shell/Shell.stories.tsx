@@ -630,6 +630,159 @@ export const FlushBannerCorner: Story = {
 	},
 };
 
+const ChromeCornerShell = () => {
+	const [chrome, setChrome] = createSignal<"none" | "macos">("none");
+	return (
+		<div class="flex flex-col gap-4 p-4" data-chrome={chrome()}>
+			<button
+				type="button"
+				class="text-sm"
+				onClick={() => setChrome(chrome() === "none" ? "macos" : "none")}
+			>
+				Toggle native window
+			</button>
+			<div style={{ width: "960px", height: "320px" }}>
+				<AppShell class="h-full" rail={<Rail />} sidebar={<div />}>
+					<div class="flex-1" />
+				</AppShell>
+			</div>
+		</div>
+	);
+};
+
+export const ChromelessCorner: Story = {
+	render: () => <ChromeCornerShell />,
+	play: async ({ canvasElement }) => {
+		const corner = () => {
+			const sidebar = canvasElement.querySelector(
+				"[data-shell-sidebar]",
+			) as Element;
+			const content = canvasElement.querySelector(
+				"[data-shell-sidebar-content]",
+			) as Element;
+			return [
+				getComputedStyle(sidebar).borderTopLeftRadius,
+				getComputedStyle(content).borderTopLeftRadius,
+			];
+		};
+		await expect(corner()).toEqual(["0px", "0px"]);
+		await userEvent.click(
+			within(canvasElement).getByRole("button", {
+				name: "Toggle native window",
+			}),
+		);
+		await waitFor(() => expect(corner()).toEqual(["16px", "15px"]));
+	},
+};
+
+export const LongStatusInDock: Story = {
+	render: () => (
+		<div style={{ width: "960px", height: "320px" }}>
+			<AppShell
+				class="h-full"
+				rail={<Rail />}
+				sidebar={<div />}
+				dock={
+					<UserPanel
+						name="Lou"
+						presence="online"
+						status="Migrating the whole flock south for the winter, one very long status line at a time"
+					/>
+				}
+			>
+				<div class="flex-1" />
+			</AppShell>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const navigation = canvasElement.querySelector(
+			"[data-shell-navigation]",
+		) as HTMLElement;
+		const rail = canvasElement.querySelector(
+			"[data-shell-rail]",
+		) as HTMLElement;
+		const sidebar = canvasElement.querySelector(
+			"[data-shell-sidebar]",
+		) as HTMLElement;
+		const status = canvasElement.querySelector(
+			"[data-user-panel-status]",
+		) as HTMLElement;
+		await expect(navigation.getBoundingClientRect().width).toBeCloseTo(
+			rail.getBoundingClientRect().width +
+				sidebar.getBoundingClientRect().width,
+			0,
+		);
+		await expect(status.scrollWidth).toBeGreaterThan(status.clientWidth);
+		await expect(status.getBoundingClientRect().right).toBeLessThanOrEqual(
+			navigation.getBoundingClientRect().right,
+		);
+	},
+};
+
+const SystemFrameCornerShell = () => {
+	const [frame, setFrame] = createSignal<"system" | undefined>("system");
+	return (
+		<div
+			class="flex flex-col gap-4 p-4"
+			data-chrome="linux"
+			data-window-frame={frame()}
+		>
+			<button
+				type="button"
+				class="text-sm"
+				onClick={() => setFrame(frame() ? undefined : "system")}
+			>
+				Toggle system frame
+			</button>
+			<div style={{ width: "960px", height: "320px" }}>
+				<AppShell class="h-full" rail={<Rail />} sidebar={<div />}>
+					<div class="flex-1" />
+				</AppShell>
+			</div>
+		</div>
+	);
+};
+
+export const SystemFrameCorner: Story = {
+	render: () => <SystemFrameCornerShell />,
+	play: async ({ canvasElement }) => {
+		const corner = () => {
+			const sidebar = canvasElement.querySelector(
+				"[data-shell-sidebar]",
+			) as Element;
+			const content = canvasElement.querySelector(
+				"[data-shell-sidebar-content]",
+			) as Element;
+			return [
+				getComputedStyle(sidebar).borderTopLeftRadius,
+				getComputedStyle(content).borderTopLeftRadius,
+			];
+		};
+		const topBorders = () =>
+			["[data-shell-sidebar]", "[data-shell-content]"].map(
+				(selector) =>
+					getComputedStyle(canvasElement.querySelector(selector) as Element)
+						.borderTopWidth,
+			);
+		const joinTop = () =>
+			getComputedStyle(
+				canvasElement.querySelector("[data-shell-sidebar]") as Element,
+				"::before",
+			).top;
+		await expect(corner()).toEqual(["0px", "0px"]);
+		await expect(topBorders()).toEqual(["0px", "0px"]);
+		await expect(joinTop()).toBe("0px");
+		await userEvent.click(
+			within(canvasElement).getByRole("button", {
+				name: "Toggle system frame",
+			}),
+		);
+		await waitFor(() => expect(corner()).toEqual(["16px", "15px"]));
+		await expect(topBorders()).toEqual(["1px", "1px"]);
+		await expect(joinTop()).toBe("-1px");
+	},
+};
+
 export const UserPanelParity: Story = {
 	render: () => (
 		<div class="flex w-[312px] flex-col gap-4 bg-background p-4">

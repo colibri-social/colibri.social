@@ -45,7 +45,7 @@ const fetchOwner = async (
 	}
 };
 
-const loadOwner = (data: DataStore, did: Did) => {
+export const loadOwner = (data: DataStore, did: Did) => {
 	let cache = owners.get(data);
 	if (!cache) {
 		cache = new Map();
@@ -58,7 +58,7 @@ const loadOwner = (data: DataStore, did: Did) => {
 	return request;
 };
 
-const knownOwner = (
+export const knownOwner = (
 	data: DataStore,
 	did: Did,
 ): EmojiPackCardOwner | undefined => {

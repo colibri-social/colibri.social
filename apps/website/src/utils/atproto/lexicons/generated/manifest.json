@@ -1,9 +1,9 @@
 {
 	"count": 164,
 	"lexicons": {
-		"social.colibri.beta.actor.clientPreferences": "fb63a4156666455cd23199012ee57405400bd9ee838f642880e79220c730029a",
+		"social.colibri.beta.actor.clientPreferences": "dda81504177cebf81b82e9c91fa616b777e26d62504ebd3ff617b55abea70825",
 		"social.colibri.beta.actor.composerState": "abe7e1c4d10e30b449e8b487ab49d599157f9a14282d868f8a7f0dba2cda92d7",
-		"social.colibri.beta.actor.defs": "ceef1e581dd0cd7589218f6acde089e128d11d0cb31ace111787c452956aa4e4",
+		"social.colibri.beta.actor.defs": "f9836d59066899f675386b4413ccb87f135f8a9ed13a8cf86778ddfd50a6dd28",
 		"social.colibri.beta.actor.deleteAccount": "71ab973c05ff9feeffc48efc241ff5de106ccfa90c9ed35e01884cf1f4789c06",
 		"social.colibri.beta.actor.getDeletionStatus": "12b169e3479a01b8dd6271f19d0b17aae8c90060c19f8c71fa6a0c40ac9bc435",
 		"social.colibri.beta.actor.getPreferences": "1f5b6cf1590123b0870b29fa663e2458eb9c869b1381b2e32888fdbee7440568",
@@ -107,7 +107,7 @@
 		"social.colibri.beta.community.undismissApplication": "fe4fb71fb5567ce0b8e0ceca068cdf8c652d282b86fa2cc6510f3e4c7d8ec0d9",
 		"social.colibri.beta.community.update": "d3c7b2cad2f36e1b0f6154e6ce3e2a4a2a1b656352539d84f9f54bb95be9447d",
 		"social.colibri.beta.defs": "51548b70f20f364ff3f791c73caeced53c4dd58b09df045b1ba43c09466180cc",
-		"social.colibri.beta.embed.defs": "9662b00ebf475c053b7920f8f0a32820e4d7d8b1112ba269373d60d525a83ffc",
+		"social.colibri.beta.embed.defs": "8bd584a1a60e627403fbd9c0e8eb7257de3c2421f293cbaba19d34ecd5893ff9",
 		"social.colibri.beta.embed.getMetadata": "a43777e0af0a290e1e0c7af4707cfa1773cf09d3ef28ea4bb8377089ef50f344",
 		"social.colibri.beta.embed.gifCategories": "f3ee8be5737dcefa732ce6331890344c811da8d53975d9e3fc32fb4487155f2d",
 		"social.colibri.beta.embed.searchGifs": "36fbe265d96c3e5afc175ef4e371dd2a1ea2a19dddc74456fe7fe433b124ef6b",

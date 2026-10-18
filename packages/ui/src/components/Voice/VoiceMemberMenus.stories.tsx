@@ -1,4 +1,4 @@
-import { createSignal, onCleanup } from "solid-js";
+import { createSignal, type JSX, onCleanup } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
@@ -338,5 +338,90 @@ export const ChannelRowParticipantGesture: Story = {
 		const rows = canvasElement.querySelectorAll("[data-voice-participant]");
 		rightClick(rows[2]);
 		await expect(spy.rowMenu).toHaveBeenCalledWith("did:plc:finch");
+	},
+};
+
+const [wrenSpeaking, setWrenSpeaking] = createSignal(false);
+
+const speakingParticipants = () =>
+	participants.map((participant) =>
+		participant.id === "did:plc:wren"
+			? { ...participant, speaking: wrenSpeaking() }
+			: participant,
+	);
+
+const speakingMenu = (participant: VoiceParticipant, row: JSX.Element) => (
+	<MemberContextMenu
+		name={participant.name}
+		class="contents"
+		onViewProfile={spy.viewProfile}
+	>
+		{row}
+	</MemberContextMenu>
+);
+
+const expectMenuSurvivesSpeaking = async (row: HTMLElement) => {
+	setWrenSpeaking(false);
+	const menu = await waitFor(() => {
+		if (!screen.queryByRole("menu", { name: "Wren options" })) {
+			rightClick(row);
+		}
+		return screen.getByRole("menu", { name: "Wren options" });
+	});
+	setWrenSpeaking(true);
+	await new Promise((resolve) => setTimeout(resolve, 50));
+	setWrenSpeaking(false);
+	await new Promise((resolve) => setTimeout(resolve, 50));
+	await expect(menu.isConnected).toBe(true);
+	await expect(
+		screen.getByRole("menu", { name: "Wren options" }),
+	).toBeVisible();
+	await userEvent.click(
+		within(menu).getByRole("menuitem", { name: "View profile" }),
+	);
+	await expect(spy.viewProfile).toHaveBeenCalledTimes(1);
+};
+
+export const ChannelRowMenuWhileSpeaking: Story = {
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => (
+		<div class="min-h-dvh w-72 bg-card p-2">
+			<VoiceChannelRow
+				name="Birdwatch call"
+				platform="desktop"
+				joined
+				participants={speakingParticipants()}
+				onOpenParticipant={spy.rowOpen}
+				participantMenu={speakingMenu}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const row = canvasElement
+			.querySelectorAll("[data-voice-participant]")[1]
+			.querySelector("button") as HTMLElement;
+		await expectMenuSurvivesSpeaking(row);
+	},
+};
+
+export const RosterMenuWhileSpeaking: Story = {
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => (
+		<div class="flex h-dvh flex-col bg-card p-4">
+			<VoiceJoinRoster
+				channelName="Birdwatch call"
+				participants={speakingParticipants()}
+				onOpenParticipant={spy.rowOpen}
+				participantMenu={speakingMenu}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const row = canvasElement
+			.querySelectorAll("[data-voice-participant]")[1]
+			.querySelector("button") as HTMLElement;
+		await expectMenuSurvivesSpeaking(row);
 	},
 };

@@ -33,6 +33,7 @@ export type ChannelHeaderProps = {
 	safeTop?: boolean;
 	muted?: boolean;
 	onMutedChange?: (muted: boolean) => void;
+	muteSubject?: "channel" | "thread";
 	membersOpen?: boolean;
 	onToggleMembers?: () => void;
 	actions?: JSX.Element;
@@ -217,6 +218,7 @@ const DesktopChannelHeader = (props: ChannelHeaderProps) => {
 								class="w-auto"
 								value={props.view ?? "chat"}
 								onChange={(value) => change()(value as ChannelHeaderView)}
+								onReselect={(value) => change()(value as ChannelHeaderView)}
 								options={[
 									{ value: "chat", label: "Chat" },
 									{
@@ -263,7 +265,7 @@ const DesktopChannelHeader = (props: ChannelHeaderProps) => {
 						<IconButton
 							variant="ghost"
 							size="md"
-							label={props.muted ? "Unmute channel" : "Mute channel"}
+							label={`${props.muted ? "Unmute" : "Mute"} ${props.muteSubject ?? "channel"}`}
 							aria-pressed={!!props.muted}
 							data-muted={props.muted ? "" : undefined}
 							icon={<AnimatedBellIcon muted={!!props.muted} />}

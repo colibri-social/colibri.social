@@ -82,7 +82,6 @@ import { openVoicePrompt } from "../voice/voice-prompt";
 import { createCategoryCollapse } from "./category-collapse";
 import { createDeleteDialogs } from "./delete-dialogs";
 import NotificationSettingsScreen from "./notification-settings/notification-settings.screen";
-import { recentThread } from "./recent-thread";
 import { sidebarThreadsFor } from "./sidebar-threads";
 
 export type SpacesArgs = { slug?: string };
@@ -272,19 +271,11 @@ export const spaces = defineContract({
 			setNotificationTarget(target);
 			void whenOverlaysClosed().then(() => setNotificationOpen(true));
 		};
-		const [now, setNow] = createSignal(Date.now());
-		const clock = setInterval(() => setNow(Date.now()), 60_000);
-		onCleanup(() => clearInterval(clock));
-		const pinnedThread = (channel: ChannelView) => {
-			const current = community();
-			if (!current) return undefined;
-			const slug = channelSlug(channel);
-			const recent = recentThread(data);
-			if (recent?.space === spaceKey(current) && recent.channel === slug) {
-				return recent.thread;
-			}
+		const activeThread = (channel: ChannelView) => {
 			const viewed = viewedThreadHere();
-			return viewed?.channel === slug ? viewed.thread : undefined;
+			return viewed?.channel === channelSlug(channel)
+				? viewed.thread
+				: undefined;
 		};
 		const isActiveThread = (channel: ChannelView, thread: SpaceRef) => {
 			const viewed = viewedThreadHere();
@@ -294,13 +285,7 @@ export const spaces = defineContract({
 			);
 		};
 		const sidebarThreads = (channel: ChannelView) =>
-			sidebarThreadsFor(
-				data,
-				space(),
-				channel.space,
-				now(),
-				pinnedThread(channel),
-			);
+			sidebarThreadsFor(data, space(), channel.space, activeThread(channel));
 		const [reorderMode, setReorderMode] = createSignal(false);
 		const [held, setHeld] = createSignal<ChannelView>();
 		const [drawerOpen, setDrawerOpen] = createSignal(false);
@@ -688,7 +673,11 @@ export const spaces = defineContract({
 						bannerSrc={community().banner}
 						memberCount={community().memberCount ?? 0}
 						description={community().description}
-						developer={spaceDeveloperCard(community().did)}
+						developer={
+							m.data.controls().developerMode
+								? spaceDeveloperCard(community().did)
+								: undefined
+						}
 						menu={m.spaceMenu(community())}
 					/>
 				)}

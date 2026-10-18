@@ -4,6 +4,7 @@ import {
 	COMPOSER_TYPING_INSET,
 	Composer,
 	ComposerBar,
+	ConfirmDialog,
 	MessageList,
 	type MessageListHandle,
 	ReplyBar,
@@ -83,7 +84,7 @@ import {
 } from "./message/chat-context";
 import { createCustomEmojiDrawer } from "./message/custom-emoji-drawer";
 import { createLinkOpener } from "./message/link-opener";
-import { MessageItem } from "./message/MessageItem";
+import { DELETE_CONFIRM_COPY, MessageItem } from "./message/MessageItem";
 import {
 	type ChatMessage,
 	failChatMessage,
@@ -704,6 +705,18 @@ export const createConversation = (options: ConversationOptions) => {
 			feed()
 				?.threads.value()
 				?.find((thread) => thread.space === space)?.channel,
+		threadNameIn: (channel, thread) => {
+			const parent = channelMap().get(channel);
+			if (!parent) return undefined;
+			return data
+				.threadsOf(parent.space)
+				.value()
+				?.find((entry) => skeyOf(entry.space) === thread)?.name;
+		},
+		categoryName: (rkey) =>
+			space()
+				?.categories.value()
+				?.find((category) => category.rkey === rkey)?.name,
 		onOpenForwardSource: (target) => {
 			const chat = {
 				kind: "chat" as const,
@@ -1185,8 +1198,16 @@ export const ConversationComposer = (props: {
 				finish();
 				m.setEditing(undefined);
 			},
+			onEmptySubmit: () => setConfirmingDelete(true),
 		};
 	});
+	const [confirmingDelete, setConfirmingDelete] = createSignal(false);
+	const deleteEdited = () => {
+		const target = mobileEdit();
+		if (!target) return;
+		editing()?.onCancel();
+		m.chat.onDelete(target);
+	};
 	createEffect(
 		on(editing, (edit) => {
 			const target = mobileEdit();
@@ -1302,6 +1323,15 @@ export const ConversationComposer = (props: {
 					onLinkPreviewsChange={draft.setLinkPreviews}
 				/>
 			</Show>
+			<ConfirmDialog
+				open={confirmingDelete()}
+				onOpenChange={setConfirmingDelete}
+				title={DELETE_CONFIRM_COPY.title}
+				description={DELETE_CONFIRM_COPY.description}
+				confirmLabel={DELETE_CONFIRM_COPY.confirm}
+				tone="destructive"
+				onConfirm={deleteEdited}
+			/>
 		</Show>
 	);
 };

@@ -6,12 +6,7 @@ import type {
 	EmojiLibraryView,
 	EmojiView,
 } from "./emoji";
-import {
-	createEmojiStore,
-	FOLLOWED_SINGLES_LABEL,
-	OWN_EMOJI_LABEL,
-	pickerPacks,
-} from "./emoji-store";
+import { createEmojiStore, OWN_EMOJI_LABEL, pickerPacks } from "./emoji-store";
 import type { DataSource, LiveEvent } from "./source";
 import type { CommunityView, Datetime, Did } from "./types";
 
@@ -59,13 +54,21 @@ const packFollow = (rkey: string, emojis: EmojiView[]): EmojiFollowView => {
 	};
 };
 
-const singleFollow = (rkey: string, target: EmojiView): EmojiFollowView => ({
+const singleFollow = (
+	rkey: string,
+	target: EmojiView,
+	owner: EmojiFollowView["owner"] = {
+		did: ARTIST,
+		kind: "user",
+		handle: "ari.test",
+	},
+): EmojiFollowView => ({
 	uri: `at://${VIEWER}/social.colibri.beta.emoji.follow/${rkey}`,
 	rkey,
 	subject: target.id,
 	kind: "emoji",
 	state: "available",
-	owner: { did: ARTIST, kind: "user", handle: "ari.test" },
+	owner,
 	emojis: [target],
 	createdAt: "2026-10-12T11:00:00.000Z" as Datetime,
 });
@@ -75,12 +78,17 @@ const community = (did: Did, name: string, customEmoji?: string) =>
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-const setup = (library: EmojiLibraryView, policy?: string) => {
+const setup = (
+	library: EmojiLibraryView,
+	policy?: string,
+	extra: Record<string, EmojiCatalogView> = {},
+) => {
 	const listeners = new Set<(event: LiveEvent) => void>();
 	const catalogs: Record<string, EmojiCatalogView> = {
 		[SPACE]: catalogOf(SPACE, [emoji(SPACE, "kek"), emoji(SPACE, "shipit")]),
 		[OTHER]: catalogOf(OTHER, [emoji(OTHER, "kek")]),
 		[VIEWER]: library.own,
+		...extra,
 	};
 	const source = {
 		listEmoji: vi.fn(async (did: Did) => catalogs[did] ?? catalogOf(did, [])),
@@ -135,11 +143,68 @@ describe("emoji scope", () => {
 			"Colibri HQ",
 			OWN_EMOJI_LABEL,
 			"Cats",
-			FOLLOWED_SINGLES_LABEL,
+			"@ari.test",
 			"Owls",
 		]);
 		const packs = store.packs(SPACE);
 		expect(packs.find((pack) => pack.name === "Cats")?.author).toBe("Ari");
+	});
+
+	it("names a followed emoji's section after its pack", async () => {
+		const artistCatalog: EmojiCatalogView = {
+			community: ARTIST,
+			emojis: [owl],
+			packs: [
+				{
+					id: `at://${ARTIST}/blue.moji.packs.pack/birds`,
+					provider: "blue.moji",
+					name: "Pack by Lou",
+					emojis: [owl.id],
+					createdAt: "2026-10-12T10:00:00.000Z" as Datetime,
+				},
+			],
+		};
+		const { store } = setup(library, undefined, { [ARTIST]: artistCatalog });
+		await warmUp(store);
+		await warmUp(store);
+		const section = store
+			.packs(SPACE)
+			.find((pack) => pack.name === "Pack by Lou");
+		expect(section?.author).toBe("@ari.test");
+		expect(section?.emojis.map((entry) => entry.name)).toEqual(["owl"]);
+		expect(store.packs(SPACE).map((pack) => pack.name)).not.toContain(
+			"@ari.test",
+		);
+	});
+
+	it("keeps a followed Space emoji in that Space's section", async () => {
+		const shipit = emoji(SPACE, "shipit");
+		const owlsKek = emoji(OTHER, "kek");
+		const spaceOwner = { did: SPACE, kind: "community" as const };
+		const otherOwner = { did: OTHER, kind: "community" as const };
+		const { store } = setup({
+			own: catalogOf(VIEWER, []),
+			follows: [
+				singleFollow("3ship", shipit, spaceOwner),
+				singleFollow("3kek", owlsKek, otherOwner),
+			],
+		});
+		await warmUp(store);
+		const inSpace = store.packs(SPACE);
+		expect(inSpace.map((pack) => pack.name)).toEqual(["Colibri HQ", "Owls"]);
+		expect(
+			inSpace
+				.find((pack) => pack.name === "Owls")
+				?.emojis.map((entry) => entry.id),
+		).toEqual([owlsKek.id]);
+
+		store.scope(undefined);
+		await flush();
+		await flush();
+		expect(store.packs(undefined).map((pack) => pack.name)).toEqual([
+			"Colibri HQ",
+			"Owls",
+		]);
 	});
 
 	it("keeps local policy to the Space's own emoji", async () => {

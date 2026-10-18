@@ -26,6 +26,7 @@ export type DesktopRoute = {
 const MODAL_KINDS: readonly Layer["kind"][] = [
 	"admin",
 	"settings",
+	"inbox",
 	"editProfile",
 	"createSpace",
 	"discover",
@@ -67,6 +68,7 @@ export const desktopRoute = (root: Root, layers: Layer[]): DesktopRoute => {
 				: { kind: "settings" },
 		);
 	}
+	if (root.tab === "inbox") route.modal.push({ kind: "inbox" });
 	const enterChannel = (layer: {
 		space: string;
 		channel: string;

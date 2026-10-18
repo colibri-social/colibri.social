@@ -8,6 +8,7 @@ import {
 	type RichTextCustomEmoji,
 	type RichTextExternalLink,
 	type RichTextForeignFeature,
+	type RichTextLinkTarget,
 	RichTextProvider,
 	type RichTextResolvers,
 	RoleMention,
@@ -24,8 +25,10 @@ import {
 	displayNameOf,
 } from "../../../data/adapters/authors";
 import type { ForwardTarget } from "../../../data/adapters/forward";
+import { blueskyUrlRewriter } from "../../../data/bluesky-client";
 import { roleIdentity } from "../../../data/roles";
 import type { ControlsPreferences } from "../../../data/source";
+import { useData } from "../../../data/store";
 import type {
 	ChannelView,
 	CommunityView,
@@ -72,6 +75,7 @@ export type ChatContextValue = {
 	channels: Accessor<ReadonlyMap<string, ChannelView>>;
 	categoryName?: (rkey: string) => string | undefined;
 	threadName?: (space: string) => string | undefined;
+	threadNameIn?: (channel: string, thread: string) => string | undefined;
 	threadChannel?: (space: string) => string | undefined;
 	onOpenForwardSource?: (target: ForwardTarget) => void;
 	presenceOf?: (did: string) => Presence | undefined;
@@ -144,6 +148,26 @@ export const useChat = () => {
 	return value;
 };
 
+const threadLink = (
+	chat: ChatContextValue,
+	uri: string,
+): RichTextLinkTarget | undefined => {
+	const route = routeFromLink(uri);
+	const layer = route?.layers.findLast((entry) => entry.kind === "thread");
+	if (layer?.kind !== "thread") return undefined;
+	if (layer.space !== chat.community().did) return undefined;
+	return { kind: "thread", channel: layer.channel, thread: layer.thread };
+};
+
+const sharesName = (chat: ChatContextValue, channel: ChannelView) => {
+	for (const other of chat.channels().values()) {
+		if (other.space !== channel.space && other.name === channel.name) {
+			return true;
+		}
+	}
+	return false;
+};
+
 export const createChatRichTextResolvers = (
 	chat: ChatContextValue,
 ): RichTextResolvers => {
@@ -214,18 +238,21 @@ export const createChatRichTextResolvers = (
 			return {
 				state: "ready",
 				name: channel.name,
-				category: channel.category
-					? chat.categoryName?.(channel.category)
-					: undefined,
+				category:
+					channel.category && sharesName(chat, channel)
+						? chat.categoryName?.(channel.category)
+						: undefined,
 			};
 		},
+		threadName: (channel, thread) => chat.threadNameIn?.(channel, thread),
 		onChannelOpen: (skey, event) => {
 			if (!chat.onOpenChannel) return;
 			event.preventDefault();
 			chat.onOpenChannel(skey);
 		},
 		linkTarget: (uri) =>
-			routeFromLink(uri) ? { kind: "internal", href: uri } : undefined,
+			threadLink(chat, uri) ??
+			(routeFromLink(uri) ? { kind: "internal", href: uri } : undefined),
 		onNavigate: (href, event) => {
 			event.preventDefault();
 			if (openAppLink(href)) return;
@@ -242,13 +269,14 @@ export const createChatRichTextResolvers = (
 
 export const ChatRichTextProvider = (props: ParentProps) => {
 	const chat = useChat();
+	const data = useData();
+	const resolvers = createChatRichTextResolvers(chat);
+	resolvers.rewriteUrl = blueskyUrlRewriter(data.preferences);
 	return (
 		<NameColorProvider
 			overrideUserColors={chat.community().overrideUserNameColors ?? false}
 		>
-			<RichTextProvider value={createChatRichTextResolvers(chat)}>
-				{props.children}
-			</RichTextProvider>
+			<RichTextProvider value={resolvers}>{props.children}</RichTextProvider>
 		</NameColorProvider>
 	);
 };

@@ -47,6 +47,7 @@ const FRAME_RATIO = "3 / 2";
 const SINGLE_MAX_WIDTH = 416;
 const SINGLE_MAX_HEIGHT = 320;
 const SINGLE_MIN_ASPECT = 0.5;
+const SINGLE_VIDEO_MIN_ASPECT = 0.6;
 const SINGLE_MAX_ASPECT = 2.5;
 
 const GROUPS: Record<number, number[]> = {
@@ -158,6 +159,48 @@ const VideoFrame = (props: {
 	</video>
 );
 
+const LoopingVideo = (props: {
+	src: string;
+	mimeType?: string;
+	poster?: string;
+	paused: boolean;
+	class?: string;
+	onLoad: () => void;
+	onError: () => void;
+}) => {
+	const [element, setElement] = createSignal<HTMLVideoElement>();
+	createEffect(() => {
+		const video = element();
+		if (!video) return;
+		if (props.paused) video.pause();
+		else void video.play().catch(() => undefined);
+	});
+	return (
+		<video
+			ref={setElement}
+			tabindex={-1}
+			muted
+			loop
+			playsinline
+			autoplay={!props.paused}
+			preload="auto"
+			poster={props.poster}
+			class={props.class}
+			onLoadedData={() => props.onLoad()}
+			onError={() => props.onError()}
+		>
+			<VideoSource
+				src={props.src}
+				mimeType={props.mimeType}
+				onError={props.onError}
+			/>
+		</video>
+	);
+};
+
+const isVideoMime = (mimeType: string | undefined) =>
+	!!mimeType?.startsWith("video/");
+
 export const MediaTile = (props: MediaTileProps) => {
 	const [revealed, setRevealed] = createSignal(false);
 	const [loaded, setLoaded] = createSignal(false);
@@ -228,6 +271,8 @@ export const MediaTile = (props: MediaTileProps) => {
 		props.item.kind === "video" && !hidden() && !props.overflow;
 	const posterlessVideo = () =>
 		props.item.kind === "video" && !props.item.poster;
+	const loopingGif = () =>
+		props.item.kind === "gif" && isVideoMime(props.item.mimeType);
 	const previewClass = () =>
 		cx(
 			"size-full object-cover transition-opacity duration-[calc(150ms*var(--motion-scale))] motion-reduce:transition-none reduced-motion:transition-none",
@@ -321,38 +366,59 @@ export const MediaTile = (props: MediaTileProps) => {
 				>
 					<span class="sr-only">{label()}</span>
 					<Show
-						when={!posterlessVideo()}
+						when={!loopingGif()}
 						fallback={
-							<VideoFrame
+							<LoopingVideo
 								src={props.item.src}
 								mimeType={props.item.mimeType}
+								poster={props.item.poster}
+								paused={
+									hidden() ||
+									!appActive() ||
+									(reducedMotionActive() && !playing())
+								}
 								onLoad={() => setLoaded(true)}
 								onError={() => void failMedia()}
 								class={previewClass()}
 							/>
 						}
 					>
-						<AnimatedImage
-							animated={props.item.kind === "gif" ? true : undefined}
-							playOnDemand="none"
-							play={playing()}
-							src={
-								props.item.kind === "video" ? props.item.poster : props.item.src
+						<Show
+							when={!posterlessVideo()}
+							fallback={
+								<VideoFrame
+									src={props.item.src}
+									mimeType={props.item.mimeType}
+									onLoad={() => setLoaded(true)}
+									onError={() => void failMedia()}
+									class={previewClass()}
+								/>
 							}
-							alt=""
-							draggable={false}
-							onLoad={(event) => {
-								setLoaded(true);
-								const image = event.currentTarget;
-								if (image.naturalWidth && image.naturalHeight)
-									props.onNaturalSize?.({
-										width: image.naturalWidth,
-										height: image.naturalHeight,
-									});
-							}}
-							onError={() => void failMedia()}
-							class={previewClass()}
-						/>
+						>
+							<AnimatedImage
+								animated={props.item.kind === "gif" ? true : undefined}
+								playOnDemand="none"
+								play={playing()}
+								src={
+									props.item.kind === "video"
+										? props.item.poster
+										: props.item.src
+								}
+								alt=""
+								draggable={false}
+								onLoad={(event) => {
+									setLoaded(true);
+									const image = event.currentTarget;
+									if (image.naturalWidth && image.naturalHeight)
+										props.onNaturalSize?.({
+											width: image.naturalWidth,
+											height: image.naturalHeight,
+										});
+								}}
+								onError={() => void failMedia()}
+								class={previewClass()}
+							/>
+						</Show>
 					</Show>
 					<span
 						aria-hidden="true"
@@ -471,7 +537,13 @@ export const MediaGrid = (props: MediaGridProps) => {
 						const known = () => !!item().width && !!item().height;
 						const size = () => (known() ? item() : (natural() ?? item()));
 						const aspect = () =>
-							clamp(aspectOf(size()), SINGLE_MIN_ASPECT, SINGLE_MAX_ASPECT);
+							clamp(
+								aspectOf(size()),
+								item().kind === "video"
+									? SINGLE_VIDEO_MIN_ASPECT
+									: SINGLE_MIN_ASPECT,
+								SINGLE_MAX_ASPECT,
+							);
 						const maxWidth = () => {
 							const { width, height } = size();
 							const limits = [SINGLE_MAX_WIDTH, SINGLE_MAX_HEIGHT * aspect()];

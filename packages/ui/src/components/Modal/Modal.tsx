@@ -197,6 +197,7 @@ export type ModalContentProps = {
 	closeLabel?: string;
 	class?: string;
 	children?: JSX.Element;
+	onOpenAutoFocus?: (event: Event) => void;
 	onCloseAutoFocus?: (event: Event) => void;
 };
 

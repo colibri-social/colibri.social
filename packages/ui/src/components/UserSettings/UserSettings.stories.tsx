@@ -304,6 +304,51 @@ export const Appearance: Story = {
 	},
 };
 
+export const AppearanceInboxWindow: Story = {
+	render: () => {
+		const [modal, setModal] = createSignal(false);
+		return (
+			<Page>
+				<AppearanceSettings
+					theme="system"
+					onThemeChange={fn()}
+					messagePreviews
+					onMessagePreviewsChange={fn()}
+					inboxAsModal={modal()}
+					onInboxAsModalChange={setModal}
+				/>
+				<output data-testid="inbox">{modal() ? "modal" : "popover"}</output>
+				<AppearanceSettings
+					theme="system"
+					onThemeChange={fn()}
+					messagePreviews
+					onMessagePreviewsChange={fn()}
+					class="mobile-appearance"
+				/>
+			</Page>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const toggle = canvas.getByRole("switch", {
+			name: /Open the Inbox in a large window/,
+		});
+		await expect(toggle).not.toBeChecked();
+		await userEvent.click(toggle);
+		await waitFor(() =>
+			expect(canvas.getByTestId("inbox")).toHaveTextContent("modal"),
+		);
+		await expect(toggle).toBeChecked();
+		const mobile = canvasElement.querySelector(
+			".mobile-appearance",
+		) as HTMLElement;
+		await expect(
+			within(mobile).queryByText(/Open the Inbox in a large window/),
+		).toBeNull();
+		await expectNoLayoutIssues(pageRoot(canvasElement));
+	},
+};
+
 const ChatStory = (props: {
 	platform?: "mobile" | "desktop";
 	gestures?: boolean;

@@ -37,6 +37,7 @@ export type RichTextChannel =
 
 export type RichTextLinkTarget =
 	| { kind: "channel"; channel: string }
+	| { kind: "thread"; channel: string; thread: string }
 	| { kind: "internal"; href: string };
 
 export type RichTextExternalLink = {
@@ -77,6 +78,7 @@ export type RichTextResolvers = {
 	role?: (rkey: string) => RichTextRole | undefined;
 	wrapRole?: (role: RichTextRole, chip: JSX.Element) => JSX.Element;
 	channel?: (channel: string) => RichTextChannel | undefined;
+	threadName?: (channel: string, thread: string) => string | undefined;
 	onChannelOpen?: (channel: string, event: MouseEvent) => void;
 	onLockedChannel?: (channel: string) => void;
 	linkTarget?: (uri: string) => RichTextLinkTarget | undefined;

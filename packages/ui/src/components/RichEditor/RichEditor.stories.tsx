@@ -798,13 +798,21 @@ export const PlaceholderInEmptyEditor: Story = {
 		);
 		const placeholder = getComputedStyle(paragraph, "::before");
 		await expect(placeholder.content).toBe(`"${LONG_PLACEHOLDER}"`);
-		await expect(placeholder.float).toBe("left");
-		await expect(placeholder.height).toBe("0px");
+		await expect(placeholder.position).toBe("absolute");
 		await expect(placeholder.whiteSpace).toBe("nowrap");
 		await expect(placeholder.textOverflow).toBe("ellipsis");
-		await expect(placeholder.overflowX).toBe("clip");
+		await expect(placeholder.overflowX).toBe("hidden");
+		await expect(placeholder.overflowY).toBe("hidden");
 		await expect(placeholder.pointerEvents).toBe("none");
-		await expect(getComputedStyle(paragraph).position).toBe("static");
+		await expect(getComputedStyle(paragraph).position).toBe("relative");
+		await expect(Number.parseFloat(placeholder.height)).toBeCloseTo(
+			paragraph.getBoundingClientRect().height,
+			0,
+		);
+		await expect(Number.parseFloat(placeholder.width)).toBeCloseTo(
+			paragraph.getBoundingClientRect().width,
+			0,
+		);
 		await expect(getComputedStyle(editor).userSelect).toBe("text");
 		await expect(getComputedStyle(paragraph).userSelect).toBe("text");
 

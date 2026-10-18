@@ -36,6 +36,7 @@ export type ComposerEditing = {
 	) => boolean | undefined | Promise<boolean | undefined>;
 	onCancel: () => void;
 	allowEmpty?: boolean;
+	onEmptySubmit?: () => void;
 };
 
 export const COMPOSER_TYPING_INSET = 24;
@@ -123,7 +124,9 @@ export const Composer = (props: ComposerProps) => {
 		if (props.disabled || utf8Length(value.text) > max()) return false;
 		if (value.text.trim().length > 0) return true;
 		const edit = editing();
-		return edit ? !!edit.allowEmpty : !!props.hasAttachments;
+		return edit
+			? !!edit.allowEmpty || !!edit.onEmptySubmit
+			: !!props.hasAttachments;
 	};
 	const canSend = () => sendable(current() ?? { text: text(), facets: [] });
 	const placeholder = () =>
@@ -170,6 +173,14 @@ export const Composer = (props: ComposerProps) => {
 		if (matches(edit.value, value)) {
 			edit.onCancel();
 			return true;
+		}
+		if (
+			value.text.trim().length === 0 &&
+			!edit.allowEmpty &&
+			edit.onEmptySubmit
+		) {
+			edit.onEmptySubmit();
+			return false;
 		}
 		return edit.onSave(value);
 	};

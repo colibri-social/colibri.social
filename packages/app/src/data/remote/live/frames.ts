@@ -12,10 +12,10 @@ import type {
 	MessageView,
 	NotificationView,
 	Presence,
-	ReactionEmojiRef,
 	RoleView,
 	SpaceRef,
 	ThreadView,
+	VoiceState,
 } from "../../types";
 import { catalogFromWire, libraryFromWire, type WireLibrary } from "../emoji";
 
@@ -63,14 +63,17 @@ const voiceEvents = (
 			},
 		];
 	}
+	const did = asDid(frame.did);
+	const channel = asSpace(frame.channel);
 	if (frame.event === "leave") {
 		return [
-			{
-				$type: "voiceActivityEvent",
-				did: asDid(frame.did),
-				speaking: false,
-			},
+			{ $type: "voiceStateEvent", did, channel },
+			{ $type: "voiceActivityEvent", did, speaking: false },
 		];
+	}
+	if (frame.event === "join" || frame.event === "update") {
+		const voice = (frame.voice as VoiceState | undefined) ?? { channel };
+		return [{ $type: "voiceStateEvent", did, channel, voice }];
 	}
 	return [];
 };

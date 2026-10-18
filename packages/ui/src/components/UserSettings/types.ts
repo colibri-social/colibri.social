@@ -37,6 +37,7 @@ export type BlueskyClientChoice =
 	| "anisota"
 	| "blacksky"
 	| "bluesky"
+	| "deer"
 	| "mu"
 	| "northsky"
 	| "witchsky"

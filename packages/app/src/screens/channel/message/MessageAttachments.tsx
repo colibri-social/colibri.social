@@ -9,6 +9,7 @@ import {
 	MediaGrid,
 	type MediaItem,
 	type RichTextExternalLink,
+	SocialPostEmbed,
 } from "@colibri-social/ui";
 import {
 	createResource,
@@ -21,8 +22,11 @@ import {
 } from "solid-js";
 import {
 	inlineMediaOf,
+	lightboxMediaOf,
+	linkEmbedMedia,
 	type SplitAttachments,
 	toLinkEmbedProps,
+	toSocialPostProps,
 } from "../../../data/adapters/attachments";
 import {
 	parseBlueskyPostUrl,
@@ -125,18 +129,8 @@ export const MediaWithLightbox = (props: {
 };
 
 const embedMedia = (embed: LinkEmbedView): MediaItem[] => {
-	if (embed.video) {
-		return [
-			{
-				src: embed.video.url,
-				kind: "video",
-				width: embed.video.width ?? embed.image?.width,
-				height: embed.video.height ?? embed.image?.height,
-				poster: embed.image?.url,
-				alt: embed.image?.alt ?? embed.title,
-			},
-		];
-	}
+	const media = linkEmbedMedia(embed);
+	if (media.length > 0) return lightboxMediaOf(media);
 	if (!embed.image) return [];
 	return [
 		{
@@ -158,32 +152,54 @@ export const EmbedWithLightbox = (props: {
 }) => {
 	const [open, setOpen] = createSignal(false);
 	const [mounted, setMounted] = createSignal(false);
-	const items = () => embedMedia(props.embed);
+	const [index, setIndex] = createSignal(0);
+	const post = () => toSocialPostProps(props.embed, { locale: props.locale });
+	const postItems = () => {
+		const view = post();
+		return view ? lightboxMediaOf(view.media ?? []) : [];
+	};
+	const quoteItems = () => lightboxMediaOf(post()?.quote?.media ?? []);
+	const items = () =>
+		post() ? [...postItems(), ...quoteItems()] : embedMedia(props.embed);
+	const openAt = (next: number) => {
+		setIndex(next);
+		setMounted(true);
+		setOpen(true);
+	};
+	const remove = () =>
+		props.onRemove
+			? (event: MouseEvent) => props.onRemove?.(props.embed.uri, event)
+			: undefined;
 	return (
 		<>
-			<LinkEmbed
-				{...toLinkEmbedProps(props.embed)}
-				onRemove={
-					props.onRemove
-						? (event) => props.onRemove?.(props.embed.uri, event)
-						: undefined
+			<Show
+				when={post()}
+				fallback={
+					<LinkEmbed
+						{...toLinkEmbedProps(props.embed)}
+						onRemove={remove()}
+						onOpenMedia={openAt}
+						onOpenImage={items().length > 0 ? () => openAt(0) : undefined}
+					/>
 				}
-				onOpenImage={
-					items().length > 0
-						? () => {
-								setMounted(true);
-								setOpen(true);
-							}
-						: undefined
-				}
-			/>
+			>
+				{(view) => (
+					<SocialPostEmbed
+						{...view()}
+						onRemove={remove()}
+						onOpenMedia={openAt}
+						onOpenQuoteMedia={(next) => openAt(postItems().length + next)}
+					/>
+				)}
+			</Show>
 			<Show when={mounted()}>
 				<Lightbox
 					items={items()}
 					{...lightboxImageActions(items)}
 					open={open()}
 					onOpenChange={setOpen}
-					index={0}
+					index={index()}
+					onIndexChange={setIndex}
 					author={props.author}
 					timestamp={props.timestamp}
 					locale={props.locale}
