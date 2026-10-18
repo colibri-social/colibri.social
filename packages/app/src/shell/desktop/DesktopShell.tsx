@@ -26,7 +26,7 @@ import SpacesScreen from "../../screens/spaces/spaces.screen";
 import VoiceScreen from "../../screens/voice/voice.screen";
 import { AppLinkHost } from "../AppLinkHost";
 import { lastViewedSpace } from "../cold-start";
-import type { Layer } from "../layers";
+import { type Layer, sameLayer } from "../layers";
 import { LoadErrorState, NotFoundScreen } from "../load-error";
 import { NotificationHost } from "../NotificationHost";
 import { StackContext } from "../stack";
@@ -65,6 +65,9 @@ const ThreadDraftScreen = lazy(
 const VoiceStage = lazy(() => import("../../screens/voice/desktop-stage"));
 
 const THREAD_WIDTH_SAVE_MS = 250;
+
+const sameValue = (a: Layer | undefined, b: Layer | undefined) =>
+	a === b || sameLayer(a, b);
 
 const NoChannel = () => (
 	<StatusScreen
@@ -154,14 +157,22 @@ export const DesktopShell = () => {
 	};
 	const modalLayers = (): Layer[] => navigator.mounted().slice(modalDepth());
 
-	const chat = () => route().chat;
+	const chat = createMemo(() => route().chat, undefined, {
+		equals: sameValue,
+	});
+	const currentPane = createMemo(() => route().pane, undefined, {
+		equals: sameValue,
+	});
+	const threadsOverlay = createMemo(() => route().overlay, undefined, {
+		equals: sameValue,
+	});
 	const fullThread = () => {
-		const current = route().pane;
+		const current = currentPane();
 		return current?.kind === "thread" && current.presentation === "full"
 			? current
 			: undefined;
 	};
-	const splitPane = () => (fullThread() ? undefined : route().pane);
+	const splitPane = () => (fullThread() ? undefined : currentPane());
 	const isVoice = () => chat()?.channelType === VOICE_CHANNEL;
 	const membersTarget = () => {
 		if (isVoice()) return undefined;
@@ -249,7 +260,7 @@ export const DesktopShell = () => {
 					</div>
 				)}
 			</Show>
-			<Show when={route().overlay} keyed>
+			<Show when={threadsOverlay()} keyed>
 				{(list) => (
 					<div
 						data-threads-overlay=""

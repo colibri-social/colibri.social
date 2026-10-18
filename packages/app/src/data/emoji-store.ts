@@ -3,7 +3,13 @@ import type {
 	EmojiPack,
 	RichTextCustomEmoji,
 } from "@colibri-social/ui";
-import { type Accessor, batch, createRoot, createSignal } from "solid-js";
+import {
+	type Accessor,
+	batch,
+	createMemo,
+	createRoot,
+	createSignal,
+} from "solid-js";
 import {
 	allowsEmojiUri,
 	attachEmojiFacets,
@@ -20,6 +26,7 @@ import {
 	packEmoji,
 	packFollowOf,
 	readEmojiFeature,
+	repoOfUri,
 	type UpdateEmojiPackInput,
 	ungroupedEmoji,
 } from "./emoji";
@@ -148,6 +155,20 @@ export const followedScope = (
 		},
 	];
 };
+
+const sameEmoji = (a: EmojiView | undefined, b: EmojiView | undefined) =>
+	a === b ||
+	(!!a &&
+		!!b &&
+		a.id === b.id &&
+		a.name === b.name &&
+		a.image === b.image &&
+		a.alt === b.alt &&
+		a.fallback === b.fallback &&
+		a.ref.cid === b.ref.cid);
+
+const emojiIn = (emojis: readonly EmojiView[] | undefined, uri: string) =>
+	emojis?.find((emoji) => emoji.id === uri);
 
 export type EmojiScopeEntry = {
 	id: string;
@@ -280,19 +301,44 @@ export const createEmojiStore = (
 		return rows;
 	};
 
-	const find = (community: Did | undefined, name: string) =>
-		available(community).find((row) => row.emoji.name === name)?.emoji;
-
-	const lookup = (id: string) => {
-		for (const entry of catalogs.values()) {
-			const match = entry.value()?.emojis.find((emoji) => emoji.id === id);
-			if (match) return match;
+	const loadedEmoji = (uri: string, owner: Did) => {
+		const fromOwner = emojiIn(catalogs.get(owner)?.value()?.emojis, uri);
+		if (fromOwner) return fromOwner;
+		if (owner === viewer()) {
+			const fromLibrary = emojiIn(library().value()?.own.emojis, uri);
+			if (fromLibrary) return fromLibrary;
 		}
 		for (const follow of follows()) {
-			const match = follow.emojis.find((emoji) => emoji.id === id);
+			const match = emojiIn(follow.emojis, uri);
 			if (match) return match;
 		}
 		return undefined;
+	};
+
+	const resolved = new Map<string, Accessor<EmojiView | undefined>>();
+
+	const emojiByUri = (uri: string): Accessor<EmojiView | undefined> => {
+		const existing = resolved.get(uri);
+		if (existing) return existing;
+		const owner = repoOfUri(uri);
+		const created = createRoot(() =>
+			createMemo(
+				() =>
+					loadedEmoji(uri, owner) ??
+					(owner ? emojiIn(catalog(owner).value()?.emojis, uri) : undefined),
+				undefined,
+				{ equals: sameEmoji },
+			),
+		);
+		resolved.set(uri, created);
+		return created;
+	};
+
+	const lookup = (id: string) => emojiByUri(id)();
+
+	const ownerCatalog = (uri: string) => {
+		const owner = repoOfUri(uri);
+		return owner ? catalog(owner) : undefined;
 	};
 
 	const search = (community: Did | undefined, query: string, limit: number) => {
@@ -337,13 +383,14 @@ export const createEmojiStore = (
 
 	const resolve = (community: Did | undefined, uri: string) => {
 		if (!emojiRegistry.forUri(uri) || !allows(community, uri)) return undefined;
-		return (
-			(community
-				? catalog(community)
-						.value()
-						?.emojis.find((emoji) => emoji.id === uri)
-				: undefined) ?? lookup(uri)
-		);
+		return emojiByUri(uri)();
+	};
+
+	const find = (community: Did | undefined, name: string) => {
+		const match = available(community).find(
+			(row) => row.emoji.name === name,
+		)?.emoji;
+		return match && (resolve(community, match.id) ?? match);
 	};
 
 	const suggestion = (
@@ -426,6 +473,8 @@ export const createEmojiStore = (
 		packs,
 		find,
 		lookup,
+		emojiByUri,
+		ownerCatalog,
 		search,
 		mention,
 		resolve,

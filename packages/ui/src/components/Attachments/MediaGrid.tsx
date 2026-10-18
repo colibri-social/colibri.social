@@ -6,7 +6,7 @@ import {
 	createEffect,
 	createMemo,
 	createSignal,
-	For,
+	Index,
 	type JSX,
 	on,
 	Show,
@@ -165,10 +165,14 @@ export const MediaTile = (props: MediaTileProps) => {
 	const [playing, setPlaying] = createSignal(false);
 	const [status, setStatus] = createSignal<MediaStatus>("ok");
 	const [attempt, setAttempt] = createSignal(1);
-	const src = createMemo(() => props.item.src);
+	const displayedSrc = createMemo(() =>
+		props.item.kind === "video"
+			? (props.item.poster ?? props.item.src)
+			: props.item.src,
+	);
 	createEffect(
 		on(
-			src,
+			displayedSrc,
 			() => {
 				setStatus("ok");
 				setLoaded(false);
@@ -179,11 +183,17 @@ export const MediaTile = (props: MediaTileProps) => {
 	const failMedia = async () => {
 		if (props.loading || status() !== "ok") return;
 		const failedSrc = props.item.src;
+		const failedAttempt = attempt();
 		setStatus("refreshing");
 		await Promise.resolve(props.onMediaError?.(props.index)).catch(
 			() => undefined,
 		);
-		if (props.item.src === failedSrc) setStatus("broken");
+		if (
+			props.item.src === failedSrc &&
+			attempt() === failedAttempt &&
+			status() === "refreshing"
+		)
+			setStatus("broken");
 	};
 	const retry = () => {
 		props.onRetry?.(props.index);
@@ -191,6 +201,15 @@ export const MediaTile = (props: MediaTileProps) => {
 		setStatus("ok");
 		setAttempt((value) => value + 1);
 	};
+	createEffect(
+		on(
+			appActive,
+			(active, wasActive) => {
+				if (active && wasActive === false && status() === "refreshing") retry();
+			},
+			{ defer: true },
+		),
+	);
 	const working = () => status() === "ok";
 	const animates = () =>
 		props.item.kind === "gif" ||
@@ -495,7 +514,7 @@ export const MediaGrid = (props: MediaGridProps) => {
 					"aspect-ratio": FRAME_RATIO,
 				}}
 			>
-				<For each={groups()}>
+				<Index each={groups()}>
 					{(group) => (
 						<div
 							class={cx(
@@ -503,27 +522,27 @@ export const MediaGrid = (props: MediaGridProps) => {
 								columns() ? "flex-col" : "flex-row",
 							)}
 						>
-							<For each={group}>
+							<Index each={group()}>
 								{(tile) => (
 									<MediaTile
-										item={tile.item}
-										index={tile.index}
+										item={tile().item}
+										index={tile().index}
 										loading={props.loading}
 										onOpen={props.onOpen}
 										onMediaError={props.onMediaError}
 										onRetry={props.onRetry}
 										class="flex-1"
 										overflow={
-											overflow() > 0 && tile.index === max() - 1
+											overflow() > 0 && tile().index === max() - 1
 												? overflow() + 1
 												: undefined
 										}
 									/>
 								)}
-							</For>
+							</Index>
 						</div>
 					)}
-				</For>
+				</Index>
 			</div>
 		</Show>
 	);

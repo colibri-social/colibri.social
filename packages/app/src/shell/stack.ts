@@ -28,6 +28,7 @@ import {
 	parsePath,
 	type Root,
 	type Route,
+	routeRoot,
 	sameLayer,
 } from "./layers";
 import { createLeaveGuard } from "./leave-guard";
@@ -123,8 +124,8 @@ export const createStack = (options: StackOptions) => {
 				history.sync();
 				return;
 			}
-			setRootSignal(navigation.route.root);
 			const current = mounted();
+			setRootSignal(routeRoot(navigation.route) ?? root());
 			const mountedThere = current[navigation.depth - 1];
 			if (
 				navigation.depth > 0 &&
@@ -138,7 +139,12 @@ export const createStack = (options: StackOptions) => {
 				sameLayer(layer, current[index]),
 			);
 			if (!isPrefix) {
-				setMounted(navigation.route.layers);
+				setMounted(
+					navigation.route.layers.map((layer, index) => {
+						const kept = current[index];
+						return kept && sameLayer(layer, kept) ? kept : layer;
+					}),
+				);
 				jump(navigation.depth);
 				return;
 			}

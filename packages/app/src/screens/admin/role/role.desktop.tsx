@@ -9,6 +9,7 @@ export default adminRole.view({
 				<s.Loading />
 				<Show when={m.ready()}>
 					<s.Locked />
+					<s.Default />
 					<s.Name />
 					<s.Color />
 					<s.Display />

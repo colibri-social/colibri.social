@@ -60,6 +60,11 @@
 						"default": false,
 						"description": "Whether this role is exempt from modification and deletion. Set on the owner role created with the community."
 					},
+					"default": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether every member holds this role from the moment they join. Set on the members role created with the community. A default role cannot be deleted."
+					},
 					"channelOverrides": {
 						"type": "array",
 						"items": {

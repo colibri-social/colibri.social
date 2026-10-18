@@ -10,7 +10,7 @@ import {
 	listenForLinkOutcomes,
 } from "../data/supporter-link";
 import { listenForAppLinks } from "../native/deep-links";
-import { parsePath, type Route, SETTINGS_PATH } from "./layers";
+import { parsePath, type Route, routeRoot, SETTINGS_PATH } from "./layers";
 import type { Navigator } from "./stack";
 
 export const AppLinkHost = (props: {
@@ -19,7 +19,8 @@ export const AppLinkHost = (props: {
 	const data = useData();
 	const badges = useBadges();
 	const open = (route: Route) => {
-		props.stack.setRoot(route.root);
+		const root = routeRoot(route);
+		if (root) props.stack.setRoot(root);
 		for (const layer of route.layers) props.stack.push(layer);
 	};
 	const settle = (outcome: LinkOutcome) => {

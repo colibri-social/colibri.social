@@ -1,6 +1,6 @@
 import { createMemo } from "solid-js";
 import { rankOf } from "../../../data/member-permissions";
-import { roleIdentity } from "../../../data/roles";
+import { isDefaultRole, roleIdentity } from "../../../data/roles";
 import { useData } from "../../../data/store";
 import type { RoleView } from "../../../data/types";
 
@@ -44,6 +44,6 @@ export const useRoleAccess = (spaceKey: () => string) => {
 export const spaceRoleOf = (role: RoleView, editable: boolean) => ({
 	...roleIdentity(role),
 	id: role.rkey,
-	protected: role.protected,
+	protected: role.protected || isDefaultRole(role),
 	locked: !editable,
 });

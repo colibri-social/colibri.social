@@ -13,7 +13,6 @@ import {
 	ungroupedEmoji,
 } from "../../../data/emoji";
 import {
-	createEmojiOptions,
 	createEmojiUploader,
 	type EmojiOwner,
 	EmojiRows,
@@ -40,7 +39,6 @@ export const createPackEditor = (
 	owner: EmojiCatalogOwner,
 	options: {
 		packId: () => string | undefined;
-		deleteDescription?: string;
 		onCreated: () => void;
 		onDeleted: () => void;
 	},
@@ -56,18 +54,57 @@ export const createPackEditor = (
 	const [draft, setDraft] = createSignal<string>();
 	const name = () => draft() ?? pack()?.name ?? "";
 	const [attempted, setAttempted] = createSignal(false);
-	const [selected, setSelected] = createSignal<ReadonlySet<string>>(new Set());
+	const [picked, setPicked] = createSignal<ReadonlySet<string>>(new Set());
+	const [added, setAdded] = createSignal<readonly string[]>([]);
+	const [removed, setRemoved] = createSignal<ReadonlySet<string>>(new Set());
 	const [query, setQuery] = createSignal("");
 	const [saving, setSaving] = createSignal(false);
 	const [deleteOpen, setDeleteOpen] = createSignal(false);
 
-	const toggle = (emoji: EmojiView, next: boolean) =>
-		setSelected((current) => {
+	const liveMembers = () => pack()?.emojis ?? [];
+
+	const nextMembers = createMemo(() => {
+		const live = liveMembers();
+		const known = new Set(owner.view()?.emojis.map((emoji) => emoji.id));
+		const kept = live.filter((id) => !removed().has(id));
+		return [
+			...kept,
+			...added().filter((id) => known.has(id) && !live.includes(id)),
+		];
+	});
+
+	const selected = createMemo<ReadonlySet<string>>(() =>
+		creating ? picked() : new Set(nextMembers()),
+	);
+
+	const membersChanged = createMemo(() => {
+		const live = new Set(liveMembers());
+		const next = nextMembers();
+		return next.length !== live.size || next.some((id) => !live.has(id));
+	});
+
+	const toggle = (emoji: EmojiView, next: boolean) => {
+		if (creating) {
+			setPicked((current) => {
+				const copy = new Set(current);
+				if (next) copy.add(emoji.id);
+				else copy.delete(emoji.id);
+				return copy;
+			});
+			return;
+		}
+		const member = liveMembers().includes(emoji.id);
+		setRemoved((current) => {
 			const copy = new Set(current);
-			if (next) copy.add(emoji.id);
+			if (member && !next) copy.add(emoji.id);
 			else copy.delete(emoji.id);
 			return copy;
 		});
+		setAdded((current) => {
+			const rest = current.filter((id) => id !== emoji.id);
+			return !member && next ? [...rest, emoji.id] : rest;
+		});
+	};
 
 	const uploader = createEmojiUploader(owner, {
 		pack: () => (creating ? undefined : pack()?.id),
@@ -77,62 +114,46 @@ export const createPackEditor = (
 		},
 	});
 
-	const emojiOptions = createEmojiOptions(owner, {
-		pack,
-		deleteDescription: options.deleteDescription,
-		onRemoveFromPack: async (emoji) => {
-			const current = owner.owner();
-			const target = pack();
-			if (!current || !target) return;
-			try {
-				await owner.data.emoji.updatePack({
-					community: current,
-					pack: target.id,
-					emojis: target.emojis.filter((id) => id !== emoji.id),
-				});
-				toast.success(`:${emoji.name}: removed from ${target.name}`);
-			} catch (error) {
-				toast.error(emojiFailure(error, "Couldn't update the pack"));
-			}
-		},
-	});
-
-	const members = createMemo(() => {
-		const view = owner.view();
-		const target = pack();
-		if (!view || !target) return [];
-		return packEmoji(view, target).filter((emoji) =>
-			matchesQuery(emoji, query()),
-		);
-	});
-
 	const sections = createMemo((): SelectSection[] => {
 		const view = owner.view();
 		if (!view) return [];
 		const filter = (list: EmojiView[]) =>
 			list.filter((emoji) => matchesQuery(emoji, query()));
+		const packSection = (entry: EmojiPackView): SelectSection => ({
+			id: entry.id,
+			label: entry.name,
+			emojis: filter(packEmoji(view, entry)),
+		});
+		const editing = pack();
 		return [
+			...(editing ? [packSection(editing)] : []),
 			{
 				id: "ungrouped",
 				label: "Ungrouped",
 				emojis: filter(ungroupedEmoji(view)),
 			},
-			...view.packs.map((entry) => ({
-				id: entry.id,
-				label: entry.name,
-				emojis: filter(packEmoji(view, entry)),
-			})),
+			...view.packs
+				.filter((entry) => entry.id !== editing?.id)
+				.map(packSection),
 		].filter((section) => section.emojis.length > 0);
 	});
 
 	const nameError = () => (attempted() ? packNameError(name()) : undefined);
+	const renamed = () => name().trim() !== (pack()?.name ?? "");
 	const dirty = createMemo(() =>
 		creating
 			? name().trim().length > 0 || selected().size > 0
-			: name().trim() !== (pack()?.name ?? ""),
+			: renamed() || membersChanged(),
 	);
 	const canSave = () =>
 		!saving() && !packNameError(name()) && (creating || dirty());
+
+	const reset = () => {
+		setDraft(undefined);
+		setAttempted(false);
+		setAdded([]);
+		setRemoved(new Set<string>());
+	};
 
 	const save = async () => {
 		setAttempted(true);
@@ -153,10 +174,10 @@ export const createPackEditor = (
 				await owner.data.emoji.updatePack({
 					community: current,
 					pack: target.id,
-					name: name().trim(),
+					...(renamed() ? { name: name().trim() } : {}),
+					...(membersChanged() ? { emojis: nextMembers() } : {}),
 				});
-				setDraft(undefined);
-				setAttempted(false);
+				reset();
 				toast.success("Pack saved");
 			}
 		} catch (error) {
@@ -169,11 +190,6 @@ export const createPackEditor = (
 		} finally {
 			setSaving(false);
 		}
-	};
-
-	const reset = () => {
-		setDraft(undefined);
-		setAttempted(false);
 	};
 
 	const removePack = async () => {
@@ -201,8 +217,6 @@ export const createPackEditor = (
 		selected,
 		toggle,
 		uploader,
-		options: emojiOptions,
-		members,
 		sections,
 		saving,
 		dirty,
@@ -239,57 +253,33 @@ export const PackEmojis = (props: {
 	const searched = () => props.editor.query().trim();
 	return (
 		<Show
-			when={props.editor.creating}
+			when={props.editor.sections().length > 0}
 			fallback={
-				<Show
-					when={props.editor.members().length > 0}
-					fallback={
-						<Hint
-							text={
-								searched()
-									? `No emoji in this pack match "${searched()}".`
-									: "This pack is empty. Upload an emoji to add it here."
-							}
-						/>
+				<Hint
+					text={
+						searched()
+							? `No emoji match "${searched()}".`
+							: props.editor.creating
+								? "Upload an emoji to start this pack."
+								: "Upload an emoji to add it to this pack."
 					}
-				>
-					<ListGroup>
-						<EmojiRows
-							admin={props.owner}
-							emojis={props.editor.members()}
-							onMenu={props.editor.options.show}
-						/>
-					</ListGroup>
-				</Show>
+				/>
 			}
 		>
-			<Show
-				when={props.editor.sections().length > 0}
-				fallback={
-					<Hint
-						text={
-							searched()
-								? `No emoji match "${searched()}".`
-								: "Upload an emoji to start this pack."
-						}
-					/>
-				}
-			>
-				<div class="flex flex-col gap-6">
-					<For each={props.editor.sections()}>
-						{(section) => (
-							<ListGroup label={section.label}>
-								<EmojiRows
-									admin={props.owner}
-									emojis={section.emojis}
-									selected={props.editor.selected()}
-									onSelectedChange={props.editor.toggle}
-								/>
-							</ListGroup>
-						)}
-					</For>
-				</div>
-			</Show>
+			<div class="flex flex-col gap-6">
+				<For each={props.editor.sections()}>
+					{(section) => (
+						<ListGroup label={section.label}>
+							<EmojiRows
+								admin={props.owner}
+								emojis={section.emojis}
+								selected={props.editor.selected()}
+								onSelectedChange={props.editor.toggle}
+							/>
+						</ListGroup>
+					)}
+				</For>
+			</div>
 		</Show>
 	);
 };

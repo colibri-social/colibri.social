@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import {
 	type AttachmentDraft,
+	attachedAsFileMessage,
 	createAttachmentDraft,
+	reencodeAsJpeg,
 	tooLargeMessage,
 	tooManyMessage,
 } from "./attachment-draft";
@@ -15,7 +17,13 @@ const file = (name: string, size = 10, type = "text/plain") =>
 let dispose: (() => void) | undefined;
 afterEach(() => dispose?.());
 
-const setup = (options: { max?: number; maxBytes?: number } = {}) => {
+const setup = (
+	options: {
+		max?: number;
+		maxBytes?: number;
+		reencode?: (file: File) => Promise<File>;
+	} = {},
+) => {
 	const notices: string[] = [];
 	let draft: AttachmentDraft | undefined;
 	createRoot((done) => {
@@ -28,6 +36,96 @@ const setup = (options: { max?: number; maxBytes?: number } = {}) => {
 	});
 	return { draft: draft as AttachmentDraft, notices };
 };
+
+const pngBlob = () =>
+	new Promise<Blob>((resolve, reject) => {
+		const canvas = document.createElement("canvas");
+		canvas.width = 4;
+		canvas.height = 3;
+		const context = canvas.getContext("2d");
+		if (context) {
+			context.fillStyle = "#ff0000";
+			context.fillRect(0, 0, 4, 3);
+		}
+		canvas.toBlob(
+			(blob) => (blob ? resolve(blob) : reject(new Error("no blob"))),
+			"image/png",
+		);
+	});
+
+const until = async (check: () => boolean) => {
+	for (let round = 0; round < 50 && !check(); round++) {
+		await new Promise((resolve) => setTimeout(resolve, 10));
+	}
+};
+
+describe("image conversion", () => {
+	it("re-encodes an image type the AppView can't serve before it joins the tray", async () => {
+		const converted = new File([new Uint8Array(4)], "photo.jpg", {
+			type: "image/jpeg",
+		});
+		const { draft } = setup({ reencode: async () => converted });
+		draft.addFiles([file("notes.txt"), file("photo.heic", 10, "image/heic")]);
+		expect(draft.items()).toHaveLength(0);
+		await until(() => draft.items().length === 2);
+		expect(draft.items().map((item) => item.file)).toEqual([
+			expect.objectContaining({ name: "notes.txt" }),
+			converted,
+		]);
+		expect(draft.items()[1]?.previewSrc?.startsWith("blob:")).toBe(true);
+	});
+
+	it("leaves JPEG, PNG, GIF, WebP and AVIF alone", () => {
+		let calls = 0;
+		const { draft } = setup({
+			reencode: async (input) => {
+				calls += 1;
+				return input;
+			},
+		});
+		draft.addFiles(
+			["jpeg", "png", "gif", "webp", "avif"].map((type) =>
+				file(`a.${type}`, 10, `image/${type}`),
+			),
+		);
+		expect(draft.items()).toHaveLength(5);
+		expect(calls).toBe(0);
+	});
+
+	it("attaches an image as a plain file when it can't be decoded", async () => {
+		const { draft, notices } = setup({
+			reencode: async () => {
+				throw new Error("decode failed");
+			},
+		});
+		draft.addFiles([file("scan.tiff", 10, "image/tiff")]);
+		await until(() => draft.items().length === 1);
+		const [item] = draft.items();
+		expect(item?.file.name).toBe("scan.tiff");
+		expect(item?.file.type).toBe("application/octet-stream");
+		expect(item?.previewSrc).toBeUndefined();
+		expect(notices).toEqual([attachedAsFileMessage("scan.tiff")]);
+	});
+
+	it("turns a decodable image into a JPEG", async () => {
+		const source = new File([await pngBlob()], "drawing.bmp", {
+			type: "image/bmp",
+		});
+		const jpeg = await reencodeAsJpeg(source);
+		expect(jpeg.type).toBe("image/jpeg");
+		expect(jpeg.name).toBe("drawing.jpg");
+		const header = new Uint8Array(await jpeg.slice(0, 3).arrayBuffer());
+		expect([...header]).toEqual([0xff, 0xd8, 0xff]);
+	});
+
+	it("falls back to a plain file when the browser can't decode the image", async () => {
+		const { draft, notices } = setup();
+		draft.addFiles([file("broken.heic", 10, "image/heic")]);
+		await until(() => draft.items().length === 1);
+		expect(draft.items()[0]?.file.type).toBe("application/octet-stream");
+		expect(notices).toEqual([attachedAsFileMessage("broken.heic")]);
+	});
+});
 
 describe("attachment draft", () => {
 	it("keeps files local until they are taken for sending", () => {

@@ -43,7 +43,9 @@ export const describeNotification = (
 	return {
 		authorName: displayNameOf(
 			view.author,
-			space?.memberByDid(view.author.did as Did),
+			view.author.bridge
+				? undefined
+				: space?.memberByDid(view.author.did as Did),
 		),
 		authorAvatar: view.author.avatar,
 		authorSeed: view.author.did,

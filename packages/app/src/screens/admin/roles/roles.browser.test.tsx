@@ -34,10 +34,15 @@ afterEach(() => {
 	history.replaceState(null, "", originalPath);
 });
 
-const mount = async (path: string) => {
+const mount = async (
+	path: string,
+	prepare?: (source: ReturnType<typeof createMockSource>) => void,
+) => {
 	setLatency(0);
 	history.replaceState(null, "", path);
-	const store = createDataStore(createMockSource({ live: false }));
+	const source = createMockSource({ live: false });
+	prepare?.(source);
+	const store = createDataStore(source);
 	host = document.createElement("div");
 	host.style.cssText = "position:fixed;inset:0;width:402px;height:874px";
 	document.body.append(host);
@@ -114,6 +119,14 @@ const colorToggle = (root: HTMLElement) =>
 
 const sheetMembers = () =>
 	document.querySelectorAll("[data-pane][data-pane-active] [data-role-member]");
+
+const makeBotsDefault = (source: ReturnType<typeof createMockSource>) => {
+	const bots = source.world.spaces
+		.find((space) => space.did === HQ)
+		?.roles.find((role) => role.rkey === "bots");
+	if (!bots) throw new Error("Bots role missing");
+	Object.assign(bots, { default: true });
+};
 
 const hqSpace = (store: ReturnType<typeof createDataStore>) => {
 	const community = store.spaceByKey(HQ);
@@ -430,6 +443,43 @@ describe("roles", () => {
 					?.map((role) => role.rkey)
 					.join(",") === "owner,core,testers,mods,bots",
 		);
+	});
+
+	it("marks the default role and offers no way to delete it", async () => {
+		const { root } = await mount(
+			`/app/c/${HQ}/manage/role/bots`,
+			makeBotsDefault,
+		);
+		await until(() => !!nameField(root));
+		await settled(root);
+		const note = activeScreen(root).querySelector("[data-role-default]");
+		expect(note?.textContent).toContain("Everyone who joins this Space");
+		expect(buttonNamed(activeScreen(root), "Delete role")).toBeUndefined();
+		expect(nameField(root)?.disabled).toBe(false);
+		expect(activeScreen(root).textContent).not.toContain("Mentionable");
+		expect(activeScreen(root).textContent).not.toContain("Display separately");
+		await expectNoLayoutIssues(content(root));
+	});
+
+	it("shows no default role note on other roles", async () => {
+		const { root } = await mount(
+			`/app/c/${HQ}/manage/role/testers`,
+			makeBotsDefault,
+		);
+		await until(() => !!buttonNamed(activeScreen(root), "Delete role"));
+		expect(activeScreen(root).querySelector("[data-role-default]")).toBeNull();
+	});
+
+	it("keeps the default role pinned below every other role", async () => {
+		const { root } = await mount(`/app/c/${HQ}/manage/roles`, makeBotsDefault);
+		await until(() => roleRows(root).length === 4);
+		expect(root.querySelector('[data-role-hold="bots"]')).not.toBeNull();
+		buttonNamed(root, "Reorder")?.click();
+		await until(() => !!buttonNamed(root, "Save order"));
+		const bots = rowNamed(root, "Bots");
+		expect(bots?.hasAttribute("data-locked")).toBe(true);
+		expect(buttonNamed(root, "Move Bots")).toBeUndefined();
+		expect(buttonNamed(root, "Move Testers")).toBeTruthy();
 	});
 
 	it("treats the owner role as unavailable", async () => {

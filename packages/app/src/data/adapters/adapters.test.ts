@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { isVisibleRole, rolesOf, topHoistedRole, visibleRoles } from "../roles";
 import type {
 	AttachmentView,
 	Facet,
@@ -301,6 +302,44 @@ describe("authors", () => {
 				roles: withOwner,
 			}).owner,
 		).toBe(false);
+	});
+
+	it("never takes color or the top role from the default role", () => {
+		const actor = profile("did:plc:joiner");
+		const withDefault = new Map(roles).set(
+			"members",
+			role("members", 50, {
+				color: "#abcdef",
+				default: true,
+			} as Partial<RoleView>),
+		);
+		const onlyDefault = new Map([[actor.did, member(actor, ["members"])]]);
+		expect(
+			toMessageAuthor(actor, { members: onlyDefault, roles: withDefault }).role,
+		).toBeUndefined();
+		const withMod = new Map([[actor.did, member(actor, ["members", "mod"])]]);
+		expect(
+			toMessageAuthor(actor, { members: withMod, roles: withDefault }).role?.id,
+		).toBe("mod");
+	});
+
+	it("leaves the default role out of role chips but keeps it for admin screens", () => {
+		const members = role("members", 1, {
+			hoisted: true,
+			default: true,
+		} as Partial<RoleView>);
+		const mod = role("mod", 5);
+		const byKey = new Map([
+			["members", members],
+			["mod", mod],
+		]);
+		const actor = profile("did:plc:joiner");
+		expect(
+			rolesOf(member(actor, ["members", "mod"]), (rkey) => byKey.get(rkey)),
+		).toEqual([mod]);
+		expect(visibleRoles([mod, members])).toEqual([mod]);
+		expect(topHoistedRole([members])).toBeUndefined();
+		expect(isVisibleRole(members)).toBe(true);
 	});
 
 	it("falls back to display name, then handle", () => {

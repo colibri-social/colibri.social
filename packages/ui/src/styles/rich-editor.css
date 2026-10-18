@@ -15,18 +15,16 @@
 	line-height: var(--text-xs--line-height);
 }
 
-[data-rich-editor] .ProseMirror p.is-editor-empty:first-child {
-	position: relative;
-}
-
 [data-rich-editor] .ProseMirror p.is-editor-empty:first-child::before {
 	content: attr(data-placeholder);
-	position: absolute;
-	inset: 0 0 auto 0;
+	float: left;
+	width: 100%;
+	height: 0;
 	color: var(--muted-foreground);
 	pointer-events: none;
 	white-space: nowrap;
-	overflow: hidden;
+	overflow-x: clip;
+	overflow-y: visible;
 	text-overflow: ellipsis;
 }
 

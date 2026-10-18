@@ -104,9 +104,26 @@ const AdoptTrigger = (props: Record<string, unknown>) => {
 	return undefined;
 };
 
-const OpenOnArm = (props: { take: () => PendingOpen | undefined }) => {
+let activeMenuClose: (() => void) | undefined;
+
+const claimActiveMenu = (close: () => void) => {
+	const previous = activeMenuClose;
+	activeMenuClose = close;
+	if (previous && previous !== close) previous();
+};
+
+const releaseActiveMenu = (close: () => void) => {
+	if (activeMenuClose === close) activeMenuClose = undefined;
+};
+
+const OpenOnArm = (props: {
+	take: () => PendingOpen | undefined;
+	bindClose: (close: (() => void) | undefined) => void;
+}) => {
 	const anchor = useContextMenuContext();
 	const menu = useMenuContext();
+	props.bindClose(() => menu.close(true));
+	onCleanup(() => props.bindClose(undefined));
 	onMount(() => {
 		const request = props.take();
 		if (!request) return;
@@ -136,7 +153,12 @@ export const ContextMenu = (props: ContextMenuProps) => {
 		"children",
 	]);
 	const [open, setOpen] = createSignal(false);
+	let closeMenu: (() => void) | undefined;
+	const closeActive = () => closeMenu?.();
+	onCleanup(() => releaseActiveMenu(closeActive));
 	const change = (next: boolean) => {
+		if (next) claimActiveMenu(closeActive);
+		else releaseActiveMenu(closeActive);
 		setOpen(next);
 		local.onOpenChange?.(next);
 	};
@@ -232,7 +254,12 @@ export const ContextMenu = (props: ContextMenuProps) => {
 							element={element()}
 							disabled={local.disabled}
 						/>
-						<OpenOnArm take={() => pending} />
+						<OpenOnArm
+							take={() => pending}
+							bindClose={(close) => {
+								closeMenu = close;
+							}}
+						/>
 						<KobalteContextMenu.Portal>
 							<KobalteContextMenu.Content
 								{...topLayerAttrs}

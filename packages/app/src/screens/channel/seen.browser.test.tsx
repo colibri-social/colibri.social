@@ -1,4 +1,5 @@
 import "../../app.css";
+import { setAppActive } from "@colibri-social/ui";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createMockSource, setLatency } from "../../data/mock/source";
@@ -30,6 +31,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	setAppActive(undefined);
 	stop?.();
 	host?.remove();
 	history.replaceState(null, "", originalPath);
@@ -149,5 +151,41 @@ describe("seen messages", () => {
 				second.store.space(community).unread("general").mentions ===
 				unseen().length,
 		);
+	});
+
+	it("keeps messages unseen while the window is blurred", async () => {
+		setAppActive(false);
+		const { store, root } = mount(`/app/c/${HQ}/${TEXT}/general`);
+		const unseen = () =>
+			store.notifications
+				.items()
+				.filter(
+					(entry) =>
+						!entry.seenAt &&
+						!entry.thread &&
+						entry.channel === GENERAL &&
+						!!entry.message,
+				);
+		await until(() => store.notifications.status() === "ready");
+		const before = unseen().length;
+		expect(before).toBeGreaterThan(0);
+		await until(() => !!root.querySelector("article[data-message-key]"));
+		await wait(1200);
+		const scroller = Array.from(root.querySelectorAll<HTMLElement>("*")).find(
+			(element) =>
+				/auto|scroll/.test(getComputedStyle(element).overflowY) &&
+				element.scrollHeight > element.clientHeight + 10 &&
+				!!element.querySelector("article[data-message-key]"),
+		);
+		if (!scroller) throw new Error("scroller missing");
+		for (let step = 0; step < 40; step++) {
+			scroller.scrollTop += 300;
+			await wait(40);
+		}
+		await wait(800);
+		expect(unseen()).toHaveLength(before);
+
+		setAppActive(true);
+		await until(() => unseen().length < before);
 	});
 });

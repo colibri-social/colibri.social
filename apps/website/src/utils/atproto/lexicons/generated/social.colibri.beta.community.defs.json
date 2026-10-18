@@ -386,6 +386,10 @@
 					"type": "boolean",
 					"description": "Whether the role is exempt from modification and deletion."
 				},
+				"default": {
+					"type": "boolean",
+					"description": "Whether every member holds this role from the moment they join."
+				},
 				"channelOverrides": {
 					"type": "array",
 					"items": {

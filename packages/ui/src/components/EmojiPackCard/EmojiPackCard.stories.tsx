@@ -9,7 +9,14 @@ import {
 	EmojiPackCardSkeleton,
 	EmojiPackCardUnavailable,
 } from "./EmojiPackCard";
-import { bigPack, longPack, packUrl, smallPack } from "./story-fixtures";
+import {
+	bigPack,
+	fixtureEmojis,
+	LOU,
+	longPack,
+	packUrl,
+	smallPack,
+} from "./story-fixtures";
 
 const meta = {
 	title: "Messaging/Emoji pack card",
@@ -244,6 +251,81 @@ export const States: Story = {
 	parameters: desktop,
 	render: () => <StateCases />,
 	play: ({ canvasElement }) => playStates(canvasElement),
+};
+
+const FAN_COUNTS = [1, 2, 3];
+
+const fanPack = (count: number): EmojiPackCardPack => ({
+	name: `Fan of ${count}`,
+	owner: LOU,
+	emojis: fixtureEmojis(count),
+});
+
+const FanCases = () => (
+	<div class="flex min-h-dvh flex-col gap-4 bg-background p-4 text-foreground">
+		<For each={FAN_COUNTS}>
+			{(count) => (
+				<div data-fan-count={count} style={{ width: "416px" }}>
+					<LiveCard pack={fanPack(count)} />
+				</div>
+			)}
+		</For>
+	</div>
+);
+
+const centerX = (rect: DOMRect) => rect.left + rect.width / 2;
+
+const fanGeometry = (canvasElement: HTMLElement, count: number) => {
+	const card = canvasElement.querySelector<HTMLElement>(
+		`[data-fan-count="${count}"]`,
+	) as HTMLElement;
+	const banner = card.querySelector<HTMLElement>(
+		"[data-emoji-pack-banner]",
+	) as HTMLElement;
+	const slots = Array.from(
+		banner.querySelectorAll<HTMLElement>("[data-fan-slot]"),
+		(slot) => slot.getBoundingClientRect(),
+	);
+	return { card, center: centerX(banner.getBoundingClientRect()), slots };
+};
+
+const playFan = async (canvasElement: HTMLElement) => {
+	const one = fanGeometry(canvasElement, 1);
+	await expect(one.slots).toHaveLength(1);
+	await expect(centerX(one.slots[0] as DOMRect)).toBeCloseTo(one.center, 0);
+
+	const two = fanGeometry(canvasElement, 2);
+	await expect(two.slots).toHaveLength(2);
+	const [left, right] = two.slots as [DOMRect, DOMRect];
+	await expect(centerX(left)).toBeLessThan(two.center);
+	await expect(centerX(right)).toBeGreaterThan(two.center);
+	await expect(two.center - centerX(left)).toBeCloseTo(
+		centerX(right) - two.center,
+		0,
+	);
+	await expect(left.top).toBeCloseTo(right.top, 0);
+	await expect(left.width).toBeCloseTo(right.width, 0);
+
+	const three = fanGeometry(canvasElement, 3);
+	await expect(three.slots).toHaveLength(3);
+	const [first, middle, last] = three.slots as [DOMRect, DOMRect, DOMRect];
+	await expect(centerX(middle)).toBeCloseTo(three.center, 0);
+	await expect(three.center - centerX(first)).toBeCloseTo(
+		centerX(last) - three.center,
+		0,
+	);
+	await expect(middle.width).toBeGreaterThan(first.width);
+
+	for (const count of FAN_COUNTS) {
+		await expectNoLayoutIssues(fanGeometry(canvasElement, count).card);
+	}
+};
+
+export const Fan: Story = {
+	name: "Fan with one, two and three emoji",
+	parameters: desktop,
+	render: () => <FanCases />,
+	play: ({ canvasElement }) => playFan(canvasElement),
 };
 
 export const ViewAllDesktop: Story = {

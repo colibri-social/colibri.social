@@ -1,4 +1,5 @@
 import { rankOf } from "../member-permissions";
+import { isDefaultRole } from "../role-flags";
 import type {
 	CreateRoleInput,
 	DataSource,
@@ -239,7 +240,9 @@ export const createRoleOps = (options: {
 			const space = spaceOf(input.community);
 			requireManage(space);
 			const role = roleOf(space, input.role);
-			if (role.protected) throw new Error("This role can't be deleted");
+			if (role.protected || isDefaultRole(role)) {
+				throw new Error("This role can't be deleted");
+			}
 			if (!manageable(space, role)) {
 				throw new Error("That role is above your own");
 			}

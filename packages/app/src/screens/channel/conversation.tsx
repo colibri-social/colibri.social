@@ -41,6 +41,7 @@ import {
 	readEditDraft,
 	writeEditDraft,
 } from "../../data/persist-drafts";
+import { isMentionableRole } from "../../data/role-flags";
 import { type ChannelData, useData } from "../../data/store";
 import type {
 	AttachmentView,
@@ -54,7 +55,7 @@ import type {
 	SpaceRef,
 	ThreadView,
 } from "../../data/types";
-import { documentVisible } from "../../data/visibility";
+import { appVisible } from "../../data/visibility";
 import { usePlatform } from "../../screen/platform";
 import { useOptionalDesktopShell } from "../../shell/desktop/context";
 import { isCovered } from "../../shell/desktop/desktop-route";
@@ -365,7 +366,7 @@ export const createConversation = (options: ConversationOptions) => {
 			!revealed() ||
 			activeFeed() !== current ||
 			modalOpen() ||
-			!documentVisible() ||
+			!appVisible() ||
 			!current?.ready()
 		)
 			return;
@@ -420,7 +421,7 @@ export const createConversation = (options: ConversationOptions) => {
 		const request = data.jumps.pending();
 		if (!ref || !revealed() || request?.channel !== ref) return;
 		const rkey = data.jumps.take(ref);
-		if (rkey) void jumpWhenLoaded(rkey);
+		if (rkey && !list?.jumpTo(keyFor(rkey))) void jumpWhenLoaded(rkey);
 	});
 
 	const canStartThread = () => {
@@ -541,10 +542,7 @@ export const createConversation = (options: ConversationOptions) => {
 	const seenTargets = new Map<Element, string>();
 	let seenObserver: IntersectionObserver | undefined;
 	const canSee = () =>
-		isActive() &&
-		!modalOpen() &&
-		!stack.moving() &&
-		document.visibilityState === "visible";
+		isActive() && !modalOpen() && !stack.moving() && appVisible();
 	const flushSeen = () => {
 		if (visibleMessages.size === 0 || !untrack(canSee)) return;
 		const byMessage = untrack(unseen);
@@ -584,9 +582,7 @@ export const createConversation = (options: ConversationOptions) => {
 		unseen();
 		flushSeen();
 	});
-	document.addEventListener("visibilitychange", flushSeen);
 	onCleanup(() => {
-		document.removeEventListener("visibilitychange", flushSeen);
 		seenObserver?.disconnect();
 	});
 
@@ -861,7 +857,7 @@ export const createConversation = (options: ConversationOptions) => {
 		},
 		roles: () =>
 			[...roleMap().values()]
-				.filter((role) => role.mentionable && !role.protected)
+				.filter(isMentionableRole)
 				.map((role) => ({ id: role.rkey, name: role.name, color: role.color })),
 		channels: () =>
 			[...channelMap().entries()].map(([skey, entry]) => ({

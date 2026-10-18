@@ -23,7 +23,7 @@ import {
 	untrack,
 	useContext,
 } from "solid-js";
-import { createStore, produce, reconcile } from "solid-js/store";
+import { createStore, reconcile } from "solid-js/store";
 import { createAccessStore } from "./access-store";
 import { mentionedDids } from "./adapters/facets";
 import { normalizeChannelLayout, sameChannel } from "./channel-layout";
@@ -36,6 +36,7 @@ import { DEVICE_KEYS, deviceString } from "./device-prefs";
 import { createEmojiStore } from "./emoji-store";
 import { channelSlug, isVoiceChannel, skeyOf, spaceKey } from "./ids";
 import { createJumpRequests } from "./jump";
+import { createLiveTails, reactIn, TAIL_PER_CHANNEL } from "./live-tail";
 import { keepUnchanged } from "./merge";
 import type { MessageCache } from "./message-cache";
 import {
@@ -48,6 +49,7 @@ import type { OutboxEvent, OutboxOp, OutboxQueue } from "./outbox/types";
 import { readStored, writeStored } from "./persist";
 import { orderCommunities } from "./preferences/order";
 import type { MuteSubject } from "./preferences/types";
+import { createRecordStore } from "./record-store";
 import { type CatchUpTask, createCatchUpQueue } from "./resume";
 import {
 	countChange,
@@ -91,7 +93,7 @@ import type {
 	ThreadView,
 	VoiceState,
 } from "./types";
-import { documentVisible } from "./visibility";
+import { appVisible } from "./visibility";
 import { connectVoice } from "./voice";
 
 const PAGE_SIZE = 60;
@@ -363,7 +365,10 @@ export type DataStoreOptions = {
 	cache?: MessageCache;
 	spaces?: SpaceCache;
 	outbox?: { queue?: OutboxQueue; held?: () => boolean };
+	live?: { epoch: Accessor<number | undefined> };
 };
+
+type ReadState = { cursor?: string; hasUnread: boolean };
 
 export type WriteFailure = {
 	kind: "edit" | "delete" | "react";
@@ -432,25 +437,43 @@ export const createDataStore = (
 			if (viewer.did) spaceCache?.offerViewer(profile as ProfileView);
 		});
 		const spaces = new Map<Did, SpaceData>();
-		const [lastMessages, setLastMessages] = createStore<
-			Record<string, ChannelSummary | undefined>
-		>({});
+		let resumes = 0;
+		const currentEpoch = () => {
+			const live = untrack(() => options.live?.epoch());
+			return live === undefined ? undefined : `${live}:${resumes}`;
+		};
+		const summaryAnchors = new Map<SpaceRef, { rkey: string; epoch: string }>();
+		const tails = createLiveTails({
+			onEvict: (ref) => summaryAnchors.delete(ref),
+		});
+		const readStates = new Map<string, ReadState>();
+		const readKey = (community: string, slug: string) => `${community} ${slug}`;
+		const summaries = createRecordStore<ChannelSummary>();
+		const lastMessages = summaries.state;
 		const putSummary = (summary: ChannelSummary) => {
 			if (newerSummary(lastMessages[summary.channel], summary)) {
-				setLastMessages(summary.channel, summary);
+				summaries.put(summary.channel, summary);
 			}
 		};
-		const loadSummaries = (community: Did, only?: SpaceRef): Promise<void> =>
-			source.listChannelSummaries(community).then(
+		const anchorSummary = (summary: ChannelSummary, epoch?: string) => {
+			const ref = summary.channel;
+			if (epoch === undefined || isThreadSpace(ref) || tails.has(ref)) return;
+			if (untrack(() => channels.get(ref)?.ready())) return;
+			summaryAnchors.set(ref, { rkey: summary.rkey, epoch });
+		};
+		const loadSummaries = (community: Did, only?: SpaceRef): Promise<void> => {
+			const epoch = currentEpoch();
+			return source.listChannelSummaries(community).then(
 				(list) => {
 					const seen = new Set<string>();
 					for (const summary of list) {
 						seen.add(summary.channel);
 						if (only && summary.channel !== only) continue;
-						if (only) setLastMessages(summary.channel, summary);
+						anchorSummary(summary, epoch);
+						if (only) summaries.put(summary.channel, summary);
 						else putSummary(summary);
 					}
-					if (only && !seen.has(only)) setLastMessages(only, undefined);
+					if (only && !seen.has(only)) summaries.remove(only);
 				},
 				(thrown: unknown) =>
 					log.warn("channel summaries failed", {
@@ -458,6 +481,7 @@ export const createDataStore = (
 							.code,
 					}),
 			);
+		};
 		const syncViewer = (community: Did, viewerRoles?: readonly string[]) => {
 			const list = roleLoads.get(community)?.value();
 			if (!list) return;
@@ -513,13 +537,15 @@ export const createDataStore = (
 			{
 				ensureOpen: () => void;
 				refresh: () => Promise<void>;
+				refreshIfStale: () => Promise<void>;
 				catchUp: () => Promise<void>;
 				evict: () => void;
 			}
 		>();
 		const cache = options.cache;
 		const recentFeeds = createLru<true>(MEMORY_WINDOW_COUNT);
-		const [presence, setPresence] = createStore<Record<string, Presence>>({});
+		const presences = createRecordStore<Presence>();
+		const presence = presences.state;
 		const [speaking, setSpeaking] = createStore<Record<string, boolean>>({});
 		const voiceRoster = createMemo(() => {
 			const roster = new Map<string, Did[]>();
@@ -532,9 +558,15 @@ export const createDataStore = (
 			}
 			return roster;
 		});
-		const [unread, setUnread] = createStore<
-			Record<string, Record<string, UnreadState>>
-		>(seededUnread(snapshot));
+		const unreadStates = createRecordStore<Record<string, UnreadState>>(
+			seededUnread(snapshot),
+		);
+		const unread = unreadStates.state;
+		const setUnread = (community: Did, slug: string, state: UnreadState) =>
+			unreadStates.update(community, (entries) => ({
+				...entries,
+				[slug]: state,
+			}));
 		const [viewing, setViewing] = createSignal<SpaceRef>();
 		const holds = new Map<SpaceRef, { count: number; release: () => void }>();
 		const holdChannel = (ref: SpaceRef): (() => void) => {
@@ -546,7 +578,7 @@ export const createDataStore = (
 					count: 1,
 					release: watching ? source.watchChannel(ref) : () => {},
 				});
-				if (watching) void feedControls.get(ref)?.refresh();
+				if (watching) void feedControls.get(ref)?.refreshIfStale();
 			}
 			let holding = true;
 			return () => {
@@ -573,14 +605,12 @@ export const createDataStore = (
 				}),
 			);
 		}
-		const [lastChannels, setLastChannels] = createStore<
-			Record<string, string | undefined>
-		>({});
+		const lastChannels = createRecordStore<string>();
 		const [lastSpace, setLastSpace] = deviceString(DEVICE_KEYS.lastSpace);
 		const lastChannel = (space: string) =>
-			lastChannels[space] ?? readStored(DEVICE_KEYS.lastChannel(space));
+			lastChannels.state[space] ?? readStored(DEVICE_KEYS.lastChannel(space));
 		const setLastChannel = (space: string, channel: string) => {
-			setLastChannels(space, channel);
+			lastChannels.put(space, channel);
 			setLastSpace(space);
 			writeStored(DEVICE_KEYS.lastChannel(space), channel);
 		};
@@ -607,7 +637,7 @@ export const createDataStore = (
 				listener({ kind, code });
 		};
 		const reactionKeys = new Map<string, string>();
-		const messageListeners = new Map<SpaceRef, (event: LiveEvent) => void>();
+		const messageListeners = new Map<SpaceRef, (event: LiveEvent) => boolean>();
 		const notifications = createNotificationStore(source, (views, seen) => {
 			const counts = new Map<SpaceRef, number>();
 			for (const view of views) {
@@ -634,13 +664,18 @@ export const createDataStore = (
 			ref.slice("at://".length, ref.indexOf("/space/")) as Did;
 
 		const onScreen = (ref: SpaceRef) =>
-			untrack(viewing) === ref && untrack(documentVisible);
-		const loadUnread = (community: Did): Promise<void> =>
-			source.listUnreadStatus(community).then(
+			untrack(viewing) === ref && untrack(appVisible);
+		const unreadLoads = new Map<Did, Promise<void>>();
+		const loadUnread = (community: Did): Promise<void> => {
+			const load = source.listUnreadStatus(community).then(
 				(statuses) => {
 					const entries: Record<string, UnreadState> = {};
 					for (const status of statuses) {
 						const slug = skeyOf(status.channel);
+						readStates.set(readKey(community, slug), {
+							...(status.cursor ? { cursor: status.cursor } : {}),
+							hasUnread: status.hasUnread,
+						});
 						entries[slug] = onScreen(status.channel)
 							? {
 									hasUnread: false,
@@ -651,13 +686,38 @@ export const createDataStore = (
 									mentions: status.unreadMentions,
 								};
 					}
-					setUnread(community, reconcile(entries));
+					unreadStates.put(community, entries);
 				},
 				(thrown: unknown) =>
 					log.warn("unread status failed", {
 						code: classifyThrown(thrown, { method: "unread.list" }).code,
 					}),
 			);
+			unreadLoads.set(community, load);
+			return load;
+		};
+		const knownReadState = (ref: SpaceRef) =>
+			readStates.get(readKey(communityOfRef(ref), skeyOf(ref)));
+		const readStateOf = (ref: SpaceRef): Promise<ReadState | undefined> => {
+			const known = knownReadState(ref);
+			if (known) return Promise.resolve(known);
+			const community = communityOfRef(ref);
+			return (unreadLoads.get(community) ?? loadUnread(community)).then(() =>
+				knownReadState(ref),
+			);
+		};
+		const noteRead = (ref: SpaceRef, cursor?: string) => {
+			const key = readKey(communityOfRef(ref), skeyOf(ref));
+			const current = readStates.get(key);
+			const next =
+				cursor && (!current?.cursor || cursor > current.cursor)
+					? cursor
+					: current?.cursor;
+			readStates.set(key, {
+				...(next ? { cursor: next } : {}),
+				hasUnread: false,
+			});
+		};
 
 		const space = (community: CommunityView): SpaceData => {
 			const existing = spaces.get(community.did);
@@ -695,14 +755,12 @@ export const createDataStore = (
 						all.push(...page.items);
 						cursor = page.cursor;
 					} while (cursor);
-					setPresence(
-						produce((draft) => {
-							for (const member of all) {
-								const current = member.actor.presence;
-								if (current && !draft[member.actor.did]) {
-									draft[member.actor.did] = current;
-								}
-							}
+					presences.putAll(
+						all.flatMap((member) => {
+							const current = member.actor.presence;
+							return current && !untrack(() => presence[member.actor.did])
+								? [[member.actor.did, current] as const]
+								: [];
 						}),
 					);
 					return all;
@@ -844,10 +902,10 @@ export const createDataStore = (
 				hasUnread: false,
 				mentions: 0,
 			};
-			setUnread(community, (entries) => ({
-				...entries,
-				[slug]: { ...current, hasUnread: true },
-			}));
+			setUnread(community, slug, { ...current, hasUnread: true });
+			const key = readKey(community, slug);
+			const known = readStates.get(key);
+			if (known) readStates.set(key, { ...known, hasUnread: true });
 		};
 
 		const countedNotifications = new Set<string>();
@@ -860,13 +918,10 @@ export const createDataStore = (
 			const community = communityOfRef(view.channel);
 			const slug = skeyOf(view.channel);
 			const current = unread[community]?.[slug];
-			setUnread(community, (entries) => ({
-				...entries,
-				[slug]: {
-					hasUnread: viewing() !== view.channel || !!current?.hasUnread,
-					mentions: (current?.mentions ?? 0) + 1,
-				},
-			}));
+			setUnread(community, slug, {
+				hasUnread: viewing() !== view.channel || !!current?.hasUnread,
+				mentions: (current?.mentions ?? 0) + 1,
+			});
 		});
 
 		const threadLoads = new Map<SpaceRef, MutableLoad<ThreadView[]>>();
@@ -965,6 +1020,16 @@ export const createDataStore = (
 			let staleChannels = false;
 			batch(() => {
 				for (const { channel: slug, cursor } of cursors) {
+					const key = readKey(community, slug);
+					const known = readStates.get(key);
+					const latest = refs.get(slug);
+					const newest = latest ? lastMessages[latest]?.rkey : undefined;
+					if (known && (!known.cursor || cursor > known.cursor)) {
+						readStates.set(key, {
+							cursor,
+							hasUnread: known.hasUnread && (!newest || newest > cursor),
+						});
+					}
 					const state = unread[community]?.[slug];
 					if (state?.hasUnread) {
 						const ref = refs.get(slug);
@@ -1135,8 +1200,15 @@ export const createDataStore = (
 			},
 		};
 
+		const forgetLive = (match: (ref: SpaceRef) => boolean) => {
+			tails.dropWhere(match);
+			for (const ref of [...summaryAnchors.keys()])
+				if (match(ref)) summaryAnchors.delete(ref);
+		};
 		const dropChannel = (community: Did, space: SpaceRef) => {
 			cache?.forget(space);
+			forgetLive((ref) => sameChannel(ref, space));
+			readStates.delete(readKey(community, skeyOf(space)));
 			channelLoads
 				.get(community)
 				?.update((list) =>
@@ -1331,6 +1403,10 @@ export const createDataStore = (
 
 		const dropCommunity = (community: Did) => {
 			cache?.forgetCommunity(community);
+			forgetLive((ref) => communityOfRef(ref) === community);
+			for (const key of [...readStates.keys()])
+				if (key.startsWith(`${community} `)) readStates.delete(key);
+			unreadLoads.delete(community);
 			spaceCache?.forgetCommunity(community);
 			communities.update((list) =>
 				list.filter((entry) => entry.did !== community),
@@ -1428,8 +1504,12 @@ export const createDataStore = (
 					feed?.markRead();
 					feed?.clearUnreadMarker();
 					const slug = skeyOf(view.space);
+					noteRead(view.space);
 					if (unread[community]?.[slug]?.hasUnread) {
-						setUnread(community, slug, "hasUnread", false);
+						setUnread(community, slug, {
+							...unread[community][slug],
+							hasUnread: false,
+						});
 					}
 					void source.markRead(view.space).catch(() => {});
 				}
@@ -1498,6 +1578,9 @@ export const createDataStore = (
 			const typingTimers = new Map<Did, ReturnType<typeof setTimeout>>();
 			const community = communityOfRef(ref);
 			let readThrough: string | undefined;
+			let confirmedEpoch: string | undefined;
+			let provisionalFrom: string | undefined;
+			let predecessor: string | undefined;
 			const threads = threadsOf(ref);
 
 			const remember = () => {
@@ -1533,32 +1616,109 @@ export const createDataStore = (
 				readCursor?: string;
 			}) =>
 				batch(() => {
+					predecessor = undefined;
 					setMessageList(window.messages);
 					setCursor(window.cursor);
 					readThrough = window.readCursor ?? readThrough;
 					setReady(true);
 				});
 
-			const remembered = cache?.recall(ref);
-			if (remembered) paint(remembered);
+			const covers = (list: readonly MessageView[], after?: string) => {
+				const target = jumps.peek(ref);
+				if (target && !list.some((message) => message.rkey === target))
+					return false;
+				if (!untrack(() => unread[community]?.[skeyOf(ref)]?.hasUnread))
+					return true;
+				const through = knownReadState(ref)?.cursor;
+				const floor = after ?? list[0]?.rkey;
+				return !!through && !!floor && through >= floor;
+			};
+
+			const paintFromTail = (window?: {
+				messages: readonly MessageView[];
+				cursor?: string;
+				readCursor?: string;
+			}): "continuous" | "provisional" | undefined => {
+				const tail = tails.peek(ref);
+				const latest = tail?.messages ?? [];
+				const first = latest[0];
+				if (!tail || !first) return undefined;
+				const epoch = currentEpoch();
+				const continuous =
+					!isThreadSpace(ref) && epoch !== undefined && tail.epoch === epoch;
+				const stored = window?.messages ?? [];
+				const storedNewest = stored.at(-1)?.rkey;
+				const overlaps = !!storedNewest && storedNewest >= first.rkey;
+				const held: FeedGap | undefined =
+					storedNewest && !overlaps && !continuous
+						? { after: storedNewest, latest, cursor: tail.cursor }
+						: undefined;
+				const list = overlaps
+					? [
+							...new Map(
+								[...stored, ...latest].map((message) => [
+									message.rkey,
+									message,
+								]),
+							).values(),
+						].sort(byRkey)
+					: held
+						? stored.slice()
+						: latest.slice();
+				const after = overlaps || held ? undefined : tail.after;
+				if (!covers(list, after)) return undefined;
+				tails.take(ref);
+				summaryAnchors.delete(ref);
+				batch(() => {
+					setGap(held);
+					setMessageList(list);
+					setCursor(overlaps || held ? window?.cursor : tail.cursor);
+					setUnreadAfter(undefined);
+					readThrough =
+						knownReadState(ref)?.cursor ?? window?.readCursor ?? readThrough;
+					setReady(true);
+				});
+				confirmedEpoch = continuous ? epoch : undefined;
+				provisionalFrom = continuous ? undefined : first.rkey;
+				predecessor = after;
+				if (continuous) setConfirmed(true);
+				remember();
+				return continuous ? "continuous" : "provisional";
+			};
+
+			const paintFromMemory = () => {
+				const remembered = cache?.recall(ref);
+				const outcome = paintFromTail(remembered);
+				if (!outcome && remembered) paint(remembered);
+				return outcome;
+			};
+			const painted = paintFromMemory();
 
 			const refreshFromNetwork = async (keepPlace = false) => {
 				const held = untrack(gap);
-				const newestKnown = (held ? held.latest : untrack(messages)).at(
-					-1,
-				)?.rkey;
-				const [statuses, page] = await Promise.all([
-					source.listUnreadStatus(community),
-					newestSince(ref, newestKnown),
-				]);
-				const status = statuses.find((entry) => entry.channel === ref);
-				readThrough = status?.cursor ?? readThrough;
+				const patchy = provisionalFrom;
+				const newestKnown = patchy
+					? undefined
+					: (held ? held.latest : untrack(messages)).at(-1)?.rkey;
+				const page = await newestSince(ref, newestKnown);
+				readThrough = knownReadState(ref)?.cursor ?? readThrough;
+				provisionalFrom = undefined;
+				const replaces =
+					!!patchy && !!page.cursor && (oldestRkey(page.items) ?? "") > patchy;
+				if (replaces) predecessor = undefined;
+				const refreshed = (
+					list: readonly MessageView[],
+					cachedCursor: string | undefined,
+				) =>
+					replaces
+						? { messages: [...page.items].sort(byRkey), cursor: page.cursor }
+						: refreshMessageWindow(list, page, {
+								pageSize: PAGE_SIZE,
+								cachedCursor,
+							});
 				const current = untrack(gap);
 				if (current) {
-					const merged = refreshMessageWindow(current.latest, page, {
-						pageSize: PAGE_SIZE,
-						cachedCursor: current.cursor,
-					});
+					const merged = refreshed(current.latest, current.cursor);
 					setGap({
 						after: current.after,
 						latest: merged.messages,
@@ -1577,38 +1737,46 @@ export const createDataStore = (
 					remember();
 					return;
 				}
-				const refreshed = refreshMessageWindow(untrack(messages), page, {
-					pageSize: PAGE_SIZE,
-					cachedCursor: untrack(cursor),
-				});
+				const merged = refreshed(untrack(messages), untrack(cursor));
 				batch(() => {
-					setCursor(refreshed.cursor);
-					setMessages(refreshed.messages);
+					setCursor(merged.cursor);
+					setMessages(merged.messages);
 				});
 			};
 
-			const open = async () => {
+			const open = async (): Promise<boolean> => {
 				if (!untrack(ready) && cache) {
 					const stored = await cache.read(ref);
-					if (stored && !untrack(ready)) paint(stored);
+					if (stored && !untrack(ready)) {
+						const outcome = paintFromTail(stored);
+						if (outcome === "continuous") return true;
+						if (!outcome) paint(stored);
+					}
 				}
 				if (untrack(ready) && untrack(messages).length > 0) {
 					await refreshFromNetwork();
-					return;
+					return false;
 				}
-				const statuses = await source.listUnreadStatus(community);
-				const status = statuses.find((entry) => entry.channel === ref);
-				const readCursor = status?.hasUnread ? status.cursor : undefined;
-				const [latestPage, aroundPage] = await Promise.all([
-					source.listMessages({ channel: ref, limit: PAGE_SIZE }),
-					readCursor
+				const target = jumps.peek(ref);
+				const position = readStateOf(ref);
+				const aroundPageOf = (rkey: string | undefined) =>
+					rkey
 						? source.listMessages({
 								channel: ref,
 								limit: PAGE_SIZE,
-								around: readCursor,
+								around: rkey,
 							})
-						: undefined,
+						: undefined;
+				const [latestPage, aroundPage, status] = await Promise.all([
+					source.listMessages({ channel: ref, limit: PAGE_SIZE }),
+					target
+						? aroundPageOf(target)
+						: position.then((state) =>
+								aroundPageOf(state?.hasUnread ? state.cursor : undefined),
+							),
+					position,
 				]);
+				const readCursor = status?.hasUnread ? status.cursor : undefined;
 				const latest = latestPage.items.slice().sort(byRkey);
 				const around = aroundPage?.items.slice().sort(byRkey) ?? [];
 				const aroundNewest = around.at(-1)?.rkey;
@@ -1637,6 +1805,9 @@ export const createDataStore = (
 					? collected.find((message) => message.rkey > readCursor)
 					: undefined;
 				readThrough = status?.cursor ?? latest.at(-1)?.rkey;
+				const late = tails.take(ref);
+				summaryAnchors.delete(ref);
+				predecessor = undefined;
 				batch(() => {
 					setGap(
 						detached && aroundNewest
@@ -1651,18 +1822,26 @@ export const createDataStore = (
 							: undefined,
 					);
 					setReady(true);
+					for (const message of late?.messages ?? []) upsert(message);
 				});
 				remember();
+				return false;
+			};
+
+			const confirm = (epoch: string | undefined) => {
+				confirmedEpoch = epoch;
+				setConfirmed(true);
 			};
 
 			const openFeed = () => {
 				if (opening) return;
 				opening = true;
 				setOpenError(undefined);
+				const epoch = currentEpoch();
 				open().then(
-					() => {
+					(continuous) => {
 						opening = false;
-						setConfirmed(true);
+						if (!continuous) confirm(epoch);
 					},
 					(thrown: unknown) => {
 						opening = false;
@@ -1920,37 +2099,7 @@ export const createDataStore = (
 				add: boolean,
 			) => {
 				const react = (list: readonly MessageView[]) =>
-					list.map((message) => {
-						if (message.rkey !== rkey) return message;
-						const reactions = message.reactions.slice();
-						const index = reactions.findIndex((entry) => entry.emoji === emoji);
-						const current = reactions[index];
-						if (add) {
-							if (current?.reactors.includes(actor)) return message;
-							const next = current
-								? {
-										...current,
-										count: current.count + 1,
-										reactors: [...current.reactors, actor],
-									}
-								: { emoji, count: 1, reactors: [actor] };
-							if (actor === viewer.did) next.viewerReacted = true;
-							if (current) reactions[index] = next;
-							else reactions.push(next);
-						} else {
-							if (!current?.reactors.includes(actor)) return message;
-							const next = {
-								...current,
-								count: current.count - 1,
-								reactors: current.reactors.filter((did) => did !== actor),
-								viewerReacted:
-									actor === viewer.did ? false : current.viewerReacted,
-							};
-							if (next.count <= 0) reactions.splice(index, 1);
-							else reactions[index] = next;
-						}
-						return { ...message, reactions };
-					});
+					reactIn(list, { rkey, emoji, actor, add, viewer: viewer.did });
 				setMessages(react);
 				editLatest(react);
 			};
@@ -1986,6 +2135,14 @@ export const createDataStore = (
 			void outbox.ready().then(adoptQueued);
 
 			messageListeners.set(ref, (event) => {
+				if (
+					event.$type === "messageEvent" &&
+					event.event !== "delete" &&
+					event.message &&
+					settleEcho(event.message)
+				)
+					return true;
+				if (!untrack(ready)) return false;
 				if (event.$type === "messageEvent") {
 					if (event.event === "delete" && event.rkey) {
 						const rkey = event.rkey;
@@ -1993,14 +2150,12 @@ export const createDataStore = (
 							list.filter((entry) => entry.rkey !== rkey);
 						setMessages(drop);
 						editLatest(drop);
-						return;
+						return true;
 					}
-					if (!event.message) return;
-					if (settleEcho(event.message)) return;
-					if (ready()) upsert(event.message);
-					return;
+					if (event.message) upsert(event.message);
+					return true;
 				}
-				if (event.$type === "reactionEvent") {
+				if (event.$type === "reactionEvent" && event.actor !== viewer.did) {
 					applyReaction(
 						event.target,
 						event.emoji,
@@ -2008,6 +2163,7 @@ export const createDataStore = (
 						event.event === "create",
 					);
 				}
+				return true;
 			});
 
 			typingListeners.set(ref, (did) => {
@@ -2068,7 +2224,12 @@ export const createDataStore = (
 						if (fresh) setUnreadAfter(undefined);
 						return undefined;
 					}
-					setUnreadAfter(list[first - 1]?.rkey);
+					const before =
+						list[first - 1]?.rkey ??
+						(predecessor && through >= predecessor && untrack(cursor)
+							? through
+							: undefined);
+					setUnreadAfter(before);
 					return list[first]?.rkey;
 				},
 				threads,
@@ -2299,7 +2460,9 @@ export const createDataStore = (
 						if (ids.length) void notifications.markRead(ids).catch(() => {});
 					}
 					if (!ready()) return;
-					readThrough = messages().at(-1)?.rkey ?? readThrough;
+					if (provisionalFrom === undefined)
+						readThrough = messages().at(-1)?.rkey ?? readThrough;
+					noteRead(ref, readThrough);
 					void source.markRead(ref, behind ? readThrough : undefined);
 				},
 				clearUnreadMarker: () => setUnreadAfter(undefined),
@@ -2310,12 +2473,13 @@ export const createDataStore = (
 			const refresh = (): Promise<void> => {
 				if (!untrack(ready) || opening) return Promise.resolve();
 				opening = true;
+				const epoch = currentEpoch();
 				return refreshFromNetwork(
 					untrack(viewing) === ref || holds.has(ref),
 				).then(
 					() => {
 						opening = false;
-						setConfirmed(true);
+						confirm(epoch);
 					},
 					(thrown: unknown) => {
 						opening = false;
@@ -2345,11 +2509,23 @@ export const createDataStore = (
 				});
 			};
 
+			const start = () => {
+				if (untrack(ready) || opening) return;
+				if (paintFromMemory() !== "continuous") openFeed();
+			};
+
 			feedControls.set(ref, {
-				ensureOpen: () => {
-					if (!untrack(ready) && !opening) openFeed();
-				},
+				ensureOpen: start,
 				refresh,
+				refreshIfStale: () => {
+					const epoch = currentEpoch();
+					const fresh =
+						!isThreadSpace(ref) &&
+						epoch !== undefined &&
+						confirmedEpoch === epoch &&
+						untrack(confirmed);
+					return fresh ? Promise.resolve() : refresh();
+				},
 				catchUp: () =>
 					untrack(ready)
 						? refresh()
@@ -2362,6 +2538,34 @@ export const createDataStore = (
 							),
 				evict: () => {
 					if (untrack(pending).length > 0) return;
+					const held = untrack(gap);
+					const window = held ? held.latest : untrack(storedMessages);
+					const epoch = currentEpoch();
+					if (untrack(ready) && window.length > 0) {
+						const kept = window.slice(-TAIL_PER_CHANNEL);
+						const continuous =
+							!isThreadSpace(ref) &&
+							epoch !== undefined &&
+							confirmedEpoch === epoch &&
+							provisionalFrom === undefined &&
+							untrack(confirmed);
+						tails.put(ref, {
+							messages: kept,
+							cursor:
+								kept.length < window.length
+									? kept[0]?.rkey
+									: held
+										? held.cursor
+										: untrack(cursor),
+							...(kept.length < window.length
+								? { after: window[window.length - kept.length - 1]?.rkey }
+								: {}),
+							...(continuous ? { epoch } : {}),
+						});
+					}
+					confirmedEpoch = undefined;
+					provisionalFrom = undefined;
+					predecessor = undefined;
 					batch(() => {
 						setGap(undefined);
 						setMessageList([]);
@@ -2372,8 +2576,38 @@ export const createDataStore = (
 					});
 				},
 			});
-			openFeed();
+			if (painted !== "continuous") openFeed();
 			return data;
+		};
+
+		const tailStart = (ref: SpaceRef, message: MessageView) => {
+			const anchor = summaryAnchors.get(ref);
+			summaryAnchors.delete(ref);
+			const epoch = currentEpoch();
+			if (!anchor || epoch === undefined || anchor.epoch !== epoch)
+				return undefined;
+			return message.rkey > anchor.rkey
+				? { epoch, after: anchor.rkey }
+				: undefined;
+		};
+		const feedTail = (event: Extract<LiveEvent, { $type: "messageEvent" }>) => {
+			const ref = event.channel;
+			if (event.event === "delete") {
+				const rkey = event.rkey ?? event.message?.rkey;
+				if (rkey) tails.remove(ref, rkey);
+				return;
+			}
+			const message = event.message;
+			if (!message) return;
+			if (event.event === "update") {
+				tails.update(ref, message);
+				return;
+			}
+			tails.append(
+				ref,
+				message,
+				tails.has(ref) ? undefined : tailStart(ref, message),
+			);
 		};
 
 		source.subscribe((event) => {
@@ -2387,7 +2621,7 @@ export const createDataStore = (
 					if (event.event === "update" && event.message) {
 						const current = lastMessages[event.channel];
 						if (current?.rkey === event.message.rkey) {
-							setLastMessages(event.channel, summarizeMessage(event.message));
+							summaries.put(event.channel, summarizeMessage(event.message));
 						}
 					}
 					if (event.event === "delete") {
@@ -2397,19 +2631,24 @@ export const createDataStore = (
 							void loadSummaries(communityOfRef(event.channel), event.channel);
 						}
 					}
-					messageListeners.get(event.channel)?.(event);
+					if (!messageListeners.get(event.channel)?.(event)) feedTail(event);
 					return;
 				}
 				case "reactionEvent":
-					if (event.actor !== viewer.did) {
-						messageListeners.get(event.channel)?.(event);
-					}
+					if (!messageListeners.get(event.channel)?.(event))
+						tails.react(event.channel, {
+							rkey: event.target,
+							emoji: event.emoji,
+							actor: event.actor,
+							add: event.event === "create",
+							viewer: viewer.did,
+						});
 					return;
 				case "typingEvent":
 					typingListeners.get(event.channel)?.(event.did);
 					return;
 				case "presenceEvent":
-					setPresence(event.did, reconcile(event.presence));
+					presences.put(event.did, event.presence);
 					if (!event.presence.voice) setSpeaking(event.did, false);
 					return;
 				case "voiceActivityEvent":
@@ -2429,7 +2668,7 @@ export const createDataStore = (
 		const applyViewer = (next: ProfileView) => {
 			const { presence: nextPresence, ...profile } = next;
 			setViewer(reconcile({ ...profile, presence: viewer.presence }));
-			if (nextPresence) setPresence(next.did, reconcile(nextPresence));
+			if (nextPresence) presences.put(next.did, nextPresence);
 			for (const load of memberLoads.values()) {
 				load.update((list) =>
 					list.map((member) =>
@@ -2489,7 +2728,7 @@ export const createDataStore = (
 
 		const setStatus = async (input: StatusInput) => {
 			const next = await source.setStatus(input);
-			setPresence(viewer.did, reconcile(next));
+			presences.put(viewer.did, next);
 		};
 
 		const setVoice = async (voice: VoiceState | undefined) => {
@@ -2500,15 +2739,12 @@ export const createDataStore = (
 			};
 			if (voice) optimistic.voice = voice;
 			else delete optimistic.voice;
-			setPresence(viewer.did, reconcile(optimistic));
+			presences.put(viewer.did, optimistic);
 			try {
 				const next = await source.setVoice(voice);
-				setPresence(viewer.did, reconcile(next));
+				presences.put(viewer.did, next);
 			} catch (error) {
-				setPresence(
-					viewer.did,
-					reconcile(previous ?? { onlineState: "online" }),
-				);
+				presences.put(viewer.did, previous ?? { onlineState: "online" });
 				throw error;
 			}
 		};
@@ -2516,15 +2752,12 @@ export const createDataStore = (
 		const setOnlineState = async (onlineState: Presence["onlineState"]) => {
 			const current = presence[viewer.did];
 			const previous = current ? { ...current } : undefined;
-			setPresence(viewer.did, (current) => ({
-				...(current ?? {}),
-				onlineState,
-			}));
+			presences.put(viewer.did, { ...(current ?? {}), onlineState });
 			try {
 				const next = await source.setStatus({ onlineState });
-				setPresence(viewer.did, reconcile(next));
+				presences.put(viewer.did, next);
 			} catch (error) {
-				if (previous) setPresence(viewer.did, reconcile(previous));
+				if (previous) presences.put(viewer.did, previous);
 				throw error;
 			}
 		};
@@ -2567,6 +2800,7 @@ export const createDataStore = (
 		onCleanup(backfill.cancel);
 		let lastCatchUp = Number.NEGATIVE_INFINITY;
 		const catchUp = () => {
+			resumes += 1;
 			const now = Date.now();
 			if (now - lastCatchUp < CATCH_UP_SPACING_MS) return;
 			lastCatchUp = now;
@@ -2711,6 +2945,8 @@ export const createDataStore = (
 			catchUp,
 			pauseCatchUp: backfill.cancel,
 			dispose: () => {
+				tails.clear();
+				summaryAnchors.clear();
 				outbox.dispose();
 				dispose();
 			},

@@ -3,6 +3,7 @@ import { createSignal, type JSX } from "solid-js";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
+import { setAppActive } from "../../utils/playback";
 import { storyImages } from "../Banner/story-images";
 import { buildClipboardHtml } from "./clipboard-facets";
 import { RichEditorProvider } from "./context";
@@ -761,6 +762,104 @@ export const SubtextLineAfterText: Story = {
 		await userEvent.keyboard("{Enter}");
 		await expect(onSubmit).toHaveBeenCalledWith(
 			expect.objectContaining({ text: "loud line\nquiet note" }),
+		);
+	},
+};
+
+const LONG_PLACEHOLDER =
+	"Message #kingfisher-sightings-along-the-river-path-behind-the-old-mill";
+
+export const PlaceholderInEmptyEditor: Story = {
+	name: "Placeholder in an empty editor",
+	render: () => (
+		<RichEditorProvider sources={sources}>
+			<div class="flex min-h-[520px] flex-col justify-end bg-background p-4">
+				<div
+					data-testid="frame"
+					class="w-56 rounded-control-lg border border-popover-highlight bg-popover p-3"
+				>
+					<RichEditor platform="desktop" placeholder={LONG_PLACEHOLDER} />
+				</div>
+			</div>
+		</RichEditorProvider>
+	),
+	play: async ({ canvasElement }) => {
+		const editor = within(canvasElement).getByRole("textbox", {
+			name: LONG_PLACEHOLDER,
+		});
+		const paragraph = await waitFor(() => {
+			const found = editor.querySelector<HTMLElement>("p.is-editor-empty");
+			if (!found) throw new Error("empty paragraph missing");
+			return found;
+		});
+		await expect(paragraph).toHaveAttribute(
+			"data-placeholder",
+			LONG_PLACEHOLDER,
+		);
+		const placeholder = getComputedStyle(paragraph, "::before");
+		await expect(placeholder.content).toBe(`"${LONG_PLACEHOLDER}"`);
+		await expect(placeholder.float).toBe("left");
+		await expect(placeholder.height).toBe("0px");
+		await expect(placeholder.whiteSpace).toBe("nowrap");
+		await expect(placeholder.textOverflow).toBe("ellipsis");
+		await expect(placeholder.overflowX).toBe("clip");
+		await expect(placeholder.pointerEvents).toBe("none");
+		await expect(getComputedStyle(paragraph).position).toBe("static");
+		await expect(getComputedStyle(editor).userSelect).toBe("text");
+		await expect(getComputedStyle(paragraph).userSelect).toBe("text");
+
+		const lineHeight = Number.parseFloat(getComputedStyle(editor).lineHeight);
+		const box = paragraph.getBoundingClientRect();
+		await expect(box.height).toBeCloseTo(lineHeight, 0);
+		const frame = within(canvasElement).getByTestId("frame");
+		await expect(editor.scrollWidth).toBeLessThanOrEqual(editor.clientWidth);
+		await expectNoLayoutIssues(frame);
+
+		await userEvent.click(editor);
+		const selection = window.getSelection();
+		if (!selection?.rangeCount) throw new Error("no caret");
+		await expect(paragraph.contains(selection.anchorNode)).toBe(true);
+		const lineStart = paragraph.querySelector("br");
+		if (!lineStart) throw new Error("trailing break missing");
+		const caret = lineStart.getBoundingClientRect();
+		await expect(caret.height).toBeGreaterThan(0);
+		await expect(caret.left).toBeCloseTo(box.left, 0);
+		await expect(caret.top).toBeGreaterThanOrEqual(box.top - 0.5);
+		await expect(caret.bottom).toBeLessThanOrEqual(box.bottom + 0.5);
+	},
+};
+
+export const CaretAfterAppActivation: Story = {
+	name: "Caret after the app becomes active",
+	render: () => <Harness platform="desktop" />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const editor = field(canvasElement);
+		await userEvent.click(editor);
+		await waitFor(() => expect(document.activeElement).toBe(editor));
+		let changes = 0;
+		const count = () => {
+			changes += 1;
+		};
+		document.addEventListener("selectionchange", count);
+		try {
+			setAppActive(false);
+			await new Promise((resolve) => requestAnimationFrame(resolve));
+			changes = 0;
+			setAppActive(true);
+			await waitFor(() => expect(changes).toBeGreaterThan(0));
+		} finally {
+			document.removeEventListener("selectionchange", count);
+			setAppActive(undefined);
+		}
+		await expect(document.activeElement).toBe(editor);
+		const selection = window.getSelection();
+		if (!selection?.rangeCount) throw new Error("no caret");
+		await expect(selection.isCollapsed).toBe(true);
+		await expect(editor.contains(selection.anchorNode)).toBe(true);
+		await userEvent.keyboard("still here");
+		await waitFor(() =>
+			expect(currentValue(canvasElement).text).toBe("still here"),
 		);
 	},
 };

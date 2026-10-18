@@ -19,7 +19,7 @@ import {
 import { ForwardedMessage } from "./ForwardedMessage";
 import { HiddenMessage } from "./HiddenMessage";
 import { LinkEmbed, LinkEmbedSkeleton } from "./LinkEmbed";
-import { MediaGrid, MediaGridSkeleton } from "./MediaGrid";
+import { MediaGrid, MediaGridSkeleton, type MediaItem } from "./MediaGrid";
 import { fixtureImage, fixtureImages } from "./story-fixtures";
 
 const meta = {
@@ -963,6 +963,66 @@ export const MediaErrorDesktop: Story = {
 		await expectFocusRingVisible(
 			within(tile).getByRole("button", { name: "Try again" }),
 		);
+	},
+};
+
+const REBUILD_PHOTO = fixtureImage(5, 1600, 1000);
+const REBUILD_POSTER = fixtureImage(6, 1600, 1000).src;
+
+const rebuiltItems = (videoSrc: string): MediaItem[] => [
+	{ ...REBUILD_PHOTO },
+	{
+		src: videoSrc,
+		kind: "video",
+		mimeType: "video/webm",
+		poster: REBUILD_POSTER,
+		spoiler: true,
+		width: 1600,
+		height: 1000,
+		name: "clip.webm",
+	},
+];
+
+export const MediaKeepsTilesOnRebuild: Story = {
+	parameters: mobile,
+	render: () => {
+		const [items, setItems] = createSignal(rebuiltItems("clip-a.webm"));
+		return (
+			<Screen>
+				<button
+					type="button"
+					onClick={() => setItems(rebuiltItems("clip-b.webm"))}
+				>
+					Refresh links
+				</button>
+				<Message
+					text="A photo and a spoilered clip"
+					attachments={<MediaGrid items={items()} />}
+				/>
+			</Screen>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const images = () =>
+			Array.from(canvasElement.querySelectorAll("[data-media-tile] img"));
+		const allLoaded = () => {
+			const found = images();
+			expect(found).toHaveLength(2);
+			for (const image of found)
+				expect(image.className).toContain("opacity-100");
+			expect(canvasElement.querySelector("[data-skeleton]")).toBeNull();
+		};
+		await waitFor(allLoaded, { timeout: 3000 });
+		const before = images();
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Refresh links" }),
+		);
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		allLoaded();
+		await expect(images()).toEqual(before);
+		await expect(images()[0]).toBe(before[0]);
+		await expect(images()[1]).toBe(before[1]);
 	},
 };
 

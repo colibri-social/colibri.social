@@ -148,7 +148,6 @@ export const adminEmojiPack = defineContract({
 		)),
 		Overlays: slot((m) => (
 			<>
-				<m.options.Overlay />
 				<ConfirmDialog
 					open={m.deleteOpen()}
 					onOpenChange={m.setDeleteOpen}

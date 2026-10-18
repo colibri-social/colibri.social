@@ -3,7 +3,10 @@ import {
 	type RoleBadgeValue,
 	type RoleIdentity,
 } from "@colibri-social/ui";
+import { isDefaultRole } from "./role-flags";
 import type { MemberView, RoleView } from "./types";
+
+export { isDefaultRole };
 
 const ICON_BADGE = "social.colibri.beta.community.defs#roleIconBadge";
 const IMAGE_BADGE = "social.colibri.beta.community.defs#roleImageBadgeView";
@@ -32,8 +35,11 @@ export const roleIdentity = (role: RoleView): RoleIdentity => ({
 
 export const isVisibleRole = (role: RoleView) => !role.protected;
 
+export const isChipRole = (role: RoleView) =>
+	isVisibleRole(role) && !isDefaultRole(role);
+
 export const visibleRoles = (roles: readonly RoleView[]) =>
-	roles.filter(isVisibleRole);
+	roles.filter(isChipRole);
 
 export const rolesOf = (
 	member: MemberView | undefined,
@@ -41,11 +47,11 @@ export const rolesOf = (
 ) =>
 	(member?.roles ?? [])
 		.map((rkey) => roleByKey(rkey))
-		.filter((role): role is RoleView => !!role && isVisibleRole(role))
+		.filter((role): role is RoleView => !!role && isChipRole(role))
 		.sort((a, b) => b.position - a.position);
 
 export const topColoredRole = (roles: readonly RoleView[]) =>
-	roles.find((role) => isVisibleRole(role) && !!role.color);
+	roles.find((role) => isChipRole(role) && !!role.color);
 
 export const topHoistedRole = (roles: readonly RoleView[]) =>
-	roles.find((role) => isVisibleRole(role) && role.hoisted);
+	roles.find((role) => isChipRole(role) && role.hoisted);

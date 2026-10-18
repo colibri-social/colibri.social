@@ -1,3 +1,4 @@
+import { classifyThrown, createLogger } from "@colibri-social/lib";
 import {
 	AttachmentTray,
 	type PendingAttachment,
@@ -31,14 +32,77 @@ export type AttachmentDraftOptions = {
 	maxBytes?: number;
 	notify?: (message: string) => void;
 	thumbnail?: (file: File) => Promise<string | undefined>;
+	reencode?: (file: File) => Promise<File>;
 };
 
+export const SERVABLE_IMAGE_TYPES: ReadonlySet<string> = new Set([
+	"image/jpeg",
+	"image/png",
+	"image/gif",
+	"image/webp",
+	"image/avif",
+]);
+
+const log = createLogger("attachment-draft");
+
 const IMAGE_PREVIEW = /^image\//;
+const JPEG_QUALITY = 0.9;
+
+export const needsReencode = (file: File) =>
+	IMAGE_PREVIEW.test(file.type) && !SERVABLE_IMAGE_TYPES.has(file.type);
 
 export const tooManyMessage = (max: number) =>
 	`You can attach up to ${max} files per message.`;
 export const tooLargeMessage = (name: string) =>
 	`"${name}" is too large to attach.`;
+export const attachedAsFileMessage = (name: string) =>
+	`"${name}" couldn't be turned into a picture, so it will be sent as a file.`;
+
+const jpegName = (name: string) => {
+	const dot = name.lastIndexOf(".");
+	return `${dot > 0 ? name.slice(0, dot) : name}.jpg`;
+};
+
+const decodeImage = async (file: File) => {
+	const source = URL.createObjectURL(file);
+	try {
+		const image = new Image();
+		image.src = source;
+		await image.decode();
+		return image;
+	} finally {
+		URL.revokeObjectURL(source);
+	}
+};
+
+export const reencodeAsJpeg = async (file: File): Promise<File> => {
+	const image = await decodeImage(file);
+	const width = image.naturalWidth;
+	const height = image.naturalHeight;
+	if (!width || !height) throw new Error("image has no size");
+	const canvas = document.createElement("canvas");
+	canvas.width = width;
+	canvas.height = height;
+	const context = canvas.getContext("2d");
+	if (!context) throw new Error("canvas is unavailable");
+	context.fillStyle = "#ffffff";
+	context.fillRect(0, 0, width, height);
+	context.drawImage(image, 0, 0);
+	const blob = await new Promise<Blob | null>((resolve) =>
+		canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY),
+	);
+	if (!blob) throw new Error("image could not be encoded");
+	return new File([blob], jpegName(file.name), {
+		type: "image/jpeg",
+		lastModified: file.lastModified,
+	});
+};
+
+const asPlainFile = (file: File) =>
+	new File([file], file.name, {
+		type: "application/octet-stream",
+		lastModified: file.lastModified,
+	});
 
 export const videoThumbnail = (file: File) =>
 	new Promise<string | undefined>((resolve) => {
@@ -71,6 +135,7 @@ export const videoThumbnail = (file: File) =>
 
 const spoileredFiles = new WeakSet<File>();
 const describedFiles = new WeakMap<File, string>();
+const preparedFiles = new WeakMap<File, File>();
 
 let counter = 0;
 const nextId = () => `draft-${Date.now().toString(36)}-${counter++}`;
@@ -84,11 +149,29 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 	const maxBytes = options.maxBytes ?? MAX_ATTACHMENT_BYTES;
 	const notify = options.notify ?? ((message: string) => toast.error(message));
 	const thumbnail = options.thumbnail ?? videoThumbnail;
+	const reencode = options.reencode ?? reencodeAsJpeg;
 	const [items, setItems] = createSignal<readonly DraftItem[]>([]);
+	let disposed = false;
 
-	const addFiles = (files: Iterable<File>) => {
-		const incoming = [...files];
-		if (incoming.length === 0) return;
+	const prepare = async (file: File): Promise<File> => {
+		const known = preparedFiles.get(file);
+		if (known) return known;
+		let prepared: File;
+		try {
+			prepared = await reencode(file);
+		} catch (error) {
+			log.warn("image re-encode failed", {
+				code: classifyThrown(error).code,
+				type: file.type,
+			});
+			notify(attachedAsFileMessage(file.name));
+			prepared = asPlainFile(file);
+		}
+		preparedFiles.set(file, prepared);
+		return prepared;
+	};
+
+	const accept = (incoming: File[]) => {
 		const room = max - items().length;
 		if (incoming.length > room) notify(tooManyMessage(max));
 		const accepted: DraftItem[] = [];
@@ -124,6 +207,20 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 				);
 			});
 		}
+	};
+
+	const addFiles = (files: Iterable<File>) => {
+		const incoming = [...files];
+		if (incoming.length === 0) return;
+		if (incoming.some(needsReencode)) {
+			void Promise.all(
+				incoming.map((file) => (needsReencode(file) ? prepare(file) : file)),
+			).then((prepared) => {
+				if (!disposed) accept(prepared);
+			});
+			return;
+		}
+		accept(incoming);
 	};
 
 	const remove = (id: string) => {
@@ -195,7 +292,10 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 		input.click();
 	};
 
-	onCleanup(() => clear());
+	onCleanup(() => {
+		disposed = true;
+		clear();
+	});
 
 	const [trayItems, setTrayItems] = createStore<PendingAttachment[]>([]);
 	createRenderEffect(() =>

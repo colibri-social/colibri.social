@@ -43,10 +43,10 @@ import {
 	appendedCount,
 	buildMessageEntries,
 	classifyChange,
+	createEntryCell,
 	describeArrivals,
 	type ListChange,
 	type MessageListEntry,
-	sameEntry,
 } from "./message-list-model";
 
 export const PIN_THRESHOLD_PX = 80;
@@ -120,8 +120,7 @@ export type MessageListProps<T extends GroupableMessage> = {
 type Row<T extends GroupableMessage> = {
 	key: string;
 	entry: Accessor<MessageListEntry<T>>;
-	current: MessageListEntry<T>;
-	set: (entry: MessageListEntry<T>) => void;
+	write: (entry: MessageListEntry<T>) => void;
 };
 
 type Model<T extends GroupableMessage> = {
@@ -269,18 +268,14 @@ export const MessageList = <T extends GroupableMessage>(
 		const rows = entries.map((entry) => {
 			const existing = rowsByKey.get(entry.key);
 			if (existing) {
-				if (!sameEntry(existing.current, entry)) {
-					existing.current = entry;
-					existing.set(entry);
-				}
+				existing.write(entry);
 				return existing;
 			}
-			const [read, write] = createSignal(entry, { equals: sameEntry });
+			const cell = createEntryCell(entry);
 			const row: Row<T> = {
 				key: entry.key,
-				entry: read,
-				current: entry,
-				set: write,
+				entry: () => cell.entry,
+				write: cell.write,
 			};
 			rowsByKey.set(entry.key, row);
 			return row;

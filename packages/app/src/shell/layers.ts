@@ -124,6 +124,17 @@ export const isChannelLayer = (
 	layer: Layer | undefined,
 ): layer is ChannelLayer => !!layer && CHANNEL_KINDS.includes(layer.kind);
 
+const OVERLAY_KINDS: readonly Layer["kind"][] = [
+	"createSpace",
+	"discover",
+	"join",
+	"pack",
+	"notFound",
+];
+
+export const isOverlayLayer = (layer: Layer | undefined) =>
+	!!layer && OVERLAY_KINDS.includes(layer.kind);
+
 export const isSheetLayer = (layer: Layer | undefined) =>
 	layer?.kind === "admin" && layer.page === "overview";
 
@@ -213,6 +224,11 @@ const packRoute = (did: string | undefined, rkey: string | undefined) =>
 				layers: [{ kind: "pack" as const, did, rkey }],
 			}
 		: undefined;
+
+export const routeRoot = (route: Route): Root | undefined =>
+	route.layers.length > 0 && route.layers.every(isOverlayLayer)
+		? undefined
+		: route.root;
 
 export const pathAt = (route: Route, depth: number) => {
 	const layer = route.layers[depth - 1];

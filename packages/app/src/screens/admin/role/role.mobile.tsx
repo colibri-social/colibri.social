@@ -21,6 +21,7 @@ export default adminRole.view({
 					<Show when={m.ready()}>
 						<div class="flex min-h-full flex-col gap-4 p-4 pb-safe-offset-6">
 							<s.Locked />
+							<s.Default />
 							<s.Name />
 							<s.Color />
 							<s.Display />

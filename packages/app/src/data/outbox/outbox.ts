@@ -25,6 +25,7 @@ export const OUTBOX_MAX_ATTEMPTS = 8;
 export const OUTBOX_RETRY_BASE_MS = 2_000;
 export const OUTBOX_RETRY_MAX_MS = 60_000;
 export const OUTBOX_MAX_QUEUED_BYTES = 256 * 1024 * 1024;
+export const OUTBOX_BLOB_REF_TTL_MS = 10 * 60 * 1000;
 const UPLOAD_CONCURRENCY = 3;
 
 type SendOp = Extract<OutboxOp, { t: "send" }>;
@@ -79,6 +80,13 @@ const bytesOf = (op: OutboxOp) =>
 	op.t === "send"
 		? op.files.reduce((total, file) => total + file.file.size, 0)
 		: 0;
+
+const withoutUploads = (files: readonly QueuedFile[]): QueuedFile[] =>
+	files.map(({ file, spoiler, alt }) => ({
+		file,
+		...(spoiler ? { spoiler: true } : {}),
+		...(alt ? { alt } : {}),
+	}));
 
 const withAttachment = (
 	file: QueuedFile,
@@ -228,14 +236,21 @@ export const createOutbox = (options: OutboxOptions) => {
 		const files = current.op.files.slice();
 		const file = files[index];
 		if (!file) return;
-		files[index] = { ...file, attachment };
+		files[index] = { ...file, attachment, uploadedAt: now() };
 		replace({ ...current, op: { ...current.op, files } }, false);
 	};
 
+	const freshAttachment = (file: QueuedFile) =>
+		file.attachment &&
+		file.uploadedAt !== undefined &&
+		now() - file.uploadedAt <= OUTBOX_BLOB_REF_TTL_MS
+			? file.attachment
+			: undefined;
+
 	const uploadFiles = async (entry: OutboxEntry, op: SendOp) => {
-		const results = op.files.map((file) => file.attachment);
-		const todo = op.files.flatMap((file, index) =>
-			file.attachment ? [] : [index],
+		const results = op.files.map(freshAttachment);
+		const todo = results.flatMap((attachment, index) =>
+			attachment ? [] : [index],
 		);
 		let failure: unknown;
 		let next = 0;
@@ -498,7 +513,15 @@ export const createOutbox = (options: OutboxOptions) => {
 	const retry = (seq: number) => {
 		const entry = find(seq);
 		if (!entry?.failed) return;
-		const next = { ...entry, failed: false, attempts: 0 };
+		const next: OutboxEntry =
+			entry.op.t === "send"
+				? {
+						...entry,
+						op: { ...entry.op, files: withoutUploads(entry.op.files) },
+						failed: false,
+						attempts: 0,
+					}
+				: { ...entry, failed: false, attempts: 0 };
 		if (overCap(next)) {
 			fail(
 				entry,

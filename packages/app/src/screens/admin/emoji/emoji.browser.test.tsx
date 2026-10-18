@@ -200,14 +200,33 @@ describe("Space emoji", () => {
 		await pressButton(list, "Edit Morning crew");
 		await until(() => activeScreen(root).textContent?.includes("Delete Pack"));
 		const edit = activeScreen(root);
-		await until(() => rowNames(edit).length === 2);
-		await pressButton(edit, "More actions for :bug:");
-		await until(() => !!dialogNamed(":bug: options"));
-		await pressButton(
-			dialogNamed(":bug: options") as HTMLElement,
-			"Remove from pack",
+		await until(() => !!groupNamed(edit, "Morning crew"));
+		const members = groupNamed(edit, "Morning crew") as HTMLElement;
+		expect(rowNames(members)).toEqual(["coffee", "bug"]);
+		const checkbox = (scope: ParentNode, name: string) =>
+			scope.querySelector<HTMLInputElement>(
+				`input[type="checkbox"][aria-label="Include :${name}:"]`,
+			) as HTMLInputElement;
+		expect(checkbox(members, "bug").checked).toBe(true);
+		checkbox(members, "bug").click();
+		const ungrouped = groupNamed(edit, "Ungrouped") as HTMLElement;
+		const extra = rowNames(ungrouped)[0] as string;
+		checkbox(ungrouped, extra).click();
+		await until(
+			() =>
+				edit.querySelector("[data-unsaved-changes-bar][data-visible]") !== null,
 		);
-		await until(() => rowNames(activeScreen(root)).join() === "coffee");
+		await pressButton(
+			edit.querySelector("[data-unsaved-changes-bar]") as HTMLElement,
+			"Save",
+		);
+		await until(
+			() =>
+				rowNames(
+					groupNamed(activeScreen(root), "Morning crew") as HTMLElement,
+				).join() === `coffee,${extra}`,
+			6000,
+		);
 
 		await pressButton(activeScreen(root), "Delete Pack");
 		await until(() => !!dialogNamed("Delete Morning crew?"));

@@ -403,6 +403,23 @@ describe("createLiveConnection", () => {
 		live.close();
 	});
 
+	it("starts a new continuity epoch on every subscription and has none while down", async () => {
+		const live = start();
+		expect(live.epoch()).toBeUndefined();
+		await flush();
+		latest().open();
+		const first = live.epoch();
+		expect(first).toBeDefined();
+		latest().drop();
+		expect(live.epoch()).toBeUndefined();
+		await vi.advanceTimersByTimeAsync(1_000);
+		latest().open();
+		expect(live.epoch()).toBeDefined();
+		expect(live.epoch()).not.toBe(first);
+		live.close();
+		expect(live.epoch()).toBeUndefined();
+	});
+
 	it("goes quiet after close", async () => {
 		const live = start();
 		await flush();

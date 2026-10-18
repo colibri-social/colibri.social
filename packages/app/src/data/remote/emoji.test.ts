@@ -328,6 +328,64 @@ describe("the viewer's emoji", () => {
 		expect(fake.callsTo("com.atproto.repo.uploadBlob")).toHaveLength(1);
 		expect(emoji.id).toBe(`at://${VIEWER}/${ITEM}/mine`);
 	});
+
+	const ownPack: WirePack = {
+		uri: `at://${VIEWER}/${PACK}/3pack`,
+		provider: "blue.moji",
+		owner: VIEWER,
+		name: "Mine",
+		emojis: [],
+		createdAt: "2026-10-18T00:00:00.000Z",
+	};
+
+	it("adds a personal upload to the pack it was uploaded into", async () => {
+		const { fake, source, events } = await setup((fake) => {
+			catalogFor(fake, { [VIEWER]: wireCatalog(VIEWER, [], [ownPack]) });
+			pdsWrites(fake);
+		});
+		const file = new File([new Uint8Array([1])], "mine.png", {
+			type: "image/png",
+		});
+
+		const emoji = await source.uploadEmoji({
+			community: VIEWER,
+			name: "mine",
+			file,
+			pack: ownPack.uri,
+		});
+
+		const records = fake
+			.callsTo("com.atproto.repo.putRecord")
+			.map((call) => (call.body as { record: Record<string, unknown> }).record);
+		expect(records).toContainEqual(
+			expect.objectContaining({ subject: emoji.id, pack: ownPack.uri }),
+		);
+		const published = events.findLast((event) => event.$type === "emojiEvent");
+		expect(
+			published?.$type === "emojiEvent" &&
+				published.catalog.packs.find((pack) => pack.id === ownPack.uri)?.emojis,
+		).toEqual([emoji.id]);
+	});
+
+	it("refuses a personal upload into a pack that doesn't exist", async () => {
+		const { fake, source } = await setup((fake) => {
+			catalogFor(fake, {});
+			pdsWrites(fake);
+		});
+		const file = new File([new Uint8Array([1])], "mine.png", {
+			type: "image/png",
+		});
+
+		await expect(
+			source.uploadEmoji({
+				community: VIEWER,
+				name: "mine",
+				file,
+				pack: ownPack.uri,
+			}),
+		).rejects.toMatchObject({ code: "PackNotFound" });
+		expect(fake.callsTo("com.atproto.repo.uploadBlob")).toEqual([]);
+	});
 });
 
 describe("scopes", () => {

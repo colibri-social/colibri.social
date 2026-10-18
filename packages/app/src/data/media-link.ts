@@ -7,6 +7,7 @@ import type { MessageView } from "./types";
 const log = createLogger("media-link");
 
 export const MEDIA_REFRESH_PAGE_SIZE = 20;
+export const MEDIA_REFRESH_TIMEOUT_MS = 15_000;
 
 const SIGNATURE_PARAMS = ["exp", "sig"];
 
@@ -49,9 +50,21 @@ export type MediaLinkRefresher = {
 	retry: (url: string) => void;
 };
 
+const withTimeout = <T>(work: Promise<T>, ms: number) => {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const expired = new Promise<never>((_, reject) => {
+		timer = setTimeout(
+			() => reject(new DOMException("Media refresh timed out", "TimeoutError")),
+			ms,
+		);
+	});
+	return Promise.race([work, expired]).finally(() => clearTimeout(timer));
+};
+
 export const createMediaLinkRefresher = (options: {
 	feed: () => MediaLinkFeed | undefined;
 	listMessages: (params: ListMessagesParams) => Promise<MessagePage>;
+	timeoutMs?: number;
 }): MediaLinkRefresher => {
 	const tried = new Set<string>();
 	const inflight = new Map<string, Promise<void>>();
@@ -60,12 +73,17 @@ export const createMediaLinkRefresher = (options: {
 		const key = `${feed.channel} ${rkey}`;
 		const running = inflight.get(key);
 		if (running) return running;
-		const work = options
-			.listMessages({
+		const request = Promise.resolve().then(() =>
+			options.listMessages({
 				channel: feed.channel,
 				around: rkey,
 				limit: MEDIA_REFRESH_PAGE_SIZE,
-			})
+			}),
+		);
+		const work = withTimeout(
+			request,
+			options.timeoutMs ?? MEDIA_REFRESH_TIMEOUT_MS,
+		)
 			.then((page) => {
 				const held = new Set(untrack(feed.messages).map((entry) => entry.rkey));
 				const fresh = page.items.filter((entry) => held.has(entry.rkey));
@@ -76,7 +94,9 @@ export const createMediaLinkRefresher = (options: {
 					code: classifyThrown(error, { method: "channel.listMessages" }).code,
 				});
 			})
-			.finally(() => inflight.delete(key));
+			.finally(() => {
+				if (inflight.get(key) === work) inflight.delete(key);
+			});
 		inflight.set(key, work);
 		return work;
 	};

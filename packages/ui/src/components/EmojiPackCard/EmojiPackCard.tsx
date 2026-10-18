@@ -257,11 +257,24 @@ const PackLink = (props: {
 	</a>
 );
 
-const FAN = [
-	{ rotate: -12, x: -44, y: 6, size: 52 },
-	{ rotate: 0, x: 0, y: -2, size: 64 },
-	{ rotate: 12, x: 44, y: 6, size: 52 },
-];
+const FAN_LIMIT = 3;
+const FAN_STEP = { x: 44, rotate: 12 };
+const FAN_CENTER = { y: -2, size: 64 };
+const FAN_SIDE = { y: 6, size: 52 };
+
+export const fanSlots = (count: number) => {
+	const shown = Math.max(0, Math.min(FAN_LIMIT, Math.floor(count)));
+	const middle = (shown - 1) / 2;
+	return Array.from({ length: shown }, (_, index) => {
+		const offset = index - middle;
+		const tier = offset === 0 ? FAN_CENTER : FAN_SIDE;
+		return {
+			x: offset * FAN_STEP.x,
+			rotate: offset * FAN_STEP.rotate,
+			...tier,
+		};
+	});
+};
 
 type BannerCardProps = EmojiPackCardProps & {
 	follow: FollowState;
@@ -269,10 +282,13 @@ type BannerCardProps = EmojiPackCardProps & {
 };
 
 const BannerCard = (props: BannerCardProps) => {
-	const fan = () =>
-		props.pack.emojis
-			.slice(0, 3)
-			.map((emoji, index) => ({ emoji, ...(FAN[index] ?? FAN[1]) }));
+	const fan = () => {
+		const slots = fanSlots(props.pack.emojis.length);
+		return slots.map((slot, index) => ({
+			emoji: props.pack.emojis[index],
+			...slot,
+		}));
+	};
 	return (
 		<article
 			aria-label={`Emoji pack ${props.pack.name}`}
@@ -290,6 +306,7 @@ const BannerCard = (props: BannerCardProps) => {
 							src={item.emoji.src}
 							alt=""
 							draggable={false}
+							data-fan-slot=""
 							class="absolute top-1/2 left-1/2 object-contain drop-shadow-[0_4px_12px_rgb(0_0_0/0.4)]"
 							style={{
 								width: `${item.size}px`,

@@ -25,7 +25,6 @@ import {
 	DEFAULT_EMOJI_PROVIDER,
 	EMOJI_PERMISSION,
 	EmojiError,
-	type EmojiPackView,
 	type EmojiView,
 	emojiRegistry,
 } from "../../../data/emoji";
@@ -246,8 +245,6 @@ export const createEmojiUploader = (
 export const createEmojiOptions = (
 	admin: EmojiOwner,
 	options: {
-		pack?: () => EmojiPackView | undefined;
-		onRemoveFromPack?: (emoji: EmojiView) => Promise<void>;
 		deleteDescription?: string;
 	} = {},
 ) => {
@@ -305,19 +302,8 @@ export const createEmojiOptions = (
 						onOpenChange={setOpen}
 						name={emoji().name}
 						src={emoji().image}
-						packName={options.pack?.()?.name}
 						takenNames={admin.takenNames()}
 						onRename={rename}
-						onRemoveFromPack={
-							options.onRemoveFromPack
-								? () => {
-										const removed = emoji();
-										whenEditorClosed(
-											() => void options.onRemoveFromPack?.(removed),
-										);
-									}
-								: undefined
-						}
 						onDelete={() => {
 							const doomed = emoji();
 							whenEditorClosed(() => setConfirming(doomed));

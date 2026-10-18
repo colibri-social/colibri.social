@@ -179,7 +179,9 @@
 
 	input,
 	textarea,
-	[contenteditable]:not([contenteditable="false"]) {
+	[contenteditable]:not([contenteditable="false"]),
+	[contenteditable]:not([contenteditable="false"])
+		:where(:not([contenteditable="false"], [contenteditable="false"] *)) {
 		-webkit-user-select: text;
 		user-select: text;
 	}

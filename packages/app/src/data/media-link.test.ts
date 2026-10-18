@@ -146,4 +146,30 @@ describe("createMediaLinkRefresher", () => {
 		});
 		await expect(none.refresh(link)).resolves.toBe(false);
 	});
+
+	it("settles a stalled request after the timeout and allows a new one", async () => {
+		vi.useFakeTimers();
+		try {
+			const link = signed("one", 100);
+			const fresh = signed("one", 200);
+			const { feed } = feedOf([message("a", [link])]);
+			const listMessages = vi
+				.fn<() => Promise<MessagePage>>()
+				.mockImplementationOnce(() => new Promise(() => {}))
+				.mockImplementation(async () => page([message("a", [fresh])]));
+			const links = createMediaLinkRefresher({
+				feed: () => feed,
+				listMessages,
+				timeoutMs: 1000,
+			});
+			const stalled = links.refresh(link);
+			await vi.advanceTimersByTimeAsync(1000);
+			await expect(stalled).resolves.toBe(false);
+			links.retry(link);
+			await expect(links.refresh(link)).resolves.toBe(true);
+			expect(listMessages).toHaveBeenCalledTimes(2);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 });

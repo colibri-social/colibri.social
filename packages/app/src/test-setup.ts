@@ -1,4 +1,4 @@
-import { clearToasts } from "@colibri-social/ui";
+import { clearToasts, setAppActive } from "@colibri-social/ui";
 import { beforeEach } from "vitest";
 import { clearAttachmentDrafts } from "./data/persist-drafts";
 
@@ -9,4 +9,5 @@ beforeEach(() => {
 	} catch {}
 	clearAttachmentDrafts();
 	clearToasts();
+	setAppActive(true);
 });

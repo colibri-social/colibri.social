@@ -1,6 +1,8 @@
-import { createSignal, Show } from "solid-js";
+import { createMemo, createSignal, Show } from "solid-js";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { MediaGrid, type MediaItem } from "../Attachments/MediaGrid";
+import { fixtureImage } from "../Attachments/story-fixtures";
 import { Button } from "../Button/Button";
 import { MessageList, type MessageListHandle } from "./MessageList";
 import { MessageRow } from "./MessageRow";
@@ -724,6 +726,117 @@ export const Dividers: Story = {
 			"[data-message-key='e']",
 		) as HTMLElement;
 		await expect(previous).toHaveAttribute("data-continuation");
+	},
+};
+
+type StableRowMessage = {
+	id: string;
+	author: string;
+	name: string;
+	text: string;
+	timestamp: Date;
+	image?: MediaItem;
+};
+
+const STABLE_ROW_IMAGE = fixtureImage(0, 1600, 1000);
+
+const stableRowMessage = (
+	id: string,
+	minute: number,
+	text: string,
+	image?: MediaItem,
+): StableRowMessage => ({
+	id,
+	author: "did:plc:lou",
+	name: "Lou",
+	text,
+	timestamp: new Date(2026, 9, 7, 11, minute),
+	image,
+});
+
+const stableRowRebuilds = new Map<string, number>();
+
+export const AppendKeepsRowContent: Story = {
+	render: () => {
+		const [messages, setMessages] = createSignal<StableRowMessage[]>([
+			stableRowMessage("s1", 0, "Morning, the herons are back."),
+			stableRowMessage("s2", 1, "Here they are.", STABLE_ROW_IMAGE),
+		]);
+		stableRowRebuilds.clear();
+		return (
+			<div class="flex h-dvh flex-col bg-background text-foreground">
+				<Button
+					variant="secondary"
+					onClick={() =>
+						setMessages((list) => [
+							...list,
+							stableRowMessage(
+								`s${list.length + 1}`,
+								list.length,
+								"Two of them this time.",
+							),
+						])
+					}
+				>
+					Send message
+				</Button>
+				<MessageList
+					label="Messages in general"
+					messages={messages()}
+					getKey={(message) => message.id}
+					now={DIVIDER_NOW}
+					locale="en-GB"
+				>
+					{(entry) => {
+						const message = () => entry().message;
+						const media = createMemo(() => {
+							const value = message();
+							stableRowRebuilds.set(
+								value.id,
+								(stableRowRebuilds.get(value.id) ?? 0) + 1,
+							);
+							return value.image ? [value.image] : [];
+						});
+						return (
+							<MessageRow
+								author={{ name: message().name }}
+								timestamp={message().timestamp}
+								now={DIVIDER_NOW}
+								locale="en-GB"
+								continuation={entry().continuation}
+								attachments={
+									media().length > 0 ? <MediaGrid items={media()} /> : undefined
+								}
+							>
+								{message().text}
+							</MessageRow>
+						);
+					}}
+				</MessageList>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await settled(canvasElement);
+		const imageRow = () =>
+			canvasElement.querySelector("[data-message-key='s2']") as HTMLElement;
+		await waitFor(() =>
+			expect(imageRow().querySelector("img")?.className).toContain(
+				"opacity-100",
+			),
+		);
+		const image = imageRow().querySelector("img");
+		await userEvent.click(canvas.getByRole("button", { name: "Send message" }));
+		await waitFor(() =>
+			expect(
+				canvasElement.querySelector("[data-message-key='s3']"),
+			).toHaveAttribute("data-continuation"),
+		);
+		await frames(2);
+		await expect(imageRow().querySelector("img")).toBe(image);
+		await expect(imageRow().querySelector("[data-skeleton]")).toBeNull();
+		await expect(stableRowRebuilds.get("s2")).toBe(1);
 	},
 };
 

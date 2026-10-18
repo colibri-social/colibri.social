@@ -1,6 +1,7 @@
 import { skeyOf } from "../../data/ids";
+import { isPingNotification } from "../../data/notification-alerts";
 import type { DataStore, SpaceData } from "../../data/store";
-import type { SpaceRef, ThreadView } from "../../data/types";
+import type { NotificationView, SpaceRef, ThreadView } from "../../data/types";
 
 export const SIDEBAR_THREAD_LIMIT = 5;
 export const SIDEBAR_ACTIVITY_WINDOW_MS = 6 * 60 * 60 * 1000;
@@ -34,6 +35,13 @@ export const capKeepingPinned = <T extends { thread: ThreadView }>(
 	return shown;
 };
 
+export const unseenThreadPings = (
+	notifications: readonly NotificationView[],
+): NotificationView[] =>
+	notifications.filter(
+		(entry) => !entry.seenAt && entry.thread && isPingNotification(entry),
+	);
+
 export const sidebarThreads = (data: DataStore, channel: SpaceRef) =>
 	(data.threadsOf(channel).value() ?? []).map(
 		(thread) => data.threads.find(thread.space) ?? thread,
@@ -52,9 +60,7 @@ export const sidebarThreadsFor = (
 	now: number,
 	pinnedThread?: string,
 ): SidebarThreadState[] => {
-	const unseen = data.notifications
-		.items()
-		.filter((entry) => !entry.seenAt && entry.thread);
+	const unseen = unseenThreadPings(data.notifications.items());
 	const listed = sidebarThreads(data, channel)
 		.map((thread) => {
 			const live = space?.unread(skeyOf(thread.space));

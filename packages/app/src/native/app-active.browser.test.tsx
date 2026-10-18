@@ -1,5 +1,5 @@
-import { appActive } from "@colibri-social/ui";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { appActive, setAppActive } from "@colibri-social/ui";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installAppActivity, installMobileActivity } from "./app-active";
 
 const fakeWindow = (focused: boolean) => {
@@ -21,6 +21,10 @@ const fakeWindow = (focused: boolean) => {
 
 describe("installAppActivity", () => {
 	let uninstall: (() => void) | undefined;
+
+	beforeEach(() => {
+		setAppActive(undefined);
+	});
 
 	afterEach(() => {
 		uninstall?.();

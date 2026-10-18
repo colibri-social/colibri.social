@@ -56,6 +56,10 @@
 					"description": "The role is marked protected and cannot be deleted."
 				},
 				{
+					"name": "RoleDefault",
+					"description": "Every member holds the role from the moment they join, so it cannot be deleted."
+				},
+				{
 					"name": "RoleHierarchy",
 					"description": "The role is at or above the caller's highest role position."
 				},

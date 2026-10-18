@@ -1,3 +1,4 @@
+import { batch, createSignal } from "solid-js";
 import {
 	type GroupableMessage,
 	type GroupedMessage,
@@ -36,18 +37,40 @@ export const buildMessageEntries = <T extends GroupableMessage>(
 	}));
 };
 
-export const sameEntry = <T extends GroupableMessage>(
-	a: MessageListEntry<T>,
-	b: MessageListEntry<T>,
-) =>
-	a.message === b.message &&
-	a.key === b.key &&
-	a.position === b.position &&
-	a.continuation === b.continuation &&
-	a.hasContinuation === b.hasContinuation &&
-	a.newDay === b.newDay &&
-	a.last === b.last &&
-	a.unreadStart === b.unreadStart;
+export type EntryCell<T extends GroupableMessage> = {
+	entry: MessageListEntry<T>;
+	write: (next: MessageListEntry<T>) => void;
+};
+
+export const createEntryCell = <T extends GroupableMessage>(
+	initial: MessageListEntry<T>,
+): EntryCell<T> => {
+	const entry = {} as MessageListEntry<T>;
+	const field = <K extends keyof MessageListEntry<T>>(name: K) => {
+		const [read, write] = createSignal(initial[name]);
+		Object.defineProperty(entry, name, { get: read, enumerable: true });
+		return (next: MessageListEntry<T>) => {
+			write(() => next[name]);
+		};
+	};
+	const writers = [
+		field("message"),
+		field("key"),
+		field("position"),
+		field("continuation"),
+		field("hasContinuation"),
+		field("newDay"),
+		field("last"),
+		field("unreadStart"),
+	];
+	return {
+		entry,
+		write: (next) =>
+			batch(() => {
+				for (const write of writers) write(next);
+			}),
+	};
+};
 
 export type ListChange = "none" | "append" | "prepend" | "reset" | "mixed";
 

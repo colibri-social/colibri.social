@@ -222,6 +222,22 @@ it("posts an OS notification with its Space and channel while hidden", async () 
 	expect(toasts()).toHaveLength(0);
 });
 
+it("alerts for the open channel while the window is blurred", async () => {
+	const { source, store, os, play, channel } = mount();
+	await until(() => !!store.communities.value());
+	store.setViewing(channel.space);
+	await wait(50);
+	setAppActive(false);
+	source.emit({
+		$type: "notificationEvent",
+		notification: notification(channel.space),
+	});
+	await until(() => os.shown.length === 1);
+	expect(play).toHaveBeenCalledWith("ping");
+	expect(toasts()).toHaveLength(0);
+	store.setViewing(undefined);
+});
+
 it("only pings while hidden when device notifications are off", async () => {
 	const { source, store, os, play, channel } = mount({ enabled: false });
 	await until(() => !!store.communities.value());
@@ -258,6 +274,31 @@ it("opens the conversation when a notification is clicked", async () => {
 	expect(stack.setRoot).toHaveBeenCalledWith({ tab: "spaces", space: HQ });
 	expect(stack.push).toHaveBeenCalledWith(
 		expect.objectContaining({ kind: "chat", space: HQ }),
+	);
+});
+
+it("marks a cold-launch activation read by channel and rkey before the inbox loads", async () => {
+	const { source, store, os, stack, channel } = mount();
+	const markRead = vi.spyOn(source, "markRead");
+	const seen = vi.spyOn(source, "updateSeenForMessage");
+	await until(() => !!store.communities.value());
+	await wait(50);
+	setLatency(400);
+	void store.notifications.reload();
+	expect(store.notifications.status()).toBe("loading");
+	const pending = notification(channel.space, { id: "cold-launch" });
+	os.activate({ channel: channel.space, rkey: pending.message?.rkey });
+	expect(markRead).toHaveBeenCalledWith(channel.space, pending.message?.rkey);
+	expect(stack.push).toHaveBeenCalledWith(
+		expect.objectContaining({ kind: "chat", space: HQ }),
+	);
+	source.emit({ $type: "notificationEvent", notification: pending });
+	await until(() => seen.mock.calls.length > 0);
+	expect(seen).toHaveBeenCalledWith(
+		expect.objectContaining({
+			channel: channel.space,
+			message: { did: "did:plc:hostauthor", rkey: pending.message?.rkey },
+		}),
 	);
 });
 

@@ -69,6 +69,7 @@ export type LiveConnectionOptions = {
 export type LiveConnection = {
 	subscribe: (listener: (event: LiveEvent) => void) => () => void;
 	status: Accessor<LiveStatus>;
+	epoch: Accessor<number | undefined>;
 	retryAt: Accessor<number | undefined>;
 	close: () => void;
 	retry: () => void;
@@ -142,6 +143,8 @@ export const createLiveConnection = (
 	const [retryAt, setRetryAt] = createSignal<number | undefined>();
 	const [granted, setGranted] = createSignal<SubscriptionSets>(NOTHING);
 	const [confirmed, setConfirmed] = createSignal(false);
+	const [epoch, setEpoch] = createSignal<number>();
+	let subscriptions = 0;
 	const ledger = createSubscriptionLedger();
 
 	let ws: LiveSocket | null = null;
@@ -219,6 +222,8 @@ export const createLiveConnection = (
 		flushQueued = false;
 		setConfirmed(false);
 		setGranted(NOTHING);
+		subscriptions += 1;
+		setEpoch(subscriptions);
 		const wanted = ledger.wanted();
 		if (wanted.communities.size === 0 && wanted.channels.size === 0) return;
 		sendFrame(
@@ -361,6 +366,7 @@ export const createLiveConnection = (
 			if (ws !== socket) return;
 			stopHeartbeat();
 			ws = null;
+			setEpoch(undefined);
 			if (closed) return;
 			connectStartedAt = null;
 			log.warn("live socket closed", { code: event.code });
@@ -395,6 +401,7 @@ export const createLiveConnection = (
 		attempt = 0;
 		const stale = ws;
 		ws = null;
+		setEpoch(undefined);
 		stale?.close();
 		if (hadConnectedOnce) setStatus("reconnecting");
 		void connect();
@@ -437,10 +444,12 @@ export const createLiveConnection = (
 			};
 		},
 		status,
+		epoch,
 		retryAt,
 		close: () => {
 			if (closed) return;
 			closed = true;
+			setEpoch(undefined);
 			unwatchEnvironment?.();
 			clearProbe();
 			clearReconnect();

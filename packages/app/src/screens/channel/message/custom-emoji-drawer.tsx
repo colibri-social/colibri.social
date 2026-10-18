@@ -4,7 +4,7 @@ import {
 	toast,
 } from "@colibri-social/ui";
 import { createMemo, createSignal, Show } from "solid-js";
-import { type EmojiCatalogView, repoOfUri } from "../../../data/emoji";
+import { repoOfUri } from "../../../data/emoji";
 import { emojiOwnerName, OWN_EMOJI_LABEL } from "../../../data/emoji-store";
 import type { DataStore } from "../../../data/store";
 import type { Did } from "../../../data/types";
@@ -20,13 +20,6 @@ export const createCustomEmojiDrawer = (options: {
 	const [anchor, setAnchor] = createSignal<HTMLElement>();
 	const platform = usePlatform();
 
-	const knownOwner = (did: Did) =>
-		did === data.viewer.did ||
-		(data.communities.value() ?? []).some((entry) => entry.did === did);
-
-	const catalogFor = (did: Did): EmojiCatalogView | undefined =>
-		knownOwner(did) ? data.emoji.catalog(did).value() : undefined;
-
 	const details = createMemo(() => {
 		const current = target();
 		if (!current?.id) return undefined;
@@ -34,7 +27,10 @@ export const createCustomEmojiDrawer = (options: {
 		const owner = repoOfUri(source);
 		const packFollow = data.emoji.packFollowOf(source);
 		const pack =
-			catalogFor(owner)?.packs.find((entry) => entry.emojis.includes(source)) ??
+			data.emoji
+				.ownerCatalog(source)
+				?.value()
+				?.packs.find((entry) => entry.emojis.includes(source)) ??
 			packFollow?.pack;
 		const direct = data.emoji.followOf(source);
 		const space = (data.communities.value() ?? []).find(
@@ -111,10 +107,7 @@ export const createCustomEmojiDrawer = (options: {
 			setTarget(emoji);
 			setOpen(true);
 			void data.emoji.library();
-			if (emoji.id) {
-				const owner = repoOfUri(emoji.id);
-				if (knownOwner(owner)) void data.emoji.catalog(owner);
-			}
+			if (emoji.id) void data.emoji.ownerCatalog(emoji.id);
 		},
 		Overlay,
 	};

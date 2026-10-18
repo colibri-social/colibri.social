@@ -499,3 +499,48 @@ export const UnmountsBeforeLoad: Story = {
 		}
 	},
 };
+
+const [cachedSecond, setCachedSecond] = createSignal<string>();
+const cachedLoads: string[] = [];
+const cachedAlternate =
+	"data:image/svg+xml;utf8," +
+	encodeURIComponent(
+		'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#2dd4bf"/></svg>',
+	);
+
+export const ReportsCachedLoads: Story = {
+	render: () => (
+		<div class="flex gap-4">
+			<AnimatedImage src={staticImage} alt="First" class="size-16" />
+			<AnimatedImage src={cachedAlternate} alt="Alternate" class="size-16" />
+			<Show when={cachedSecond()}>
+				{(src) => (
+					<AnimatedImage
+						src={src()}
+						alt="Second"
+						class="size-16"
+						onLoad={(event) => cachedLoads.push(event.currentTarget.alt)}
+					/>
+				)}
+			</Show>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		cachedLoads.length = 0;
+		setCachedSecond(undefined);
+		const canvas = within(canvasElement);
+		await waitFor(() => {
+			for (const name of ["First", "Alternate"]) {
+				const image = canvas.getByRole("img", { name }) as HTMLImageElement;
+				expect(image.complete && image.naturalWidth > 0).toBe(true);
+			}
+		});
+		setCachedSecond(staticImage);
+		await waitFor(() => expect(cachedLoads).toEqual(["Second"]));
+		setCachedSecond(cachedAlternate);
+		await waitFor(() => expect(cachedLoads).toEqual(["Second", "Second"]));
+		await new Promise((resolve) => setTimeout(resolve, 200));
+		await expect(cachedLoads).toEqual(["Second", "Second"]);
+		setCachedSecond(undefined);
+	},
+};

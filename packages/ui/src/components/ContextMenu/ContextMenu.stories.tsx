@@ -1181,3 +1181,56 @@ export const PressTargetCloses: Story = {
 		);
 	},
 };
+
+export const OneMenuAtATime: Story = {
+	name: "One menu at a time",
+	render: () => (
+		<div class="flex min-h-screen flex-col gap-4 bg-background p-8">
+			<MessageContextMenu onReply={fn()} onCopyText={fn()} onDelete={fn()}>
+				<div
+					data-testid="first-message"
+					class="rounded-control px-4 py-3 text-base hover:bg-card"
+				>
+					Right-click this message first.
+				</div>
+			</MessageContextMenu>
+			<ThreadContextMenu
+				name={LONG_THREAD_NAME}
+				following={false}
+				muted={false}
+				onMarkAsRead={() => {}}
+				onCopyLink={() => {}}
+			>
+				<button type="button" class="w-64 truncate text-left">
+					{LONG_THREAD_NAME}
+				</button>
+			</ThreadContextMenu>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const messageMenu = await openMenu(
+			canvas.getByTestId("first-message"),
+			"Message options",
+		);
+		await expectNoLayoutIssues(messageMenu);
+		const threadMenu = await openMenu(
+			canvas.getByRole("button", { name: LONG_THREAD_NAME }),
+			`${LONG_THREAD_NAME} options`,
+		);
+		await waitFor(() =>
+			expect(document.querySelectorAll('[role="menu"]')).toHaveLength(1),
+		);
+		await expect(document.querySelector('[role="menu"]')).toBe(threadMenu);
+		await expectNoLayoutIssues(threadMenu);
+		await closeWithEscape();
+		const reopened = await openMenu(
+			canvas.getByTestId("first-message"),
+			"Message options",
+		);
+		await waitFor(() =>
+			expect(document.querySelectorAll('[role="menu"]')).toHaveLength(1),
+		);
+		await expect(document.querySelector('[role="menu"]')).toBe(reopened);
+	},
+};

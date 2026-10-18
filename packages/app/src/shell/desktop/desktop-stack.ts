@@ -5,7 +5,7 @@ import {
 	createHistorySync,
 	type HistoryPort,
 } from "../history-sync";
-import { type Layer, type Root, sameLayer } from "../layers";
+import { type Layer, type Root, routeRoot, sameLayer } from "../layers";
 import { createLeaveGuard } from "../leave-guard";
 import type { Navigator, PopGuard } from "../stack";
 import {
@@ -85,7 +85,7 @@ export const createDesktopStack = (
 			const current = route();
 			const keep = baseLayers(current).slice(0, navigation.depth);
 			commit(
-				desktopRoute(navigation.route.root, [
+				desktopRoute(routeRoot(navigation.route) ?? current.root, [
 					...keep,
 					...navigation.route.layers,
 				]),

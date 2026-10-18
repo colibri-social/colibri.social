@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DISCOVERY_ENABLED } from "./features";
-import { parsePath, pathAt, type Route, rootPath } from "./layers";
+import { parsePath, pathAt, type Route, rootPath, routeRoot } from "./layers";
 
 const DID = "did:plc:hq";
 const TEXT = "social.colibri.beta.channel.text";
@@ -208,5 +208,31 @@ describe("paths", () => {
 		const route = parsePath(`/app/c/${DID}/${TEXT}/c%2Fd`);
 		expect(route.layers[0]).toMatchObject({ channel: "c/d" });
 		expect(pathAt(route, 1)).toBe(`/app/c/${DID}/${TEXT}/c%2Fd`);
+	});
+});
+
+describe("route roots", () => {
+	it("leaves the root out of overlay routes", () => {
+		expect(routeRoot(parsePath(`/app/emoji/${DID}/pack`))).toBeUndefined();
+		expect(routeRoot(parsePath("/app/invite/abc"))).toBeUndefined();
+		expect(routeRoot(parsePath("/app/new"))).toBeUndefined();
+		expect(routeRoot(parsePath("/app/nowhere/at/all"))).toBeUndefined();
+	});
+
+	it("keeps a cold-load root for overlay paths", () => {
+		expect(parsePath(`/app/emoji/${DID}/pack`).root).toEqual({
+			tab: "spaces",
+		});
+	});
+
+	it("keeps the root of every other route", () => {
+		expect(routeRoot(parsePath(`/app/c/${DID}`))).toEqual({
+			tab: "spaces",
+			space: DID,
+		});
+		expect(routeRoot(parsePath("/app/settings/support"))).toEqual({
+			tab: "settings",
+		});
+		expect(routeRoot(parsePath("/app"))).toEqual({ tab: "spaces" });
 	});
 });

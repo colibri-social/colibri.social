@@ -1,10 +1,14 @@
 import "../../app.css";
+import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, expect, it } from "vitest";
 import { expectNoLayoutIssues } from "../../../../ui/src/foundations/layout-test";
+import { skeyOf } from "../../data/ids";
 import { createMessageCache } from "../../data/message-cache";
 import { createMockSource, setLatency } from "../../data/mock/source";
+import type { DataSource } from "../../data/source";
 import { createDataStore, DataContext } from "../../data/store";
+import type { SpaceRef } from "../../data/types";
 import { Providers } from "../../providers";
 import { MobileShell } from "../../shell/MobileShell";
 
@@ -37,12 +41,32 @@ const buttonStarting = (root: HTMLElement, name: string) =>
 			.startsWith(name),
 	);
 
-const mount = async () => {
+const HQ = "did:plc:colibrihqspace2a4b6c8d";
+
+const mount = async (options: { live?: boolean } = {}) => {
 	setLatency(120, 200);
 	history.replaceState(null, "", "/");
-	const source = createMockSource({ live: false });
+	const base = createMockSource({ live: false });
+	const requested: string[] = [];
+	const refreshed: string[] = [];
+	const source: DataSource = {
+		...base,
+		listMessages: (params) => {
+			requested.push(params.channel);
+			if (!params.cursor) refreshed.push(params.channel);
+			return base.listMessages(params);
+		},
+	};
+	const general = base.world.spaces
+		.find((entry) => entry.did === HQ)
+		?.channels.find((entry) => skeyOf(entry.view.space) === "general")?.view
+		.space as SpaceRef | undefined;
+	if (!general) throw new Error("Seed changed");
+	if (options.live) await base.markRead(general);
+	const [epoch] = createSignal<number | undefined>(1);
 	const store = createDataStore(source, {
 		cache: createMessageCache({ namespace: "slide", kv: null }),
+		...(options.live ? { live: { epoch } } : {}),
 	});
 	host = document.createElement("div");
 	host.style.cssText = "position:fixed;inset:0;width:402px;height:874px";
@@ -103,6 +127,11 @@ const mount = async () => {
 		}).length;
 	};
 	return {
+		base,
+		store,
+		general,
+		requested,
+		refreshed,
 		root,
 		pane,
 		sliding,
@@ -149,4 +178,31 @@ it("still shows the skeleton for a channel with nothing cached", async () => {
 	expect(app.rows()).toBe(0);
 	await app.settled();
 	await until(() => app.rows() > 0);
+});
+
+it("paints a channel fed by the live tail before any request", async () => {
+	const app = await mount({ live: true });
+	await until(() => !!app.store.lastMessage(app.general));
+	await new Promise((resolve) => setTimeout(resolve, 600));
+	const author = app.base.world.spaces
+		.find((entry) => entry.did === HQ)
+		?.members.find((member) => member.actor.did !== app.base.world.viewerDid)
+		?.actor.did;
+	if (!author) throw new Error("Seed changed");
+	const arrived = app.base.simulateMessage({
+		author,
+		channel: app.general,
+		text: "Hot off the socket",
+	});
+	await app.openChannel("general");
+	await until(() => app.rows() > 0);
+	expect(app.requested.filter((ref) => ref === app.general)).toEqual([]);
+	await app.settled();
+	const shown = Array.from(
+		app.pane()?.querySelectorAll<HTMLElement>("article[data-message-key]") ??
+			[],
+	).map((row) => row.dataset.messageKey);
+	expect(shown).toContain(arrived.rkey);
+	await new Promise((resolve) => setTimeout(resolve, 400));
+	expect(app.refreshed.filter((ref) => ref === app.general)).toEqual([]);
 });

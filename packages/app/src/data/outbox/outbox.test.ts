@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AttachmentView, MessageView, SpaceRef } from "../types";
 import {
 	createOutbox,
+	OUTBOX_BLOB_REF_TTL_MS,
 	OUTBOX_MAX_QUEUED_BYTES,
 	type OutboxOptions,
 } from "./outbox";
@@ -278,6 +279,47 @@ describe("outbox", () => {
 			"upload:one.png",
 			"upload:two.png",
 			"upload:one.png",
+			"send:a:pair",
+		]);
+	});
+
+	it("uploads every file again when a failed send is retried by hand", async () => {
+		const { outbox, calls, source } = make();
+		const files = [
+			new File(["1"], "one.png", { type: "image/png" }),
+			new File(["2"], "two.png", { type: "image/png" }),
+		];
+		vi.mocked(source.sendMessage).mockRejectedValueOnce(
+			new ColibriError({ code: "InvalidRequest" }),
+		);
+		outbox.enqueue(send("a", "pair", files));
+		await settle();
+		const [parked] = outbox.entries();
+		expect(parked?.failed).toBe(true);
+		calls.length = 0;
+		outbox.retry(parked?.seq ?? 0);
+		await settle();
+		expect(calls).toEqual(["upload:one.png", "upload:two.png", "send:a:pair"]);
+	});
+
+	it("uploads a file again once its blob ref is older than ten minutes", async () => {
+		let clock = 1_000_000;
+		const { outbox, calls, failures } = make({ now: () => clock });
+		const files = [
+			new File(["1"], "one.png", { type: "image/png" }),
+			new File(["2"], "two.png", { type: "image/png" }),
+		];
+		failures.push(new ColibriError({ code: "UploadFailed" }));
+		outbox.enqueue(send("a", "pair", files));
+		await settle();
+		clock += OUTBOX_BLOB_REF_TTL_MS + 1;
+		await vi.advanceTimersByTimeAsync(2_000);
+		await settle();
+		expect(calls).toEqual([
+			"upload:one.png",
+			"upload:two.png",
+			"upload:one.png",
+			"upload:two.png",
 			"send:a:pair",
 		]);
 	});

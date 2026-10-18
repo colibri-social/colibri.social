@@ -11,6 +11,7 @@ export type QueuedFile = {
 	spoiler?: boolean;
 	alt?: string;
 	attachment?: AttachmentView;
+	uploadedAt?: number;
 };
 
 export type OutboxOp =

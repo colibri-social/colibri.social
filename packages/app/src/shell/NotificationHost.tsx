@@ -1,10 +1,15 @@
 import {
-	appActive,
 	MessageToast,
 	messageToastAnnouncement,
 	toast,
 } from "@colibri-social/ui";
-import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import {
+	createEffect,
+	createMemo,
+	createRoot,
+	createSignal,
+	onCleanup,
+} from "solid-js";
 import { useLiveStatus } from "../data/live-context";
 import {
 	notificationTarget,
@@ -18,7 +23,7 @@ import {
 import { isUnread, spaceNotificationPrefs } from "../data/notifications";
 import { useData } from "../data/store";
 import type { Did, NotificationView, SpaceRef } from "../data/types";
-import { documentVisible } from "../data/visibility";
+import { appVisible } from "../data/visibility";
 import {
 	type DeviceNotifications,
 	deviceNotifications,
@@ -42,8 +47,6 @@ import type { Navigator } from "./stack";
 
 export const MESSAGE_TOAST_ID = "message-notification";
 export const MESSAGE_TOAST_DURATION = 5000;
-
-const isAppVisible = () => documentVisible() && appActive();
 
 const communityOfRef = (ref: string) =>
 	ref.slice("at://".length, ref.indexOf("/space/"));
@@ -138,16 +141,41 @@ export const NotificationHost = (props: {
 		void push()?.dismiss(target);
 	};
 
+	const waiting = new Set<() => void>();
+	const markActivated = (activation: OsActivation) => {
+		const matches = (view: NotificationView) =>
+			view.channel === activation.channel &&
+			view.thread === activation.thread &&
+			(!activation.rkey || view.message?.rkey === activation.rkey);
+		const markMatch = () => {
+			const match = data.notifications.items().find(matches);
+			if (match) void data.notifications.markRead([match.id]).catch(() => {});
+			return !!match;
+		};
+		if (markMatch()) return;
+		if (activation.rkey) {
+			void data.source
+				.markRead(
+					(activation.thread ?? activation.channel) as SpaceRef,
+					activation.rkey,
+				)
+				.catch(() => {});
+		}
+		if (data.notifications.status() !== "loading") return;
+		createRoot((dispose) => {
+			const stop = () => {
+				waiting.delete(stop);
+				dispose();
+			};
+			waiting.add(stop);
+			createEffect(() => {
+				if (markMatch() || data.notifications.status() !== "loading") stop();
+			});
+		});
+	};
+
 	const activate = (activation: OsActivation) => {
-		const match = data.notifications
-			.items()
-			.find(
-				(view) =>
-					view.channel === activation.channel &&
-					view.thread === activation.thread &&
-					(!activation.rkey || view.message?.rkey === activation.rkey),
-			);
-		if (match) void data.notifications.markRead([match.id]).catch(() => {});
+		markActivated(activation);
 		openNotificationTarget(props.stack, data.jumps.request, {
 			community: communityOfRef(activation.channel) as Did,
 			channel: activation.channel as SpaceRef,
@@ -188,7 +216,7 @@ export const NotificationHost = (props: {
 			const view = event.notification;
 			if (handled.has(view.id)) return;
 			handled.add(view.id);
-			const visible = isAppVisible();
+			const visible = appVisible();
 			const alert = shouldAlertNotification(view, {
 				viewer: data.viewer.did,
 				viewing: data.viewing(),
@@ -216,12 +244,12 @@ export const NotificationHost = (props: {
 	);
 
 	createEffect(() => {
-		push()?.setLive(liveStatus?.status() === "open" && isAppVisible());
+		push()?.setLive(liveStatus?.status() === "open" && appVisible());
 	});
 
 	createEffect(() => {
 		const viewing = data.viewing();
-		if (viewing && isAppVisible()) dismissOs(viewing);
+		if (viewing && appVisible()) dismissOs(viewing);
 	});
 
 	createEffect(() => {
@@ -233,6 +261,7 @@ export const NotificationHost = (props: {
 
 	onCleanup(() => {
 		disposed = true;
+		for (const stop of [...waiting]) stop();
 		stopActivation?.();
 		push()?.setLive(false);
 		toast.dismiss(MESSAGE_TOAST_ID);

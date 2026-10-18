@@ -14,12 +14,7 @@ import {
 	PackNameField,
 } from "../../admin/emoji-pack/pack-editor";
 import { useSettingsNav } from "../nav";
-import {
-	editingPack,
-	OWN_EMOJI_DELETE_DESCRIPTION,
-	ownEmoji,
-	setEditingPack,
-} from "./own-emoji";
+import { editingPack, ownEmoji, setEditingPack } from "./own-emoji";
 
 export default function EmojiPackPage(_props: { platform: Platform }) {
 	const data = useData();
@@ -32,7 +27,6 @@ export default function EmojiPackPage(_props: { platform: Platform }) {
 	};
 	const editor = createPackEditor(owner, {
 		packId: () => target,
-		deleteDescription: OWN_EMOJI_DELETE_DESCRIPTION,
 		onCreated: done,
 		onDeleted: done,
 	});
@@ -90,7 +84,6 @@ export default function EmojiPackPage(_props: { platform: Platform }) {
 					</Button>
 				</Show>
 			</div>
-			<editor.options.Overlay />
 			<ConfirmDialog
 				open={editor.deleteOpen()}
 				onOpenChange={editor.setDeleteOpen}

@@ -1,8 +1,13 @@
 import "../../app.css";
+import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { skeyOf } from "../../data/ids";
-import { createMockSource, setLatency } from "../../data/mock/source";
+import {
+	createMockSource,
+	type MockSource,
+	setLatency,
+} from "../../data/mock/source";
 import { createDataStore, DataContext } from "../../data/store";
 import { Providers } from "../../providers";
 import { MobileShell } from "../../shell/MobileShell";
@@ -33,11 +38,18 @@ afterEach(() => {
 	history.replaceState(null, "", originalPath);
 });
 
-const mount = async () => {
+const mount = async (
+	options: { prepare?: (source: MockSource) => Promise<void> } = {},
+) => {
 	setLatency(0);
 	history.replaceState(null, "", "/");
 	const source = createMockSource({ live: false });
-	const store = createDataStore(source);
+	await options.prepare?.(source);
+	const [epoch] = createSignal<number | undefined>(1);
+	const store = createDataStore(
+		source,
+		options.prepare ? { live: { epoch } } : {},
+	);
 	host = document.createElement("div");
 	host.style.cssText = "position:fixed;inset:0;width:402px;height:874px";
 	document.body.append(host);
@@ -103,6 +115,45 @@ describe("unread marker", () => {
 		await wait(300);
 		const marker = divider(root);
 		expect(marker).toBeTruthy();
+		const fresh = Array.from(root.querySelectorAll<HTMLElement>("*")).find(
+			(element) =>
+				element.childElementCount === 0 && element.textContent === arrived.text,
+		);
+		expect(fresh).toBeTruthy();
+		const markerTop = marker?.getBoundingClientRect().top ?? 0;
+		const freshTop = fresh?.getBoundingClientRect().top ?? 0;
+		expect(freshTop).toBeGreaterThan(markerTop);
+		expect(freshTop - markerTop).toBeLessThan(200);
+	});
+
+	it("opens a never-opened channel at the marker from the live tail", async () => {
+		const seed = createMockSource({ live: false });
+		const generalRef = seed.world.spaces
+			.find((entry) => entry.did === HQ)
+			?.channels.find((entry) => skeyOf(entry.view.space) === "general")
+			?.view.space;
+		if (!generalRef) throw new Error("Seed changed");
+		const { source, root, store } = await mount({
+			prepare: (mock) => mock.markRead(generalRef),
+		});
+		const author = source.world.spaces
+			.find((entry) => entry.did === HQ)
+			?.members.find((member) => member.actor.did !== source.world.viewerDid)
+			?.actor.did;
+		if (!author) throw new Error("Seed changed");
+		await until(() => !!channelButton(root, "general"));
+		await until(() => !!store.lastMessage(generalRef));
+		await wait(300);
+		const arrived = source.simulateMessage({
+			author,
+			channel: generalRef,
+			text: "Live news for a channel you never opened",
+		});
+		channelButton(root, "general")?.click();
+		await until(() => chatOpen());
+		await until(() => !!divider(root));
+		await wait(300);
+		const marker = divider(root);
 		const fresh = Array.from(root.querySelectorAll<HTMLElement>("*")).find(
 			(element) =>
 				element.childElementCount === 0 && element.textContent === arrived.text,

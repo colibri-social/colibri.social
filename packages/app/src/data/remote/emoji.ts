@@ -414,10 +414,22 @@ export const createRemoteEmoji = (input: {
 	};
 
 	const personal = {
-		upload: async (file: File, name: string, providerId?: string) => {
+		upload: async (
+			file: File,
+			name: string,
+			providerId?: string,
+			packId?: string,
+		) => {
 			const catalog = await viewerCatalog();
 			checkName(catalog, name);
 			const provider = providerOf(providerId ?? DEFAULT_EMOJI_PROVIDER);
+			const pack = packId
+				? catalog.packs.find((entry) => entry.id === packId)
+				: undefined;
+			if (packId && !pack) throw new EmojiError("PackNotFound");
+			if (pack && pack.provider !== provider.id)
+				throw new EmojiError("UnsupportedProvider");
+			const packProvider = pack ? packProviderOf(pack.provider) : undefined;
 			const blob = await records.uploadBlob(file);
 			const written = provider.writeItem({
 				owner: viewer,
@@ -427,7 +439,17 @@ export const createRemoteEmoji = (input: {
 			});
 			const { uri, cid } = await put(written);
 			const emoji = readBack(written, uri, cid);
-			publishViewer({ ...catalog, emojis: [...catalog.emojis, emoji] });
+			if (pack && packProvider)
+				await writeMembers(pack.id, packProvider, [uri]);
+			publishViewer({
+				...catalog,
+				emojis: [...catalog.emojis, emoji],
+				packs: catalog.packs.map((entry) =>
+					entry.id === pack?.id
+						? { ...entry, emojis: [...entry.emojis, uri] }
+						: entry,
+				),
+			});
 			return emoji;
 		},
 		rename: async (uri: string, name: string) => {
@@ -602,7 +624,12 @@ export const createRemoteEmoji = (input: {
 		uploadEmoji: (upload) =>
 			call(colibri.emoji.upload.main.nsid, () =>
 				upload.community === viewer
-					? personal.upload(upload.file, upload.name, upload.provider)
+					? personal.upload(
+							upload.file,
+							upload.name,
+							upload.provider,
+							upload.pack,
+						)
 					: community.upload(
 							upload.community,
 							upload.file,

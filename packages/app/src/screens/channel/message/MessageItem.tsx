@@ -767,6 +767,8 @@ export const MessageItem = (props: MessageItemProps) => {
 		/>
 	);
 
+	const showAttachments = createMemo(() => !hidden() && !!attachmentContent());
+
 	const attachmentsView = () => (
 		<MessageAttachments
 			split={split()}
@@ -820,9 +822,7 @@ export const MessageItem = (props: MessageItemProps) => {
 							chat.memberContextMenu?.(message().author, trigger, wrapperClass)
 					: undefined
 			}
-			attachments={
-				!hidden() && attachmentContent() ? attachmentsView() : undefined
-			}
+			attachments={showAttachments() ? attachmentsView() : undefined}
 			reactions={
 				reactions().length > 0 ? (
 					<ReactionBar

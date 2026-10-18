@@ -22,6 +22,7 @@ import {
 	type MemberPermissions,
 	memberPermissions,
 } from "../../data/member-permissions";
+import { isAssignableRole } from "../../data/role-flags";
 import { type SpaceData, useData } from "../../data/store";
 import type { Did, MemberView, RoleView } from "../../data/types";
 import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
@@ -113,15 +114,13 @@ export const MemberMenuProvider = (props: ParentProps) => {
 
 	const menuRoles = (current = state()): MemberMenuRole[] => {
 		if (!current) return [];
-		return current.roles
-			.filter((role) => !role.protected)
-			.map((role) => ({
-				id: role.rkey,
-				name: role.name,
-				color: role.color,
-				assigned: current.member.roles.includes(role.rkey),
-				manageable: current.permissions.manageableRoles.has(role.rkey),
-			}));
+		return current.roles.filter(isAssignableRole).map((role) => ({
+			id: role.rkey,
+			name: role.name,
+			color: role.color,
+			assigned: current.member.roles.includes(role.rkey),
+			manageable: current.permissions.manageableRoles.has(role.rkey),
+		}));
 	};
 
 	const changeRole = (id: string, assigned: boolean, current = state()) => {

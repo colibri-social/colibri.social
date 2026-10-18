@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { SpaceRef, ThreadView } from "../../data/types";
+import type { NotificationView, SpaceRef, ThreadView } from "../../data/types";
 import {
 	belongsInSidebar,
 	capKeepingPinned,
 	SIDEBAR_ACTIVITY_WINDOW_MS,
 	SIDEBAR_THREAD_LIMIT,
+	unseenThreadPings,
 } from "./sidebar-threads";
 
 const NOW = Date.parse("2026-10-15T12:00:00Z");
@@ -45,5 +46,22 @@ describe("sidebar threads", () => {
 		}));
 		expect(capKeepingPinned(listed, "t1")).toEqual(listed);
 		expect(capKeepingPinned(listed)).toEqual(listed);
+	});
+
+	it("counts only unseen mentions and replies as thread pings", () => {
+		const thread = threadAt("busy", 0).space;
+		const entry = (
+			id: string,
+			kind: NotificationView["kind"],
+			seenAt?: string,
+		) =>
+			({ id, kind, thread, ...(seenAt ? { seenAt } : {}) }) as NotificationView;
+		const pings = unseenThreadPings([
+			entry("message", "message"),
+			entry("mention", "mention"),
+			entry("reply", "reply"),
+			entry("seen", "mention", new Date(NOW).toISOString()),
+		]);
+		expect(pings.map((view) => view.id)).toEqual(["mention", "reply"]);
 	});
 });

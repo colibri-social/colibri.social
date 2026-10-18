@@ -1,3 +1,4 @@
+import { appActive } from "@colibri-social/ui";
 import { createSignal } from "solid-js";
 
 const visibleNow = () =>
@@ -10,3 +11,5 @@ if (typeof document !== "undefined") {
 }
 
 export const documentVisible = visible;
+
+export const appVisible = () => documentVisible() && appActive();

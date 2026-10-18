@@ -28,7 +28,7 @@ import {
 } from "solid-js";
 import { createStore } from "solid-js/store";
 import { displayNameOf } from "../../../data/adapters/authors";
-import { isVisibleRole } from "../../../data/roles";
+import { isDefaultRole, isVisibleRole } from "../../../data/roles";
 import type { MemberView } from "../../../data/types";
 import { defineContract, slot } from "../../../screen/define";
 import { usePlatform } from "../../../screen/platform";
@@ -83,6 +83,10 @@ export const adminRole = defineContract({
 						.roles()
 						.find((entry) => entry.rkey === args.id && isVisibleRole(entry)),
 		);
+		const isDefault = () => {
+			const current = role();
+			return !!current && isDefaultRole(current);
+		};
 		const [deleted, setDeleted] = createSignal(false);
 		const missing = () =>
 			access.missing() ||
@@ -296,7 +300,7 @@ export const adminRole = defineContract({
 			disabled: () => !editable() || saving(),
 			holders,
 			candidates,
-			canManage: editable,
+			canManage: () => editable() && !isDefault(),
 			addHolders: (ids) => setHolding(ids, true),
 			removeHolder: (id) => setHolding([id], false),
 			form: unsavedForm,
@@ -321,6 +325,7 @@ export const adminRole = defineContract({
 			stack,
 			isNew,
 			role,
+			isDefault,
 			missing,
 			editable,
 			form,
@@ -420,6 +425,17 @@ export const adminRole = defineContract({
 				</p>
 			</Show>
 		)),
+		Default: slot((m) => (
+			<Show when={m.isDefault() && m.ready()}>
+				<p
+					data-role-default=""
+					class="m-0 rounded-control bg-secondary px-3 py-2 text-sm text-pretty text-muted-foreground"
+				>
+					Everyone who joins this Space gets this role. You can change what it
+					allows, but you can't delete it.
+				</p>
+			</Show>
+		)),
 		Name: slot((m) => (
 			<TextField
 				label="Role name"
@@ -446,22 +462,24 @@ export const adminRole = defineContract({
 			/>
 		)),
 		Display: slot((m) => (
-			<ListGroup>
-				<ToggleRow
-					title="Display separately"
-					description="Display members with this role separately from online members."
-					checked={m.form.hoisted}
-					onChange={(on) => m.setForm("hoisted", on)}
-					disabled={!m.editable() || m.saving()}
-				/>
-				<ToggleRow
-					title="Mentionable"
-					description="Let other members @-mention this role."
-					checked={m.form.mentionable}
-					onChange={(on) => m.setForm("mentionable", on)}
-					disabled={!m.editable() || m.saving()}
-				/>
-			</ListGroup>
+			<Show when={!m.isDefault()}>
+				<ListGroup>
+					<ToggleRow
+						title="Display separately"
+						description="Display members with this role separately from online members."
+						checked={m.form.hoisted}
+						onChange={(on) => m.setForm("hoisted", on)}
+						disabled={!m.editable() || m.saving()}
+					/>
+					<ToggleRow
+						title="Mentionable"
+						description="Let other members @-mention this role."
+						checked={m.form.mentionable}
+						onChange={(on) => m.setForm("mentionable", on)}
+						disabled={!m.editable() || m.saving()}
+					/>
+				</ListGroup>
+			</Show>
 		)),
 		Details: slot((m) => (
 			<>
@@ -506,7 +524,7 @@ export const adminRole = defineContract({
 			/>
 		)),
 		Danger: slot((m) => (
-			<Show when={!m.isNew && m.editable() && m.role()}>
+			<Show when={!m.isNew && m.editable() && !m.isDefault() && m.role()}>
 				<Button
 					block
 					variant="destructive"

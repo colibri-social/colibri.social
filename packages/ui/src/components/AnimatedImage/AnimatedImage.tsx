@@ -3,6 +3,7 @@ import {
 	createSignal,
 	type JSX,
 	mergeProps,
+	on,
 	onCleanup,
 	Show,
 	splitProps,
@@ -141,12 +142,43 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 		return paused() && src && loadedSrc() === src ? src : undefined;
 	};
 
+	let announcedSrc: string | undefined;
+	const announceLoad = (event: Event) => {
+		if (disposed) return;
+		const src = imageProps.src;
+		setLoadedSrc(src);
+		if (announcedSrc === src) return;
+		announcedSrc = src;
+		const handler = imageProps.onLoad;
+		if (typeof handler === "function")
+			handler(
+				event as Event & {
+					currentTarget: HTMLImageElement;
+					target: Element;
+				},
+			);
+	};
+
 	const markLoaded = (element: HTMLImageElement) => {
 		if (disposed) return;
+		const src = imageProps.src;
+		if (!src || announcedSrc === src) return;
+		if (element.getAttribute("src") !== src) return;
 		if (element.complete && element.naturalWidth > 0) {
-			setLoadedSrc(imageProps.src);
+			element.dispatchEvent(new Event("load"));
 		}
 	};
+
+	createEffect(
+		on(
+			() => imageProps.src,
+			() => {
+				const element = image();
+				if (element) queueMicrotask(() => markLoaded(element));
+			},
+			{ defer: true },
+		),
+	);
 
 	const [placed, setPlaced] = createSignal<HTMLImageElement>();
 	createEffect(() => {
@@ -244,14 +276,10 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 					candidate() ? (frameSrc() ? "hidden" : "playing") : undefined
 				}
 				style={hideStyle(imageProps.style, !!frameSrc())}
-				onLoad={(event) => {
-					if (disposed) return;
-					setLoadedSrc(imageProps.src);
-					const handler = imageProps.onLoad;
-					if (typeof handler === "function") handler(event);
-				}}
+				onLoad={announceLoad}
 				onError={(event) => {
 					if (disposed) return;
+					announcedSrc = undefined;
 					setLoadedSrc(undefined);
 					const handler = imageProps.onError;
 					if (typeof handler === "function") handler(event);

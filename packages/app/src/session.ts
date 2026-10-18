@@ -138,6 +138,7 @@ export const createSignedInSession = (
 							queue: createOutboxQueue({ owner: namespace }),
 							held: () => auth.health.dead(),
 						},
+						live,
 					});
 					activeStore = store;
 					clearBeforeExit = setBeforeExit(() =>

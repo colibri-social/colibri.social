@@ -27,6 +27,7 @@ import {
 } from "solid-js";
 import { Portal } from "solid-js/web";
 import { cx } from "../../utils/cx";
+import { appActive } from "../../utils/playback";
 import {
 	isWebUrl,
 	MARKDOWN_LINK_POLICY,
@@ -814,6 +815,20 @@ export const RichEditor = (props: RichEditorProps) => {
 			instance.view.dispatch(tr);
 		});
 	};
+
+	const repaintCaret = (instance: Editor) => {
+		if (instance.isDestroyed || !instance.view.hasFocus()) return;
+		window.getSelection()?.removeAllRanges();
+		instance.view.focus();
+	};
+
+	createEffect(
+		on(appActive, (active, previous) => {
+			const instance = editor();
+			if (!active || previous !== false || !instance) return;
+			requestAnimationFrame(() => repaintCaret(instance));
+		}),
+	);
 
 	createEffect(
 		on(
