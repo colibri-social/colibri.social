@@ -20,6 +20,7 @@ import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { AdminNavHeader } from "../desktop/page-header";
 import {
+	copyPackLink,
 	createEmojiOptions,
 	createEmojiUploader,
 	EmojiRows,
@@ -174,16 +175,30 @@ export const adminEmoji = defineContract({
 											/>
 										</ListGroup>
 									</Show>
-									<Show when={m.canManage()}>
+									<div
+										class={
+											m.canManage() ? "grid grid-cols-2 gap-2" : "flex flex-col"
+										}
+									>
+										<Show when={m.canManage()}>
+											<Button
+												variant="secondary"
+												block
+												aria-label={`Edit ${section.pack.name}`}
+												onClick={() => m.openPack(section.pack.id)}
+											>
+												Edit Pack
+											</Button>
+										</Show>
 										<Button
 											variant="secondary"
 											block
-											aria-label={`Edit ${section.pack.name}`}
-											onClick={() => m.openPack(section.pack.id)}
+											aria-label={`Copy link to ${section.pack.name}`}
+											onClick={() => void copyPackLink(section.pack.id)}
 										>
-											Edit Pack
+											Copy Pack Link
 										</Button>
-									</Show>
+									</div>
 								</div>
 							)}
 						</For>

@@ -92,6 +92,7 @@ export type ChatContextValue = {
 		as: EmbedEditor,
 	) => Promise<void>;
 	loadBlueskyPost?: LoadBlueskyPost;
+	onOpenSpace?: (community: CommunityView) => void;
 	onReply: (message: ChatMessage) => void;
 	onEdit: (message: ChatMessage) => void;
 	onDelete: (message: ChatMessage) => void;

@@ -82,12 +82,15 @@ import {
 	type ImageTarget,
 	imageTargetOf,
 } from "./image-actions";
+import { inviteCodeOf } from "./invite-embed";
 import { LinkPreviewsDialog } from "./link-previews";
 import {
 	hasAttachmentContent,
+	type InviteLink,
 	MediaWithLightbox,
 	MessageAttachments,
 } from "./MessageAttachments";
+import { packLinkOf } from "./pack-embed";
 import {
 	type ChatMessage,
 	isDeletedParent,
@@ -175,8 +178,39 @@ export const MessageItem = (props: MessageItemProps) => {
 	const spoileredLinks = createMemo(() => spoileredLinkUris(message().facets));
 	const unspoileredEmbeds = () =>
 		(view()?.embeds ?? []).filter((embed) => !spoileredLinks().has(embed.uri));
+	const inviteLinks = createMemo(() => {
+		const links: InviteLink[] = [];
+		for (const url of linkUris(message().facets)) {
+			if (spoileredLinks().has(url)) continue;
+			const code = inviteCodeOf(url);
+			if (code && !links.some((link) => link.code === code))
+				links.push({ url, code });
+		}
+		return links;
+	});
+	const packLinks = createMemo(() => {
+		const links: { url: string; share: string }[] = [];
+		for (const url of linkUris(message().facets)) {
+			if (spoileredLinks().has(url)) continue;
+			const share = packLinkOf(url);
+			if (share && !links.some((link) => link.share === share))
+				links.push({ url, share });
+		}
+		return links;
+	});
+	const cardUrls = createMemo(
+		() =>
+			new Set([
+				...inviteLinks().map((link) => link.url),
+				...packLinks().map((link) => link.url),
+			]),
+	);
 	const embeds = createMemo(() =>
-		embedsOn() ? visibleEmbeds(unspoileredEmbeds(), suppression()) : [],
+		embedsOn()
+			? visibleEmbeds(unspoileredEmbeds(), suppression()).filter(
+					(embed) => !cardUrls().has(embed.uri),
+				)
+			: [],
 	);
 	const blueskyLinks = createMemo(() => {
 		if (!chat.loadBlueskyPost || !embedsOn()) return [];
@@ -212,7 +246,13 @@ export const MessageItem = (props: MessageItemProps) => {
 		return !!embed && !!inlineMediaOf(embed);
 	});
 	const attachmentContent = () =>
-		hasAttachmentContent(split(), embeds(), blueskyLinks());
+		hasAttachmentContent(
+			split(),
+			embeds(),
+			blueskyLinks(),
+			inviteLinks(),
+			packLinks().map((link) => link.share),
+		);
 	const forward = createMemo(() => {
 		const value = view()?.forward;
 		if (!value) return undefined;
@@ -733,6 +773,10 @@ export const MessageItem = (props: MessageItemProps) => {
 			embeds={embeds()}
 			blueskyLinks={blueskyLinks()}
 			loadBlueskyPost={chat.loadBlueskyPost}
+			inviteLinks={inviteLinks()}
+			onOpenSpace={chat.onOpenSpace}
+			packLinks={packLinks().map((link) => link.share)}
+			platform={chat.platform?.()}
 			onRemoveEmbed={removeEmbed()}
 			author={author()}
 			timestamp={message().timestamp}

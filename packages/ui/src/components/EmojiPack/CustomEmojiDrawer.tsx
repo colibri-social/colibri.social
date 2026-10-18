@@ -61,32 +61,33 @@ export const CustomEmojiDrawer = (props: CustomEmojiDrawerProps) => {
 		<div
 			data-custom-emoji-drawer=""
 			data-platform={desktop() ? "desktop" : "mobile"}
-			class="flex flex-col gap-4"
+			class="flex min-w-0 flex-col gap-3"
 		>
-			<div class="flex min-w-0 flex-col items-center gap-3 pt-2 text-center">
+			<div class="flex min-w-0 items-center gap-3">
 				<img
 					src={props.src}
 					alt={props.alt ?? shortcode()}
 					draggable={false}
 					data-custom-emoji-preview=""
-					class="size-24 object-contain"
+					class="size-10 shrink-0 object-contain"
 				/>
-				<div class="flex w-full min-w-0 flex-col gap-1">
-					<span class="min-w-0 truncate text-lg leading-6 font-bold">
+				<div class="flex min-w-0 flex-col">
+					<span class="min-w-0 truncate text-sm leading-5 font-semibold">
 						{shortcode()}
 					</span>
 					<Show when={props.source || props.packName}>
-						<span class="min-w-0 truncate text-sm text-muted-foreground">
+						<span class="min-w-0 truncate text-xs leading-4 text-muted-foreground">
 							{[props.source, props.packName].filter(Boolean).join(" · ")}
 						</span>
 					</Show>
 				</div>
 			</div>
 			<Show when={props.onFollowChange || props.onPackFollowChange}>
-				<div class="flex flex-col gap-2">
+				<div class="flex gap-2">
 					<Show when={props.onFollowChange}>
 						<Button
 							block
+							class="h-8 px-3 text-xs"
 							variant={props.followed ? "secondary" : "primary"}
 							loading={pending() === "emoji"}
 							disabled={!!pending() && pending() !== "emoji"}
@@ -100,6 +101,7 @@ export const CustomEmojiDrawer = (props: CustomEmojiDrawerProps) => {
 					<Show when={props.packName && props.onPackFollowChange}>
 						<Button
 							block
+							class="h-8 px-3 text-xs"
 							variant="secondary"
 							loading={pending() === "pack"}
 							disabled={!!pending() && pending() !== "pack"}
@@ -110,12 +112,12 @@ export const CustomEmojiDrawer = (props: CustomEmojiDrawerProps) => {
 							{props.packFollowed ? "Unfollow pack" : "Follow pack"}
 						</Button>
 					</Show>
-					<Show when={failed()}>
-						<p role="alert" class="text-center text-sm text-destructive">
-							Couldn't update your emoji. Try again.
-						</p>
-					</Show>
 				</div>
+			</Show>
+			<Show when={failed()}>
+				<p role="alert" class="text-xs text-destructive">
+					Couldn't update your emoji. Try again.
+				</p>
 			</Show>
 		</div>
 	);
@@ -136,7 +138,7 @@ export const CustomEmojiDrawer = (props: CustomEmojiDrawerProps) => {
 				anchorElement={props.anchorElement}
 				placement="top"
 				label={shortcode()}
-				class="w-72 p-4"
+				class="w-fit max-w-72 min-w-56 p-3"
 			>
 				{body()}
 			</AnchoredPicker>

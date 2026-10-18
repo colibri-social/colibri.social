@@ -28,7 +28,6 @@ export type EmojiView = {
 	images: EmojiImage[];
 	image: string;
 	adultOnly?: boolean;
-	copyOf?: string;
 	createdBy?: Did;
 	createdAt: Datetime;
 };
@@ -47,6 +46,35 @@ export type EmojiCatalogView = {
 	community: Did;
 	emojis: EmojiView[];
 	packs: EmojiPackView[];
+};
+
+export type EmojiOwner = {
+	did: Did;
+	kind: "user" | "community";
+	handle?: string;
+	displayName?: string;
+	avatar?: string;
+};
+
+export type EmojiFollowKind = "pack" | "emoji";
+
+export type EmojiFollowState = "available" | "missing" | "unreachable";
+
+export type EmojiFollowView = {
+	uri: string;
+	rkey: string;
+	subject: string;
+	kind: EmojiFollowKind;
+	state: EmojiFollowState;
+	owner: EmojiOwner;
+	pack?: EmojiPackView;
+	emojis: EmojiView[];
+	createdAt: Datetime;
+};
+
+export type EmojiLibraryView = {
+	own: EmojiCatalogView;
+	follows: EmojiFollowView[];
 };
 
 export type StoredBlob = {

@@ -2,8 +2,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
 	EMOJI_PERMISSION,
 	EmojiError,
-	followedCopy,
-	followedPack,
 	packEmoji,
 	ungroupedEmoji,
 } from "../emoji";
@@ -173,39 +171,68 @@ describe("mock emoji records", () => {
 });
 
 describe("following emoji", () => {
-	it("copies followed emoji and packs into the viewer's Bluemoji collection", async () => {
-		const { mock, stop } = setup();
+	it("follows packs and emoji by reference and tracks the owner's changes", async () => {
+		const { mock, events, stop } = setup();
 		const viewer = mock.viewer().did as Did;
 		const hq = await mock.listEmoji(HQ);
 		const shipit = hq.emojis.find((emoji) => emoji.name === "shipit");
+		const coffee = hq.emojis.find((emoji) => emoji.name === "coffee");
 		const release = hq.packs.find((pack) => pack.name === "Release day");
-		if (!shipit || !release) throw new Error("seed missing");
+		if (!shipit || !coffee || !release) throw new Error("seed missing");
 
-		const copy = await mock.followEmoji({ emoji: shipit.id });
-		expect(copy.id).toBe(`at://${viewer}/blue.moji.collection.item/shipit`);
-		expect(copy.copyOf).toBe(shipit.id);
-		expect(followedCopy(await mock.listEmoji(viewer), shipit.id)?.id).toBe(
-			copy.id,
-		);
-		expect((await mock.followEmoji({ emoji: shipit.id })).id).toBe(copy.id);
+		const pack = await mock.followEmoji({ subject: release.id });
+		expect(pack.kind).toBe("pack");
+		expect(pack.state).toBe("available");
+		expect(pack.emojis.map((emoji) => emoji.id)).toEqual(release.emojis);
+		const single = await mock.followEmoji({ subject: coffee.id });
+		expect(single.kind).toBe("emoji");
 
-		await mock.followEmojiPack({ community: HQ, pack: release.id });
-		const mine = await mock.listEmoji(viewer);
-		expect(mine.emojis.map((emoji) => emoji.name).sort()).toEqual([
-			"lgtm",
-			"party_bird",
-			"shipit",
+		const library = await mock.getEmojiLibrary();
+		expect(library.follows.map((follow) => follow.subject)).toEqual([
+			release.id,
+			coffee.id,
 		]);
-		const followed = followedPack(mine, release);
-		if (!followed) throw new Error("pack not followed");
-		expect(packEmoji(mine, followed).map((emoji) => emoji.copyOf)).toEqual(
-			release.emojis,
-		);
+		expect(library.own.emojis).toEqual([]);
+		expect((await mock.listEmoji(viewer)).emojis).toEqual([]);
 
-		await mock.unfollowEmojiPack({ community: HQ, pack: release.id });
-		const after = await mock.listEmoji(viewer);
-		expect(after.emojis).toEqual([]);
-		expect(after.packs).toEqual([]);
+		events.length = 0;
+		await mock.updateEmojiPack({
+			community: HQ,
+			pack: release.id,
+			emojis: [shipit.id],
+		});
+		const update = events.find((event) => event.$type === "emojiLibraryEvent");
+		if (update?.$type !== "emojiLibraryEvent") throw new Error("no event");
+		expect(update.library.follows[0]?.emojis.map((emoji) => emoji.id)).toEqual([
+			shipit.id,
+		]);
+
+		await mock.deleteEmojiPack({ community: HQ, pack: release.id });
+		expect((await mock.getEmojiLibrary()).follows[0]?.state).toBe("missing");
+
+		await mock.unfollowEmoji({ rkey: single.rkey });
+		expect(
+			(await mock.getEmojiLibrary()).follows.map((follow) => follow.subject),
+		).toEqual([release.id]);
+		stop();
+	});
+
+	it("rejects following your own emoji and unknown subjects", async () => {
+		const { mock, stop } = setup();
+		const viewer = mock.viewer().did as Did;
+		const own = await mock.uploadEmoji({
+			community: viewer,
+			name: "mine",
+			file: image(),
+		});
+		await expect(mock.followEmoji({ subject: own.id })).rejects.toEqual(
+			new EmojiError("OwnEmoji"),
+		);
+		await expect(
+			mock.followEmoji({
+				subject: `at://${HQ}/blue.moji.collection.item/gone`,
+			}),
+		).rejects.toEqual(new EmojiError("EmojiNotFound"));
 		stop();
 	});
 });

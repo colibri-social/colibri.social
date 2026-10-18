@@ -1,11 +1,13 @@
 import {
 	ConfirmDialog,
+	copyText,
 	EmojiDrawer,
 	type EmojiDrawerProps,
 	EmojiPopover,
 	EmojiRow,
 	EmojiUploadModal,
 	emojiNameFromFile,
+	emojiPackShareUrl,
 	ProfileImagePicker,
 	toast,
 	uniqueEmojiName,
@@ -27,12 +29,19 @@ import {
 	type EmojiView,
 	emojiRegistry,
 } from "../../../data/emoji";
+import { packTargetOf } from "../../../data/emoji/shared-pack";
 import type { DataStore } from "../../../data/store";
 import type { Did } from "../../../data/types";
 import { usePlatform } from "../../../screen/platform";
 import { afterOverlaysClose } from "../../channel/composer/media/composer-media";
 import { afterClosed, EMOJI_POPOVER_SELECTOR } from "../desktop/after-closed";
 import { canInSpace, useAdminSpace } from "../space-admin";
+
+export const copyPackLink = async (packId: string) => {
+	if (await copyText(emojiPackShareUrl(packTargetOf(packId))))
+		toast.success("Pack link copied");
+	else toast.error("The pack link couldn't be copied");
+};
 
 export const EMOJI_MAX_BYTES =
 	emojiRegistry.get(DEFAULT_EMOJI_PROVIDER)?.maxImageBytes ?? 0;

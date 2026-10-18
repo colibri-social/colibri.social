@@ -346,6 +346,15 @@
 					"type": "string",
 					"description": "The latest message's text, which is empty when it only carries attachments or a forward."
 				},
+				"facets": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.richtext.facet",
+						"description": "An annotation."
+					},
+					"description": "The latest message's annotations, with custom emoji the community's policy disallows left out."
+				},
 				"attachmentKind": {
 					"type": "string",
 					"knownValues": [

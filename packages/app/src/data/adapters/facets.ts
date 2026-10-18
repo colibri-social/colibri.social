@@ -57,6 +57,42 @@ export const fromComposerValue = (value: {
 	return { text, facets: validFacets(text, facets) };
 };
 
+export const collapseWhitespace = (
+	text: string,
+	facets: readonly Facet[] = [],
+): TextValue => {
+	const offsets = new Map<number, number>();
+	let source = 0;
+	let target = 0;
+	let collapsed = "";
+	let pendingSpace = false;
+	for (const char of text) {
+		offsets.set(source, target);
+		const size = utf8Length(char);
+		if (/\s/.test(char)) {
+			pendingSpace = collapsed.length > 0;
+		} else {
+			if (pendingSpace) {
+				collapsed += " ";
+				target += 1;
+				offsets.set(source, target);
+				pendingSpace = false;
+			}
+			collapsed += char;
+			target += size;
+		}
+		source += size;
+	}
+	offsets.set(source, target);
+	const mapped = facets.flatMap((facet) => {
+		const byteStart = offsets.get(facet.index.byteStart);
+		const byteEnd = offsets.get(facet.index.byteEnd);
+		if (byteStart === undefined || byteEnd === undefined) return [];
+		return [{ ...facet, index: { ...facet.index, byteStart, byteEnd } }];
+	});
+	return { text: collapsed, facets: validFacets(collapsed, mapped) };
+};
+
 export const previewText = (text: string, max = 140) => {
 	const collapsed = text.replace(/\s+/g, " ").trim();
 	if (collapsed.length <= max) return collapsed;

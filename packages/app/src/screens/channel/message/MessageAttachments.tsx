@@ -33,10 +33,13 @@ import { useMediaLinkRefresher } from "../../../data/media-link-context";
 import { useData } from "../../../data/store";
 import type {
 	BlueskyPostView,
+	CommunityView,
 	LinkEmbed as LinkEmbedView,
 } from "../../../data/types";
 import { externalAnchorOf } from "../../../native/open-external";
 import { lightboxImageActions } from "./image-actions";
+import { InviteEmbed } from "./invite-embed";
+import { PackEmbed } from "./pack-embed";
 
 const routeEmbedLink = (
 	event: MouseEvent,
@@ -58,16 +61,22 @@ export type LoadBlueskyPost = (
 
 export type RemoveEmbed = (uri: string, event: MouseEvent) => void;
 
+export type InviteLink = { url: string; code: string };
+
 export const hasAttachmentContent = (
 	split: SplitAttachments,
 	embeds: readonly LinkEmbedView[],
 	blueskyLinks: readonly string[] = [],
+	inviteLinks: readonly InviteLink[] = [],
+	packLinks: readonly string[] = [],
 ) =>
 	split.media.length > 0 ||
 	split.audio.length > 0 ||
 	split.files.length > 0 ||
 	embeds.length > 0 ||
-	blueskyLinks.length > 0;
+	blueskyLinks.length > 0 ||
+	inviteLinks.length > 0 ||
+	packLinks.length > 0;
 
 export const MediaWithLightbox = (props: {
 	items: MediaItem[];
@@ -269,6 +278,10 @@ export const MessageAttachments = (props: {
 	embeds: readonly LinkEmbedView[];
 	blueskyLinks?: readonly string[];
 	loadBlueskyPost?: LoadBlueskyPost;
+	inviteLinks?: readonly InviteLink[];
+	onOpenSpace?: (community: CommunityView) => void;
+	packLinks?: readonly string[];
+	platform?: "mobile" | "desktop";
 	onRemoveEmbed?: RemoveEmbed;
 	author?: LightboxAuthor;
 	timestamp?: string;
@@ -342,6 +355,18 @@ export const MessageAttachments = (props: {
 					onRemove={props.onRemoveEmbed}
 				/>
 			)}
+		</For>
+		<For each={props.inviteLinks ?? []}>
+			{(link) => (
+				<InviteEmbed
+					url={link.url}
+					code={link.code}
+					onOpenSpace={props.onOpenSpace}
+				/>
+			)}
+		</For>
+		<For each={props.packLinks ?? []}>
+			{(url) => <PackEmbed url={url} platform={props.platform ?? "desktop"} />}
 		</For>
 	</div>
 );

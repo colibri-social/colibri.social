@@ -56,6 +56,22 @@ describe("paths", () => {
 		expect(parsePath("/app/login/extra").layers[0]?.kind).toBe("notFound");
 	});
 
+	it("round-trips the emoji pack path", () => {
+		const path = "/app/emoji/did:plc:abc/3kowls";
+		const route = parsePath(path);
+		expect(route).toEqual({
+			root: { tab: "spaces" },
+			layers: [{ kind: "pack", did: "did:plc:abc", rkey: "3kowls" }],
+		});
+		expect(pathAt(route, 1)).toBe(path);
+	});
+
+	it("opens shared emoji pack links from the web origin", () => {
+		expect(parsePath("/emoji/did%3Aplc%3Aabc/3kowls").layers).toEqual([
+			{ kind: "pack", did: "did:plc:abc", rkey: "3kowls" },
+		]);
+	});
+
 	it("opens shared invite links from the web origin", () => {
 		expect(parsePath("/invite/abc123")).toEqual({
 			root: { tab: "spaces" },
@@ -163,6 +179,9 @@ describe("paths", () => {
 			"/app/inbox/extra",
 			"/app/new/extra",
 			"/invite/abc/extra",
+			"/emoji/lou.gg/3kowls",
+			"/emoji/did:plc:abc",
+			"/app/emoji/did:plc:abc/3kowls/extra",
 			`/app/c/${DID}/${TEXT}/general/bogus`,
 			`/app/c/${DID}/${TEXT}/general/t/abc/bogus`,
 			`/app/c/${DID}/${TEXT}/general/threads/x/abc`,

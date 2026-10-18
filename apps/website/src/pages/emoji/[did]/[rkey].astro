@@ -1,0 +1,62 @@
+---
+import PublicLayout from "@/layouts/PublicLayout.astro";
+
+const { did, rkey } = Astro.params;
+
+if (!did?.startsWith("did:") || !rkey) return Astro.redirect("/");
+---
+
+<PublicLayout
+	title="Someone shared an emoji pack with you on Colibri!"
+	description="Open Colibri to see every emoji in the pack and follow it."
+>
+	<section
+		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-6 text-center"
+		id="loading-section"
+		data-did={did}
+		data-rkey={rkey}
+	>
+		<h1 class="text-3xl font-black m-0">Opening Colibri...</h1>
+		<p class="m-0 text-muted-foreground">
+			If nothing happens, <a
+				class="text-primary"
+				href={`/app/emoji/${did}/${encodeURIComponent(rkey)}`}>click here</a
+			> to continue.
+		</p>
+	</section>
+</PublicLayout>
+<script>
+	const section = document.querySelector<HTMLElement>("#loading-section");
+	const did = section?.dataset.did;
+	const rkey = section?.dataset.rkey;
+
+	if (!did || !rkey) throw new Error("Unable to read the emoji pack link");
+
+	const path = `${did}/${encodeURIComponent(rkey)}`;
+	const scheme = window.location.hostname.split(".").reverse().join(".");
+	const webUrl = `/app/emoji/${path}`;
+	const nativeUrl = `${scheme}:/emoji/${path}`;
+
+	let handedOffToApp = false;
+	const markHandedOff = () => {
+		handedOffToApp = true;
+	};
+
+	document.addEventListener("visibilitychange", () => {
+		if (document.visibilityState === "hidden") handedOffToApp = true;
+	});
+	window.addEventListener("pagehide", markHandedOff);
+	window.addEventListener("blur", markHandedOff);
+
+	window.setTimeout(() => {
+		if (!handedOffToApp && document.visibilityState === "visible") {
+			window.location.replace(webUrl);
+		}
+	}, 2000);
+
+	try {
+		window.location.href = nativeUrl;
+	} catch {
+		window.location.replace(webUrl);
+	}
+</script>

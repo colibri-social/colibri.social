@@ -308,6 +308,7 @@ export const createRemoteSource = async (
 	const { observe: observeEmoji, ...emoji } = createRemoteEmoji({
 		transport,
 		records,
+		space: preferencesSpace,
 		viewer: options.session.did as Did,
 		locate: emojiBlobUrl,
 		emit: emitLocal,
@@ -817,6 +818,13 @@ export const createRemoteSource = async (
 		},
 
 		getBlueskyPost: (url) => fetchBlueskyPost(url),
+
+		getProfile: async (actor) =>
+			(
+				await transport.query(colibri.actor.getProfile.main, {
+					params: { actor },
+				})
+			).profile as ProfileView,
 
 		simulation: (): Simulation => ({ slowNetwork: false, offline: false }),
 		setSimulation: () => {},

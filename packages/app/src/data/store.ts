@@ -2517,6 +2517,12 @@ export const createDataStore = (
 			}
 		};
 
+		const emojiStore = createEmojiStore(
+			source,
+			() => viewer.did,
+			() => communities.value() ?? [],
+		);
+
 		const backfill = createCatchUpQueue();
 		onCleanup(backfill.cancel);
 		let lastCatchUp = Number.NEGATIVE_INFINITY;
@@ -2534,6 +2540,7 @@ export const createDataStore = (
 			}
 			void communities.refresh();
 			void source.preferences.refresh();
+			void emojiStore.library().refresh();
 			for (const community of spaces.keys()) {
 				void loadUnread(community);
 				void loadSummaries(community);
@@ -2586,11 +2593,7 @@ export const createDataStore = (
 					return result;
 				},
 			},
-			emoji: createEmojiStore(
-				source,
-				() => viewer.did,
-				() => communities.value() ?? [],
-			),
+			emoji: emojiStore,
 			moveMessages,
 			viewer,
 			saveProfile,

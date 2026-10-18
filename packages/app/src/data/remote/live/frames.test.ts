@@ -330,6 +330,36 @@ describe("toLiveEvents", () => {
 		).toEqual([]);
 	});
 
+	it("maps an emoji library frame to a library event", () => {
+		const own = {
+			owner: ALICE,
+			emojis: [
+				{
+					uri: `at://${ALICE}/blue.moji.collection.item/mine`,
+					provider: "blue.moji",
+					owner: ALICE,
+					name: "mine",
+					images: [{ cid: "bafkcid", format: "png", animated: false }],
+					createdAt: "2026-10-18T00:00:00.000Z",
+				},
+			],
+			packs: [],
+		};
+		const [event] = toLiveEvents(
+			frame("emojiLibraryEvent", { library: { own, follows: [] } }),
+			{
+				emojiBlobUrl: ({ did, cid }) => `https://appview.test/${did}/${cid}`,
+			},
+		);
+		expect(event).toMatchObject({
+			$type: "emojiLibraryEvent",
+			library: {
+				own: { emojis: [{ name: "mine" }] },
+				follows: [],
+			},
+		});
+	});
+
 	it("ignores frames the app has no event for", () => {
 		expect(toLiveEvents(frame("ack", {}))).toEqual([]);
 		expect(

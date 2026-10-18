@@ -31,6 +31,7 @@ export type JoinSpaceActionProps = DiscoveryActions & {
 	space: DiscoverySpace;
 	busy?: boolean;
 	layout?: "inline" | "stacked";
+	noteAlign?: "start" | "center";
 	class?: string;
 };
 
@@ -115,7 +116,10 @@ export const JoinSpaceAction = (props: JoinSpaceActionProps) => {
 					<p
 						id={noteId}
 						data-join-note=""
-						class="flex min-w-0 items-start gap-1.5 text-sm text-pretty text-muted-foreground"
+						class={cx(
+							"flex min-w-0 items-start gap-1.5 text-sm text-pretty text-muted-foreground",
+							props.noteAlign === "center" && "justify-center text-center",
+						)}
 					>
 						<span
 							aria-hidden="true"

@@ -2,7 +2,7 @@ import type { AccessEvent, AccessSource } from "./access";
 import type { ActivityProvider } from "./activity-source";
 import type { LabelerTransport } from "./badges/labeler";
 import type { ChannelSummary } from "./channel-summary";
-import type { EmojiEvent, EmojiSource } from "./emoji";
+import type { EmojiEvent, EmojiLibraryEvent, EmojiSource } from "./emoji";
 import type { PreferenceStore } from "./preferences/store";
 import type { Preferences } from "./preferences/types";
 import type { SupporterLinkTransport } from "./supporter-link";
@@ -89,6 +89,7 @@ export const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
 export type LiveEvent =
 	| AccessEvent
 	| EmojiEvent
+	| EmojiLibraryEvent
 	| { $type: "viewerEvent"; profile: ProfileView }
 	| {
 			$type: "messageEvent";
@@ -547,6 +548,7 @@ export type DataSource = AccessSource &
 		setSuppressedEmbeds: (input: EmbedSuppressionInput) => Promise<MessageView>;
 		setModeratedEmbeds: (input: EmbedSuppressionInput) => Promise<MessageView>;
 		getBlueskyPost: (url: string) => Promise<BlueskyPostView | undefined>;
+		getProfile: (actor: Did) => Promise<ProfileView>;
 		simulation: () => Simulation;
 		setSimulation: (next: Partial<Simulation>) => void;
 		preferences: PreferenceStore;

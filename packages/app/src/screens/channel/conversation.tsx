@@ -30,7 +30,7 @@ import {
 } from "solid-js";
 import { authorForDid, displayNameOf } from "../../data/adapters/authors";
 import { fromComposerValue, toTextValue } from "../../data/adapters/facets";
-import { channelSlug, skeyOf } from "../../data/ids";
+import { channelSlug, skeyOf, spaceKey } from "../../data/ids";
 import {
 	createMediaLinkRefresher,
 	MediaLinkContext,
@@ -723,6 +723,10 @@ export const createConversation = (options: ConversationOptions) => {
 				});
 				toast.error("Couldn't update link previews");
 			}
+		},
+		onOpenSpace: (community) => {
+			stack.popTo(0);
+			stack.setRoot({ tab: "spaces", space: spaceKey(community) });
 		},
 		loadBlueskyPost: (url) => {
 			const cached = blueskyPosts.get(url);

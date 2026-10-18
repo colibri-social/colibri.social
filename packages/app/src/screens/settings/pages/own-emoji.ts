@@ -7,7 +7,7 @@ const [editingPack, setEditingPack] = createSignal<string>();
 export { editingPack, setEditingPack };
 
 export const ownEmoji = (data: DataStore): EmojiCatalogOwner => {
-	const catalog = () => data.emoji.followed();
+	const catalog = () => data.emoji.own();
 	const view = () => catalog().value();
 	const takenNames = createMemo(
 		() => new Set((view()?.emojis ?? []).map((emoji) => emoji.name)),

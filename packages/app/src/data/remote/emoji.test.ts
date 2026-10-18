@@ -17,7 +17,6 @@ const CID = "bafkreigh2akiscaildcqabsyg3dfr6chu3fgpregiibsojllbf5xhqzy6a";
 const COPY_CID = "bafkreicopycopycopycopycopycopycopycopycopycopycopycopycopy";
 const ITEM = "blue.moji.collection.item";
 const PACK = "blue.moji.packs.pack";
-const MEMBERSHIP = "blue.moji.packs.packitem";
 
 const wireEmoji = (owner: string, name: string, extra: object = {}) => ({
 	uri: `at://${owner}/${ITEM}/${name}`,
@@ -169,15 +168,6 @@ describe("a Space's emoji", () => {
 });
 
 describe("the viewer's emoji", () => {
-	const stubImage = () =>
-		vi.stubGlobal(
-			"fetch",
-			vi.fn(
-				async () =>
-					new Response(new Blob([new Uint8Array([1])], { type: "image/png" })),
-			),
-		);
-
 	const pdsWrites = (fake: ReturnType<typeof createFakeSession>) => {
 		fake.on(
 			"com.atproto.repo.uploadBlob",
@@ -201,114 +191,122 @@ describe("the viewer's emoji", () => {
 		fake.on("com.atproto.repo.listRecords", json({ records: [] }));
 	};
 
-	it("copies a followed emoji into the viewer's repo with its own blob", async () => {
-		stubImage();
-		const { fake, source, events } = await setup((fake) => {
-			catalogFor(fake, {
-				[COMMUNITY]: wireCatalog(COMMUNITY, [wireEmoji(COMMUNITY, "wave")]),
-			});
-			pdsWrites(fake);
-		});
+	const FOLLOW = "social.colibri.beta.emoji.follow";
+	const PUT_FOLLOW = "social.colibri.beta.emoji.putFollow";
 
-		const copy = await source.followEmoji({
-			emoji: `at://${COMMUNITY}/${ITEM}/wave`,
-		});
-
-		const put = fake.callsTo("com.atproto.repo.putRecord")[0]?.body as {
-			collection: string;
-			rkey: string;
-			record: {
-				copyOf: string;
-				formats: { png_128: { ref: { $link: string } } };
-			};
-		};
-		expect(put.collection).toBe(ITEM);
-		expect(put.rkey).toBe("wave");
-		expect(put.record.copyOf).toBe(`at://${COMMUNITY}/${ITEM}/wave`);
-		expect(put.record.formats.png_128.ref.$link).toBe(COPY_CID);
-		expect(copy.copyOf).toBe(`at://${COMMUNITY}/${ITEM}/wave`);
-		const event = events.findLast((entry) => entry.$type === "emojiEvent");
-		expect(event?.$type === "emojiEvent" && event.catalog.community).toBe(
-			VIEWER,
-		);
-	});
-
-	it("gives a copy a free name when the viewer already has one", async () => {
-		stubImage();
-		const { fake, source } = await setup((fake) => {
-			catalogFor(fake, {
-				[COMMUNITY]: wireCatalog(COMMUNITY, [wireEmoji(COMMUNITY, "wave")]),
-				[VIEWER]: wireCatalog(VIEWER, [wireEmoji(VIEWER, "wave")]),
-			});
-			pdsWrites(fake);
-		});
-
-		await source.followEmoji({ emoji: `at://${COMMUNITY}/${ITEM}/wave` });
-
-		const put = fake.callsTo("com.atproto.repo.putRecord")[0]?.body as {
-			rkey: string;
-		};
-		expect(put.rkey).toBe("wave_2");
-	});
-
-	it("follows a pack as copies plus a pack and its memberships", async () => {
-		stubImage();
-		const pack = {
-			uri: `at://${COMMUNITY}/${PACK}/3pack`,
+	const wireFollow = (rkey: string, subject: string) => ({
+		uri: `at://${VIEWER}/${FOLLOW}/${rkey}`,
+		subject,
+		kind: "pack",
+		state: "available",
+		owner: { did: COMMUNITY, kind: "community", displayName: "HQ" },
+		pack: {
+			uri: subject,
 			provider: "blue.moji",
 			owner: COMMUNITY,
 			name: "Waves",
-			emojis: [
-				`at://${COMMUNITY}/${ITEM}/wave`,
-				`at://${COMMUNITY}/${ITEM}/hello`,
-			],
+			emojis: [`at://${COMMUNITY}/${ITEM}/wave`],
 			createdAt: "2026-10-18T00:00:00.000Z",
-		};
-		const { fake, source } = await setup((fake) => {
-			catalogFor(fake, {
-				[COMMUNITY]: wireCatalog(
-					COMMUNITY,
-					[wireEmoji(COMMUNITY, "wave"), wireEmoji(COMMUNITY, "hello")],
-					[pack],
-				),
-			});
-			pdsWrites(fake);
-		});
-
-		const followed = await source.followEmojiPack({
-			community: COMMUNITY,
-			pack: pack.uri,
-		});
-
-		const collections = fake
-			.callsTo("com.atproto.repo.putRecord")
-			.map((call) => (call.body as { collection: string }).collection);
-		expect(collections).toEqual([ITEM, ITEM, PACK, MEMBERSHIP, MEMBERSHIP]);
-		expect(followed.emojis).toEqual([
-			`at://${VIEWER}/${ITEM}/wave`,
-			`at://${VIEWER}/${ITEM}/hello`,
-		]);
+		},
+		emojis: [wireEmoji(COMMUNITY, "wave")],
+		createdAt: "2026-10-18T00:00:00.000Z",
 	});
 
-	it("unfollows by deleting the copy", async () => {
+	const spaceWrites = (fake: ReturnType<typeof createFakeSession>) => {
+		fake.on("com.atproto.space.putRecord", json({ uri: "x", cid: "y" }));
+		fake.on("com.atproto.space.deleteRecord", json({}));
+	};
+
+	it("follows by writing a private record and pushing it to the AppView", async () => {
+		const subject = `at://${COMMUNITY}/${PACK}/3pack`;
 		const { fake, source } = await setup((fake) => {
-			catalogFor(fake, {
-				[VIEWER]: wireCatalog(VIEWER, [
-					wireEmoji(VIEWER, "wave", {
-						copyOf: `at://${COMMUNITY}/${ITEM}/wave`,
-					}),
-				]),
-			});
-			pdsWrites(fake);
+			spaceWrites(fake);
+			fake.on(PUT_FOLLOW, (call) =>
+				json({
+					follow: wireFollow((call.body as { rkey: string }).rkey, subject),
+				}),
+			);
 		});
 
-		await source.unfollowEmoji({ emoji: `at://${COMMUNITY}/${ITEM}/wave` });
+		const follow = await source.followEmoji({ subject });
 
-		const deleted = fake.callsTo("com.atproto.repo.deleteRecord")[0]?.body as {
+		const written = fake.callsTo("com.atproto.space.putRecord")[0]?.body as {
 			collection: string;
 			rkey: string;
+			record: { $type: string; subject: string };
 		};
-		expect(deleted).toMatchObject({ collection: ITEM, rkey: "wave" });
+		expect(written.collection).toBe(FOLLOW);
+		expect(written.record).toMatchObject({ $type: FOLLOW, subject });
+		const pushed = fake.callsTo(PUT_FOLLOW)[0]?.body as {
+			rkey: string;
+			subject: string;
+		};
+		expect(pushed).toMatchObject({ rkey: written.rkey, subject });
+		expect(follow).toMatchObject({
+			rkey: written.rkey,
+			kind: "pack",
+			state: "available",
+			owner: { did: COMMUNITY, kind: "community" },
+		});
+		expect(follow.emojis.map((emoji) => emoji.name)).toEqual(["wave"]);
+	});
+
+	it("removes the record again when the AppView rejects the follow", async () => {
+		const { fake, source } = await setup((fake) => {
+			spaceWrites(fake);
+			fake.on(PUT_FOLLOW, xrpcError(400, "OwnEmoji"));
+		});
+
+		await expect(
+			source.followEmoji({ subject: `at://${VIEWER}/${ITEM}/mine` }),
+		).rejects.toEqual(new EmojiError("OwnEmoji"));
+
+		const written = fake.callsTo("com.atproto.space.putRecord")[0]?.body as {
+			rkey: string;
+		};
+		const deleted = fake.callsTo("com.atproto.space.deleteRecord")[0]?.body as {
+			rkey: string;
+		};
+		expect(deleted.rkey).toBe(written.rkey);
+	});
+
+	it("unfollows by deleting the record and pushing the empty follow", async () => {
+		const { fake, source } = await setup((fake) => {
+			spaceWrites(fake);
+			fake.on(PUT_FOLLOW, json({}));
+		});
+
+		await source.unfollowEmoji({ rkey: "3follow" });
+
+		expect(
+			fake.callsTo("com.atproto.space.deleteRecord")[0]?.body,
+		).toMatchObject({ collection: FOLLOW, rkey: "3follow" });
+		expect(fake.callsTo(PUT_FOLLOW)[0]?.body).toEqual({ rkey: "3follow" });
+	});
+
+	it("loads the library with your own emoji and every follow", async () => {
+		const subject = `at://${COMMUNITY}/${PACK}/3pack`;
+		const { source } = await setup((fake) => {
+			fake.on(
+				"social.colibri.beta.emoji.getLibrary",
+				json({
+					library: {
+						own: wireCatalog(VIEWER, [wireEmoji(VIEWER, "mine")]).catalog,
+						follows: [
+							wireFollow("3a", subject),
+							{ ...wireFollow("3b", subject), state: "gone" },
+						],
+					},
+				}),
+			);
+		});
+
+		const library = await source.getEmojiLibrary();
+		expect(library.own.emojis.map((emoji) => emoji.name)).toEqual(["mine"]);
+		expect(library.follows.map((follow) => follow.state)).toEqual([
+			"available",
+			"unreachable",
+		]);
 	});
 
 	it("uploads a personal emoji straight to the viewer's repo", async () => {

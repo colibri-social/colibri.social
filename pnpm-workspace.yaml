@@ -48,7 +48,7 @@ overrides:
   "@atproto/xrpc-server": 0.0.0-spaces-alpha-20261001173819
 
 minimumReleaseAgeExclude:
-  - "@colibri-social/lexicons@2.17.0 || 2.18.0 || 2.19.0"
+  - "@colibri-social/lexicons@2.17.0 || 2.18.0 || 2.19.0 || 2.20.0"
   - "@atproto-labs/did-resolver@0.0.0-spaces-alpha-20261001173819"
   - "@atproto-labs/handle-resolver@0.0.0-spaces-alpha-20261001173819"
   - "@atproto-labs/identity-resolver@0.0.0-spaces-alpha-20261001173819"

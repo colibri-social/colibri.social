@@ -40,6 +40,13 @@ const schemePath = (url: URL) => {
 		const code = segment(rest[0]);
 		return code && rest.length === 1 ? `/app/invite/${code}` : undefined;
 	}
+	if (head === "emoji") {
+		const did = rest[0] ? decode(rest[0]) : undefined;
+		const rkey = segment(rest[1]);
+		if (!did?.startsWith("did:") || !rkey || rest.length !== 2)
+			return undefined;
+		return `/app/emoji/${did}/${rkey}`;
+	}
 	if (head === "channel") {
 		const community = rest[0] ? decode(rest[0]) : undefined;
 		const channelType = segment(rest[1]);
@@ -54,6 +61,7 @@ const schemePath = (url: URL) => {
 const webPath = (url: URL) => {
 	if (!APP_HOSTS.has(url.hostname)) return undefined;
 	if (url.pathname.startsWith("/invite/")) return `/app${url.pathname}`;
+	if (url.pathname.startsWith("/emoji/")) return `/app${url.pathname}`;
 	if (url.pathname.startsWith("/app/")) return url.pathname;
 	return undefined;
 };

@@ -34,14 +34,34 @@ const mountWithNav = async (view: () => JSX.Element) => {
 	return { ...mounted, nav };
 };
 
-const followHqPack = async (
-	store: Awaited<ReturnType<typeof mountWithNav>>["store"],
-) => {
+type Store = Awaited<ReturnType<typeof mountWithNav>>["store"];
+
+const image = (name: string) =>
+	new File([new Uint8Array([137, 80, 78, 71])], `${name}.png`, {
+		type: "image/png",
+	});
+
+const ownPack = async (store: Store) => {
+	const viewer = store.viewer.did;
+	const wave = await store.emoji.upload({
+		community: viewer,
+		name: "wave",
+		file: image("wave"),
+	});
+	const hello = await store.emoji.upload({
+		community: viewer,
+		name: "hello",
+		file: image("hello"),
+	});
+	return store.emoji.createPack(viewer, "Greetings", [wave.id, hello.id]);
+};
+
+const hqPack = async (store: Store) => {
 	const hq = store.emoji.catalog(HQ);
 	await until(() => (hq.value()?.packs.length ?? 0) > 0);
 	const pack = hq.value()?.packs[0];
 	if (!pack) throw new Error("the mock Space has no pack");
-	return store.emoji.followPack(HQ, pack.id);
+	return pack;
 };
 
 it("explains how to get emoji while the viewer has none", async () => {
@@ -60,23 +80,42 @@ it("opens the pack editor to create or edit a pack", async () => {
 	expect(nav.open).toHaveBeenCalledWith("emojiPack");
 	expect(editingPack()).toBeUndefined();
 
-	const followed = await followHqPack(store);
+	const followed = await ownPack(store);
 	await userEvent.click(
 		page.getByRole("button", { name: `Edit ${followed.name}` }),
 	);
 	expect(editingPack()).toBe(followed.id);
 });
 
+it("copies a share link for a pack", async () => {
+	const writeText = vi
+		.spyOn(navigator.clipboard, "writeText")
+		.mockResolvedValue(undefined);
+	const { store } = await mountWithNav(() => (
+		<EmojiPacksPage platform="mobile" />
+	));
+	const followed = await ownPack(store);
+	await userEvent.click(
+		page.getByRole("button", { name: `Copy link to ${followed.name}` }),
+	);
+	const [did, , rkey] = followed.id.slice("at://".length).split("/");
+	await until(() => writeText.mock.calls.length > 0);
+	expect(writeText).toHaveBeenCalledWith(
+		`https://spaces.colibri.social/emoji/${did}/${rkey}`,
+	);
+	writeText.mockRestore();
+});
+
 it("creates a pack from the viewer's own emoji", async () => {
 	const { store, nav } = await mountWithNav(() => (
 		<EmojiPackPage platform="mobile" />
 	));
-	const followed = await followHqPack(store);
+	const followed = await ownPack(store);
 	const emoji = store.emoji
-		.followed()
+		.own()
 		.value()
 		?.emojis.find((entry) => entry.id === followed.emojis[0]);
-	if (!emoji) throw new Error("the followed pack has no emoji");
+	if (!emoji) throw new Error("the pack has no emoji");
 
 	await userEvent.fill(page.getByLabelText("Pack Name"), "Favorites");
 	await until(
@@ -94,7 +133,7 @@ it("creates a pack from the viewer's own emoji", async () => {
 
 	await until(() => vi.mocked(nav.back).mock.calls.length > 0);
 	const created = store.emoji
-		.followed()
+		.own()
 		.value()
 		?.packs.find((pack) => pack.name === "Favorites");
 	expect(created?.emojis).toEqual([emoji.id]);
@@ -107,7 +146,7 @@ it("deletes a pack and keeps its emoji", async () => {
 			<EmojiPackPage platform="mobile" />
 		</Show>
 	));
-	const followed = await followHqPack(store);
+	const followed = await ownPack(store);
 	setEditingPack(followed.id);
 	setReady(true);
 
@@ -117,9 +156,43 @@ it("deletes a pack and keeps its emoji", async () => {
 	);
 
 	await until(() => vi.mocked(nav.back).mock.calls.length > 0);
-	const catalog = store.emoji.followed().value();
+	const catalog = store.emoji.own().value();
 	expect(catalog?.packs).toEqual([]);
 	expect(catalog?.emojis.map((emoji) => emoji.id).sort()).toEqual(
 		[...followed.emojis].sort(),
 	);
+});
+
+it("lists followed packs and removes a follow", async () => {
+	const { store } = await mountWithNav(() => (
+		<EmojiPacksPage platform="mobile" />
+	));
+	const pack = await hqPack(store);
+	await store.emoji.follow(pack.id);
+	await expect.element(page.getByText("Followed packs")).toBeVisible();
+	const row = () =>
+		document.querySelector<HTMLElement>(`[data-emoji-follow="${pack.id}"]`);
+	await until(() => !!row());
+	expect(row()?.dataset.followState).toBe("available");
+	expect(row()?.textContent).toContain(pack.name);
+
+	await userEvent.click(
+		page.getByRole("button", { name: `Remove ${pack.name}` }),
+	);
+	await until(() => !row());
+	expect(store.emoji.followOf(pack.id)).toBeUndefined();
+});
+
+it("shows a followed pack its owner deleted", async () => {
+	const { store } = await mountWithNav(() => (
+		<EmojiPacksPage platform="mobile" />
+	));
+	const pack = await hqPack(store);
+	await store.emoji.follow(pack.id);
+	await store.emoji.removePack(HQ, pack.id);
+	const row = () =>
+		document.querySelector<HTMLElement>(`[data-emoji-follow="${pack.id}"]`);
+	await until(() => row()?.dataset.followState === "missing");
+	expect(row()?.textContent).toContain("Deleted pack");
+	expect(row()?.textContent).toContain("Its owner deleted it.");
 });

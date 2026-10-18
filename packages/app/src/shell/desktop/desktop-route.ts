@@ -30,6 +30,7 @@ const MODAL_KINDS: readonly Layer["kind"][] = [
 	"createSpace",
 	"discover",
 	"join",
+	"pack",
 ];
 
 export const isModalLayer = (layer: Layer | undefined) =>

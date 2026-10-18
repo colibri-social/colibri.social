@@ -8,31 +8,39 @@ import {
 	allowsEmojiUri,
 	attachEmojiFacets,
 	type EmojiCatalogView,
+	type EmojiFollowView,
+	type EmojiLibraryView,
+	type EmojiOwner,
 	type EmojiPackView,
 	type EmojiView,
 	emojiPolicy,
 	emojiRegistry,
 	filterEmojiFacets,
+	followOf,
 	packEmoji,
+	packFollowOf,
 	readEmojiFeature,
-	sourceOf,
 	type UpdateEmojiPackInput,
 	ungroupedEmoji,
 } from "./emoji";
 import type { DataSource } from "./source";
 import type { CommunityView, CustomEmojiPolicy, Did, Facet } from "./types";
 
-export type EmojiCatalog = {
-	value: Accessor<EmojiCatalogView | undefined>;
+export type EmojiLoad<T> = {
+	value: Accessor<T | undefined>;
 	loading: Accessor<boolean>;
 	error: Accessor<unknown>;
 	refresh: () => Promise<void>;
-	set: (next: EmojiCatalogView) => void;
+	set: (next: T) => void;
 };
 
-const createCatalog = (fetch: () => Promise<EmojiCatalogView>): EmojiCatalog =>
+export type EmojiCatalog = EmojiLoad<EmojiCatalogView>;
+
+export type EmojiLibrary = EmojiLoad<EmojiLibraryView>;
+
+const createLoad = <T>(fetch: () => Promise<T>): EmojiLoad<T> =>
 	createRoot(() => {
-		const [value, setValue] = createSignal<EmojiCatalogView>();
+		const [value, setValue] = createSignal<T>();
 		const [loading, setLoading] = createSignal(true);
 		const [error, setError] = createSignal<unknown>();
 		let generation = 0;
@@ -96,27 +104,55 @@ export const pickerPacks = (
 	return packs;
 };
 
-export const followedPickerPacks = (
-	space: EmojiCatalogView | undefined,
-	followed: EmojiCatalogView | undefined,
-	followedName: string,
-): EmojiPack[] => {
-	if (!followed) return [];
-	const local = new Set((space?.emojis ?? []).map((emoji) => emoji.id));
-	const visible = followed.emojis.filter(
-		(emoji) => !local.has(sourceOf(emoji)),
-	);
-	if (visible.length === 0) return [];
-	return pickerPacks({ ...followed, emojis: visible }, followedName).map(
-		(pack) => ({ ...pack, id: `followed:${pack.id}` }),
-	);
-};
+export const OWN_EMOJI_LABEL = "Your emoji";
 
-export const FOLLOWED_EMOJI_LABEL = "Your emoji";
+export const FOLLOWED_SINGLES_LABEL = "Followed emoji";
+
+export const emojiOwnerName = (owner: EmojiOwner) =>
+	owner.displayName || owner.handle || "Someone on Colibri";
+
+export const followedScope = (
+	follows: readonly EmojiFollowView[],
+): EmojiScopeEntry[] => {
+	const available = follows.filter((follow) => follow.state === "available");
+	const packs = available
+		.filter((follow) => follow.kind === "pack" && follow.pack)
+		.map(
+			(follow): EmojiScopeEntry => ({
+				id: `follow:${follow.subject}`,
+				label: follow.pack?.name ?? "",
+				author: emojiOwnerName(follow.owner),
+				catalog: {
+					community: follow.owner.did,
+					emojis: follow.emojis,
+					packs: [],
+				},
+				local: false,
+			}),
+		);
+	const singles = available
+		.filter((follow) => follow.kind === "emoji")
+		.flatMap((follow) => follow.emojis);
+	if (singles.length === 0) return packs;
+	return [
+		...packs,
+		{
+			id: "follow:emoji",
+			label: FOLLOWED_SINGLES_LABEL,
+			catalog: {
+				community: "" as Did,
+				emojis: singles,
+				packs: [],
+			},
+			local: false,
+		},
+	];
+};
 
 export type EmojiScopeEntry = {
 	id: string;
 	label: string;
+	author?: string;
 	catalog: EmojiCatalogView | undefined;
 	local: boolean;
 };
@@ -131,14 +167,34 @@ export const createEmojiStore = (
 	const catalog = (community: Did) => {
 		const existing = catalogs.get(community);
 		if (existing) return existing;
-		const created = createCatalog(() => source.listEmoji(community));
+		const created = createLoad(() => source.listEmoji(community));
 		catalogs.set(community, created);
 		return created;
 	};
 
+	let libraryLoad: EmojiLibrary | undefined;
+	const library = () => {
+		libraryLoad ??= createLoad(() => source.getEmojiLibrary());
+		return libraryLoad;
+	};
+
+	const patchLibrary = (
+		change: (current: EmojiLibraryView) => EmojiLibraryView,
+	) => {
+		const current = libraryLoad?.value();
+		if (libraryLoad && current) libraryLoad.set(change(current));
+	};
+
 	source.subscribe((event) => {
+		if (event.$type === "emojiLibraryEvent") {
+			library().set(event.library);
+			catalogs.get(viewer())?.set(event.library.own);
+			return;
+		}
 		if (event.$type !== "emojiEvent") return;
 		catalogs.get(event.catalog.community)?.set(event.catalog);
+		if (event.catalog.community === viewer())
+			patchLibrary((current) => ({ ...current, own: event.catalog }));
 	});
 
 	const patch = (
@@ -164,7 +220,9 @@ export const createEmojiStore = (
 			: [...current.packs, pack],
 	});
 
-	const followed = () => catalog(viewer());
+	const own = () => catalog(viewer());
+
+	const follows = () => library().value()?.follows ?? [];
 
 	const communityOf = (did: Did) =>
 		communities().find((entry) => entry.did === did);
@@ -175,17 +233,18 @@ export const createEmojiStore = (
 	const allows = (community: Did | undefined, uri: string) =>
 		!community || allowsEmojiUri(policy(community), community, uri);
 
+	const personal = (): EmojiScopeEntry[] => [
+		{
+			id: `own:${viewer()}`,
+			label: OWN_EMOJI_LABEL,
+			catalog: own().value() ?? library().value()?.own,
+			local: false,
+		},
+		...followedScope(follows()),
+	];
+
 	const scope = (community: Did | undefined): EmojiScopeEntry[] => {
-		if (!community) {
-			return [
-				{
-					id: `followed:${viewer()}`,
-					label: FOLLOWED_EMOJI_LABEL,
-					catalog: followed().value(),
-					local: false,
-				},
-			];
-		}
+		if (!community) return personal();
 		const level = policy(community);
 		if (level === "none") return [];
 		const own: EmojiScopeEntry = {
@@ -205,16 +264,7 @@ export const createEmojiStore = (
 					local: false,
 				}),
 			);
-		return [
-			own,
-			...others,
-			{
-				id: `followed:${viewer()}`,
-				label: FOLLOWED_EMOJI_LABEL,
-				catalog: followed().value(),
-				local: false,
-			},
-		];
+		return [own, ...personal(), ...others];
 	};
 
 	const available = (community: Did | undefined) => {
@@ -222,9 +272,8 @@ export const createEmojiStore = (
 		const rows: { emoji: EmojiView; label: string; entry: string }[] = [];
 		for (const entry of scope(community)) {
 			for (const emoji of entry.catalog?.emojis ?? []) {
-				const key = sourceOf(emoji);
-				if (seen.has(key)) continue;
-				seen.add(key);
+				if (seen.has(emoji.id)) continue;
+				seen.add(emoji.id);
 				rows.push({ emoji, label: entry.label, entry: entry.id });
 			}
 		}
@@ -239,12 +288,15 @@ export const createEmojiStore = (
 			const match = entry.value()?.emojis.find((emoji) => emoji.id === id);
 			if (match) return match;
 		}
+		for (const follow of follows()) {
+			const match = follow.emojis.find((emoji) => emoji.id === id);
+			if (match) return match;
+		}
 		return undefined;
 	};
 
 	const search = (community: Did | undefined, query: string, limit: number) => {
 		const needle = query.toLowerCase();
-		const seen = new Set<string>();
 		return available(community)
 			.filter((row) => row.emoji.name.includes(needle))
 			.sort(
@@ -252,11 +304,6 @@ export const createEmojiStore = (
 					Number(!a.emoji.name.startsWith(needle)) -
 					Number(!b.emoji.name.startsWith(needle)),
 			)
-			.filter((row) => {
-				if (seen.has(row.emoji.name)) return false;
-				seen.add(row.emoji.name);
-				return true;
-			})
 			.slice(0, limit)
 			.map((row) => suggestion(row.emoji, row.label));
 	};
@@ -267,8 +314,8 @@ export const createEmojiStore = (
 		for (const entry of scope(community)) {
 			const view = entry.catalog;
 			if (!view) continue;
-			const fresh = view.emojis.filter((emoji) => !shown.has(sourceOf(emoji)));
-			for (const emoji of fresh) shown.add(sourceOf(emoji));
+			const fresh = view.emojis.filter((emoji) => !shown.has(emoji.id));
+			for (const emoji of fresh) shown.add(emoji.id);
 			if (fresh.length === 0) continue;
 			if (entry.local) {
 				result.push(...pickerPacks({ ...view, emojis: fresh }, entry.label));
@@ -277,6 +324,7 @@ export const createEmojiStore = (
 			result.push({
 				id: `scope:${entry.id}`,
 				name: entry.label,
+				author: entry.author,
 				emojis: fresh.map((emoji) => ({
 					id: emoji.id,
 					name: emoji.name,
@@ -341,9 +389,37 @@ export const createEmojiStore = (
 		});
 	};
 
+	const follow = async (subject: string) => {
+		const view = await source.followEmoji({ subject });
+		patchLibrary((current) => ({
+			...current,
+			follows: [
+				...current.follows.filter((entry) => entry.subject !== subject),
+				view,
+			],
+		}));
+		return view;
+	};
+
+	const unfollow = async (subject: string) => {
+		const existing = followOf(library().value(), subject);
+		if (!existing) return;
+		await source.unfollowEmoji({ rkey: existing.rkey });
+		patchLibrary((current) => ({
+			...current,
+			follows: current.follows.filter((entry) => entry.rkey !== existing.rkey),
+		}));
+	};
+
 	return {
 		catalog,
-		followed,
+		own,
+		library,
+		follows,
+		followOf: (subject: string) => followOf(library().value(), subject),
+		packFollowOf: (emoji: string) => packFollowOf(library().value(), emoji),
+		follow,
+		unfollow,
 		policy,
 		allows,
 		scope,
@@ -355,12 +431,6 @@ export const createEmojiStore = (
 		resolve,
 		suggestion,
 		withFacets,
-		follow: (emoji: string) => source.followEmoji({ emoji }),
-		unfollow: (emoji: string) => source.unfollowEmoji({ emoji }),
-		followPack: (community: Did, pack: string) =>
-			source.followEmojiPack({ community, pack }),
-		unfollowPack: (community: Did, pack: string) =>
-			source.unfollowEmojiPack({ community, pack }),
 		upload: async (input: {
 			community: Did;
 			name: string;

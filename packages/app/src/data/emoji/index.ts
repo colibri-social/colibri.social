@@ -2,6 +2,8 @@ import type { Did } from "../types";
 import type {
 	BlobLocator,
 	EmojiCatalogView,
+	EmojiFollowView,
+	EmojiLibraryView,
 	EmojiPackView,
 	EmojiView,
 } from "./model";
@@ -34,6 +36,11 @@ export type EmojiEvent = {
 	catalog: EmojiCatalogView;
 };
 
+export type EmojiLibraryEvent = {
+	$type: "emojiLibraryEvent";
+	library: EmojiLibraryView;
+};
+
 export class EmojiError extends Error {
 	constructor(
 		readonly code:
@@ -45,7 +52,9 @@ export class EmojiError extends Error {
 			| "UploadFailed"
 			| "UnsupportedProvider"
 			| "ImageTooLarge"
-			| "UnsupportedImage",
+			| "UnsupportedImage"
+			| "OwnEmoji"
+			| "UpstreamFailure",
 	) {
 		super(code);
 		this.name = "EmojiError";
@@ -69,13 +78,9 @@ export type EmojiSource = {
 	}) => Promise<EmojiPackView>;
 	updateEmojiPack: (input: UpdateEmojiPackInput) => Promise<EmojiPackView>;
 	deleteEmojiPack: (input: { community: Did; pack: string }) => Promise<void>;
-	followEmoji: (input: { emoji: string }) => Promise<EmojiView>;
-	unfollowEmoji: (input: { emoji: string }) => Promise<void>;
-	followEmojiPack: (input: {
-		community: Did;
-		pack: string;
-	}) => Promise<EmojiPackView>;
-	unfollowEmojiPack: (input: { community: Did; pack: string }) => Promise<void>;
+	getEmojiLibrary: () => Promise<EmojiLibraryView>;
+	followEmoji: (input: { subject: string }) => Promise<EmojiFollowView>;
+	unfollowEmoji: (input: { rkey: string }) => Promise<void>;
 };
 
 export const ungroupedEmoji = (catalog: EmojiCatalogView) => {
@@ -90,26 +95,18 @@ export const packEmoji = (catalog: EmojiCatalogView, pack: EmojiPackView) => {
 		.filter((emoji): emoji is EmojiView => !!emoji);
 };
 
-export const sourceOf = (emoji: EmojiView) => emoji.copyOf ?? emoji.id;
+export const followOf = (
+	library: EmojiLibraryView | undefined,
+	subject: string,
+) => library?.follows.find((follow) => follow.subject === subject);
 
-export const followedCopy = (
-	followed: EmojiCatalogView | undefined,
-	source: string,
-) => followed?.emojis.find((emoji) => sourceOf(emoji) === source);
-
-export const followedPack = (
-	followed: EmojiCatalogView | undefined,
-	pack: EmojiPackView,
-) => {
-	if (!followed || pack.emojis.length === 0) return undefined;
-	const sources = new Map(
-		followed.emojis.map((emoji) => [emoji.id, sourceOf(emoji)]),
+export const packFollowOf = (
+	library: EmojiLibraryView | undefined,
+	emoji: string,
+) =>
+	library?.follows.find(
+		(follow) =>
+			follow.kind === "pack" &&
+			(follow.pack?.emojis.includes(emoji) ||
+				follow.emojis.some((entry) => entry.id === emoji)),
 	);
-	return followed.packs.find(
-		(candidate) =>
-			candidate.name === pack.name &&
-			pack.emojis.every((id) =>
-				candidate.emojis.some((copy) => sources.get(copy) === id),
-			),
-	);
-};

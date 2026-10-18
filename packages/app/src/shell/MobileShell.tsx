@@ -243,6 +243,14 @@ export const MobileShell = () => {
 				<Match when={layer.kind === "join" && layer}>
 					{(join) => <AppScreen name="join" args={{ code: join().code }} />}
 				</Match>
+				<Match when={layer.kind === "pack" && layer}>
+					{(pack) => (
+						<AppScreen
+							name="pack"
+							args={{ did: pack().did, rkey: pack().rkey }}
+						/>
+					)}
+				</Match>
 				<Match when={layer.kind === "notFound" && layer}>
 					{(missing) => (
 						<NotFoundScreen path={missing().path} platform="mobile" />

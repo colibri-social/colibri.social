@@ -1,3 +1,5 @@
+import { openAppLink } from "./deep-links";
+
 const isTauri = () =>
 	typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -44,10 +46,27 @@ export const externalAnchorOf = (
 const hasModifier = (event: MouseEvent) =>
 	event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
 
+const anchorOf = (event: Event): HTMLAnchorElement | undefined => {
+	const target = event.target;
+	if (!(target instanceof Element)) return undefined;
+	const anchor = target.closest("a[href]");
+	return anchor instanceof HTMLAnchorElement ? anchor : undefined;
+};
+
+const openedInApp = (event: MouseEvent, anchor: HTMLAnchorElement) => {
+	if (event.type !== "click" || anchor.hasAttribute("download")) return false;
+	if (!isTauri() && hasModifier(event)) return false;
+	if (!openAppLink(anchor.href)) return false;
+	event.preventDefault();
+	return true;
+};
+
 const handleClick = (event: MouseEvent) => {
 	if (event.defaultPrevented) return;
 	if (event.type === "auxclick" && event.button !== 1) return;
 	if (event.type === "click" && event.button !== 0) return;
+	const target = anchorOf(event);
+	if (target && openedInApp(event, target)) return;
 	const anchor = externalAnchorOf(event);
 	if (!anchor) return;
 	if (!isTauri()) {

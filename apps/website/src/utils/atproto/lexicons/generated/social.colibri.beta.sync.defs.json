@@ -562,7 +562,7 @@
 		},
 		"emojiEvent": {
 			"type": "object",
-			"description": "A repo's custom emoji or packs changed. Sent to a community's subscribers for its own emoji, and to a user's own connections for theirs. Carries the whole catalog so clients replace it in one step.",
+			"description": "A community's custom emoji or packs changed. Sent to the community's subscribers. Carries the whole catalog so clients replace it in one step.",
 			"required": [
 				"owner",
 				"catalog"
@@ -571,12 +571,26 @@
 				"owner": {
 					"type": "string",
 					"format": "did",
-					"description": "The community or user whose catalog changed."
+					"description": "The community whose catalog changed."
 				},
 				"catalog": {
 					"type": "ref",
 					"ref": "social.colibri.beta.emoji.defs#catalogView",
 					"description": "The catalog after the change."
+				}
+			}
+		},
+		"emojiLibraryEvent": {
+			"type": "object",
+			"description": "The user's emoji library changed. Sent to a user's own connections when their own emoji change, a follow is added or removed, or the owner of something they follow changes their emoji. Carries the whole library so clients replace it in one step.",
+			"required": [
+				"library"
+			],
+			"properties": {
+				"library": {
+					"type": "ref",
+					"ref": "social.colibri.beta.emoji.defs#libraryView",
+					"description": "The user's whole library after the change."
 				}
 			}
 		},

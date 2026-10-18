@@ -187,11 +187,6 @@ const fakeProvider: EmojiProvider = {
 		rkey: draft.name,
 		value: { code: draft.name, blob: draft.image.cid },
 	}),
-	writeCopy: (draft) => ({
-		collection: "test.sticker.item",
-		rkey: draft.name,
-		value: { code: draft.name, blob: draft.image.cid, from: draft.source.id },
-	}),
 	fallbackText: () => "👋",
 	altText: (emoji) => `Sticker ${emoji.name}`,
 };

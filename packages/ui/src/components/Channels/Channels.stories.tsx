@@ -50,6 +50,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+const kekEmoji = `data:image/svg+xml,${encodeURIComponent(
+	'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#e0a458"/><text x="12" y="17" font-size="13" text-anchor="middle" font-family="sans-serif" fill="#111">k</text></svg>',
+)}`;
+
 const desktop = {
 	viewport: { defaultViewport: "reset" },
 	layout: "fullscreen",
@@ -93,7 +97,11 @@ const Channels = (props: { platform?: "mobile" | "desktop" }) => {
 					active={active() === "general"}
 					onClick={select("general")}
 					unread
-					preview={{ author: "Lou", text: "Read this message, please!" }}
+					preview={{
+						author: "Lou",
+						text: "It'll be fine :kek:",
+						parts: ["It'll be fine ", { name: "kek", src: kekEmoji }],
+					}}
 				/>
 				<ChannelRow
 					name="Photos"
@@ -270,6 +278,19 @@ export const RowStates: Story = {
 			"font-semibold",
 		);
 		await expect(unread.querySelector("[data-channel-mentions]")).toBeNull();
+		const emoji = unread.querySelector(
+			"[data-channel-preview-emoji]",
+		) as HTMLImageElement;
+		await expect(emoji).toHaveAttribute("alt", ":kek:");
+		const previewLine = unread.querySelector(
+			"[data-channel-preview]",
+		) as HTMLElement;
+		await expect(previewLine).toHaveTextContent("Lou: It'll be fine");
+		const emojiBox = emoji.getBoundingClientRect();
+		const lineBox = previewLine.getBoundingClientRect();
+		await expect(emojiBox.height).toBe(16);
+		await expect(emojiBox.top).toBeGreaterThanOrEqual(lineBox.top - 1);
+		await expect(emojiBox.bottom).toBeLessThanOrEqual(lineBox.bottom + 1);
 
 		const mentioned = byName("Photos");
 		await expect(

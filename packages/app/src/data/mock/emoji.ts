@@ -4,16 +4,17 @@ import {
 	EMOJI_PERMISSION,
 	type EmojiCatalogView,
 	EmojiError,
+	type EmojiFollowView,
+	type EmojiLibraryView,
 	type EmojiPackView,
 	type EmojiProvider,
 	type EmojiRegistry,
 	type EmojiSource,
 	type EmojiView,
 	emojiRegistry,
-	followedCopy,
-	followedPack,
 	type ProviderRecord,
 	repoOfUri,
+	rkeyOfUri,
 	type StoredBlob,
 	type WrittenRecord,
 } from "../emoji";
@@ -115,6 +116,7 @@ export const createMockEmoji = (options: {
 	const { world, now, emit } = options;
 	const registry = options.registry ?? emojiRegistry;
 	const repos = new Map<Did, Repo>();
+	const follows = new Map<string, { subject: string; createdAt: string }>();
 	const blobs = new Map<string, string>();
 	let counter = 0;
 
@@ -260,8 +262,80 @@ export const createMockEmoji = (options: {
 		return { community, emojis, packs };
 	};
 
-	const publish = (community: Did) =>
+	const ownerView = (owner: Did) => {
+		if (owner === world.viewerDid) return { did: owner, kind: "user" as const };
+		const space = world.spaces.find((entry) => entry.did === owner);
+		return {
+			did: owner,
+			kind: "community" as const,
+			displayName: space?.view.name,
+			handle: space?.view.handle,
+			avatar: space?.view.picture,
+		};
+	};
+
+	const followView = (rkey: string): EmojiFollowView | undefined => {
+		const record = follows.get(rkey);
+		if (!record) return undefined;
+		const owner = repoOfUri(record.subject);
+		const kind =
+			collectionOfUri(record.subject) ===
+			providerOf(DEFAULT_EMOJI_PROVIDER).collections.pack
+				? "pack"
+				: "emoji";
+		const base = {
+			uri: `at://${world.viewerDid}/social.colibri.beta.emoji.follow/${rkey}`,
+			rkey,
+			subject: record.subject,
+			kind,
+			owner: ownerView(owner),
+			createdAt: asDatetime(Date.parse(record.createdAt)),
+		} as const;
+		if (!world.spaces.some((space) => space.did === owner))
+			return { ...base, state: "unreachable", emojis: [] };
+		const catalog = snapshot(owner);
+		if (kind === "pack") {
+			const pack = catalog.packs.find((entry) => entry.id === record.subject);
+			if (!pack) return { ...base, state: "missing", emojis: [] };
+			const byId = new Map(catalog.emojis.map((emoji) => [emoji.id, emoji]));
+			return {
+				...base,
+				state: "available",
+				pack,
+				emojis: pack.emojis
+					.map((id) => byId.get(id))
+					.filter((emoji): emoji is EmojiView => !!emoji),
+			};
+		}
+		const emoji = catalog.emojis.find((entry) => entry.id === record.subject);
+		return emoji
+			? { ...base, state: "available", emojis: [emoji] }
+			: { ...base, state: "missing", emojis: [] };
+	};
+
+	const library = (): EmojiLibraryView => ({
+		own: snapshot(world.viewerDid),
+		follows: [...follows.entries()]
+			.sort(([, a], [, b]) => a.createdAt.localeCompare(b.createdAt))
+			.flatMap(([rkey]) => {
+				const view = followView(rkey);
+				return view ? [view] : [];
+			}),
+	});
+
+	const publishLibrary = () =>
+		emit({ $type: "emojiLibraryEvent", library: library() });
+
+	const publish = (community: Did) => {
 		emit({ $type: "emojiEvent", catalog: snapshot(community) });
+		if (
+			community === world.viewerDid ||
+			[...follows.values()].some(
+				(record) => repoOfUri(record.subject) === community,
+			)
+		)
+			publishLibrary();
+	};
 
 	const requireManage = (community: Did) => {
 		if (community === world.viewerDid) return;
@@ -347,60 +421,6 @@ export const createMockEmoji = (options: {
 			throw new EmojiError("EmojiNotFound");
 		}
 		return owner;
-	};
-
-	const freeName = (catalog: EmojiCatalogView, name: string) => {
-		const taken = new Set(catalog.emojis.map((emoji) => emoji.name));
-		if (!taken.has(name)) return name;
-		for (let suffix = 2; ; suffix++) {
-			const base = name.slice(0, 32 - String(suffix).length - 1);
-			const candidate = `${base}_${suffix}`;
-			if (!taken.has(candidate)) return candidate;
-		}
-	};
-
-	const copyInto = (source: EmojiView) => {
-		const viewer = world.viewerDid;
-		const existing = followedCopy(snapshot(viewer), source.id);
-		if (existing) return existing.id;
-		const provider = providerOf(source.ref.provider);
-		const image = source.images[0];
-		return put(
-			repoOf(viewer),
-			viewer,
-			provider.writeCopy({
-				owner: viewer,
-				name: freeName(snapshot(viewer), source.name),
-				alt: source.alt,
-				fallback: source.fallback,
-				image: {
-					cid: image?.cid ?? nextCid(),
-					mimeType: image?.mimeType ?? "image/png",
-					size: image?.size ?? 0,
-				},
-				createdAt: asDatetime(Date.now()),
-				source,
-			}),
-			viewer,
-		);
-	};
-
-	const dropCopies = (sources: ReadonlySet<string>) => {
-		const viewer = world.viewerDid;
-		const repo = repoOf(viewer);
-		const copies = snapshot(viewer).emojis.filter((emoji) =>
-			sources.has(emoji.copyOf ?? ""),
-		);
-		const ids = new Set(copies.map((emoji) => emoji.id));
-		for (const id of ids) {
-			repo.records.delete(id);
-			repo.createdBy.delete(id);
-		}
-		for (const [key, record] of repo.records) {
-			if (ids.has((record.value as { subject?: string }).subject ?? "")) {
-				repo.records.delete(key);
-			}
-		}
 	};
 
 	const viewOf = (community: Did, id: string) =>
@@ -554,68 +574,36 @@ export const createMockEmoji = (options: {
 				repo.createdBy.delete(pack.id);
 				publish(input.community);
 			}),
+		getEmojiLibrary: () => withLatency(library),
 		followEmoji: (input) =>
 			withLatency(() => {
-				const owner = ownerRepo(input.emoji);
-				const source = emojiIn(snapshot(owner), input.emoji);
-				const original = source.copyOf
-					? (snapshot(repoOfUri(source.copyOf)).emojis.find(
-							(emoji) => emoji.id === source.copyOf,
-						) ?? source)
-					: source;
-				const uri = copyInto(original);
-				publish(world.viewerDid);
-				return viewOf(world.viewerDid, uri);
+				const owner = ownerRepo(input.subject);
+				if (owner === world.viewerDid) throw new EmojiError("OwnEmoji");
+				const catalog = snapshot(owner);
+				const exists =
+					catalog.emojis.some((emoji) => emoji.id === input.subject) ||
+					catalog.packs.some((pack) => pack.id === input.subject);
+				if (!exists) {
+					const pack =
+						collectionOfUri(input.subject) ===
+						providerOf(DEFAULT_EMOJI_PROVIDER).collections.pack;
+					throw new EmojiError(pack ? "PackNotFound" : "EmojiNotFound");
+				}
+				for (const [rkey, record] of follows) {
+					if (record.subject === input.subject) follows.delete(rkey);
+				}
+				const rkey = nextTid();
+				follows.set(rkey, {
+					subject: input.subject,
+					createdAt: new Date(now + counter).toISOString(),
+				});
+				publishLibrary();
+				return followView(rkey) as EmojiFollowView;
 			}),
 		unfollowEmoji: (input) =>
 			withLatency(() => {
-				dropCopies(new Set([input.emoji]));
-				publish(world.viewerDid);
-			}),
-		followEmojiPack: (input) =>
-			withLatency(() => {
-				const source = snapshot(input.community);
-				const pack = packIn(source, input.pack);
-				const viewer = world.viewerDid;
-				const existing = followedPack(snapshot(viewer), pack);
-				if (existing) return existing;
-				const provider = providerOf(pack.provider);
-				if (!provider.writePack) throw new EmojiError("UnsupportedProvider");
-				const copies = pack.emojis
-					.map((id) => source.emojis.find((emoji) => emoji.id === id))
-					.filter((emoji): emoji is EmojiView => !!emoji)
-					.map(copyInto);
-				const uri = put(
-					repoOf(viewer),
-					viewer,
-					provider.writePack({
-						owner: viewer,
-						rkey: nextTid(),
-						name: pack.name,
-						description: pack.description,
-						createdAt: asDatetime(Date.now()),
-					}),
-					viewer,
-				);
-				setMembers(viewer, packView(viewer, uri), copies);
-				publish(viewer);
-				return packView(viewer, uri);
-			}),
-		unfollowEmojiPack: (input) =>
-			withLatency(() => {
-				const pack = packIn(snapshot(input.community), input.pack);
-				const viewer = world.viewerDid;
-				const followed = followedPack(snapshot(viewer), pack);
-				const repo = repoOf(viewer);
-				if (followed) {
-					for (const record of membershipsOf(repo, followed)) {
-						repo.records.delete(record.uri);
-					}
-					repo.records.delete(followed.id);
-					repo.createdBy.delete(followed.id);
-				}
-				dropCopies(new Set(pack.emojis));
-				publish(viewer);
+				follows.delete(rkeyOfUri(input.rkey));
+				publishLibrary();
 			}),
 	};
 };

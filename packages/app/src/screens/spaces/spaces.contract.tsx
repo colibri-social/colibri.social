@@ -40,6 +40,7 @@ import {
 	Show,
 } from "solid-js";
 import { displayNameOf } from "../../data/adapters/authors";
+import { summaryParts } from "../../data/channel-summary";
 import { SPACE_ORDER_NOT_SAVED } from "../../data/error-copy";
 import { channelSlug, isVoiceChannel, skeyOf, spaceKey } from "../../data/ids";
 import { mutedTotals, spaceNotificationPrefs } from "../../data/notifications";
@@ -756,7 +757,13 @@ export const spaces = defineContract({
 						preview={(() => {
 							const current = summary();
 							return current
-								? { author: m.authorName(current.author), text: current.text }
+								? {
+										author: m.authorName(current.author),
+										text: current.text,
+										parts: summaryParts(current, (feature) =>
+											m.data.emoji.mention(m.community()?.did, feature),
+										),
+									}
 								: undefined;
 						})()}
 						attachment={summary()?.attachment}

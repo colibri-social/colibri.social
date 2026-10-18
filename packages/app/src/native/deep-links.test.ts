@@ -31,6 +31,27 @@ describe("appPathFromLink", () => {
 		);
 	});
 
+	it("reads emoji pack links in both schemes and on the web", () => {
+		expect(appPathFromLink("social.colibri:/emoji/did:plc:abc/3kowls")).toBe(
+			"/app/emoji/did:plc:abc/3kowls",
+		);
+		expect(
+			appPathFromLink("social.colibri.spaces://emoji/did%3Aplc%3Aabc/3kowls"),
+		).toBe("/app/emoji/did:plc:abc/3kowls");
+		expect(
+			appPathFromLink("https://spaces.colibri.social/emoji/did:plc:abc/3kowls"),
+		).toBe("/app/emoji/did:plc:abc/3kowls");
+		expect(appPathFromLink("social.colibri:/emoji/lou.gg/3kowls")).toBe(
+			undefined,
+		);
+		expect(
+			routeFromLink("https://colibri.social/emoji/did:plc:abc/3kowls"),
+		).toEqual({
+			root: { tab: "spaces" },
+			layers: [{ kind: "pack", did: "did:plc:abc", rkey: "3kowls" }],
+		});
+	});
+
 	it("reads channel links", () => {
 		expect(
 			appPathFromLink(

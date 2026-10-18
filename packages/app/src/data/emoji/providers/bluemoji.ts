@@ -46,7 +46,6 @@ export type BluemojiItem = {
 	createdAt: Datetime;
 	formats: BluemojiItemFormats;
 	adultOnly?: boolean;
-	copyOf?: string;
 	fallbackText?: string;
 };
 
@@ -183,7 +182,6 @@ const readItem = (
 		images,
 		image: image.src,
 		adultOnly: item.adultOnly || undefined,
-		copyOf: item.copyOf,
 		createdAt: item.createdAt,
 	};
 };
@@ -254,14 +252,6 @@ const writeItem: EmojiProvider["writeItem"] = (draft) => {
 	};
 };
 
-const writeCopy: EmojiProvider["writeCopy"] = (draft) => {
-	const written = writeItem(draft);
-	const value = written.value as BluemojiItem;
-	value.copyOf = draft.source.ref.uri;
-	if (draft.source.adultOnly) value.adultOnly = true;
-	return written;
-};
-
 export const bluemojiProvider: EmojiProvider = {
 	id: BLUEMOJI.provider,
 	label: "Bluemoji",
@@ -273,7 +263,6 @@ export const bluemojiProvider: EmojiProvider = {
 	},
 	readItem,
 	writeItem,
-	writeCopy,
 	readPacks,
 	writePack: (draft) => {
 		const value: BluemojiPack = {

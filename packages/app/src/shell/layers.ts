@@ -75,6 +75,7 @@ export type AdminLayer = {
 export type CreateSpaceLayer = { kind: "createSpace" };
 export type DiscoverLayer = { kind: "discover" };
 export type JoinLayer = { kind: "join"; code: string };
+export type PackLayer = { kind: "pack"; did: string; rkey: string };
 
 export type NotFoundLayer = { kind: "notFound"; path: string };
 
@@ -82,6 +83,7 @@ export type AppLayer =
 	| CreateSpaceLayer
 	| DiscoverLayer
 	| JoinLayer
+	| PackLayer
 	| NotFoundLayer;
 
 const ADMIN_PARENT: Partial<Record<AdminPage, AdminPage>> = {
@@ -181,6 +183,7 @@ export const layerPath = (layer: Layer) => {
 	if (layer.kind === "createSpace") return CREATE_SPACE_PATH;
 	if (layer.kind === "discover") return DISCOVER_PATH;
 	if (layer.kind === "join") return `/app/invite/${segment(layer.code)}`;
+	if (layer.kind === "pack") return packPath(layer);
 	if (layer.kind === "notFound") return layer.path;
 	if (layer.kind === "admin") return adminPath(layer);
 	const chat = channelPath(layer);
@@ -199,6 +202,17 @@ export const layerPath = (layer: Layer) => {
 	}
 	return chat;
 };
+
+export const packPath = (target: { did: string; rkey: string }) =>
+	`/app/emoji/${target.did}/${segment(target.rkey)}`;
+
+const packRoute = (did: string | undefined, rkey: string | undefined) =>
+	did?.startsWith("did:") && rkey
+		? {
+				root: { tab: "spaces" as const },
+				layers: [{ kind: "pack" as const, did, rkey }],
+			}
+		: undefined;
 
 export const pathAt = (route: Route, depth: number) => {
 	const layer = route.layers[depth - 1];
@@ -228,8 +242,14 @@ const parseKnownPath = (parts: readonly string[]): Route | undefined => {
 		if (!head || length > 2) return undefined;
 		return { root: { tab: "spaces" }, layers: [{ kind: "join", code: head }] };
 	}
+	if (app === "emoji") {
+		return length === 3 ? packRoute(head, space) : undefined;
+	}
 	if (app !== "app") return undefined;
 	if (!head) return { root: { tab: "spaces" }, layers: [] };
+	if (head === "emoji") {
+		return length === 4 ? packRoute(space, channelType) : undefined;
+	}
 	if (`/${app}/${head}` === SIGN_IN_PATH && length === 2) {
 		return { root: { tab: "spaces" }, layers: [] };
 	}

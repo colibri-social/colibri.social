@@ -12,22 +12,23 @@ import {
 	DEFAULT_EMOJI_PROVIDER,
 	type EmojiCatalogView,
 	EmojiError,
+	type EmojiFollowState,
+	type EmojiFollowView,
 	type EmojiFormat,
 	type EmojiImage,
+	type EmojiLibraryView,
+	type EmojiOwner,
 	type EmojiPackView,
 	type EmojiProvider,
 	type EmojiRegistry,
 	type EmojiSource,
 	type EmojiView,
 	emojiRegistry,
-	followedCopy,
-	followedPack,
-	repoOfUri,
 	rkeyOfUri,
 	type StoredBlob,
-	sourceOf,
 	type WrittenRecord,
 } from "../emoji";
+import type { PreferencesSpace } from "../preferences/remote";
 import type { LiveEvent } from "../source";
 import type { Datetime, Did } from "../types";
 import type { Records } from "./records";
@@ -58,7 +59,6 @@ type WireEmoji = {
 		pixels?: number;
 	}[];
 	adultOnly?: boolean;
-	copyOf?: string;
 	createdAt: string;
 };
 
@@ -70,6 +70,30 @@ type WirePack = {
 	description?: string;
 	emojis: readonly string[];
 	createdAt: string;
+};
+
+type WireOwner = {
+	did: string;
+	kind: string;
+	handle?: string;
+	displayName?: string;
+	avatar?: string;
+};
+
+type WireFollow = {
+	uri: string;
+	subject: string;
+	kind: string;
+	state: string;
+	owner: WireOwner;
+	pack?: WirePack;
+	emojis?: readonly WireEmoji[];
+	createdAt: string;
+};
+
+export type WireLibrary = {
+	own: WireCatalog;
+	follows: readonly WireFollow[];
 };
 
 const NAME_PATTERN = /^[a-z0-9_]{2,32}$/;
@@ -94,6 +118,8 @@ const EMOJI_CODES: ReadonlySet<string> = new Set<EmojiError["code"]>([
 	"UnsupportedProvider",
 	"ImageTooLarge",
 	"UnsupportedImage",
+	"OwnEmoji",
+	"UpstreamFailure",
 ]);
 
 const isEmojiCode = (code: unknown): code is EmojiError["code"] =>
@@ -148,7 +174,6 @@ export const emojiFromWire = (
 		images,
 		image: image.src,
 		adultOnly: wire.adultOnly,
-		copyOf: wire.copyOf,
 		createdAt: wire.createdAt as Datetime,
 	};
 };
@@ -174,6 +199,48 @@ export const catalogFromWire = (
 	packs: wire.packs.map(packFromWire),
 });
 
+const FOLLOW_STATES: ReadonlySet<string> = new Set<EmojiFollowState>([
+	"available",
+	"missing",
+	"unreachable",
+]);
+
+const ownerFromWire = (wire: WireOwner): EmojiOwner => ({
+	did: wire.did as Did,
+	kind: wire.kind === "community" ? "community" : "user",
+	handle: wire.handle,
+	displayName: wire.displayName,
+	avatar: wire.avatar,
+});
+
+export const followFromWire = (
+	wire: WireFollow,
+	locate: BlobLocator,
+): EmojiFollowView => ({
+	uri: wire.uri,
+	rkey: rkeyOfUri(wire.uri),
+	subject: wire.subject,
+	kind: wire.kind === "pack" ? "pack" : "emoji",
+	state: FOLLOW_STATES.has(wire.state)
+		? (wire.state as EmojiFollowState)
+		: "unreachable",
+	owner: ownerFromWire(wire.owner),
+	pack: wire.pack ? packFromWire(wire.pack) : undefined,
+	emojis: (wire.emojis ?? []).flatMap((emoji) => {
+		const view = emojiFromWire(emoji, locate);
+		return view ? [view] : [];
+	}),
+	createdAt: wire.createdAt as Datetime,
+});
+
+export const libraryFromWire = (
+	wire: WireLibrary,
+	locate: BlobLocator,
+): EmojiLibraryView => ({
+	own: catalogFromWire(wire.own, locate),
+	follows: wire.follows.map((follow) => followFromWire(follow, locate)),
+});
+
 const uriOf = (owner: Did, written: WrittenRecord) =>
 	`at://${owner}/${written.collection}/${written.rkey}`;
 
@@ -182,25 +249,18 @@ const now = () => new Date().toISOString() as Datetime;
 export const createRemoteEmoji = (input: {
 	transport: Transport;
 	records: Records;
+	space: PreferencesSpace;
 	viewer: Did;
 	locate: BlobLocator;
 	emit: (event: LiveEvent) => void;
 	registry?: EmojiRegistry;
-	fetchImage?: (src: string) => Promise<Blob>;
 }): Omit<EmojiSource, "emojiBlobUrl"> & {
 	observe: (event: LiveEvent) => void;
 } => {
-	const { transport, records, viewer, locate, emit } = input;
+	const { transport, records, space, viewer, locate, emit } = input;
 	const registry = input.registry ?? emojiRegistry;
-	const fetchImage =
-		input.fetchImage ??
-		(async (src: string) => {
-			const response = await fetch(src);
-			if (!response.ok) throw new EmojiError("UploadFailed");
-			return response.blob();
-		});
 
-	let followed: EmojiCatalogView | undefined;
+	let own: EmojiCatalogView | undefined;
 
 	const call = async <T>(method: string, run: () => Promise<T>) => {
 		try {
@@ -218,14 +278,14 @@ export const createRemoteEmoji = (input: {
 			params: { owner },
 		});
 		const catalog = catalogFromWire(result.catalog as WireCatalog, locate);
-		if (owner === viewer) followed = catalog;
+		if (owner === viewer) own = catalog;
 		return catalog;
 	};
 
-	const viewerCatalog = async () => followed ?? (await fetchCatalog(viewer));
+	const viewerCatalog = async () => own ?? (await fetchCatalog(viewer));
 
 	const publishViewer = (catalog: EmojiCatalogView) => {
-		followed = catalog;
+		own = catalog;
 		emit({ $type: "emojiEvent", catalog });
 	};
 
@@ -276,16 +336,6 @@ export const createRemoteEmoji = (input: {
 		return view;
 	};
 
-	const freeName = (catalog: EmojiCatalogView, name: string) => {
-		const taken = new Set(catalog.emojis.map((emoji) => emoji.name));
-		if (!taken.has(name)) return name;
-		for (let suffix = 2; ; suffix++) {
-			const base = name.slice(0, 32 - String(suffix).length - 1);
-			const candidate = `${base}_${suffix}`;
-			if (!taken.has(candidate)) return candidate;
-		}
-	};
-
 	const checkName = (
 		catalog: EmojiCatalogView,
 		name: string,
@@ -316,69 +366,18 @@ export const createRemoteEmoji = (input: {
 		});
 	};
 
-	const copyInto = async (catalog: EmojiCatalogView, source: EmojiView) => {
-		const existing = followedCopy(catalog, sourceOf(source));
-		if (existing) return { catalog, emoji: existing };
-		const provider = providerOf(source.ref.provider);
-		const image = bestImage(source.images) ?? source.images[0];
-		if (!image) throw new EmojiError("UploadFailed");
-		const bytes = await fetchImage(image.src);
-		const blob = await records.uploadBlob(
-			bytes.type
-				? bytes
-				: new Blob([bytes], { type: image.mimeType ?? "image/png" }),
-		);
-		const written = provider.writeCopy({
-			owner: viewer,
-			name: freeName(catalog, source.name),
-			alt: source.alt,
-			fallback: source.fallback,
-			image: stored(blob),
-			createdAt: now(),
-			source,
-		});
-		const { uri, cid } = await put(written);
-		const emoji = readBack(written, uri, cid);
-		return {
-			catalog: { ...catalog, emojis: [...catalog.emojis, emoji] },
-			emoji,
-		};
-	};
-
-	const originalOf = async (emoji: EmojiView) => {
-		if (!emoji.copyOf) return emoji;
-		try {
-			const owner = repoOfUri(emoji.copyOf);
-			const catalog = await fetchCatalog(owner);
-			return catalog.emojis.find((entry) => entry.id === emoji.copyOf) ?? emoji;
-		} catch {
-			return emoji;
-		}
-	};
-
-	const findEmoji = async (uri: string) => {
-		const owner = repoOfUri(uri);
-		const catalog =
-			owner === viewer ? await viewerCatalog() : await fetchCatalog(owner);
-		const emoji = catalog.emojis.find((entry) => entry.id === uri);
-		if (!emoji) throw new EmojiError("EmojiNotFound");
-		return emoji;
-	};
-
-	const dropCopies = async (
+	const dropOwned = async (
 		catalog: EmojiCatalogView,
-		sources: ReadonlySet<string>,
+		ids: ReadonlySet<string>,
 	) => {
-		const copies = catalog.emojis.filter(
-			(emoji) => sources.has(emoji.copyOf ?? "") || sources.has(emoji.id),
-		);
-		const ids = new Set(copies.map((emoji) => emoji.id));
 		for (const provider of registry.providers) {
 			for (const membership of await membershipsIn(provider)) {
 				if (ids.has(membership.subject)) await removeUri(membership.uri);
 			}
 		}
-		for (const id of ids) await removeUri(id);
+		for (const id of ids) {
+			if (catalog.emojis.some((emoji) => emoji.id === id)) await removeUri(id);
+		}
 		return {
 			...catalog,
 			emojis: catalog.emojis.filter((emoji) => !ids.has(emoji.id)),
@@ -388,6 +387,12 @@ export const createRemoteEmoji = (input: {
 			})),
 		};
 	};
+
+	const followTarget = (rkey: string) => ({
+		space: space.space,
+		collection: colibri.emoji.follow.$nsid,
+		rkey,
+	});
 
 	const writeMembers = async (
 		pack: string,
@@ -454,7 +459,6 @@ export const createRemoteEmoji = (input: {
 				...(previous?.value
 					? { formats: (previous.value as Record<string, unknown>).formats }
 					: {}),
-				...(emoji.copyOf ? { copyOf: emoji.copyOf } : {}),
 			};
 			const { uri: next, cid } = await put({ ...written, value });
 			if (next !== uri) {
@@ -492,7 +496,7 @@ export const createRemoteEmoji = (input: {
 		},
 		remove: async (uri: string) => {
 			const catalog = await viewerCatalog();
-			publishViewer(await dropCopies(catalog, new Set([uri])));
+			publishViewer(await dropOwned(catalog, new Set([uri])));
 		},
 		createPack: async (name: string, emojis: string[]) => {
 			const catalog = await viewerCatalog();
@@ -590,7 +594,8 @@ export const createRemoteEmoji = (input: {
 	return {
 		observe: (event) => {
 			if (event.$type === "emojiEvent" && event.catalog.community === viewer)
-				followed = event.catalog;
+				own = event.catalog;
+			if (event.$type === "emojiLibraryEvent") own = event.library.own;
 		},
 		listEmoji: (owner) =>
 			call(colibri.emoji.getCatalog.main.nsid, () => fetchCatalog(owner)),
@@ -653,77 +658,38 @@ export const createRemoteEmoji = (input: {
 					body: pack,
 				});
 			}),
-		followEmoji: ({ emoji }) =>
-			call("emoji.follow", async () => {
-				const original = await originalOf(await findEmoji(emoji));
-				const result = await copyInto(await viewerCatalog(), original);
-				publishViewer(result.catalog);
-				return result.emoji;
+		getEmojiLibrary: () =>
+			call(colibri.emoji.getLibrary.main.nsid, async () => {
+				const result = await transport.query(colibri.emoji.getLibrary.main);
+				const library = libraryFromWire(result.library as WireLibrary, locate);
+				own = library.own;
+				return library;
 			}),
-		unfollowEmoji: ({ emoji }) =>
-			call("emoji.unfollow", async () => {
-				publishViewer(
-					await dropCopies(await viewerCatalog(), new Set([emoji])),
-				);
-			}),
-		followEmojiPack: ({ community: owner, pack }) =>
-			call("emoji.followPack", async () => {
-				const source = await fetchCatalog(owner);
-				const target = source.packs.find((entry) => entry.id === pack);
-				if (!target) throw new EmojiError("PackNotFound");
-				let catalog = await viewerCatalog();
-				const existing = followedPack(catalog, target);
-				if (existing) return existing;
-				const provider = packProviderOf(target.provider);
-				const copies: string[] = [];
-				for (const id of target.emojis) {
-					const emoji = source.emojis.find((entry) => entry.id === id);
-					if (!emoji) continue;
-					const result = await copyInto(catalog, emoji);
-					catalog = result.catalog;
-					copies.push(result.emoji.id);
-				}
+		followEmoji: ({ subject }) =>
+			call(colibri.emoji.putFollow.main.nsid, async () => {
+				const rkey = nextTid();
 				const createdAt = now();
-				const written = provider.writePack({
-					owner: viewer,
-					rkey: nextTid(),
-					name: target.name,
-					description: target.description,
-					createdAt,
-				});
-				const { uri } = await put(written);
-				await writeMembers(uri, provider, copies);
-				const followedView: EmojiPackView = {
-					id: uri,
-					provider: provider.provider.id,
-					name: target.name,
-					description: target.description,
-					emojis: copies,
-					createdAt,
-				};
-				publishViewer({ ...catalog, packs: [...catalog.packs, followedView] });
-				return followedView;
-			}),
-		unfollowEmojiPack: ({ community: owner, pack }) =>
-			call("emoji.unfollowPack", async () => {
-				const source = await fetchCatalog(owner);
-				const target = source.packs.find((entry) => entry.id === pack);
-				if (!target) throw new EmojiError("PackNotFound");
-				let catalog = await viewerCatalog();
-				const existing = followedPack(catalog, target);
-				if (existing) {
-					const provider = providerOf(existing.provider);
-					for (const membership of await membershipsIn(provider)) {
-						if (membership.pack === existing.id)
-							await removeUri(membership.uri);
-					}
-					await removeUri(existing.id);
-					catalog = {
-						...catalog,
-						packs: catalog.packs.filter((entry) => entry.id !== existing.id),
-					};
+				await space.write(() =>
+					records.putInSpace(followTarget(rkey), { subject, createdAt }),
+				);
+				try {
+					const result = await transport.procedure(
+						colibri.emoji.putFollow.main,
+						{ body: { rkey, subject, createdAt } },
+					);
+					if (!result.follow) throw new EmojiError("EmojiNotFound");
+					return followFromWire(result.follow as WireFollow, locate);
+				} catch (error) {
+					await records.deleteInSpace(followTarget(rkey)).catch(() => {});
+					throw error;
 				}
-				publishViewer(await dropCopies(catalog, new Set(target.emojis)));
+			}),
+		unfollowEmoji: ({ rkey }) =>
+			call(colibri.emoji.putFollow.main.nsid, async () => {
+				await records.deleteInSpace(followTarget(rkey));
+				await transport.procedure(colibri.emoji.putFollow.main, {
+					body: { rkey },
+				});
 			}),
 	};
 };

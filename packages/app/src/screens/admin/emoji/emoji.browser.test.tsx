@@ -366,22 +366,66 @@ describe("Space emoji", () => {
 		await expectNoLayoutIssues(drawer);
 		await pressButton(drawer, "Follow emoji");
 		await until(() => drawer.textContent?.includes("Unfollow emoji") ?? false);
-		await until(
-			() =>
-				store.emoji
-					.followed()
-					.value()
-					?.emojis.some((emoji) => emoji.name === "shipit") ?? false,
+		await until(() =>
+			store.emoji
+				.follows()
+				.some(
+					(follow) =>
+						follow.kind === "emoji" && follow.emojis[0]?.name === "shipit",
+				),
 		);
 		await pressButton(drawer, "Follow pack");
 		await until(() => drawer.textContent?.includes("Unfollow pack") ?? false);
-		expect(
-			store.emoji
-				.followed()
-				.value()
-				?.emojis.map((emoji) => emoji.name)
-				.sort(),
-		).toEqual(["lgtm", "party_bird", "shipit"]);
+		const packFollow = store.emoji
+			.follows()
+			.find((follow) => follow.kind === "pack");
+		expect(packFollow?.emojis.map((emoji) => emoji.name).sort()).toEqual([
+			"lgtm",
+			"party_bird",
+			"shipit",
+		]);
+		expect(store.emoji.own().value()?.emojis ?? []).toEqual([]);
+	});
+
+	it("offers Unfollow pack for an emoji its followed pack covers", async () => {
+		const { root, store } = await mount(`/app/c/${HQ}/${TEXT}/general`);
+		await until(() => (store.emoji.catalog(HQ).value()?.packs.length ?? 0) > 0);
+		const release = store.emoji
+			.catalog(HQ)
+			.value()
+			?.packs.find((pack) => pack.name === "Release day");
+		if (!release) throw new Error("Release day missing");
+		await store.emoji.follow(release.id);
+		await until(() => !!activeScreen(root).querySelector("[contenteditable]"));
+		const general = (
+			store
+				.space(
+					(store.communities.value() ?? []).find(
+						(entry) => entry.did === HQ,
+					) as never,
+				)
+				.channels.value() ?? []
+		).find((entry) => entry.name === "general");
+		if (!general) throw new Error("general missing");
+		await store
+			.channel(general.space)
+			.send(store.emoji.withFacets(HQ, "nice :lgtm:", []));
+		await until(() => {
+			scrollToEnd(root);
+			return !!activeScreen(root).querySelector(
+				'[data-custom-emoji-button][data-custom-emoji-name="lgtm"]',
+			);
+		});
+		activeScreen(root)
+			.querySelector<HTMLElement>(
+				'[data-custom-emoji-button][data-custom-emoji-name="lgtm"]',
+			)
+			?.click();
+		await until(() => !!dialogNamed(":lgtm:"));
+		const drawer = dialogNamed(":lgtm:") as HTMLElement;
+		await until(() => drawer.textContent?.includes("Unfollow pack") ?? false);
+		expect(drawer.textContent).not.toContain("Follow emoji");
+		expect(drawer.textContent).not.toContain("Unfollow emoji");
 	});
 
 	const generalOf = (store: ReturnType<typeof createDataStore>) => {

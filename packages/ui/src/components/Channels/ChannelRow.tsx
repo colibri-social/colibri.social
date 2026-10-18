@@ -9,7 +9,7 @@ import { VideocameraIcon } from "@solar-icons/solid/bold/videocamera";
 import { VolumeIcon } from "@solar-icons/solid/bold/volume";
 import { VolumeLoudIcon } from "@solar-icons/solid/bold/volume-loud";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
-import { type JSX, Show } from "solid-js";
+import { For, type JSX, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import {
 	HeadphonesSlashIcon,
@@ -27,9 +27,12 @@ import type { VoiceParticipant } from "../Voice/shared";
 
 export type ChannelPlatform = "mobile" | "desktop";
 
+export type ChannelPreviewEmoji = { name: string; src: string; alt?: string };
+
 export type ChannelPreview = {
 	author: string;
 	text: string;
+	parts?: (string | ChannelPreviewEmoji)[];
 };
 
 export type ChannelAttachment = "image" | "file";
@@ -251,7 +254,27 @@ export const ChannelRow = (props: ChannelRowProps) => {
 								>
 									{preview().author}
 								</span>
-								{`: ${preview().text}`}
+								{": "}
+								<Show when={preview().parts} fallback={preview().text}>
+									{(parts) => (
+										<For each={parts()}>
+											{(part) =>
+												typeof part === "string" ? (
+													part
+												) : (
+													<img
+														data-channel-preview-emoji=""
+														src={part.src}
+														alt={part.alt ?? `:${part.name}:`}
+														title={`:${part.name}:`}
+														draggable={false}
+														class="inline-block size-4 align-[-0.1875rem] object-contain"
+													/>
+												)
+											}
+										</For>
+									)}
+								</Show>
 							</span>
 							<Show when={props.attachment}>
 								{(kind) => (

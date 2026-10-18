@@ -19,8 +19,6 @@ export type EmojiItemDraft = {
 	createdAt: Datetime;
 };
 
-export type EmojiCopyDraft = EmojiItemDraft & { source: EmojiView };
-
 export type EmojiPackDraft = {
 	owner: Did;
 	rkey: string;
@@ -49,7 +47,6 @@ export type EmojiProvider = {
 		locate: BlobLocator,
 	) => EmojiView | undefined;
 	writeItem: (draft: EmojiItemDraft) => WrittenRecord;
-	writeCopy: (draft: EmojiCopyDraft) => WrittenRecord;
 	readPacks?: (source: EmojiPackSource) => EmojiPackView[];
 	writePack?: (draft: EmojiPackDraft) => WrittenRecord;
 	writeMembership?: (input: {

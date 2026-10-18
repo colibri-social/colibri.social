@@ -332,7 +332,8 @@ export const createLiveConnection = (
 				return;
 			}
 			lastFrameAt = Date.now();
-			const frame = decodeFrame(String(message.data));
+			const raw = String(message.data);
+			const frame = decodeFrame(raw);
 			if (!frame) return;
 
 			if (frameIs(frame, "subscribed")) {

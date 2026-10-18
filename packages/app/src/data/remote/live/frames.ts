@@ -16,7 +16,7 @@ import type {
 	SpaceRef,
 	ThreadView,
 } from "../../types";
-import { catalogFromWire } from "../emoji";
+import { catalogFromWire, libraryFromWire, type WireLibrary } from "../emoji";
 
 const asSpace = (value: string): SpaceRef => value as SpaceRef;
 const asDid = (value: string): Did => value as Did;
@@ -322,6 +322,19 @@ export const toLiveEvents = (
 			{
 				$type: "emojiEvent",
 				catalog: catalogFromWire(frame.catalog, context.emojiBlobUrl),
+			},
+		];
+	}
+
+	if (frameIs(frame, "emojiLibraryEvent")) {
+		if (!context.emojiBlobUrl) return [];
+		return [
+			{
+				$type: "emojiLibraryEvent",
+				library: libraryFromWire(
+					frame.library as WireLibrary,
+					context.emojiBlobUrl,
+				),
 			},
 		];
 	}

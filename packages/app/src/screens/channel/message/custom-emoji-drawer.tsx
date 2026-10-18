@@ -4,14 +4,8 @@ import {
 	toast,
 } from "@colibri-social/ui";
 import { createMemo, createSignal, Show } from "solid-js";
-import {
-	type EmojiCatalogView,
-	followedCopy,
-	followedPack,
-	repoOfUri,
-	sourceOf,
-} from "../../../data/emoji";
-import { FOLLOWED_EMOJI_LABEL } from "../../../data/emoji-store";
+import { type EmojiCatalogView, repoOfUri } from "../../../data/emoji";
+import { emojiOwnerName, OWN_EMOJI_LABEL } from "../../../data/emoji-store";
 import type { DataStore } from "../../../data/store";
 import type { Did } from "../../../data/types";
 import { usePlatform } from "../../../screen/platform";
@@ -36,30 +30,29 @@ export const createCustomEmojiDrawer = (options: {
 	const details = createMemo(() => {
 		const current = target();
 		if (!current?.id) return undefined;
-		const followed = data.emoji.followed().value();
-		const emoji =
-			data.emoji.lookup(current.id) ??
-			catalogFor(repoOfUri(current.id))?.emojis.find(
-				(entry) => entry.id === current.id,
-			);
-		const source = emoji ? sourceOf(emoji) : current.id;
+		const source = current.id;
 		const owner = repoOfUri(source);
-		const ownerCatalog = catalogFor(owner);
-		const pack = ownerCatalog?.packs.find((entry) =>
-			entry.emojis.includes(source),
-		);
+		const packFollow = data.emoji.packFollowOf(source);
+		const pack =
+			catalogFor(owner)?.packs.find((entry) => entry.emojis.includes(source)) ??
+			packFollow?.pack;
+		const direct = data.emoji.followOf(source);
 		const space = (data.communities.value() ?? []).find(
 			(entry) => entry.did === owner,
 		);
+		const followOwner = (direct ?? packFollow)?.owner;
+		const own = owner === data.viewer.did;
 		return {
 			source,
-			owner,
-			own: owner === data.viewer.did,
-			sourceLabel:
-				owner === data.viewer.did ? FOLLOWED_EMOJI_LABEL : space?.name,
+			own,
+			sourceLabel: own
+				? OWN_EMOJI_LABEL
+				: (space?.name ??
+					(followOwner ? emojiOwnerName(followOwner) : undefined)),
 			pack,
-			followed: !!followedCopy(followed, source),
-			packFollowed: pack ? !!followedPack(followed, pack) : false,
+			coveredByPack: !direct && !!packFollow,
+			followed: !!direct || !!packFollow,
+			packFollowed: pack ? !!data.emoji.followOf(pack.id) : false,
 		};
 	});
 
@@ -84,7 +77,7 @@ export const createCustomEmojiDrawer = (options: {
 					followed={details()?.followed}
 					packFollowed={details()?.packFollowed}
 					onFollowChange={
-						details() && !details()?.own
+						details() && !details()?.own && !details()?.coveredByPack
 							? async (follow) => {
 									const source = details()?.source;
 									if (!source) return;
@@ -98,11 +91,11 @@ export const createCustomEmojiDrawer = (options: {
 					onPackFollowChange={
 						details()?.pack && !details()?.own
 							? async (follow) => {
-									const current = details();
-									if (!current?.pack) return;
+									const pack = details()?.pack;
+									if (!pack) return;
 									await (follow
-										? data.emoji.followPack(current.owner, current.pack.id)
-										: data.emoji.unfollowPack(current.owner, current.pack.id)
+										? data.emoji.follow(pack.id)
+										: data.emoji.unfollow(pack.id)
 									).catch(fail("Couldn't update your emoji"));
 								}
 							: undefined
@@ -117,7 +110,7 @@ export const createCustomEmojiDrawer = (options: {
 			setAnchor(element);
 			setTarget(emoji);
 			setOpen(true);
-			void data.emoji.followed();
+			void data.emoji.library();
 			if (emoji.id) {
 				const owner = repoOfUri(emoji.id);
 				if (knownOwner(owner)) void data.emoji.catalog(owner);

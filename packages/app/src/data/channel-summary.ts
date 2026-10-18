@@ -1,11 +1,13 @@
 import type { social } from "@colibri-social/lexicons";
-import type { Did, MessageView, SpaceRef } from "./types";
+import { collapseWhitespace } from "./adapters/facets";
+import type { Did, Facet, MessageView, SpaceRef } from "./types";
 
 export type ChannelSummary = {
 	channel: SpaceRef;
 	rkey: string;
 	author: Did;
 	text: string;
+	facets?: Facet[];
 	attachment?: "image" | "file";
 	createdAt: string;
 };
@@ -31,6 +33,7 @@ type SummaryFields = {
 	rkey: string;
 	author: string;
 	text: string;
+	facets: readonly Facet[] | undefined;
 	attachment: "image" | "file" | undefined;
 	attachmentCount: number;
 	forward: boolean;
@@ -38,8 +41,9 @@ type SummaryFields = {
 };
 
 const summaryOf = (fields: SummaryFields): ChannelSummary => {
+	const body = collapseWhitespace(fields.text, fields.facets);
 	const text =
-		fields.text.replace(/\s+/g, " ").trim() ||
+		body.text ||
 		fallbackText(fields.attachment, fields.attachmentCount) ||
 		(fields.forward ? "Forwarded a message" : "");
 	const summary: ChannelSummary = {
@@ -49,6 +53,7 @@ const summaryOf = (fields: SummaryFields): ChannelSummary => {
 		text,
 		createdAt: fields.createdAt,
 	};
+	if (body.text && body.facets.length > 0) summary.facets = body.facets;
 	if (fields.attachment) summary.attachment = fields.attachment;
 	return summary;
 };
@@ -59,6 +64,7 @@ export const summarizeMessage = (message: MessageView): ChannelSummary =>
 		rkey: message.rkey,
 		author: message.author.did,
 		text: message.text,
+		facets: message.facets,
 		attachment: attachmentKind(message),
 		attachmentCount: message.attachments.length,
 		forward: !!message.forward,
@@ -73,6 +79,7 @@ export const summarizeChannel = (
 		rkey: view.rkey,
 		author: view.author,
 		text: view.text,
+		facets: view.facets,
 		attachment:
 			view.attachmentKind === "image"
 				? "image"
@@ -89,3 +96,31 @@ export const newerSummary = (
 	next: ChannelSummary,
 ) =>
 	!current || next.rkey === current.rkey || next.createdAt >= current.createdAt;
+
+export type SummaryPart<Emoji> = string | Emoji;
+
+export const summaryParts = <Emoji>(
+	summary: Pick<ChannelSummary, "text" | "facets">,
+	emojiFor: (feature: Facet["features"][number]) => Emoji | undefined,
+): SummaryPart<Emoji>[] => {
+	const bytes = new TextEncoder().encode(summary.text);
+	const decoder = new TextDecoder();
+	const parts: SummaryPart<Emoji>[] = [];
+	let cursor = 0;
+	const sorted = [...(summary.facets ?? [])].sort(
+		(a, b) => a.index.byteStart - b.index.byteStart,
+	);
+	for (const facet of sorted) {
+		if (facet.index.byteStart < cursor) continue;
+		const emoji = facet.features
+			.map((feature) => emojiFor(feature))
+			.find((value) => value !== undefined);
+		if (emoji === undefined) continue;
+		if (facet.index.byteStart > cursor)
+			parts.push(decoder.decode(bytes.subarray(cursor, facet.index.byteStart)));
+		parts.push(emoji);
+		cursor = facet.index.byteEnd;
+	}
+	if (cursor < bytes.length) parts.push(decoder.decode(bytes.subarray(cursor)));
+	return parts;
+};

@@ -1420,6 +1420,7 @@ export const createMockSource = (
 				return next;
 			}),
 		getBlueskyPost: (url) => withLatency(() => findBlueskyPost(url, now)),
+		getProfile: (actor) => withLatency(() => world.people.profile(actor)),
 		markRead: (channel, through) =>
 			withLatency(() => {
 				const record = channelRecord(channel);
