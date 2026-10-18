@@ -27,6 +27,7 @@ import type {
 	NotificationView,
 	Presence,
 	ProfileView,
+	ReactionEmojiRef,
 	RecordRef,
 	RoleView,
 	SpaceRef,
@@ -62,6 +63,7 @@ export type ReactInput = {
 	channel: SpaceRef;
 	rkey: string;
 	emoji: string;
+	customEmoji?: ReactionEmojiRef;
 	add: boolean;
 	author?: Did;
 	reaction?: string;
@@ -104,6 +106,7 @@ export type LiveEvent =
 			channel: SpaceRef;
 			target: string;
 			emoji: string;
+			customEmoji?: ReactionEmojiRef;
 			actor: Did;
 	  }
 	| { $type: "presenceEvent"; did: Did; presence: Presence }
@@ -294,6 +297,8 @@ export type UpdateThreadInput = {
 	name?: string;
 	visibleToRoles?: string[];
 	visibleToMembers?: Did[];
+	closed?: boolean;
+	locked?: boolean;
 };
 
 export type CreateChannelInput = {

@@ -38,7 +38,12 @@ import {
 	validFacets,
 } from "./facets";
 import { toForwardDisplay } from "./forward";
-import { toggleReaction, toReactionGroups, toReactions } from "./reactions";
+import {
+	customReactionResolver,
+	toggleReaction,
+	toReactionGroups,
+	toReactions,
+} from "./reactions";
 import { formatAge } from "./time";
 
 vi.mock("@colibri-social/ui", () => ({
@@ -696,6 +701,32 @@ describe("reactions", () => {
 			false,
 		);
 		expect(gone).toEqual([]);
+	});
+
+	it("resolves a custom reaction by its emoji record before its name", () => {
+		const uri = "at://did:plc:ada/social.colibri.beta.emoji/party";
+		const byName = vi.fn(() => ({ name: "party", src: "/scope.gif" }));
+		const byUri = vi.fn((wanted: string) =>
+			wanted === uri ? { name: "party", src: "/ada.gif" } : undefined,
+		);
+		const resolve = customReactionResolver(byName, byUri);
+
+		expect(resolve({ emoji: ":party:", customEmoji: { uri } })).toEqual({
+			name: "party",
+			src: "/ada.gif",
+		});
+		expect(
+			resolve({
+				emoji: ":party:",
+				customEmoji: { uri: "at://did:plc:bob/social.colibri.beta.emoji/x" },
+			}),
+		).toBeUndefined();
+		expect(byName).not.toHaveBeenCalled();
+		expect(resolve({ emoji: ":party:" })).toEqual({
+			name: "party",
+			src: "/scope.gif",
+		});
+		expect(resolve({ emoji: "🎉", customEmoji: { uri } })).toBeUndefined();
 	});
 });
 

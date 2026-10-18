@@ -125,6 +125,7 @@ export const thread = defineContract({
 			channel: args.channel,
 			target: () => view()?.space,
 			label: () => view()?.name ?? "Thread",
+			thread: view,
 			isActive: () =>
 				stack.isVisible(
 					(layer) => layer.kind === "thread" && layer.thread === args.thread,

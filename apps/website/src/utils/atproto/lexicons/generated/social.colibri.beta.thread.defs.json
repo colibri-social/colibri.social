@@ -104,6 +104,15 @@
 					},
 					"description": "Members that may read this thread beyond visibleToRoles."
 				},
+				"closedAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the thread was closed. Absent on an open thread."
+				},
+				"locked": {
+					"type": "boolean",
+					"description": "Whether only members who may manage threads can write in this thread."
+				},
 				"viewer": {
 					"type": "ref",
 					"ref": "#threadViewerState",
@@ -118,6 +127,10 @@
 				"canRead",
 				"canPost",
 				"canManage",
+				"canEdit",
+				"canClose",
+				"canDelete",
+				"canLock",
 				"following",
 				"muted",
 				"hasUnread",
@@ -134,7 +147,23 @@
 				},
 				"canManage": {
 					"type": "boolean",
-					"description": "Whether the user may rename, move or delete this thread."
+					"description": "Whether the user moderates threads in this community, and so may rename, close, lock, move or delete any thread."
+				},
+				"canEdit": {
+					"type": "boolean",
+					"description": "Whether the user may rename this thread."
+				},
+				"canClose": {
+					"type": "boolean",
+					"description": "Whether the user may close or reopen this thread."
+				},
+				"canDelete": {
+					"type": "boolean",
+					"description": "Whether the user may delete this thread."
+				},
+				"canLock": {
+					"type": "boolean",
+					"description": "Whether the user may lock or unlock this thread."
 				},
 				"following": {
 					"type": "boolean",

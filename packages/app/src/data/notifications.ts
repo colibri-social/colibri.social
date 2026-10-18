@@ -1,4 +1,5 @@
 import { batch, createSignal } from "solid-js";
+import { isPingNotification } from "./notification-alerts";
 import type { PreferenceStore } from "./preferences/store";
 import type { NotificationLevel } from "./preferences/types";
 import type { DataSource } from "./source";
@@ -10,6 +11,9 @@ export type NotificationStatus = "loading" | "ready" | "error";
 
 export const isUnread = (notification: NotificationView) =>
 	!notification.seenAt;
+
+export const isUnreadPing = (notification: NotificationView) =>
+	isUnread(notification) && isPingNotification(notification);
 
 export type NotificationSeenListener = (
 	views: readonly NotificationView[],
@@ -87,7 +91,7 @@ export const createNotificationStore = (
 		if (
 			global &&
 			status() === "ready" &&
-			all().filter(isUnread).length !== unread
+			all().filter(isUnreadPing).length !== unread
 		) {
 			void load();
 		}
@@ -188,7 +192,7 @@ export const createNotificationStore = (
 	return {
 		items,
 		status,
-		unreadCount: () => items().filter(isUnread).length,
+		unreadCount: () => items().filter(isUnreadPing).length,
 		reload: () => load(),
 		refresh: () => load(status() === "ready"),
 		markRead,

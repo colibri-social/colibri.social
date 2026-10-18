@@ -1,4 +1,10 @@
-import type { Did, MessageView, SpaceRef } from "./types";
+import type {
+	Did,
+	MessageView,
+	ReactionEmojiRef,
+	ReactionView,
+	SpaceRef,
+} from "./types";
 
 export const TAIL_PER_CHANNEL = 50;
 export const TAIL_TOTAL = 2_000;
@@ -13,6 +19,7 @@ export type Tail = {
 export type Reaction = {
 	rkey: string;
 	emoji: string;
+	customEmoji?: ReactionEmojiRef;
 	actor: Did;
 	add: boolean;
 	viewer: Did;
@@ -39,19 +46,25 @@ export const reactTo = (
 	message: MessageView,
 	reaction: Omit<Reaction, "rkey">,
 ): MessageView => {
-	const { emoji, actor, add, viewer } = reaction;
+	const { emoji, customEmoji, actor, add, viewer } = reaction;
 	const reactions = message.reactions.slice();
 	const index = reactions.findIndex((entry) => entry.emoji === emoji);
 	const current = reactions[index];
 	if (add) {
 		if (current?.reactors.includes(actor)) return message;
-		const next = current
+		const next: ReactionView = current
 			? {
 					...current,
 					count: current.count + 1,
 					reactors: [...current.reactors, actor],
 				}
-			: { emoji, count: 1, reactors: [actor] };
+			: {
+					emoji,
+					count: 1,
+					reactors: [actor],
+					...(customEmoji ? { customEmoji } : {}),
+				};
+		if (!next.customEmoji && customEmoji) next.customEmoji = customEmoji;
 		if (actor === viewer) next.viewerReacted = true;
 		if (current) reactions[index] = next;
 		else reactions.push(next);

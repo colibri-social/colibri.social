@@ -1,8 +1,16 @@
 import { Popover as KobaltePopover } from "@kobalte/core/popover";
-import { createMemo, createSignal, type JSX, Show, splitProps } from "solid-js";
+import {
+	createEffect,
+	createMemo,
+	createSignal,
+	type JSX,
+	Show,
+	splitProps,
+} from "solid-js";
 import { cx } from "../../utils/cx";
 import { isJumboEmojiText } from "../../utils/emoji";
 import { EMOJI_DATA_RECORD } from "../../utils/emoji-data";
+import { createLiveAnchor } from "../../utils/live-anchor";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { JUMBO_FONT_SCALE } from "../Emoji/Emoji";
@@ -21,7 +29,11 @@ import {
 
 const TOGGLE_GRACE_MS = 400;
 
-export type EmojiInfoTarget = { emoji: string; slug: string; rect: DOMRect };
+export type EmojiInfoTarget = {
+	emoji: string;
+	slug: string;
+	element: HTMLElement;
+};
 
 const SKIN_TONE = /[\u{1F3FB}-\u{1F3FF}]/gu;
 
@@ -64,8 +76,15 @@ export const EmojiInfo = (props: {
 	target: EmojiInfoTarget;
 	platform: RichTextPlatform;
 	onClose: () => void;
+	onAnchorChange?: (element: HTMLElement | undefined) => void;
 }) => {
 	const overflowPadding = usePopperOverflowPadding(16);
+	const live = createLiveAnchor({
+		element: () => props.target.element,
+		active: () => props.platform !== "mobile",
+		onLost: () => props.onClose(),
+	});
+	createEffect(() => props.onAnchorChange?.(live.anchor()));
 	return (
 		<Show
 			when={props.platform === "mobile"}
@@ -73,7 +92,8 @@ export const EmojiInfo = (props: {
 				<KobaltePopover
 					open
 					onOpenChange={(open) => !open && props.onClose()}
-					getAnchorRect={() => props.target.rect}
+					anchorRef={live.anchor}
+					getAnchorRect={live.rect}
 					placement="top"
 					gutter={8}
 					overflowPadding={overflowPadding()}
@@ -163,7 +183,7 @@ export const RichTextRenderer = (props: RichTextRendererProps) => {
 		if (recentlyClosed && !viaKeyboard) return;
 		openedFrom = element;
 		restoreFocus = viaKeyboard;
-		setEmojiTarget({ emoji, slug, rect: element.getBoundingClientRect() });
+		setEmojiTarget({ emoji, slug, element });
 	};
 
 	const customEmojiFrom = (target: EventTarget | null) => {
@@ -247,6 +267,10 @@ export const RichTextRenderer = (props: RichTextRendererProps) => {
 						target={target}
 						platform={platform()}
 						onClose={closeEmojiInfo}
+						onAnchorChange={(element) => {
+							if (openedFrom && element?.matches("[data-emoji-button]"))
+								openedFrom = element;
+						}}
 					/>
 				)}
 			</Show>

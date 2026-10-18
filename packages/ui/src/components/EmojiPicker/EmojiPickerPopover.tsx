@@ -2,6 +2,7 @@ import { Popover as KobaltePopover } from "@kobalte/core/popover";
 import { type JSX, Show, splitProps } from "solid-js";
 import { createAnchorToggle } from "../../utils/anchor-toggle";
 import { cx } from "../../utils/cx";
+import { createLiveAnchor } from "../../utils/live-anchor";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
@@ -41,10 +42,17 @@ export const AnchoredPicker = (
 ) => {
 	const overflowPadding = usePopperOverflowPadding(16);
 	let wrapper: HTMLSpanElement | undefined;
-	const anchorElement = () => props.anchorElement ?? wrapper;
+	const desktopOpen = () =>
+		props.open && (props.platform ?? "desktop") === "desktop";
+	const live = createLiveAnchor({
+		element: () => props.anchorElement ?? wrapper,
+		active: desktopOpen,
+		onLost: () => props.onOpenChange(false),
+	});
+	const anchorElement = live.anchor;
 	const toggleFromAnchor = createAnchorToggle({
 		anchor: anchorElement,
-		open: () => props.open && (props.platform ?? "desktop") === "desktop",
+		open: desktopOpen,
 		close: () => props.onOpenChange(false),
 	});
 
@@ -88,6 +96,7 @@ export const AnchoredPicker = (
 				gutter={8}
 				overflowPadding={overflowPadding()}
 				anchorRef={anchorElement}
+				getAnchorRect={live.rect}
 			>
 				<Show when={!props.anchorElement}>
 					<span ref={wrapper} class="inline-flex">

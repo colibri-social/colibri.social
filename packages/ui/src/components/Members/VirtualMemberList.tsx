@@ -20,6 +20,7 @@ import {
 } from "virtua/solid";
 import { cx } from "../../utils/cx";
 import { createFocusRetention } from "../../utils/focus-retention";
+import { createAnchorHolds } from "../../utils/live-anchor";
 import {
 	captureVirtualAnchor,
 	findScrollParent,
@@ -152,10 +153,15 @@ export const VirtualMemberList = (props: VirtualMemberListProps) => {
 		return { rows, indexOf };
 	});
 
+	const holds = createAnchorHolds(
+		(target) =>
+			target.closest<HTMLElement>("[data-member-key]")?.dataset.memberKey,
+	);
+
 	const keepMounted = createMemo(() => {
 		const { indexOf } = model();
 		const indexes = new Set<number>();
-		for (const key of [focusedKey(), touchedKey()]) {
+		for (const key of [focusedKey(), touchedKey(), ...holds.held()]) {
 			if (key === undefined) continue;
 			const index = indexOf.get(key);
 			if (index !== undefined) indexes.add(index);
@@ -177,6 +183,7 @@ export const VirtualMemberList = (props: VirtualMemberListProps) => {
 
 	onMount(() => {
 		if (!root) return;
+		holds.attach(root);
 		setTarget({ element: findScrollParent(root) ?? null });
 	});
 

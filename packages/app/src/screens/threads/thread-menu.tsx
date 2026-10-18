@@ -116,6 +116,41 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 		void data.threads
 			.markRead(view)
 			.catch(() => toast.error("Couldn't mark as read"));
+	const current = (view: ThreadView) => data.threads.find(view.space) ?? view;
+	const setClosed = (view: ThreadView, closed: boolean, undoable = true) =>
+		void data.threads
+			.setClosed(current(view), closed)
+			.then(() => {
+				if (!undoable) return;
+				toast.success(closed ? "Thread closed" : "Thread reopened", {
+					action: {
+						label: "Undo",
+						onClick: () => setClosed(view, !closed, false),
+					},
+				});
+			})
+			.catch(() =>
+				toast.error(
+					closed ? "Couldn't close the thread" : "Couldn't reopen the thread",
+				),
+			);
+	const setLocked = (view: ThreadView, locked: boolean, undoable = true) =>
+		void data.threads
+			.setLocked(current(view), locked)
+			.then(() => {
+				if (!undoable) return;
+				toast.success(locked ? "Thread locked" : "Thread unlocked", {
+					action: {
+						label: "Undo",
+						onClick: () => setLocked(view, !locked, false),
+					},
+				});
+			})
+			.catch(() =>
+				toast.error(
+					locked ? "Couldn't lock the thread" : "Couldn't unlock the thread",
+				),
+			);
 	const rename = (view: ThreadView, name: string) =>
 		data.threads.rename(view, name).catch(fail("Couldn't rename the thread"));
 	const canMove = (view: ThreadView) =>
@@ -313,17 +348,27 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 					openExternalUrl(`https://pdsls.dev/${view().space}`)
 				}
 				onRename={
-					view().viewer.canManage
-						? () => showDialog(view(), "rename")
-						: undefined
+					view().viewer.canEdit ? () => showDialog(view(), "rename") : undefined
 				}
 				onMove={
 					canMove(view()) && moveTargetsFor(view()).length > 0
 						? () => showDialog(view(), "move")
 						: undefined
 				}
+				closed={!!view().closedAt}
+				onClosedChange={
+					view().viewer.canClose
+						? (closed) => setClosed(view(), closed)
+						: undefined
+				}
+				locked={!!view().locked}
+				onLockedChange={
+					view().viewer.canLock
+						? (locked) => setLocked(view(), locked)
+						: undefined
+				}
 				onDelete={
-					view().viewer.canManage
+					view().viewer.canDelete
 						? () => {
 								setTarget(view().space);
 								requestDelete(view());
@@ -347,7 +392,6 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 	const Overlay = () => (
 		<Show when={thread()}>
 			{(view) => {
-				const manage = () => view().viewer.canManage;
 				return (
 					<>
 						<ThreadDrawer
@@ -385,7 +429,7 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 								pdslsHref: `https://pdsls.dev/${view().space}`,
 							}}
 							onRename={
-								manage()
+								view().viewer.canEdit
 									? (name) =>
 											data.threads
 												.rename(view(), name)
@@ -394,7 +438,7 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 							}
 							moveTargets={moveTargets()}
 							onMove={
-								manage() && allowed("thread.move")
+								canMove(view())
 									? (channel) =>
 											data.threads
 												.repoint(view(), channel as SpaceRef)
@@ -406,8 +450,20 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 												.catch(fail("Couldn't move the thread"))
 									: undefined
 							}
+							closed={!!view().closedAt}
+							onClosedChange={
+								view().viewer.canClose
+									? (closed) => setClosed(view(), closed)
+									: undefined
+							}
+							locked={!!view().locked}
+							onLockedChange={
+								view().viewer.canLock
+									? (locked) => setLocked(view(), locked)
+									: undefined
+							}
 							onDelete={
-								manage()
+								view().viewer.canDelete
 									? () => {
 											setSnapshot(view());
 											void whenOverlaysClosed().then(() => setConfirming(true));

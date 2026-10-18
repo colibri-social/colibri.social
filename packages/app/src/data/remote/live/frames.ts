@@ -12,6 +12,7 @@ import type {
 	MessageView,
 	NotificationView,
 	Presence,
+	ReactionEmojiRef,
 	RoleView,
 	SpaceRef,
 	ThreadView,
@@ -92,6 +93,7 @@ export const toLiveEvents = (
 				channel: asSpace(frame.channel),
 				target: frame.target.rkey,
 				emoji: frame.emoji,
+				...(frame.customEmoji ? { customEmoji: frame.customEmoji } : {}),
 				actor: asDid(frame.actor),
 			},
 		];

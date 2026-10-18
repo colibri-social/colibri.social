@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createLiveTails, placeMessage, reactIn } from "./live-tail";
-import type { Did, MessageView, SpaceRef } from "./types";
+import type { Did, MessageView, ReactionEmojiRef, SpaceRef } from "./types";
 
 const GENERAL = "at://did:plc:hq/space/c1" as SpaceRef;
 const DEV = "at://did:plc:hq/space/c2" as SpaceRef;
@@ -100,5 +100,32 @@ describe("live tails", () => {
 			}),
 		).toBe(list);
 		expect(rkeys(placeMessage(list, message("0")))).toEqual(["0", "a"]);
+	});
+
+	it("keeps the emoji record a custom reaction names", () => {
+		const customEmoji = {
+			uri: "at://did:plc:a/social.colibri.beta.emoji/party",
+		} as ReactionEmojiRef;
+		const first = reactIn([message("a")], {
+			rkey: "a",
+			emoji: ":party:",
+			actor: "did:plc:a" as Did,
+			add: true,
+			viewer: VIEWER,
+		});
+		const second = reactIn(first, {
+			rkey: "a",
+			emoji: ":party:",
+			customEmoji,
+			actor: VIEWER,
+			add: true,
+			viewer: VIEWER,
+		});
+		expect(second[0]?.reactions[0]).toMatchObject({
+			emoji: ":party:",
+			count: 2,
+			customEmoji,
+			viewerReacted: true,
+		});
 	});
 });

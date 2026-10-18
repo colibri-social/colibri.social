@@ -38,6 +38,7 @@ import { trailScripts } from "./script-trail";
 import type { ScriptContext, ScriptEntry } from "./script-types";
 import { createRandom } from "./seed";
 import { SPACES, type SpaceSeed } from "./spaces";
+import { mockThreadRights } from "./thread-rights";
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
@@ -560,10 +561,12 @@ export const createWorld = (now: number) => {
 				participants,
 				viewer: {
 					canRead: true,
-					canPost: true,
-					canManage:
+					...mockThreadRights(
+						{ createdBy: didOf(thread.by) },
+						didOf(VIEWER_KEY),
 						!!space.view.viewer.isOwner ||
-						!!space.view.viewer.permissions?.includes("thread.manage"),
+							!!space.view.viewer.permissions?.includes("thread.manage"),
+					),
 					following: !!thread.following,
 					muted: false,
 					hasUnread: !!thread.unread,

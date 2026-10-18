@@ -23,6 +23,8 @@ const spy = {
 	copyLink: fn(),
 	rename: fn(),
 	move: fn(),
+	close: fn(),
+	lock: fn(),
 	remove: fn(),
 	confirm: fn(),
 	rowOpen: fn(),
@@ -59,13 +61,19 @@ const afterDrawerClosed = () =>
 const ThreadDrawerDemo = (props: {
 	name?: string;
 	manage?: boolean;
+	opener?: boolean;
 	failRename?: boolean;
+	closed?: boolean;
+	locked?: boolean;
 }) => {
 	const [open, setOpen] = createSignal(false);
 	const [name, setName] = createSignal(props.name ?? "Crow whispering");
 	const [following, setFollowing] = createSignal(false);
 	const [muted, setMuted] = createSignal(false);
 	const [confirming, setConfirming] = createSignal(false);
+	const [closed, setClosed] = createSignal(!!props.closed);
+	const [locked, setLocked] = createSignal(!!props.locked);
+	const ownsThread = () => props.manage || props.opener;
 	return (
 		<div class="min-h-dvh bg-background p-4">
 			<Button variant="secondary" onClick={() => setOpen(true)}>
@@ -89,7 +97,7 @@ const ThreadDrawerDemo = (props: {
 				onMarkAsRead={spy.markRead}
 				onCopyLink={spy.copyLink}
 				onRename={
-					props.manage
+					ownsThread()
 						? async (next) => {
 								spy.rename(next);
 								await new Promise((resolve) => setTimeout(resolve, 100));
@@ -100,8 +108,26 @@ const ThreadDrawerDemo = (props: {
 				}
 				moveTargets={targets}
 				onMove={props.manage ? (target) => spy.move(target) : undefined}
-				onDelete={
+				closed={closed()}
+				onClosedChange={
+					props.manage || (props.opener && !locked())
+						? (next) => {
+								spy.close(next);
+								setClosed(next);
+							}
+						: undefined
+				}
+				locked={locked()}
+				onLockedChange={
 					props.manage
+						? (next) => {
+								spy.lock(next);
+								setLocked(next);
+							}
+						: undefined
+				}
+				onDelete={
+					ownsThread()
 						? () => {
 								spy.remove();
 								void afterDrawerClosed().then(() => setConfirming(true));
@@ -159,7 +185,13 @@ export const Member: Story = {
 					dialog.getBoundingClientRect().left,
 			),
 		).toBe(16);
-		for (const label of ["Rename thread", "Move to channel", "Delete thread"]) {
+		for (const label of [
+			"Rename thread",
+			"Move to channel",
+			"Close thread",
+			"Lock thread",
+			"Delete thread",
+		]) {
 			await expect(
 				within(dialog).queryByRole("button", { name: label }),
 			).toBeNull();
@@ -200,6 +232,70 @@ export const Manager: Story = {
 		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), {
 			timeout: 3000,
 		});
+	},
+};
+
+export const Opener: Story = {
+	render: () => <ThreadDrawerDemo opener name={LONG_NAME} />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const dialog = await openDrawer(canvasElement, LONG_NAME);
+		await expectNoLayoutIssues(dialog);
+		for (const label of ["Rename thread", "Close thread", "Delete thread"]) {
+			await expect(
+				within(dialog).getByRole("button", { name: label }),
+			).toBeVisible();
+		}
+		for (const label of ["Move to channel", "Lock thread"]) {
+			await expect(
+				within(dialog).queryByRole("button", { name: label }),
+			).toBeNull();
+		}
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Close thread" }),
+		);
+		await expect(spy.close).toHaveBeenCalledWith(true);
+		await waitForDrawerClosed(LONG_NAME);
+		const reopened = await openDrawer(canvasElement, LONG_NAME);
+		await expect(
+			within(reopened).getByRole("button", { name: "Reopen thread" }),
+		).toBeVisible();
+	},
+};
+
+export const OpenerLockedThread: Story = {
+	render: () => <ThreadDrawerDemo opener locked closed />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const dialog = await openDrawer(canvasElement, "Crow whispering");
+		await expectNoLayoutIssues(dialog);
+		for (const label of ["Reopen thread", "Unlock thread", "Close thread"]) {
+			await expect(
+				within(dialog).queryByRole("button", { name: label }),
+			).toBeNull();
+		}
+		await expect(
+			within(dialog).getByRole("button", { name: "Delete thread" }),
+		).toBeVisible();
+	},
+};
+
+export const ManagerLocksThread: Story = {
+	render: () => <ThreadDrawerDemo manage />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const dialog = await openDrawer(canvasElement, "Crow whispering");
+		await expectNoLayoutIssues(dialog);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Lock thread" }),
+		);
+		await expect(spy.lock).toHaveBeenCalledWith(true);
+		await waitForDrawerClosed("Crow whispering");
+		const again = await openDrawer(canvasElement, "Crow whispering");
+		await userEvent.click(
+			within(again).getByRole("button", { name: "Unlock thread" }),
+		);
+		await expect(spy.lock).toHaveBeenCalledWith(false);
 	},
 };
 

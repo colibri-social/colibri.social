@@ -1,6 +1,5 @@
 import { createEffect, createRoot } from "solid-js";
-import { isPingNotification } from "../data/notification-alerts";
-import { isUnread, spaceNotificationPrefs } from "../data/notifications";
+import { isUnreadPing, spaceNotificationPrefs } from "../data/notifications";
 import { currentReleasePlatform } from "../data/release-notes";
 import type { DataStore } from "../data/store";
 import type { NotificationView } from "../data/types";
@@ -12,12 +11,8 @@ export const badgeCount = (
 	items: readonly NotificationView[],
 	isSpaceMuted: (space: string) => boolean,
 ): number =>
-	items.filter(
-		(view) =>
-			isUnread(view) &&
-			isPingNotification(view) &&
-			!isSpaceMuted(view.community),
-	).length;
+	items.filter((view) => isUnreadPing(view) && !isSpaceMuted(view.community))
+		.length;
 
 const setPlatformBadge = async (count: number): Promise<void> => {
 	const mode = resolveChromeMode();

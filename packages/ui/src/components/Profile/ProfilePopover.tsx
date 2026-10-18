@@ -4,6 +4,7 @@ import { createAnchorScroll } from "../../utils/anchor-scroll";
 import { createAnchorToggle } from "../../utils/anchor-toggle";
 import { cx } from "../../utils/cx";
 import { createExitHold } from "../../utils/exit-hold";
+import { createLiveAnchor } from "../../utils/live-anchor";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { reducedMotionActive } from "../../utils/playback";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
@@ -94,8 +95,14 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 		onLeave: () => setOpen(false),
 	});
 
+	const live = createLiveAnchor({
+		element: () => props.anchor?.(),
+		active: open,
+		onLost: () => setOpen(false),
+	});
+
 	const toggleFromAnchor = createAnchorToggle({
-		anchor: () => props.anchor?.(),
+		anchor: live.anchor,
 		open,
 		close: () => setOpen(false),
 	});
@@ -129,9 +136,9 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 			preventScroll={false}
 			modal={false}
 			overflowPadding={overflowPadding()}
-			anchorRef={props.anchor}
+			anchorRef={live.anchor}
 			getAnchorRect={(element?: HTMLElement) =>
-				anchorScroll.rect(alignedAnchor(element))
+				anchorScroll.rect(alignedAnchor(element)) ?? live.rect(element)
 			}
 		>
 			<Show when={props.renderTrigger}>
@@ -176,7 +183,7 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 							event.preventDefault();
 							return;
 						}
-						const anchor = props.anchor?.();
+						const anchor = live.anchor();
 						if (!anchor) return;
 						event.preventDefault();
 						if (anchor.isConnected) anchor.focus({ preventScroll: true });

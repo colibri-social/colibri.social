@@ -1,6 +1,10 @@
 import { createMemo, createSignal, Show } from "solid-js";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import {
+	ANCHOR_HOLD_EVENT,
+	type AnchorHoldDetail,
+} from "../../utils/live-anchor";
 import { MediaGrid, type MediaItem } from "../Attachments/MediaGrid";
 import { fixtureImage } from "../Attachments/story-fixtures";
 import { Button } from "../Button/Button";
@@ -549,6 +553,52 @@ export const FocusSurvivesScroll: Story = {
 				expect(inView(document.activeElement as HTMLElement, scroller)).toBe(
 					true,
 				),
+			);
+		});
+	},
+};
+
+export const OverlayHoldsRow: Story = {
+	render: () => {
+		const channel = createChannel({
+			source: createListMessages(2000, { images: false }),
+			paging: false,
+		});
+		return <ChannelView channel={channel} height="700px" />;
+	},
+	play: async ({ canvasElement, step }) => {
+		await settled(canvasElement);
+		const scroller = scrollerOf(canvasElement);
+		const held = articlesOf(canvasElement).at(-1) as HTMLElement;
+		const key = held.dataset.messageKey as string;
+		const releases: (() => void)[] = [];
+
+		await step("A held row stays mounted out of view", async () => {
+			held.dispatchEvent(
+				new CustomEvent<AnchorHoldDetail>(ANCHOR_HOLD_EVENT, {
+					bubbles: true,
+					detail: { release: (callback) => releases.push(callback) },
+				}),
+			);
+			await scrollTo(scroller, 0);
+			await waitFor(() =>
+				expect(
+					canvasElement.querySelector("[data-message-key='m0']"),
+				).not.toBeNull(),
+			);
+			await frames(4);
+			await expect(held.isConnected).toBe(true);
+			await expect(inView(held, scroller)).toBe(false);
+		});
+
+		await step("Releasing the hold unmounts it", async () => {
+			for (const release of releases) release();
+			await waitFor(() =>
+				expect(
+					canvasElement.querySelector(
+						`[data-message-key='${CSS.escape(key)}']`,
+					),
+				).toBeNull(),
 			);
 		});
 	},
@@ -1157,6 +1207,7 @@ export const OpensPinnedWithoutUnread: Story = {
 const JumpCardScenario = (props: { platform: "desktop" | "mobile" }) => {
 	const channel = createChannel();
 	const [inset, setInset] = createSignal(0);
+	const [jumps, setJumps] = createSignal(0);
 	let handle: MessageListHandle | undefined;
 	return (
 		<div
@@ -1181,6 +1232,9 @@ const JumpCardScenario = (props: { platform: "desktop" | "mobile" }) => {
 						Open keyboard
 					</Button>
 				</Show>
+				<output data-jump-count="" class="self-center text-sm">
+					{jumps()}
+				</output>
 			</div>
 			<div
 				class="flex min-h-0 flex-col"
@@ -1194,12 +1248,16 @@ const JumpCardScenario = (props: { platform: "desktop" | "mobile" }) => {
 						ref: (value) => {
 							handle = value;
 						},
+						onJump: () => setJumps((count) => count + 1),
 					}}
 				/>
 			</div>
 		</div>
 	);
 };
+
+const jumpCountOf = (canvas: HTMLElement) =>
+	canvas.querySelector("[data-jump-count]")?.textContent;
 
 const jumpCardOf = (canvas: HTMLElement) =>
 	canvas.querySelector<HTMLElement>("[data-message-list-jump]") as HTMLElement;
@@ -1317,6 +1375,7 @@ const playJumpCard =
 				{ timeout: 3000 },
 			);
 			await expect(control).toHaveAttribute("inert");
+			await expect(jumpCountOf(canvasElement)).toBe("1");
 		});
 
 		await step("Jump to present from history", async () => {
@@ -1324,6 +1383,7 @@ const playJumpCard =
 				canvas.getByRole("button", { name: "Open history" }),
 			);
 			await waitJumpCard(canvasElement, "present");
+			await expect(jumpCountOf(canvasElement)).toBe("1");
 			const button = jumpCardButton(canvasElement);
 			await expect(button).toHaveAccessibleName("Jump to present");
 			await expect(button).toHaveAccessibleDescription(
@@ -1342,6 +1402,7 @@ const playJumpCard =
 				},
 				{ timeout: 3000 },
 			);
+			await expect(jumpCountOf(canvasElement)).toBe("2");
 		});
 	};
 

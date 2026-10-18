@@ -1087,6 +1087,8 @@ const threadSpy = {
 	follow: fn(),
 	rename: fn(),
 	move: fn(),
+	close: fn(),
+	lock: fn(),
 	remove: fn(),
 };
 
@@ -1106,6 +1108,8 @@ export const ThreadMenu: Story = {
 				onCopyLink={() => {}}
 				onRename={threadSpy.rename}
 				onMove={threadSpy.move}
+				onClosedChange={threadSpy.close}
+				onLockedChange={threadSpy.lock}
 				onDelete={threadSpy.remove}
 			>
 				<button type="button" class="w-64 truncate text-left">
@@ -1128,6 +1132,8 @@ export const ThreadMenu: Story = {
 			"Copy thread link",
 			"Rename thread",
 			"Move to channel",
+			"Close thread",
+			"Lock thread",
 			"Delete thread",
 		]);
 		await expect(
@@ -1137,6 +1143,49 @@ export const ThreadMenu: Story = {
 			within(menu).getByRole("menuitem", { name: "Delete thread" }),
 		);
 		await expect(threadSpy.remove).toHaveBeenCalledTimes(1);
+	},
+};
+
+export const ClosedLockedThreadMenu: Story = {
+	render: () => (
+		<div class="min-h-screen bg-background p-8">
+			<ThreadContextMenu
+				name={LONG_THREAD_NAME}
+				following={false}
+				onFollowingChange={threadSpy.follow}
+				onCopyLink={() => {}}
+				closed
+				onClosedChange={threadSpy.close}
+				locked
+				onLockedChange={threadSpy.lock}
+			>
+				<button type="button" class="w-64 truncate text-left">
+					{LONG_THREAD_NAME}
+				</button>
+			</ThreadContextMenu>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		for (const spy of Object.values(threadSpy)) spy.mockClear();
+		const canvas = within(canvasElement);
+		const target = canvas.getByRole("button", { name: LONG_THREAD_NAME });
+		const menu = await openMenu(target, `${LONG_THREAD_NAME} options`);
+		await waitFor(() => expectInsideViewport(menu));
+		await expectNoLayoutIssues(menu);
+		await expect(itemNames(menu)).toEqual([
+			"Copy thread link",
+			"Reopen thread",
+			"Unlock thread",
+		]);
+		await userEvent.click(
+			within(menu).getByRole("menuitem", { name: "Reopen thread" }),
+		);
+		await expect(threadSpy.close).toHaveBeenCalledWith(false);
+		const again = await openMenu(target, `${LONG_THREAD_NAME} options`);
+		await userEvent.click(
+			within(again).getByRole("menuitem", { name: "Unlock thread" }),
+		);
+		await expect(threadSpy.lock).toHaveBeenCalledWith(false);
 	},
 };
 

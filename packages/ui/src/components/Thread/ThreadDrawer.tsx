@@ -1,7 +1,11 @@
+import { ArchiveDownMinimalisticIcon } from "@solar-icons/solid/bold/archive-down-minimalistic";
+import { ArchiveUpMinimalisticIcon } from "@solar-icons/solid/bold/archive-up-minimalistic";
 import { BellOffIcon } from "@solar-icons/solid/bold/bell-off";
 import { EyeIcon } from "@solar-icons/solid/bold/eye";
 import { ForwardIcon } from "@solar-icons/solid/bold/forward";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
+import { LockIcon } from "@solar-icons/solid/bold/lock";
+import { LockUnlockedIcon } from "@solar-icons/solid/bold/lock-unlocked";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import { ArrowLeftIcon } from "@solar-icons/solid/linear/arrow-left";
@@ -159,7 +163,9 @@ export const ThreadDrawer = (props: ThreadDrawerProps) => {
 		!!(
 			props.onCopyLink ||
 			props.onRename ||
-			(props.onMove && (props.moveTargets?.length ?? 0) > 0)
+			(props.onMove && (props.moveTargets?.length ?? 0) > 0) ||
+			props.onClosedChange ||
+			props.onLockedChange
 		);
 
 	return (
@@ -336,6 +342,26 @@ export const ThreadDrawer = (props: ThreadDrawerProps) => {
 										icon={<ForwardIcon />}
 										label="Move to channel"
 										onClick={() => show("move")}
+									/>
+								</Show>
+								<Show when={props.onClosedChange}>
+									<NavRow
+										icon={
+											props.closed ? (
+												<ArchiveUpMinimalisticIcon />
+											) : (
+												<ArchiveDownMinimalisticIcon />
+											)
+										}
+										label={props.closed ? "Reopen thread" : "Close thread"}
+										onClick={run(() => props.onClosedChange?.(!props.closed))}
+									/>
+								</Show>
+								<Show when={props.onLockedChange}>
+									<NavRow
+										icon={props.locked ? <LockUnlockedIcon /> : <LockIcon />}
+										label={props.locked ? "Unlock thread" : "Lock thread"}
+										onClick={run(() => props.onLockedChange?.(!props.locked))}
 									/>
 								</Show>
 							</ListGroup>

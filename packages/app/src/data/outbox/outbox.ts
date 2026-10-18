@@ -322,6 +322,7 @@ export const createOutbox = (options: OutboxOptions) => {
 					channel: op.channel,
 					rkey: op.rkey,
 					emoji: op.emoji,
+					...(op.customEmoji ? { customEmoji: op.customEmoji } : {}),
 					add: op.add,
 					author: op.author,
 					...(op.reaction ? { reaction: op.reaction } : {}),

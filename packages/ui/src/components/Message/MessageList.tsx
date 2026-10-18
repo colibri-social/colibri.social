@@ -20,6 +20,7 @@ import {
 } from "virtua/solid";
 import { cx } from "../../utils/cx";
 import { createFocusRetention } from "../../utils/focus-retention";
+import { createAnchorHolds } from "../../utils/live-anchor";
 import type { GroupableMessage } from "../../utils/message-groups";
 import { motionScale, prefersReducedMotion } from "../../utils/motion";
 import { createSlot } from "../../utils/slot";
@@ -107,6 +108,7 @@ export type MessageListProps<T extends GroupableMessage> = {
 	loadingNewer?: boolean;
 	onLoadNewer?: () => void;
 	onJumpToLatest?: () => void;
+	onJump?: () => void;
 	onAtBottomChange?: (atBottom: boolean) => void;
 	bottomInset?: number;
 	jumpLift?: number;
@@ -307,6 +309,11 @@ export const MessageList = <T extends GroupableMessage>(
 	const setSize = () =>
 		props.hasOlder || props.hasNewer ? -1 : model().keys.length;
 
+	const holds = createAnchorHolds(
+		(target) =>
+			target.closest<HTMLElement>("[data-message-key]")?.dataset.messageKey,
+	);
+
 	const keepMounted = createMemo(() => {
 		const { indexOf, keys: all } = model();
 		const indexes = new Set<number>();
@@ -314,6 +321,7 @@ export const MessageList = <T extends GroupableMessage>(
 			focusedKey(),
 			touchedKey(),
 			jumpKey(),
+			...holds.held(),
 			...(props.keepMounted ?? []),
 		];
 		for (const key of wanted) {
@@ -899,6 +907,7 @@ export const MessageList = <T extends GroupableMessage>(
 		<div
 			ref={(element: HTMLDivElement) => {
 				feed = element;
+				holds.attach(element);
 				if (typeof container.ref === "function") container.ref(element);
 			}}
 			style={container.style}
@@ -1141,7 +1150,10 @@ export const MessageList = <T extends GroupableMessage>(
 				count={unseen()}
 				platform={platform()}
 				lift={props.jumpLift}
-				onJump={() => scrollToBottom()}
+				onJump={() => {
+					scrollToBottom();
+					props.onJump?.();
+				}}
 			/>
 			<div role="status" class="sr-only" data-message-list-announcer="">
 				{announcement()}

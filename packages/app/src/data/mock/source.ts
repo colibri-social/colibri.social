@@ -25,6 +25,7 @@ import type {
 	MessageView,
 	NotificationView,
 	Presence,
+	ReactionEmojiRef,
 	SpaceRef,
 	ThreadView,
 	UnreadStatus,
@@ -50,6 +51,7 @@ import {
 import { asDatetime, messageUri, tidFor } from "./refs";
 import { createRoleOps } from "./roles";
 import { createRandom } from "./seed";
+import { mockThreadRights } from "./thread-rights";
 import { mockUpload } from "./uploads";
 import { seedVoice } from "./voice";
 import { createWorld, MANAGING_APP } from "./world";
@@ -206,14 +208,19 @@ export const createMockSource = (
 	const communityOf = (ref: SpaceRef) =>
 		ref.slice("at://".length, ref.indexOf("/space/")) as Did;
 
-	const manageableThread = (ref: SpaceRef) => {
+	const manageableThread = (
+		ref: SpaceRef,
+		right: "canEdit" | "canClose" | "canDelete" | "canLock" = "canEdit",
+	) => {
 		for (const space of world.spaces) {
 			const record = space.threads.find((entry) => entry.view.space === ref);
 			if (!record) continue;
-			const own = record.view.createdBy === world.viewerDid;
-			if (!own && !allowedIn(space, "thread.manage")) {
-				throw new Error("Not allowed to manage this thread");
-			}
+			const rights = mockThreadRights(
+				record.view,
+				world.viewerDid,
+				allowedIn(space, "thread.manage"),
+			);
+			if (!rights[right]) throw new Error("Not allowed to manage this thread");
 			return { space, record };
 		}
 		throw new Error(`Unknown thread ${ref}`);
@@ -300,6 +307,7 @@ export const createMockSource = (
 		emoji: string,
 		actor: Did,
 		add: boolean,
+		customEmoji?: ReactionEmojiRef,
 	) => {
 		const { list, index, message } = findMessage(ref, rkey);
 		const reactions = message.reactions.map((reaction) => ({ ...reaction }));
@@ -316,6 +324,7 @@ export const createMockSource = (
 					emoji,
 					count: 1,
 					reactors: [actor],
+					...(customEmoji ? { customEmoji } : {}),
 					...(isViewer ? { viewerReacted: true } : {}),
 				});
 			}
@@ -864,8 +873,11 @@ export const createMockSource = (
 					participants: [world.viewerDid],
 					viewer: {
 						canRead: true,
-						canPost: true,
-						canManage: true,
+						...mockThreadRights(
+							{ createdBy: world.viewerDid },
+							world.viewerDid,
+							allowedIn(space, "thread.manage"),
+						),
 						following: true,
 						muted: false,
 					},
@@ -889,7 +901,11 @@ export const createMockSource = (
 			}),
 		updateThread: (input) =>
 			withLatency(() => {
-				const { record } = manageableThread(input.thread);
+				const { space, record } = manageableThread(input.thread);
+				if (input.closed !== undefined)
+					manageableThread(input.thread, "canClose");
+				if (input.locked !== undefined)
+					manageableThread(input.thread, "canLock");
 				if (input.name !== undefined) {
 					const name = input.name.trim();
 					if (!name || name.length > 128) throw new Error("Invalid name");
@@ -897,6 +913,18 @@ export const createMockSource = (
 				}
 				const view: ThreadView = { ...record.view };
 				if (input.name !== undefined) view.name = input.name.trim();
+				if (input.closed !== undefined) {
+					view.closedAt = input.closed ? asDatetime(Date.now()) : undefined;
+				}
+				if (input.locked !== undefined) view.locked = input.locked || undefined;
+				view.viewer = {
+					...view.viewer,
+					...mockThreadRights(
+						view,
+						world.viewerDid,
+						allowedIn(space, "thread.manage"),
+					),
+				};
 				record.view = view;
 				emit({ $type: "threadEvent", event: "update", thread: view });
 				return view;
@@ -904,7 +932,7 @@ export const createMockSource = (
 		deleteThread: (input) =>
 			whenOnline(() =>
 				withLatency(() => {
-					const { space, record } = manageableThread(input.thread);
+					const { space, record } = manageableThread(input.thread, "canDelete");
 					space.threads.splice(space.threads.indexOf(record), 1);
 					emit({ $type: "threadEvent", event: "delete", thread: record.view });
 				}),
@@ -1170,6 +1198,15 @@ export const createMockSource = (
 						channel: input.channel,
 						message: view,
 					});
+					const thread = threadRecord(input.channel);
+					if (thread?.view.closedAt) {
+						thread.view = { ...thread.view, closedAt: undefined };
+						emit({
+							$type: "threadEvent",
+							event: "update",
+							thread: thread.view,
+						});
+					}
 					return view;
 				});
 			}),
@@ -1220,6 +1257,7 @@ export const createMockSource = (
 						input.emoji,
 						world.viewerDid,
 						input.add,
+						input.customEmoji,
 					);
 					if (!changed) return;
 					emit({
@@ -1228,6 +1266,7 @@ export const createMockSource = (
 						channel: input.channel,
 						target: input.rkey,
 						emoji: input.emoji,
+						...(input.customEmoji ? { customEmoji: input.customEmoji } : {}),
 						actor: world.viewerDid,
 					});
 				}),

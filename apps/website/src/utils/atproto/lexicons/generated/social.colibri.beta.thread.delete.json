@@ -35,7 +35,7 @@
 				},
 				{
 					"name": "Forbidden",
-					"description": "The requesting user lacks the thread.manage permission."
+					"description": "The requesting user lacks the thread.manage permission and is not the user who opened the thread."
 				},
 				{
 					"name": "ThreadNotFound",

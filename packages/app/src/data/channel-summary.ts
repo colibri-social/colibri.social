@@ -12,11 +12,9 @@ export type ChannelSummary = {
 	createdAt: string;
 };
 
-const attachmentKind = (message: MessageView) => {
-	const first = message.attachments[0];
-	if (!first) return undefined;
-	return first.mimeType.startsWith("image/") ||
-		first.mimeType.startsWith("video/")
+const attachmentKind = (mimeType: string | undefined) => {
+	if (mimeType === undefined) return undefined;
+	return mimeType.startsWith("image/") || mimeType.startsWith("video/")
 		? "image"
 		: "file";
 };
@@ -65,11 +63,42 @@ export const summarizeMessage = (message: MessageView): ChannelSummary =>
 		author: message.author.did,
 		text: message.text,
 		facets: message.facets,
-		attachment: attachmentKind(message),
+		attachment: attachmentKind(message.attachments[0]?.mimeType),
 		attachmentCount: message.attachments.length,
 		forward: !!message.forward,
 		createdAt: message.createdAt,
 	});
+
+export type PendingSummarySource = {
+	channel: SpaceRef;
+	rkey: string;
+	text: string;
+	facets?: readonly Facet[];
+	attachments?: readonly { mimeType: string }[];
+	uploads?: readonly { file: File }[];
+	createdAt: string;
+};
+
+export const summarizePending = (
+	entry: PendingSummarySource,
+	author: Did,
+): ChannelSummary => {
+	const mimeTypes = [
+		...(entry.attachments ?? []).map((attachment) => attachment.mimeType),
+		...(entry.uploads ?? []).map((upload) => upload.file.type),
+	];
+	return summaryOf({
+		channel: entry.channel,
+		rkey: entry.rkey,
+		author,
+		text: entry.text,
+		facets: entry.facets,
+		attachment: attachmentKind(mimeTypes[0]),
+		attachmentCount: mimeTypes.length,
+		forward: false,
+		createdAt: entry.createdAt,
+	});
+};
 
 export const summarizeChannel = (
 	view: social.colibri.beta.channel.defs.ChannelSummary,

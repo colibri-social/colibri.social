@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "procedure",
-			"description": "Renames a thread or changes who may read it. An absent field leaves the current value unchanged.",
+			"description": "Renames, closes, reopens or locks a thread, or changes who may read it. An absent field leaves the current value unchanged.",
 			"input": {
 				"encoding": "application/json",
 				"schema": {
@@ -41,6 +41,14 @@
 								"description": "A member."
 							},
 							"description": "Members that may read this thread beyond visibleToRoles."
+						},
+						"closed": {
+							"type": "boolean",
+							"description": "Closes the thread when true and reopens it when false. Absent leaves the current value unchanged."
+						},
+						"locked": {
+							"type": "boolean",
+							"description": "Locks the thread when true and unlocks it when false. Absent leaves the current value unchanged."
 						}
 					}
 				}
@@ -68,7 +76,7 @@
 				},
 				{
 					"name": "Forbidden",
-					"description": "The requesting user lacks the thread.manage permission, and is not the user who opened the thread renaming it."
+					"description": "The requesting user lacks the thread.manage permission and is not the user who opened the thread renaming, closing or reopening it. Changing visibility or locking always needs thread.manage, and the user who opened a locked thread can't close or reopen it."
 				},
 				{
 					"name": "ThreadNotFound",

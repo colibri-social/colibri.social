@@ -69,6 +69,7 @@ it("renders the hover toolbar on sent messages and edits inline", async () => {
 				"data-editing",
 			),
 	);
+	await until(() => !!mainEditor()?.contains(document.activeElement));
 });
 
 it("opens the threads overlay, then a thread over the chat, and closes it", async () => {

@@ -56,6 +56,7 @@ export type ChatContextValue = {
 	onCancelEdit?: () => void;
 	editSources?: RichEditorSources;
 	customEmoji?: (name: string) => RichTextCustomEmoji | undefined;
+	customEmojiByUri?: (uri: string) => RichTextCustomEmoji | undefined;
 	customEmojiFeature?: (
 		feature: RichTextForeignFeature,
 	) => RichTextCustomEmoji | undefined;
@@ -81,6 +82,7 @@ export type ChatContextValue = {
 	quickReactions?: Accessor<string[]>;
 	onRecordEmoji?: (emoji: string) => void;
 	canPost?: Accessor<boolean>;
+	locked?: Accessor<boolean>;
 	developerMode?: Accessor<boolean>;
 	viewerRoles?: Accessor<readonly string[]>;
 	linkEmbedsEnabled?: Accessor<boolean>;

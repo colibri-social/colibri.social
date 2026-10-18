@@ -23,6 +23,11 @@
 						"ref": "social.colibri.beta.defs#recordRef",
 						"description": "The message being reacted to."
 					},
+					"customEmoji": {
+						"type": "ref",
+						"ref": "social.colibri.beta.richtext.facet#customEmoji",
+						"description": "The emoji record behind a custom shortcode, so viewers who don't have the emoji can still show it."
+					},
 					"bridged": {
 						"type": "ref",
 						"ref": "social.colibri.beta.bridge.defs#attribution",

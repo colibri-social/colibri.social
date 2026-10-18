@@ -16,8 +16,10 @@ export const belongsInSidebar = (
 	now: number,
 	pinnedThread?: string,
 ) => {
-	if (thread.viewer.hasUnread || thread.viewer.following) return true;
+	if (thread.viewer.hasUnread) return true;
 	if (pinnedThread === skeyOf(thread.space)) return true;
+	if (thread.closedAt) return false;
+	if (thread.viewer.following) return true;
 	const at = new Date(thread.lastActivityAt).getTime();
 	return !Number.isNaN(at) && now - at <= SIDEBAR_ACTIVITY_WINDOW_MS;
 };

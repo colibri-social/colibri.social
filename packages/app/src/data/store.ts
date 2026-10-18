@@ -31,6 +31,7 @@ import {
 	type ChannelSummary,
 	newerSummary,
 	summarizeMessage,
+	summarizePending,
 } from "./channel-summary";
 import { DEVICE_KEYS, deviceString } from "./device-prefs";
 import { createEmojiStore } from "./emoji-store";
@@ -39,6 +40,7 @@ import { createJumpRequests } from "./jump";
 import { createLiveTails, reactIn, TAIL_PER_CHANNEL } from "./live-tail";
 import { keepUnchanged } from "./merge";
 import type { MessageCache } from "./message-cache";
+import { isPingNotification } from "./notification-alerts";
 import {
 	createNotificationStore,
 	createSpaceNotificationPrefs,
@@ -88,6 +90,7 @@ import type {
 	MessageView,
 	Presence,
 	ProfileView,
+	ReactionEmojiRef,
 	RoleView,
 	SpaceRef,
 	ThreadView,
@@ -209,7 +212,12 @@ export type ChannelData = {
 	discard: (nonce: string) => void;
 	edit: (rkey: string, text: string, facets?: Facet[]) => Promise<void>;
 	remove: (rkey: string) => Promise<void>;
-	react: (rkey: string, emoji: string, add: boolean) => Promise<void>;
+	react: (
+		rkey: string,
+		emoji: string,
+		add: boolean,
+		customEmoji?: ReactionEmojiRef,
+	) => Promise<void>;
 	setHidden: (rkey: string, hidden: boolean) => Promise<void>;
 	setSuppressedEmbeds: (
 		rkey: string,
@@ -641,7 +649,7 @@ export const createDataStore = (
 		const notifications = createNotificationStore(source, (views, seen) => {
 			const counts = new Map<SpaceRef, number>();
 			for (const view of views) {
-				if (view.thread || !view.message) continue;
+				if (view.thread || !view.message || !isPingNotification(view)) continue;
 				counts.set(view.channel, (counts.get(view.channel) ?? 0) + 1);
 			}
 			batch(() => {
@@ -912,7 +920,7 @@ export const createDataStore = (
 		source.subscribe((event) => {
 			if (event.$type !== "notificationEvent") return;
 			const view = event.notification;
-			if (view.thread || view.seenAt) return;
+			if (view.thread || view.seenAt || !isPingNotification(view)) return;
 			if (countedNotifications.has(view.id)) return;
 			countedNotifications.add(view.id);
 			const community = communityOfRef(view.channel);
@@ -1148,6 +1156,21 @@ export const createDataStore = (
 			rename: (thread: ThreadView, name: string) =>
 				patchThread(thread, { ...thread, name: name.trim() }, () =>
 					source.updateThread({ thread: thread.space, name: name.trim() }),
+				),
+			setClosed: (thread: ThreadView, closed: boolean) =>
+				patchThread(
+					thread,
+					{
+						...thread,
+						closedAt: closed
+							? (new Date().toISOString() as ThreadView["closedAt"])
+							: undefined,
+					},
+					() => source.updateThread({ thread: thread.space, closed }),
+				),
+			setLocked: (thread: ThreadView, locked: boolean) =>
+				patchThread(thread, { ...thread, locked: locked || undefined }, () =>
+					source.updateThread({ thread: thread.space, locked }),
 				),
 			follow: async (thread: ThreadView, follow: boolean) => {
 				if (follow) addThreadMember(thread.space, viewer.did);
@@ -1999,6 +2022,10 @@ export const createDataStore = (
 				else setMessages(place);
 			};
 
+			const replaceSummary = (rkey: string, summary: ChannelSummary) => {
+				if (lastMessages[ref]?.rkey === rkey) summaries.put(ref, summary);
+			};
+
 			const settlePending = (nonce: string, message: MessageView) => {
 				const settled = pending().find((entry) => entry.nonce === nonce);
 				batch(() => {
@@ -2006,6 +2033,7 @@ export const createDataStore = (
 						setPending((list) => list.filter((entry) => entry.nonce !== nonce));
 					}
 					upsert(message);
+					replaceSummary(message.rkey, summarizeMessage(message));
 				});
 				if (settled) revokePreviews(settled);
 			};
@@ -2089,7 +2117,11 @@ export const createDataStore = (
 						state: entry.failed ? "failed" : "pending",
 					});
 				}
-				if (adopted.length > 0) setPending((list) => [...list, ...adopted]);
+				const newest = adopted.at(-1);
+				if (newest) {
+					setPending((list) => [...list, ...adopted]);
+					putSummary(summarizePending(newest, viewer.did));
+				}
 			};
 
 			const applyReaction = (
@@ -2097,9 +2129,17 @@ export const createDataStore = (
 				emoji: string,
 				actor: Did,
 				add: boolean,
+				customEmoji?: ReactionEmojiRef,
 			) => {
 				const react = (list: readonly MessageView[]) =>
-					reactIn(list, { rkey, emoji, actor, add, viewer: viewer.did });
+					reactIn(list, {
+						rkey,
+						emoji,
+						customEmoji,
+						actor,
+						add,
+						viewer: viewer.did,
+					});
 				setMessages(react);
 				editLatest(react);
 			};
@@ -2161,6 +2201,7 @@ export const createDataStore = (
 						event.emoji,
 						event.actor,
 						event.event === "create",
+						event.customEmoji,
 					);
 				}
 				return true;
@@ -2330,6 +2371,7 @@ export const createDataStore = (
 					};
 					sentNonces.set(rkey, entry.nonce);
 					setPending((list) => [...list, entry]);
+					putSummary(summarizePending(entry, viewer.did));
 					await issued.settled.catch(() => undefined);
 				},
 				retry: async (nonce) => {
@@ -2346,17 +2388,27 @@ export const createDataStore = (
 					outbox.retry(seq);
 				},
 				discard: (nonce) => {
+					const discarded = untrack(pending).find(
+						(entry) => entry.nonce === nonce,
+					);
 					const seq = outboxSeq(nonce);
 					if (seq !== undefined) outbox.discard(seq);
 					dropPending(nonce);
+					if (discarded && lastMessages[ref]?.rkey === discarded.rkey)
+						void loadSummaries(community, ref);
 				},
 				edit: async (rkey, text, facets) => {
 					const previous = untrack(messages).find(
 						(message) => message.rkey === rkey,
 					);
 					const queued = untrack(pending).find((entry) => entry.rkey === rkey);
-					if (queued)
+					if (queued) {
 						patchPending(queued.nonce, (entry) => ({ ...entry, text, facets }));
+						replaceSummary(
+							rkey,
+							summarizePending({ ...queued, text, facets }, viewer.did),
+						);
+					}
 					if (previous) {
 						const next: MessageView = {
 							...previous,
@@ -2366,6 +2418,7 @@ export const createDataStore = (
 						if (facets?.length) next.facets = facets;
 						else delete next.facets;
 						upsert(next);
+						replaceSummary(rkey, summarizeMessage(next));
 					}
 					const issued = outbox.enqueue({
 						t: "edit",
@@ -2376,10 +2429,16 @@ export const createDataStore = (
 					});
 					void issued.settled.then(
 						(result) => {
-							if (result.message && !queued) upsert(result.message);
+							if (result.message && !queued) {
+								upsert(result.message);
+								replaceSummary(rkey, summarizeMessage(result.message));
+							}
 						},
 						(thrown: unknown) => {
-							if (previous) upsert(previous);
+							if (previous) {
+								upsert(previous);
+								replaceSummary(rkey, summarizeMessage(previous));
+							}
 							reportWriteFailure("edit", thrown);
 						},
 					);
@@ -2392,11 +2451,24 @@ export const createDataStore = (
 						list.filter((entry) => entry.rkey !== rkey);
 					setMessages(drop);
 					editLatest(drop);
+					const wasLatest = lastMessages[ref]?.rkey === rkey;
+					if (wasLatest) {
+						const fallback = (untrack(gap)?.latest ?? untrack(messages)).at(-1);
+						if (fallback) summaries.put(ref, summarizeMessage(fallback));
+						else summaries.remove(ref);
+					}
 					const issued = outbox.enqueue({ t: "delete", channel: ref, rkey });
-					void issued.settled.catch((thrown: unknown) => {
-						if (previous) upsert(previous);
-						reportWriteFailure("delete", thrown);
-					});
+					void issued.settled.then(
+						() => {
+							if (wasLatest) void loadSummaries(community, ref);
+						},
+						(thrown: unknown) => {
+							if (previous) upsert(previous);
+							if (wasLatest && previous) putSummary(summarizeMessage(previous));
+							else if (wasLatest) void loadSummaries(community, ref);
+							reportWriteFailure("delete", thrown);
+						},
+					);
 				},
 				setHidden: async (rkey, hidden) => {
 					const message = await source.setHidden({
@@ -2414,12 +2486,12 @@ export const createDataStore = (
 							: await source.setModeratedEmbeds(input);
 					upsert(message);
 				},
-				react: async (rkey, emoji, add) => {
+				react: async (rkey, emoji, add, customEmoji) => {
 					const author = untrack(messages).find(
 						(message) => message.rkey === rkey,
 					)?.author.did;
 					if (!author) return;
-					applyReaction(rkey, emoji, viewer.did, add);
+					applyReaction(rkey, emoji, viewer.did, add, customEmoji);
 					const key = `${ref}\n${rkey}\n${emoji}`;
 					const reaction = add ? nextTid() : reactionKeys.get(key);
 					if (add && reaction) reactionKeys.set(key, reaction);
@@ -2429,6 +2501,7 @@ export const createDataStore = (
 						channel: ref,
 						rkey,
 						emoji,
+						...(add && customEmoji ? { customEmoji } : {}),
 						add,
 						author,
 						...(reaction ? { reaction } : {}),
@@ -2639,6 +2712,7 @@ export const createDataStore = (
 						tails.react(event.channel, {
 							rkey: event.target,
 							emoji: event.emoji,
+							customEmoji: event.customEmoji,
 							actor: event.actor,
 							add: event.event === "create",
 							viewer: viewer.did,

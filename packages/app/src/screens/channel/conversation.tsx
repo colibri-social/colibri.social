@@ -15,6 +15,7 @@ import {
 	toast,
 	topEmoji,
 } from "@colibri-social/ui";
+import { ArchiveDownMinimalisticIcon } from "@solar-icons/solid/bold/archive-down-minimalistic";
 import { ChatSquareDotsIcon } from "@solar-icons/solid/bold/chat-square-dots";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
@@ -30,6 +31,7 @@ import {
 } from "solid-js";
 import { authorForDid, displayNameOf } from "../../data/adapters/authors";
 import { fromComposerValue, toTextValue } from "../../data/adapters/facets";
+import { reactionFor, reactionShortcode } from "../../data/adapters/reactions";
 import { channelSlug, skeyOf, spaceKey } from "../../data/ids";
 import {
 	createMediaLinkRefresher,
@@ -51,6 +53,7 @@ import type {
 	GifView,
 	MemberView,
 	MessageView,
+	ReactionEmojiRef,
 	RoleView,
 	SpaceRef,
 	ThreadView,
@@ -97,11 +100,16 @@ export type ConversationOptions = {
 	target: () => SpaceRef | undefined;
 	label: () => string;
 	isActive: () => boolean;
+	thread?: () => ThreadView | undefined;
 };
 
 const JUMP_FRAMES = 12;
 
 export const DELETED_PING_COPY = "The message that pinged you was deleted.";
+export const CLOSED_THREAD_COPY =
+	"This thread is closed. Sending a message reopens it.";
+export const LOCKED_THREAD_COPY =
+	"This thread is locked. Only moderators can post here.";
 const QUICK_REACTION_COUNT = 4;
 
 const log = createLogger("conversation");
@@ -181,6 +189,8 @@ export const createConversation = (options: ConversationOptions) => {
 		return current ? data.space(current) : undefined;
 	});
 	const view = createMemo(() => space()?.channelBySlug(options.channel));
+	const writable = () =>
+		(options.thread?.() ?? view())?.viewer.canPost !== false;
 	const unavailable = createMemo<"space" | "channel" | "thread" | undefined>(
 		() => {
 			if (data.communities.loading()) return undefined;
@@ -278,15 +288,21 @@ export const createConversation = (options: ConversationOptions) => {
 	let entered: ChannelData | undefined;
 	let ownDepth = 0;
 	let covered = false;
+	let leftForFullThread = false;
 	const [activeFeed, setActiveFeed] = createSignal<ChannelData>();
 	createEffect(() => {
 		const current = feed();
 		if (!current || !isActive()) return;
-		const fresh = entered !== current;
+		const returning = leftForFullThread && entered === current;
+		const fresh = entered !== current || returning;
+		leftForFullThread = false;
 		entered = current;
 		ownDepth = untrack(stack.activeDepth);
 		const firstUnread = untrack(() => current.enter(fresh));
-		if (firstUnread && !fresh && (!covered || list?.isAtBottom())) {
+		if (
+			firstUnread &&
+			(returning || (!fresh && (!covered || list?.isAtBottom())))
+		) {
 			const key = data.nonceFor(firstUnread) ?? firstUnread;
 			requestAnimationFrame(() =>
 				list?.jumpTo(key, { align: "start", smooth: false, highlight: false }),
@@ -294,6 +310,8 @@ export const createConversation = (options: ConversationOptions) => {
 		}
 		onCleanup(() => {
 			covered = untrack(stack.activeDepth) > ownDepth;
+			const top = untrack(stack.mounted).at(-1);
+			leftForFullThread = top?.kind === "thread" && top.presentation === "full";
 		});
 		data.setViewing(current.channel);
 		if (options.space && options.channel) {
@@ -612,6 +630,18 @@ export const createConversation = (options: ConversationOptions) => {
 		channel: options.channel,
 	});
 
+	const reactionEmojiRef = (message: ChatMessage, emoji: string) => {
+		const existing = reactionFor(message.view?.reactions, emoji)?.customEmoji;
+		if (existing) return existing;
+		const name = reactionShortcode(emoji);
+		const current = community();
+		const found =
+			name && current ? data.emoji.find(current.did, name) : undefined;
+		if (!found) return undefined;
+		const { uri, cid } = found.ref;
+		return (cid ? { uri, cid } : { uri }) as ReactionEmojiRef;
+	};
+
 	const chat: ChatContextValue = {
 		viewer: () => data.viewer.did,
 		platform,
@@ -643,6 +673,12 @@ export const createConversation = (options: ConversationOptions) => {
 		customEmoji: (name) => {
 			const current = community();
 			const emoji = current ? data.emoji.find(current.did, name) : undefined;
+			return emoji
+				? { id: emoji.id, name: emoji.name, src: emoji.image, alt: emoji.alt }
+				: undefined;
+		},
+		customEmojiByUri: (uri) => {
+			const emoji = data.emoji.resolve(community()?.did, uri);
 			return emoji
 				? { id: emoji.id, name: emoji.name, src: emoji.image, alt: emoji.alt }
 				: undefined;
@@ -695,7 +731,8 @@ export const createConversation = (options: ConversationOptions) => {
 		locale: "en-GB",
 		quickReactions: () => topEmoji(session.usage(), QUICK_REACTION_COUNT),
 		onRecordEmoji: (emoji) => session.recordEmoji(emoji),
-		canPost: () => view()?.viewer.canPost !== false,
+		canPost: () => writable(),
+		locked: () => !!options.thread?.()?.locked && !writable(),
 		developerMode: () => data.controls().developerMode,
 		viewerRoles: () => memberMap().get(data.viewer.did)?.roles ?? [],
 		linkEmbedsEnabled: () =>
@@ -774,7 +811,13 @@ export const createConversation = (options: ConversationOptions) => {
 			if (message.rkey) void current.remove(message.rkey);
 		},
 		onReact: (message, emoji, add) => {
-			if (message.rkey) void feed()?.react(message.rkey, emoji, add);
+			if (message.rkey)
+				void feed()?.react(
+					message.rkey,
+					emoji,
+					add,
+					reactionEmojiRef(message, emoji),
+				);
 		},
 		onRetry: (message) => void feed()?.retry(message.key),
 		onJumpTo: (rkey) => {
@@ -928,6 +971,7 @@ export const createConversation = (options: ConversationOptions) => {
 			value as Parameters<typeof fromComposerValue>[0],
 		);
 		setEditing(undefined);
+		if (desktop()) keepEditorFocus();
 		const converted = data.emoji.withFacets(
 			community()?.did,
 			payload.text,
@@ -981,6 +1025,8 @@ export const createConversation = (options: ConversationOptions) => {
 		options,
 		community,
 		view,
+		thread: () => options.thread?.(),
+		writable,
 		feed,
 		items,
 		unavailable,
@@ -991,6 +1037,9 @@ export const createConversation = (options: ConversationOptions) => {
 		reactionPicker,
 		setEditor: (handle: RichEditorHandle) => {
 			editor = handle;
+		},
+		focusComposer: () => {
+			if (desktop()) editor?.focus();
 		},
 		platform,
 		editLast,
@@ -1060,6 +1109,7 @@ export const ConversationMessages = (props: {
 						loadingNewer={m.feed()?.loadingNewer() ?? false}
 						onLoadNewer={() => m.feed()?.loadNewer()}
 						onJumpToLatest={() => m.feed()?.jumpToLatest()}
+						onJump={m.focusComposer}
 						onAtBottomChange={m.setAtBottom}
 						ref={m.setList}
 						header={props.header}
@@ -1159,6 +1209,14 @@ export const ConversationComposer = (props: {
 	};
 	const showLinkPreviews = () =>
 		draft.linkPreviews() ?? m.linkPreviewsByDefault();
+	const [closedNoticeDismissed, setClosedNoticeDismissed] = createSignal(false);
+	createEffect(
+		on(
+			() => m.thread()?.closedAt,
+			() => setClosedNoticeDismissed(false),
+			{ defer: true },
+		),
+	);
 	const send = async (value: Parameters<typeof m.send>[0]) => {
 		const sent = await m.send(value, { linkPreviews: showLinkPreviews() });
 		if (sent) draft.clear();
@@ -1166,70 +1224,84 @@ export const ConversationComposer = (props: {
 	};
 	return (
 		<Show when={m.view()}>
-			{(current) => (
-				<Show
-					when={!m.selection.active()}
-					fallback={<m.selection.Bar safeBottom={!desktop()} />}
-				>
-					<Composer
-						platform={props.platform ?? "mobile"}
-						safeBottom={!desktop()}
-						onEditLast={desktop() ? m.editLast : undefined}
-						onEscape={m.replyTo() ? () => m.setReplyTo(undefined) : undefined}
-						channelName={m.options.label()}
-						sources={m.sources}
-						onSend={send}
-						onInput={m.onInput}
-						onChange={onChange}
-						onUpload={() => m.attachments.pick()}
-						onPasteFiles={(files) => m.attachments.addFiles(files)}
-						hasAttachments={m.attachments.hasAttachments()}
-						onEmoji={(event) => {
-							anchorMedia(event);
-							m.media.openEmoji();
-						}}
-						onGif={(event) => {
-							anchorMedia(event);
-							m.media.openGif();
-						}}
-						editorRef={(handle) => {
-							editor = handle;
-							m.setEditor(handle);
-							draft.bind(handle);
-						}}
-						disabled={current().viewer.canPost === false}
-						disabledReason="You can't post in this channel."
-						typing={<TypingIndicator size="sm" users={m.typingUsers()} />}
-						top={
-							<>
-								<m.attachments.Tray />
-								<ComposerBar
-									open={m.deletedPing()}
-									tone="warning"
-									kind="deleted-ping"
-									icon={<TrashBinTrashIcon />}
-									cancelLabel="Dismiss"
-									onCancel={() => m.setDeletedPing(false)}
-								>
-									{DELETED_PING_COPY}
-								</ComposerBar>
-								<ReplyBar
-									open={!!m.replyTo()}
-									name={m.replyTo() ? m.nameOf(m.replyTo()?.author ?? "") : ""}
-									onCancel={() => m.setReplyTo(undefined)}
-								/>
-							</>
-						}
-						editing={editing()}
-						linkPreviews={
-							m.chat.linkEmbedsEnabled?.() === false
-								? undefined
-								: showLinkPreviews()
-						}
-						onLinkPreviewsChange={draft.setLinkPreviews}
-					/>
-				</Show>
-			)}
+			<Show
+				when={!m.selection.active()}
+				fallback={<m.selection.Bar safeBottom={!desktop()} />}
+			>
+				<Composer
+					platform={props.platform ?? "mobile"}
+					safeBottom={!desktop()}
+					onEditLast={desktop() ? m.editLast : undefined}
+					onEscape={m.replyTo() ? () => m.setReplyTo(undefined) : undefined}
+					channelName={m.options.label()}
+					sources={m.sources}
+					onSend={send}
+					onInput={m.onInput}
+					onChange={onChange}
+					onUpload={() => m.attachments.pick()}
+					onPasteFiles={(files) => m.attachments.addFiles(files)}
+					hasAttachments={m.attachments.hasAttachments()}
+					onEmoji={(event) => {
+						anchorMedia(event);
+						m.media.openEmoji();
+					}}
+					onGif={(event) => {
+						anchorMedia(event);
+						m.media.openGif();
+					}}
+					editorRef={(handle) => {
+						editor = handle;
+						m.setEditor(handle);
+						draft.bind(handle);
+					}}
+					disabled={!m.writable()}
+					disabledReason={
+						m.thread()?.locked
+							? LOCKED_THREAD_COPY
+							: m.thread()
+								? "You can't post in this thread."
+								: "You can't post in this channel."
+					}
+					typing={<TypingIndicator size="sm" users={m.typingUsers()} />}
+					top={
+						<>
+							<m.attachments.Tray />
+							<ComposerBar
+								open={!!m.thread()?.closedAt && !closedNoticeDismissed()}
+								tone="info"
+								kind="closed-thread"
+								icon={<ArchiveDownMinimalisticIcon />}
+								cancelLabel="Dismiss"
+								onCancel={() => setClosedNoticeDismissed(true)}
+							>
+								{CLOSED_THREAD_COPY}
+							</ComposerBar>
+							<ComposerBar
+								open={m.deletedPing()}
+								tone="warning"
+								kind="deleted-ping"
+								icon={<TrashBinTrashIcon />}
+								cancelLabel="Dismiss"
+								onCancel={() => m.setDeletedPing(false)}
+							>
+								{DELETED_PING_COPY}
+							</ComposerBar>
+							<ReplyBar
+								open={!!m.replyTo()}
+								name={m.replyTo() ? m.nameOf(m.replyTo()?.author ?? "") : ""}
+								onCancel={() => m.setReplyTo(undefined)}
+							/>
+						</>
+					}
+					editing={editing()}
+					linkPreviews={
+						m.chat.linkEmbedsEnabled?.() === false
+							? undefined
+							: showLinkPreviews()
+					}
+					onLinkPreviewsChange={draft.setLinkPreviews}
+				/>
+			</Show>
 		</Show>
 	);
 };

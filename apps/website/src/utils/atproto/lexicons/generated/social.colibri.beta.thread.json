@@ -59,6 +59,15 @@
 						},
 						"description": "Members that may read this thread in addition to visibleToRoles."
 					},
+					"closedAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the thread was closed. Absent on an open thread. A closed thread still accepts messages, and the next one reopens it."
+					},
+					"locked": {
+						"type": "boolean",
+						"description": "Whether only members who may manage threads can write in this thread. Absent means unlocked."
+					},
 					"bridged": {
 						"type": "ref",
 						"ref": "social.colibri.beta.bridge.defs#attribution",

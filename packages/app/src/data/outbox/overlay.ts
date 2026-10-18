@@ -1,3 +1,4 @@
+import { reactTo } from "../live-tail";
 import type { Did, MessageView, SpaceRef } from "../types";
 import type { OutboxEntry, OutboxOp } from "./types";
 
@@ -32,42 +33,6 @@ const withEdit = (
 	return next;
 };
 
-export const withReaction = (
-	message: MessageView,
-	emoji: string,
-	actor: Did,
-	add: boolean,
-	viewer: Did,
-): MessageView => {
-	const reactions = message.reactions.slice();
-	const index = reactions.findIndex((entry) => entry.emoji === emoji);
-	const current = reactions[index];
-	if (add) {
-		if (current?.reactors.includes(actor)) return message;
-		const next = current
-			? {
-					...current,
-					count: current.count + 1,
-					reactors: [...current.reactors, actor],
-				}
-			: { emoji, count: 1, reactors: [actor] };
-		if (actor === viewer) next.viewerReacted = true;
-		if (current) reactions[index] = next;
-		else reactions.push(next);
-		return { ...message, reactions };
-	}
-	if (!current?.reactors.includes(actor)) return message;
-	const next = {
-		...current,
-		count: current.count - 1,
-		reactors: current.reactors.filter((did) => did !== actor),
-		viewerReacted: actor === viewer ? false : current.viewerReacted,
-	};
-	if (next.count <= 0) reactions.splice(index, 1);
-	else reactions[index] = next;
-	return { ...message, reactions };
-};
-
 export const applyQueuedWrites = (
 	messages: readonly MessageView[],
 	entries: readonly OutboxEntry[],
@@ -86,7 +51,13 @@ export const applyQueuedWrites = (
 			result =
 				op.t === "edit"
 					? withEdit(result, op, createdAt)
-					: withReaction(result, op.emoji, viewer, op.add, viewer);
+					: reactTo(result, {
+							emoji: op.emoji,
+							customEmoji: op.customEmoji,
+							actor: viewer,
+							add: op.add,
+							viewer,
+						});
 		}
 		if (result !== message) changed = true;
 		return result;

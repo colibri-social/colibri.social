@@ -1,6 +1,10 @@
+import { ArchiveDownMinimalisticIcon } from "@solar-icons/solid/bold/archive-down-minimalistic";
+import { ArchiveUpMinimalisticIcon } from "@solar-icons/solid/bold/archive-up-minimalistic";
 import { EyeIcon } from "@solar-icons/solid/bold/eye";
 import { ForwardIcon } from "@solar-icons/solid/bold/forward";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
+import { LockIcon } from "@solar-icons/solid/bold/lock";
+import { LockUnlockedIcon } from "@solar-icons/solid/bold/lock-unlocked";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import type { DropdownMenuEntry } from "../DropdownMenu/DropdownMenu";
@@ -23,6 +27,10 @@ export type ThreadMenuActions = DeveloperMenuActions & {
 	onCopyLink?: () => void;
 	onRename?: () => void;
 	onMove?: () => void;
+	closed?: boolean;
+	onClosedChange?: (closed: boolean) => void;
+	locked?: boolean;
+	onLockedChange?: (locked: boolean) => void;
 	onDelete?: () => void;
 };
 
@@ -77,6 +85,38 @@ export const threadMenuEntries = (
 					},
 					onSelect: actions.onMove,
 				},
+				actions.onClosedChange &&
+					(actions.closed
+						? {
+								label: "Reopen thread",
+								get icon() {
+									return <ArchiveUpMinimalisticIcon />;
+								},
+								onSelect: () => actions.onClosedChange?.(false),
+							}
+						: {
+								label: "Close thread",
+								get icon() {
+									return <ArchiveDownMinimalisticIcon />;
+								},
+								onSelect: () => actions.onClosedChange?.(true),
+							}),
+				actions.onLockedChange &&
+					(actions.locked
+						? {
+								label: "Unlock thread",
+								get icon() {
+									return <LockUnlockedIcon />;
+								},
+								onSelect: () => actions.onLockedChange?.(false),
+							}
+						: {
+								label: "Lock thread",
+								get icon() {
+									return <LockIcon />;
+								},
+								onSelect: () => actions.onLockedChange?.(true),
+							}),
 			],
 		},
 		{ items: [developerEntry(actions)] },

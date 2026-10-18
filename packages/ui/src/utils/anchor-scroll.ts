@@ -58,7 +58,7 @@ const viewportBox = (): ClipBox => ({
 	bottom: window.innerHeight,
 });
 
-const clipBox = (origins: readonly ScrollOrigin[]) =>
+export const clipBox = (origins: readonly ScrollOrigin[]) =>
 	intersectBoxes([
 		viewportBox(),
 		...origins

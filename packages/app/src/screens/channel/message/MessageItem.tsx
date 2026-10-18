@@ -57,6 +57,7 @@ import {
 	mentionsDid,
 	mentionsRole,
 	previewText,
+	sameTextValue,
 	spoileredLinkUris,
 	toTextValue,
 } from "../../../data/adapters/facets";
@@ -66,6 +67,7 @@ import {
 } from "../../../data/adapters/forward";
 import {
 	customReactionResolver,
+	reactionFor,
 	toReactionGroups,
 	toReactions,
 } from "../../../data/adapters/reactions";
@@ -150,7 +152,11 @@ export const MessageItem = (props: MessageItemProps) => {
 	);
 	const author = createMemo(() => toMessageAuthor(profile(), directory()));
 	const bridged = () => !!profile().bridge;
-	const text = createMemo(() => toTextValue(message().text, message().facets));
+	const text = createMemo(
+		() => toTextValue(message().text, message().facets),
+		undefined,
+		{ equals: sameTextValue },
+	);
 
 	const reply = createMemo((): MessageReply | undefined => {
 		const parent = message().parent;
@@ -281,9 +287,14 @@ export const MessageItem = (props: MessageItemProps) => {
 		if (!source || !target || !open) return source;
 		return { ...source, onOpen: () => open(target) };
 	};
-	const resolveReactionEmoji = customReactionResolver(chat.customEmoji);
+	const resolveReactionEmoji = customReactionResolver(
+		chat.customEmoji,
+		chat.customEmojiByUri,
+	);
 	const reactionEmojiAt = (size: number) => (emoji: string) => {
-		const custom = resolveReactionEmoji(emoji);
+		const custom = resolveReactionEmoji(
+			reactionFor(view()?.reactions, emoji) ?? { emoji },
+		);
 		return custom ? (
 			<img
 				src={custom.src}
@@ -332,7 +343,11 @@ export const MessageItem = (props: MessageItemProps) => {
 		return undefined;
 	};
 
+	const frozen = () => !!chat.locked?.();
+	const writableOwn = () => own() && !anchor() && !frozen();
+
 	const react = (emoji: string, add: boolean) => {
+		if (frozen()) return;
 		if (add && !emoji.startsWith(":")) chat.onRecordEmoji?.(emoji);
 		chat.onReact(message(), emoji, add);
 	};
@@ -446,12 +461,12 @@ export const MessageItem = (props: MessageItemProps) => {
 			: undefined;
 	const shiftHeld = useShiftHeld();
 	const editAction = () =>
-		own() && !anchor() ? () => chat.onEdit(message()) : undefined;
+		writableOwn() ? () => chat.onEdit(message()) : undefined;
 	const deleteAction = () =>
-		own() && !anchor() ? () => chat.onDelete(message()) : undefined;
+		writableOwn() ? () => chat.onDelete(message()) : undefined;
 	const [confirmingDelete, setConfirmingDelete] = createSignal(false);
 	const confirmDeleteAction = () =>
-		own() && !anchor()
+		writableOwn()
 			? () => {
 					if (desktop() && shiftHeld()) {
 						chat.onDelete(message());
@@ -719,13 +734,17 @@ export const MessageItem = (props: MessageItemProps) => {
 		desktop() && sent() && !selecting() ? (
 			<MessageToolbar
 				own={own()}
-				recentReactions={(
-					chat.quickReactions?.() ?? DEFAULT_QUICK_REACTIONS
-				).slice(0, 3)}
+				recentReactions={
+					frozen()
+						? []
+						: (chat.quickReactions?.() ?? DEFAULT_QUICK_REACTIONS).slice(0, 3)
+				}
 				renderEmoji={renderToolbarEmoji}
-				onReact={toggleQuick}
-				onAddReaction={(event) =>
-					setPickerAnchor(event.currentTarget as HTMLElement)
+				onReact={frozen() ? undefined : toggleQuick}
+				onAddReaction={
+					frozen()
+						? undefined
+						: (event) => setPickerAnchor(event.currentTarget as HTMLElement)
 				}
 				onEdit={editAction()}
 				onReply={replyAction()}
@@ -828,18 +847,21 @@ export const MessageItem = (props: MessageItemProps) => {
 					<ReactionBar
 						reactions={reactions()}
 						renderEmoji={renderReactionEmoji}
-						disabled={!sent()}
+						disabled={!sent() || frozen()}
 						onToggle={(emoji, mine) => react(emoji, !mine)}
 						onShowReactors={openReactors}
 						onAdd={
-							desktop()
-								? (event?: MouseEvent) => {
-										const target = event?.currentTarget;
-										if (target instanceof HTMLElement) setPickerAnchor(target);
-									}
-								: chat.onPickReaction
-									? () => chat.onPickReaction?.(message())
-									: undefined
+							frozen()
+								? undefined
+								: desktop()
+									? (event?: MouseEvent) => {
+											const target = event?.currentTarget;
+											if (target instanceof HTMLElement)
+												setPickerAnchor(target);
+										}
+									: chat.onPickReaction
+										? () => chat.onPickReaction?.(message())
+										: undefined
 						}
 					/>
 				) : undefined
@@ -885,9 +907,9 @@ export const MessageItem = (props: MessageItemProps) => {
 				doubleTap={sent() && controls().doubleTapEnabled}
 				doubleTapAction={controls().doubleTapAction}
 				doubleTapEmoji={controls().doubleTapReactionEmoji}
-				canEdit={own() && !anchor()}
+				canEdit={writableOwn()}
 				canReply={canReply()}
-				onReact={toggleQuick}
+				onReact={frozen() ? undefined : toggleQuick}
 				onEdit={() => chat.onEdit(message())}
 				onReply={() => chat.onReply(message())}
 			>
@@ -1016,15 +1038,22 @@ export const MessageItem = (props: MessageItemProps) => {
 				<MessageActionsDrawer
 					open={drawerOpen()}
 					onOpenChange={setDrawerOpen}
-					quickReactions={chat.quickReactions?.() ?? DEFAULT_QUICK_REACTIONS}
-					onReact={toggleQuick}
+					quickReactions={
+						frozen() ? [] : (chat.quickReactions?.() ?? DEFAULT_QUICK_REACTIONS)
+					}
+					onReact={frozen() ? undefined : toggleQuick}
 					emojiPicker={{ packs: chat.emojiPacks?.() }}
 					renderEmoji={renderQuickReactionEmoji}
-					onEmojiPick={(pick) =>
-						react(
-							pick.kind === "unicode" ? pick.emoji : `:${pick.emoji.name}:`,
-							true,
-						)
+					onEmojiPick={
+						frozen()
+							? undefined
+							: (pick) =>
+									react(
+										pick.kind === "unicode"
+											? pick.emoji
+											: `:${pick.emoji.name}:`,
+										true,
+									)
 					}
 					onReply={replyAction()}
 					onEdit={editAction()}

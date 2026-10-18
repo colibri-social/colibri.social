@@ -231,6 +231,54 @@ describe("thread list", () => {
 		);
 	});
 
+	it("closes a thread into the Closed section and reopens it when someone posts", async () => {
+		const { store, root } = await mount(DEV_THREADS);
+		const drawer = await openListMenu(root, "Spring tuning");
+		buttonNamed(drawer, "Close thread")?.click();
+		await until(() => !!root.querySelector("[data-closed-threads]"));
+		await closedDialogs();
+		const section = root.querySelector("[data-closed-threads]") as HTMLElement;
+		expect(section.textContent).toContain("Closed · 1");
+		expect(threadRow(root, "Spring tuning")).toBeUndefined();
+		buttonNamed(section, "Show")?.click();
+		await until(() => !!threadRow(root, "Spring tuning"));
+		await expectNoLayoutIssues(
+			root.querySelector('[data-pane-index="2"]') as HTMLElement,
+		);
+
+		const reopened = await openListMenu(root, "Spring tuning");
+		expect(buttonNamed(reopened, "Reopen thread")).toBeDefined();
+		(document.activeElement as HTMLElement | null)?.blur();
+		document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+		await closedDialogs();
+
+		const ref = `at://${HQ}/space/${TEXT}/dev` as never;
+		const thread = store
+			.channel(ref)
+			.threads.value()
+			?.find((entry) => entry.name === "Spring tuning");
+		await store.channel(thread?.space as never).send({ text: "Back at it" });
+		await until(() => !root.querySelector("[data-closed-threads]"));
+		expect(threadRow(root, "Spring tuning")).toBeDefined();
+	});
+
+	it("locks and unlocks a thread from its row", async () => {
+		const { store, root } = await mount(DEV_THREADS);
+		const drawer = await openListMenu(root, "Spring tuning");
+		buttonNamed(drawer, "Lock thread")?.click();
+		const ref = `at://${HQ}/space/${TEXT}/dev` as never;
+		const spring = () =>
+			store
+				.channel(ref)
+				.threads.value()
+				?.find((entry) => entry.name === "Spring tuning");
+		await until(() => !!spring()?.locked);
+		await closedDialogs();
+		const again = await openListMenu(root, "Spring tuning");
+		buttonNamed(again, "Unlock thread")?.click();
+		await until(() => !spring()?.locked);
+	});
+
 	it("deletes a thread from the list after confirming", async () => {
 		const { root } = await mount(DEV_THREADS);
 		const drawer = await openListMenu(root, "Spring tuning");

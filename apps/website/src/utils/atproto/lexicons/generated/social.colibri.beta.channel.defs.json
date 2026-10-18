@@ -257,6 +257,11 @@
 					"type": "string",
 					"description": "The emoji or custom shortcode."
 				},
+				"customEmoji": {
+					"type": "ref",
+					"ref": "social.colibri.beta.richtext.facet#customEmoji",
+					"description": "The emoji record behind a custom shortcode, from the earliest reaction that named one."
+				},
 				"count": {
 					"type": "integer",
 					"description": "How many people reacted, including people reacting through a bridge."

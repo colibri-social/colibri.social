@@ -33,6 +33,7 @@ import {
 import type { AuthorDirectory } from "../../data/adapters/authors";
 import { displayNameOf } from "../../data/adapters/authors";
 import { skeyOf, spaceKey } from "../../data/ids";
+import { isPingNotification } from "../../data/notification-alerts";
 import { useData } from "../../data/store";
 import type {
 	CommunityView,
@@ -139,7 +140,7 @@ export const inbox = defineContract({
 		};
 
 		const mapped = createMemo(() => {
-			const views = store.items();
+			const views = store.items().filter(isPingNotification);
 			const context = {
 				viewer: data.viewer.did,
 				viewerLabel: viewerLabel(),

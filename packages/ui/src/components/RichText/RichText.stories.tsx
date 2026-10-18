@@ -609,6 +609,83 @@ export const EmojiInfoKeyboard: Story = {
 	},
 };
 
+let rerenderListLine: (() => void) | undefined;
+
+const ListFrame = () => {
+	const [value, setValue] = createSignal(EMOJI_LINE);
+	rerenderListLine = () =>
+		setValue(build(["Look at this ", "🐦", " bird and this text."]));
+	return (
+		<RichTextProvider value={{ ...resolvers, platform: "desktop" }}>
+			<div
+				data-story-scroller=""
+				class="h-80 overflow-y-auto bg-background p-4 text-base leading-message text-foreground"
+			>
+				<div class="h-60" />
+				<article data-message-key="m1">
+					<RichTextRenderer value={value()} />
+				</article>
+				<div class="h-[200vh]" />
+			</div>
+		</RichTextProvider>
+	);
+};
+
+const sitsAbove = (info: Element, anchor: Element) => {
+	const box = info.getBoundingClientRect();
+	const target = anchor.getBoundingClientRect();
+	return (
+		box.bottom <= target.top &&
+		target.top - box.bottom < 40 &&
+		Math.abs(box.left + box.width / 2 - (target.left + target.width / 2)) < 160
+	);
+};
+
+export const EmojiInfoFollowsListRerender: Story = {
+	render: () => <ListFrame />,
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	play: async ({ canvasElement, step }) => {
+		const scroller = canvasElement.querySelector(
+			"[data-story-scroller]",
+		) as HTMLElement;
+		const rowRoot = () =>
+			canvasElement.querySelector("[data-rich-text]") as Element;
+		const info = () => document.querySelector("[data-emoji-info]");
+		const first = emojiButton(rowRoot(), "🐦");
+
+		await step("Opens above the emoji", async () => {
+			await userEvent.click(first);
+			await waitFor(() => expect(info()).not.toBeNull());
+			await waitFor(() =>
+				expect(sitsAbove(info() as Element, first)).toBe(true),
+			);
+		});
+
+		await step("Stays on the emoji when the row re-renders", async () => {
+			rerenderListLine?.();
+			await waitFor(() => expect(first.isConnected).toBe(false));
+			const next = emojiButton(rowRoot(), "🐦");
+			await expect(next).not.toBe(first);
+			await waitFor(() =>
+				expect(sitsAbove(info() as Element, next)).toBe(true),
+			);
+		});
+
+		await step("Follows the emoji while the list scrolls", async () => {
+			scroller.scrollTop = 80;
+			const next = emojiButton(rowRoot(), "🐦");
+			await waitFor(() =>
+				expect(sitsAbove(info() as Element, next)).toBe(true),
+			);
+		});
+
+		await step("Closes once the emoji scrolls out", async () => {
+			scroller.scrollTop = 600;
+			await waitFor(() => expect(info()).toBeNull());
+		});
+	},
+};
+
 export const EmojiInfoMobile: Story = {
 	render: () => <Frame value={EMOJI_LINE} platform="mobile" />,
 	play: async ({ canvasElement }) => {

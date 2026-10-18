@@ -3,6 +3,7 @@ import type {
 	Did,
 	Facet,
 	MessageView,
+	ReactionEmojiRef,
 	SpaceRef,
 } from "../types";
 
@@ -40,6 +41,7 @@ export type OutboxOp =
 			channel: SpaceRef;
 			rkey: string;
 			emoji: string;
+			customEmoji?: ReactionEmojiRef;
 			add: boolean;
 			author: Did;
 			reaction?: string;

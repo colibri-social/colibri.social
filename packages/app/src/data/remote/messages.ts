@@ -368,7 +368,11 @@ export const createMessageWrites = (deps: {
 				const rkey = input.reaction ?? nextTid();
 				await records.createInSpace(
 					{ space: input.channel, collection: REACTION_COLLECTION, rkey },
-					{ emoji: input.emoji, target },
+					{
+						emoji: input.emoji,
+						target,
+						...(input.customEmoji ? { customEmoji: input.customEmoji } : {}),
+					},
 				);
 				reactionKeys.set(cacheKey, rkey);
 				return;

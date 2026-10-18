@@ -3,6 +3,7 @@ import {
 	newerSummary,
 	summarizeChannel,
 	summarizeMessage,
+	summarizePending,
 	summaryParts,
 } from "./channel-summary";
 import type { Facet, MessageView } from "./types";
@@ -127,5 +128,29 @@ describe("channel summary", () => {
 			}),
 		);
 		expect(summary.facets).toBeUndefined();
+	});
+
+	it("summarizes a pending message from its uploads", () => {
+		const pending = {
+			channel: "at://did:plc:hq/space/c1" as MessageView["channel"],
+			rkey: "r2",
+			text: "",
+			uploads: [
+				{ file: new File([], "a.png", { type: "image/png" }) },
+				{ file: new File([], "b.png", { type: "image/png" }) },
+			],
+			createdAt: "2026-10-12T10:00:00.000Z",
+		};
+		expect(summarizePending(pending, "did:plc:me")).toEqual({
+			channel: "at://did:plc:hq/space/c1",
+			rkey: "r2",
+			author: "did:plc:me",
+			text: "Sent 2 images",
+			attachment: "image",
+			createdAt: "2026-10-12T10:00:00.000Z",
+		});
+		expect(
+			summarizePending({ ...pending, text: "hi\n there" }, "did:plc:me").text,
+		).toBe("hi there");
 	});
 });

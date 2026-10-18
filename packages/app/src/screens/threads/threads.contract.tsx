@@ -2,6 +2,7 @@ import {
 	Button,
 	IconButton,
 	NavHeader,
+	SectionLabel,
 	SegmentedControl,
 	StatusScreen,
 	ThreadIcon,
@@ -54,6 +55,56 @@ export const matchesThreadFilter = (
 export const newestActivityFirst = (threads: readonly ThreadView[]) =>
 	[...threads].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
 
+type ThreadListModel = {
+	now: () => Date;
+	open: (thread: ThreadView, presentation?: "full") => void;
+	menu: ReturnType<typeof createThreadMenu>;
+};
+
+const ThreadList = (props: {
+	m: ThreadListModel;
+	platform?: "mobile" | "desktop";
+	threads: ThreadView[];
+}) => (
+	<ul data-thread-list="" class="m-0 flex list-none flex-col gap-2 p-0">
+		<For each={props.threads}>
+			{(thread) => (
+				<li data-thread-id={thread.space}>
+					<Show
+						when={props.platform === "desktop"}
+						fallback={
+							<ThreadRow
+								name={thread.name}
+								messageCount={thread.messageCount}
+								age={formatAge(thread.lastActivityAt, props.m.now())}
+								unread={thread.viewer.hasUnread}
+								mentions={thread.viewer.unreadMentions}
+								private={thread.private}
+								onOpen={() => props.m.open(thread)}
+								onMenu={() => props.m.menu.open(thread)}
+							/>
+						}
+					>
+						<props.m.menu.ContextMenu thread={thread}>
+							<ThreadRow
+								name={thread.name}
+								messageCount={thread.messageCount}
+								age={formatAge(thread.lastActivityAt, props.m.now())}
+								unread={thread.viewer.hasUnread}
+								mentions={thread.viewer.unreadMentions}
+								private={thread.private}
+								onOpen={(event) =>
+									props.m.open(thread, event.shiftKey ? undefined : "full")
+								}
+							/>
+						</props.m.menu.ContextMenu>
+					</Show>
+				</li>
+			)}
+		</For>
+	</ul>
+);
+
 export const threads = defineContract({
 	id: "threads",
 	model: (args: ThreadsArgs) => {
@@ -84,6 +135,13 @@ export const threads = defineContract({
 		const visible = createMemo(() =>
 			all().filter((thread) => matchesThreadFilter(thread, filter())),
 		);
+		const openThreads = createMemo(() =>
+			visible().filter((thread) => !thread.closedAt),
+		);
+		const closedThreads = createMemo(() =>
+			visible().filter((thread) => !!thread.closedAt),
+		);
+		const [showClosed, setShowClosed] = createSignal(false);
 		const loading = () => !load() || load()?.loading();
 		const canCreate = () => {
 			const viewer = community()?.viewer;
@@ -123,6 +181,10 @@ export const threads = defineContract({
 			parent,
 			all,
 			visible,
+			openThreads,
+			closedThreads,
+			showClosed,
+			setShowClosed,
 			loading,
 			unavailable,
 			canCreate,
@@ -232,43 +294,34 @@ export const threads = defineContract({
 					/>
 				</Match>
 				<Match when={m.visible().length > 0}>
-					<ul data-thread-list="" class="m-0 flex list-none flex-col gap-2 p-0">
-						<For each={m.visible()}>
-							{(thread) => (
-								<li data-thread-id={thread.space}>
-									<Show
-										when={p.platform === "desktop"}
-										fallback={
-											<ThreadRow
-												name={thread.name}
-												messageCount={thread.messageCount}
-												age={formatAge(thread.lastActivityAt, m.now())}
-												unread={thread.viewer.hasUnread}
-												mentions={thread.viewer.unreadMentions}
-												private={thread.private}
-												onOpen={() => m.open(thread)}
-												onMenu={() => m.menu.open(thread)}
-											/>
-										}
-									>
-										<m.menu.ContextMenu thread={thread}>
-											<ThreadRow
-												name={thread.name}
-												messageCount={thread.messageCount}
-												age={formatAge(thread.lastActivityAt, m.now())}
-												unread={thread.viewer.hasUnread}
-												mentions={thread.viewer.unreadMentions}
-												private={thread.private}
-												onOpen={(event) =>
-													m.open(thread, event.shiftKey ? undefined : "full")
-												}
-											/>
-										</m.menu.ContextMenu>
-									</Show>
-								</li>
-							)}
-						</For>
-					</ul>
+					<div class="flex flex-col gap-4">
+						<Show when={m.openThreads().length > 0}>
+							<ThreadList
+								m={m}
+								platform={p.platform}
+								threads={m.openThreads()}
+							/>
+						</Show>
+						<Show when={m.closedThreads().length > 0}>
+							<section data-closed-threads="" class="flex flex-col gap-2">
+								<SectionLabel
+									label="Closed"
+									count={m.closedThreads().length}
+									action={{
+										label: m.showClosed() ? "Hide" : "Show",
+										onClick: () => m.setShowClosed(!m.showClosed()),
+									}}
+								/>
+								<Show when={m.showClosed()}>
+									<ThreadList
+										m={m}
+										platform={p.platform}
+										threads={m.closedThreads()}
+									/>
+								</Show>
+							</section>
+						</Show>
+					</div>
 				</Match>
 			</Switch>
 		)),

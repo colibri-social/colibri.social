@@ -1,25 +1,41 @@
 import type { Reaction, ReactionGroup, Reactor } from "@colibri-social/ui";
-import type { MemberView, ReactionView } from "../types";
+import type { MemberView, ReactionEmojiRef, ReactionView } from "../types";
 import { bridgePlatformName, displayNameOf } from "./authors";
 
 type Members = ReadonlyMap<string, MemberView>;
 
 export type CustomReactionEmoji = { name: string; src: string };
 
+export type ReactionEmoji = {
+	emoji: string;
+	customEmoji?: ReactionEmojiRef;
+};
+
 export type ResolveReactionEmoji = (
-	emoji: string,
+	reaction: ReactionEmoji,
 ) => CustomReactionEmoji | undefined;
 
 const SHORTCODE = /^:([a-z0-9_]{2,32}):$/;
 
+export const reactionShortcode = (emoji: string) => SHORTCODE.exec(emoji)?.[1];
+
 export const customReactionResolver =
 	(
-		lookup: ((name: string) => CustomReactionEmoji | undefined) | undefined,
+		byName: ((name: string) => CustomReactionEmoji | undefined) | undefined,
+		byUri?: (uri: string) => CustomReactionEmoji | undefined,
 	): ResolveReactionEmoji =>
-	(emoji) => {
-		const name = SHORTCODE.exec(emoji)?.[1];
-		return name ? lookup?.(name) : undefined;
+	(reaction) => {
+		const name = reactionShortcode(reaction.emoji);
+		if (!name) return undefined;
+		const uri = reaction.customEmoji?.uri;
+		return uri ? byUri?.(uri) : byName?.(name);
 	};
+
+export const reactionFor = (
+	reactions: readonly ReactionView[] | undefined,
+	emoji: string,
+): ReactionView | undefined =>
+	reactions?.find((reaction) => reaction.emoji === emoji);
 
 const reactorDids = (reaction: ReactionView) =>
 	(reaction.reactors ?? []).map((value) => String(value));
@@ -69,7 +85,7 @@ export const toReactionGroups = (
 					via: bridgePlatformName(entry.platform),
 				}),
 			);
-			const custom = resolve?.(reaction.emoji);
+			const custom = resolve?.(reaction);
 			return {
 				emoji: reaction.emoji,
 				src: custom?.src,

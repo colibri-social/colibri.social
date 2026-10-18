@@ -590,6 +590,54 @@ describe("read state", () => {
 		store.dispose();
 	});
 
+	it("counts only mentions and replies as pings", async () => {
+		const { store, space, emit } = await setupWithEvents();
+		await until(() => store.notifications.status() === "ready");
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const author = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did)?.author;
+		if (!author) throw new Error("author missing");
+		const referenced = new Set(
+			store.notifications.items().map((entry) => entry.message?.rkey),
+		);
+		const [quiet, other] = feed
+			.messages()
+			.filter((message) => !referenced.has(message.rkey))
+			.slice(-2);
+		if (!quiet || !other) throw new Error("fixtures missing");
+		const notify = (id: string, kind: string, message: MessageView) =>
+			emit({
+				$type: "notificationEvent",
+				notification: {
+					id,
+					kind,
+					author,
+					channel: general.space,
+					community: space.community.did,
+					message,
+					indexedAt: new Date(Date.now() - 1000).toISOString(),
+				} as never,
+			});
+		const unreadBefore = store.notifications.unreadCount();
+		const mentionsBefore = space.unread("general").mentions;
+
+		notify("plain-message", "message", quiet);
+		expect(store.notifications.unreadCount()).toBe(unreadBefore);
+		expect(space.unread("general").mentions).toBe(mentionsBefore);
+
+		await store.notifications.markRead(["plain-message"]);
+		expect(space.unread("general").mentions).toBe(mentionsBefore);
+
+		notify("reply", "reply", other);
+		expect(store.notifications.unreadCount()).toBe(unreadBefore + 1);
+		expect(space.unread("general").mentions).toBe(mentionsBefore + 1);
+		store.dispose();
+	});
+
 	it("clears a channel another device read up to its newest message", async () => {
 		const { store, space, emit } = await setupWithEvents();
 		const general = space.channelBySlug("general");
@@ -1236,5 +1284,80 @@ describe("ownership transfer", () => {
 		await store.community.transferOwnership(hq.did, "did:plc:someoneelse");
 
 		expect(owner()).toBe(false);
+	});
+});
+
+describe("channel preview", () => {
+	const previewOf = (
+		store: Awaited<ReturnType<typeof setup>>["store"],
+		channel: Awaited<ReturnType<typeof setup>>["channel"],
+	) => {
+		const ref = channel.messages()[0]?.channel;
+		if (!ref) throw new Error("no messages");
+		return () => store.lastMessage(ref);
+	};
+
+	it("shows a sent message before the server confirms it", async () => {
+		const { store, channel } = await setup();
+		const preview = previewOf(store, channel);
+		store.setSimulation({ offline: true });
+		void channel.send({ text: "sent  from\na tunnel" });
+		await until(() => channel.pending().length === 1);
+		expect(preview()?.text).toBe("sent from a tunnel");
+		expect(preview()?.author).toBe(store.viewer.did);
+		store.setSimulation({ offline: false });
+		await until(() => channel.pending().length === 0);
+		expect(preview()?.text).toBe("sent from a tunnel");
+	});
+
+	it("describes a sent file without text", async () => {
+		const { store, channel } = await setup();
+		const preview = previewOf(store, channel);
+		store.setSimulation({ offline: true });
+		const file = new File([new Uint8Array(10)], "notes.txt", {
+			type: "text/plain",
+		});
+		void channel.send({ text: "", files: [{ file }] });
+		await until(() => channel.pending().length === 1);
+		expect(preview()?.text).toBe("Sent a file");
+	});
+
+	it("restores the previous preview when a failed send is discarded", async () => {
+		const { store, channel } = await setup();
+		const preview = previewOf(store, channel);
+		await until(() => !!preview());
+		const before = preview()?.text;
+		const file = new File([new Uint8Array(10)], "fail.txt", {
+			type: "text/plain",
+		});
+		await channel.send({ text: "this upload breaks", files: [{ file }] });
+		expect(preview()?.text).toBe("this upload breaks");
+		const failed = channel.pending()[0];
+		if (!failed) throw new Error("no failed message");
+		channel.discard(failed.nonce);
+		await until(() => preview()?.text === before);
+	});
+
+	it("follows an edit of the latest message", async () => {
+		const { store, channel } = await setup();
+		const preview = previewOf(store, channel);
+		await channel.send({ text: "first draft" });
+		const sent = channel.messages().at(-1);
+		if (!sent) throw new Error("no sent message");
+		store.setSimulation({ offline: true });
+		await channel.edit(sent.rkey, "second draft");
+		expect(preview()?.text).toBe("second draft");
+	});
+
+	it("falls back to the previous message when the latest is deleted", async () => {
+		const { store, channel } = await setup();
+		const preview = previewOf(store, channel);
+		await channel.send({ text: "keep me" });
+		await channel.send({ text: "delete me" });
+		const latest = channel.messages().at(-1);
+		if (latest?.text !== "delete me") throw new Error("send order");
+		store.setSimulation({ offline: true });
+		await channel.remove(latest.rkey);
+		expect(preview()?.text).toBe("keep me");
 	});
 });

@@ -49,6 +49,9 @@ const FollowRow = (props: { data: DataStore; follow: EmojiFollowView }) => {
 	const title = () => titleOf(props.follow);
 	const preview = () =>
 		props.follow.state === "available" ? props.follow.emojis.slice(0, 3) : [];
+	const single = () => props.follow.kind === "emoji";
+	const previewSize = () => (single() ? 32 : 18);
+	const previewClass = () => (single() ? "size-8" : "size-[18px]");
 	const remove = async () => {
 		setBusy(true);
 		try {
@@ -70,7 +73,7 @@ const FollowRow = (props: { data: DataStore; follow: EmojiFollowView }) => {
 		>
 			<span
 				aria-hidden="true"
-				class="flex h-8 w-14 shrink-0 items-center gap-0.5 text-muted-foreground [&>svg]:size-6"
+				class="flex h-8 w-14 shrink-0 items-center justify-center gap-0.5 text-muted-foreground [&>svg]:size-6"
 			>
 				<Show when={preview().length > 0} fallback={<UnlinkIcon />}>
 					<For each={preview()}>
@@ -78,9 +81,9 @@ const FollowRow = (props: { data: DataStore; follow: EmojiFollowView }) => {
 							<AnimatedImage
 								src={emoji.image}
 								alt=""
-								width={18}
-								height={18}
-								class="size-[18px] shrink-0 object-contain"
+								width={previewSize()}
+								height={previewSize()}
+								class={`shrink-0 object-contain ${previewClass()}`}
 							/>
 						)}
 					</For>

@@ -2,6 +2,7 @@ import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { expectNoLayoutIssues } from "../../../../ui/src/foundations/layout-test";
 import { createMockSource, setLatency } from "../../data/mock/source";
+import type { DataSource } from "../../data/source";
 import { createDataStore, DataContext } from "../../data/store";
 import { Providers } from "../../providers";
 import { MobileShell } from "../../shell/MobileShell";
@@ -30,10 +31,12 @@ afterEach(() => {
 	history.replaceState(null, "", originalPath);
 });
 
-const mount = async () => {
+const mount = async (
+	adapt: (source: DataSource) => DataSource = (source) => source,
+) => {
 	setLatency(0);
 	history.replaceState(null, "", "/app/inbox");
-	const store = createDataStore(createMockSource({ live: false }));
+	const store = createDataStore(adapt(createMockSource({ live: false })));
 	host = document.createElement("div");
 	host.style.cssText = "position:fixed;inset:0;width:402px;height:874px";
 	document.body.append(host);
@@ -55,6 +58,33 @@ const rows = (root: HTMLElement) =>
 	Array.from(root.querySelectorAll<HTMLElement>("[data-inbox-row]"));
 
 describe("inbox tab", () => {
+	it("leaves plain message notifications out of the inbox and its count", async () => {
+		const { store, host: root } = await mount((source) => ({
+			...source,
+			listNotifications: async (params) => {
+				const page = await source.listNotifications(params);
+				const first = page.items[0];
+				if (params?.cursor || !first) return page;
+				return {
+					...page,
+					items: [
+						{ ...first, id: "plain-message", kind: "message" },
+						...page.items,
+					],
+				};
+			},
+		}));
+		expect(
+			store.notifications.items().some((entry) => entry.id === "plain-message"),
+		).toBe(true);
+		expect(root.querySelector('[data-inbox-id="plain-message"]')).toBeNull();
+		expect(store.notifications.unreadCount()).toBe(
+			store.notifications
+				.items()
+				.filter((entry) => !entry.seenAt && entry.kind !== "message").length,
+		);
+	});
+
 	it("groups notifications by Space and marks rows and groups read", async () => {
 		const { store, host: root } = await mount();
 		const tab = root.querySelector<HTMLElement>(

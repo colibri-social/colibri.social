@@ -26,6 +26,18 @@ describe("sidebar threads", () => {
 		expect(belongsInSidebar(quiet, NOW, "quiet")).toBe(true);
 	});
 
+	it("drops a closed thread unless it is unread or pinned", () => {
+		const closed = (viewer: Partial<ThreadView["viewer"]> = {}) =>
+			({
+				...threadAt("closed", 0),
+				closedAt: new Date(NOW).toISOString(),
+				viewer: { hasUnread: false, following: true, ...viewer },
+			}) as unknown as ThreadView;
+		expect(belongsInSidebar(closed(), NOW)).toBe(false);
+		expect(belongsInSidebar(closed({ hasUnread: true }), NOW)).toBe(true);
+		expect(belongsInSidebar(closed(), NOW, "closed")).toBe(true);
+	});
+
 	it("keeps a pinned thread past the row limit in the last slot", () => {
 		const listed = Array.from(
 			{ length: SIDEBAR_THREAD_LIMIT + 2 },

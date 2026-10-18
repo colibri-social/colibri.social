@@ -35,6 +35,9 @@ export const toTextValue = (
 	facets: readonly Facet[] | undefined,
 ): TextValue => ({ text, facets: validFacets(text, facets) });
 
+export const sameTextValue = (a: TextValue, b: TextValue) =>
+	a.text === b.text && JSON.stringify(a.facets) === JSON.stringify(b.facets);
+
 export const fromComposerValue = (value: {
 	text: string;
 	facets: readonly Facet[];
