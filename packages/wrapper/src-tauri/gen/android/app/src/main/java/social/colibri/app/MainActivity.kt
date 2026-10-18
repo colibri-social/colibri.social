@@ -20,6 +20,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import org.json.JSONException
+import org.json.JSONObject
 
 class MainActivity : TauriActivity() {
   private val handler = Handler(Looper.getMainLooper())
@@ -31,6 +33,7 @@ class MainActivity : TauriActivity() {
   private var barsScriptHandler: ScriptHandler? = null
   private var askedForNotifications = false
   private var pendingOpenCall = false
+  @Volatile private var pendingLaunchTap = ""
   private var webView: WebView? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,6 +41,21 @@ class MainActivity : TauriActivity() {
     WebView.setWebContentsDebuggingEnabled(true)
     super.onCreate(savedInstanceState)
     pendingOpenCall = intent?.action == CallService.ACTION_OPEN_CALL
+    pendingLaunchTap = intent?.let(::launchTapOf) ?: ""
+  }
+
+  private fun launchTapOf(intent: Intent): String? {
+    if (intent.action != Intent.ACTION_MAIN) return null
+    if (intent.getIntExtra("NotificationId", Int.MIN_VALUE) == Int.MIN_VALUE) return null
+    val notification = intent.getStringExtra("LocalNotficationObject") ?: return null
+    return try {
+      JSONObject()
+        .put("actionId", intent.getStringExtra("NotificationUserAction") ?: JSONObject.NULL)
+        .put("notification", JSONObject(notification))
+        .toString()
+    } catch (_: JSONException) {
+      null
+    }
   }
 
   override fun onResume() {
@@ -213,6 +231,13 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun ackMarkRead(channelUri: String) {
       PendingMarkRead.ack(this@MainActivity, channelUri)
+    }
+
+    @JavascriptInterface
+    fun takeLaunchTap(): String = synchronized(this@MainActivity) {
+      val tap = pendingLaunchTap
+      pendingLaunchTap = ""
+      tap
     }
   }
 

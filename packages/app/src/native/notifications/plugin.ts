@@ -33,6 +33,10 @@ export type PluginActionListener = (
 	handler: (action: PluginAction) => void,
 ) => Promise<() => void>;
 
+export type LaunchTapReader = () => string | undefined;
+
+type LaunchTapBridge = { takeLaunchTap?: () => string };
+
 export type RememberedActivations = [number, string][];
 
 export type ActivationMemory = {
@@ -101,6 +105,28 @@ const listenToPluginActions: PluginActionListener = async (handler) => {
 	};
 };
 
+const readLaunchTap: LaunchTapReader = () =>
+	typeof window === "undefined"
+		? undefined
+		: (
+				window as { __colibriNotificationActions?: LaunchTapBridge }
+			).__colibriNotificationActions?.takeLaunchTap?.();
+
+const isPluginAction = (value: unknown): value is PluginAction =>
+	typeof value === "object" &&
+	value !== null &&
+	typeof (value as PluginAction).notification === "object";
+
+const parseLaunchTap = (raw: string | undefined): PluginAction | undefined => {
+	if (!raw) return undefined;
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		return isPluginAction(parsed) ? parsed : undefined;
+	} catch {
+		return undefined;
+	}
+};
+
 const activationKeyOf = (
 	action: PluginAction,
 	memory: ActivationMemory,
@@ -116,6 +142,7 @@ export const createPluginNotifier = (
 	bus: ActivationBus = createActivationBus(),
 	listenActions: PluginActionListener = listenToPluginActions,
 	memory: ActivationMemory = storedActivationMemory(),
+	takeLaunchTap: LaunchTapReader = readLaunchTap,
 ): OsNotifier => {
 	let listening = false;
 
@@ -131,6 +158,8 @@ export const createPluginNotifier = (
 	const listen = () => {
 		if (listening) return;
 		listening = true;
+		const launchTap = parseLaunchTap(takeLaunchTap());
+		if (launchTap) activate(launchTap);
 		void listenActions(activate).catch((thrown: unknown) =>
 			log.warn("notification taps can't be followed", {
 				code: classifyThrown(thrown, { method: "notification.onAction" }).code,

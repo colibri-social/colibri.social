@@ -169,6 +169,7 @@ tauri = { version = "2", features = ["wry"] }
 [target.'cfg(target_os = "linux")'.dependencies]
 tauri-runtime-cef = { git = "https://github.com/SableClient/tauri-runtime-cef", rev = "b83d02a135781b8d73d8d12d70a590d5063180a1" }
 gtk = "0.18"
+notify-rust = "4"
 
 [target.'cfg(windows)'.dependencies]
 windows-version = "0.1"

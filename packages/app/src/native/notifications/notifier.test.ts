@@ -213,6 +213,62 @@ describe("plugin notifier", () => {
 		expect(seen).toEqual([{ channel: CHANNEL, rkey: "m7" }]);
 	});
 
+	it("opens the conversation of the tap that launched the app once", async () => {
+		const launchTap = JSON.stringify({
+			actionId: "tap",
+			notification: {
+				id: notificationId(THREAD),
+				group: THREAD,
+				extra: {
+					activation: encodeActivation(notification({ thread: THREAD })),
+				},
+			},
+		});
+		const takeLaunchTap = vi
+			.fn<() => string | undefined>()
+			.mockReturnValueOnce(launchTap)
+			.mockReturnValue("");
+		const notifier = createPluginNotifier(
+			fakePort(),
+			createActivationBus(),
+			async () => () => {},
+			memoryOf(),
+			takeLaunchTap,
+		);
+		const seen: OsActivation[] = [];
+		notifier.onActivation((activation) => seen.push(activation));
+		notifier.onActivation((activation) => seen.push(activation));
+		await notifier.show(notification());
+		expect(takeLaunchTap).toHaveBeenCalledTimes(1);
+		expect(seen).toEqual([{ channel: CHANNEL, thread: THREAD, rkey: "m1" }]);
+	});
+
+	it("ignores an empty, malformed or non-tap launch action", () => {
+		for (const raw of [
+			undefined,
+			"",
+			"not json",
+			"null",
+			JSON.stringify({
+				actionId: "dismiss",
+				notification: {
+					extra: { activation: encodeActivation(notification()) },
+				},
+			}),
+		]) {
+			const notifier = createPluginNotifier(
+				fakePort(),
+				createActivationBus(),
+				async () => () => {},
+				memoryOf(),
+				() => raw,
+			);
+			const seen: OsActivation[] = [];
+			notifier.onActivation((activation) => seen.push(activation));
+			expect(seen).toEqual([]);
+		}
+	});
+
 	it("keeps a bounded memory of shown notifications across restarts", () => {
 		let stored: RememberedActivations | undefined;
 		const open = () =>
