@@ -1,3 +1,5 @@
+import type { XrpcFail } from "@colibri-social/lib";
+import { ColibriError, frameIs } from "@colibri-social/lib";
 import type { Details } from "@kobalte/core/file-field";
 import { useNavigate } from "@solidjs/router";
 import type { Accessor, ParentComponent, Setter } from "solid-js";
@@ -45,14 +47,12 @@ import {
 import { communityKey, namespace } from "../../../atproto/cache/keys";
 import { colibri } from "../../../atproto/lexicons";
 import { reorderedRolePositions } from "../../../atproto/permissions";
-import { frameIs } from "../../../atproto/sync-frames";
 import type {
 	BannedActorView,
 	CommunityView,
 	InvitationView,
 } from "../../../atproto/views";
 import { clientForManagingApp } from "../../../atproto/xrpc";
-import type { XrpcFail } from "../../../atproto/xrpc/result";
 import {
 	useCommunityContext,
 	usePermissions,
@@ -64,7 +64,6 @@ import type {
 } from "../../../contexts/community-payload";
 import { useSocketContext } from "../../../contexts/Socket";
 import { useUserContext } from "../../../contexts/User";
-import { ColibriError } from "../../../errors/error";
 import { showError } from "../../../errors/show-error";
 import { getAppViewDid } from "../../../utils/appview";
 import { foldText } from "../../../utils/fold-text";

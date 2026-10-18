@@ -40,6 +40,8 @@ targets:
         buildPhase: resources
         type: folder
       - path: LaunchScreen.storyboard
+      - path: ../../sounds/ping.caf
+        buildPhase: resources
     info:
       path: colibri-social_iOS/Info.plist
       properties:
@@ -64,6 +66,7 @@ targets:
           - CFBundleURLSchemes: [social.colibri, social.colibri.spaces]
             CFBundleURLName: social.colibri
         NSUserActivityTypes: [INSendMessageIntent]
+        UIBackgroundModes: [remote-notification]
     entitlements:
       path: colibri-social_iOS/colibri-social_iOS.entitlements
       properties:

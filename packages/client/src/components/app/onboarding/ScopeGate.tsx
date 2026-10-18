@@ -1,5 +1,5 @@
+import { getMissingScopeSets } from "@colibri-social/lib";
 import { createMemo, type ParentComponent, Show } from "solid-js";
-import { getMissingScopeSets } from "../../../atproto/scopes";
 import { scopesRejectedByServer } from "../../../atproto/session-health";
 import { useAuthContext } from "../../../contexts/Auth";
 import { createLogger } from "../../../utils/logger";

@@ -1,0 +1,82 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.clientPreferences",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "Client settings that follow the user across devices. Every field is optional and a client applies its own default for an absent one.",
+			"key": "literal:self",
+			"record": {
+				"type": "object",
+				"required": [],
+				"properties": {
+					"controls": {
+						"type": "ref",
+						"ref": "social.colibri.beta.actor.defs#controls",
+						"description": "Touch gestures in a channel."
+					},
+					"theme": {
+						"type": "string",
+						"knownValues": [
+							"system",
+							"dark",
+							"light"
+						],
+						"description": "The color theme. system follows the operating system."
+					},
+					"messagePreviews": {
+						"type": "boolean",
+						"description": "Whether the channel list shows the latest message under each channel name."
+					},
+					"linkEmbedsByDefault": {
+						"type": "boolean",
+						"description": "Whether a link in a new message gets a preview by default."
+					},
+					"warnOnExternalLinks": {
+						"type": "boolean",
+						"description": "Whether opening a link to another site asks for confirmation first."
+					},
+					"blueskyClient": {
+						"type": "string",
+						"maxLength": 64,
+						"knownValues": [
+							"anisota",
+							"blacksky",
+							"bluesky",
+							"deer",
+							"mu",
+							"northsky",
+							"witchsky",
+							"custom"
+						],
+						"description": "The client that Bluesky posts and profiles open in."
+					},
+					"customBlueskyClientBase": {
+						"type": "string",
+						"maxLength": 253,
+						"description": "The domain of the client used when blueskyClient is custom."
+					},
+					"developerMode": {
+						"type": "boolean",
+						"description": "Whether the client shows identifiers and links to inspect records."
+					},
+					"voiceView": {
+						"type": "ref",
+						"ref": "social.colibri.beta.actor.defs#voiceView",
+						"description": "Options for voice channels."
+					},
+					"experiments": {
+						"type": "array",
+						"maxLength": 64,
+						"items": {
+							"type": "string",
+							"maxLength": 64,
+							"description": "An experiment id."
+						},
+						"description": "The experiments the user turned on."
+					}
+				}
+			}
+		}
+	}
+}

@@ -2297,7 +2297,7 @@ Pushes the requesting user's read cursors for one community to the AppView, so u
 	}}
 />
 
-The `cursors` array is a complete replacement of the community's read state, not a merge with what the AppView already has.
+Each cursor in `cursors` replaces the stored cursor for its channel or thread only when it's newer, so a cursor never moves backwards. Channels left out of the array keep their stored cursor. The user's other sessions receive the cursors that moved as a `readCursorEvent`.
 
 | Error | Description |
 | --- | --- |
@@ -3700,6 +3700,7 @@ without any subscription.
 | `moderationEvent` | A moderation action was logged. Only sent to members who can read the log |
 | `notificationEvent` | A notification was raised for the connected user |
 | `seenEvent` | The user marked notifications seen elsewhere, so this client should clear the same badges |
+| `readCursorEvent` | The user's read cursors for one community moved, possibly from another session. Each cursor is the newest the AppView holds for that channel or thread |
 | `presenceEvent` | Someone's presence changed |
 | `typingEvent` | Someone is typing in a subscribed channel |
 | `voiceEvent` | A voice channel's participants changed |

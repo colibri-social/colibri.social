@@ -1,3 +1,8 @@
+import {
+	classifyThrown,
+	copyForCode,
+	describeError,
+} from "@colibri-social/lib";
 import { useNavigate, useParams } from "@solidjs/router";
 import {
 	type Component,
@@ -13,8 +18,6 @@ import { colibri } from "../../../atproto/lexicons";
 import { clientForManagingApp } from "../../../atproto/xrpc";
 import { useMutes } from "../../../contexts/Mutes";
 import { useUserContext } from "../../../contexts/User";
-import { classifyThrown } from "../../../errors/classify";
-import { copyForCode, describeError } from "../../../errors/copy";
 import { showError } from "../../../errors/show-error";
 import { createLogger } from "../../../utils/logger";
 import { Spinner } from "../../icons/Spinner";

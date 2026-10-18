@@ -34,7 +34,6 @@ pub fn bootstrap() -> Launch {
             "tauri".into(),
             "ipc".into(),
             "asset".into(),
-            "emoji".into(),
             "capture-thumb".into(),
         ],
         deep_link_schemes: DEEP_LINK_SCHEMES.map(String::from).to_vec(),

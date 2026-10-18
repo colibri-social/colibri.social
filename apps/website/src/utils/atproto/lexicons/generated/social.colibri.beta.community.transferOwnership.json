@@ -1,0 +1,84 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.transferOwnership",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Hands the community's protected owner role from the caller to another member. The subject gains every protected role the caller holds, then the caller loses them. The caller keeps their other roles.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"subject"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community whose ownership is transferred."
+						},
+						"subject": {
+							"type": "string",
+							"format": "did",
+							"description": "The member who becomes the owner."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"owner",
+						"previousOwner"
+					],
+					"properties": {
+						"owner": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#memberView",
+							"description": "The new owner, with their updated roles."
+						},
+						"previousOwner": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#memberView",
+							"description": "The caller, with their updated roles."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller does not hold a protected owner role in this community."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists with that DID."
+				},
+				{
+					"name": "MemberNotFound",
+					"description": "The subject does not hold a member record in this community."
+				},
+				{
+					"name": "Banned",
+					"description": "The subject is banned from this community."
+				},
+				{
+					"name": "AlreadyOwner",
+					"description": "The subject already holds a protected owner role."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView's stored credentials for this community are missing or unusable."
+				}
+			]
+		}
+	}
+}

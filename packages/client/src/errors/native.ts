@@ -1,5 +1,5 @@
-import type { ColibriErrorCode } from "./codes";
-import { ColibriError } from "./error";
+import type { ColibriErrorCode } from "@colibri-social/lib";
+import { ColibriError } from "@colibri-social/lib";
 
 type NativeErrorCode =
 	| "Cancelled"

@@ -1,24 +1,27 @@
 # @colibri-social/wrapper
 
-The native app shell, built with [Tauri v2](https://v2.tauri.app). It embeds the [`@colibri-social/client`](../client) library's built `dist/` as its frontend so the same UI ships to desktop (Windows/macOS/Linux) and mobile (Android/iOS).
+The native app shell, built with [Tauri v2](https://v2.tauri.app). It hosts [`@colibri-social/app`](../app) as its frontend, so the same UI ships to desktop (Windows, macOS and Linux) and mobile (Android and iOS).
 
 ## Getting started
 
-The shell renders the client's built output, so build the client first (`pnpm --filter @colibri-social/client build`), then run the app from this package:
+Run the app from this package. Tauri starts the frontend for you.
 
 - `pnpm --filter @colibri-social/wrapper tauri dev`: desktop
-- `pnpm --filter @colibri-social/wrapper tauri android dev`: Android (requires the Android SDK/NDK)
+- `pnpm --filter @colibri-social/wrapper tauri android dev`: Android (requires the Android SDK and NDK)
 
 ## Scripts
 
-- `dev` / `start`: serve the frontend shell with Vite (invoked automatically by `tauri dev`)
-- `build`: bundle the frontend into `dist/` (invoked automatically by `tauri build`)
+- `dev` / `start`: serve `@colibri-social/app` with Vite (invoked automatically by `tauri dev`)
+- `build` / `build:android`: build `@colibri-social/app` into `packages/app/dist` (invoked automatically by `tauri build`)
 - `serve`: preview the built frontend
 - `tauri`: the Tauri CLI, wrapped by `scripts/tauri.mjs`. Use e.g. `pnpm tauri dev`, `pnpm tauri build`
+
+The frontend scripts run through `scripts/frontend.mjs`, which passes the version from `src-tauri/tauri.conf.json` to the app as `VITE_APP_VERSION`.
 
 ## Build flags
 
 - `DISABLE_SENTRY`: when set, excludes Sentry entirely from the frontend bundle and, via `scripts/tauri.mjs` (`--no-default-features`), from the Rust binary. Use for no-track distributions like F-Droid.
+- `VITE_SENTRY_DSN`: enables frontend error reporting in production builds. No DSN → no-op.
 - `SENTRY_DSN`: enables the native (Rust) Sentry client at runtime, also bakeable at build time. No DSN → no-op.
 - `TAURI_SIGNING_PRIVATE_KEY` (+ `_PASSWORD`): required by `tauri build` because updater artifacts are enabled. Generate a keypair with `pnpm tauri signer generate` and set the matching `plugins.updater.pubkey` in `src-tauri/tauri.conf.json`.
 

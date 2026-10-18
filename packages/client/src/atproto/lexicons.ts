@@ -1,11 +1,3 @@
-import { com, social } from "@colibri-social/lexicons";
-
-export const colibri = social.colibri.beta;
-
-export const space = com.atproto.space;
-
-export const simplespace = com.atproto.simplespace;
-
 export type {
 	ChannelSpaceType,
 	Collection,
@@ -43,3 +35,4 @@ export {
 	spaceUri,
 	threadSpace,
 } from "@colibri-social/lexicons";
+export { colibri, simplespace, space } from "@colibri-social/lib";

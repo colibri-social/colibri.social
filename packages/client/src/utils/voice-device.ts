@@ -1,5 +1,5 @@
+import type { ColibriErrorCode } from "@colibri-social/lib";
 import { detectDevice, type types } from "mediasoup-client";
-import type { ColibriErrorCode } from "../errors/codes";
 
 const WEBKIT_MIN_MAJOR = 605;
 const OTHER_ENGINE = /\b(?:Chrome|Chromium|Edg|OPR|Firefox)\b/i;

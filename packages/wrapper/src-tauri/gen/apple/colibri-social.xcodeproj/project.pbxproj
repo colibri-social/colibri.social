@@ -22,6 +22,7 @@
 		BE124219C3D392E07473F2C6 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 3B4087853713445F7F9F602C /* assets */; };
 		C73E598DCB507F87FD36E0AA /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0A1A312706C37641916B0EC4 /* WebKit.framework */; };
 		D03CB0CE111E71A0F1237385 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B95D904107C622AE7EF9BD2D /* MetalKit.framework */; };
+		D7B19678F3E7B0C8A3360644 /* ping.caf in Resources */ = {isa = PBXBuildFile; fileRef = 65F222E117BCB78CAB4E7252 /* ping.caf */; };
 		ED975AA96EF30135C588CC1E /* NotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7A6E827D3C37AE46AE6C738B /* NotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EEA74BECB5D2035D83A582FC /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D51A5144CE637D91656CF10F /* Metal.framework */; };
 		EF8AD89F037CE2C80C74CBB2 /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D2B5E1A4C191719339E1434 /* UserNotifications.framework */; };
@@ -75,6 +76,7 @@
 		5FDAC522F447AFAEB03509C0 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		62BCA66A08317B7C3382D8F0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		62ECBD38B52B54418BD9B817 /* thumbnail.rs */ = {isa = PBXFileReference; path = thumbnail.rs; sourceTree = "<group>"; };
+		65F222E117BCB78CAB4E7252 /* ping.caf */ = {isa = PBXFileReference; path = ping.caf; sourceTree = "<group>"; };
 		665EBA069F2F5EB589DED6ED /* audio.rs */ = {isa = PBXFileReference; path = audio.rs; sourceTree = "<group>"; };
 		6C81C8829500C3C462576D4C /* web_auth.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = web_auth.m; sourceTree = "<group>"; };
 		71FB9EC3FA1F59D7B0EBBE04 /* capture.rs */ = {isa = PBXFileReference; path = capture.rs; sourceTree = "<group>"; };
@@ -307,11 +309,21 @@
 				CD2D2A0C7173F8DC6ADE7B9C /* colibri-social_iOS */,
 				54AF2488524C169A51141132 /* Externals */,
 				88AE56B925E58A09BF314F7B /* NotificationService */,
+				CCD7CFFE1E9B765B8D8FF019 /* sounds */,
 				234D70556009D4FDA4B70755 /* Sources */,
 				69165A6FF40572CD434A2230 /* src */,
 				1F18FE7F90A76D538FD5816A /* Frameworks */,
 				01F175F4904DFB9A2366EAF0 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		CCD7CFFE1E9B765B8D8FF019 /* sounds */ = {
+			isa = PBXGroup;
+			children = (
+				65F222E117BCB78CAB4E7252 /* ping.caf */,
+			);
+			name = sounds;
+			path = ../../sounds;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -403,6 +415,7 @@
 				B3C29F6433EAB7E11DE194DD /* Assets.xcassets in Resources */,
 				2F139F11E0E7E8F139F2020C /* LaunchScreen.storyboard in Resources */,
 				BE124219C3D392E07473F2C6 /* assets in Resources */,
+				D7B19678F3E7B0C8A3360644 /* ping.caf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

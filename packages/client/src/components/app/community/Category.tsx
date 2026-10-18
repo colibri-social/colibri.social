@@ -1,3 +1,4 @@
+import { spaceSkey } from "@colibri-social/lib";
 import { A, useNavigate, useParams } from "@solidjs/router";
 import {
 	createSortable,
@@ -27,7 +28,6 @@ import SpeakerLowIcon from "~icons/ph/speaker-low-fill";
 import { prefetchChannelMessages } from "../../../atproto/channel-prefetch";
 import { buildChannelPath } from "../../../atproto/colibri-channel-url";
 import { SPACE_TYPES } from "../../../atproto/lexicons";
-import { spaceSkey } from "../../../atproto/space-ref";
 import { clientForManagingApp } from "../../../atproto/xrpc";
 import {
 	useCommunityContext,

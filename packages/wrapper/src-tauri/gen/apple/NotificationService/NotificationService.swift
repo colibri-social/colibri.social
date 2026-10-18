@@ -11,16 +11,17 @@ final class NotificationService: UNNotificationServiceExtension {
 		withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
 	) {
 		self.contentHandler = contentHandler
-		original = request.content
+		let content = withSubtitle(request.content)
+		original = content
 
-		guard let senderName = request.content.userInfo["authorName"] as? String else {
-			deliver(request.content)
+		guard let senderName = content.userInfo["authorName"] as? String else {
+			deliver(content)
 			return
 		}
 
-		let avatarURL = (request.content.userInfo["authorAvatarUrl"] as? String).flatMap(URL.init(string:))
+		let avatarURL = (content.userInfo["authorAvatarUrl"] as? String).flatMap(URL.init(string:))
 		guard let avatarURL else {
-			deliver(communicationContent(request.content, senderName: senderName, avatar: nil))
+			deliver(communicationContent(content, senderName: senderName, avatar: nil))
 			return
 		}
 
@@ -28,7 +29,7 @@ final class NotificationService: UNNotificationServiceExtension {
 			guard let self else { return }
 			let ok = (response as? HTTPURLResponse).map { (200..<300).contains($0.statusCode) } ?? false
 			let avatar = ok ? data.map { INImage(imageData: $0) } : nil
-			self.deliver(self.communicationContent(request.content, senderName: senderName, avatar: avatar))
+			self.deliver(self.communicationContent(content, senderName: senderName, avatar: avatar))
 		}
 		task?.resume()
 	}
@@ -46,6 +47,19 @@ final class NotificationService: UNNotificationServiceExtension {
 		handler(content)
 	}
 
+	private func withSubtitle(_ content: UNNotificationContent) -> UNNotificationContent {
+		guard content.subtitle.isEmpty else { return content }
+		let info = content.userInfo
+		let subtitle = [info["subtitle"], info["spaceName"], info["communityName"]]
+			.compactMap { $0 as? String }
+			.first { !$0.isEmpty }
+		guard let subtitle, let mutable = content.mutableCopy() as? UNMutableNotificationContent else {
+			return content
+		}
+		mutable.subtitle = subtitle
+		return mutable
+	}
+
 	private func communicationContent(
 		_ content: UNNotificationContent,
 		senderName: String,
@@ -53,7 +67,7 @@ final class NotificationService: UNNotificationServiceExtension {
 	) -> UNNotificationContent {
 		let info = content.userInfo
 		let senderId = (info["messageAuthor"] as? String) ?? senderName
-		let conversation = (info["channelUri"] as? String) ?? (info["channel"] as? String) ?? content.threadIdentifier
+		let conversation = (info["threadUri"] as? String) ?? (info["channelUri"] as? String) ?? (info["channel"] as? String) ?? content.threadIdentifier
 
 		let sender = INPerson(
 			personHandle: INPersonHandle(value: senderId, type: .unknown),
@@ -64,11 +78,26 @@ final class NotificationService: UNNotificationServiceExtension {
 			customIdentifier: senderId
 		)
 
+		let groupName = content.subtitle.isEmpty ? nil : INSpeakableString(spokenPhrase: content.subtitle)
+		let recipients = groupName.map { _ in
+			[
+				sender,
+				INPerson(
+					personHandle: INPersonHandle(value: conversation, type: .unknown),
+					nameComponents: nil,
+					displayName: nil,
+					image: nil,
+					contactIdentifier: nil,
+					customIdentifier: conversation
+				),
+			]
+		}
+
 		let intent = INSendMessageIntent(
-			recipients: nil,
+			recipients: recipients,
 			outgoingMessageType: .outgoingMessageText,
 			content: content.body,
-			speakableGroupName: nil,
+			speakableGroupName: groupName,
 			conversationIdentifier: conversation,
 			serviceName: nil,
 			sender: sender,

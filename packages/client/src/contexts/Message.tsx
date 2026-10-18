@@ -1,4 +1,5 @@
 import type { ColibriRichTextFacet } from "@colibri-social/lib";
+import { buildReactionRecord, nextTid } from "@colibri-social/lib";
 import {
 	type Accessor,
 	batch,
@@ -20,7 +21,6 @@ import {
 	isHidden,
 } from "../atproto/labels";
 import { asUri, COLLECTIONS, colibri } from "../atproto/lexicons";
-import { buildReactionRecord } from "../atproto/message-record";
 import {
 	enqueueSpaceCreate,
 	enqueueSpaceDelete,
@@ -32,7 +32,6 @@ import {
 	sendProgress,
 	sendsRevision,
 } from "../atproto/outbox/sends";
-import { nextTid } from "../atproto/outbox/tid";
 import { findReactionRkey } from "../atproto/pds";
 import type { MessageView, ReactionView, RecordRef } from "../atproto/views";
 import { isVisibleParent } from "../atproto/views";

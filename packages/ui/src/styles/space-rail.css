@@ -1,0 +1,70 @@
+@property --rail-tab-offset {
+	syntax: "<length>";
+	inherits: true;
+	initial-value: 0px;
+}
+
+@property --rail-tab-height {
+	syntax: "<length>";
+	inherits: true;
+	initial-value: 0px;
+}
+
+@property --rail-tab-visible {
+	syntax: "<number>";
+	inherits: true;
+	initial-value: 0;
+}
+
+@property --rail-tab-duration {
+	syntax: "<time>";
+	inherits: true;
+	initial-value: 0ms;
+}
+
+@utility rail-join {
+	& > * {
+		--rail-tab-offset: initial;
+		--rail-tab-height: initial;
+		--rail-tab-visible: initial;
+		--rail-tab-duration: initial;
+	}
+
+	&::before {
+		--rail-fade: 11px;
+		--rail-fade-top: clamp(0px, var(--rail-tab-offset), var(--rail-fade));
+		content: "";
+		position: absolute;
+		top: calc(-1px - var(--rail-fade-top));
+		left: -1px;
+		width: 1px;
+		height: calc(
+			var(--rail-tab-height) +
+			var(--rail-fade-top) +
+			var(--rail-fade)
+		);
+		background: linear-gradient(
+			to bottom,
+			var(--muted) 0,
+			var(--primary) var(--rail-fade-top),
+			var(--primary) calc(100% - var(--rail-fade)),
+			var(--muted) 100%
+		);
+		opacity: var(--rail-tab-visible);
+		transform: translate3d(0, var(--rail-tab-offset), 0);
+		transition: transform var(--rail-tab-duration) cubic-bezier(0.4, 0, 0.2, 1);
+		will-change: transform;
+		pointer-events: none;
+		z-index: 1;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rail-join::before {
+		transition: none;
+	}
+}
+
+:root[data-reduced-motion="true"] .rail-join::before {
+	transition: none;
+}

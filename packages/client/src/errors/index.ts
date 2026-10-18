@@ -1,58 +1,48 @@
-export type { Retryability } from "./classify";
-export {
-	classifyEnvelope,
-	classifyResponse,
-	classifyThrown,
-	isConnectivityError,
-	isOffline,
-	isStorageFailure,
-	parseFieldProblems,
-	parseRetryAfterMs,
-	readEnvelope,
-	retryability,
-	statusOf,
-} from "./classify";
 export type {
 	AppViewErrorCode,
 	ColibriErrorCode,
-	ErrorDomain,
-	LabelerErrorCode,
-	SocketErrorCode,
-} from "./codes";
-export {
-	ALL_ERROR_CODES,
-	domainOf,
-	GONE_CODES,
-	isAppViewErrorCode,
-	isGoneCode,
-	isRetryableCode,
-	needsReauthentication,
-} from "./codes";
-export type { ErrorCopy } from "./copy";
-export {
-	codeForFileRejection,
-	copyForCode,
-	describeError,
-	FALLBACK_COPY,
-} from "./copy";
-export type {
 	ColibriErrorOptions,
+	ErrorCopy,
+	ErrorDomain,
 	ErrorSeverity,
 	FieldProblem,
-} from "./error";
+	LabelerErrorCode,
+	Retryability,
+	SocketErrorCode,
+} from "@colibri-social/lib";
 export {
+	ALL_ERROR_CODES,
 	ColibriError,
-	colibriError,
-	isColibriError,
-	isRetryable,
-} from "./error";
-export {
+	classifyEnvelope,
 	classifyOAuthError,
 	classifyOAuthParams,
+	classifyResponse,
+	classifyThrown,
+	codeForFileRejection,
 	codeForOAuthError,
+	colibriError,
+	copyForCode,
+	describeError,
+	domainOf,
+	FALLBACK_COPY,
+	GONE_CODES,
+	isAppViewErrorCode,
+	isColibriError,
+	isConnectivityError,
+	isGoneCode,
+	isOffline,
+	isRetryable,
+	isRetryableCode,
 	isSignInDenial,
+	isStorageFailure,
+	needsReauthentication,
+	parseFieldProblems,
+	parseRetryAfterMs,
+	readEnvelope,
 	readOAuthFailure,
-} from "./oauth";
+	retryability,
+	statusOf,
+} from "@colibri-social/lib";
 export type { ReportOptions } from "./report";
 export {
 	reportError,

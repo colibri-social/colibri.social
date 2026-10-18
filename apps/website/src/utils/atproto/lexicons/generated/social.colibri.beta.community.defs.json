@@ -56,6 +56,19 @@
 					"type": "boolean",
 					"description": "Whether link previews are shown by default."
 				},
+				"overrideUserNameColors": {
+					"type": "boolean",
+					"description": "Whether only role colours are shown in chat. Members' own name colours are hidden, and a member without a coloured role shows the default name colour. Absent means false."
+				},
+				"customEmoji": {
+					"type": "string",
+					"knownValues": [
+						"all",
+						"local",
+						"none"
+					],
+					"description": "Which custom emoji render in this community. all allows custom emoji from any source, local only the community's own emoji, none disables custom emoji. Disallowed emoji show their fallback text. Absent means all."
+				},
 				"labelers": {
 					"type": "array",
 					"items": {
@@ -148,6 +161,50 @@
 						"ref": "#channelView"
 					},
 					"description": "Channels in display order."
+				},
+				"ownerOnly": {
+					"type": "boolean",
+					"description": "Whether only community admins may post in the category's channels. A channel that sets its own posting restriction overrides this."
+				},
+				"allowedRoles": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "record-key",
+						"description": "A role permitted to post."
+					},
+					"description": "Roles allowed to post in the category's channels. Empty means no role restriction. A channel that sets its own posting restriction overrides this."
+				},
+				"allowedMembers": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "did",
+						"description": "A member permitted to post."
+					},
+					"description": "Members allowed to post in the category's channels in addition to allowedRoles."
+				},
+				"visibleToRoles": {
+					"type": "array",
+					"description": "Roles that may read the category's channels. Empty or absent means every member may read them. A channel with its own non-empty visibleToRoles or visibleToMembers overrides this. A non-empty list makes the category's other channels private, enforced the same way as a private channel.",
+					"items": {
+						"type": "string",
+						"format": "record-key",
+						"description": "A role permitted to read."
+					}
+				},
+				"visibleToMembers": {
+					"type": "array",
+					"description": "Members that may read the category's channels in addition to visibleToRoles.",
+					"items": {
+						"type": "string",
+						"format": "did",
+						"description": "A member permitted to read."
+					}
+				},
+				"private": {
+					"type": "boolean",
+					"description": "Whether the category restricts who may read its channels."
 				}
 			}
 		},
@@ -297,6 +354,14 @@
 					"description": "Hex colour as #rrggbb.",
 					"maxLength": 7
 				},
+				"badge": {
+					"type": "union",
+					"refs": [
+						"#roleIconBadge",
+						"#roleImageBadgeView"
+					],
+					"description": "The role's badge, if it has one."
+				},
 				"permissions": {
 					"type": "array",
 					"items": {
@@ -362,6 +427,40 @@
 						"description": "A permission identifier."
 					},
 					"description": "Permissions denied here."
+				}
+			}
+		},
+		"roleIconBadge": {
+			"type": "object",
+			"description": "A role badge drawn from the client's curated icon set.",
+			"required": [
+				"icon"
+			],
+			"properties": {
+				"icon": {
+					"type": "string",
+					"minLength": 1,
+					"maxLength": 64,
+					"description": "The icon's identifier in the client's curated set, for example shield-check."
+				},
+				"color": {
+					"type": "string",
+					"maxLength": 7,
+					"description": "Hex colour as #rrggbb. Absent means the role colour, or the client's default badge colour."
+				}
+			}
+		},
+		"roleImageBadgeView": {
+			"type": "object",
+			"description": "A badge drawn from an uploaded image.",
+			"required": [
+				"image"
+			],
+			"properties": {
+				"image": {
+					"type": "string",
+					"format": "uri",
+					"description": "URL of the badge image, served by this AppView's blob proxy."
 				}
 			}
 		},

@@ -13,6 +13,8 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches/ ./patches/
 COPY packages/assets/package.json ./packages/assets/
 COPY packages/lib/package.json ./packages/lib/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/app/package.json ./packages/app/
 COPY packages/client/package.json ./packages/client/
 COPY packages/standard-renderer/package.json ./packages/standard-renderer/
 COPY apps/website/package.json ./apps/website/
@@ -39,6 +41,8 @@ ENV SENTRY_RELEASE=${SENTRY_RELEASE}
 ENV TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN}
 ENV TURSO_DATABASE_URL=${TURSO_DATABASE_URL}
 ENV PUBLIC_VAPID_KEY=${PUBLIC_VAPID_KEY}
+ENV VITE_SENTRY_DSN=${SENTRY_DSN}
+ENV VITE_APP_VERSION=${SENTRY_RELEASE}
 
 COPY packages/ ./packages/
 COPY apps/ ./apps/
@@ -51,6 +55,7 @@ COPY apps/ ./apps/
 #       --save-exact --yes --store-dir=/pnpm/store
 
 RUN pnpm --filter @colibri-social/client build
+RUN SENTRY_AUTH_TOKEN= pnpm --filter @colibri-social/app build
 
 RUN --mount=type=cache,id=astro-cache,target=/app/apps/website/node_modules/.astro \
     --mount=type=cache,id=vite-cache,target=/app/node_modules/.vite \

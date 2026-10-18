@@ -1,6 +1,6 @@
+import { classifyThrown } from "@colibri-social/lib";
 import { type Component, onCleanup, onMount } from "solid-js";
 import { toast } from "somoto";
-import { classifyThrown } from "../../errors/classify";
 import { isTauriRuntime } from "../../notifications/environment";
 import { createLogger } from "../../utils/logger";
 import {

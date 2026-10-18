@@ -1,4 +1,5 @@
 import type { Agent } from "@atproto/api";
+import type { XrpcResult } from "@colibri-social/lib";
 import {
 	getPreferences,
 	type PreferencesOutput,
@@ -6,7 +7,6 @@ import {
 } from "./notificationPreference";
 import type { GifView } from "./views";
 import type { ColibriClient } from "./xrpc";
-import type { XrpcResult } from "./xrpc/result";
 
 export const readGifFavorites = async (
 	xrpc: ColibriClient,

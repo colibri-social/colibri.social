@@ -532,6 +532,68 @@
 				}
 			}
 		},
+		"invitationEvent": {
+			"type": "object",
+			"description": "A community's invitation list changed. Only sent to members who can create invitations.",
+			"required": [
+				"event",
+				"community",
+				"code"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What happened.",
+					"knownValues": [
+						"create",
+						"delete"
+					]
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community."
+				},
+				"code": {
+					"type": "string",
+					"description": "The invitation code that was created or deleted."
+				}
+			}
+		},
+		"emojiEvent": {
+			"type": "object",
+			"description": "A community's custom emoji or packs changed. Sent to the community's subscribers. Carries the whole catalog so clients replace it in one step.",
+			"required": [
+				"owner",
+				"catalog"
+			],
+			"properties": {
+				"owner": {
+					"type": "string",
+					"format": "did",
+					"description": "The community whose catalog changed."
+				},
+				"catalog": {
+					"type": "ref",
+					"ref": "social.colibri.beta.emoji.defs#catalogView",
+					"description": "The catalog after the change."
+				}
+			}
+		},
+		"emojiLibraryEvent": {
+			"type": "object",
+			"description": "The user's emoji library changed. Sent to a user's own connections when their own emoji change, a follow is added or removed, or the owner of something they follow changes their emoji. Carries the whole library so clients replace it in one step.",
+			"required": [
+				"library"
+			],
+			"properties": {
+				"library": {
+					"type": "ref",
+					"ref": "social.colibri.beta.emoji.defs#libraryView",
+					"description": "The user's whole library after the change."
+				}
+			}
+		},
 		"labelEvent": {
 			"type": "object",
 			"description": "A label was applied or retracted on a record in a subscribed space.",
@@ -622,10 +684,43 @@
 					"format": "space-ref",
 					"description": "The channel that was marked seen, when it was a single channel."
 				},
+				"message": {
+					"type": "ref",
+					"ref": "social.colibri.beta.defs#recordRef",
+					"description": "The message whose notifications were marked seen, when it was a single message."
+				},
 				"seenAt": {
 					"type": "string",
 					"format": "datetime",
 					"description": "The point everything was marked seen up to."
+				},
+				"clearedAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "Set when the user cleared their inbox. Notifications raised at or before this time are gone from it."
+				}
+			}
+		},
+		"readCursorEvent": {
+			"type": "object",
+			"description": "The connected user's read cursors for one community moved, possibly from another of their sessions. Each cursor is the newest the AppView holds for that channel or thread, so applying the event never moves a cursor backwards.",
+			"required": [
+				"community",
+				"cursors"
+			],
+			"properties": {
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community the cursors belong to."
+				},
+				"cursors": {
+					"type": "array",
+					"description": "The cursors that changed.",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.channel.read#cursor"
+					}
 				}
 			}
 		},

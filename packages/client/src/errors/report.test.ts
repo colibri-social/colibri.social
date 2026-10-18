@@ -31,8 +31,8 @@ vi.mock("@sentry/solid", () => {
 });
 
 const { reportError, resetReportSuppression } = await import("./report");
-const { ColibriError } = await import("./error");
-const { classifyResponse } = await import("./classify");
+const { ColibriError } = await import("@colibri-social/lib");
+const { classifyResponse } = await import("@colibri-social/lib");
 
 beforeEach(() => {
 	resetReportSuppression();

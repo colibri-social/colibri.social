@@ -1,0 +1,28 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capabilities for the main window.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "deep-link:default",
+    "os:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        {
+          "url": "https://spaces-api.colibri.social/xrpc/social.colibri.beta.blob.get?*"
+        },
+        {
+          "url": "https://cdn.bsky.app/img/*"
+        },
+        {
+          "url": "https://*.giphy.com/media/*"
+        }
+      ]
+    }
+  ]
+}

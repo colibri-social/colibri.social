@@ -1,6 +1,6 @@
 import type { Agent } from "@atproto/api";
-import { classifyThrown } from "../errors/classify";
-import type { ColibriError } from "../errors/error";
+import type { ColibriError } from "@colibri-social/lib";
+import { classifyThrown } from "@colibri-social/lib";
 import { unregisterAllPush } from "../notifications";
 import { unregisterPushWith } from "../notifications/push-xrpc";
 import { createLogger } from "../utils/logger";

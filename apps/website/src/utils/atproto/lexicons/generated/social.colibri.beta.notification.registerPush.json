@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "procedure",
-			"description": "Registers a push endpoint for the requesting user's device. Web Push requires endpoint, p256dh, and auth. FCM requires token.",
+			"description": "Registers a push endpoint for the requesting user's device. Web Push requires endpoint, p256dh, and auth. FCM requires token. APNs requires token and environment.",
 			"input": {
 				"encoding": "application/json",
 				"schema": {
@@ -19,7 +19,8 @@
 							"description": "The push provider to register with.",
 							"knownValues": [
 								"webpush",
-								"fcm"
+								"fcm",
+								"apns"
 							]
 						},
 						"platform": {
@@ -28,7 +29,8 @@
 							"knownValues": [
 								"web",
 								"ios",
-								"android"
+								"android",
+								"macos"
 							]
 						},
 						"endpoint": {
@@ -46,7 +48,15 @@
 						},
 						"token": {
 							"type": "string",
-							"description": "The FCM registration token. Required when provider is fcm."
+							"description": "The FCM registration token or the hex-encoded APNs device token. Required when provider is fcm or apns."
+						},
+						"environment": {
+							"type": "string",
+							"description": "The APNs environment the device token belongs to. Required when provider is apns.",
+							"knownValues": [
+								"sandbox",
+								"production"
+							]
 						}
 					}
 				}

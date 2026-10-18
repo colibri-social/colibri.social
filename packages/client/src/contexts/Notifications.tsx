@@ -1,3 +1,4 @@
+import { classifyThrown, isGoneCode, isThreadSpace } from "@colibri-social/lib";
 import { useLocation, useNavigate } from "@solidjs/router";
 import {
 	type Accessor,
@@ -16,9 +17,6 @@ import {
 } from "../atproto/colibri-channel-url";
 import { colibri } from "../atproto/lexicons";
 import { adoptRemoteCursors, recordRead } from "../atproto/read-cursor";
-import { isThreadSpace } from "../atproto/space-ref";
-import { classifyThrown } from "../errors/classify";
-import { isGoneCode } from "../errors/codes";
 import {
 	cancelChannelTrayNotification,
 	isAppUnfocused,

@@ -256,6 +256,11 @@
 					"format": "did",
 					"description": "The community the registration belongs to."
 				},
+				"communityName": {
+					"type": "string",
+					"maxLength": 32,
+					"description": "The community's name, when the AppView knows it."
+				},
 				"bridge": {
 					"type": "string",
 					"format": "did",

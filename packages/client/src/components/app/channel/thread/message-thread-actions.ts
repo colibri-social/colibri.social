@@ -1,6 +1,6 @@
+import { isThreadSpace } from "@colibri-social/lib";
 import { isForwardable } from "../../../../atproto/forward";
 import { asDid, asRecordKey, asSpaceRef } from "../../../../atproto/lexicons";
-import { isThreadSpace } from "../../../../atproto/space-ref";
 import type { MessageView, SpaceRecordRef } from "../../../../atproto/views";
 import { useChannelContext } from "../../../../contexts/Channel";
 import { usePermissions } from "../../../../contexts/Community";

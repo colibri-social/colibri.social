@@ -212,9 +212,14 @@ const renderWeb = (): void => {
 	);
 };
 
+const NATIVE_SHELLS = ["packages/wrapper", "packages/preview"];
+
 const renderWindows = (): void => {
 	const tile = compose({ source: "background-rounded" });
-	const icons = "packages/wrapper/src-tauri/icons";
+	for (const shell of NATIVE_SHELLS) renderWindowsInto(`${shell}/src-tauri/icons`, tile);
+};
+
+const renderWindowsInto = (icons: string, tile: string): void => {
 
 	write(
 		`${icons}/icon.ico`,
@@ -231,6 +236,10 @@ const renderWindows = (): void => {
 };
 
 const renderAndroid = (): void => {
+	for (const shell of NATIVE_SHELLS) renderAndroidInto(shell);
+};
+
+const renderAndroidInto = (shell: string): void => {
 	const bird = read("no-background");
 	const paths = uniquePaths(bird);
 	const foreground = compose({
@@ -241,17 +250,17 @@ const renderAndroid = (): void => {
 	for (const [density, size] of ADAPTIVE_DENSITIES) {
 		const data = png(foreground, size);
 		write(
-			`packages/wrapper/src-tauri/icons/android/mipmap-${density}/ic_launcher_foreground.png`,
+			`${shell}/src-tauri/icons/android/mipmap-${density}/ic_launcher_foreground.png`,
 			data,
 		);
 		write(
-			`packages/wrapper/src-tauri/gen/android/app/src/main/res/mipmap-${density}/ic_launcher_foreground.png`,
+			`${shell}/src-tauri/gen/android/app/src/main/res/mipmap-${density}/ic_launcher_foreground.png`,
 			data,
 		);
 	}
 
 	write(
-		"packages/wrapper/src-tauri/gen/android/app/src/main/res/drawable/ic_launcher_monochrome.xml",
+		`${shell}/src-tauri/gen/android/app/src/main/res/drawable/ic_launcher_monochrome.xml`,
 		vectorDrawable({
 			dp: 108,
 			fit: { kind: "circle", diameter: ADAPTIVE_SAFE_CIRCLE },
@@ -259,7 +268,7 @@ const renderAndroid = (): void => {
 		}),
 	);
 	write(
-		"packages/wrapper/src-tauri/gen/android/app/src/main/res/drawable/ic_notification.xml",
+		`${shell}/src-tauri/gen/android/app/src/main/res/drawable/ic_notification.xml`,
 		vectorDrawable({
 			dp: 24,
 			fit: { kind: "bounds", fraction: NOTIFICATION_GLYPH_FRACTION },
@@ -273,18 +282,18 @@ const renderAndroid = (): void => {
 </resources>
 `;
 	write(
-		"packages/wrapper/src-tauri/icons/android/values/ic_launcher_background.xml",
+		`${shell}/src-tauri/icons/android/values/ic_launcher_background.xml`,
 		background,
 	);
 	write(
-		"packages/wrapper/src-tauri/gen/android/app/src/main/res/values/ic_launcher_background.xml",
+		`${shell}/src-tauri/gen/android/app/src/main/res/values/ic_launcher_background.xml`,
 		background,
 	);
 
 	for (const relative of [
-		"packages/wrapper/src-tauri/icons/android/mipmap-anydpi-v26/ic_launcher.xml",
-		"packages/wrapper/src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml",
-		"packages/wrapper/src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml",
+		`${shell}/src-tauri/icons/android/mipmap-anydpi-v26/ic_launcher.xml`,
+		`${shell}/src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml`,
+		`${shell}/src-tauri/gen/android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml`,
 	]) {
 		withMonochrome(relative);
 	}

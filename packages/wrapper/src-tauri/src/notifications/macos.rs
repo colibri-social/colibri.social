@@ -13,7 +13,7 @@ use objc2_app_kit::NSApplication;
 use objc2_user_notifications::{
     UNAuthorizationOptions, UNMutableNotificationContent, UNNotification, UNNotificationAttachment,
     UNNotificationPresentationOptions, UNNotificationRequest, UNNotificationResponse,
-    UNNotificationSound, UNPushNotificationTrigger, UNUserNotificationCenter,
+    UNPushNotificationTrigger, UNUserNotificationCenter,
     UNUserNotificationCenterDelegate,
 };
 
@@ -174,8 +174,6 @@ pub fn notify(payload: NotificationPayload) -> Result<(), NativeError> {
     content.setTitle(&NSString::from_str(&payload.title));
     content.setBody(&NSString::from_str(&payload.body));
     content.setThreadIdentifier(&NSString::from_str(&payload.channel_uri));
-    let sound = UNNotificationSound::defaultSound();
-    content.setSound(Some(&sound));
 
     if let Some(subtitle) = payload.subtitle.as_deref() {
         content.setSubtitle(&NSString::from_str(subtitle));

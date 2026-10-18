@@ -1,8 +1,6 @@
+import { buildMessageRecord, nextTid, spaceSkey } from "@colibri-social/lib";
 import { beforeAll, describe, expect, it } from "vitest";
 import { colibri } from "../../src/atproto/lexicons";
-import { buildMessageRecord } from "../../src/atproto/message-record";
-import { nextTid } from "../../src/atproto/outbox/tid";
-import { spaceSkey } from "../../src/atproto/space-ref";
 import type { ChannelView, CommunityView } from "../../src/atproto/views";
 import {
 	createActor,

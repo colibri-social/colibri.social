@@ -1,6 +1,6 @@
+import { classifyThrown } from "@colibri-social/lib";
 import { colibri } from "../../../atproto/lexicons";
 import type { LoggedInUser } from "../../../contexts/User";
-import { classifyThrown } from "../../../errors/classify";
 import { fetchDefaultCommunity } from "../../../utils/appview";
 import { createLogger } from "../../../utils/logger";
 

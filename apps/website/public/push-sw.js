@@ -1,22 +1,6 @@
-/**
- * Push Service Worker for Colibri.
- *
- * Receives Web Push messages from the AppView and shows native notifications
- * even when the app/tab is fully closed. Registered from the client at runtime
- * (see packages/client/src/notifications/push-web.ts).
- *
- * Expected push payload (JSON):
- *   { "title": string, "body": string, "tag"?: string,
- *     "data"?: { "channelUri"?: string, "channel"?: string,
- *                "threadUri"?: string, "messageUri"?: string,
- *                "messageAuthor"?: string, "messageRkey"?: string } }
- *
- * Dismissal payload (sent when the underlying message was deleted; closes the
- * matching notification instead of showing one):
- *   { "type": "dismiss", "tag": string, "data"?: { "channelUri"?: string, "messageUri"?: string } }
- */
-
-const DEFAULT_ICON = "/web-app-manifest-192x192.png";
+const MESSAGE_COLLECTION = "social.colibri.beta.message";
+const THREAD_SPACE_TYPE = "social.colibri.beta.channel.thread";
+const MARK_READ_ACTION = "mark-read";
 
 self.addEventListener("install", () => {
 	self.skipWaiting();
@@ -26,53 +10,137 @@ self.addEventListener("activate", (event) => {
 	event.waitUntil(self.clients.claim());
 });
 
-self.addEventListener("push", (event) => {
-	let payload = {};
+const text = (value) =>
+	typeof value === "string" && value.length > 0 ? value : undefined;
+
+const readPayload = (event) => {
+	if (!event.data) return {};
 	try {
-		payload = event.data ? event.data.json() : {};
+		const payload = event.data.json();
+		return payload && typeof payload === "object" ? payload : {};
 	} catch {
-		payload = { title: "Colibri", body: event.data ? event.data.text() : "" };
+		return { body: event.data.text() };
 	}
+};
 
-	if (payload.type === "dismiss") {
-		if (!payload.tag) return;
-		event.waitUntil(
-			self.registration
-				.getNotifications({ tag: payload.tag })
-				.then((notifications) => {
-					for (const notification of notifications) notification.close();
-				}),
-		);
-		return;
-	}
+const flatten = (payload) => {
+	const nested =
+		payload.data && typeof payload.data === "object" ? payload.data : {};
+	const { data: _nested, ...top } = payload;
+	return { ...top, ...nested };
+};
 
-	const title = payload.title || "Colibri";
-	event.waitUntil(
-		self.registration.showNotification(title, {
-			body: payload.body || "",
-			tag: payload.tag,
-			icon: payload.icon || DEFAULT_ICON,
-			badge: DEFAULT_ICON,
-			data: payload.data || {},
-		}),
+const targetOf = (data) =>
+	text(data.threadUri) || text(data.channelUri) || text(data.channel);
+
+const tagOf = (data) => text(data.tag) || text(data.messageUri);
+
+const rkeyOf = (uri) => uri.slice(uri.lastIndexOf("/") + 1);
+
+const windowClients = () =>
+	self.clients.matchAll({ type: "window", includeUncontrolled: true });
+
+const hasFocusedClient = async () => {
+	const clientList = await windowClients();
+	return clientList.some(
+		(client) => client.visibilityState === "visible" && client.focused,
 	);
+};
+
+const openNotifications = () => self.registration.getNotifications();
+
+const closeWhere = async (matches) => {
+	for (const notification of await openNotifications()) {
+		if (matches(notification.data || {}, notification)) notification.close();
+	}
+};
+
+const notificationOptions = (data, overrides) => ({
+	body: [text(data.subtitle), text(data.body) || ""]
+		.filter((line) => line !== undefined)
+		.join("\n"),
+	tag: tagOf(data),
+	icon: text(data.authorAvatarUrl),
+	data,
+	actions:
+		text(data.readUrl) && text(data.readToken)
+			? [{ action: MARK_READ_ACTION, title: "Mark as read" }]
+			: [],
+	...overrides,
 });
 
-// Fires when the browser invalidates/rotates our subscription on its own
-// (independent of anything the AppView does) — e.g. periodic push-service key
-// rotation. We must re-subscribe before this handler returns or the new
-// subscription is lost, but we can't reach the AppView from here (no access
-// to the app's authenticated XRPC client). Instead we just re-subscribe
-// locally and nudge any open windows; the client re-registers the resulting
-// subscription with the AppView using its own (already-authenticated)
-// registerPush call — see `listenForPushSubscriptionChanges` in
-// `packages/client/src/notifications/push-web.ts`.
+const titleOf = (data) =>
+	text(data.authorName) || text(data.title) || "Colibri";
+
+const showMessage = async (data) => {
+	if (await hasFocusedClient()) return;
+	await self.registration.showNotification(
+		titleOf(data),
+		notificationOptions(data),
+	);
+};
+
+const closeRead = (data) => {
+	const target = targetOf(data);
+	if (!target) return Promise.resolve();
+	const through = text(data.through);
+	return closeWhere((shown) => {
+		if (targetOf(shown) !== target) return false;
+		const messageUri = text(shown.messageUri);
+		if (!through || !messageUri) return true;
+		return rkeyOf(messageUri) <= through;
+	});
+};
+
+const matchesMessage = (shown, data) => {
+	const tag = tagOf(data);
+	const messageUri = text(data.messageUri);
+	return (
+		(tag !== undefined && tagOf(shown) === tag) ||
+		(messageUri !== undefined && text(shown.messageUri) === messageUri)
+	);
+};
+
+const closeDeleted = (data) =>
+	closeWhere((shown) => matchesMessage(shown, data));
+
+const replaceEdited = async (data) => {
+	const body = text(data.body);
+	if (body === undefined) return;
+	const shown = (await openNotifications()).find((notification) =>
+		matchesMessage(notification.data || {}, data),
+	);
+	if (!shown) return;
+	const previous = shown.data || {};
+	const next = { ...previous, body };
+	await self.registration.showNotification(
+		shown.title,
+		notificationOptions(next, { tag: shown.tag || tagOf(next), silent: true }),
+	);
+};
+
+self.addEventListener("push", (event) => {
+	const data = flatten(readPayload(event));
+	const type = text(data.type) || "message";
+
+	if (type === "read") {
+		event.waitUntil(closeRead(data));
+		return;
+	}
+	if (type === "delete" || type === "dismiss") {
+		event.waitUntil(closeDeleted(data));
+		return;
+	}
+	if (type === "edit") {
+		event.waitUntil(replaceEdited(data));
+		return;
+	}
+	event.waitUntil(showMessage(data));
+});
+
 self.addEventListener("pushsubscriptionchange", (event) => {
-	const oldSubscription = event.oldSubscription;
 	const applicationServerKey =
-		oldSubscription && oldSubscription.options
-			? oldSubscription.options.applicationServerKey
-			: undefined;
+		event.oldSubscription?.options?.applicationServerKey;
 
 	event.waitUntil(
 		self.registration.pushManager
@@ -81,51 +149,40 @@ self.addEventListener("pushsubscriptionchange", (event) => {
 					? { userVisibleOnly: true, applicationServerKey }
 					: { userVisibleOnly: true },
 			)
-			.then(() =>
-				self.clients.matchAll({ type: "window", includeUncontrolled: true }),
-			)
+			.then(windowClients)
 			.then((clientList) => {
 				for (const client of clientList) {
 					client.postMessage({ type: "colibri-push-subscription-changed" });
 				}
 			})
-			.catch((err) => {
-				// Nothing more we can do from here — if no subscription survives,
-				// the app's periodic re-assertion (see push-web.ts) will notice
-				// there's none and re-subscribe from scratch next time it runs.
-				console.error(
-					"[push-sw] resubscribe after pushsubscriptionchange failed",
-					err,
-				);
+			.catch((error) => {
+				console.error("[push-sw] resubscribe failed", error);
 			}),
 	);
 });
-
-const MESSAGE_COLLECTION = "social.colibri.beta.message";
 
 const parseSpace = (uri) => {
 	if (typeof uri !== "string" || !uri.startsWith("at://")) return undefined;
 	const [authority, marker, type, skey] = uri.slice("at://".length).split("/");
 	if (marker !== "space" || !authority || !type || !skey) return undefined;
-	return { authority, type, skey, uri: `at://${authority}/space/${type}/${skey}` };
+	return {
+		authority,
+		type,
+		skey,
+		uri: `at://${authority}/space/${type}/${skey}`,
+	};
 };
-
-const THREAD_SPACE_TYPE = "social.colibri.beta.channel.thread";
 
 const isThreadType = (type) => type === THREAD_SPACE_TYPE;
 
 const activationFrom = (data) => {
-	if (!data) return undefined;
+	const reported = text(data.channelUri) || text(data.channel);
+	if (!reported) return undefined;
 
-	const reported = data.channelUri || data.channel;
-	if (typeof reported !== "string" || !reported) return undefined;
-
-	let messageUri =
-		typeof data.messageUri === "string" ? data.messageUri : undefined;
-
+	let messageUri = text(data.messageUri);
 	const reportedSpace = parseSpace(reported);
 	const messageSpace = parseSpace(messageUri);
-	let threadUri = typeof data.threadUri === "string" ? data.threadUri : undefined;
+	let threadUri = text(data.threadUri);
 	if (!threadUri && reportedSpace && isThreadType(reportedSpace.type)) {
 		threadUri = reportedSpace.uri;
 	}
@@ -148,50 +205,62 @@ const channelPathFor = (channelUri) => {
 
 const coldStartUrl = (activation) => {
 	if (!activation) return "/app";
-
 	const channel = channelPathFor(activation.channelUri);
 	if (channel === "/app") return "/app";
-
 	const thread = parseSpace(activation.threadUri);
-	const path = thread
-		? `${channel}/t/${encodeURIComponent(thread.skey)}`
-		: channel;
-	if (!activation.messageUri) return path;
-
-	return `${path}?m=${encodeURIComponent(activation.messageUri)}`;
+	return thread ? `${channel}/t/${encodeURIComponent(thread.skey)}` : channel;
 };
 
-const isAppClient = (client) => {
+const markRead = async (data) => {
+	const readUrl = text(data.readUrl);
+	const readToken = text(data.readToken);
+	const target = targetOf(data);
+	if (target) {
+		await closeWhere((shown) => targetOf(shown) === target);
+	}
+	if (!readUrl || !readToken) return;
 	try {
-		return new URL(client.url).pathname.startsWith("/app");
-	} catch {
-		return false;
+		await fetch(readUrl, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ token: readToken }),
+		});
+	} catch (error) {
+		console.error("[push-sw] mark as read failed", error);
 	}
 };
 
+const pickClient = (clientList) =>
+	clientList.find((client) => client.focused) ||
+	clientList.find((client) => client.visibilityState === "visible") ||
+	clientList[0];
+
+const activate = async (data) => {
+	const activation = activationFrom(data);
+	const target = pickClient(await windowClients());
+
+	if (target) {
+		if ("focus" in target) await target.focus();
+		target.postMessage({
+			type: "colibri-notification-activated",
+			channelUri: activation?.channelUri,
+			threadUri: activation?.threadUri,
+			messageUri: activation?.messageUri,
+		});
+		return;
+	}
+
+	await self.clients.openWindow(coldStartUrl(activation));
+};
+
 self.addEventListener("notificationclick", (event) => {
+	const data = event.notification.data || {};
 	event.notification.close();
 
-	const activation = activationFrom(event.notification.data);
+	if (event.action === MARK_READ_ACTION) {
+		event.waitUntil(markRead(data));
+		return;
+	}
 
-	event.waitUntil(
-		self.clients
-			.matchAll({ type: "window", includeUncontrolled: true })
-			.then(async (clientList) => {
-				const target = clientList.find(isAppClient);
-
-				if (target) {
-					if ("focus" in target) await target.focus();
-					target.postMessage({
-						type: "colibri-notification-activated",
-						channelUri: activation ? activation.channelUri : undefined,
-						threadUri: activation ? activation.threadUri : undefined,
-						messageUri: activation ? activation.messageUri : undefined,
-					});
-					return;
-				}
-
-				await self.clients.openWindow(coldStartUrl(activation));
-			}),
-	);
+	event.waitUntil(activate(data));
 });

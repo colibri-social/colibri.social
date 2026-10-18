@@ -60,6 +60,10 @@
 							"type": "boolean",
 							"description": "Whether link previews are shown here. Absent leaves the current value unchanged."
 						},
+						"removeLinkEmbeds": {
+							"type": "boolean",
+							"description": "Clears the channel's link preview setting so the community default applies. Ignored when linkEmbeds is also given."
+						},
 						"visibleToRoles": {
 							"type": "array",
 							"description": "Roles that may read this channel. Empty means every member may.",

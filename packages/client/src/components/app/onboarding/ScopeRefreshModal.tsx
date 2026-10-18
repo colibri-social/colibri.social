@@ -1,10 +1,13 @@
 import type { BrowserOAuthClient } from "@atproto/oauth-client-browser";
+import {
+	buildScopes,
+	classifyThrown,
+	scopeSetLabel,
+} from "@colibri-social/lib";
 import { createSignal, For } from "solid-js";
 import ArrowLineLeftIcon from "~icons/ph/arrow-line-left";
 import { startOAuthSignIn } from "../../../atproto/auth";
-import { buildScopes, scopeSetLabel } from "../../../atproto/scopes";
 import { endSession } from "../../../atproto/session";
-import { classifyThrown } from "../../../errors/classify";
 import { showError } from "../../../errors/show-error";
 import { unregisterAllPush } from "../../../notifications";
 import { getAppViewDid } from "../../../utils/appview";

@@ -1,13 +1,20 @@
 import { Agent } from "@atproto/api";
 import { BrowserOAuthClient } from "@atproto/oauth-client-browser";
+import {
+	buildScopes,
+	ColibriError,
+	classifyOAuthError,
+	classifyOAuthParams,
+	classifyThrown,
+	getMissingScopeSets,
+	isColibriError,
+	isRetryableCode,
+	isStorageFailure,
+} from "@colibri-social/lib";
 import * as Sentry from "@sentry/solid";
 import { type Accessor, createSignal } from "solid-js";
 import { toast } from "somoto";
-import { classifyThrown, isStorageFailure } from "../errors/classify";
-import { isRetryableCode } from "../errors/codes";
-import { ColibriError, isColibriError } from "../errors/error";
 import { classifyNativeError, wasCancelled } from "../errors/native";
-import { classifyOAuthError, classifyOAuthParams } from "../errors/oauth";
 import { reportError } from "../errors/report";
 import { isTauriRuntime } from "../notifications/environment";
 import {
@@ -24,7 +31,6 @@ import {
 	peekCachedPdsForDid,
 	resolvePdsForDid,
 } from "./identity";
-import { buildScopes, getMissingScopeSets } from "./scopes";
 import {
 	markSessionDead,
 	noteSessionDeleted,

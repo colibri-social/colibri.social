@@ -46,6 +46,7 @@ sentry = { version = "0.48.4", optional = true }
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-deep-link = "2.4.9"
 tauri-plugin-os = "2"
+tauri-plugin-http = "2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.tokio]
 version = "1"
@@ -168,6 +169,7 @@ tauri = { version = "2", features = ["wry"] }
 [target.'cfg(target_os = "linux")'.dependencies]
 tauri-runtime-cef = { git = "https://github.com/SableClient/tauri-runtime-cef", rev = "b83d02a135781b8d73d8d12d70a590d5063180a1" }
 gtk = "0.18"
+notify-rust = "4"
 
 [target.'cfg(windows)'.dependencies]
 windows-version = "0.1"
@@ -212,11 +214,17 @@ windows = { version = "0.61", features = [
 # so build OpenSSL from source for those instead of relying on pkg-config.
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
+tauri-plugin-haptics = "~2.3.3"
 
 # Android only for now
 [target.'cfg(target_os = "android")'.dependencies]
 tauri-plugin-fcm = "0.2"
+jni = "0.21"
+ndk-context = "0.1"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 tauri-plugin-ios-webview-insets = "0.1"
 tauri-plugin-keyboard-inset = { path = "plugins" }
+
+[patch.crates-io]
+wry = { path = "vendor/wry" }

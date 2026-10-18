@@ -1,5 +1,5 @@
-import type { ColibriErrorCode } from "../errors/codes";
-import { codeForFileRejection } from "../errors/copy";
+import type { ColibriErrorCode } from "@colibri-social/lib";
+import { codeForFileRejection } from "@colibri-social/lib";
 
 export const UPLOADABLE_IMAGE_TYPES: ReadonlyArray<string> = [
 	"image/jpeg",

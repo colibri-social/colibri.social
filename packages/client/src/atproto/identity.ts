@@ -5,8 +5,11 @@ import {
 	type ResolvedHandle,
 	type ResolveHandleOptions,
 } from "@atproto/oauth-client-browser";
-import { classifyThrown, readEnvelope } from "../errors/classify";
-import { ColibriError } from "../errors/error";
+import {
+	ColibriError,
+	classifyThrown,
+	readEnvelope,
+} from "@colibri-social/lib";
 import { getAppViewHost } from "../utils/appview";
 import { createLogger } from "../utils/logger";
 

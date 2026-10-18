@@ -1,5 +1,5 @@
 import type { Agent } from "@atproto/api";
-import { classifyResponse } from "../errors/classify";
+import { classifyResponse } from "@colibri-social/lib";
 import { isTauriRuntime } from "../notifications/environment";
 import { getLabelerDid, getLabelerUrl } from "../utils/labeler";
 import { createLogger } from "../utils/logger";

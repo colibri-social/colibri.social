@@ -1,3 +1,4 @@
+import { spaceSkey } from "@colibri-social/lib";
 import { useLocation, useSearchParams } from "@solidjs/router";
 import {
 	createEffect,
@@ -11,7 +12,6 @@ import GearIcon from "~icons/ph/gear";
 import SignOutIcon from "~icons/ph/sign-out";
 import UsersIcon from "~icons/ph/users-fill";
 import { parseThreadPath } from "../atproto/colibri-channel-url";
-import { spaceSkey } from "../atproto/space-ref";
 import { ThreadDraftPane } from "../components/app/channel/thread/ThreadDraftPane";
 import { ThreadPane } from "../components/app/channel/thread/ThreadPane";
 import { ChannelList } from "../components/app/community/ChannelList";

@@ -1,0 +1,33 @@
+@import "@colibri-social/ui/index.css";
+@import "@arborium/arborium/themes/base.css";
+@import "@arborium/arborium/themes/github-light.css";
+@import "@arborium/arborium/themes/tokyo-night.css";
+
+@source "./";
+
+html,
+body {
+	height: 100%;
+	overscroll-behavior: none;
+	background: var(--background);
+	-webkit-tap-highlight-color: transparent;
+}
+
+body {
+	margin: 0;
+	overflow: hidden;
+}
+
+[data-chrome="macos"] * {
+	overscroll-behavior: none;
+}
+
+#root {
+	height: 100dvh;
+}
+
+[data-pane-stack],
+[data-pane] [data-message-list-scroller],
+[data-pane] [data-scroll-y] {
+	touch-action: pan-y pinch-zoom;
+}

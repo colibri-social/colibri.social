@@ -1,9 +1,8 @@
-import { classifyThrown } from "../errors/classify";
+import { classifyThrown, spaceAuthority } from "@colibri-social/lib";
 import { ambiguousCategoryName } from "../utils/channel-category";
 import { createLogger } from "../utils/logger";
 import { cacheEnabled, readCommunity } from "./cache/store";
 import { colibri } from "./lexicons";
-import { spaceAuthority } from "./space-ref";
 import type { CategoryView, ChannelView, CommunityView } from "./views";
 import type { ColibriClient } from "./xrpc";
 

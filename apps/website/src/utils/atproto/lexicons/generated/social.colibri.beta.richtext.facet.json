@@ -36,7 +36,8 @@
 							"#role",
 							"#channel",
 							"#link",
-							"#time"
+							"#time",
+							"#customEmoji"
 						]
 					},
 					"description": "What the range means. A range may carry more than one feature."
@@ -254,6 +255,25 @@
 						"relative"
 					],
 					"description": "How to render it."
+				}
+			}
+		},
+		"customEmoji": {
+			"type": "object",
+			"description": "A custom emoji. The text under the facet is the emoji's fallback: a Unicode alternative when the emoji has one, otherwise its :name: shortcode.",
+			"required": [
+				"uri"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "at-uri",
+					"description": "The emoji record. Its collection identifies the emoji lexicon, for example blue.moji.collection.item."
+				},
+				"cid": {
+					"type": "string",
+					"format": "cid",
+					"description": "The version of the emoji record the message was written against."
 				}
 			}
 		}

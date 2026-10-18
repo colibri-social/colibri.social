@@ -1,3 +1,4 @@
+import { classifyThrown, describeError } from "@colibri-social/lib";
 import {
 	type Component,
 	createEffect,
@@ -11,8 +12,6 @@ import {
 	ConnectionState,
 	useVoiceChatContext,
 } from "../../../contexts/VoiceChat";
-import { classifyThrown } from "../../../errors/classify";
-import { describeError } from "../../../errors/copy";
 import { createLogger } from "../../../utils/logger";
 import {
 	Select,

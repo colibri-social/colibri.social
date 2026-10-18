@@ -11,3 +11,5 @@ logo.png
 fonts.css
 login/
 worklets/
+assets/
+push-sw.js

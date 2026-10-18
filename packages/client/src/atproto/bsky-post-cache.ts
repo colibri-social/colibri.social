@@ -1,5 +1,5 @@
 import type { AppBskyFeedDefs } from "@atproto/api";
-import { classifyThrown } from "../errors/classify";
+import { classifyThrown } from "@colibri-social/lib";
 import { createLogger } from "../utils/logger";
 import { getPosts } from "./bsky";
 import {

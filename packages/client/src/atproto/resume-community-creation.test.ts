@@ -1,5 +1,5 @@
+import { ColibriError } from "@colibri-social/lib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ColibriError } from "../errors/error";
 import { colibri } from "./lexicons";
 import {
 	RESUME_WINDOW_MS,

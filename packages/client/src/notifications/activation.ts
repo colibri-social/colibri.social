@@ -1,5 +1,5 @@
+import { isThreadSpace, spaceRecordUri } from "@colibri-social/lib";
 import { COLLECTIONS } from "../atproto/lexicons";
-import { isThreadSpace, spaceRecordUri } from "../atproto/space-ref";
 
 export type NotificationActivation = {
 	channelUri: string;

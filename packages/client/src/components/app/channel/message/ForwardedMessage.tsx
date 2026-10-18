@@ -1,3 +1,4 @@
+import { spaceAuthority } from "@colibri-social/lib";
 import { A } from "@solidjs/router";
 import { type Component, createMemo, Show } from "solid-js";
 import ArrowElbowUpRightIcon from "~icons/ph/arrow-elbow-up-right";
@@ -8,7 +9,6 @@ import {
 	buildSpacePath,
 	buildThreadPath,
 } from "../../../../atproto/colibri-channel-url";
-import { spaceAuthority } from "../../../../atproto/space-ref";
 import type { ForwardView } from "../../../../atproto/views";
 import { useCommunityContext } from "../../../../contexts/Community";
 import { useThreads } from "../../../../contexts/Threads";

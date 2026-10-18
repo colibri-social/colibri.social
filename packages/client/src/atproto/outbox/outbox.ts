@@ -1,7 +1,7 @@
 import type { Agent } from "@atproto/api";
+import type { ColibriError, XrpcResult } from "@colibri-social/lib";
+import { classifyThrown, nextTid, statusOf } from "@colibri-social/lib";
 import { createSignal } from "solid-js";
-import { classifyThrown, statusOf } from "../../errors/classify";
-import type { ColibriError } from "../../errors/error";
 import { reportError } from "../../errors/report";
 import { showError } from "../../errors/show-error";
 import { createLogger } from "../../utils/logger";
@@ -12,8 +12,6 @@ import {
 	outboxUpdate,
 } from "../cache/store";
 import { sessionDead } from "../session-health";
-import type { XrpcResult } from "../xrpc/result";
-import { nextTid } from "./tid";
 import {
 	type AppviewKind,
 	isSpaceKind,

@@ -1,3 +1,5 @@
+import type { ColibriErrorCode } from "@colibri-social/lib";
+import { ColibriError, classifyThrown, frameIs } from "@colibri-social/lib";
 import { useNavigate } from "@solidjs/router";
 import {
 	type Accessor,
@@ -59,14 +61,10 @@ import {
 	THREAD_MOVE,
 	VOICE_MODERATE,
 } from "../atproto/permissions";
-import { frameIs } from "../atproto/sync-frames";
 import type { MemberView } from "../atproto/views";
 import { type ColibriClient, clientForManagingApp } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
 import { ErrorState } from "../components/ErrorState";
-import { classifyThrown } from "../errors/classify";
-import type { ColibriErrorCode } from "../errors/codes";
-import { ColibriError } from "../errors/error";
 import { showError } from "../errors/show-error";
 import { getAppViewDid } from "../utils/appview";
 import createMediaRefresh from "../utils/create-media-refresh";

@@ -1,0 +1,601 @@
+import { BellOffIcon } from "@solar-icons/solid/bold/bell-off";
+import { ChatRoundDotsIcon } from "@solar-icons/solid/bold/chat-round-dots";
+import { DocumentsIcon } from "@solar-icons/solid/bold/documents";
+import { LinkIcon } from "@solar-icons/solid/bold/link";
+import { SettingsIcon } from "@solar-icons/solid/bold/settings";
+import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
+import { createSignal, For, type JSX, Show } from "solid-js";
+import { expect, screen, userEvent, waitFor, within } from "storybook/test";
+import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
+import {
+	hasIntermediate,
+	recordHeightTransitions,
+	sampleHeights,
+	withSlowMotion,
+} from "../../foundations/motion-test";
+import { ThreadIcon } from "../../icons/custom";
+import { Button } from "../Button/Button";
+import { MarkReadIcon } from "../ContextMenu/menu-entries";
+import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
+import { DestructiveRow } from "../List/List";
+import { TextField } from "../TextField/TextField";
+import { Drawer, DrawerContent, DrawerTrigger } from "./Drawer";
+
+const meta = {
+	title: "Overlays/Drawer",
+	component: Drawer,
+	parameters: { viewport: { defaultViewport: "iphone" } },
+} satisfies Meta<typeof Drawer>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+type DrawerAction = { icon: JSX.Element; label: string };
+
+const actions: DrawerAction[] = [
+	{ icon: <MarkReadIcon />, label: "Mark as read" },
+	{ icon: <BellOffIcon />, label: "Mute channel" },
+	{ icon: <ThreadIcon />, label: "Start a thread" },
+	{ icon: <ChatRoundDotsIcon />, label: "Show all threads" },
+	{ icon: <LinkIcon />, label: "Copy channel link" },
+];
+
+const manageActions: DrawerAction[] = [
+	{ icon: <DocumentsIcon />, label: "Duplicate" },
+	{ icon: <SettingsIcon />, label: "Edit channel" },
+];
+
+const CHANNEL_AT_URI =
+	"at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/social.colibri.beta.channel/3lawesome";
+
+const ActionGroup = (props: { actions: DrawerAction[] }) => (
+	<div class="flex flex-col overflow-hidden rounded-control-lg bg-secondary">
+		<For each={props.actions}>
+			{(action, index) => (
+				<>
+					{index() > 0 && <div class="h-px bg-border" />}
+					<button
+						type="button"
+						class="flex h-10 items-center gap-2 px-3 text-left text-sm font-semibold active:bg-secondary-highlight [&>svg]:size-6"
+					>
+						{action.icon}
+						{action.label}
+					</button>
+				</>
+			)}
+		</For>
+	</div>
+);
+
+export const ContextMenu: Story = {
+	render: () => (
+		<Drawer>
+			<DrawerTrigger as={Button} variant="secondary">
+				Open channel menu
+			</DrawerTrigger>
+			<DrawerContent title="Awesome Channel" titleIcon={<ChatRoundDotsIcon />}>
+				<ActionGroup actions={actions} />
+				<ActionGroup actions={manageActions} />
+				<DestructiveRow icon={<TrashBinTrashIcon />} label="Delete channel" />
+				<DeveloperModeCard
+					copyLabel="Copy AT-URI"
+					copyValue={CHANNEL_AT_URI}
+					pdslsHref={`https://pdsls.dev/${CHANNEL_AT_URI}`}
+				/>
+			</DrawerContent>
+		</Drawer>
+	),
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Open channel menu" }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await expect(within(dialog).getByText("Awesome Channel")).toBeVisible();
+		await expect(
+			within(dialog)
+				.getAllByRole("button")
+				.map((button) => button.textContent?.trim())
+				.slice(0, 8),
+		).toEqual([
+			"Mark as read",
+			"Mute channel",
+			"Start a thread",
+			"Show all threads",
+			"Copy channel link",
+			"Duplicate",
+			"Edit channel",
+			"Delete channel",
+		]);
+		await expect(
+			within(dialog).getByRole("button", { name: "Copy AT-URI" }),
+		).toBeVisible();
+		await expect(
+			within(dialog).getByRole("link", { name: "Show on PDSls" }),
+		).toHaveAttribute("href", `https://pdsls.dev/${CHANNEL_AT_URI}`);
+		await waitFor(() =>
+			expect(dialog).toContainElement(document.activeElement as HTMLElement),
+		);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(
+			() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+			{ timeout: 2000 },
+		);
+	},
+};
+
+export const TallContentScrolls: Story = {
+	render: () => (
+		<Drawer>
+			<DrawerTrigger as={Button} variant="secondary">
+				Open long sheet
+			</DrawerTrigger>
+			<DrawerContent title="Members">
+				<For each={Array.from({ length: 40 }, (_, index) => index + 1)}>
+					{(index) => (
+						<div class="flex h-12 shrink-0 items-center rounded-control-lg bg-secondary px-3 text-sm font-semibold">
+							Member {index}
+						</div>
+					)}
+				</For>
+			</DrawerContent>
+		</Drawer>
+	),
+};
+
+export const InitiallyOpen: Story = {
+	render: () => (
+		<Drawer initialOpen>
+			<DrawerContent title="Invite people to Awesome Space">
+				<p class="text-sm text-muted-foreground">
+					Drag the handle down, or flick it, to dismiss.
+				</p>
+			</DrawerContent>
+		</Drawer>
+	),
+};
+
+const QuickCloseDemo = () => {
+	const [open, setOpen] = createSignal(false);
+	return (
+		<>
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Open quick close
+			</Button>
+			<Drawer open={open()} onOpenChange={setOpen}>
+				<DrawerContent title="Quick close">
+					<Button variant="secondary" onClick={() => setOpen(false)}>
+						Close now
+					</Button>
+				</DrawerContent>
+			</Drawer>
+		</>
+	);
+};
+
+const closeDuringOpening =
+	(delay: number): Story["play"] =>
+	async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Open quick close" }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await new Promise((resolve) => setTimeout(resolve, delay));
+		within(dialog).getByRole("button", { name: "Close now" }).click();
+		await waitFor(
+			() =>
+				expect(
+					document.querySelector("[data-corvu-drawer-content]"),
+				).toBeNull(),
+			{ timeout: 4000 },
+		);
+	};
+
+export const CloseDuringOpening: Story = {
+	render: () => <QuickCloseDemo />,
+	play: closeDuringOpening(50),
+};
+
+export const ClosesWithoutTransitionEnd: Story = {
+	render: () => <QuickCloseDemo />,
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Open quick close" }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await new Promise((resolve) => setTimeout(resolve, 900));
+		dialog.style.transitionProperty = "none";
+		within(dialog).getByRole("button", { name: "Close now" }).click();
+		await waitFor(
+			() =>
+				expect(
+					document.querySelector("[data-corvu-drawer-content]"),
+				).toBeNull(),
+			{ timeout: 4000 },
+		);
+	},
+};
+
+export const CloseRightAfterOpening: Story = {
+	render: () => <QuickCloseDemo />,
+	play: closeDuringOpening(0),
+};
+
+export const CloseMidTransition: Story = {
+	render: () => <QuickCloseDemo />,
+	play: closeDuringOpening(250),
+};
+
+const GrowingSheet = () => {
+	const [expanded, setExpanded] = createSignal(false);
+	return (
+		<Drawer>
+			<DrawerTrigger as={Button} variant="secondary">
+				Open growing sheet
+			</DrawerTrigger>
+			<DrawerContent title="Notifications">
+				<Button
+					variant="secondary"
+					onClick={() => setExpanded((value) => !value)}
+				>
+					{expanded() ? "Show less" : "Show more"}
+				</Button>
+				<Show when={expanded()}>
+					<For each={[1, 2, 3, 4]}>
+						{(index) => (
+							<div class="flex h-12 shrink-0 items-center rounded-control-lg bg-secondary px-3 text-sm font-semibold">
+								Option {index}
+							</div>
+						)}
+					</For>
+				</Show>
+			</DrawerContent>
+		</Drawer>
+	);
+};
+
+export const AnimatesHeight: Story = {
+	render: () => <GrowingSheet />,
+	play: async ({ canvasElement }) => {
+		const opening = recordHeightTransitions();
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Open growing sheet" }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await new Promise((resolve) => setTimeout(resolve, 700));
+		opening.stop();
+		await expect(opening.count()).toBe(0);
+		await waitFor(
+			() => expect(dialog).not.toHaveAttribute("data-transitioning"),
+			{ timeout: 3000 },
+		);
+		const before = dialog.offsetHeight;
+		await withSlowMotion(async () => {
+			const sampling = sampleHeights(dialog, 700);
+			await userEvent.click(
+				within(dialog).getByRole("button", { name: "Show more" }),
+			);
+			const samples = await sampling;
+			await waitFor(() => expect(dialog.style.height).toBe(""), {
+				timeout: 4000,
+			});
+			const after = dialog.offsetHeight;
+			await expect(after).toBeGreaterThan(before + 150);
+			await expect(hasIntermediate(samples, before, after)).toBe(true);
+		});
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Show less" }),
+		);
+		await waitFor(
+			() => {
+				expect(dialog.style.height).toBe("");
+				expect(dialog.offsetHeight).toBe(before);
+			},
+			{ timeout: 3000 },
+		);
+	},
+};
+
+export const HeaderInsets: Story = {
+	render: () => (
+		<div class="flex gap-2 p-4">
+			<Drawer>
+				<DrawerTrigger as={Button} variant="secondary">
+					Padded header
+				</DrawerTrigger>
+				<DrawerContent
+					aria-label="Padded header"
+					header={<span data-probe="padded">general</span>}
+				>
+					<p class="m-0 text-sm">Body</p>
+				</DrawerContent>
+			</Drawer>
+			<Drawer>
+				<DrawerTrigger as={Button} variant="secondary">
+					Bleed header
+				</DrawerTrigger>
+				<DrawerContent
+					aria-label="Bleed header"
+					headerBleed
+					header={<div data-probe="bleed" class="h-20 bg-primary" />}
+				>
+					<p class="m-0 text-sm">Body</p>
+				</DrawerContent>
+			</Drawer>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const inset = async (name: string, probe: string) => {
+			await userEvent.click(canvas.getByRole("button", { name }));
+			const dialog = await screen.findByRole("dialog", { name });
+			await waitFor(() => expect(dialog).toBeVisible());
+			const box = dialog.getBoundingClientRect();
+			const inner = (
+				dialog.querySelector(`[data-probe="${probe}"]`) as HTMLElement
+			).getBoundingClientRect();
+			const result = {
+				left: Math.round(inner.left - box.left),
+				top: Math.round(inner.top - box.top),
+			};
+			await userEvent.keyboard("{Escape}");
+			await waitFor(() =>
+				expect(screen.queryByRole("dialog", { name })).toBeNull(),
+			);
+			return result;
+		};
+		const padded = await inset("Padded header", "padded");
+		await expect(padded.left).toBe(16);
+		await expect(padded.top).toBeGreaterThanOrEqual(24);
+		const bleed = await inset("Bleed header", "bleed");
+		await expect(bleed.left).toBe(0);
+	},
+};
+
+const HandoffDemo = () => {
+	const [first, setFirst] = createSignal(false);
+	const [second, setSecond] = createSignal(false);
+	return (
+		<div class="p-4">
+			<Button variant="secondary" onClick={() => setFirst(true)}>
+				Open first
+			</Button>
+			<Drawer open={first()} onOpenChange={setFirst}>
+				<DrawerContent title="First drawer">
+					<Button
+						onClick={() => {
+							setFirst(false);
+							setSecond(true);
+						}}
+					>
+						Open second
+					</Button>
+				</DrawerContent>
+			</Drawer>
+			<Drawer open={second()} onOpenChange={setSecond}>
+				<DrawerContent title="Second drawer">
+					<p class="m-0 text-sm">Still here</p>
+				</DrawerContent>
+			</Drawer>
+		</div>
+	);
+};
+
+export const HandoffToAnotherDrawer: Story = {
+	render: () => <HandoffDemo />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(canvas.getByRole("button", { name: "Open first" }));
+		const first = await screen.findByRole("dialog", { name: "First drawer" });
+		await waitFor(() => expect(first).toBeVisible());
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		await userEvent.click(
+			within(first).getByRole("button", { name: "Open second" }),
+		);
+		await screen.findByRole("dialog", { name: "Second drawer" });
+		await new Promise((resolve) => setTimeout(resolve, 1200));
+		await expect(
+			screen.getByRole("dialog", { name: "Second drawer" }),
+		).toBeVisible();
+		await expect(
+			screen.queryByRole("dialog", { name: "First drawer" }),
+		).toBeNull();
+	},
+};
+
+const UnsavedDrawer = () => {
+	const [open, setOpen] = createSignal(false);
+	const [nickname, setNickname] = createSignal("");
+	return (
+		<>
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Edit nickname
+			</Button>
+			<Drawer
+				open={open()}
+				onOpenChange={setOpen}
+				dirty={nickname() !== ""}
+				discardDescription="Your nickname won't be saved."
+			>
+				<DrawerContent title="Nickname">
+					<label class="flex flex-col gap-1 text-sm">
+						Nickname
+						<input
+							value={nickname()}
+							onInput={(event) => setNickname(event.currentTarget.value)}
+							class="h-10 rounded-control border border-border bg-secondary px-3"
+						/>
+					</label>
+				</DrawerContent>
+			</Drawer>
+		</>
+	);
+};
+
+const drawerContent = () =>
+	document.querySelector<HTMLElement>("[data-corvu-drawer-content]");
+
+const discardDialog = () =>
+	screen.queryByRole("dialog", { name: "Discard changes?" });
+
+export const GuardsUnsavedChanges: Story = {
+	render: () => <UnsavedDrawer />,
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Edit nickname" }),
+		);
+		const field = await screen.findByRole("textbox", { name: "Nickname" });
+		await userEvent.type(field, "Wren");
+		await userEvent.keyboard("{Escape}");
+		const prompt = await screen.findByRole("dialog", {
+			name: "Discard changes?",
+		});
+		await expect(prompt).toHaveTextContent("Your nickname won't be saved.");
+		await expectNoLayoutIssues(prompt);
+		await expect(drawerContent()).not.toBeNull();
+		await userEvent.click(
+			within(prompt).getByRole("button", { name: "Cancel" }),
+		);
+		await waitFor(() => expect(discardDialog()).toBeNull());
+		await expect(field).toHaveValue("Wren");
+
+		const content = drawerContent() as HTMLElement;
+		await waitFor(
+			async () => {
+				const before = content.getBoundingClientRect().top;
+				await new Promise((resolve) => setTimeout(resolve, 120));
+				expect(content.getBoundingClientRect().top).toBe(before);
+			},
+			{ timeout: 3000 },
+		);
+		const box = content.getBoundingClientRect();
+		const at = (y: number) => ({
+			bubbles: true,
+			pointerId: 7,
+			pointerType: "mouse",
+			isPrimary: true,
+			clientX: box.left + box.width / 2,
+			clientY: y,
+		});
+		content.dispatchEvent(new PointerEvent("pointerdown", at(box.top + 8)));
+		for (let step = 1; step <= 10; step += 1) {
+			await new Promise((resolve) => requestAnimationFrame(resolve));
+			content.dispatchEvent(
+				new PointerEvent("pointermove", at(box.top + 8 + step * 60)),
+			);
+		}
+		content.dispatchEvent(new PointerEvent("pointerup", at(box.top + 608)));
+		const dragPrompt = await screen.findByRole("dialog", {
+			name: "Discard changes?",
+		});
+		await userEvent.click(
+			within(dragPrompt).getByRole("button", { name: "Cancel" }),
+		);
+		await waitFor(() => expect(discardDialog()).toBeNull());
+		await waitFor(
+			() =>
+				expect(
+					Math.abs(
+						(drawerContent() as HTMLElement).getBoundingClientRect().top -
+							box.top,
+					),
+				).toBeLessThan(1),
+			{ timeout: 3000 },
+		);
+
+		await userEvent.keyboard("{Escape}");
+		const last = await screen.findByRole("dialog", {
+			name: "Discard changes?",
+		});
+		await userEvent.click(
+			within(last).getByRole("button", { name: "Discard changes" }),
+		);
+		await waitFor(() => expect(drawerContent()).toBeNull(), { timeout: 4000 });
+		await waitFor(() =>
+			expect(document.body.style.pointerEvents).not.toBe("none"),
+		);
+	},
+};
+
+const KEYBOARD = 300;
+
+const liftedDrawer = () =>
+	document.querySelector<HTMLElement>(
+		"[data-corvu-drawer-content][data-keyboard-lift]",
+	) as HTMLElement;
+
+const expectFitsAboveKeyboard = async () => {
+	const content = liftedDrawer();
+	const overlayTop =
+		Number.parseFloat(
+			getComputedStyle(document.documentElement).getPropertyValue(
+				"--overlay-top",
+			),
+		) || 0;
+	await waitFor(() => {
+		const box = content.getBoundingClientRect();
+		expect(
+			Math.abs(box.bottom - (window.innerHeight - KEYBOARD)),
+		).toBeLessThanOrEqual(1);
+		expect(box.top).toBeGreaterThanOrEqual(overlayTop - 1);
+	});
+	const field = content.querySelector("input") as HTMLInputElement;
+	field.scrollIntoView({ block: "nearest" });
+	await waitFor(() => {
+		const box = field.getBoundingClientRect();
+		expect(box.bottom).toBeLessThanOrEqual(window.innerHeight - KEYBOARD + 1);
+		expect(box.top).toBeGreaterThanOrEqual(content.getBoundingClientRect().top);
+	});
+};
+
+const keyboardLiftPlay: Story["play"] = async () => {
+	await waitFor(() => expect(liftedDrawer()).toBeTruthy());
+	const content = liftedDrawer();
+	await new Promise((resolve) => setTimeout(resolve, 700));
+	const rest = content.getBoundingClientRect().bottom;
+	content.style.translate = "0 -120px";
+	await waitFor(() =>
+		expect(Math.round(content.getBoundingClientRect().bottom)).toBe(
+			Math.round(rest - 120),
+		),
+	);
+	content.style.translate = "";
+	content.style.setProperty("--keyboard-lift", `${KEYBOARD}px`);
+	await expectFitsAboveKeyboard();
+	await expectNoLayoutIssues(content);
+	content.style.removeProperty("--keyboard-lift");
+	await waitFor(() =>
+		expect(Math.round(content.getBoundingClientRect().bottom)).toBe(
+			Math.round(rest),
+		),
+	);
+};
+
+export const KeyboardLift: Story = {
+	render: () => (
+		<Drawer initialOpen>
+			<DrawerContent title="Rename channel">
+				<TextField label="Name" placeholder="general" />
+			</DrawerContent>
+		</Drawer>
+	),
+	play: keyboardLiftPlay,
+};
+
+export const KeyboardLiftTall: Story = {
+	render: () => (
+		<Drawer initialOpen>
+			<DrawerContent title="Members">
+				<For each={Array.from({ length: 40 }, (_, index) => index + 1)}>
+					{(index) => (
+						<div class="flex h-12 shrink-0 items-center rounded-control-lg bg-secondary px-3 text-sm font-semibold">
+							Member {index}
+						</div>
+					)}
+				</For>
+				<TextField label="Search" placeholder="Find a member" />
+			</DrawerContent>
+		</Drawer>
+	),
+	play: keyboardLiftPlay,
+};

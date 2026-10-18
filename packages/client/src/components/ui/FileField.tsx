@@ -1,10 +1,9 @@
+import { ColibriError } from "@colibri-social/lib";
 import type { Details } from "@kobalte/core/file-field";
 import { FileField as FileFieldPrimitive } from "@kobalte/core/file-field";
 import type { VariantProps } from "cva";
 import type { ComponentProps, Setter, ValidComponent } from "solid-js";
 import { Show, splitProps } from "solid-js";
-
-import { ColibriError } from "../../errors/error";
 import { showError } from "../../errors/show-error";
 import { cx } from "../../utils/cva";
 import { imageRejectionCode } from "../../utils/image-upload";

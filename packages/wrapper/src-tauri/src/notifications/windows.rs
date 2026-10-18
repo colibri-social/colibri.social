@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::OnceLock;
 
-use tauri_winrt_notification::{IconCrop, Sound, Toast};
+use tauri_winrt_notification::{IconCrop, Toast};
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::ERROR_SUCCESS;
 use windows::Win32::System::Registry::{
@@ -125,7 +125,7 @@ pub fn notify(payload: NotificationPayload) -> Result<(), NativeError> {
         toast = toast.icon(Path::new(icon_uri), IconCrop::Circular, "");
     }
 
-    toast = toast.sound(Some(Sound::Default));
+    toast = toast.sound(None);
 
     let channel_uri = payload.channel_uri.clone();
     let message_uri = payload.message_uri.clone();

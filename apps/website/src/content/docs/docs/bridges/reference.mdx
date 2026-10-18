@@ -125,6 +125,12 @@ Procedure. Reports a history import's progress, which admins see in the channel'
 
 `requestedAt` must match the link's current `backfill`. `reached` is when the newest imported message in the channel was sent.
 
+### `leave`
+
+Procedure. Deletes one of the calling bridge's registrations, for when admins on the other service disconnect it or remove the bridge. Messages it already relayed stay. A registration that was already revoked fails with `RegistrationNotFound`.
+
+- **Input:** `community`, `registration`
+
 ## Methods called by an admin
 
 ### `getPairing`
@@ -216,7 +222,7 @@ The `social.colibri.beta.bridge.registration` record, written by the community i
 
 ### `registrationView`
 
-`id`, `community`, `bridge`, `bridgeHandle`, `platform`, `remoteSpace`, `remoteSpaceName`, `links`, `backfills` (array of [`backfillStatus`](#backfillstatus)), `enabled`, `mirrorModeration`, `createdBy`, `createdAt`, `updatedAt`.
+`id`, `community`, `communityName`, `bridge`, `bridgeHandle`, `platform`, `remoteSpace`, `remoteSpaceName`, `links`, `backfills` (array of [`backfillStatus`](#backfillstatus)), `enabled`, `mirrorModeration`, `createdBy`, `createdAt`, `updatedAt`.
 
 ### `pairingView`
 

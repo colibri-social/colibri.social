@@ -1,3 +1,4 @@
+import { classifyThrown } from "@colibri-social/lib";
 import {
 	createSignal,
 	type JSX,
@@ -6,7 +7,6 @@ import {
 	Switch as SwitchFlow,
 } from "solid-js";
 import { toast } from "somoto";
-import { classifyThrown } from "../../../errors/classify";
 import { createLogger } from "../../../utils/logger";
 import { Spinner } from "../../icons/Spinner";
 import { Button } from "../../ui/Button";

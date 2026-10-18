@@ -45,8 +45,15 @@
 					"resource": "space",
 					"spaceType": "social.colibri.beta.channel.voice",
 					"authority": "*",
+					"collection": [
+						"social.colibri.beta.message",
+						"social.colibri.beta.reaction"
+					],
 					"action": [
-						"read"
+						"read",
+						"create",
+						"update",
+						"delete"
 					]
 				},
 				{
@@ -93,6 +100,7 @@
 						"social.colibri.beta.channel.listMessages",
 						"social.colibri.beta.channel.listReactions",
 						"social.colibri.beta.channel.listUnreadStatus",
+						"social.colibri.beta.channel.listSummaries",
 						"social.colibri.beta.channel.putReadCursors",
 						"social.colibri.beta.embed.getMetadata",
 						"social.colibri.beta.embed.searchGifs",
@@ -102,6 +110,7 @@
 						"social.colibri.beta.thread.create",
 						"social.colibri.beta.thread.update",
 						"social.colibri.beta.thread.getThread",
+						"social.colibri.beta.thread.listMembers",
 						"social.colibri.beta.thread.listThreads"
 					]
 				},

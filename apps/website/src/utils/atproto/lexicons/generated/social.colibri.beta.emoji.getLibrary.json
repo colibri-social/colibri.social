@@ -1,0 +1,32 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.emoji.getLibrary",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets the requesting user's emoji library: the emoji and packs they uploaded, plus everything they follow, hydrated with images.",
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"library"
+					],
+					"properties": {
+						"library": {
+							"type": "ref",
+							"ref": "social.colibri.beta.emoji.defs#libraryView",
+							"description": "The user's library."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				}
+			]
+		}
+	}
+}

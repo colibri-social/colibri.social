@@ -1,0 +1,35 @@
+[data-rich-editor] .ProseMirror {
+	outline: none;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	word-break: normal;
+	color: var(--foreground);
+}
+
+[data-rich-editor] .ProseMirror p {
+	margin: 0;
+}
+
+[data-rich-editor] .ProseMirror p.subtext-block {
+	font-size: var(--text-xs);
+	line-height: var(--text-xs--line-height);
+}
+
+[data-rich-editor] .ProseMirror p.is-editor-empty:first-child {
+	position: relative;
+}
+
+[data-rich-editor] .ProseMirror p.is-editor-empty:first-child::before {
+	content: attr(data-placeholder);
+	position: absolute;
+	inset: 0 0 auto 0;
+	color: var(--muted-foreground);
+	pointer-events: none;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+[data-rich-editor] .ProseMirror [data-mention-type] {
+	white-space: nowrap;
+}

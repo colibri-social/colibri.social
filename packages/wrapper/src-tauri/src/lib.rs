@@ -6,6 +6,10 @@ mod apns;
 mod linux_cef;
 #[cfg(target_os = "macos")]
 mod macos_media;
+mod push;
+#[cfg(any(target_os = "android", test))]
+mod received_files;
+mod save_image;
 #[cfg(desktop)]
 mod notifications;
 #[cfg(desktop)]
@@ -264,9 +268,19 @@ pub fn run() {
         }
     }
 
+    #[cfg(mobile)]
+    {
+        builder = builder.plugin(tauri_plugin_haptics::init());
+    }
+
     #[cfg(target_os = "android")]
     {
-        builder = builder.plugin(tauri_plugin_fcm::init());
+        builder = builder
+            .plugin(tauri_plugin_fcm::init())
+            .register_asynchronous_uri_scheme_protocol(
+                received_files::SCHEME,
+                received_files::serve,
+            );
     }
 
     builder
@@ -274,14 +288,18 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             web_auth::start_web_auth,
+            save_image::save_image,
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             apns::apns_register,
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             apns::apns_remove_delivered,
             #[cfg(target_os = "ios")]
             apns::activation::apns_take_activation,
+            push::push_set_live,
+            push::push_dismiss_read,
             #[cfg(desktop)]
             titlebar::titlebar_init,
             #[cfg(desktop)]
@@ -321,35 +339,6 @@ pub fn run() {
             #[cfg(desktop)]
             quit_guard::ready_to_exit
         ])
-        .register_uri_scheme_protocol("emoji", |ctx, request| {
-            let not_found = || {
-                tauri::http::Response::builder()
-                    .status(404)
-                    .body(Vec::new())
-                    .unwrap()
-            };
-            let rel = request.uri().path().trim_start_matches('/').to_string();
-            if rel.contains("..") {
-                return not_found();
-            }
-            let Ok(dir) = ctx.app_handle().path().resource_dir() else {
-                return not_found();
-            };
-            let candidates = [
-                dir.join("twemoji").join(&rel),
-                dir.join("assets").join("twemoji").join(&rel),
-            ];
-            for path in candidates {
-                if let Ok(bytes) = std::fs::read(&path) {
-                    return tauri::http::Response::builder()
-                        .header("Content-Type", "image/png")
-                        .header("Access-Control-Allow-Origin", "*")
-                        .body(bytes)
-                        .unwrap();
-                }
-            }
-            not_found()
-        })
         .register_uri_scheme_protocol("capture-thumb", |ctx, request| {
             let not_found = || {
                 tauri::http::Response::builder()
@@ -404,6 +393,9 @@ pub fn run() {
 
             #[cfg(target_os = "ios")]
             apns::activation::setup(app.handle());
+
+            #[cfg(target_os = "macos")]
+            apns::setup();
 
             #[cfg(not(any(target_os = "linux", windows, desktop)))]
             let _ = app;

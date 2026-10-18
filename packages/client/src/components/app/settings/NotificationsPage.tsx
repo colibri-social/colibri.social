@@ -1,3 +1,4 @@
+import { frameIs } from "@colibri-social/lib";
 import {
 	type Component,
 	createSignal,
@@ -12,7 +13,6 @@ import {
 	type NotificationLevel,
 	writeNotificationLevel,
 } from "../../../atproto/notificationPreference";
-import { frameIs } from "../../../atproto/sync-frames";
 import { useSocketContext } from "../../../contexts/Socket";
 import { useUserContext } from "../../../contexts/User";
 import { useUserPreferences } from "../../../contexts/UserPreferences";

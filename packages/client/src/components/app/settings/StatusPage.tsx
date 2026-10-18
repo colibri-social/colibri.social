@@ -10,6 +10,7 @@ import { useUserContext } from "../../../contexts/User";
 import { createStatusEditor } from "../../../hooks/createStatusEditor";
 import { parseEmojiText } from "../../../utils/emoji";
 import { createLogger } from "../../../utils/logger";
+import { STATUS_TEXT_MAX_BYTES, utf8Length } from "../../../utils/status-text";
 import { Button } from "../../ui/Button";
 import {
 	SwitchControl,
@@ -99,7 +100,8 @@ export const StatusPage: Component = () => {
 				value={status()}
 				onChange={setStatus}
 				validationState={
-					status() !== undefined && status()!.trim().length < 33
+					status() !== undefined &&
+					utf8Length(status()!.trim()) <= STATUS_TEXT_MAX_BYTES
 						? "valid"
 						: "invalid"
 				}
@@ -126,7 +128,7 @@ export const StatusPage: Component = () => {
 					</Button>
 				</EmojiPopover>
 				<TextFieldInput
-					maxLength={32}
+					maxLength={STATUS_TEXT_MAX_BYTES}
 					required
 					type="text"
 					class="resize-none pl-10"

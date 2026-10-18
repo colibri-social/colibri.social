@@ -39,6 +39,11 @@
 							"maxLength": 7,
 							"description": "Hex colour as #rrggbb."
 						},
+						"badge": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#roleIconBadge",
+							"description": "An icon badge. Image badges are set with social.colibri.beta.role.putBadgeImage."
+						},
 						"position": {
 							"type": "integer",
 							"description": "Hierarchy position. Higher outranks lower."

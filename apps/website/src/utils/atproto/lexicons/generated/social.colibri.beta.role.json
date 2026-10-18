@@ -25,6 +25,14 @@
 						"maxLength": 7,
 						"description": "Hex colour as #rrggbb."
 					},
+					"badge": {
+						"type": "union",
+						"refs": [
+							"#iconBadge",
+							"#imageBadge"
+						],
+						"description": "A small badge shown next to the names of members holding this role."
+					},
 					"permissions": {
 						"type": "array",
 						"items": {
@@ -88,6 +96,46 @@
 						"type": "string"
 					},
 					"description": "Permissions denied within this channel. Deny beats both the base permissions and allow."
+				}
+			}
+		},
+		"iconBadge": {
+			"type": "object",
+			"description": "A badge drawn from the client's curated icon set.",
+			"required": [
+				"icon"
+			],
+			"properties": {
+				"icon": {
+					"type": "string",
+					"minLength": 1,
+					"maxLength": 64,
+					"description": "The icon's identifier in the curated set, for example shield-check."
+				},
+				"color": {
+					"type": "string",
+					"maxLength": 7,
+					"description": "Hex colour as #rrggbb. Absent means the role colour, or the client's default badge colour when the role has none."
+				}
+			}
+		},
+		"imageBadge": {
+			"type": "object",
+			"description": "A badge drawn from an uploaded image.",
+			"required": [
+				"image"
+			],
+			"properties": {
+				"image": {
+					"type": "blob",
+					"accept": [
+						"image/jpeg",
+						"image/png",
+						"image/gif",
+						"image/webp"
+					],
+					"maxSize": 262144,
+					"description": "A square image, shown at about 16 pixels."
 				}
 			}
 		}

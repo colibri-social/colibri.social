@@ -1,7 +1,11 @@
+import {
+	describeError,
+	FALLBACK_COPY,
+	isColibriError,
+	isRetryable,
+} from "@colibri-social/lib";
 import { toast } from "somoto";
 import { sessionDead } from "../atproto/session-health";
-import { describeError, FALLBACK_COPY } from "./copy";
-import { isColibriError, isRetryable } from "./error";
 import { type ReportOptions, reportError } from "./report";
 
 export interface ShowErrorOptions extends ReportOptions {

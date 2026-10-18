@@ -1,5 +1,6 @@
 import type { Agent } from "@atproto/api";
 import type { BrowserOAuthClient } from "@atproto/oauth-client-browser";
+import { ColibriError, classifyThrown, frameIs } from "@colibri-social/lib";
 import {
 	createContext,
 	createEffect,
@@ -37,7 +38,6 @@ import {
 	resetReadCursorWriter,
 } from "../atproto/read-cursor";
 import { sessionDead } from "../atproto/session-health";
-import { frameIs } from "../atproto/sync-frames";
 import type { CommunityView, ProfileView } from "../atproto/views";
 import { type ColibriClient, primaryClient } from "../atproto/xrpc";
 import { AppLoadingScreen } from "../components/AppLoadingScreen";
@@ -45,8 +45,6 @@ import { AppViewUnreachableModal } from "../components/app/AppViewUnreachableMod
 import { ProfileGate } from "../components/app/onboarding/ProfileGate";
 import { SessionExpiredRedirect } from "../components/app/SessionExpiredRedirect";
 import { setReportingAccount } from "../errors/account";
-import { classifyThrown } from "../errors/classify";
-import { ColibriError } from "../errors/error";
 import { identifyUser } from "../sentry";
 import { getAppViewDid } from "../utils/appview";
 import createMediaRefresh from "../utils/create-media-refresh";

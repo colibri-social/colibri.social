@@ -1,0 +1,51 @@
+{
+	"name": "@colibri-social/app",
+	"private": true,
+	"type": "module",
+	"version": "0.0.0",
+	"description": "The Colibri Social client, built on the component library.",
+	"license": "MIT",
+	"exports": {
+		"./dist/*": "./dist/*"
+	},
+	"scripts": {
+		"dev": "pnpm --filter @colibri-social/assets build-worklets && vite",
+		"build": "pnpm --filter @colibri-social/assets build-worklets && vite build",
+		"preview": "vite preview",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@arborium/arborium": "^2.18.1",
+		"@atproto/api": "0.0.0-spaces-alpha-20261001173819",
+		"@atproto/oauth-client-browser": "0.0.0-spaces-alpha-20261001173819",
+		"@colibri-social/assets": "workspace:*",
+		"@colibri-social/lib": "workspace:*",
+		"@colibri-social/ui": "workspace:*",
+		"@sentry/solid": "^10.63.0",
+		"@solar-icons/solid": "^2.3.2",
+		"@solid-primitives/media": "^2.3.3",
+		"@solidjs/router": "^0.16.1",
+		"@tauri-apps/api": "^2.11.1",
+		"@tauri-apps/plugin-fs": "^2.5.2",
+		"@tauri-apps/plugin-haptics": "~2.3.3",
+		"@tauri-apps/plugin-http": "^2.8.2",
+		"@tauri-apps/plugin-process": "^2.3.1",
+		"@tauri-apps/plugin-updater": "^2.10.1",
+		"mediasoup-client": "^3.21.0",
+		"solid-js": "^1.9.15"
+	},
+	"devDependencies": {
+		"@colibri-social/lexicons": "^2.21.0",
+		"@sentry/vite-plugin": "^5.3.0",
+		"@tailwindcss/vite": "^4.1.18",
+		"@vitest/browser": "^4.1.10",
+		"@vitest/browser-playwright": "^4.1.10",
+		"playwright": "^1.63.0",
+		"tailwindcss": "^4.2.4",
+		"typescript": "^6.0.3",
+		"vite": "^8.1.3",
+		"vite-plugin-solid": "^2.11.8",
+		"vitest": "^4.1.10"
+	}
+}

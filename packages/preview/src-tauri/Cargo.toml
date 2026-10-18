@@ -1,0 +1,48 @@
+[package]
+name = "colibri-preview"
+version = "0.0.0"
+description = "Native preview shell for the new Colibri client with mock data."
+authors = ["Louis Escher"]
+license = "MIT"
+edition = "2021"
+
+[lib]
+name = "preview_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+cc = "1"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri-plugin-opener = "2"
+tauri-plugin-deep-link = "2.4.9"
+tauri-plugin-os = "2"
+tauri-plugin-http = "2"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = { version = "2.4.2", features = ["deep-link"] }
+tauri-plugin-window-state = "2.4.1"
+tauri-plugin-dialog = "2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-web-kit = { version = "0.3", default-features = false, features = [
+    "std",
+    "objc2-app-kit",
+    "WKPreferences",
+    "WKWebView",
+    "WKWebViewConfiguration",
+] }
+objc2-app-kit = { version = "0.3", features = ["NSResponder", "NSView", "NSWindow"] }
+objc2-foundation = { version = "0.3", features = ["NSGeometry", "NSString"] }
+
+[patch.crates-io]
+wry = { path = "vendor/wry" }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+ndk-context = "0.1"

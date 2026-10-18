@@ -16,5 +16,4 @@ Most of the time you work the client by running `pnpm dev:client` from the root.
 Consumers import from a few entry points (see `package.json`s `exports`):
 
 - `@colibri-social/client`: the app / components
-- `@colibri-social/client/scopes`: AT Protocol OAuth scope definitions
 - `@colibri-social/client/index.css`: the compiled stylesheet

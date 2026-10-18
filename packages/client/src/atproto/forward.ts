@@ -1,4 +1,9 @@
-import { classifyThrown } from "../errors/classify";
+import {
+	buildMessageRecord,
+	classifyThrown,
+	nextTid,
+	parseSpace,
+} from "@colibri-social/lib";
 import { createLogger } from "../utils/logger";
 import {
 	asCid,
@@ -8,11 +13,8 @@ import {
 	asSpaceRef,
 	COLLECTIONS,
 } from "./lexicons";
-import { buildMessageRecord } from "./message-record";
 import { enqueueSpaceCreate } from "./outbox/outbox";
 import { enqueueMessageSend } from "./outbox/sends";
-import { nextTid } from "./outbox/tid";
-import { parseSpace } from "./space-ref";
 import type {
 	AttachmentView,
 	ForwardSnapshot,

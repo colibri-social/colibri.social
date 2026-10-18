@@ -5,12 +5,12 @@
 	"description": "The native Colibri Social app shell.",
 	"type": "module",
 	"scripts": {
-		"start": "pnpm --filter @colibri-social/assets fetch-all && vite",
-		"dev": "pnpm --filter @colibri-social/assets fetch-all && vite",
-		"build": "pnpm --filter \"@colibri-social/wrapper^...\" build && pnpm --filter @colibri-social/assets fetch-all && vite build && pnpm strip-embedded-emoji",
-		"build:android": "pnpm --filter @colibri-social/assets fetch-all && vite build",
+		"start": "node scripts/frontend.mjs dev",
+		"dev": "node scripts/frontend.mjs dev",
+		"build": "node scripts/frontend.mjs build && pnpm strip-embedded-emoji",
+		"build:android": "node scripts/frontend.mjs build",
 		"strip-embedded-emoji": "node scripts/strip-embedded-emoji.mjs",
-		"serve": "vite preview",
+		"serve": "node scripts/frontend.mjs preview",
 		"tauri": "node scripts/tauri.mjs",
 		"icon": "node scripts/tauri.mjs icon src-tauri/icons/icon.png --ios-color \"#9d64fd\" && node scripts/apply-icon-composer.mjs && node scripts/assets-car.mjs && pnpm -w brand:render android && pnpm -w brand:render windows",
 		"assets-car": "node scripts/assets-car.mjs",
@@ -21,26 +21,10 @@
 	},
 	"license": "MIT",
 	"dependencies": {
-		"@colibri-social/assets": "workspace:0.0.2",
-		"@colibri-social/client": "workspace:0.4.0",
-		"solid-js": "^1.9.14",
-		"@tauri-apps/api": "^2",
-		"@tauri-apps/plugin-deep-link": "^2",
-		"@tauri-apps/plugin-fs": "^2",
-		"@tauri-apps/plugin-notification": "^2",
-		"@tauri-apps/plugin-opener": "^2",
-		"@tauri-apps/plugin-os": "^2",
-		"@tauri-apps/plugin-process": "^2",
-		"@tauri-apps/plugin-updater": "^2",
-		"@tauri-apps/plugin-window-state": "^2",
-		"tauri-plugin-fcm": "^0.2.0"
+		"@colibri-social/app": "workspace:*"
 	},
 	"devDependencies": {
-		"@sentry/vite-plugin": "^5.3.0",
-		"typescript": "^5.9.3",
-		"vite": "^8.1.3",
-		"vite-plugin-solid": "^2.11.12",
-		"@tauri-apps/cli": "^2",
-		"@choochmeque/tauri-windows-bundle": "^0.1.28"
+		"@choochmeque/tauri-windows-bundle": "^0.1.28",
+		"@tauri-apps/cli": "^2"
 	}
 }

@@ -1,11 +1,11 @@
-import { webAppOrigin } from "../utils/web-origin";
-import { isChannelSpaceType } from "./lexicons";
 import {
 	channelSpaceRef,
 	isThreadSpace,
 	parseSpace,
 	threadSpaceRef,
-} from "./space-ref";
+} from "@colibri-social/lib";
+import { webAppOrigin } from "../utils/web-origin";
+import { isChannelSpaceType } from "./lexicons";
 
 const CHANNEL_HOSTS = new Set([
 	"colibri.social",

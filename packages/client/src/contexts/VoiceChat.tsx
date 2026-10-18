@@ -1,3 +1,35 @@
+import {
+	type ClientVoiceFrame,
+	classifyThrown,
+	closeProducerFrame,
+	colibriError,
+	computePresenceSync,
+	connectTransportFrame,
+	consumeFrame,
+	createTransportFrame,
+	decodeMediaSource,
+	decodeVoiceFrame,
+	effectiveDeafened,
+	effectiveMuted,
+	encodeVoiceFrame,
+	frameIs,
+	getRtpCapabilitiesFrame,
+	isAppViewErrorCode,
+	isColibriError,
+	isServerVoiceFrame,
+	joinFrame,
+	type PresenceMember,
+	produceFrame,
+	resumeConsumerFrame,
+	type ServerVoiceFrame,
+	setPresenceFrame,
+	setSelfStateFrame,
+	type TransportOptionsFrame,
+	VOICE_SIGNAL_LXM,
+	VOICE_SIGNAL_PATH,
+	type VoiceMediaSource,
+	voiceHeartbeatFrame,
+} from "@colibri-social/lib";
 import * as Sentry from "@sentry/solid";
 import type { types } from "mediasoup-client";
 import { Device } from "mediasoup-client";
@@ -13,33 +45,7 @@ import { createStore, reconcile } from "solid-js/store";
 import { toast } from "somoto";
 import { asSpaceRef } from "../atproto/lexicons";
 import { voiceDisabledOn } from "../atproto/server-features";
-import { frameIs, setPresenceFrame } from "../atproto/sync-frames";
 import type { ProfileView } from "../atproto/views";
-import {
-	type ClientVoiceFrame,
-	closeProducerFrame,
-	connectTransportFrame,
-	consumeFrame,
-	createTransportFrame,
-	decodeMediaSource,
-	decodeVoiceFrame,
-	encodeVoiceFrame,
-	getRtpCapabilitiesFrame,
-	heartbeatFrame,
-	isServerVoiceFrame,
-	joinFrame,
-	type MediaSource,
-	produceFrame,
-	resumeConsumerFrame,
-	type ServerVoiceFrame,
-	setSelfStateFrame,
-	type TransportOptionsFrame,
-	VOICE_SIGNAL_LXM,
-	VOICE_SIGNAL_PATH,
-} from "../atproto/voice-frames";
-import { classifyThrown } from "../errors/classify";
-import { isAppViewErrorCode } from "../errors/codes";
-import { colibriError, isColibriError } from "../errors/error";
 import { reportError } from "../errors/report";
 import { showError } from "../errors/show-error";
 import {
@@ -63,12 +69,6 @@ import {
 	screenVideoConstraints,
 } from "../utils/screen-share";
 import { pickVoiceHandler, supportsWebRtc } from "../utils/voice-device";
-import {
-	computePresenceSync,
-	effectiveDeafened,
-	effectiveMuted,
-	type PresenceMember,
-} from "../utils/voice-presence";
 import { syncGroupFor } from "../utils/voice-sync";
 import { useAuthContext } from "./Auth";
 import { useSocketContext } from "./Socket";
@@ -287,7 +287,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const producers = createProducerRegistry<{
 		did: string;
 		kind: types.MediaKind;
-		source: MediaSource;
+		source: VoiceMediaSource;
 	}>();
 	const consumersByProducer = new Map<string, string | null>();
 	let pendingReplies: Array<{
@@ -738,7 +738,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 	const startHeartbeat = (): void => {
 		stopHeartbeat();
 		heartbeatTimer = setInterval(() => {
-			void sendAndWait(heartbeatFrame()).catch((err) => {
+			void sendAndWait(voiceHeartbeatFrame()).catch((err) => {
 				dbg("✗ heartbeat failed", err);
 			});
 		}, HEARTBEAT_INTERVAL_MS);
@@ -1109,7 +1109,8 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 		transport.on(
 			"produce",
 			({ kind, rtpParameters, appData }, callback, errback) => {
-				const source = (appData as { source?: MediaSource }).source ?? "mic";
+				const source =
+					(appData as { source?: VoiceMediaSource }).source ?? "mic";
 				dbg("sendTransport 'produce' fired", { kind, source });
 				if (sendWatchdog === null) {
 					sendWatchdog = armIceWatchdog(
@@ -1757,7 +1758,7 @@ export const VoiceChatContextProvider: ParentComponent = (props) => {
 
 		const producer = await transport.produce({
 			track,
-			appData: { source: "screen" satisfies MediaSource },
+			appData: { source: "screen" satisfies VoiceMediaSource },
 		});
 
 		if (mediaEpoch !== epoch) {

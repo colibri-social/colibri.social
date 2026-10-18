@@ -1,3 +1,4 @@
+import { classifyThrown } from "@colibri-social/lib";
 import {
 	createContext,
 	onCleanup,
@@ -5,7 +6,6 @@ import {
 	type ParentComponent,
 	useContext,
 } from "solid-js";
-import { classifyThrown } from "../errors/classify";
 import { createLogger } from "../utils/logger";
 
 const log = createLogger("sounds");

@@ -4,6 +4,7 @@ import XIcon from "~icons/ph/x";
 import { useUserContext } from "../../../contexts/User";
 import { createStatusEditor } from "../../../hooks/createStatusEditor";
 import { parseEmojiText } from "../../../utils/emoji";
+import { STATUS_TEXT_MAX_BYTES } from "../../../utils/status-text";
 import { Button } from "../../ui/Button";
 import { DialogFooter } from "../../ui/Dialog";
 import { ResponsiveDialog } from "../../ui/ResponsiveDialog";
@@ -82,7 +83,7 @@ export const QuickStatusDialog: Component<{
 						</Button>
 					</EmojiPopover>
 					<TextFieldInput
-						maxLength={32}
+						maxLength={STATUS_TEXT_MAX_BYTES}
 						type="text"
 						class="resize-none pl-10 pr-9 w-full"
 					/>

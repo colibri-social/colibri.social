@@ -1,7 +1,9 @@
+import {
+	classifyThrown,
+	describeError,
+	isRetryable,
+} from "@colibri-social/lib";
 import { Show } from "solid-js";
-import { classifyThrown } from "../errors/classify";
-import { describeError } from "../errors/copy";
-import { isRetryable } from "../errors/error";
 import { ErrorDetails } from "./ErrorDetails";
 import { Alert, AlertDescription, AlertTitle } from "./ui/Alert";
 import { Button } from "./ui/Button";

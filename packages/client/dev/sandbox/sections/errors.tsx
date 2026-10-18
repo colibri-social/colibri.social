@@ -1,3 +1,13 @@
+import {
+	ALL_ERROR_CODES,
+	ColibriError,
+	type ColibriErrorCode,
+	classifyResponse,
+	classifyThrown,
+	copyForCode,
+	describeError,
+	markReportDelivered,
+} from "@colibri-social/lib";
 import { createSignal, For, Show } from "solid-js";
 import { ErrorDetails } from "../../../src/components/ErrorDetails";
 import { ErrorState } from "../../../src/components/ErrorState";
@@ -25,14 +35,6 @@ import {
 	TextFieldLabel,
 } from "../../../src/components/ui/TextField";
 import { setReportingAccount } from "../../../src/errors/account";
-import { classifyResponse, classifyThrown } from "../../../src/errors/classify";
-import {
-	ALL_ERROR_CODES,
-	type ColibriErrorCode,
-} from "../../../src/errors/codes";
-import { copyForCode, describeError } from "../../../src/errors/copy";
-import { markReportDelivered } from "../../../src/errors/delivery";
-import { ColibriError } from "../../../src/errors/error";
 import { showError } from "../../../src/errors/show-error";
 import { createLogger, formatLog, resetLog } from "../../../src/utils/logger";
 import { Demo } from "../helpers";

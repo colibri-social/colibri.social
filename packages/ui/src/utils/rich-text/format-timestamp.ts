@@ -1,0 +1,117 @@
+import type { TimestampStyle } from "@colibri-social/lib";
+
+const RELATIVE_DIVISIONS: Array<{
+	amount: number;
+	unit: Intl.RelativeTimeFormatUnit;
+}> = [
+	{ amount: 60, unit: "second" },
+	{ amount: 60, unit: "minute" },
+	{ amount: 24, unit: "hour" },
+	{ amount: 7, unit: "day" },
+	{ amount: 4.34524, unit: "week" },
+	{ amount: 12, unit: "month" },
+	{ amount: Number.POSITIVE_INFINITY, unit: "year" },
+];
+
+const formatRelative = (date: Date, now: Date = new Date()): string => {
+	let duration = (date.getTime() - now.getTime()) / 1000;
+
+	for (const division of RELATIVE_DIVISIONS) {
+		if (Math.abs(Math.round(duration)) < division.amount) {
+			return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(
+				Math.round(duration),
+				division.unit,
+			);
+		}
+		duration /= division.amount;
+	}
+
+	return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(
+		Math.round(duration),
+		"year",
+	);
+};
+
+export const formatTimestamp = (
+	datetime: string,
+	style: TimestampStyle = "relative",
+	now: Date = new Date(),
+): string => {
+	const date = new Date(datetime);
+	if (Number.isNaN(date.getTime())) return datetime;
+
+	switch (style) {
+		case "time-short":
+			return new Intl.DateTimeFormat(undefined, {
+				hour: "numeric",
+				minute: "2-digit",
+			}).format(date);
+		case "time-long":
+			return new Intl.DateTimeFormat(undefined, {
+				hour: "numeric",
+				minute: "2-digit",
+				second: "2-digit",
+			}).format(date);
+		case "date-short":
+			return new Intl.DateTimeFormat(undefined, { dateStyle: "short" }).format(
+				date,
+			);
+		case "date-long":
+			return new Intl.DateTimeFormat(undefined, { dateStyle: "long" }).format(
+				date,
+			);
+		case "datetime-short":
+			return new Intl.DateTimeFormat(undefined, {
+				dateStyle: "short",
+				timeStyle: "short",
+			}).format(date);
+		case "datetime-long":
+			return new Intl.DateTimeFormat(undefined, {
+				dateStyle: "long",
+				timeStyle: "short",
+			}).format(date);
+		default:
+			return formatRelative(date, now);
+	}
+};
+
+const RELATIVE_MESSAGE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
+export const formatMessageTimestamp = (
+	datetime: string,
+	now: Date = new Date(),
+): string => {
+	const date = new Date(datetime);
+	if (Number.isNaN(date.getTime())) return datetime;
+
+	if (
+		Math.abs(date.getTime() - now.getTime()) < RELATIVE_MESSAGE_THRESHOLD_MS
+	) {
+		return formatTimestamp(datetime, "time-short", now);
+	}
+	return formatTimestamp(datetime, "datetime-short", now);
+};
+
+const COMPACT_AGE_UNITS: Array<{ ms: number; suffix: string }> = [
+	{ ms: 7 * 24 * 60 * 60 * 1000, suffix: "w" },
+	{ ms: 24 * 60 * 60 * 1000, suffix: "d" },
+	{ ms: 60 * 60 * 1000, suffix: "h" },
+	{ ms: 60 * 1000, suffix: "m" },
+];
+
+export const formatCompactAge = (
+	datetime: string,
+	now: Date = new Date(),
+): string => {
+	const date = new Date(datetime);
+	if (Number.isNaN(date.getTime())) return "";
+
+	const elapsed = now.getTime() - date.getTime();
+	if (elapsed < COMPACT_AGE_UNITS[COMPACT_AGE_UNITS.length - 1].ms)
+		return "now";
+
+	for (const { ms, suffix } of COMPACT_AGE_UNITS) {
+		if (elapsed >= ms) return `${Math.floor(elapsed / ms)}${suffix}`;
+	}
+	return "now";
+};

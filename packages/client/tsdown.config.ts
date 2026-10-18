@@ -45,7 +45,6 @@ const disableSentryPlugin = {
 export default defineConfig({
 	entry: [
 		"src/index.ts",
-		"src/atproto/scopes.ts",
 		"src/hooks/createAnimationTimeline.ts",
 		"src/components/hummingbird/index.ts",
 	],

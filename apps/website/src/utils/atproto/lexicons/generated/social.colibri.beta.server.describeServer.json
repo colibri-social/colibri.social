@@ -58,7 +58,8 @@
 									"voice",
 									"push",
 									"gifs",
-									"embeds"
+									"embeds",
+									"emoji"
 								]
 							}
 						},

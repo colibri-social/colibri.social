@@ -1,0 +1,47 @@
+@keyframes onboarding-rise {
+	from {
+		opacity: 0;
+		filter: blur(var(--entrance-blur, 8px));
+		transform: translate3d(0, var(--entrance-rise, 12px), 0);
+	}
+	to {
+		opacity: 1;
+		filter: blur(0);
+		transform: translate3d(0, 0, 0);
+	}
+}
+
+@keyframes onboarding-fade {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+[data-entrance] {
+	animation-name: onboarding-rise;
+	animation-duration: calc(560ms * var(--motion-scale));
+	animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+	animation-delay: calc(var(--entrance-delay, 0ms) * var(--motion-scale));
+	animation-fill-mode: both;
+}
+
+[data-entrance="word"] {
+	display: inline-block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[data-entrance] {
+		animation-name: onboarding-fade;
+		animation-duration: calc(200ms * var(--motion-scale));
+		animation-delay: 0ms;
+	}
+}
+
+:root[data-reduced-motion="true"] [data-entrance] {
+	animation-name: onboarding-fade;
+	animation-duration: calc(200ms * var(--motion-scale));
+	animation-delay: 0ms;
+}

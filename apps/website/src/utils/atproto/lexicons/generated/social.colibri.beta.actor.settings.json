@@ -14,7 +14,8 @@
 						"type": "string",
 						"knownValues": [
 							"all",
-							"mentionsAndReplies"
+							"mentionsAndReplies",
+							"nothing"
 						],
 						"default": "all",
 						"description": "Which messages produce a notification."

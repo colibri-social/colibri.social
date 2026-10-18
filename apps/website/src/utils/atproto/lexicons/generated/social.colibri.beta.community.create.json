@@ -31,6 +31,10 @@
 						"requiresApprovalToJoin": {
 							"type": "boolean",
 							"description": "Whether joining produces an application a moderator must approve. Defaults to false."
+						},
+						"overrideUserNameColors": {
+							"type": "boolean",
+							"description": "Whether only role colours are shown in chat. Members' own name colours are hidden, and a member without a coloured role shows the default name colour. Defaults to false."
 						}
 					}
 				}

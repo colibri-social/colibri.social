@@ -5,6 +5,9 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
     <uses-feature
     android:name="android.hardware.microphone"
     android:required="false"
@@ -91,6 +94,15 @@
         </service>
         <receiver
       android:name=".MarkReadReceiver"
+      android:exported="false"
+    />
+        <service
+      android:name=".CallService"
+      android:exported="false"
+      android:foregroundServiceType="phoneCall"
+    />
+        <receiver
+      android:name=".CallActionReceiver"
       android:exported="false"
     />
         <meta-data

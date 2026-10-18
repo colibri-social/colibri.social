@@ -1,8 +1,8 @@
-import type { MediaSource } from "../atproto/voice-frames";
+import type { VoiceMediaSource } from "@colibri-social/lib";
 
 export interface SyncGroupOwner {
 	did: string;
-	source: MediaSource;
+	source: VoiceMediaSource;
 }
 
 export const syncGroupFor = (owner: SyncGroupOwner): string =>
