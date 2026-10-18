@@ -7,6 +7,7 @@ import {
 	Show,
 	splitProps,
 } from "solid-js";
+import { sniffAnimation } from "../../utils/animation-sniff";
 import {
 	appActive,
 	isAnimatedSource,
@@ -118,7 +119,18 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 		disposed = true;
 	});
 
-	const candidate = () => local.animated ?? isAnimatedSource(imageProps.src);
+	const [stillSrc, setStillSrc] = createSignal<string>();
+	createEffect(() => {
+		const src = imageProps.src;
+		if (!src || local.animated !== true || isAnimatedSource(src)) return;
+		void sniffAnimation(src).then((animated) => {
+			if (!disposed && animated === false && imageProps.src === src)
+				setStillSrc(src);
+		});
+	});
+	const candidate = () =>
+		(local.animated ?? isAnimatedSource(imageProps.src)) &&
+		stillSrc() !== imageProps.src;
 	const demandOnly = () => local.playback === "demand";
 	const paused = () =>
 		candidate() &&

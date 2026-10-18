@@ -41,12 +41,14 @@ type TooltipState = {
 	instant: () => boolean;
 	setHoverCapable: (capable: boolean) => void;
 	setFocusSuppressed: (suppressed: boolean) => void;
+	setPressed: (pressed: boolean) => void;
 };
 
 const TooltipStateContext = createContext<TooltipState>({
 	instant: () => false,
 	setHoverCapable: () => {},
 	setFocusSuppressed: () => {},
+	setPressed: () => {},
 });
 
 export type TooltipProps = ParentProps<{
@@ -66,9 +68,15 @@ export const Tooltip = (props: TooltipProps) => {
 	const [instant, setInstant] = createSignal(false);
 	const [hoverCapable, setHoverCapable] = createSignal(true);
 	const [focusSuppressed, setFocusSuppressed] = createSignal(false);
+	const [uncontrolledOpen, setUncontrolledOpen] = createSignal(
+		props.defaultOpen ?? false,
+	);
+	let pressed = false;
 	let counted = false;
 
 	const onOpenChange = (open: boolean) => {
+		if (open && pressed) return;
+		setUncontrolledOpen(open);
 		if (open && !counted) {
 			setInstant(isWarm());
 			counted = true;
@@ -101,13 +109,19 @@ export const Tooltip = (props: TooltipProps) => {
 				touchModality() ||
 				focusSuppressed()
 			}
-			open={props.open}
-			defaultOpen={props.defaultOpen}
+			open={props.open ?? uncontrolledOpen()}
 			onOpenChange={onOpenChange}
 			overflowPadding={overflowPadding()}
 		>
 			<TooltipStateContext.Provider
-				value={{ instant, setHoverCapable, setFocusSuppressed }}
+				value={{
+					instant,
+					setHoverCapable,
+					setFocusSuppressed,
+					setPressed: (next) => {
+						pressed = next;
+					},
+				}}
 			>
 				{props.children}
 			</TooltipStateContext.Provider>
@@ -133,15 +147,18 @@ const TooltipTriggerImpl = (props: Record<string, unknown>) => {
 		<KobalteTooltip.Trigger
 			{...rest}
 			onPointerEnter={(event: PointerEvent) => {
+				state.setPressed(false);
 				state.setHoverCapable(isHoverPointer(event));
 				if (isHoverPointer(event)) state.setFocusSuppressed(false);
 				callUserHandler(local.onPointerEnter, event);
 			}}
 			onPointerDown={(event: PointerEvent) => {
 				state.setHoverCapable(isHoverPointer(event));
+				state.setPressed(true);
 				callUserHandler(local.onPointerDown, event);
 			}}
 			onFocus={(event: FocusEvent) => {
+				if (focusFollowsNavigationKey()) state.setPressed(false);
 				state.setFocusSuppressed(!focusFollowsNavigationKey());
 				callUserHandler(local.onFocus, event);
 			}}

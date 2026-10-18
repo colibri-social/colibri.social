@@ -159,7 +159,7 @@ const geometryOf = (element: Element) => {
 	};
 };
 
-export const PausedFrameMatchesImage: Story = {
+export const StillAvatarNeverSwaps: Story = {
 	render: () => (
 		<div
 			data-media-play-host=""
@@ -172,42 +172,22 @@ export const PausedFrameMatchesImage: Story = {
 		</div>
 	),
 	play: async ({ canvasElement }) => {
-		const frame = await waitFor(
-			() => {
-				const found = canvasElement.querySelector<HTMLCanvasElement>(
-					"canvas[data-animated-image='paused']",
-				);
-				expect(found).not.toBeNull();
-				return found as HTMLCanvasElement;
-			},
-			{ timeout: 3000 },
-		);
-		const edge = Math.round(40 * Math.max(1, window.devicePixelRatio));
-		await expect(frame.width).toBe(edge);
-		await expect(frame.height).toBe(edge);
-		const paused = geometryOf(frame);
-		const row = canvasElement.querySelector("[data-row]") as HTMLElement;
-		await userEvent.hover(row);
 		const image = await waitFor(
 			() => {
-				const found = canvasElement.querySelector<HTMLImageElement>(
-					"img[data-animated-image='playing']",
-				);
-				expect(found).not.toBeNull();
-				expect(canvasElement.querySelector("canvas")).toBeNull();
+				const found = canvasElement.querySelector<HTMLImageElement>("img");
+				expect(found?.naturalWidth).toBeGreaterThan(0);
+				expect(found?.dataset.animatedImage).toBeUndefined();
 				return found as HTMLImageElement;
 			},
 			{ timeout: 3000 },
 		);
-		await expect(geometryOf(image)).toEqual(paused);
+		const resting = geometryOf(image);
+		const row = canvasElement.querySelector("[data-row]") as HTMLElement;
+		await userEvent.hover(row);
+		await expect(canvasElement.querySelector("canvas")).toBeNull();
+		await expect(geometryOf(image)).toEqual(resting);
 		await userEvent.unhover(row);
-		await waitFor(
-			() =>
-				expect(
-					canvasElement.querySelector("canvas[data-animated-image='paused']"),
-				).not.toBeNull(),
-			{ timeout: 3000 },
-		);
+		await expect(canvasElement.querySelector("canvas")).toBeNull();
 	},
 };
 

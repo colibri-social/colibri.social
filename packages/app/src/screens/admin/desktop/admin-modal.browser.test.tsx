@@ -425,7 +425,9 @@ it("uploads an emoji through the multi-step modal", async () => {
 	const gif = new File(
 		[
 			Uint8Array.from(
-				atob("R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="),
+				atob(
+					"R0lGODlhAgACAPAAAP8AAAAA/yH/C05FVFNDQVBFMi4wAwEAAAAh+QQACgAAACwAAAAAAgACAAAIBgABCAQQEAAh+QQACgAAACwAAAAAAgACAID/AAAAAP8IBgADCAwQEAA7",
+				),
 				(char) => char.charCodeAt(0),
 			),
 		],
