@@ -200,8 +200,7 @@ const readPacks: NonNullable<EmojiProvider["readPacks"]> = (source) => {
 	const known = new Set(source.emojis.map((emoji) => emoji.id));
 	const memberships = source.memberships
 		.map((record) => record.value)
-		.filter(isPackItem)
-		.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+		.filter(isPackItem);
 	return source.packs.flatMap((record): EmojiPackView[] => {
 		if (!isPack(record.value)) return [];
 		const emojis = [

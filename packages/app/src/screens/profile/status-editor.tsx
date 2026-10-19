@@ -10,16 +10,35 @@ import {
 	toast,
 } from "@colibri-social/ui";
 import { createSignal, Show } from "solid-js";
+import {
+	customEmojiOf,
+	type StatusEmojiLookup,
+	statusCustomEmojiRef,
+} from "../../data/adapters/status";
 import type { StatusInput } from "../../data/source";
 import { useData } from "../../data/store";
-import type { Datetime, Status } from "../../data/types";
+import type { Datetime, ReactionEmojiRef, Status } from "../../data/types";
 
-const draftFrom = (status: Status | undefined): StatusDraft => ({
-	text: status?.text ?? "",
-	emoji: status?.emoji,
-	clearAfter: "never",
-	showWhileOffline: !!status?.showWhileOffline,
-});
+const draftFrom = (
+	status: Status | undefined,
+	emoji: StatusEmojiLookup,
+): StatusDraft => {
+	const ref = statusCustomEmojiRef(status);
+	const customEmoji = ref
+		? (customEmojiOf(emoji.lookup(ref.uri)) ?? {
+				id: ref.uri,
+				name: "",
+				src: "",
+			})
+		: undefined;
+	return {
+		text: status?.text ?? "",
+		emoji: customEmoji ? undefined : status?.emoji,
+		customEmoji,
+		clearAfter: "never",
+		showWhileOffline: !!status?.showWhileOffline,
+	};
+};
 
 export const statusInputFrom = (
 	draft: StatusDraft,
@@ -27,9 +46,12 @@ export const statusInputFrom = (
 ): StatusInput => {
 	const input: StatusInput = {
 		text: draft.text.trim(),
-		emoji: draft.emoji ?? "",
+		emoji: draft.customEmoji ? "" : (draft.emoji ?? ""),
 		showWhileOffline: !!draft.showWhileOffline,
 	};
+	if (draft.customEmoji)
+		input.customEmoji = { uri: draft.customEmoji.id } as ReactionEmojiRef;
+	else input.removeCustomEmoji = true;
 	const expiresAt = statusExpiresAt(draft.clearAfter, options.now);
 	if (expiresAt) input.expiresAt = expiresAt.toISOString() as Datetime;
 	else if (!options.keepExpiry) input.removeExpiresAt = true;
@@ -39,6 +61,7 @@ export const statusInputFrom = (
 export const CLEARED_STATUS: StatusInput = {
 	text: "",
 	emoji: "",
+	removeCustomEmoji: true,
 	removeExpiresAt: true,
 	showWhileOffline: false,
 };
@@ -50,23 +73,27 @@ export const StatusEditor = (props: {
 }) => {
 	const data = useData();
 	const current = () => data.presenceOf(data.viewer.did)?.status;
-	const [draft, setDraft] = createSignal<StatusDraft>(draftFrom(current()));
+	const [draft, setDraft] = createSignal<StatusDraft>(
+		draftFrom(current(), data.emoji),
+	);
+	const packs = () => data.emoji.packs(undefined);
 	const [clearAfterTouched, setClearAfterTouched] = createSignal(false);
 	const [saving, setSaving] = createSignal(false);
 
 	const dirty = () => {
-		const initial = draftFrom(current());
+		const initial = draftFrom(current(), data.emoji);
 		const next = draft();
 		return (
 			next.text !== initial.text ||
 			(next.emoji ?? "") !== (initial.emoji ?? "") ||
+			next.customEmoji?.id !== initial.customEmoji?.id ||
 			!!next.showWhileOffline !== !!initial.showWhileOffline ||
 			clearAfterTouched()
 		);
 	};
 
 	const reset = () => {
-		setDraft(draftFrom(current()));
+		setDraft(draftFrom(current(), data.emoji));
 		setClearAfterTouched(false);
 	};
 
@@ -126,11 +153,19 @@ export const StatusEditor = (props: {
 				<StatusField
 					platform={props.platform ?? "mobile"}
 					value={draft()}
-					onChange={({ text, emoji, clearAfter, showWhileOffline }) => {
+					packs={packs()}
+					onChange={({
+						text,
+						emoji,
+						customEmoji,
+						clearAfter,
+						showWhileOffline,
+					}) => {
 						if (clearAfter !== draft().clearAfter) setClearAfterTouched(true);
 						setDraft({
 							text,
 							emoji,
+							customEmoji,
 							clearAfter: clearAfter as StatusClearAfter,
 							showWhileOffline,
 						});

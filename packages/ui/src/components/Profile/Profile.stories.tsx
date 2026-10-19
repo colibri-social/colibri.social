@@ -25,6 +25,7 @@ import {
 } from "../Badge/Badge";
 import { Button } from "../Button/Button";
 import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
+import { fixturePacks } from "../EmojiPicker/fixtures";
 import { SectionLabel } from "../List/List";
 import { MessageRow } from "../Message/MessageRow";
 import { ActivityOptInPrompt } from "./ActivityOptInPrompt";
@@ -719,6 +720,34 @@ export const StatusBubbles: Story = {
 		if (!text) throw new Error("status text missing");
 		await expect(text.scrollHeight).toBeGreaterThan(text.clientHeight);
 		await expect(text.clientHeight).toBeLessThanOrEqual(18 * 3);
+	},
+};
+
+export const EmojiOnlyStatus: Story = {
+	render: () => (
+		<div class="flex w-[266px] flex-col gap-3">
+			<StatusBubble emoji="🍜" />
+			<StatusBubble customEmoji={fixturePacks[0].emojis[2]} />
+			<StatusBubble customEmoji={fixturePacks[0].emojis[0]}>
+				Compiling kernels
+			</StatusBubble>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const bubbles = canvasElement.querySelectorAll<HTMLElement>(
+			"[data-status-bubble]",
+		);
+		await expect(bubbles).toHaveLength(3);
+		await expect(
+			bubbles[0]?.querySelector('[data-emoji="unicode"]'),
+		).toHaveTextContent("🍜");
+		await expect(
+			bubbles[1]?.querySelector('[data-emoji="custom"]'),
+		).toHaveAttribute("alt", ":colibri:");
+		await expect(
+			bubbles[2]?.querySelector("[data-status-text]"),
+		).toHaveTextContent("Compiling kernels");
+		await expectNoLayoutIssues(canvasElement);
 	},
 };
 

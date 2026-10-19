@@ -12,6 +12,7 @@ import {
 	SocialPostEmbed,
 } from "@colibri-social/ui";
 import {
+	createMemo,
 	createResource,
 	createSignal,
 	For,
@@ -66,6 +67,50 @@ export type LoadBlueskyPost = (
 export type RemoveEmbed = (uri: string, event: MouseEvent) => void;
 
 export type InviteLink = { url: string; code: string };
+
+const sameUris = (previous: readonly string[], next: readonly string[]) =>
+	previous.length === next.length &&
+	previous.every((uri, index) => uri === next[index]);
+
+const sameFields = (previous: object, next: object) => {
+	const before = previous as Record<string, unknown>;
+	const after = next as Record<string, unknown>;
+	const keys = Object.keys(after);
+	return (
+		keys.length === Object.keys(before).length &&
+		keys.every((key) => before[key] === after[key])
+	);
+};
+
+const keepEqual = <T extends object>(
+	previous: readonly T[] | undefined,
+	next: T[],
+) => {
+	const kept = next.map((item, index) => {
+		const before = previous?.[index];
+		return before && sameFields(before, item) ? before : item;
+	});
+	return previous &&
+		kept.length === previous.length &&
+		kept.every((item, index) => item === previous[index])
+		? (previous as T[])
+		: kept;
+};
+
+export const keepSplitIdentity = (
+	previous: SplitAttachments | undefined,
+	next: SplitAttachments,
+): SplitAttachments => {
+	const media = keepEqual(previous?.media, next.media);
+	const audio = keepEqual(previous?.audio, next.audio);
+	const files = keepEqual(previous?.files, next.files);
+	return previous &&
+		media === previous.media &&
+		audio === previous.audio &&
+		files === previous.files
+		? previous
+		: { media, audio, files };
+};
 
 export const hasAttachmentContent = (
 	split: SplitAttachments,
@@ -303,86 +348,104 @@ export const MessageAttachments = (props: {
 	timestamp?: string;
 	locale?: string;
 	onExternalLink?: (href: string, link: RichTextExternalLink) => void;
-}): JSX.Element => (
-	<div
-		data-message-attachments=""
-		class="flex min-w-0 flex-col gap-2"
-		onClick={(event) => routeEmbedLink(event, props.onExternalLink)}
-	>
-		<Show when={props.split.media.length > 0}>
-			<MediaWithLightbox
-				items={props.split.media}
-				author={props.author}
-				timestamp={props.timestamp}
-				locale={props.locale}
-			/>
-		</Show>
-		<For each={props.split.audio}>
-			{(audio) => <AudioAttachment {...audio} />}
-		</For>
-		<For each={props.split.files}>{(file) => <FileAttachment {...file} />}</For>
-		<For each={props.embeds}>
-			{(embed) => (
-				<Switch
-					fallback={
-						<EmbedWithLightbox
-							embed={embed}
-							author={props.author}
-							timestamp={props.timestamp}
-							locale={props.locale}
-							onRemove={props.onRemoveEmbed}
-						/>
-					}
-				>
-					<Match when={inlineMediaOf(embed)}>
-						{(media) => (
-							<div data-inline-media="">
-								<MediaWithLightbox
-									items={[media()]}
-									author={props.author}
-									timestamp={props.timestamp}
-									locale={props.locale}
-								/>
-							</div>
-						)}
-					</Match>
-					<Match when={props.loadBlueskyPost && parseBlueskyPostUrl(embed.uri)}>
-						<BlueskyEmbed
-							url={embed.uri}
-							fallback={embed}
-							load={props.loadBlueskyPost}
-							author={props.author}
-							timestamp={props.timestamp}
-							locale={props.locale}
-							onRemove={props.onRemoveEmbed}
-						/>
-					</Match>
-				</Switch>
-			)}
-		</For>
-		<For each={props.blueskyLinks ?? []}>
-			{(url) => (
-				<BlueskyEmbed
-					url={url}
-					load={props.loadBlueskyPost}
+}): JSX.Element => {
+	const embedUris = createMemo(
+		() => props.embeds.map((embed) => embed.uri),
+		undefined,
+		{ equals: sameUris },
+	);
+	const embedByUri = createMemo(
+		() => new Map(props.embeds.map((embed) => [embed.uri, embed])),
+	);
+	return (
+		<div
+			data-message-attachments=""
+			class="flex min-w-0 flex-col gap-2"
+			onClick={(event) => routeEmbedLink(event, props.onExternalLink)}
+		>
+			<Show when={props.split.media.length > 0}>
+				<MediaWithLightbox
+					items={props.split.media}
 					author={props.author}
 					timestamp={props.timestamp}
 					locale={props.locale}
-					onRemove={props.onRemoveEmbed}
 				/>
-			)}
-		</For>
-		<For each={props.inviteLinks ?? []}>
-			{(link) => (
-				<InviteEmbed
-					url={link.url}
-					code={link.code}
-					onOpenSpace={props.onOpenSpace}
-				/>
-			)}
-		</For>
-		<For each={props.packLinks ?? []}>
-			{(url) => <PackEmbed url={url} platform={props.platform ?? "desktop"} />}
-		</For>
-	</div>
-);
+			</Show>
+			<For each={props.split.audio}>
+				{(audio) => <AudioAttachment {...audio} />}
+			</For>
+			<For each={props.split.files}>
+				{(file) => <FileAttachment {...file} />}
+			</For>
+			<For each={embedUris()}>
+				{(uri) => (
+					<Show when={embedByUri().get(uri)}>
+						{(embed) => (
+							<Switch
+								fallback={
+									<EmbedWithLightbox
+										embed={embed()}
+										author={props.author}
+										timestamp={props.timestamp}
+										locale={props.locale}
+										onRemove={props.onRemoveEmbed}
+									/>
+								}
+							>
+								<Match when={inlineMediaOf(embed())}>
+									{(media) => (
+										<div data-inline-media="">
+											<MediaWithLightbox
+												items={[media()]}
+												author={props.author}
+												timestamp={props.timestamp}
+												locale={props.locale}
+											/>
+										</div>
+									)}
+								</Match>
+								<Match when={props.loadBlueskyPost && parseBlueskyPostUrl(uri)}>
+									<BlueskyEmbed
+										url={uri}
+										fallback={embed()}
+										load={props.loadBlueskyPost}
+										author={props.author}
+										timestamp={props.timestamp}
+										locale={props.locale}
+										onRemove={props.onRemoveEmbed}
+									/>
+								</Match>
+							</Switch>
+						)}
+					</Show>
+				)}
+			</For>
+			<For each={props.blueskyLinks ?? []}>
+				{(url) => (
+					<BlueskyEmbed
+						url={url}
+						load={props.loadBlueskyPost}
+						author={props.author}
+						timestamp={props.timestamp}
+						locale={props.locale}
+						onRemove={props.onRemoveEmbed}
+					/>
+				)}
+			</For>
+			<For each={props.inviteLinks ?? []}>
+				{(link) => (
+					<InviteEmbed
+						url={link.url}
+						code={link.code}
+						onOpenSpace={props.onOpenSpace}
+					/>
+				)}
+			</For>
+			<For each={props.packLinks ?? []}>
+				{(url) => (
+					<PackEmbed url={url} platform={props.platform ?? "desktop"} />
+				)}
+			</For>
+		</div>
+	);
+};

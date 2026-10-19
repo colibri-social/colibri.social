@@ -8,6 +8,7 @@ import { GalleryDownloadIcon } from "@solar-icons/solid/bold/gallery-download";
 import { HeartIcon } from "@solar-icons/solid/bold/heart";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
+import { RefreshIcon } from "@solar-icons/solid/bold/refresh";
 import { ReplyIcon } from "@solar-icons/solid/bold/reply";
 import { SmileCircleIcon } from "@solar-icons/solid/bold/smile-circle";
 import { StarIcon } from "@solar-icons/solid/bold/star";
@@ -96,10 +97,14 @@ const QuickReaction = (props: {
 			class={cx(
 				"ripple flex h-12 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-control-lg bg-secondary text-muted-foreground outline-none",
 				"hover:bg-secondary-highlight focus-ring-inset",
-				"[&>img]:size-6 [&>svg]:size-6",
 			)}
 		>
-			{props.children}
+			<span
+				data-quick-reaction-glyph=""
+				class="flex items-center justify-center [&>img]:size-6 [&>svg]:size-6"
+			>
+				{props.children}
+			</span>
 		</button>
 	);
 };
@@ -114,6 +119,7 @@ export type MessageActionsDrawerProps = {
 	onEmojiPick?: (pick: EmojiPick) => void;
 	renderEmoji?: RenderEmoji;
 	reactLabel?: (emoji: string) => string;
+	onRetry?: () => void;
 	onEdit?: () => void;
 	onReply?: () => void;
 	onForward?: () => void;
@@ -179,6 +185,7 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 	};
 	const hasPrimary = () =>
 		!!(
+			props.onRetry ||
 			props.onEdit ||
 			props.onReply ||
 			props.onForward ||
@@ -270,6 +277,13 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 					</Show>
 					<Show when={hasPrimary()}>
 						<ListGroup>
+							<Show when={props.onRetry}>
+								<ActionRow
+									icon={<RefreshIcon />}
+									label="Retry"
+									onClick={run(props.onRetry)}
+								/>
+							</Show>
 							<Show when={props.onEdit}>
 								<ActionRow
 									icon={<PenIcon />}

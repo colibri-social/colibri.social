@@ -440,8 +440,9 @@ export const createDataStore = (
 		});
 		persist(() => {
 			const profile: Record<string, unknown> = {};
-			for (const key of Object.keys(viewer))
-				profile[key] = viewer[key as keyof ProfileView];
+			for (const key of Object.keys(viewer)) {
+				if (key !== "presence") profile[key] = viewer[key as keyof ProfileView];
+			}
 			if (viewer.did) spaceCache?.offerViewer(profile as ProfileView);
 		});
 		const spaces = new Map<Did, SpaceData>();
@@ -1669,12 +1670,20 @@ export const createDataStore = (
 				setGap({ ...held, latest: change(held.latest) });
 				remember();
 			};
+			const discardedSends = new Map<string, "waiting" | "retracting">();
+			const withoutDiscarded = (list: readonly MessageView[]) =>
+				discardedSends.size > 0 &&
+				list.some((message) => discardedSends.has(message.rkey))
+					? list.filter((message) => !discardedSends.has(message.rkey))
+					: list;
 			const setMessages = (
 				next:
 					| readonly MessageView[]
 					| ((current: readonly MessageView[]) => readonly MessageView[]),
 			) => {
-				setMessageList(next as never);
+				setMessageList((current) =>
+					withoutDiscarded(typeof next === "function" ? next(current) : next),
+				);
 				remember();
 			};
 
@@ -1768,7 +1777,11 @@ export const createDataStore = (
 				const newestKnown = patchy
 					? undefined
 					: (held ? held.latest : untrack(messages)).at(-1)?.rkey;
-				const page = await newestSince(ref, newestKnown);
+				const fetched = await newestSince(ref, newestKnown);
+				const page = {
+					...fetched,
+					items: withoutDiscarded(fetched.items) as MessageView[],
+				};
 				readThrough = knownReadState(ref)?.cursor ?? readThrough;
 				provisionalFrom = undefined;
 				const replaces =
@@ -2054,7 +2067,14 @@ export const createDataStore = (
 				});
 			};
 
+			const retract = (rkey: string) => {
+				if (discardedSends.get(rkey) !== "waiting") return;
+				discardedSends.set(rkey, "retracting");
+				void data.remove(rkey);
+			};
+
 			const upsert = (message: MessageView) => {
+				if (discardedSends.has(message.rkey)) return;
 				const place = (list: readonly MessageView[]) => {
 					const index = list.findIndex((entry) => entry.rkey === message.rkey);
 					if (index === -1) return insertSorted(list, [message]);
@@ -2084,6 +2104,10 @@ export const createDataStore = (
 			};
 
 			const settleEcho = (message: MessageView) => {
+				if (discardedSends.has(message.rkey)) {
+					retract(message.rkey);
+					return true;
+				}
 				const nonce = sentNonces.get(message.rkey);
 				if (!nonce) return false;
 				settlePending(nonce, message);
@@ -2192,6 +2216,10 @@ export const createDataStore = (
 			outboxListeners.set(ref, (event) => {
 				if (event.entry.op.t !== "send") return;
 				const nonce = outboxNonce(event.entry.seq);
+				if (event.type === "landedAfterDiscard") {
+					retract(event.entry.op.rkey);
+					return;
+				}
 				if (event.type === "progress") {
 					patchUpload(
 						nonce,
@@ -2207,8 +2235,10 @@ export const createDataStore = (
 						settlePending(nonce, event.message);
 						return;
 					}
-					dropPending(nonce);
-					void feedControls.get(ref)?.refresh();
+					const drop = () => dropPending(nonce);
+					const refreshing = feedControls.get(ref)?.refresh();
+					if (refreshing) void refreshing.then(drop, drop);
+					else drop();
 					return;
 				}
 				if (event.type === "failed") {
@@ -2437,6 +2467,7 @@ export const createDataStore = (
 						(entry) => entry.nonce === nonce,
 					);
 					const seq = outboxSeq(nonce);
+					if (discarded) discardedSends.set(discarded.rkey, "waiting");
 					if (seq !== undefined) outbox.discard(seq);
 					dropPending(nonce);
 					if (discarded && lastMessages[ref]?.rkey === discarded.rkey)
@@ -2804,7 +2835,11 @@ export const createDataStore = (
 		const applyViewer = (next: ProfileView) => {
 			const { presence: nextPresence, ...profile } = next;
 			setViewer(reconcile({ ...profile, presence: viewer.presence }));
-			if (nextPresence) presences.put(next.did, nextPresence);
+			const known = untrack(() => presence[next.did]);
+			if (nextPresence && (!known || seededPresence.has(next.did))) {
+				seededPresence.delete(next.did);
+				presences.put(next.did, nextPresence);
+			}
 			for (const load of memberLoads.values()) {
 				load.update((list) =>
 					list.map((member) =>

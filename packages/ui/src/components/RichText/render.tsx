@@ -5,7 +5,7 @@ import {
 	normalizeWhitespace,
 	resolveListDepths,
 } from "@colibri-social/lib";
-import type { JSX } from "solid-js";
+import { createSignal, type JSX } from "solid-js";
 import { splitEmojiSegments } from "../../utils/emoji";
 import { aliasesForSlug, slugForEmoji } from "../../utils/emoji-data";
 import {
@@ -88,19 +88,48 @@ export const emojiFacetText = (
 	return out + decoder.decode(bytes.subarray(last));
 };
 
+const CustomEmojiGlyph = (props: {
+	emoji: RichTextCustomEmoji;
+	title?: string;
+}) => {
+	const [loaded, setLoaded] = createSignal(false);
+	return (
+		<img
+			data-custom-emoji={props.emoji.name}
+			data-skeleton={loaded() ? undefined : ""}
+			src={props.emoji.src}
+			alt={props.emoji.alt ?? `:${props.emoji.name}:`}
+			title={props.title}
+			draggable={false}
+			onLoad={() => setLoaded(true)}
+			onError={() => setLoaded(true)}
+			class={
+				loaded()
+					? "size-[1.375em] object-contain align-text-bottom"
+					: "size-[1.375em] rounded-[4px] object-contain align-text-bottom"
+			}
+			style={{ display: "inline-block" }}
+		/>
+	);
+};
+
+const customEmojiSkeleton = (label: string): JSX.Element => (
+	<span
+		role="img"
+		aria-label={label}
+		data-custom-emoji-pending=""
+		data-skeleton=""
+		class="size-[1.375em] rounded-[4px] align-text-bottom"
+		style={{ display: "inline-block" }}
+	/>
+);
+
 const customEmojiImage = (
 	emoji: RichTextCustomEmoji,
 	ctx: RichTextResolvers,
 ): JSX.Element => {
 	const image = (title?: string) => (
-		<img
-			data-custom-emoji={emoji.name}
-			src={emoji.src}
-			alt={emoji.alt ?? `:${emoji.name}:`}
-			title={title}
-			draggable={false}
-			class="inline-block size-[1.375em] object-contain align-text-bottom"
-		/>
+		<CustomEmojiGlyph emoji={emoji} title={title} />
 	);
 	if (!ctx.onCustomEmojiOpen) return image(`:${emoji.name}:`);
 	return (
@@ -130,12 +159,14 @@ const foreignEmoji = (
 ): RichTextCustomEmoji | undefined => {
 	const resolve = ctx.customEmojiFeature;
 	if (!resolve) return undefined;
+	let pending: RichTextCustomEmoji | undefined;
 	for (const feature of features) {
 		if (kindOf(feature) !== CUSTOM_EMOJI_KIND) continue;
 		const emoji = resolve(feature as RichTextForeignFeature);
 		if (emoji?.src) return emoji;
+		if (emoji?.pending) pending ??= emoji;
 	}
-	return undefined;
+	return pending;
 };
 
 const customEmojiText = (
@@ -425,7 +456,9 @@ const renderInlineRange = (
 		);
 		const foreign = plain ? undefined : foreignEmoji(features, ctx);
 		let element: JSX.Element = foreign
-			? customEmojiImage(foreign, ctx)
+			? foreign.pending
+				? customEmojiSkeleton(segment)
+				: customEmojiImage(foreign, ctx)
 			: plain
 				? segment
 				: customEmojiText(segment, ctx);
@@ -674,7 +707,7 @@ const renderBlockRange = (
 			result.push(
 				<span
 					data-facet-type="subtext"
-					class="block text-xs leading-4 text-muted-foreground"
+					class="block text-sm leading-6 text-muted-foreground"
 				>
 					{inline(byteStart, byteEnd)}
 				</span>,

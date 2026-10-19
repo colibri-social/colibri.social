@@ -1,5 +1,6 @@
 import { CloseIcon } from "@solar-icons/solid/bold/close";
-import { Show } from "solid-js";
+import { GalleryIcon } from "@solar-icons/solid/bold/gallery";
+import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Avatar } from "../Avatar/Avatar";
@@ -130,6 +131,68 @@ const EmbedAuthorLine = (props: { author: LinkEmbedAuthor }) => (
 	</span>
 );
 
+const EMBED_IMAGE_RETRIES = 2;
+const EMBED_IMAGE_BACKOFF_MS = 400;
+
+const retriable = (src: string) =>
+	!!src && !src.startsWith("data:") && !src.startsWith("blob:");
+
+const embedImageRetrySrc = (src: string, attempt: number) => {
+	if (attempt === 0 || !retriable(src)) return src;
+	const hash = src.indexOf("#");
+	const base = hash === -1 ? src : src.slice(0, hash);
+	const fragment = hash === -1 ? "" : src.slice(hash);
+	return `${base}${base.includes("?") ? "&" : "?"}colibri-retry=${attempt}${fragment}`;
+};
+
+const createEmbedImageRetry = (src: () => string) => {
+	const [attempt, setAttempt] = createSignal(0);
+	const [broken, setBroken] = createSignal(false);
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	onCleanup(() => clearTimeout(timer));
+	createEffect(
+		on(
+			src,
+			() => {
+				clearTimeout(timer);
+				setAttempt(0);
+				setBroken(false);
+			},
+			{ defer: true },
+		),
+	);
+	const fail = () => {
+		const current = attempt();
+		if (!retriable(src()) || current >= EMBED_IMAGE_RETRIES) {
+			setBroken(true);
+			return;
+		}
+		clearTimeout(timer);
+		timer = setTimeout(
+			() => setAttempt(current + 1),
+			EMBED_IMAGE_BACKOFF_MS * (current + 1),
+		);
+	};
+	return {
+		src: () => embedImageRetrySrc(src(), attempt()),
+		broken,
+		fail,
+	};
+};
+
+const EmbedImagePlaceholder = (props: { class: string }) => (
+	<span
+		data-embed-image-broken=""
+		aria-hidden="true"
+		class={cx(
+			"flex shrink-0 items-center justify-center bg-muted text-muted-foreground [&>svg]:size-6",
+			props.class,
+		)}
+	>
+		<GalleryIcon />
+	</span>
+);
+
 export const LinkEmbed = (props: LinkEmbedProps) => {
 	const style = () => resolveLinkImageStyle(image(), props.imageStyle);
 	const label = () =>
@@ -140,39 +203,55 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 	const media = () => props.media ?? [];
 	const image = () => (media().length > 0 ? undefined : props.image);
 
-	const Image = (imageProps: { image: LinkEmbedImage; class: string }) => (
-		<Show
-			when={props.onOpenImage}
-			fallback={
-				<span data-image-src={imageProps.image.src} class="contents">
-					<AnimatedImage
-						src={imageProps.image.src}
-						alt=""
-						class={imageProps.class}
-					/>
-				</span>
-			}
-		>
-			<button
-				type="button"
-				data-media-tile=""
-				data-index={0}
-				data-image-src={imageProps.image.src}
-				aria-label={`Open image from ${label()}`}
-				onClick={() => props.onOpenImage?.()}
-				class={cx(
-					"relative z-10 block shrink-0 cursor-zoom-in overflow-hidden border-0 bg-transparent p-0 outline-none focus-ring",
-					imageProps.class,
-				)}
+	const Image = (imageProps: {
+		image: LinkEmbedImage;
+		class: string;
+		fit: "cover" | "contain";
+	}) => {
+		const retry = createEmbedImageRetry(() => imageProps.image.src);
+		const fitClass = () =>
+			imageProps.fit === "contain" ? "object-contain" : "object-cover";
+		return (
+			<Show
+				when={!retry.broken()}
+				fallback={<EmbedImagePlaceholder class={imageProps.class} />}
 			>
-				<AnimatedImage
-					src={imageProps.image.src}
-					alt=""
-					class="block size-full object-cover"
-				/>
-			</button>
-		</Show>
-	);
+				<Show
+					when={props.onOpenImage}
+					fallback={
+						<span data-image-src={imageProps.image.src} class="contents">
+							<AnimatedImage
+								src={retry.src()}
+								alt=""
+								onError={retry.fail}
+								class={cx(imageProps.class, fitClass())}
+							/>
+						</span>
+					}
+				>
+					<button
+						type="button"
+						data-media-tile=""
+						data-index={0}
+						data-image-src={imageProps.image.src}
+						aria-label={`Open image from ${label()}`}
+						onClick={() => props.onOpenImage?.()}
+						class={cx(
+							"relative z-10 block shrink-0 cursor-zoom-in overflow-hidden border-0 bg-transparent p-0 outline-none focus-ring",
+							imageProps.class,
+						)}
+					>
+						<AnimatedImage
+							src={retry.src()}
+							alt=""
+							onError={retry.fail}
+							class={cx("block size-full", fitClass())}
+						/>
+					</button>
+				</Show>
+			</Show>
+		);
+	};
 
 	return (
 		<div data-link-embed="" class={cx(frameClass, "group/embed", props.class)}>
@@ -264,7 +343,8 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 					{(image) => (
 						<Image
 							image={image()}
-							class="size-18 shrink-0 rounded-[2px] bg-muted object-cover"
+							fit="cover"
+							class="size-18 shrink-0 rounded-[2px] bg-muted"
 						/>
 					)}
 				</Show>
@@ -273,7 +353,8 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 				{(image) => (
 					<Image
 						image={image()}
-						class="aspect-[1.91] w-full rounded-[2px] bg-muted object-cover"
+						fit="contain"
+						class="aspect-[1.91] w-full rounded-[2px] bg-muted"
 					/>
 				)}
 			</Show>

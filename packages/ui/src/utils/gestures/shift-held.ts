@@ -30,3 +30,49 @@ export const useShiftHeld = (): (() => boolean) => {
 	onCleanup(detach);
 	return shiftHeld;
 };
+
+const [typing, setTyping] = createSignal(false);
+
+let typingSubscribers = 0;
+let pointerX = Number.NaN;
+let pointerY = Number.NaN;
+
+const typesText = (target: EventTarget | null) =>
+	target instanceof HTMLElement &&
+	(target.isContentEditable ||
+		target instanceof HTMLTextAreaElement ||
+		target instanceof HTMLInputElement);
+
+const noteKey = (event: KeyboardEvent) => {
+	if (typesText(event.target)) setTyping(true);
+};
+
+const notePointer = (event: PointerEvent) => {
+	const moved = event.clientX !== pointerX || event.clientY !== pointerY;
+	pointerX = event.clientX;
+	pointerY = event.clientY;
+	if (moved || event.type === "pointerdown") setTyping(false);
+};
+
+const attachTyping = () => {
+	typingSubscribers += 1;
+	if (typingSubscribers > 1) return;
+	window.addEventListener("keydown", noteKey, true);
+	window.addEventListener("pointermove", notePointer, true);
+	window.addEventListener("pointerdown", notePointer, true);
+};
+
+const detachTyping = () => {
+	typingSubscribers -= 1;
+	if (typingSubscribers > 0) return;
+	window.removeEventListener("keydown", noteKey, true);
+	window.removeEventListener("pointermove", notePointer, true);
+	window.removeEventListener("pointerdown", notePointer, true);
+	setTyping(false);
+};
+
+export const useTypingSincePointer = (): (() => boolean) => {
+	onMount(attachTyping);
+	onCleanup(detachTyping);
+	return typing;
+};

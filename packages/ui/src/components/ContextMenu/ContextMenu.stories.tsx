@@ -199,8 +199,8 @@ export const MessageMenu: Story = {
 			.getAllByRole("menuitem")
 			.map((item) => item.textContent?.trim());
 		await expect(labels).toEqual([
-			"Open link",
 			"Copy link",
+			"Open link",
 			"Edit message",
 			"Reply",
 			"Forward",
@@ -240,6 +240,82 @@ export const MessageMenu: Story = {
 			within(again).getByRole("menuitem", { name: "Open link" }),
 		);
 		await expect(onOpenLink).toHaveBeenCalledTimes(1);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		await waitFor(() =>
+			expect(canvasElement.closest("[aria-hidden]")).toBeNull(),
+		);
+	},
+};
+
+const onRetryPending = fn();
+const onDeletePending = fn();
+
+export const PendingMessageMenu: Story = {
+	render: () => (
+		<div class="flex min-h-screen flex-col gap-6 bg-background p-8">
+			<MessageContextMenu
+				onCopyText={fn()}
+				link={{ onOpen: fn(), onCopy: fn() }}
+				image={{ onCopy: fn() }}
+				onDelete={onDeletePending}
+			>
+				<div
+					data-testid="pending"
+					class="rounded-control px-4 py-3 text-base opacity-60 hover:bg-card"
+				>
+					Still sending, with a link and an image.
+				</div>
+			</MessageContextMenu>
+			<MessageContextMenu
+				onRetry={onRetryPending}
+				onCopyText={fn()}
+				onDelete={onDeletePending}
+			>
+				<div
+					data-testid="failed"
+					class="rounded-control px-4 py-3 text-base text-destructive hover:bg-card"
+				>
+					This one failed to send.
+				</div>
+			</MessageContextMenu>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		onRetryPending.mockClear();
+		onDeletePending.mockClear();
+		const canvas = within(canvasElement);
+		const open = (target: HTMLElement) =>
+			waitFor(() => {
+				if (!screen.queryByRole("menu")) rightClick(target);
+				return screen.getByRole("menu");
+			});
+		const pending = await open(canvas.getByTestId("pending"));
+		await within(pending).findByRole("menuitem", { name: "Delete message" });
+		await expect(itemNames(pending)).toEqual([
+			"Copy link",
+			"Open link",
+			"Copy image",
+			"Copy text",
+			"Delete message",
+		]);
+		await expectNoLayoutIssues(pending);
+		await userEvent.click(
+			within(pending).getByRole("menuitem", { name: "Delete message" }),
+		);
+		await expect(onDeletePending).toHaveBeenCalledTimes(1);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		const failed = await open(canvas.getByTestId("failed"));
+		await within(failed).findByRole("menuitem", { name: "Retry" });
+		await expect(itemNames(failed)).toEqual([
+			"Retry",
+			"Copy text",
+			"Delete message",
+		]);
+		await expectNoLayoutIssues(failed);
+		await userEvent.click(
+			within(failed).getByRole("menuitem", { name: "Retry" }),
+		);
+		await expect(onRetryPending).toHaveBeenCalledTimes(1);
 		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
 		await waitFor(() =>
 			expect(canvasElement.closest("[aria-hidden]")).toBeNull(),

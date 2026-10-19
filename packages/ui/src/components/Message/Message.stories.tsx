@@ -4,6 +4,13 @@ import { ReplyIcon } from "@solar-icons/solid/linear/reply";
 import { createSignal, For, Show } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { tabTo } from "../../foundations/focus-ring-test";
+import {
+	EMULATED_WINDOW_CHROME,
+	emulateWindowChrome,
+	expectClearOfWindowChrome,
+	expectNoLayoutIssues,
+} from "../../foundations/layout-test";
 import {
 	type GroupableMessage,
 	groupMessages,
@@ -16,8 +23,12 @@ import { MentionChip, TeamBadge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
 import { COMPOSER_TYPING_INSET, Composer } from "../Composer/Composer";
 import { TypingIndicator } from "../Composer/TypingIndicator";
+import { MessageMenuItems } from "../ContextMenu/MessageMenu";
+import { EmojiPickerPopover } from "../EmojiPicker/EmojiPickerPopover";
 import { IconButton } from "../IconButton/IconButton";
 import { InboxGroupCard } from "../Inbox/InboxGroupCard";
+import { MessageToolbar } from "../MessageActions/MessageToolbar";
+import { ConfirmDialog } from "../Modal/ConfirmDialog";
 import type { RichText } from "../RichEditor/types";
 import { RichTextProvider } from "../RichText/context";
 import { build, f, mark } from "../RichText/fixtures";
@@ -1102,6 +1113,470 @@ export const DesktopToolbarMenuOpen: Story = {
 		await expect(toolbar).not.toBeNull();
 		if (!toolbar) return;
 		await expect(getComputedStyle(toolbar).visibility).toBe("visible");
+	},
+};
+
+const toolbarParts = (row: HTMLElement) => {
+	const layer = row.querySelector<HTMLElement>("[data-message-toolbar]");
+	const bar = layer?.firstElementChild as HTMLElement | null | undefined;
+	if (!layer || !bar) throw new Error("Missing toolbar");
+	return { layer, bar };
+};
+
+const expectToolbarAboveRow = async (row: HTMLElement) => {
+	const { layer, bar } = toolbarParts(row);
+	await waitFor(() => expect(layer.matches(":popover-open")).toBe(true));
+	const rowRect = row.getBoundingClientRect();
+	const barRect = bar.getBoundingClientRect();
+	await expect(Math.abs(barRect.bottom - rowRect.top)).toBeLessThanOrEqual(0.5);
+	await expect(
+		Math.abs(rowRect.right - 12 - barRect.right),
+	).toBeLessThanOrEqual(0.5);
+	const x = barRect.left + barRect.width / 2;
+	const center = document.elementFromPoint(x, barRect.top + barRect.height / 2);
+	await expect(center && bar.contains(center)).toBe(true);
+	const above = document.elementFromPoint(x, rowRect.top - 0.5);
+	const below = document.elementFromPoint(x, rowRect.top + 0.5);
+	await expect(above && layer.contains(above)).toBe(true);
+	await expect(below && row.contains(below)).toBe(true);
+	return { rowRect, barRect };
+};
+
+const showToolbarFromKeyboard = async (row: HTMLElement) => {
+	row.tabIndex = -1;
+	focusRowFromKeyboard(row);
+	const { layer } = toolbarParts(row);
+	await waitFor(() =>
+		expect(getComputedStyle(layer).visibility).toBe("visible"),
+	);
+};
+
+const ToolbarFrame = (props: { toolbarOpen?: boolean }) => (
+	<div
+		data-testid="toolbar-frame"
+		class="flex h-dvh flex-col bg-background text-foreground"
+	>
+		<div
+			data-testid="toolbar-header"
+			class="flex h-12 shrink-0 items-center border-b border-border px-4 font-semibold"
+		>
+			# general
+		</div>
+		<div data-testid="toolbar-scroller" class="min-h-0 flex-1 overflow-y-auto">
+			<For each={groupMessages(conversation)}>
+				{(entry, index) => (
+					<MessageRow
+						author={{ name: entry.message.name }}
+						badge={entry.message.team ? <TeamBadge /> : undefined}
+						timestamp={entry.message.timestamp}
+						now={NOW}
+						locale="en-GB"
+						continuation={entry.continuation}
+						toolbar={<ToolbarPlaceholder />}
+						toolbarOpen={props.toolbarOpen && index() === 0}
+						data-testid={`above-${entry.message.id}`}
+						class={index() === 0 ? "mt-0" : undefined}
+					>
+						{entry.message.body()}
+					</MessageRow>
+				)}
+			</For>
+		</div>
+	</div>
+);
+
+const frameParts = (canvasElement: HTMLElement) => {
+	const frame = canvasElement.querySelector<HTMLElement>(
+		'[data-testid="toolbar-frame"]',
+	);
+	const scroller = canvasElement.querySelector<HTMLElement>(
+		'[data-testid="toolbar-scroller"]',
+	);
+	const first = canvasElement.querySelector<HTMLElement>(
+		'[data-testid="above-1"]',
+	);
+	const grouped = canvasElement.querySelector<HTMLElement>(
+		'[data-testid="above-3"]',
+	);
+	if (!frame || !scroller || !first || !grouped)
+		throw new Error("Missing rows");
+	return { frame, scroller, first, grouped };
+};
+
+export const DesktopToolbarAboveRow: Story = {
+	render: () => <ToolbarFrame />,
+	play: async ({ canvasElement }) => {
+		const { frame, scroller, first, grouped } = frameParts(canvasElement);
+		await expect(grouped).toHaveAttribute("data-continuation");
+		await showToolbarFromKeyboard(first);
+		await expect(toolbarParts(first).layer).toHaveAttribute(
+			"data-toolbar-layer",
+			"top",
+		);
+		const top = await expectToolbarAboveRow(first);
+		await expect(top.barRect.top).toBeLessThan(
+			scroller.getBoundingClientRect().top,
+		);
+		await expectNoLayoutIssues(frame);
+		first.blur();
+		await showToolbarFromKeyboard(grouped);
+		await expectToolbarAboveRow(grouped);
+		await expectNoLayoutIssues(frame);
+		grouped.blur();
+	},
+};
+
+export const DesktopToolbarOwnMenuAtScrollerTop: Story = {
+	render: () => <ToolbarFrame toolbarOpen />,
+	play: async ({ canvasElement }) => {
+		const { frame, scroller, first } = frameParts(canvasElement);
+		const { layer, bar } = toolbarParts(first);
+		await expect(layer).toHaveAttribute("data-toolbar-layer", "row");
+		await expect(layer.matches(":popover-open")).toBe(false);
+		await expect(getComputedStyle(layer).visibility).toBe("visible");
+		const barRect = bar.getBoundingClientRect();
+		const rowRect = first.getBoundingClientRect();
+		await expect(barRect.top).toBeGreaterThanOrEqual(
+			scroller.getBoundingClientRect().top - 0.5,
+		);
+		await expect(barRect.bottom).toBeLessThanOrEqual(rowRect.bottom + 0.5);
+		await expect(
+			Math.abs(rowRect.right - 12 - barRect.right),
+		).toBeLessThanOrEqual(0.5);
+		const hit = document.elementFromPoint(
+			barRect.left + barRect.width / 2,
+			barRect.top + barRect.height / 2,
+		);
+		await expect(hit && bar.contains(hit)).toBe(true);
+		await expectNoLayoutIssues(frame);
+	},
+};
+
+export const DesktopToolbarClearsWindowChrome: Story = {
+	render: () => (
+		<div
+			class="flex h-dvh flex-col bg-background text-foreground"
+			style={{ "padding-top": `${EMULATED_WINDOW_CHROME}px` }}
+		>
+			<div class="min-h-0 flex-1 overflow-y-auto">
+				<MessageRow
+					author={{ name: "Lou" }}
+					timestamp={at(9, 4)}
+					now={NOW}
+					locale="en-GB"
+					toolbar={<ToolbarPlaceholder />}
+					class="mt-0"
+					data-testid="chrome-row"
+				>
+					The first row sits right under the window chrome
+				</MessageRow>
+			</div>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const restore = emulateWindowChrome();
+		try {
+			const row = canvasElement.querySelector<HTMLElement>(
+				'[data-testid="chrome-row"]',
+			);
+			if (!row) throw new Error("Missing row");
+			await showToolbarFromKeyboard(row);
+			const { layer, bar } = toolbarParts(row);
+			await waitFor(() => expect(layer.matches(":popover-open")).toBe(true));
+			window.dispatchEvent(new Event("resize"));
+			await waitFor(() =>
+				expect(bar.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+					EMULATED_WINDOW_CHROME - 0.5,
+				),
+			);
+			await expectClearOfWindowChrome(layer);
+			row.blur();
+		} finally {
+			restore();
+		}
+	},
+};
+
+const overlayHidesToolbar = async (layer: HTMLElement, bar: HTMLElement) => {
+	await waitFor(() => expect(layer).toHaveAttribute("data-overlay-hidden"));
+	await expect(getComputedStyle(layer).opacity).toBe("0");
+	await expect(getComputedStyle(layer).pointerEvents).toBe("none");
+	const rect = bar.getBoundingClientRect();
+	const hit = document.elementFromPoint(
+		rect.left + rect.width / 2,
+		rect.top + rect.height / 2,
+	);
+	await expect(hit && layer.contains(hit)).toBe(false);
+};
+
+const toolbarStaysUnder = async (layer: HTMLElement, overlay: HTMLElement) => {
+	await waitFor(() =>
+		expect(layer).toHaveAttribute("data-toolbar-layer", "row"),
+	);
+	await expect(layer).not.toHaveAttribute("data-overlay-hidden");
+	await expect(layer.matches(":popover-open")).toBe(false);
+	await expect(getComputedStyle(layer).visibility).toBe("visible");
+	await expect(getComputedStyle(layer).opacity).toBe("1");
+	await paintsOnTop(overlay);
+};
+
+const paintsOnTop = async (overlay: HTMLElement) => {
+	const rect = overlay.getBoundingClientRect();
+	const hit = document.elementFromPoint(
+		rect.left + rect.width / 2,
+		rect.top + rect.height / 2,
+	);
+	await expect(hit && overlay.contains(hit)).toBe(true);
+};
+
+let openUnrelatedDialog: (() => void) | undefined;
+
+export const DesktopToolbarOverlays: Story = {
+	render: () => {
+		const [menuOpen, setMenuOpen] = createSignal(false);
+		const [picker, setPicker] = createSignal<HTMLElement>();
+		const [confirming, setConfirming] = createSignal(false);
+		openUnrelatedDialog = () => setConfirming(true);
+		return (
+			<div class="flex min-h-dvh flex-col bg-background px-4 pt-24 text-foreground">
+				<MessageRow
+					author={{ name: "Lou" }}
+					timestamp={at(9, 4)}
+					now={NOW}
+					locale="en-GB"
+					toolbarOpen={menuOpen() || !!picker()}
+					data-testid="overlay-row"
+					toolbar={
+						<MessageToolbar
+							own
+							recentReactions={["🐦"]}
+							onReact={() => {}}
+							onAddReaction={(event) =>
+								setPicker(event.currentTarget as HTMLElement)
+							}
+							onEdit={() => {}}
+							onForward={() => {}}
+							menuOpen={menuOpen()}
+							onMenuOpenChange={setMenuOpen}
+							menu={<MessageMenuItems onReply={() => {}} onDelete={() => {}} />}
+						/>
+					}
+				>
+					Its own menus sit above the toolbar, other dialogs hide it
+				</MessageRow>
+				<Show when={picker()}>
+					{(anchorElement) => (
+						<EmojiPickerPopover
+							open
+							onOpenChange={(open) => {
+								if (!open) setPicker(undefined);
+							}}
+							anchorElement={anchorElement()}
+							placement="bottom-end"
+							label="Add a reaction"
+							onPick={() => {}}
+						/>
+					)}
+				</Show>
+				<ConfirmDialog
+					open={confirming()}
+					onOpenChange={setConfirming}
+					title="Leave this Space?"
+					confirmLabel="Leave"
+					tone="destructive"
+					onConfirm={() => {
+						setConfirming(false);
+					}}
+				/>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const row = canvasElement.querySelector<HTMLElement>(
+			'[data-testid="overlay-row"]',
+		);
+		if (!row) throw new Error("Missing row");
+		await showToolbarFromKeyboard(row);
+		const { layer, bar } = toolbarParts(row);
+		await waitFor(() => expect(layer.matches(":popover-open")).toBe(true));
+		await expect(layer).toHaveAttribute("data-toolbar-layer", "top");
+		const toolbar = within(bar);
+
+		const add = toolbar.getByRole("button", { name: "Add reaction" });
+		await tabTo(add);
+		const tooltip = await screen.findByRole("tooltip", {}, { timeout: 2000 });
+		await waitFor(() => expect(getComputedStyle(tooltip).opacity).toBe("1"));
+		await expect(layer).not.toHaveAttribute("data-overlay-hidden");
+		const tip = tooltip.getBoundingClientRect();
+		const barRect = bar.getBoundingClientRect();
+		await expect(
+			tip.bottom <= barRect.top + 0.5 || tip.top >= barRect.bottom - 0.5,
+		).toBe(true);
+		await paintsOnTop(tooltip);
+
+		const more = toolbar.getByRole("button", { name: "More actions" });
+		await tabTo(more);
+		await userEvent.keyboard("{Enter}");
+		const menu = await screen.findByRole("menu");
+		await toolbarStaysUnder(layer, menu);
+		await expect(more).toHaveAttribute("data-expanded");
+		await expect(getComputedStyle(more).backgroundColor).not.toBe(
+			"rgba(0, 0, 0, 0)",
+		);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		await expect(document.activeElement).toBe(more);
+		await waitFor(() =>
+			expect(layer).toHaveAttribute("data-toolbar-layer", "top"),
+		);
+
+		add.focus();
+		await expect(document.activeElement).toBe(add);
+		await userEvent.keyboard("{Enter}");
+		const pickerDialog = await screen.findByRole("dialog", {
+			name: "Add a reaction",
+		});
+		await toolbarStaysUnder(layer, pickerDialog);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Add a reaction" }),
+			).toBeNull(),
+		);
+		await waitFor(() =>
+			expect(layer).toHaveAttribute("data-toolbar-layer", "top"),
+		);
+
+		const rowRect = row.getBoundingClientRect();
+		row.dispatchEvent(
+			new PointerEvent("pointermove", {
+				bubbles: true,
+				pointerType: "mouse",
+				clientX: rowRect.left + 31,
+				clientY: rowRect.top + 7,
+			}),
+		);
+		row.dispatchEvent(new PointerEvent("pointerenter"));
+		await waitFor(() => expect(layer.matches(":popover-open")).toBe(true));
+		openUnrelatedDialog?.();
+		const dialog = await screen.findByRole("dialog", {
+			name: "Leave this Space?",
+		});
+		await overlayHidesToolbar(layer, bar);
+		await paintsOnTop(dialog);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Cancel" }),
+		);
+		await waitFor(() =>
+			expect(layer).not.toHaveAttribute("data-overlay-hidden"),
+		);
+	},
+};
+
+export const DesktopToolbarHidesWhileTyping: Story = {
+	render: () => (
+		<div class="flex min-h-dvh flex-col bg-background px-4 py-16 text-foreground">
+			<MessageRow
+				author={{ name: "Lou" }}
+				timestamp={at(9, 4)}
+				now={NOW}
+				locale="en-GB"
+				toolbar={<ToolbarPlaceholder />}
+				data-testid="typing-row"
+			>
+				Type in the composer and this toolbar steps aside
+			</MessageRow>
+			<textarea
+				aria-label="Composer stand-in"
+				data-testid="typing-input"
+				class="mt-8 h-20 rounded-control border border-border bg-card p-2"
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const row = canvasElement.querySelector<HTMLElement>(
+			'[data-testid="typing-row"]',
+		);
+		const input = canvasElement.querySelector<HTMLTextAreaElement>(
+			'[data-testid="typing-input"]',
+		);
+		if (!row || !input) throw new Error("Missing row");
+		const rect = row.getBoundingClientRect();
+		const pointer = (type: string, x: number) =>
+			row.dispatchEvent(
+				new PointerEvent(type, {
+					bubbles: type !== "pointerenter",
+					clientX: x,
+					clientY: rect.top + 10,
+					pointerType: "mouse",
+				}),
+			);
+		pointer("pointermove", rect.left + 40);
+		pointer("pointerenter", rect.left + 40);
+		const { layer } = toolbarParts(row);
+		await waitFor(() => expect(layer.matches(":popover-open")).toBe(true));
+		input.focus();
+		input.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "Shift", bubbles: true }),
+		);
+		await waitFor(() => expect(layer.matches(":popover-open")).toBe(false));
+		pointer("pointermove", rect.left + 40);
+		await expect(layer.matches(":popover-open")).toBe(false);
+		pointer("pointermove", rect.left + 50);
+		await waitFor(() => expect(layer.matches(":popover-open")).toBe(true));
+		input.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "h", bubbles: true }),
+		);
+		await waitFor(() => expect(layer.matches(":popover-open")).toBe(false));
+		pointer("pointermove", rect.left + 60);
+		await waitFor(() => expect(layer.matches(":popover-open")).toBe(true));
+		input.blur();
+	},
+};
+
+export const ContinuationTimeSubtext: Story = {
+	render: () => (
+		<div class="flex min-h-dvh flex-col bg-background px-4 py-8 text-foreground">
+			<MessageRow
+				author={{ name: "Lou" }}
+				timestamp={at(9, 4)}
+				now={NOW}
+				locale="en-GB"
+			>
+				First message in the group
+			</MessageRow>
+			<MessageRow
+				author={{ name: "Lou" }}
+				timestamp={at(9, 6)}
+				now={NOW}
+				locale="en-GB"
+				continuation
+				showTime
+				data-testid="subtext-continuation"
+			>
+				<RichTextRenderer
+					value={build([
+						{ block: [f.subtext], parts: ["Small print under the message"] },
+					])}
+				/>
+			</MessageRow>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const row = canvasElement.querySelector<HTMLElement>(
+			'[data-testid="subtext-continuation"]',
+		);
+		const time = row?.querySelector<HTMLElement>("[data-continuation-time]");
+		const subtext = row?.querySelector<HTMLElement>(
+			'[data-facet-type="subtext"]',
+		);
+		if (!row || !time || !subtext) throw new Error("Missing subtext row");
+		await expect(getComputedStyle(subtext).fontSize).toBe("14px");
+		const timeRect = time.getBoundingClientRect();
+		await expect(timeRect.height).toBe(MESSAGE_LINE_HEIGHT);
+		await expect(
+			Math.abs(timeRect.top + timeRect.height / 2 - firstLineCenter(subtext)),
+		).toBeLessThanOrEqual(1);
 	},
 };
 

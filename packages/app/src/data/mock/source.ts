@@ -27,6 +27,7 @@ import type {
 	Presence,
 	ReactionEmojiRef,
 	SpaceRef,
+	Status,
 	ThreadView,
 	UnreadStatus,
 } from "../types";
@@ -234,11 +235,23 @@ export const createMockSource = (
 		throw new Error(`Unknown channel ${ref}`);
 	};
 
+	const loadedLists = () =>
+		world.spaces.flatMap((space) => [
+			...space.channels.flatMap((channel) =>
+				channel.messages ? [channel.messages] : [],
+			),
+			...space.threads.map((thread) => thread.messages),
+		]);
+
 	const findMessage = (ref: SpaceRef, rkey: string) => {
-		const list = messagesFor(ref);
-		const index = list.findIndex((message) => message.rkey === rkey);
-		if (index < 0) throw new Error(`Unknown message ${rkey}`);
-		return { list, index, message: list[index] as MessageView };
+		const viewed = messagesFor(ref);
+		const lists = [viewed, ...loadedLists().filter((list) => list !== viewed)];
+		for (const list of lists) {
+			const index = list.findIndex((message) => message.rkey === rkey);
+			if (index >= 0)
+				return { list, index, message: list[index] as MessageView };
+		}
+		throw new Error(`Unknown message ${rkey}`);
 	};
 
 	const touchThread = (ref: SpaceRef) => {
@@ -1350,8 +1363,13 @@ export const createMockSource = (
 				const current = world.people.presenceOf(did) ?? {
 					onlineState: "online" as const,
 				};
-				const status = { ...current.status, text: current.status?.text ?? "" };
+				const status: Status = {
+					...current.status,
+					text: current.status?.text ?? "",
+				};
 				if (input.text !== undefined) status.text = input.text;
+				if (input.customEmoji) status.customEmoji = input.customEmoji;
+				else if (input.removeCustomEmoji) delete status.customEmoji;
 				if (input.emoji !== undefined) {
 					if (input.emoji) status.emoji = input.emoji;
 					else delete status.emoji;
@@ -1366,7 +1384,9 @@ export const createMockSource = (
 					onlineState: input.onlineState ?? current.onlineState,
 				};
 				if (current.voice) next.voice = current.voice;
-				if (status.text || status.emoji) next.status = status;
+				if (status.text || status.emoji || status.customEmoji) {
+					next.status = status;
+				}
 				world.people.setPresence(did, next);
 				emit({ $type: "presenceEvent", did, presence: next });
 				return next;

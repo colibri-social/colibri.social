@@ -9,6 +9,7 @@ import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
 import { createMemo, Show } from "solid-js";
 import { isVoiceChannel } from "../../data/ids";
 import { useData } from "../../data/store";
+import { VOICE_CHANNEL } from "../../data/types";
 import { defineContract, slot } from "../../screen/define";
 import {
 	type Placement,
@@ -24,18 +25,21 @@ import {
 	createConversation,
 } from "./conversation";
 
-export type ChannelArgs = { space: string; channel: string };
+export type ChannelArgs = {
+	space: string;
+	channel: string;
+	channelType?: string;
+};
 
 type ChannelModel = Conversation & {
 	loadFailure: () => LoadFailure | undefined;
+	voice: () => boolean;
 };
 
 type LoadFailure = { error: ColibriError; retry: () => void };
 
-const channelIcon = (m: ChannelModel) => {
-	const current = m.view();
-	return current && isVoiceChannel(current) ? <VolumeSmallIcon /> : undefined;
-};
+const channelIcon = (m: ChannelModel) =>
+	m.voice() ? <VolumeSmallIcon /> : undefined;
 
 const openThreads = (m: ChannelModel) =>
 	m.stack.push({
@@ -174,7 +178,13 @@ export const channel = defineContract({
 			if (feed && feedError) return { error: feedError, retry: feed.reload };
 			return undefined;
 		});
-		const model: ChannelModel = { ...conversation, loadFailure };
+		const voice = () => {
+			const current = view();
+			return current
+				? isVoiceChannel(current)
+				: args.channelType === VOICE_CHANNEL;
+		};
+		const model: ChannelModel = { ...conversation, loadFailure, voice };
 		return model;
 	},
 	slots: {
@@ -190,6 +200,7 @@ export const channel = defineContract({
 				{(kind) => (
 					<ConversationUnavailable
 						kind={kind()}
+						voice={m.voice()}
 						actionLabel="Back to channels"
 						onAction={() => m.stack.pop()}
 					/>

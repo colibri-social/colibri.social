@@ -91,20 +91,22 @@ it("shows the unavailable card for a pack that doesn't exist", async () => {
 	).toBe("missing");
 });
 
-it("opens the pack in the app when its name is clicked", async () => {
+it("lists every emoji in the pack when its name is clicked", async () => {
 	const routes: Route[] = [];
 	const stopListening = listenForAppLinks((route) => routes.push(route));
 	const { host, pack } = await mount((id) =>
 		emojiPackShareUrl(packTargetOf(id)),
 	);
 	await until(() => !!host.querySelector("[data-emoji-pack-card]"));
-	const link = [...host.querySelectorAll<HTMLAnchorElement>("a")].find(
-		(anchor) => anchor.textContent === pack.name,
-	);
+	const link = host.querySelector<HTMLAnchorElement>("[data-emoji-pack-title]");
+	expect(link?.textContent).toBe(pack.name);
 	const event = new MouseEvent("click", { bubbles: true, cancelable: true });
 	link?.dispatchEvent(event);
-	stopListening();
 	expect(event.defaultPrevented).toBe(true);
-	expect(routes).toHaveLength(1);
-	expect(routes[0]?.layers[0]?.kind).toBe("pack");
+	await until(() => !!document.querySelector("[data-emoji-pack-view-all]"));
+	stopListening();
+	expect(routes).toHaveLength(0);
+	const list = document.querySelector("[data-emoji-pack-view-all]");
+	expect(list?.getAttribute("data-platform")).toBe("desktop");
+	expect(list?.querySelectorAll("li")).toHaveLength(pack.emojis.length);
 });

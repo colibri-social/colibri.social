@@ -75,10 +75,12 @@ export const createHistorySync = (options: {
 	onExternal: (navigation: ExternalNavigation) => void;
 	parse?: (path: string) => Route;
 	stacksOverTab?: (root: Root) => boolean;
+	pushesSwitch?: (from: string, to: string) => boolean;
 }) => {
 	const { port } = options;
 	const parse = options.parse ?? parsePath;
 	const stacksOverTab = options.stacksOverTab ?? (() => false);
+	const pushesSwitch = options.pushesSwitch ?? (() => false);
 	let pendingPop = false;
 	let dirty = false;
 	let disposed = false;
@@ -163,7 +165,11 @@ export const createHistorySync = (options: {
 		const currentPath = pathAt(route, current);
 		const overlayOnTop = desired > current && hasOverlay(port.state());
 		if (!overlayOnTop && port.path() !== currentPath) {
-			port.replace(entry(current, onTabOver), currentPath);
+			if (current > 0 && pushesSwitch(port.path(), currentPath)) {
+				port.push(entry(current), currentPath);
+			} else {
+				port.replace(entry(current, onTabOver), currentPath);
+			}
 		}
 		if (current === 0) basePath = currentPath;
 		for (let depth = current + 1; depth <= desired; depth++) {

@@ -198,6 +198,7 @@ export * from "./components/SpaceInviteCard/space-invite-card-model";
 export * from "./components/SpaceRail/SpaceRail";
 export * from "./components/Spinner/Spinner";
 export * from "./components/StatusField/StatusField";
+export * from "./components/StatusField/StatusText";
 export * from "./components/StatusScreen/StatusScreen";
 export * from "./components/Switch/Switch";
 export * from "./components/TabBar/TabBar";

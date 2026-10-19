@@ -14,7 +14,9 @@ import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Avatar, type Presence } from "../Avatar/Avatar";
 import { Banner } from "../Banner/Banner";
 import { Card, type CardTone } from "../Card/Card";
-import { Emoji, EmojiText } from "../Emoji/Emoji";
+import { EmojiText } from "../Emoji/Emoji";
+import type { CustomEmoji } from "../EmojiPicker/EmojiPicker";
+import { StatusEmoji } from "../StatusField/StatusText";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import { ActivityIcon } from "./ActivityIcon";
 
@@ -28,6 +30,7 @@ const surfaceColor: Record<ProfileSurface, string> = {
 export type StatusBubbleProps = {
 	children?: JSX.Element;
 	emoji?: string;
+	customEmoji?: CustomEmoji;
 	editable?: boolean;
 	onClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
 	actionLabel?: string;
@@ -57,15 +60,17 @@ export const StatusBubble = (props: StatusBubbleProps) => {
 				props.class,
 			)}
 		>
-			<Show when={props.emoji}>
-				{(emoji) => (
-					<span
-						data-status-emoji=""
-						class="flex h-[18px] shrink-0 items-center text-sm"
-					>
-						<Emoji emoji={emoji()} size={18} />
-					</span>
-				)}
+			<Show when={props.customEmoji || props.emoji}>
+				<span
+					data-status-emoji=""
+					class="flex h-[18px] shrink-0 items-center text-sm"
+				>
+					<StatusEmoji
+						emoji={props.emoji}
+						customEmoji={props.customEmoji}
+						size={18}
+					/>
+				</span>
 			</Show>
 			<span
 				data-status-text=""
@@ -134,6 +139,7 @@ export type ProfileHeaderProps = {
 	appBadge?: JSX.Element;
 	status?: JSX.Element;
 	statusEmoji?: string;
+	statusCustomEmoji?: CustomEmoji;
 	statusEditable?: boolean;
 	statusShowWhileOffline?: boolean;
 	onStatusClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
@@ -197,7 +203,7 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 				</Dynamic>
 				<Show
 					when={
-						(status.has() || props.statusEmoji) &&
+						(status.has() || props.statusEmoji || props.statusCustomEmoji) &&
 						isStatusVisible({
 							presence: props.presence,
 							showWhileOffline: props.statusShowWhileOffline,
@@ -208,6 +214,7 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 					<StatusBubble
 						class="mt-[34px]"
 						emoji={props.statusEmoji}
+						customEmoji={props.statusCustomEmoji}
 						editable={props.statusEditable}
 						onClick={props.onStatusClick}
 					>

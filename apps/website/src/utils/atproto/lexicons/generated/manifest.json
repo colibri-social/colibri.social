@@ -3,7 +3,7 @@
 	"lexicons": {
 		"social.colibri.beta.actor.clientPreferences": "dda81504177cebf81b82e9c91fa616b777e26d62504ebd3ff617b55abea70825",
 		"social.colibri.beta.actor.composerState": "abe7e1c4d10e30b449e8b487ab49d599157f9a14282d868f8a7f0dba2cda92d7",
-		"social.colibri.beta.actor.defs": "f9836d59066899f675386b4413ccb87f135f8a9ed13a8cf86778ddfd50a6dd28",
+		"social.colibri.beta.actor.defs": "8762bdf706be93a7e37a2de3241292b86d004ed2dcf9cdcb677621dadd0e49f4",
 		"social.colibri.beta.actor.deleteAccount": "71ab973c05ff9feeffc48efc241ff5de106ccfa90c9ed35e01884cf1f4789c06",
 		"social.colibri.beta.actor.getDeletionStatus": "12b169e3479a01b8dd6271f19d0b17aae8c90060c19f8c71fa6a0c40ac9bc435",
 		"social.colibri.beta.actor.getPreferences": "1f5b6cf1590123b0870b29fa663e2458eb9c869b1381b2e32888fdbee7440568",
@@ -16,7 +16,7 @@
 		"social.colibri.beta.actor.putMutes": "198f1b62f3c7f915509cf72f7ed857d964c9652f6675b2b25c9e9d9e18efba52",
 		"social.colibri.beta.actor.putSettings": "dca7abe3c3304843a1403b86ab7e3f5a1dfa639baa7c473c37c662e84544fea9",
 		"social.colibri.beta.actor.putSpaceNotification": "cd03636dbe13695dd31579349ab801cd21674d5a751a5cdab0c76a7d2bddb843",
-		"social.colibri.beta.actor.setStatus": "550da7ede5fce6fcfc84996fb3bad30d2af5f02b3ef63520ce5f9bcce738b100",
+		"social.colibri.beta.actor.setStatus": "27b9aef2db8b23447ff6c44a71ff9182d01283ff8994f28a2484cf5c0b1b92ad",
 		"social.colibri.beta.actor.settings": "6970cfd6c67f773b25c598d550ac75f235ef00093868c0649ceb4fadb2fddbb8",
 		"social.colibri.beta.actor.spaceNotification": "66ed1068bdbaba8c1071fb6fb455b8e0402e86a01a50e6d201cb27e9543a7771",
 		"social.colibri.beta.blob.get": "3de53bd47f9eb78376542012a21d0aa91e6a4df175fee4e8a21435b92bfec8ca",

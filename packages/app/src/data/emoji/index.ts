@@ -83,16 +83,26 @@ export type EmojiSource = {
 	unfollowEmoji: (input: { rkey: string }) => Promise<void>;
 };
 
+const nameCollator = new Intl.Collator(undefined, { sensitivity: "base" });
+
+export const byEmojiName = (a: { name: string }, b: { name: string }) =>
+	nameCollator.compare(a.name, b.name);
+
+export const sortedEmoji = <T extends { name: string }>(emojis: readonly T[]) =>
+	[...emojis].sort(byEmojiName);
+
 export const ungroupedEmoji = (catalog: EmojiCatalogView) => {
 	const grouped = new Set(catalog.packs.flatMap((pack) => pack.emojis));
-	return catalog.emojis.filter((emoji) => !grouped.has(emoji.id));
+	return sortedEmoji(catalog.emojis.filter((emoji) => !grouped.has(emoji.id)));
 };
 
 export const packEmoji = (catalog: EmojiCatalogView, pack: EmojiPackView) => {
 	const byId = new Map(catalog.emojis.map((emoji) => [emoji.id, emoji]));
-	return pack.emojis
-		.map((id) => byId.get(id))
-		.filter((emoji): emoji is EmojiView => !!emoji);
+	return sortedEmoji(
+		pack.emojis
+			.map((id) => byId.get(id))
+			.filter((emoji): emoji is EmojiView => !!emoji),
+	);
 };
 
 export const followOf = (

@@ -110,6 +110,7 @@ export const createOutbox = (options: OutboxOptions) => {
 	const idleChecks = new Set<() => void>();
 	let lastSeq = 0;
 	let inFlight: number | undefined;
+	const abandoned = new Set<number>();
 	let running = false;
 	let again = false;
 	let disposed = false;
@@ -346,12 +347,23 @@ export const createOutbox = (options: OutboxOptions) => {
 	const attempt = async (entry: OutboxEntry): Promise<"done" | "wait"> => {
 		try {
 			const message = await perform(entry);
-			if (find(entry.seq)) succeed(entry, message);
+			if (abandoned.delete(entry.seq))
+				emit(
+					message
+						? { type: "landedAfterDiscard", entry, message }
+						: { type: "landedAfterDiscard", entry },
+				);
+			else if (find(entry.seq)) succeed(entry, message);
 			notBefore = 0;
 			return "done";
 		} catch (thrown) {
 			const error = classifyThrown(thrown, { method: `outbox.${entry.op.t}` });
 			const current = find(entry.seq);
+			if (abandoned.delete(entry.seq)) {
+				if (landedAnyway(entry.op, error))
+					emit({ type: "landedAfterDiscard", entry });
+				return "done";
+			}
 			if (!current) return "done";
 			if (landedAnyway(current.op, error)) {
 				succeed(current);
@@ -537,6 +549,7 @@ export const createOutbox = (options: OutboxOptions) => {
 	const discard = (seq: number) => {
 		const entry = find(seq);
 		if (!entry) return;
+		if (inFlight === seq) abandoned.add(seq);
 		remove(seq);
 		emit({ type: "dropped", entry });
 		settle(seq, {});

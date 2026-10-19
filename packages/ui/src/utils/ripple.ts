@@ -76,7 +76,7 @@ const layerFor = (host: HTMLElement) => {
 	const layer = document.createElement("span");
 	layer.setAttribute("data-ripple-layer", "");
 	layer.setAttribute("aria-hidden", "true");
-	host.prepend(layer);
+	host.append(layer);
 	return layer;
 };
 

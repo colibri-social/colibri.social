@@ -406,3 +406,59 @@ export const PlaybackError: Story = {
 		).toHaveTextContent("This video can't be played");
 	},
 };
+
+const ResignedPlayer = () => {
+	const clip = createStoryClip(3);
+	const [signature, setSignature] = createSignal<string>();
+	return (
+		<Show when={clip()}>
+			{(value) => (
+				<>
+					<button type="button" onClick={() => setSignature("c41d")}>
+						Re-sign link
+					</button>
+					<VideoPlayer
+						src={
+							signature()
+								? `${value().src}?exp=1&sig=${signature()}`
+								: value().src
+						}
+						mimeType="video/webm"
+						poster={value().poster}
+						width={640}
+						height={360}
+						muted
+						label="A clip whose link gets re-signed"
+						class="w-full rounded-control-lg"
+					/>
+				</>
+			)}
+		</Show>
+	);
+};
+
+export const ResignedSourceKeepsPlayback: Story = {
+	parameters: iphone,
+	render: () => (
+		<Screen>
+			<Section title="A new signature on the same file">
+				<ResignedPlayer />
+			</Section>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		const { video } = await playerIn(canvasElement);
+		video.currentTime = 1.2;
+		await waitFor(() => expect(video.currentTime).toBeCloseTo(1.2, 1));
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Re-sign link" }),
+		);
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		await expect(video.querySelector("source")?.getAttribute("src")).toContain(
+			"sig=c41d",
+		);
+		await expect(video.currentTime).toBeCloseTo(1.2, 1);
+		await expect(video.error).toBeNull();
+		await expect(canvasElement.querySelector("[data-video-error]")).toBeNull();
+	},
+};

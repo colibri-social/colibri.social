@@ -41,11 +41,21 @@ export function pruneEmojiUsage(
 	);
 }
 
+export function isCustomEmojiKey(key: string): boolean {
+	return key.startsWith("at://");
+}
+
 export function topEmoji(
 	usage: Record<string, EmojiUsage>,
 	limit: number,
+	resolveCustom?: (uri: string) => string | undefined,
 ): string[] {
-	const ranked = rankedEmoji(usage).slice(0, limit);
+	const ranked: string[] = [];
+	for (const key of rankedEmoji(usage)) {
+		if (ranked.length >= limit) break;
+		const shown = isCustomEmojiKey(key) ? resolveCustom?.(key) : key;
+		if (shown && !ranked.includes(shown)) ranked.push(shown);
+	}
 	for (const fallback of DEFAULT_QUICK_REACTIONS) {
 		if (ranked.length >= limit) break;
 		if (!ranked.includes(fallback)) ranked.push(fallback);

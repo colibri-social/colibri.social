@@ -21,7 +21,7 @@ import {
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { UploadProgress } from "../Composer/AttachmentTray";
 import { VideoPlayer } from "../Media/VideoPlayer";
-import { VideoSource } from "../Media/VideoSource";
+import { sameMediaSource, VideoSource } from "../Media/VideoSource";
 import { Skeleton } from "../Skeleton/Skeleton";
 import { createPressRipple, pressSurfaceInset } from "./shared";
 
@@ -93,9 +93,12 @@ const MediaPill = (props: { children: JSX.Element; class?: string }) => (
 	</span>
 );
 
+export type MediaFit = "cover" | "contain";
+
 export type MediaTileProps = {
 	item: MediaItem;
 	index: number;
+	fit?: MediaFit;
 	overflow?: number;
 	loading?: boolean;
 	onOpen?: (index: number) => void;
@@ -208,10 +211,26 @@ export const MediaTile = (props: MediaTileProps) => {
 	const [playing, setPlaying] = createSignal(false);
 	const [status, setStatus] = createSignal<MediaStatus>("ok");
 	const [attempt, setAttempt] = createSignal(1);
+	const [heldSrc, setHeldSrc] = createSignal(props.item.src);
+	const [heldPoster, setHeldPoster] = createSignal(props.item.poster);
+	const adoptLatest = () => {
+		setHeldSrc(props.item.src);
+		setHeldPoster(props.item.poster);
+	};
+	createEffect(
+		on(
+			() => [props.item.src, props.item.poster] as const,
+			([src, poster]) => {
+				const replace = status() !== "ok";
+				if (replace || !sameMediaSource(heldSrc(), src)) setHeldSrc(src);
+				if (replace || !sameMediaSource(heldPoster(), poster))
+					setHeldPoster(poster);
+			},
+			{ defer: true },
+		),
+	);
 	const displayedSrc = createMemo(() =>
-		props.item.kind === "video"
-			? (props.item.poster ?? props.item.src)
-			: props.item.src,
+		props.item.kind === "video" ? (heldPoster() ?? heldSrc()) : heldSrc(),
 	);
 	createEffect(
 		on(
@@ -225,6 +244,12 @@ export const MediaTile = (props: MediaTileProps) => {
 	);
 	const failMedia = async () => {
 		if (props.loading || status() !== "ok") return;
+		if (props.item.src !== heldSrc() || props.item.poster !== heldPoster()) {
+			adoptLatest();
+			setLoaded(false);
+			setAttempt((value) => value + 1);
+			return;
+		}
 		const failedSrc = props.item.src;
 		const failedAttempt = attempt();
 		setStatus("refreshing");
@@ -240,6 +265,7 @@ export const MediaTile = (props: MediaTileProps) => {
 	};
 	const retry = () => {
 		props.onRetry?.(props.index);
+		adoptLatest();
 		setLoaded(false);
 		setStatus("ok");
 		setAttempt((value) => value + 1);
@@ -273,9 +299,11 @@ export const MediaTile = (props: MediaTileProps) => {
 		props.item.kind === "video" && !props.item.poster;
 	const loopingGif = () =>
 		props.item.kind === "gif" && isVideoMime(props.item.mimeType);
+	const tileFit = (): MediaFit => (hidden() ? "cover" : (props.fit ?? "cover"));
 	const previewClass = () =>
 		cx(
-			"size-full object-cover transition-opacity duration-[calc(150ms*var(--motion-scale))] motion-reduce:transition-none reduced-motion:transition-none",
+			"size-full transition-opacity duration-[calc(150ms*var(--motion-scale))] motion-reduce:transition-none reduced-motion:transition-none",
+			tileFit() === "contain" ? "object-contain" : "object-cover",
 			loaded() ? "opacity-100" : "opacity-0",
 			hidden() && "scale-110 blur-xl",
 		);
@@ -323,13 +351,13 @@ export const MediaTile = (props: MediaTileProps) => {
 				keyed
 			>
 				<VideoPlayer
-					src={props.item.src}
+					src={heldSrc()}
 					mimeType={props.item.mimeType}
-					poster={props.item.poster}
+					poster={heldPoster()}
 					label={props.item.alt ?? props.item.name ?? "Video"}
-					fit="cover"
+					fit={tileFit()}
 					handoff="inline"
-					class="absolute inset-0 size-full"
+					class="absolute inset-0 size-full bg-muted"
 					onReady={() => setLoaded(true)}
 					onError={() => void failMedia()}
 					onStartedChange={setStarted}
@@ -369,9 +397,9 @@ export const MediaTile = (props: MediaTileProps) => {
 						when={!loopingGif()}
 						fallback={
 							<LoopingVideo
-								src={props.item.src}
+								src={heldSrc()}
 								mimeType={props.item.mimeType}
-								poster={props.item.poster}
+								poster={heldPoster()}
 								paused={
 									hidden() ||
 									!appActive() ||
@@ -387,7 +415,7 @@ export const MediaTile = (props: MediaTileProps) => {
 							when={!posterlessVideo()}
 							fallback={
 								<VideoFrame
-									src={props.item.src}
+									src={heldSrc()}
 									mimeType={props.item.mimeType}
 									onLoad={() => setLoaded(true)}
 									onError={() => void failMedia()}
@@ -399,11 +427,7 @@ export const MediaTile = (props: MediaTileProps) => {
 								animated={props.item.kind === "gif" ? true : undefined}
 								playOnDemand="none"
 								play={playing()}
-								src={
-									props.item.kind === "video"
-										? props.item.poster
-										: props.item.src
-								}
+								src={props.item.kind === "video" ? heldPoster() : heldSrc()}
 								alt=""
 								draggable={false}
 								onLoad={(event) => {
@@ -559,6 +583,7 @@ export const MediaGrid = (props: MediaGridProps) => {
 								<MediaTile
 									item={item()}
 									index={0}
+									fit="contain"
 									loading={props.loading}
 									onOpen={props.onOpen}
 									onMediaError={props.onMediaError}

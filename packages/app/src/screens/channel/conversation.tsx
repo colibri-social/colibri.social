@@ -20,6 +20,7 @@ import { ArchiveDownMinimalisticIcon } from "@solar-icons/solid/bold/archive-dow
 import { ChatSquareDotsIcon } from "@solar-icons/solid/bold/chat-square-dots";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
+import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
 import {
 	createEffect,
 	createMemo,
@@ -33,6 +34,7 @@ import {
 import { authorForDid, displayNameOf } from "../../data/adapters/authors";
 import { fromComposerValue, toTextValue } from "../../data/adapters/facets";
 import { reactionFor, reactionShortcode } from "../../data/adapters/reactions";
+import { describeError } from "../../data/error-copy";
 import { channelSlug, skeyOf, spaceKey } from "../../data/ids";
 import {
 	createMediaLinkRefresher,
@@ -68,6 +70,7 @@ import { uiPresence } from "../members/member-adapter";
 import { useMemberMenu } from "../members/member-menu";
 import { useProfileSheet } from "../profile/profile-sheet";
 import { createThreadMenu } from "../threads/thread-menu";
+import { openLinkedChannel } from "./channel-link";
 import { suppressedLinksFor } from "./composer/link-previews";
 import {
 	createComposerMedia,
@@ -112,6 +115,10 @@ export const CLOSED_THREAD_COPY =
 export const LOCKED_THREAD_COPY =
 	"This thread is locked. Only moderators can post here.";
 const QUICK_REACTION_COUNT = 4;
+export const HIDE_FAILED_COPY = {
+	hide: "Couldn't hide the message",
+	unhide: "Couldn't unhide the message",
+} as const;
 
 const log = createLogger("conversation");
 
@@ -501,7 +508,11 @@ export const createConversation = (options: ConversationOptions) => {
 				return next;
 			});
 		const viewer = data.viewer.did;
-		const pending = current.pending().map((entry) => {
+		const landed = new Set(current.messages().map((message) => message.rkey));
+		const waiting = current
+			.pending()
+			.filter((entry) => !landed.has(entry.rkey));
+		const pending = waiting.map((entry) => {
 			const parent = entry.parent
 				? current.messages().find((message) => message.rkey === entry.parent)
 				: undefined;
@@ -647,6 +658,7 @@ export const createConversation = (options: ConversationOptions) => {
 		viewer: () => data.viewer.did,
 		platform,
 		editingKey: () => editing()?.key,
+		replyingKey: () => replyTo()?.key,
 		editDraft: () => {
 			const key = inlineEditKey();
 			return key ? readEditDraft(key) : undefined;
@@ -742,7 +754,10 @@ export const createConversation = (options: ConversationOptions) => {
 		},
 		controls: data.controls,
 		locale: "en-GB",
-		quickReactions: () => topEmoji(session.usage(), QUICK_REACTION_COUNT),
+		quickReactions: () =>
+			topEmoji(session.usage(), QUICK_REACTION_COUNT, (uri) =>
+				data.emoji.reactionShortcode(community()?.did, uri),
+			),
 		onRecordEmoji: (emoji) => session.recordEmoji(emoji),
 		canPost: () => writable(),
 		locked: () => !!options.thread?.()?.locked && !writable(),
@@ -798,12 +813,30 @@ export const createConversation = (options: ConversationOptions) => {
 		},
 		onExternalLink: links.onExternalLink,
 		canModerate,
-		onSetHidden: (message, hidden) => {
-			if (message.rkey) void feed()?.setHidden(message.rkey, hidden);
+		onSetHidden: async (message, hidden) => {
+			const current = feed();
+			if (!current || !message.rkey) return;
+			try {
+				await current.setHidden(message.rkey, hidden);
+			} catch (thrown) {
+				const error = classifyThrown(thrown, {
+					method: hidden ? "message.hide" : "message.unhide",
+				});
+				log.warn("changing message visibility failed", { code: error.code });
+				toast.error(hidden ? HIDE_FAILED_COPY.hide : HIDE_FAILED_COPY.unhide, {
+					description: describeError(error).description,
+				});
+			}
 		},
 		onPickReaction: (message) =>
 			reactionPicker.open((emoji) => {
-				if (message.rkey) void feed()?.react(message.rkey, emoji, true);
+				if (message.rkey)
+					void feed()?.react(
+						message.rkey,
+						emoji,
+						true,
+						reactionEmojiRef(message, emoji),
+					);
 			}),
 		onForward: (message) => {
 			const current = feed();
@@ -863,7 +896,14 @@ export const createConversation = (options: ConversationOptions) => {
 		memberContextMenu: (did, trigger, wrapperClass) =>
 			memberMenu.contextMenu(did, options.space, trigger, wrapperClass),
 		onOpenChannel: (skey) =>
-			stack.replaceTop({ kind: "chat", space: options.space, channel: skey }),
+			openLinkedChannel({
+				space: options.space,
+				skey,
+				channel: channelMap().get(skey),
+				stack,
+				desktop: desktop(),
+				confirmJoin: data.controls().confirmVoiceJoin,
+			}),
 		selection,
 	};
 
@@ -1137,7 +1177,16 @@ export const ConversationMessages = (props: {
 							)
 						}
 					>
-						{(entry) => <MessageItem entry={entry} />}
+						{(entry) => (
+							<MessageItem
+								entry={entry}
+								highlight={
+									m.chat.replyingKey?.() === entry().message.key
+										? "replying"
+										: undefined
+								}
+							/>
+						)}
 					</MessageList>
 					<m.links.LinkWarningOutlet />
 					<m.forwardPicker.Sheet />
@@ -1311,6 +1360,10 @@ export const ConversationComposer = (props: {
 								open={!!m.replyTo()}
 								name={m.replyTo() ? m.nameOf(m.replyTo()?.author ?? "") : ""}
 								onCancel={() => m.setReplyTo(undefined)}
+								onClick={() => {
+									const target = m.replyTo();
+									if (target?.rkey) m.chat.onJumpTo(target.rkey);
+								}}
 							/>
 						</>
 					}
@@ -1354,13 +1407,20 @@ export const UNAVAILABLE_COPY = {
 
 export const ConversationUnavailable = (props: {
 	kind: keyof typeof UNAVAILABLE_COPY;
+	voice?: boolean;
 	actionLabel: string;
 	onAction: () => void;
 }) => (
 	<StatusScreen
 		tone={props.kind === "space" ? "destructive" : "neutral"}
 		icon={
-			props.kind === "space" ? <DangerTriangleIcon /> : <ChatSquareDotsIcon />
+			props.kind === "space" ? (
+				<DangerTriangleIcon />
+			) : props.voice ? (
+				<VolumeSmallIcon />
+			) : (
+				<ChatSquareDotsIcon />
+			)
 		}
 		title={UNAVAILABLE_COPY[props.kind].title}
 		description={UNAVAILABLE_COPY[props.kind].description}

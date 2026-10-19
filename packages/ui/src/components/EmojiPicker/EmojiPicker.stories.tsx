@@ -113,6 +113,61 @@ export const Desktop: Story = {
 	},
 };
 
+const PARTY_URI = "at://did:plc:lis/blue.moji.collection.item/party";
+
+const frequentPacks = [
+	{
+		id: "at://did:plc:lis/blue.moji.packs.pack/party",
+		name: "Party",
+		emojis: [
+			{
+				id: PARTY_URI,
+				name: "party_bird",
+				src: fixturePacks[0].emojis[2].src,
+			},
+		],
+	},
+];
+
+export const FrequentCustomEmoji: Story = {
+	render: () => (
+		<Surface>
+			<EmojiPicker
+				onPick={onPick}
+				packs={frequentPacks}
+				usage={{
+					[PARTY_URI]: { count: 20, lastUsed: Date.now() },
+					"at://did:plc:gone/blue.moji.collection.item/gone": {
+						count: 30,
+						lastUsed: Date.now(),
+					},
+					"🔥": { count: 5, lastUsed: Date.now() },
+				}}
+			/>
+		</Surface>
+	),
+	play: async ({ canvasElement }) => {
+		const frequent = canvasElement.querySelector(
+			"[data-section='frequent']",
+		) as HTMLElement;
+		const labels = Array.from(
+			frequent.querySelectorAll("[data-cell]"),
+			(cell) => cell.getAttribute("aria-label"),
+		);
+		await expect(labels.slice(0, 2)).toEqual([":party_bird:", "fire"]);
+		await userEvent.click(
+			within(frequent).getByRole("button", { name: ":party_bird:" }),
+		);
+		await expect(onPick).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				kind: "custom",
+				emoji: expect.objectContaining({ id: PARTY_URI }),
+			}),
+			expect.anything(),
+		);
+	},
+};
+
 export const CategoryRail: Story = {
 	render: () => (
 		<Surface>

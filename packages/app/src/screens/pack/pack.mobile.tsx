@@ -8,8 +8,10 @@ export default pack.view({
 				data-scroll-y=""
 				class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
 			>
-				<div class="flex min-h-full flex-col px-4 pt-2 pb-safe-offset-6">
+				<div class="flex min-h-full flex-col gap-4 px-4 pt-2 pb-safe-offset-6">
+					<s.Summary />
 					<s.Body />
+					<s.Footer />
 				</div>
 			</div>
 		</div>

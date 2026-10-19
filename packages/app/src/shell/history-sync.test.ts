@@ -217,6 +217,54 @@ describe("history sync", () => {
 		);
 	});
 
+	it("pushes a same-depth switch the caller asks for and reports back as external", () => {
+		const history = fakeHistory();
+		const channel = (name: string) =>
+			`/app/c/did:plc:hq/social.colibri.beta.channel.text/${name}`;
+		let route: Route = parsePath(channel("a"));
+		const onExternal = vi.fn((navigation: ExternalNavigation) => {
+			route = navigation.route;
+		});
+		const sync = createHistorySync({
+			port: history.port,
+			route: () => route,
+			onExternal,
+			pushesSwitch: (from, to) => from !== to,
+		});
+		sync.seed(route);
+		for (const name of ["b", "c"]) {
+			route = parsePath(channel(name));
+			sync.sync();
+		}
+		expect(history.entries().map((entry) => entry.url)).toEqual([
+			"/app/c/did:plc:hq",
+			channel("a"),
+			channel("b"),
+			channel("c"),
+		]);
+		expect(history.entries().map((entry) => depthOf(entry.state))).toEqual([
+			0, 1, 1, 1,
+		]);
+		history.back();
+		expect(onExternal).toHaveBeenLastCalledWith({
+			route: parsePath(channel("b")),
+			depth: 1,
+			path: channel("b"),
+		});
+		history.back();
+		expect(history.port.path()).toBe(channel("a"));
+		route = parsePath(`${channel("a")}/t/thread`);
+		sync.sync();
+		route = parsePath(channel("d"));
+		sync.sync();
+		history.flush();
+		expect(history.entries().map((entry) => entry.url)).toEqual([
+			"/app/c/did:plc:hq",
+			channel("a"),
+			channel("d"),
+		]);
+	});
+
 	it("replays a sync requested while a pop is in flight", () => {
 		const history = fakeHistory();
 		let route: Route = parsePath(

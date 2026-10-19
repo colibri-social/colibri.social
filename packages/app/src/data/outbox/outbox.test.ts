@@ -406,4 +406,35 @@ describe("outbox", () => {
 			await expect(outbox.drain(1_000)).resolves.toBe(true);
 		});
 	});
+
+	it("reports a discarded send that lands while it was in flight", async () => {
+		const { outbox, source, events } = make();
+		let land: (view: MessageView) => void = () => {};
+		vi.mocked(source.sendMessage).mockImplementationOnce(
+			() =>
+				new Promise<MessageView>((resolve) => {
+					land = resolve;
+				}),
+		);
+		const ticket = outbox.enqueue(send("a"));
+		await settle();
+		outbox.discard(ticket.seq);
+		land(viewOf("a"));
+		await settle();
+		expect(events.map((event) => event.type)).toEqual([
+			"dropped",
+			"landedAfterDiscard",
+		]);
+		expect(events.at(-1)).toMatchObject({ message: { rkey: "a" } });
+	});
+
+	it("stays quiet when a discarded send never started", async () => {
+		const { outbox, calls, events } = make({ online: () => false });
+		const ticket = outbox.enqueue(send("a"));
+		await settle();
+		outbox.discard(ticket.seq);
+		await settle();
+		expect(calls).toEqual([]);
+		expect(events.map((event) => event.type)).toEqual(["dropped"]);
+	});
 });

@@ -2,6 +2,7 @@ import { createMemo, For, type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import type { Presence } from "../Avatar/Avatar";
 import type { BadgeDefinition } from "../Badge/Badge";
+import type { CustomEmoji } from "../EmojiPicker/EmojiPicker";
 import type { RoleIdentity } from "../Roles/RoleBadge";
 import { MemberGroupLabel, MemberListEntry } from "./MemberListParts";
 import type { MemberRowVariant } from "./MemberRow";
@@ -15,6 +16,8 @@ export type Member = {
 	avatarColor?: string;
 	presence: Presence;
 	status?: string;
+	statusEmoji?: string;
+	statusCustomEmoji?: CustomEmoji;
 	statusShowWhileOffline?: boolean;
 	role?: RoleIdentity;
 	hoistedRoleId?: string;

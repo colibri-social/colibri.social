@@ -1,5 +1,6 @@
 import {
 	OwnProfilePopover,
+	StatusText,
 	UserPanel,
 	VoiceStatusPanelSkeleton,
 } from "@colibri-social/ui";
@@ -14,6 +15,7 @@ import {
 } from "solid-js";
 import { displayNameOf } from "../../data/adapters/authors";
 import { uiPresence } from "../../data/adapters/presence";
+import { uiStatus } from "../../data/adapters/status";
 import { useData } from "../../data/store";
 import { voice } from "../../data/voice";
 import { createBioRenderer } from "../../screens/profile/bio-links";
@@ -33,6 +35,7 @@ export const Dock = () => {
 	const [profileOpen, setProfileOpen] = createSignal(false);
 	const presence = () =>
 		data.presenceOf(data.viewer.did) ?? data.viewer.presence;
+	const status = createMemo(() => uiStatus(presence()?.status, data.emoji));
 	const bio = createBioRenderer();
 	const profile = createMemo(() =>
 		ownProfileData(
@@ -66,7 +69,17 @@ export const Dock = () => {
 						avatarSeed={data.viewer.did}
 						avatarSrc={data.viewer.avatar}
 						presence={uiPresence(presence())}
-						status={presence()?.status?.text || undefined}
+						status={
+							<Show when={status()}>
+								{(current) => (
+									<StatusText
+										text={current().text}
+										emoji={current().emoji}
+										customEmoji={current().customEmoji}
+									/>
+								)}
+							</Show>
+						}
 						profileTrigger={trigger}
 						voice={
 							<Show when={voice.current()}>

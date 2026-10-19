@@ -124,7 +124,7 @@ export const DesktopShell = () => {
 
 	createEffect(() => {
 		const current = route();
-		if (current.chat || current.notFound) return;
+		if (current.chat || current.notFound || stack.restingAtBase()) return;
 		const key = current.root.space;
 		const list = data.communities.value();
 		if (!list) return;
@@ -233,7 +233,11 @@ export const DesktopShell = () => {
 							when={current.channelType === VOICE_CHANNEL}
 							fallback={
 								<ChannelScreen
-									args={{ space: current.space, channel: current.channel }}
+									args={{
+										space: current.space,
+										channel: current.channel,
+										channelType: current.channelType,
+									}}
 								/>
 							}
 						>
@@ -295,7 +299,11 @@ export const DesktopShell = () => {
 							<Show when={voiceChat} keyed>
 								{(target) => (
 									<ChannelScreen
-										args={{ space: target.space, channel: target.channel }}
+										args={{
+											space: target.space,
+											channel: target.channel,
+											channelType: target.channelType,
+										}}
 									/>
 								)}
 							</Show>

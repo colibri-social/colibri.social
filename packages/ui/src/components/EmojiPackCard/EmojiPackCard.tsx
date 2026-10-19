@@ -36,7 +36,6 @@ export type EmojiPackCardProps = EmojiPackFollowProps & {
 	pack: EmojiPackCardPack;
 	url: string;
 	platform?: "mobile" | "desktop";
-	onNavigate?: (url: string, event: MouseEvent) => void;
 	class?: string;
 };
 
@@ -236,17 +235,18 @@ const OwnerLine = (props: { owner: EmojiPackCardOwner; suffix?: string }) => (
 const PackLink = (props: {
 	url: string;
 	name: string;
-	onNavigate?: (url: string, event: MouseEvent) => void;
+	onOpen: () => void;
 	class?: string;
 }) => (
 	<a
 		href={props.url}
 		target="_blank"
 		rel="noreferrer"
+		data-emoji-pack-title=""
 		onClick={(event) => {
-			if (!props.onNavigate || event.button !== 0) return;
+			if (event.button !== 0) return;
 			event.preventDefault();
-			props.onNavigate(props.url, event);
+			props.onOpen();
 		}}
 		class={cx(
 			"min-w-0 truncate font-semibold text-foreground no-underline outline-none select-text hover:underline focus-ring",
@@ -323,7 +323,7 @@ const BannerCard = (props: BannerCardProps) => {
 						<PackLink
 							url={props.url}
 							name={props.pack.name}
-							onNavigate={props.onNavigate}
+							onOpen={props.onOpen}
 							class="flex-1 text-lg leading-6"
 						/>
 						<Show when={props.own}>
@@ -382,7 +382,22 @@ export type EmojiPackViewAllProps = EmojiPackFollowProps & {
 	platform?: "mobile" | "desktop";
 };
 
-const EmojiGrid = (props: { emojis: EmojiPackCardEmoji[] }) => (
+export const emojiPackSummary = (pack: EmojiPackCardPack) =>
+	`by ${pack.owner.name} · ${emojiCountLabel(totalOf(pack))}`;
+
+export const EmojiPackFollow = (props: EmojiPackFollowProps) => {
+	const follow = createFollowAction(props);
+	return (
+		<Show when={canFollow(props)}>
+			<div class="flex w-full flex-col gap-2 md:w-auto">
+				<FollowError state={follow} followed={props.followed} />
+				<FollowButton state={follow} followed={props.followed} block />
+			</div>
+		</Show>
+	);
+};
+
+export const EmojiPackGrid = (props: { emojis: EmojiPackCardEmoji[] }) => (
 	<ul
 		data-emoji-pack-grid=""
 		class="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(76px,1fr))] gap-1 p-0"
@@ -410,8 +425,7 @@ const EmojiGrid = (props: { emojis: EmojiPackCardEmoji[] }) => (
 
 export const EmojiPackViewAll = (props: EmojiPackViewAllProps) => {
 	const follow = createFollowAction(props);
-	const description = () =>
-		`by ${props.pack.owner.name} · ${emojiCountLabel(totalOf(props.pack))}`;
+	const description = () => emojiPackSummary(props.pack);
 	const footer = () => (
 		<div class="flex w-full flex-col gap-2 md:w-auto">
 			<FollowError state={follow} followed={props.followed} />
@@ -440,7 +454,7 @@ export const EmojiPackViewAll = (props: EmojiPackViewAllProps) => {
 						aria-label={props.pack.name}
 					>
 						<div data-emoji-pack-view-all="" data-platform="mobile">
-							<EmojiGrid emojis={props.pack.emojis} />
+							<EmojiPackGrid emojis={props.pack.emojis} />
 						</div>
 					</DrawerContent>
 				</Drawer>
@@ -458,7 +472,7 @@ export const EmojiPackViewAll = (props: EmojiPackViewAllProps) => {
 						data-platform="desktop"
 						class="-mx-4 max-h-[min(60dvh,440px)] overflow-y-auto overscroll-contain px-4"
 					>
-						<EmojiGrid emojis={props.pack.emojis} />
+						<EmojiPackGrid emojis={props.pack.emojis} />
 					</div>
 				</ModalContent>
 			</Modal>

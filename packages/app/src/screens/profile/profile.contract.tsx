@@ -18,6 +18,7 @@ import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { createMemo, createSignal, For, Show, untrack } from "solid-js";
 import { nowPlayingOf } from "../../data/activity";
 import { displayNameOf } from "../../data/adapters/authors";
+import { uiStatus } from "../../data/adapters/status";
 import { profileBannerFill } from "../../data/profile-theme";
 import { useData } from "../../data/store";
 import type { Presence } from "../../data/types";
@@ -46,7 +47,7 @@ export const profile = defineContract({
 		const stack = useStack();
 		const viewer = data.viewer;
 		const presence = () => data.presenceOf(viewer.did) ?? viewer.presence;
-		const status = () => presence()?.status;
+		const status = createMemo(() => uiStatus(presence()?.status, data.emoji));
 		const [statusOpen, setStatusOpen] = createSignal(false);
 		const [presenceOpen, setPresenceOpen] = createSignal(false);
 		const selectPresence = (next: UiPresence) =>
@@ -87,8 +88,9 @@ export const profile = defineContract({
 				presence={uiPresence(m.presence())}
 				badge={<PrimaryBadge profile={m.viewer} size="sm" />}
 				appBadge={<SecondaryBadges profile={m.viewer} />}
-				status={m.status()?.text || undefined}
+				status={m.status()?.text}
 				statusEmoji={m.status()?.emoji}
+				statusCustomEmoji={m.status()?.customEmoji}
 				statusShowWhileOffline={m.status()?.showWhileOffline}
 				statusEditable
 				onStatusClick={() => m.setStatusOpen(true)}
@@ -116,14 +118,14 @@ export const profile = defineContract({
 						/>
 						<NavRow
 							icon={<EmojiFunnyCircleIcon />}
-							label={m.status() ? "Edit status" : "Set a status"}
+							label={m.presence()?.status ? "Edit status" : "Set a status"}
 							onClick={() => m.setStatusOpen(true)}
 						/>
 					</ListGroup>
 				}
 			>
 				<OwnProfileRows
-					hasStatus={!!m.status()}
+					hasStatus={!!m.presence()?.status}
 					onEditProfile={m.editProfile}
 					onEditStatus={() => m.setStatusOpen(true)}
 				/>

@@ -8,12 +8,14 @@ import {
 	CharacterRing,
 	characterRingSlotClass,
 } from "../Composer/CharacterRing";
+import type { CustomEmoji, EmojiPack } from "../EmojiPicker/EmojiPicker";
 import { EmojiPickerPopover } from "../EmojiPicker/EmojiPickerPopover";
 import type { SkinTone } from "../EmojiPicker/skin-tone";
 import { IconButton } from "../IconButton/IconButton";
 import { ListGroup, ToggleRow } from "../List/List";
 import { Select, type SelectOption } from "../Select/Select";
 import { TextField } from "../TextField/TextField";
+import { StatusEmoji } from "./StatusText";
 
 export const STATUS_TEXT_MAX_BYTES = 64;
 export const STATUS_RING_THRESHOLD = 0.75;
@@ -32,6 +34,7 @@ export const STATUS_CLEAR_AFTER_OPTIONS: SelectOption[] = [
 export type StatusDraft = {
 	text: string;
 	emoji?: string;
+	customEmoji?: CustomEmoji;
 	clearAfter: StatusClearAfter;
 	showWhileOffline?: boolean;
 };
@@ -101,6 +104,7 @@ export type StatusFieldProps = {
 	showWhileOfflineLabel?: JSX.Element;
 	showWhileOfflineDescription?: JSX.Element;
 	usage?: Record<string, EmojiUsage>;
+	packs?: EmojiPack[];
 	skinTone?: SkinTone;
 	onSkinToneChange?: (tone: SkinTone) => void;
 	now?: () => Date;
@@ -112,6 +116,7 @@ export const StatusField = (props: StatusFieldProps) => {
 	const [internal, setInternal] = createSignal<StatusDraft>({
 		text: props.defaultValue?.text ?? "",
 		emoji: props.defaultValue?.emoji,
+		customEmoji: props.defaultValue?.customEmoji,
 		clearAfter: props.defaultValue?.clearAfter ?? "never",
 		showWhileOffline: props.defaultValue?.showWhileOffline ?? false,
 	});
@@ -120,7 +125,14 @@ export const StatusField = (props: StatusFieldProps) => {
 	const maxBytes = () => props.maxBytes ?? STATUS_TEXT_MAX_BYTES;
 	const bytes = () => utf8Length(draft().text);
 	const ringVisible = () => bytes() / maxBytes() >= STATUS_RING_THRESHOLD;
-	const hasDraft = () => draft().text.length > 0 || !!draft().emoji;
+	const hasDraft = () =>
+		draft().text.length > 0 || !!draft().emoji || !!draft().customEmoji;
+	const emojiLabel = () => {
+		const custom = draft().customEmoji;
+		if (custom) return `Status emoji :${custom.name}:`;
+		const emoji = draft().emoji;
+		return emoji ? `Status emoji ${emoji}` : "Choose a status emoji";
+	};
 	let input: HTMLInputElement | undefined;
 
 	const commit = (next: StatusDraft) => {
@@ -143,7 +155,7 @@ export const StatusField = (props: StatusFieldProps) => {
 	};
 
 	const clear = () => {
-		commit({ ...draft(), text: "", emoji: undefined });
+		commit({ ...draft(), text: "", emoji: undefined, customEmoji: undefined });
 		input?.focus();
 	};
 
@@ -152,25 +164,26 @@ export const StatusField = (props: StatusFieldProps) => {
 			variant="ghost"
 			size="sm"
 			disabled={props.disabled}
-			label={
-				draft().emoji
-					? `Status emoji ${draft().emoji}`
-					: "Choose a status emoji"
-			}
+			label={emojiLabel()}
 			aria-haspopup="dialog"
 			aria-expanded={pickerOpen()}
 			onClick={() => setPickerOpen((open) => !open)}
 			class="-ml-1.5 text-muted-foreground"
 			icon={
-				<Show when={draft().emoji} fallback={<SmileCircleIcon />}>
-					{(emoji) => (
-						<span
-							data-status-emoji=""
-							class="text-lg leading-none text-foreground"
-						>
-							{emoji()}
-						</span>
-					)}
+				<Show
+					when={draft().customEmoji || draft().emoji}
+					fallback={<SmileCircleIcon />}
+				>
+					<span
+						data-status-emoji=""
+						class="text-lg leading-none text-foreground"
+					>
+						<StatusEmoji
+							emoji={draft().emoji}
+							customEmoji={draft().customEmoji}
+							size={20}
+						/>
+					</span>
 				</Show>
 			}
 		/>
@@ -200,11 +213,23 @@ export const StatusField = (props: StatusFieldProps) => {
 						label="Status emoji"
 						anchor={emojiButton}
 						usage={props.usage}
+						packs={props.packs}
 						skinTone={props.skinTone}
 						onSkinToneChange={props.onSkinToneChange}
 						onPick={(pick) => {
-							if (pick.kind !== "unicode") return;
-							commit({ ...draft(), emoji: pick.emoji });
+							if (pick.kind === "custom") {
+								commit({
+									...draft(),
+									emoji: undefined,
+									customEmoji: pick.emoji,
+								});
+								return;
+							}
+							commit({
+								...draft(),
+								emoji: pick.emoji,
+								customEmoji: undefined,
+							});
 						}}
 					/>
 				}

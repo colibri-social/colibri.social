@@ -2,11 +2,13 @@ import {
 	LargeModalContent,
 	MemberRow,
 	SettingsIndex,
+	StatusText,
 } from "@colibri-social/ui";
-import { createMemo, Match, Switch } from "solid-js";
+import { createMemo, Match, Show, Switch } from "solid-js";
 import { useAccountActions } from "../../../auth/account-actions";
 import { displayNameOf } from "../../../data/adapters/authors";
 import { uiPresence } from "../../../data/adapters/presence";
+import { uiStatus } from "../../../data/adapters/status";
 import { useData } from "../../../data/store";
 import type { ModalAreaProps } from "../../../shell/desktop/modal-areas";
 import type { Layer, SettingsLayer } from "../../../shell/layers";
@@ -66,6 +68,7 @@ export default function SettingsModal(props: ModalAreaProps) {
 
 	const presence = () =>
 		data.presenceOf(data.viewer.did) ?? data.viewer.presence;
+	const status = createMemo(() => uiStatus(presence()?.status, data.emoji));
 
 	const sidebarNav: SettingsNav = {
 		open: select,
@@ -91,7 +94,17 @@ export default function SettingsModal(props: ModalAreaProps) {
 								seed={data.viewer.did}
 								avatarSrc={data.viewer.avatar}
 								presence={uiPresence(presence())}
-								status={presence()?.status?.text || data.viewer.handle}
+								status={
+									<Show when={status()} fallback={data.viewer.handle}>
+										{(current) => (
+											<StatusText
+												text={current().text}
+												emoji={current().emoji}
+												customEmoji={current().customEmoji}
+											/>
+										)}
+									</Show>
+								}
 								statusShowWhileOffline
 							/>
 						}

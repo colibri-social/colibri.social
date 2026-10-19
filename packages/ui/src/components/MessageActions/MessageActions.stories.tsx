@@ -500,7 +500,35 @@ export const ToolbarShiftReveal: Story = {
 		const danger = getComputedStyle(probe).color;
 		probe.remove();
 		await expect(getComputedStyle(deleteButton).color).toBe(danger);
-		await userEvent.click(deleteButton);
+		const restingBackground = getComputedStyle(deleteButton).backgroundColor;
+		deleteButton.setAttribute("data-expanded", "");
+		await expect(getComputedStyle(deleteButton).color).toBe(danger);
+		await expect(getComputedStyle(deleteButton).backgroundColor).not.toBe(
+			restingBackground,
+		);
+		deleteButton.removeAttribute("data-expanded");
+		const composer = document.createElement("textarea");
+		document.body.append(composer);
+		composer.focus();
+		composer.dispatchEvent(
+			new KeyboardEvent("keydown", {
+				key: "Shift",
+				shiftKey: true,
+				bubbles: true,
+			}),
+		);
+		await waitFor(() => expect(names(ownBar)).toContain("More actions"));
+		composer.remove();
+		window.dispatchEvent(
+			new PointerEvent("pointermove", { clientX: 3, clientY: 5 }),
+		);
+		window.dispatchEvent(
+			new PointerEvent("pointermove", { clientX: 4, clientY: 6 }),
+		);
+		await waitFor(() => expect(names(ownBar)).toContain("Delete message"));
+		await userEvent.click(
+			ownBar.getByRole("button", { name: "Delete message" }),
+		);
 		await expect(toolbarDelete).toHaveBeenCalledTimes(1);
 		await userEvent.click(
 			otherBar.getByRole("button", { name: "Open thread" }),
@@ -1334,5 +1362,126 @@ export const DrawerSavedGif: Story = {
 		await waitFor(() => expect(remove).toBeVisible());
 		await userEvent.click(remove);
 		await expect(drawerGifToggle).toHaveBeenCalledWith(false);
+	},
+};
+
+const drawerRetry = fn();
+const drawerDeletePending = fn();
+
+export const DrawerFailedMessage: Story = {
+	render: () => (
+		<div class="min-h-screen bg-background py-4">
+			<MessageActionsDrawer
+				open
+				onOpenChange={() => {}}
+				onRetry={drawerRetry}
+				onCopyText={fn()}
+				image={{ onCopy: fn() }}
+				onDelete={drawerDeletePending}
+			/>
+		</div>
+	),
+	parameters: iphone,
+	play: async () => {
+		drawerRetry.mockClear();
+		drawerDeletePending.mockClear();
+		const dialog = await screen.findByRole("dialog", {
+			name: "Message actions",
+		});
+		const retry = await within(dialog).findByRole("button", { name: "Retry" });
+		await waitFor(() => expect(retry).toBeVisible());
+		await expect(
+			within(dialog)
+				.getAllByRole("button")
+				.map((button) => button.textContent?.trim()),
+		).toEqual(["Retry", "Copy image", "Copy text", "Delete message"]);
+		await expect(dialog.querySelector("[data-quick-reactions]")).toBeNull();
+		await expectNoLayoutIssues(dialog);
+		await userEvent.click(retry);
+		await expect(drawerRetry).toHaveBeenCalledTimes(1);
+	},
+};
+
+const renderRegularEmoji = (emoji: string) => (
+	<span data-render-size="regular" class="text-2xl leading-none">
+		{emoji}
+	</span>
+);
+
+const renderLargeEmoji = (emoji: string) => (
+	<span data-render-size="large" class="text-3xl leading-none">
+		{emoji}
+	</span>
+);
+
+export const DrawerQuickReactionRerender: Story = {
+	render: () => {
+		const [large, setLarge] = createSignal(false);
+		return (
+			<div class="min-h-screen bg-background py-4">
+				<button
+					type="button"
+					data-testid="swap-render"
+					class="sr-only"
+					onClick={() => setLarge((value) => !value)}
+				>
+					Swap emoji rendering
+				</button>
+				<MessageActionsDrawer
+					open
+					onOpenChange={() => {}}
+					quickReactions={["👍", "🐦"]}
+					onReact={fn()}
+					renderEmoji={large() ? renderLargeEmoji : renderRegularEmoji}
+					onReply={fn()}
+				/>
+			</div>
+		);
+	},
+	parameters: iphone,
+	play: async ({ canvasElement }) => {
+		const dialog = await screen.findByRole("dialog", {
+			name: "Message actions",
+		});
+		const bird = await within(dialog).findByRole("button", {
+			name: "React with 🐦",
+		});
+		await waitFor(() => expect(bird).toBeVisible());
+		const rect = bird.getBoundingClientRect();
+		const press = (type: string) =>
+			bird.dispatchEvent(
+				new PointerEvent(type, {
+					bubbles: true,
+					cancelable: true,
+					pointerType: "touch",
+					pointerId: 7,
+					isPrimary: true,
+					button: 0,
+					clientX: rect.left + rect.width / 2,
+					clientY: rect.top + rect.height / 2,
+				}),
+			);
+		press("pointerdown");
+		await expect(bird.querySelector("[data-ripple-layer]")).not.toBeNull();
+		press("pointerup");
+		const swap = canvasElement.querySelector<HTMLElement>(
+			'[data-testid="swap-render"]',
+		);
+		swap?.click();
+		await waitFor(() =>
+			expect(bird.querySelector("[data-render-size]")).toHaveAttribute(
+				"data-render-size",
+				"large",
+			),
+		);
+		swap?.click();
+		await waitFor(() =>
+			expect(bird.querySelector("[data-render-size]")).toHaveAttribute(
+				"data-render-size",
+				"regular",
+			),
+		);
+		await expect(bird.querySelectorAll("[data-render-size]")).toHaveLength(1);
+		await expect(bird.textContent).toBe("🐦");
 	},
 };

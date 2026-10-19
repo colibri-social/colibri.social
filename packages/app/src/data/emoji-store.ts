@@ -28,6 +28,7 @@ import {
 	packFollowOf,
 	readEmojiFeature,
 	repoOfUri,
+	sortedEmoji,
 	type UpdateEmojiPackInput,
 	ungroupedEmoji,
 } from "./emoji";
@@ -152,10 +153,10 @@ export const followedScope = (
 				author: emojiAuthorName(follow.owner),
 				catalog: {
 					community: follow.owner.did,
-					emojis: follow.emojis,
+					emojis: sortedEmoji(follow.emojis),
 					packs: [],
 				},
-				local: false,
+				grouped: false,
 			}),
 		);
 	const sections = new Map<string, EmojiScopeEntry>();
@@ -174,11 +175,18 @@ export const followedScope = (
 				label: pack ? pack.name : origin.ownerLabel(follow.owner),
 				author: pack ? emojiAuthorName(follow.owner) : undefined,
 				catalog: { community: follow.owner.did, emojis: [emoji], packs: [] },
-				local: false,
+				grouped: false,
 			});
 		}
 	}
-	return [...packs, ...sections.values()];
+	const origins = [...sections.values()].map((entry) => ({
+		...entry,
+		catalog: entry.catalog && {
+			...entry.catalog,
+			emojis: sortedEmoji(entry.catalog.emojis),
+		},
+	}));
+	return [...packs, ...origins];
 };
 
 const sameEmoji = (a: EmojiView | undefined, b: EmojiView | undefined) =>
@@ -200,7 +208,7 @@ export type EmojiScopeEntry = {
 	label: string;
 	author?: string;
 	catalog: EmojiCatalogView | undefined;
-	local: boolean;
+	grouped: boolean;
 };
 
 export const createEmojiStore = (
@@ -315,7 +323,7 @@ export const createEmojiStore = (
 			id: `own:${viewer()}`,
 			label: OWN_EMOJI_LABEL,
 			catalog: own().value() ?? library().value()?.own,
-			local: false,
+			grouped: true,
 		},
 		...followedScope(follows(), {
 			listed: (owner) => listed.includes(owner),
@@ -332,7 +340,7 @@ export const createEmojiStore = (
 			id: community,
 			label: communityOf(community)?.name ?? "",
 			catalog: catalog(community).value(),
-			local: true,
+			grouped: true,
 		};
 		if (level === "local") return [own];
 		const others = communities()
@@ -342,7 +350,7 @@ export const createEmojiStore = (
 					id: entry.did,
 					label: entry.name,
 					catalog: catalog(entry.did).value(),
-					local: false,
+					grouped: false,
 				}),
 			);
 		return [
@@ -427,7 +435,7 @@ export const createEmojiStore = (
 			const fresh = view.emojis.filter((emoji) => !shown.has(emoji.id));
 			for (const emoji of fresh) shown.add(emoji.id);
 			if (fresh.length === 0) continue;
-			if (entry.local) {
+			if (entry.grouped) {
 				result.push(...pickerPacks({ ...view, emojis: fresh }, entry.label));
 				continue;
 			}
@@ -435,7 +443,7 @@ export const createEmojiStore = (
 				id: `scope:${entry.id}`,
 				name: entry.label,
 				author: entry.author,
-				emojis: fresh.map((emoji) => ({
+				emojis: sortedEmoji(fresh).map((emoji) => ({
 					id: emoji.id,
 					name: emoji.name,
 					src: emoji.image,
@@ -477,13 +485,27 @@ export const createEmojiStore = (
 		const target = readEmojiFeature(feature);
 		if (!target) return undefined;
 		const emoji = resolve(community, target.uri);
-		if (!emoji) return undefined;
-		return {
-			id: emoji.id,
-			name: emoji.name,
-			src: emoji.image,
-			alt: emojiRegistry.altText(emoji),
-		};
+		if (emoji)
+			return {
+				id: emoji.id,
+				name: emoji.name,
+				src: emoji.image,
+				alt: emojiRegistry.altText(emoji),
+			};
+		if (!emojiRegistry.forUri(target.uri) || !allows(community, target.uri))
+			return undefined;
+		return ownerCatalog(target.uri)?.loading()
+			? { id: target.uri, name: "", src: "", pending: true }
+			: undefined;
+	};
+
+	const reactionShortcode = (community: Did | undefined, uri: string) => {
+		if (!community || !allows(community, uri)) return undefined;
+		const emoji = available(community).find(
+			(row) => row.emoji.id === uri,
+		)?.emoji;
+		if (!emoji || find(community, emoji.name)?.id !== uri) return undefined;
+		return `:${emoji.name}:`;
 	};
 
 	const withFacets = (
@@ -541,6 +563,7 @@ export const createEmojiStore = (
 		ownerCatalog,
 		search,
 		mention,
+		reactionShortcode,
 		resolve,
 		suggestion,
 		withFacets,

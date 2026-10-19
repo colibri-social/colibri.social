@@ -1,6 +1,7 @@
 import { createSignal, For, type JSX } from "solid-js";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { focusRingClip } from "../../foundations/focus-ring-test";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { MESSAGE_LINE_HEIGHT } from "../../utils/typography";
 import { storyImages } from "../Banner/story-images";
@@ -614,6 +615,59 @@ export const Replying: Story = {
 		await expect(onCancel).toHaveBeenCalledOnce();
 		await expect(bar).not.toHaveAttribute("data-open");
 		await expect(bar).toHaveAttribute("inert");
+	},
+};
+
+const onJumpToReply = fn();
+
+export const ReplyJump: Story = {
+	render: () => (
+		<MobileScreen>
+			<Composer
+				channelName="general"
+				onSend={onSend}
+				top={
+					<ReplyBar
+						open
+						name="A display name long enough to need truncating in the bar"
+						onClick={onJumpToReply}
+						onCancel={onCancel}
+					/>
+				}
+			/>
+		</MobileScreen>
+	),
+	play: async ({ canvasElement }) => {
+		onJumpToReply.mockClear();
+		onCancel.mockClear();
+		const bar = canvasElement.querySelector<HTMLElement>(
+			'[data-composer-bar="reply"]',
+		);
+		if (!bar) throw new Error("Missing reply bar");
+		const jump = within(bar).getByRole("button", {
+			name: /^Replying to A display name/,
+		});
+		await expectNoLayoutIssues(bar);
+		const barRect = bar.getBoundingClientRect();
+		const jumpRect = jump.getBoundingClientRect();
+		await expect(jumpRect.height).toBe(
+			(jump.parentElement as HTMLElement).clientHeight,
+		);
+		await expect(jumpRect.right).toBeLessThanOrEqual(barRect.right);
+		jump.focus({ focusVisible: true } as FocusOptions);
+		await expect(Number.parseFloat(getComputedStyle(jump).outlineWidth)).toBe(
+			2,
+		);
+		await expect(focusRingClip(jump)).toBeUndefined();
+		jump.blur();
+		await userEvent.click(jump);
+		await expect(onJumpToReply).toHaveBeenCalledOnce();
+		await expect(onCancel).not.toHaveBeenCalled();
+		await userEvent.click(
+			within(bar).getByRole("button", { name: "Cancel reply" }),
+		);
+		await expect(onCancel).toHaveBeenCalledOnce();
+		await expect(onJumpToReply).toHaveBeenCalledOnce();
 	},
 };
 

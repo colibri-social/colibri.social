@@ -53,26 +53,48 @@ const messageNotFound = (method: string) =>
 export const createMessageIndex = () => {
 	const messages = new Map<string, MessageView>();
 	const latest = new Map<string, string>();
+	const homes = new Map<string, Set<string>>();
 
 	const put = (message: MessageView) => {
 		messages.set(keyOf(message.channel, message.rkey), message);
+		const known = homes.get(message.rkey);
+		if (known) known.add(message.channel);
+		else homes.set(message.rkey, new Set([message.channel]));
 		const current = latest.get(message.channel);
 		if (!current || message.rkey > current)
 			latest.set(message.channel, message.rkey);
 	};
 
+	const forget = (channel: string, rkey: string) => {
+		messages.delete(keyOf(channel, rkey));
+		const known = homes.get(rkey);
+		known?.delete(channel);
+		if (known?.size === 0) homes.delete(rkey);
+	};
+
+	const find = (channel: string, rkey: string) => {
+		const direct = messages.get(keyOf(channel, rkey));
+		if (direct) return direct;
+		for (const home of homes.get(rkey) ?? []) {
+			const found = messages.get(keyOf(home, rkey));
+			if (found) return found;
+		}
+		return undefined;
+	};
+
 	return {
 		put,
 		get: (channel: string, rkey: string) => messages.get(keyOf(channel, rkey)),
+		find,
 		remove: (channel: string, rkey: string) => {
-			messages.delete(keyOf(channel, rkey));
+			forget(channel, rkey);
 			if (latest.get(channel) === rkey) latest.delete(channel);
 		},
 		latest: (channel: string) => latest.get(channel),
 		observe: (event: LiveEvent) => {
 			if (event.$type !== "messageEvent") return;
 			if (event.event === "delete" && event.rkey) {
-				messages.delete(keyOf(event.channel, event.rkey));
+				forget(event.channel, event.rkey);
 				return;
 			}
 			if (event.message) put(event.message);
@@ -117,7 +139,7 @@ export const createMessageWrites = (deps: {
 	const reactionKeys = new Map<string, string>();
 
 	const require = (channel: string, rkey: string, method: string) => {
-		const message = index.get(channel, rkey);
+		const message = index.find(channel, rkey);
 		if (!message) throw messageNotFound(method);
 		return message;
 	};
@@ -311,12 +333,14 @@ export const createMessageWrites = (deps: {
 			text: string;
 			facets?: Facet[];
 		}) => {
-			const current = await readOwn(input.channel, input.rkey);
+			const found = index.find(input.channel, input.rkey);
+			const space = found?.channel ?? input.channel;
+			const current = await readOwn(space, input.rkey);
 			const updatedAt = new Date().toISOString();
 			const { facets: _facets, ...rest } = current;
 			await records.putInSpace(
 				{
-					space: input.channel,
+					space,
 					collection: MESSAGE_COLLECTION,
 					rkey: input.rkey,
 				},
@@ -328,9 +352,9 @@ export const createMessageWrites = (deps: {
 				},
 			);
 			const known =
-				index.get(input.channel, input.rkey) ??
+				found ??
 				viewOf({
-					channel: input.channel,
+					channel: space,
 					rkey: input.rkey,
 					text: input.text,
 					createdAt:
@@ -350,24 +374,27 @@ export const createMessageWrites = (deps: {
 		},
 
 		deleteMessage: async (input: { channel: SpaceRef; rkey: string }) => {
+			const space =
+				index.find(input.channel, input.rkey)?.channel ?? input.channel;
 			await records.deleteInSpace({
-				space: input.channel,
+				space,
 				collection: MESSAGE_COLLECTION,
 				rkey: input.rkey,
 			});
-			index.remove(input.channel, input.rkey);
+			index.remove(space, input.rkey);
 		},
 
 		react: async (input: ReactInput) => {
-			const author =
-				index.get(input.channel, input.rkey)?.author.did ?? input.author;
+			const known = index.find(input.channel, input.rkey);
+			const author = known?.author.did ?? input.author;
 			if (!author) throw messageNotFound("message.react");
+			const space = known?.channel ?? input.channel;
 			const target = { did: author, rkey: input.rkey };
-			const cacheKey = `${input.channel}\n${input.rkey}\n${input.emoji}`;
+			const cacheKey = `${space}\n${input.rkey}\n${input.emoji}`;
 			if (input.add) {
 				const rkey = input.reaction ?? nextTid();
 				await records.createInSpace(
-					{ space: input.channel, collection: REACTION_COLLECTION, rkey },
+					{ space, collection: REACTION_COLLECTION, rkey },
 					{
 						emoji: input.emoji,
 						target,
@@ -380,7 +407,7 @@ export const createMessageWrites = (deps: {
 			let rkey = reactionKeys.get(cacheKey) ?? input.reaction;
 			if (!rkey) {
 				const found = await records.findInSpace(
-					{ space: input.channel, collection: REACTION_COLLECTION },
+					{ space, collection: REACTION_COLLECTION },
 					(value) => {
 						const ref = value.target as
 							| { did?: string; rkey?: string }
@@ -399,7 +426,7 @@ export const createMessageWrites = (deps: {
 				return;
 			}
 			await records.deleteInSpace({
-				space: input.channel,
+				space,
 				collection: REACTION_COLLECTION,
 				rkey,
 			});
@@ -425,11 +452,11 @@ export const createMessageWrites = (deps: {
 
 		setSuppressedEmbeds: async (input: EmbedSuppressionInput) => {
 			const message = require(input.channel, input.rkey, "message.embeds");
-			const current = await readOwn(input.channel, input.rkey);
+			const current = await readOwn(message.channel, input.rkey);
 			const { suppressedEmbeds: _previous, ...rest } = current;
 			await records.putInSpace(
 				{
-					space: input.channel,
+					space: message.channel,
 					collection: MESSAGE_COLLECTION,
 					rkey: input.rkey,
 				},

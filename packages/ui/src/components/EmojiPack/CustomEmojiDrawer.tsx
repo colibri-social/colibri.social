@@ -87,7 +87,10 @@ export const CustomEmojiDrawer = (props: CustomEmojiDrawerProps) => {
 						)}
 					</Show>
 					<Show when={props.source || props.packName}>
-						<span class="min-w-0 truncate text-xs leading-4 text-muted-foreground">
+						<span
+							data-custom-emoji-source=""
+							class="min-w-0 text-xs leading-4 [overflow-wrap:anywhere] text-muted-foreground"
+						>
 							{[props.source, props.packName].filter(Boolean).join(" · ")}
 						</span>
 					</Show>

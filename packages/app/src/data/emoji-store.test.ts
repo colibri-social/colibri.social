@@ -207,6 +207,65 @@ describe("emoji scope", () => {
 		]);
 	});
 
+	it("lists your packed emoji under their pack and only loose ones as yours", async () => {
+		const zeta = emoji(VIEWER, "zeta");
+		const alpha = emoji(VIEWER, "Alpha");
+		const loose = emoji(VIEWER, "loose");
+		const { store } = setup({
+			own: {
+				community: VIEWER,
+				emojis: [zeta, loose, alpha],
+				packs: [
+					{
+						id: `at://${VIEWER}/blue.moji.packs.pack/atmo`,
+						provider: "blue.moji",
+						name: "Atmologos",
+						emojis: [zeta.id, alpha.id],
+						createdAt: "2026-10-12T10:00:00.000Z" as Datetime,
+					},
+				],
+			},
+			follows: [],
+		});
+		await warmUp(store);
+		const packs = store.packs(SPACE);
+		expect(
+			packs
+				.find((pack) => pack.name === OWN_EMOJI_LABEL)
+				?.emojis.map((entry) => entry.name),
+		).toEqual(["loose"]);
+		expect(
+			packs
+				.find((pack) => pack.name === "Atmologos")
+				?.emojis.map((entry) => entry.name),
+		).toEqual(["Alpha", "zeta"]);
+	});
+
+	it("turns a usage uri into a reaction shortcode only when the name is unambiguous", async () => {
+		const { store } = setup(library);
+		await warmUp(store);
+		expect(store.reactionShortcode(SPACE, emoji(SPACE, "shipit").id)).toBe(
+			":shipit:",
+		);
+		expect(
+			store.reactionShortcode(SPACE, emoji(OTHER, "kek").id),
+		).toBeUndefined();
+		expect(
+			store.reactionShortcode(undefined, emoji(SPACE, "shipit").id),
+		).toBeUndefined();
+	});
+
+	it("drops usage uris the Space policy disallows", async () => {
+		const { store } = setup(library, "local");
+		await warmUp(store);
+		expect(
+			store.reactionShortcode(SPACE, emoji(VIEWER, "mine").id),
+		).toBeUndefined();
+		expect(store.reactionShortcode(SPACE, emoji(SPACE, "kek").id)).toBe(
+			":kek:",
+		);
+	});
+
 	it("keeps local policy to the Space's own emoji", async () => {
 		const { store } = setup(library, "local");
 		await warmUp(store);

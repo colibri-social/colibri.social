@@ -292,6 +292,8 @@ export type ProfileSetup =
 export type StatusInput = {
 	text?: string;
 	emoji?: string;
+	customEmoji?: ReactionEmojiRef;
+	removeCustomEmoji?: boolean;
 	expiresAt?: Datetime;
 	removeExpiresAt?: boolean;
 	showWhileOffline?: boolean;

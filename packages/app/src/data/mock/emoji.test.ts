@@ -32,9 +32,9 @@ describe("mock emoji", () => {
 		const release = catalog.packs.find((pack) => pack.name === "Release day");
 		if (!release) throw new Error("pack missing");
 		expect(packEmoji(catalog, release).map((emoji) => emoji.name)).toEqual([
-			"shipit",
 			"lgtm",
 			"party_bird",
+			"shipit",
 		]);
 		expect(ungroupedEmoji(catalog).map((emoji) => emoji.name)).not.toContain(
 			"shipit",

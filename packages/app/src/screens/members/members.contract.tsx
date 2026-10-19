@@ -7,6 +7,7 @@ import {
 	MemberList,
 	MemberRowSkeleton,
 } from "@colibri-social/ui";
+import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
 import {
 	createComputed,
 	createEffect,
@@ -22,7 +23,7 @@ import {
 	canReadChannel,
 	isAdminRoleSet,
 } from "../../data/category-permissions";
-import { skeyOf } from "../../data/ids";
+import { isVoiceChannel, skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
 import type { Did } from "../../data/types";
 import { defineContract, slot } from "../../screen/define";
@@ -33,6 +34,9 @@ import { ConversationUnavailable } from "../channel/conversation";
 import { type ProfileAnchor, useProfileSheet } from "../profile/profile-sheet";
 import { hoistedRoles, toListMember } from "./member-adapter";
 import { useMemberMenu } from "./member-menu";
+
+const voiceIcon = (channel: { type: string } | undefined) =>
+	channel && isVoiceChannel(channel) ? <VolumeSmallIcon /> : undefined;
 
 export type MembersArgs = { space: string; channel: string; thread?: string };
 
@@ -119,6 +123,7 @@ export const members = defineContract({
 					roleByKey: current.roleByKey,
 					presence: data.presenceOf(member.actor.did),
 					ownerRole: ownerRole(),
+					emoji: data.emoji,
 				}),
 			);
 			return groupMembers(mapped, hoistedRoles(current.roles.value() ?? []));
@@ -186,6 +191,7 @@ export const members = defineContract({
 			<ChannelInfoSummary
 				name={m.channel()?.name ?? m.args.channel}
 				description={m.channel()?.description}
+				icon={voiceIcon(m.channel())}
 			/>
 		)),
 		Unavailable: slot((m) => (

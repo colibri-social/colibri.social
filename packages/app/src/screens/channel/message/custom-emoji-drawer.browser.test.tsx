@@ -68,3 +68,44 @@ it("shows the emoji owner's handle", async () => {
 		document.querySelector("[data-custom-emoji-handle]")?.textContent,
 	).toBe(`@${space?.handle}`);
 });
+
+it("names your own packed emoji after its pack", async () => {
+	setLatency(0);
+	const data = createDataStore(createMockSource({ live: false }));
+	store = data;
+	await until(() => !!data.communities.value()?.length);
+	const viewer = data.viewer.did as Did;
+	const own = data.emoji.catalog(viewer);
+	await until(() => !own.loading());
+	const emoji = await data.emoji.upload({
+		community: viewer,
+		name: "atmo_blob",
+		file: new File([new Uint8Array(64)], "blob.png", { type: "image/png" }),
+	});
+	await data.emoji.createPack(viewer, "Atmologos", [emoji.id]);
+	let open: ReturnType<typeof createCustomEmojiDrawer>["open"] | undefined;
+	const host = document.createElement("div");
+	document.body.append(host);
+	dispose = render(
+		() => (
+			<DataContext.Provider value={data}>
+				<Providers>
+					{(() => {
+						const drawer = createCustomEmojiDrawer({
+							data,
+							community: () => HQ,
+						});
+						open = drawer.open;
+						return <drawer.Overlay />;
+					})()}
+				</Providers>
+			</DataContext.Provider>
+		),
+		host,
+	);
+	open?.({ id: emoji.id, name: emoji.name, src: emoji.image });
+	const sourceLine = () =>
+		document.querySelector("[data-custom-emoji-source]")?.textContent;
+	await until(() => sourceLine() === "Atmologos");
+	expect(document.body.textContent).not.toContain("Your emoji");
+});

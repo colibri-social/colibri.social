@@ -10,7 +10,10 @@ import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import { For, type JSX, Show } from "solid-js";
 import { ThreadIcon } from "../../icons/custom";
 import { cx } from "../../utils/cx";
-import { useShiftHeld } from "../../utils/gestures/shift-held";
+import {
+	useShiftHeld,
+	useTypingSincePointer,
+} from "../../utils/gestures/shift-held";
 import { DropdownMenu } from "../DropdownMenu/DropdownMenu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import type { RenderEmoji } from "./ReactionBar";
@@ -30,7 +33,7 @@ const toolbarGlyphClass = cx(
 );
 
 const destructiveActionClass =
-	"text-destructive hover:bg-destructive/15 hover:text-destructive";
+	"text-destructive hover:bg-destructive/15 hover:text-destructive data-expanded:bg-destructive/15 data-expanded:text-destructive";
 
 export type ToolbarActionProps = {
 	label: string;
@@ -107,6 +110,7 @@ export type MessageToolbarProps = {
 export const MessageToolbar = (props: MessageToolbarProps) => {
 	const recent = () => (props.recentReactions ?? []).slice(0, 3);
 	const shiftHeld = useShiftHeld();
+	const typing = useTypingSincePointer();
 	const extras = () =>
 		props.own
 			? [props.onReply, props.onOpenThread, props.onCopyText]
@@ -131,7 +135,7 @@ export const MessageToolbar = (props: MessageToolbarProps) => {
 		return undefined;
 	};
 	const hasExtras = () => extras().some(Boolean) || !!danger();
-	const revealed = () => shiftHeld() && hasExtras();
+	const revealed = () => shiftHeld() && !typing() && hasExtras();
 	const dangerReplacesMenu = () => revealed() && !!danger();
 
 	return (

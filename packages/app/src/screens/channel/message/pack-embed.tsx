@@ -9,7 +9,6 @@ import { createMemo, Match, Switch } from "solid-js";
 import { usePackPreview } from "../../../data/emoji/pack-preview";
 import type { PackTarget } from "../../../data/emoji/shared-pack";
 import type { Did } from "../../../data/types";
-import { openAppLink } from "../../../native/deep-links";
 
 export const packLinkOf = (uri: string): string | undefined => {
 	const target = parseEmojiPackShareUrl(uri);
@@ -43,7 +42,6 @@ export const PackEmbed = (props: {
 						<EmojiPackCard
 							url={props.url}
 							platform={props.platform}
-							onNavigate={(url) => void openAppLink(url)}
 							own={preview.own()}
 							followed={preview.followed()}
 							onFollowChange={preview.own() ? undefined : preview.setFollowed}

@@ -3,6 +3,7 @@ import { type BadgeDefinition, UserBadge } from "../Badge/Badge";
 import { SectionLabel } from "../List/List";
 import { ActivityIcon } from "../Profile/ActivityIcon";
 import { RoleBadge } from "../Roles/RoleBadge";
+import { hasStatusContent, StatusText } from "../StatusField/StatusText";
 import type { Member, MemberGroup } from "./MemberList";
 import { MemberRow, type MemberRowVariant } from "./MemberRow";
 
@@ -37,7 +38,7 @@ export const MemberGroupLabel = (props: {
 
 export const MemberStatusLine = (props: {
 	activity: NonNullable<Member["activity"]>;
-	status?: string;
+	status?: JSX.Element;
 }) => (
 	<span data-member-activity="" class="flex min-w-0 items-center gap-1">
 		<ActivityIcon
@@ -67,11 +68,27 @@ export const MemberStatusLine = (props: {
 	</span>
 );
 
+const memberStatusText = (member: Member): JSX.Element =>
+	hasStatusContent({
+		text: member.status,
+		emoji: member.statusEmoji,
+		customEmoji: member.statusCustomEmoji,
+	}) ? (
+		<StatusText
+			text={member.status}
+			emoji={member.statusEmoji}
+			customEmoji={member.statusCustomEmoji}
+		/>
+	) : undefined;
+
 const memberStatus = (member: Member): JSX.Element =>
 	member.activity ? (
-		<MemberStatusLine activity={member.activity} status={member.status} />
+		<MemberStatusLine
+			activity={member.activity}
+			status={memberStatusText(member)}
+		/>
 	) : (
-		member.status
+		memberStatusText(member)
 	);
 
 const MemberListRow = (

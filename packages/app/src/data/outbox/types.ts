@@ -79,7 +79,8 @@ export type OutboxEvent =
 	  }
 	| { type: "sent"; entry: OutboxEntry; message?: MessageView }
 	| { type: "failed"; entry: OutboxEntry; code: string }
-	| { type: "dropped"; entry: OutboxEntry };
+	| { type: "dropped"; entry: OutboxEntry }
+	| { type: "landedAfterDiscard"; entry: OutboxEntry; message?: MessageView };
 
 export type OutboxQueue = {
 	load: () => Promise<OutboxEntry[]>;

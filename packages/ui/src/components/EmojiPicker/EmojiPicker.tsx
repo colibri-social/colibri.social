@@ -32,7 +32,11 @@ import {
 	type PickerEmoji,
 	searchEmojis,
 } from "../../utils/emoji-data";
-import { type EmojiUsage, topEmoji } from "../../utils/emoji-usage";
+import {
+	type EmojiUsage,
+	isCustomEmojiKey,
+	topEmoji,
+} from "../../utils/emoji-usage";
 import { foldText } from "../../utils/fold-text";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { SearchField } from "../TextField/TextField";
@@ -206,7 +210,22 @@ export const EmojiPicker = (props: EmojiPickerProps) => {
 		const currentTone = tone();
 		const frequent: Item[] = [];
 		const seen = new Set<string>();
-		for (const char of topEmoji(props.usage ?? {}, FREQUENT_COUNT)) {
+		const customs = new Map<string, Item>();
+		for (const pack of props.packs ?? []) {
+			for (const emoji of pack.emojis) {
+				if (!customs.has(emoji.id))
+					customs.set(emoji.id, customItem(emoji, pack));
+			}
+		}
+		const ranked = topEmoji(props.usage ?? {}, FREQUENT_COUNT, (uri) =>
+			customs.has(uri) ? uri : undefined,
+		);
+		for (const char of ranked) {
+			const custom = isCustomEmojiKey(char) ? customs.get(char) : undefined;
+			if (custom) {
+				frequent.push(custom);
+				continue;
+			}
 			const meta = metaFor(char);
 			if (!meta) continue;
 			const item = unicodeItem(

@@ -22,7 +22,9 @@ export const createReactionPicker = (
 	let handler: ((emoji: string) => void) | undefined;
 
 	const pick = (value: EmojiPick) => {
-		if (value.kind === "unicode") session.recordEmoji(value.emoji);
+		session.recordEmoji(
+			value.kind === "unicode" ? value.emoji : value.emoji.id,
+		);
 		setOpen(false);
 		handler?.(value.kind === "unicode" ? value.emoji : `:${value.emoji.name}:`);
 	};

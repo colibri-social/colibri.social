@@ -25,6 +25,7 @@ import {
 	displayNameOf,
 } from "../../../data/adapters/authors";
 import type { ForwardTarget } from "../../../data/adapters/forward";
+import type { StatusEmojiLookup } from "../../../data/adapters/status";
 import { blueskyUrlRewriter } from "../../../data/bluesky-client";
 import { roleIdentity } from "../../../data/roles";
 import type { ControlsPreferences } from "../../../data/source";
@@ -53,6 +54,7 @@ export type ChatContextValue = {
 	viewer: Accessor<string>;
 	platform?: Accessor<ChatPlatform>;
 	editingKey?: Accessor<string | undefined>;
+	replyingKey?: Accessor<string | undefined>;
 	editDraft?: () => RichText | undefined;
 	onEditChange?: (value: RichText) => void;
 	onSaveEdit?: (value: RichText) => unknown;
@@ -170,6 +172,7 @@ const sharesName = (chat: ChatContextValue, channel: ChannelView) => {
 
 export const createChatRichTextResolvers = (
 	chat: ChatContextValue,
+	statusEmoji?: StatusEmojiLookup,
 ): RichTextResolvers => {
 	const desktopMenu = () =>
 		chat.platform?.() === "desktop" ? chat.memberContextMenu : undefined;
@@ -206,6 +209,7 @@ export const createChatRichTextResolvers = (
 						toListMember(member, {
 							roleByKey: (rkey) => chat.roles().get(rkey),
 							presence: chat.presenceOf?.(member.actor.did),
+							emoji: statusEmoji,
 						}),
 					);
 			return (
@@ -270,7 +274,7 @@ export const createChatRichTextResolvers = (
 export const ChatRichTextProvider = (props: ParentProps) => {
 	const chat = useChat();
 	const data = useData();
-	const resolvers = createChatRichTextResolvers(chat);
+	const resolvers = createChatRichTextResolvers(chat, data.emoji);
 	resolvers.rewriteUrl = blueskyUrlRewriter(data.preferences);
 	return (
 		<NameColorProvider

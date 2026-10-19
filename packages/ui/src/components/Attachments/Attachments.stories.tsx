@@ -1,4 +1,4 @@
-import { createSignal, type JSX } from "solid-js";
+import { createSignal, type JSX, Show } from "solid-js";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectFocusRingVisible } from "../../foundations/focus-ring-test";
@@ -1458,4 +1458,169 @@ export const RichLinks: Story = {
 
 export const RichLinksDesktop: Story = {
 	render: () => <RichLinkCases desktop />,
+};
+
+const resigned = (src: string, signature: string) =>
+	`${src}?exp=${signature.length}&sig=${signature}`;
+
+const ResignedVideo = () => {
+	const clip = createStoryClip(3);
+	const [signature, setSignature] = createSignal<string>();
+	const items = (): MediaItem[] => {
+		const value = clip();
+		if (!value) return [];
+		const tag = signature();
+		return [
+			{
+				src: tag ? resigned(value.src, tag) : value.src,
+				poster: value.poster,
+				kind: "video",
+				mimeType: "video/webm",
+				width: 640,
+				height: 360,
+				name: "clip.webm",
+			},
+		];
+	};
+	return (
+		<Screen>
+			<button type="button" onClick={() => setSignature("b7f2")}>
+				Re-sign link
+			</button>
+			<Show when={clip()}>
+				<Message
+					text="A clip whose link gets re-signed"
+					attachments={<MediaGrid items={items()} />}
+				/>
+			</Show>
+		</Screen>
+	);
+};
+
+export const MediaVideoKeepsPlaybackOnResign: Story = {
+	parameters: mobile,
+	render: () => <ResignedVideo />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const video = await waitFor(
+			() => {
+				const found = canvasElement.querySelector<HTMLVideoElement>(
+					"[data-media-tile] [data-video-player] video",
+				);
+				expect(found).not.toBeNull();
+				expect(Number.isFinite(found?.duration)).toBe(true);
+				return found as HTMLVideoElement;
+			},
+			{ timeout: 8000 },
+		);
+		video.currentTime = 1.2;
+		await waitFor(() => expect(video.currentTime).toBeCloseTo(1.2, 1));
+		await userEvent.click(canvas.getByRole("button", { name: "Re-sign link" }));
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		await expect(
+			canvasElement.querySelector(
+				"[data-media-tile] [data-video-player] video",
+			),
+		).toBe(video);
+		await expect(video.currentTime).toBeCloseTo(1.2, 1);
+		await expect(video.error).toBeNull();
+		await expect(
+			canvasElement.querySelector("[data-media-tile]"),
+		).toHaveAttribute("data-media-status", "ok");
+		await expect(canvasElement.querySelector("[data-skeleton]")).toBeNull();
+	},
+};
+
+export const MediaSingleContains: Story = {
+	parameters: mobile,
+	render: () => (
+		<Screen>
+			<div data-testid="fit-host">
+				<Message
+					text="A panorama wider than the tile allows"
+					attachments={<MediaGrid items={[fixtureImage(0, 4000, 400)]} />}
+				/>
+				<Message
+					name="Lis"
+					text="Two in a grid"
+					attachments={<MediaGrid items={fixtureImages(2)} />}
+				/>
+			</div>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const imageIn = (text: string) =>
+			waitFor(() => {
+				const image = canvas
+					.getByText(text)
+					.closest("article")
+					?.querySelector<HTMLImageElement>("[data-media-tile] img");
+				expect(image?.className).toContain("opacity-100");
+				return image as HTMLImageElement;
+			});
+		const single = await imageIn("A panorama wider than the tile allows");
+		await expect(getComputedStyle(single).objectFit).toBe("contain");
+		const tile = single.closest("[data-media-tile]") as HTMLElement;
+		await expect(getComputedStyle(tile).backgroundColor).not.toBe(
+			"rgba(0, 0, 0, 0)",
+		);
+		const grid = await imageIn("Two in a grid");
+		await expect(getComputedStyle(grid).objectFit).toBe("cover");
+		await expectNoLayoutIssues(canvas.getByTestId("fit-host"));
+	},
+};
+
+const MISSING_EMBED_IMAGE = "/colibri-missing-embed-image.png";
+
+export const LinkEmbedImageFallback: Story = {
+	render: () => (
+		<Screen>
+			<div data-testid="embed-images" class="flex flex-col gap-3 px-4">
+				<LinkEmbed
+					url="https://userinput.app/board"
+					siteName="UserInput"
+					title="Feedback board"
+					image={{ src: MISSING_EMBED_IMAGE, width: 1200, height: 628 }}
+					onOpenImage={() => undefined}
+				/>
+				<LinkEmbed
+					url="https://atproto.com/guides/overview"
+					siteName="AT Protocol"
+					title="Protocol overview"
+					image={fixtureImage(1, 1200, 628)}
+					onOpenImage={() => undefined}
+				/>
+			</div>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const missing = canvas
+			.getByText("Feedback board")
+			.closest("[data-link-embed]") as HTMLElement;
+		const srcOf = () => missing.querySelector("img")?.getAttribute("src");
+		await waitFor(() => expect(srcOf()).toContain("colibri-retry=1"), {
+			timeout: 3000,
+		});
+		await waitFor(
+			() => {
+				expect(
+					missing.querySelector("[data-embed-image-broken]"),
+				).not.toBeNull();
+				expect(missing.querySelector("img")).toBeNull();
+			},
+			{ timeout: 5000 },
+		);
+		await expect(
+			canvas.queryByRole("button", { name: "Open image from UserInput" }),
+		).toBeNull();
+		const working = canvas.getByRole("button", {
+			name: "Open image from AT Protocol",
+		});
+		const image = working.querySelector("img") as HTMLImageElement;
+		await expect(getComputedStyle(image).objectFit).toBe("contain");
+		await expect(image.getAttribute("src")).not.toContain("colibri-retry");
+		await expectNoLayoutIssues(canvas.getByTestId("embed-images"));
+	},
 };

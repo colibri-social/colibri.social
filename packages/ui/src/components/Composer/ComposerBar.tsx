@@ -25,6 +25,7 @@ export type ComposerBarProps = {
 	trailing?: JSX.Element;
 	cancelLabel: string;
 	onCancel?: () => void;
+	onClick?: () => void;
 	kind?: string;
 	class?: string;
 	ref?: (element: HTMLDivElement) => void;
@@ -33,6 +34,7 @@ export type ComposerBarProps = {
 export const ComposerBar = (props: ComposerBarProps) => {
 	const icon = createSlot(() => props.icon);
 	const trailing = createSlot(() => props.trailing);
+	const content = createSlot(() => props.children);
 
 	return (
 		<div
@@ -58,9 +60,30 @@ export const ComposerBar = (props: ComposerBarProps) => {
 					<span class="flex size-4 shrink-0 items-center justify-center text-(--composer-bar-accent) [&>svg]:size-4">
 						{icon()}
 					</span>
-					<span class="min-w-0 flex-1 truncate text-muted-foreground">
-						{props.children}
-					</span>
+					<Show
+						when={props.onClick}
+						fallback={
+							<span
+								data-layout-clip=""
+								class="min-w-0 flex-1 truncate text-muted-foreground"
+							>
+								{content()}
+							</span>
+						}
+					>
+						{(onClick) => (
+							<button
+								type="button"
+								data-composer-bar-action=""
+								onClick={() => onClick()()}
+								class="flex h-full min-w-0 flex-1 cursor-pointer items-center rounded-control-xs text-left text-muted-foreground outline-none hover:text-foreground focus-ring-inset"
+							>
+								<span data-layout-clip="" class="min-w-0 flex-1 truncate">
+									{content()}
+								</span>
+							</button>
+						)}
+					</Show>
 					<Show when={trailing.has()}>{trailing()}</Show>
 					<IconButton
 						variant="ghost"
@@ -80,6 +103,7 @@ export type ReplyBarProps = {
 	open: boolean;
 	name: JSX.Element;
 	onCancel?: () => void;
+	onClick?: () => void;
 	class?: string;
 };
 
@@ -97,6 +121,7 @@ export const ReplyBar = (props: ReplyBarProps) => {
 			icon={<ReplyIcon />}
 			cancelLabel="Cancel reply"
 			onCancel={props.onCancel}
+			onClick={props.onClick}
 			class={props.class}
 		>
 			Replying to{" "}

@@ -83,11 +83,11 @@ export const createComposerMedia = (
 			return;
 		}
 		const custom = pick.emoji;
-		afterOverlaysClose(() =>
-			options.onInsertCustomEmoji
-				? options.onInsertCustomEmoji(custom)
-				: options.onInsertEmoji(`:${custom.name}:`),
-		);
+		afterOverlaysClose(() => {
+			session.recordEmoji(custom.id);
+			if (options.onInsertCustomEmoji) options.onInsertCustomEmoji(custom);
+			else options.onInsertEmoji(`:${custom.name}:`);
+		});
 	};
 
 	const pickGif = (gif: Gif) => {

@@ -2,6 +2,7 @@ import { RefreshIcon } from "@solar-icons/solid/bold/refresh";
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import {
 	createEffect,
+	createMemo,
 	createSignal,
 	type JSX,
 	on,
@@ -10,7 +11,7 @@ import {
 	splitProps,
 } from "solid-js";
 import { cx } from "../../utils/cx";
-import { createMenuTrigger } from "../../utils/gestures";
+import { createMenuTrigger, useTypingSincePointer } from "../../utils/gestures";
 import { useKeyboardModality } from "../../utils/keyboard-modality";
 import { motionScale, prefersReducedMotion } from "../../utils/motion";
 import {
@@ -101,6 +102,53 @@ export type MessageRowProps = Omit<
 
 export const JUMP_HIGHLIGHT_MS = 1500;
 export const JUMP_FADE_MS = 600;
+
+const TOOLBAR_END_INSET = 12;
+const FOCUS_RETURN_MS = 1000;
+
+const supportsTopLayer =
+	typeof HTMLElement !== "undefined" && "showPopover" in HTMLElement.prototype;
+
+const clippingAncestors = (element: HTMLElement) => {
+	const found: HTMLElement[] = [];
+	for (
+		let node = element.parentElement;
+		node && node !== document.documentElement;
+		node = node.parentElement
+	) {
+		if (getComputedStyle(node).overflowY !== "visible") found.push(node);
+	}
+	return found;
+};
+
+const OVERLAY_SELECTOR =
+	'[role="menu"], [role="dialog"], [role="alertdialog"], [role="listbox"], dialog[open]';
+
+const bodyChildOf = (element: HTMLElement) => {
+	let node = element;
+	while (node.parentElement && node.parentElement !== document.body)
+		node = node.parentElement;
+	return node;
+};
+
+const overlayOutside = (host: HTMLElement) => {
+	for (const child of Array.from(document.body.children)) {
+		if (child === host) continue;
+		if (
+			child.matches(OVERLAY_SELECTOR) ||
+			child.querySelector(OVERLAY_SELECTOR)
+		)
+			return true;
+	}
+	return false;
+};
+
+const clipTopOf = (clippers: HTMLElement[]) => {
+	let top = Number.NEGATIVE_INFINITY;
+	for (const clipper of clippers)
+		top = Math.max(top, clipper.getBoundingClientRect().top);
+	return top;
+};
 
 const highlightClass: Record<MessageHighlight, string> = {
 	mention:
@@ -242,12 +290,25 @@ export const MessageRow = (props: MessageRowProps) => {
 	const armToolbar = () => {
 		if (!toolbarArmed()) setToolbarArmed(true);
 	};
+	const toolbarMounted = createMemo(
+		() => toolbarArmed() || !!local.toolbarOpen,
+	);
 	const toolbar = createSlot(() =>
-		toolbarArmed() || local.toolbarOpen ? local.toolbar : undefined,
+		toolbarMounted() ? local.toolbar : undefined,
 	);
 	const showToolbar = () =>
-		!editing() &&
-		(toolbarArmed() || local.toolbarOpen ? toolbar.has() : !mobile());
+		!editing() && (toolbarMounted() ? toolbar.has() : !mobile());
+	const typing = useTypingSincePointer();
+	const [pointerInside, setPointerInside] = createSignal(false);
+	const [focusInside, setFocusInside] = createSignal(false);
+	const [returning, setReturning] = createSignal(false);
+	const toolbarHeld = () => !!local.toolbarOpen || returning();
+	const toolbarActive = () =>
+		toolbarHeld() || (!typing() && (pointerInside() || focusInside()));
+	const [toolbarLayer, setToolbarLayer] = createSignal<HTMLDivElement>();
+	const [overlayOpen, setOverlayOpen] = createSignal(false);
+	const inTopLayer = () => supportsTopLayer && !local.toolbarOpen;
+	const overlayHides = () => overlayOpen() && !toolbarHeld();
 	const dimmed = () => local.state === "pending";
 	const [failedMenuOpen, setFailedMenuOpen] = createSignal(false);
 	const keyboardModality = useKeyboardModality();
@@ -279,6 +340,85 @@ export const MessageRow = (props: MessageRowProps) => {
 			onCleanup(() => fade.cancel());
 		}),
 	);
+
+	createEffect(
+		on(
+			() => !!local.toolbarOpen,
+			(open, wasOpen) => {
+				if (open || !wasOpen) return;
+				setReturning(true);
+				const release = () => queueMicrotask(() => setReturning(false));
+				const timer = setTimeout(release, FOCUS_RETURN_MS);
+				document.addEventListener("focusin", release, true);
+				onCleanup(() => {
+					clearTimeout(timer);
+					document.removeEventListener("focusin", release, true);
+				});
+			},
+			{ defer: true },
+		),
+	);
+
+	createEffect(() => {
+		const row = root;
+		if (!showToolbar() || !toolbarActive() || !row?.isConnected) {
+			setOverlayOpen(false);
+			return;
+		}
+		const host = bodyChildOf(row);
+		const check = () => setOverlayOpen(overlayOutside(host));
+		check();
+		const observer = new MutationObserver((records) => {
+			if (records.some((record) => !host.contains(record.target))) check();
+		});
+		observer.observe(document.body, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			attributeFilter: ["open", "role"],
+		});
+		onCleanup(() => observer.disconnect());
+	});
+
+	createEffect(() => {
+		const layer = toolbarLayer();
+		if (!layer || !showToolbar() || !toolbarActive()) return;
+		const row = root;
+		if (!row || !layer.isConnected) return;
+		const topLayer = inTopLayer();
+		const clippers = clippingAncestors(row);
+		const placeInTopLayer = () => {
+			const rect = row.getBoundingClientRect();
+			const clipTop = clipTopOf(clippers);
+			const anchor = Math.max(rect.top, Math.min(clipTop, rect.bottom));
+			const end =
+				document.documentElement.clientWidth - rect.right + TOOLBAR_END_INSET;
+			layer.style.top = `max(${anchor + 1}px, calc(var(--overlay-top, 0px) + ${layer.offsetHeight}px))`;
+			layer.style.right = `${end}px`;
+		};
+		const placeInRow = () => {
+			const rect = row.getBoundingClientRect();
+			const clipTop = clipTopOf(clippers);
+			const offset = Math.max(1, clipTop - rect.top + layer.offsetHeight);
+			layer.style.top = `${Math.min(offset, rect.height)}px`;
+			layer.style.right = "";
+		};
+		const place = topLayer ? placeInTopLayer : placeInRow;
+		if (topLayer && !layer.matches(":popover-open")) layer.showPopover();
+		place();
+		const observer = new ResizeObserver(place);
+		observer.observe(row);
+		observer.observe(layer);
+		window.addEventListener("scroll", place, { capture: true, passive: true });
+		window.addEventListener("resize", place);
+		onCleanup(() => {
+			observer.disconnect();
+			window.removeEventListener("scroll", place, { capture: true });
+			window.removeEventListener("resize", place);
+			if (layer.isConnected && layer.matches(":popover-open"))
+				layer.hidePopover();
+		});
+	});
 
 	const fullTime = () => formatFullTimestamp(local.timestamp, local.locale);
 	const isoTime = () => {
@@ -349,18 +489,27 @@ export const MessageRow = (props: MessageRowProps) => {
 				}}
 				onPointerEnter={(event) => {
 					armToolbar();
+					setPointerInside(true);
 					if (typeof rest.onPointerEnter === "function")
 						rest.onPointerEnter(event);
 				}}
+				onPointerLeave={(event) => {
+					setPointerInside(false);
+					if (typeof rest.onPointerLeave === "function")
+						rest.onPointerLeave(event);
+				}}
 				onFocusIn={(event) => {
 					armToolbar();
+					setFocusInside(true);
 					setKeyboardFocus(keyboardModality());
 					if (typeof rest.onFocusIn === "function") rest.onFocusIn(event);
 				}}
 				onFocusOut={(event) => {
 					const next = event.relatedTarget as Node | null;
-					if (!next || !event.currentTarget.contains(next))
+					if (!next || !event.currentTarget.contains(next)) {
 						setKeyboardFocus(false);
+						setFocusInside(false);
+					}
 					if (typeof rest.onFocusOut === "function") rest.onFocusOut(event);
 				}}
 				onPointerDown={(event) => {
@@ -608,10 +757,19 @@ export const MessageRow = (props: MessageRowProps) => {
 				</div>
 				<Show when={showToolbar()}>
 					<div
+						ref={setToolbarLayer}
 						data-message-toolbar=""
+						popover={supportsTopLayer ? "manual" : undefined}
+						data-overlay-hidden={overlayHides() || undefined}
+						data-toolbar-layer={inTopLayer() ? "top" : "row"}
 						class={cx(
-							"absolute top-0 right-3 z-10 -translate-y-1/2",
-							local.toolbarOpen
+							"m-0 block overflow-visible border-0 bg-transparent p-0 pb-px text-foreground",
+							inTopLayer()
+								? "inset-auto -translate-y-full"
+								: "absolute inset-auto top-px right-3 z-10 -translate-y-full",
+							!toolbarActive() && "hidden",
+							overlayHides() && "pointer-events-none opacity-0",
+							toolbarHeld()
 								? "visible"
 								: "invisible group-hover/message:visible [@media(hover:hover)]:group-data-keyboard-focus/message:visible",
 						)}

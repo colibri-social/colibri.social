@@ -42,6 +42,22 @@ const keepIdentity = (
 const baseLayers = (route: DesktopRoute): Layer[] =>
 	routeLayers({ ...route, modal: [] });
 
+const chatAt = (path: string) => {
+	const layers = parseDesktopPath(path).layers;
+	const top = layers.at(-1);
+	return layers.length === 1 && top?.kind === "chat" ? top : undefined;
+};
+
+const switchesChannel = (from: string, to: string) => {
+	const previous = chatAt(from);
+	const next = chatAt(to);
+	return (
+		!!previous &&
+		!!next &&
+		(previous.space !== next.space || previous.channel !== next.channel)
+	);
+};
+
 export const createDesktopStack = (
 	options: { history?: HistoryPort; initialPath?: string } = {},
 ) => {
@@ -53,6 +69,7 @@ export const createDesktopStack = (
 	const [membersOpen, setMembersOpenSignal] = createSignal(
 		route().membersOpen ?? storedMembersOpen(),
 	);
+	const [restingAtBase, setRestingAtBase] = createSignal(false);
 	let popGuard: PopGuard | undefined;
 
 	const layers = () => routeLayers(route());
@@ -76,6 +93,7 @@ export const createDesktopStack = (
 	const history = createHistorySync({
 		port,
 		parse: parseDesktopPath,
+		pushesSwitch: switchesChannel,
 		route: () => ({ root: route().root, layers: layers() }),
 		onExternal: (navigation) => {
 			if (blocksPop(navigation.depth, () => popTo(navigation.depth))) {
@@ -98,6 +116,7 @@ export const createDesktopStack = (
 		const next = keepIdentity(route(), incoming);
 		batch(() => {
 			if (next.membersOpen) setMembersOpen(true);
+			setRestingAtBase(!sync && routeLayers(next).length === 0);
 			setRoute({ ...next, membersOpen: undefined });
 		});
 		if (sync) history.sync();
@@ -180,6 +199,7 @@ export const createDesktopStack = (
 		route,
 		membersOpen,
 		setMembersOpen,
+		restingAtBase,
 		openBase,
 		dispose: history.dispose,
 	};

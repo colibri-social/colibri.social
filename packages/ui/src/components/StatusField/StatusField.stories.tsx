@@ -2,6 +2,7 @@ import { createSignal } from "solid-js";
 import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { Button } from "../Button/Button";
+import { fixturePacks } from "../EmojiPicker/fixtures";
 import { Modal, ModalContent, ModalTrigger } from "../Modal/Modal";
 import {
 	type StatusChange,
@@ -95,6 +96,59 @@ export const Desktop: Story = {
 			const change = readChange(canvasElement);
 			await expect(change?.text).toBe("");
 			await expect(change?.emoji).toBeUndefined();
+		});
+	},
+};
+
+export const CustomEmoji: Story = {
+	render: () => (
+		<Harness
+			platform="desktop"
+			packs={fixturePacks}
+			defaultValue={{ text: "", emoji: "🐦" }}
+		/>
+	),
+	play: async ({ canvasElement, step }) => {
+		const canvas = within(canvasElement);
+		await step("A custom pick replaces the Unicode emoji", async () => {
+			await userEvent.click(
+				canvas.getByRole("button", { name: "Status emoji 🐦" }),
+			);
+			const dialog = await screen.findByRole("dialog", {
+				name: "Status emoji",
+			});
+			await userEvent.click(
+				await within(dialog).findByRole(
+					"button",
+					{ name: ":tux:" },
+					{ timeout: 3000 },
+				),
+			);
+			await waitFor(
+				() =>
+					expect(
+						screen.queryByRole("dialog", { name: "Status emoji" }),
+					).toBeNull(),
+				{ timeout: 3000 },
+			);
+			const button = canvas.getByRole("button", { name: "Status emoji :tux:" });
+			await expect(
+				button.querySelector('[data-emoji="custom"]'),
+			).not.toBeNull();
+			const change = readChange(canvasElement);
+			await expect(change?.customEmoji?.id).toBe("tux");
+			await expect(change?.emoji).toBeUndefined();
+			await expect(change?.text).toBe("");
+		});
+		await step("An emoji-only status can be cleared", async () => {
+			const clear = canvas.getByRole("button", { name: "Clear status" });
+			await expect(clear).toBeEnabled();
+			await userEvent.click(clear);
+			const change = readChange(canvasElement);
+			await expect(change?.customEmoji).toBeUndefined();
+			await expect(
+				canvas.getByRole("button", { name: "Choose a status emoji" }),
+			).toBeInTheDocument();
 		});
 	},
 };
@@ -211,8 +265,20 @@ const SetStatusModal = (props: { platform: "desktop" | "mobile" }) => {
 					<StatusField
 						platform={props.platform}
 						value={draft()}
-						onChange={({ text, emoji, clearAfter, showWhileOffline }) =>
-							setDraft({ text, emoji, clearAfter, showWhileOffline })
+						onChange={({
+							text,
+							emoji,
+							customEmoji,
+							clearAfter,
+							showWhileOffline,
+						}) =>
+							setDraft({
+								text,
+								emoji,
+								customEmoji,
+								clearAfter,
+								showWhileOffline,
+							})
 						}
 					/>
 				</ModalContent>

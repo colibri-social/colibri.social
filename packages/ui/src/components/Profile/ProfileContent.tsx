@@ -4,6 +4,7 @@ import { createSlot } from "../../utils/slot";
 import type { Presence } from "../Avatar/Avatar";
 import { Chip } from "../Badge/Badge";
 import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
+import type { CustomEmoji } from "../EmojiPicker/EmojiPicker";
 import { IconButton } from "../IconButton/IconButton";
 import { DestructiveRow, ListGroup, NavRow, SectionLabel } from "../List/List";
 import {
@@ -51,6 +52,7 @@ export type ProfileData = {
 	links?: ProfileHeaderLink[];
 	status?: JSX.Element;
 	statusEmoji?: string;
+	statusCustomEmoji?: CustomEmoji;
 	statusEditable?: boolean;
 	statusShowWhileOffline?: boolean;
 	onStatusClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
@@ -113,6 +115,7 @@ export const ProfileContentHeader = (props: ProfileContentPartProps) => {
 			links={props.profile.links}
 			status={props.profile.status}
 			statusEmoji={props.profile.statusEmoji}
+			statusCustomEmoji={props.profile.statusCustomEmoji}
 			statusEditable={props.profile.statusEditable}
 			statusShowWhileOffline={props.profile.statusShowWhileOffline}
 			onStatusClick={props.profile.onStatusClick}

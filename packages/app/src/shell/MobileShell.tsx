@@ -173,7 +173,11 @@ export const MobileShell = () => {
 				<Match when={layer.kind === "chat" && layer}>
 					{(chat) => (
 						<ChannelScreen
-							args={{ space: chat().space, channel: chat().channel }}
+							args={{
+								space: chat().space,
+								channel: chat().channel,
+								channelType: chat().channelType,
+							}}
 						/>
 					)}
 				</Match>

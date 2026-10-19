@@ -93,6 +93,7 @@ const TAP_SLOP_PX = 8;
 const TAP_MAX_MS = 300;
 const DOUBLE_TAP_MS = 280;
 const CHROME_IDLE_MS = 2500;
+const ASPECT_TOLERANCE = 0.01;
 const COPIED_MS = 1500;
 const ORIGIN_RADIUS = 12;
 
@@ -972,7 +973,13 @@ export const Lightbox = (props: LightboxProps) => {
 				: element.videoHeight;
 		if (!width || !height) return;
 		const entry = props.items[target];
-		if (entry?.width && entry.height) return;
+		if (
+			entry?.width &&
+			entry.height &&
+			Math.abs(entry.width / entry.height - width / height) <=
+				(width / height) * ASPECT_TOLERANCE
+		)
+			return;
 		setNatural((previous) => ({ ...previous, [target]: { width, height } }));
 	};
 

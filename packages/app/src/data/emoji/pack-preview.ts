@@ -1,6 +1,13 @@
 import { classifyThrown, createLogger } from "@colibri-social/lib";
 import type { EmojiPackCardOwner, EmojiPackCardPack } from "@colibri-social/ui";
-import { type Accessor, createMemo, createResource } from "solid-js";
+import {
+	type Accessor,
+	createEffect,
+	createMemo,
+	createSignal,
+	onCleanup,
+	untrack,
+} from "solid-js";
 import { displayNameOf } from "../adapters/authors";
 import { type DataStore, useData } from "../store";
 import type { Did, ProfileView } from "../types";
@@ -13,6 +20,17 @@ const FALLBACK_OWNER_NAME = "Someone on Colibri";
 export type PackPreviewState = "loading" | "failed" | "missing" | "ready";
 
 const owners = new WeakMap<DataStore, Map<Did, Promise<EmojiPackCardOwner>>>();
+
+const settledOwners = new WeakMap<DataStore, Map<Did, EmojiPackCardOwner>>();
+
+const settledFor = (data: DataStore) => {
+	let cache = settledOwners.get(data);
+	if (!cache) {
+		cache = new Map();
+		settledOwners.set(data, cache);
+	}
+	return cache;
+};
 
 const ownerFromProfile = (profile: ProfileView): EmojiPackCardOwner => ({
 	did: profile.did,
@@ -53,9 +71,43 @@ export const loadOwner = (data: DataStore, did: Did) => {
 	}
 	const cached = cache.get(did);
 	if (cached) return cached;
-	const request = fetchOwner(data, did);
+	const request = fetchOwner(data, did).then((owner) => {
+		settledFor(data).set(did, owner);
+		return owner;
+	});
 	cache.set(did, request);
 	return request;
+};
+
+export const createFetchedOwner = (
+	data: DataStore,
+	did: Accessor<Did | undefined>,
+): Accessor<EmojiPackCardOwner | undefined> => {
+	const initial = untrack(did);
+	const [owner, setOwner] = createSignal<EmojiPackCardOwner | undefined>(
+		initial ? settledFor(data).get(initial) : undefined,
+	);
+	createEffect(() => {
+		const current = did();
+		if (!current) return;
+		const known = settledFor(data).get(current);
+		if (known) {
+			setOwner(known);
+			return;
+		}
+		let live = true;
+		onCleanup(() => {
+			live = false;
+		});
+		void loadOwner(data, current).then((value) => {
+			if (live) setOwner(value);
+		});
+	});
+	return () => {
+		const current = did();
+		const value = owner();
+		return current && value?.did === current ? value : undefined;
+	};
 };
 
 export const knownOwner = (
@@ -95,15 +147,10 @@ export const usePackPreview = (target: Accessor<PackTarget | undefined>) => {
 		const current = target();
 		return current ? sharedPackIn(catalog()?.value(), current) : undefined;
 	});
-	const [fetchedOwner] = createResource(
-		() => {
-			const current = target();
-			return current && !knownOwner(data, current.did)
-				? current.did
-				: undefined;
-		},
-		(did) => loadOwner(data, did),
-	);
+	const fetchedOwner = createFetchedOwner(data, () => {
+		const current = target();
+		return current && !knownOwner(data, current.did) ? current.did : undefined;
+	});
 	const owner = () => {
 		const current = target();
 		if (!current) return undefined;

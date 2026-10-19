@@ -194,12 +194,16 @@ export const createRemoteSource = async (
 		});
 
 	let viewer: ProfileView;
+	let presenceSinceStart = false;
 	if (options.cachedViewer) {
 		viewer = options.cachedViewer;
 		void loadPreferences();
 		void fetchProfile().then(
 			(profile) => {
-				viewer = { ...profile, presence: viewer.presence ?? profile.presence };
+				viewer = {
+					...profile,
+					presence: presenceSinceStart ? viewer.presence : profile.presence,
+				};
 				emitLocal({ $type: "viewerEvent", profile: viewer });
 			},
 			(error: unknown) =>
@@ -214,8 +218,10 @@ export const createRemoteSource = async (
 
 	options.live.subscribe((event) => {
 		index.observe(event);
-		if (event.$type === "presenceEvent" && event.did === viewer.did)
+		if (event.$type === "presenceEvent" && event.did === viewer.did) {
+			presenceSinceStart = true;
 			viewer = { ...viewer, presence: event.presence };
+		}
 	});
 
 	const readCursorStatuses = async (community: string) =>
@@ -792,6 +798,7 @@ export const createRemoteSource = async (
 			const result = await transport.procedure(colibri.actor.setStatus.main, {
 				body: input,
 			});
+			presenceSinceStart = true;
 			viewer = { ...viewer, presence: result.presence };
 			return result.presence;
 		},
@@ -802,6 +809,7 @@ export const createRemoteSource = async (
 			};
 			if (voice) presence.voice = voice;
 			else delete presence.voice;
+			presenceSinceStart = true;
 			viewer = { ...viewer, presence };
 			return presence;
 		},

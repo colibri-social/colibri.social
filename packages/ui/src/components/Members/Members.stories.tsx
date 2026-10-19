@@ -5,6 +5,8 @@ import { ArrowLeftIcon } from "@solar-icons/solid/linear/arrow-left";
 import { For } from "solid-js";
 import { expect, fn, userEvent, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
+import { fixturePacks } from "../EmojiPicker/fixtures";
 import { IconButton } from "../IconButton/IconButton";
 import { SectionLabel } from "../List/List";
 import { fixtureMembers, fixtureRoles } from "./fixtures";
@@ -345,5 +347,60 @@ export const StatusWhileOffline: Story = {
 		await expect(canvas.getAllByText("Building a nest").length).toBeGreaterThan(
 			0,
 		);
+	},
+};
+
+export const EmojiStatuses: Story = {
+	render: () => (
+		<div class="flex w-80 flex-col gap-6 bg-background p-4 text-foreground">
+			<MemberList
+				groups={groupMembers(
+					[
+						{
+							id: "did:plc:emoji-only",
+							name: "Ramen Fan",
+							presence: "online",
+							statusEmoji: "🍜",
+						},
+						{
+							id: "did:plc:custom-only",
+							name: "Pixel Lis",
+							presence: "online",
+							statusCustomEmoji: fixturePacks[0].emojis[2],
+						},
+						{
+							id: "did:plc:custom-text",
+							name: "Kernel Tim",
+							presence: "idle",
+							status: "Compiling kernels",
+							statusCustomEmoji: fixturePacks[0].emojis[0],
+						},
+					],
+					fixtureRoles,
+				)}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await expect(
+			canvasElement.querySelectorAll("[data-status-line]"),
+		).toHaveLength(3);
+		const lineOf = (name: string) => {
+			const row = Array.from(
+				canvasElement.querySelectorAll<HTMLElement>("[data-member-row]"),
+			).find((element) => element.textContent?.includes(name));
+			return row?.querySelector<HTMLElement>("[data-status-line]");
+		};
+		await expect(
+			lineOf("Ramen Fan")?.querySelector('[data-emoji="unicode"]'),
+		).toHaveTextContent("🍜");
+		await expect(
+			lineOf("Pixel Lis")?.querySelector('[data-emoji="custom"]'),
+		).toHaveAttribute("alt", ":colibri:");
+		await expect(lineOf("Kernel Tim")).toHaveTextContent("Compiling kernels");
+		await expect(
+			lineOf("Kernel Tim")?.querySelector('[data-emoji="custom"]'),
+		).toHaveAttribute("alt", ":tux:");
+		await expectNoLayoutIssues(canvasElement);
 	},
 };

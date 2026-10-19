@@ -43,6 +43,7 @@ import {
 	gifOfAttachments,
 	inlineMediaOf,
 	isEmbedSuppressed,
+	type SplitAttachments,
 	splitAttachments,
 	visibleEmbeds,
 } from "../../../data/adapters/attachments";
@@ -89,6 +90,7 @@ import { LinkPreviewsDialog } from "./link-previews";
 import {
 	hasAttachmentContent,
 	type InviteLink,
+	keepSplitIdentity,
 	MediaWithLightbox,
 	MessageAttachments,
 } from "./MessageAttachments";
@@ -173,10 +175,13 @@ export const MessageItem = (props: MessageItemProps) => {
 		return undefined;
 	});
 
-	const split = createMemo(() =>
-		splitAttachments(
-			view()?.attachments ?? message().attachments,
-			view() ? undefined : message().uploadProgress,
+	const split = createMemo<SplitAttachments>((previous) =>
+		keepSplitIdentity(
+			previous,
+			splitAttachments(
+				view()?.attachments ?? message().attachments,
+				view() ? undefined : message().uploadProgress,
+			),
 		),
 	);
 	const suppression = createMemo(() => embedSuppression(view()));
@@ -184,15 +189,22 @@ export const MessageItem = (props: MessageItemProps) => {
 	const spoileredLinks = createMemo(() => spoileredLinkUris(message().facets));
 	const unspoileredEmbeds = () =>
 		(view()?.embeds ?? []).filter((embed) => !spoileredLinks().has(embed.uri));
-	const inviteLinks = createMemo(() => {
+	const inviteLinks = createMemo<InviteLink[]>((previous) => {
 		const links: InviteLink[] = [];
 		for (const url of linkUris(message().facets)) {
 			if (spoileredLinks().has(url)) continue;
 			const code = inviteCodeOf(url);
-			if (code && !links.some((link) => link.code === code))
-				links.push({ url, code });
+			if (!code || links.some((link) => link.code === code)) continue;
+			const known = previous?.find(
+				(link) => link.url === url && link.code === code,
+			);
+			links.push(known ?? { url, code });
 		}
-		return links;
+		return previous &&
+			previous.length === links.length &&
+			links.every((link, index) => link === previous[index])
+			? previous
+			: links;
 	});
 	const packLinks = createMemo(() => {
 		const links: { url: string; share: string }[] = [];
@@ -343,12 +355,16 @@ export const MessageItem = (props: MessageItemProps) => {
 		return undefined;
 	};
 
-	const frozen = () => !!chat.locked?.();
+	const frozen = () => !!chat.locked?.() || !sent();
 	const writableOwn = () => own() && !anchor() && !frozen();
 
 	const react = (emoji: string, add: boolean) => {
 		if (frozen()) return;
-		if (add && !emoji.startsWith(":")) chat.onRecordEmoji?.(emoji);
+		const usageKey = emoji.startsWith(":")
+			? (reactionFor(view()?.reactions, emoji)?.customEmoji?.uri ??
+				chat.customEmoji?.(emoji.slice(1, -1))?.id)
+			: emoji;
+		if (add && usageKey) chat.onRecordEmoji?.(usageKey);
 		chat.onReact(message(), emoji, add);
 	};
 
@@ -479,10 +495,15 @@ export const MessageItem = (props: MessageItemProps) => {
 					void whenOverlaysClosed().then(() => setConfirmingDelete(true));
 				}
 			: undefined;
-	const canReply = () => !anchor() && chat.canPost?.() !== false;
+	const forwardAction = () => (sent() ? forwardMessage : undefined);
+	const retryAction = () =>
+		message().state === "failed" ? () => chat.onRetry(message()) : undefined;
+	const removeAction = () =>
+		sent() ? confirmDeleteAction() : () => chat.onDelete(message());
+	const canReply = () => sent() && !anchor() && chat.canPost?.() !== false;
 	const replyAction = () =>
 		canReply() ? () => chat.onReply(message()) : undefined;
-	const canModerate = () => !!chat.canModerate?.() && !anchor();
+	const canModerate = () => sent() && !!chat.canModerate?.() && !anchor();
 	const hideAction = () =>
 		canModerate() && !hidden()
 			? () => chat.onSetHidden?.(message(), true)
@@ -907,7 +928,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			onReply={() => chat.onReply(message())}
 		>
 			<MessageGestures
-				longPress={sent()}
+				longPress
 				onLongPress={openDrawer}
 				doubleTap={sent() && controls().doubleTapEnabled}
 				doubleTapAction={controls().doubleTapAction}
@@ -925,7 +946,7 @@ export const MessageItem = (props: MessageItemProps) => {
 
 	const desktopRow = () => (
 		<MessageContextMenu
-			disabled={!sent() || !!editingNow()}
+			disabled={!!editingNow()}
 			onOpenChange={(open) => {
 				setContextOpen(open);
 				if (!open) {
@@ -942,7 +963,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			image={imageActions()}
 			onEdit={editAction()}
 			onReply={replyAction()}
-			onForward={forwardMessage}
+			onForward={forwardAction()}
 			onOpenThread={openThreadAction()}
 			onSelect={selectAction()}
 			onCopyText={message().text ? copy : undefined}
@@ -952,7 +973,8 @@ export const MessageItem = (props: MessageItemProps) => {
 			developerMode={!!developer()}
 			onCopyAtUri={copyAtUri}
 			onShowOnPdsls={showOnPdsls}
-			onDelete={confirmDeleteAction()}
+			onDelete={removeAction()}
+			onRetry={retryAction()}
 			hidden={hidden()}
 			onHide={confirmHideAction()}
 			onUnhide={unhideAction()}
@@ -1062,7 +1084,7 @@ export const MessageItem = (props: MessageItemProps) => {
 					}
 					onReply={replyAction()}
 					onEdit={editAction()}
-					onForward={forwardMessage}
+					onForward={forwardAction()}
 					onOpenThread={openThreadAction()}
 					onSelect={selectAction()}
 					onCopyText={message().text ? copy : undefined}
@@ -1070,7 +1092,8 @@ export const MessageItem = (props: MessageItemProps) => {
 					gif={gifAction()}
 					onLinkPreviews={linkPreviewsAction()}
 					onViewReactions={drawerReactionsAction()}
-					onDelete={confirmDeleteAction()}
+					onDelete={removeAction()}
+					onRetry={retryAction()}
 					hidden={hidden()}
 					onHide={confirmHideAction()}
 					onUnhide={unhideAction()}

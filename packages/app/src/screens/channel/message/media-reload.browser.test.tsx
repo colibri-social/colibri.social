@@ -48,9 +48,11 @@ it("shows the skeleton again when the src changes", async () => {
 	await settled(root);
 
 	setItems([{ src: WHITE, width: 300, height: 200 }]);
-	await Promise.resolve();
 
 	expect(root.querySelector("[data-skeleton]")).toBeTruthy();
+	expect(root.querySelector("[data-media-tile] img")?.className).toContain(
+		"opacity-0",
+	);
 	await settled(root);
 });
 

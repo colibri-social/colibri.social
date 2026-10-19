@@ -98,13 +98,16 @@ it("shows the presence state under the name until a status is set", async () => 
 	const line = () =>
 		document.querySelector("[data-user-panel] [data-user-panel-status]")
 			?.textContent;
-	await store.setStatus({ text: "" });
+	const cleared = { text: "", emoji: "", removeCustomEmoji: true };
+	await store.setStatus(cleared);
 	await store.setOnlineState("dnd");
 	await expect.poll(line).toBe("Do not disturb");
 	await store.setOnlineState("away");
 	await expect.poll(line).toBe("Away");
 	await store.setStatus({ text: "Building a nest" });
 	await expect.poll(line).toBe("Building a nest");
-	await store.setStatus({ text: "" });
+	await store.setStatus({ text: "", emoji: "🍜" });
+	await expect.poll(line).toBe("🍜");
+	await store.setStatus(cleared);
 	await expect.poll(line).toBe("Away");
 });

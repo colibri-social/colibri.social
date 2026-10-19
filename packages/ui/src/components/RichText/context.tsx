@@ -55,6 +55,7 @@ export type RichTextCustomEmoji = {
 	src: string;
 	alt?: string;
 	id?: string;
+	pending?: boolean;
 };
 
 export const CUSTOM_EMOJI_FEATURE =

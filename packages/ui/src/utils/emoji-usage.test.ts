@@ -73,6 +73,27 @@ describe("pruneEmojiUsage", () => {
 	});
 });
 
+describe("topEmoji with custom emoji", () => {
+	const uri = "at://did:plc:a/blue.moji.collection.item/blob";
+
+	it("maps custom keys through the resolver", () => {
+		expect(
+			topEmoji({ [uri]: usage(9, 10), "🔥": usage(2, 10) }, 2, (key) =>
+				key === uri ? ":blob:" : undefined,
+			),
+		).toEqual([":blob:", "🔥"]);
+	});
+
+	it("skips custom keys that do not resolve and takes the next ranked", () => {
+		expect(
+			topEmoji({ [uri]: usage(9, 10), "🔥": usage(2, 10) }, 2, () => undefined),
+		).toEqual(["🔥", DEFAULT_QUICK_REACTIONS[0]]);
+		expect(topEmoji({ [uri]: usage(9, 10) }, 1)).toEqual([
+			DEFAULT_QUICK_REACTIONS[0],
+		]);
+	});
+});
+
 describe("normalizeEmojiUsage", () => {
 	it("drops entries that are not usage records", () => {
 		expect(

@@ -7,7 +7,7 @@ import {
 	type SpaceInviteCardState,
 	toast,
 } from "@colibri-social/ui";
-import { createResource, createSignal } from "solid-js";
+import { createEffect, createSignal, onCleanup } from "solid-js";
 import { AccessError, type InvitationPreview } from "../../../data/access";
 import { useData } from "../../../data/store";
 import type { CommunityView } from "../../../data/types";
@@ -23,6 +23,12 @@ type Loaded =
 	| { kind: "failed" };
 
 const invitations = new Map<string, Promise<Loaded>>();
+const settled = new Map<string, Loaded>();
+
+const forget = (code: string) => {
+	invitations.delete(code);
+	settled.delete(code);
+};
 
 export const inviteCodeOf = (uri: string): string | undefined => {
 	const layers = routeFromLink(uri)?.layers ?? [];
@@ -37,7 +43,11 @@ const loadInvitation = (
 	const cached = invitations.get(code);
 	if (cached) return cached;
 	const request = resolve(code).then(
-		(preview): Loaded => ({ kind: "ready", preview }),
+		(preview): Loaded => {
+			const loaded: Loaded = { kind: "ready", preview };
+			if (invitations.get(code) === request) settled.set(code, loaded);
+			return loaded;
+		},
 		(error): Loaded => {
 			invitations.delete(code);
 			if (error instanceof AccessError) return { kind: "invalid" };
@@ -63,11 +73,29 @@ export const InviteEmbed = (props: {
 }) => {
 	const data = useData();
 	const [attempt, setAttempt] = createSignal(0);
-	const [loaded] = createResource(
-		() => ({ code: props.code, attempt: attempt() }),
-		({ code }) =>
-			loadInvitation((value) => data.access.resolveInvitation(value), code),
+	const [loaded, setLoaded] = createSignal<Loaded | undefined>(
+		settled.get(props.code),
 	);
+	createEffect(() => {
+		const code = props.code;
+		attempt();
+		const known = settled.get(code);
+		if (known) {
+			setLoaded(known);
+			return;
+		}
+		setLoaded(undefined);
+		let current = true;
+		onCleanup(() => {
+			current = false;
+		});
+		void loadInvitation(
+			(value) => data.access.resolveInvitation(value),
+			code,
+		).then((result) => {
+			if (current) setLoaded(result);
+		});
+	});
 	const [viewerOverride, setViewerOverride] =
 		createSignal<DiscoveryViewerState>();
 	const [banned, setBanned] = createSignal(false);
@@ -95,7 +123,7 @@ export const InviteEmbed = (props: {
 
 	const state = (): SpaceInviteCardState => {
 		const current = loaded();
-		if (loaded.loading || !current) return "loading";
+		if (!current) return "loading";
 		if (current.kind !== "ready") return current.kind;
 		if (banned()) return "banned";
 		if (viewer() === "member") return "ready";
@@ -131,7 +159,7 @@ export const InviteEmbed = (props: {
 		setBusy(true);
 		try {
 			const result = await data.access.join(community.did, props.code);
-			invitations.delete(props.code);
+			forget(props.code);
 			if (result.status === "pending") {
 				setViewerOverride("pending");
 				toast.success(JOIN_COPY.requested(community.name));
@@ -145,7 +173,7 @@ export const InviteEmbed = (props: {
 				if (error.code === "AlreadyMember")
 					return void setViewerOverride("member");
 				if (error.code === "InvitationNotFound") {
-					invitations.delete(props.code);
+					forget(props.code);
 					return void setAttempt((value) => value + 1);
 				}
 			}

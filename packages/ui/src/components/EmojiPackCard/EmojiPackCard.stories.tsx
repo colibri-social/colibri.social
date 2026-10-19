@@ -397,6 +397,50 @@ export const ViewAllMobile: Story = {
 	},
 };
 
+const playTitleOpensAll = async (
+	canvasElement: HTMLElement,
+	platform: "mobile" | "desktop",
+) => {
+	await userEvent.click(
+		within(canvasElement).getByRole("link", { name: bigPack.name }),
+	);
+	const dialog = await screen.findByRole("dialog", { name: bigPack.name });
+	await waitFor(() => expect(dialog).toBeVisible());
+	await expect(
+		dialog.querySelector("[data-emoji-pack-view-all]"),
+	).toHaveAttribute("data-platform", platform);
+	await expect(dialog.querySelectorAll("li").length).toBe(
+		bigPack.emojis.length,
+	);
+	await userEvent.keyboard("{Escape}");
+	await waitFor(
+		() => expect(document.querySelector('[role="dialog"]')).toBeNull(),
+		{ timeout: 3000 },
+	);
+};
+
+export const TitleOpensAllDesktop: Story = {
+	name: "Title opens all emoji on desktop",
+	parameters: desktop,
+	render: () => (
+		<div class="min-h-dvh max-w-[960px] bg-background py-4 text-foreground">
+			<Message text={packUrl} attachments={<LiveCard />} />
+		</div>
+	),
+	play: ({ canvasElement }) => playTitleOpensAll(canvasElement, "desktop"),
+};
+
+export const TitleOpensAllMobile: Story = {
+	name: "Title opens all emoji on mobile",
+	parameters: mobile,
+	render: () => (
+		<div class="min-h-dvh bg-background py-2 text-foreground">
+			<Message text={packUrl} attachments={<LiveCard platform="mobile" />} />
+		</div>
+	),
+	play: ({ canvasElement }) => playTitleOpensAll(canvasElement, "mobile"),
+};
+
 const retrySpy = fn();
 
 export const LoadingAndUnavailable: Story = {

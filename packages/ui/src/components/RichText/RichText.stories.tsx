@@ -497,9 +497,13 @@ export const Blocks: Story = {
 		await expect(ordered?.querySelector("li ol li")).toHaveTextContent(
 			"nested",
 		);
-		await expect(
-			canvasElement.querySelector("[data-facet-type='subtext']"),
-		).toHaveTextContent("Subtext under it");
+		const subtext = canvasElement.querySelector<HTMLElement>(
+			"[data-facet-type='subtext']",
+		);
+		await expect(subtext).toHaveTextContent("Subtext under it");
+		const style = subtext ? getComputedStyle(subtext) : undefined;
+		await expect(style?.fontSize).toBe("14px");
+		await expect(style?.lineHeight).toBe("24px");
 	},
 };
 
@@ -860,6 +864,67 @@ const foreignFacet = (text: string, token: string, uri = OWL_URI) => {
 		index: { byteStart, byteEnd: byteStart + encoder.encode(token).length },
 		features: [{ $type: CUSTOM_EMOJI_FEATURE, uri }],
 	} as unknown as NonNullable<TextWithFacets["facets"]>[number];
+};
+
+export const CustomEmojiPending: Story = {
+	render: () => {
+		const [ready, setReady] = createSignal(false);
+		return (
+			<RichTextProvider
+				value={{
+					...resolvers,
+					customEmojiFeature: (feature) =>
+						feature.$type === CUSTOM_EMOJI_FEATURE && feature.uri === OWL_URI
+							? ready()
+								? {
+										id: OWL_URI,
+										name: "owl",
+										src: CUSTOM_EMOJI.party_parrot as string,
+									}
+								: { id: OWL_URI, name: "", src: "", pending: true }
+							: undefined,
+				}}
+			>
+				<div class="bg-background p-4 text-base leading-message text-foreground">
+					<RichTextRenderer
+						value={{
+							text: "hoot :owl: hoot",
+							facets: [foreignFacet("hoot :owl: hoot", ":owl:")],
+						}}
+					/>
+				</div>
+				<button type="button" onClick={() => setReady(true)}>
+					Resolve
+				</button>
+			</RichTextProvider>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const skeleton = canvasElement.querySelector<HTMLElement>(
+			"[data-custom-emoji-pending]",
+		);
+		await expect(skeleton).toHaveAttribute("aria-label", ":owl:");
+		await expect(skeleton).toHaveAttribute("data-skeleton");
+		const box = skeleton?.getBoundingClientRect();
+		await expect(Math.round(box?.width ?? 0)).toBe(22);
+		await expect(Math.round(box?.height ?? 0)).toBe(22);
+		await expect(canvasElement.textContent).not.toContain(":owl:");
+		await userEvent.click(canvas.getByRole("button", { name: "Resolve" }));
+		await waitFor(() =>
+			expect(
+				canvasElement.querySelector("img[data-custom-emoji='owl']"),
+			).not.toBeNull(),
+		);
+		await expect(
+			canvasElement.querySelector("[data-custom-emoji-pending]"),
+		).toBeNull();
+		await waitFor(() =>
+			expect(
+				canvasElement.querySelector("img[data-custom-emoji='owl']"),
+			).not.toHaveAttribute("data-skeleton"),
+		);
+	},
 };
 
 export const CustomEmojiTap: Story = {

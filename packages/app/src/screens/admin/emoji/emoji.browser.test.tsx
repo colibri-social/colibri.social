@@ -3,7 +3,7 @@ import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 import { expectNoLayoutIssues } from "../../../../../ui/src/foundations/layout-test";
-import { CUSTOM_EMOJI_FEATURE } from "../../../data/emoji";
+import { byEmojiName, CUSTOM_EMOJI_FEATURE } from "../../../data/emoji";
 import { createMockSource, setLatency } from "../../../data/mock/source";
 import { createDataStore, DataContext } from "../../../data/store";
 import type { Did, Facet } from "../../../data/types";
@@ -129,9 +129,9 @@ describe("Space emoji", () => {
 		const release = groupNamed(screen, "Release day");
 		expect(rowNames(ungrouped as HTMLElement)).toContain("colibri");
 		expect(rowNames(release as HTMLElement)).toEqual([
-			"shipit",
 			"lgtm",
 			"party_bird",
+			"shipit",
 		]);
 
 		const search = screen.querySelector<HTMLInputElement>(
@@ -190,8 +190,8 @@ describe("Space emoji", () => {
 		await until(() => !!groupNamed(activeScreen(root), "Morning crew"), 6000);
 		const list = activeScreen(root);
 		expect(rowNames(groupNamed(list, "Morning crew") as HTMLElement)).toEqual([
-			"coffee",
 			"bug",
+			"coffee",
 		]);
 		expect(
 			rowNames(groupNamed(list, "Ungrouped") as HTMLElement),
@@ -202,7 +202,7 @@ describe("Space emoji", () => {
 		const edit = activeScreen(root);
 		await until(() => !!groupNamed(edit, "Morning crew"));
 		const members = groupNamed(edit, "Morning crew") as HTMLElement;
-		expect(rowNames(members)).toEqual(["coffee", "bug"]);
+		expect(rowNames(members)).toEqual(["bug", "coffee"]);
 		const checkbox = (scope: ParentNode, name: string) =>
 			scope.querySelector<HTMLInputElement>(
 				`input[type="checkbox"][aria-label="Include :${name}:"]`,
@@ -224,7 +224,10 @@ describe("Space emoji", () => {
 			() =>
 				rowNames(
 					groupNamed(activeScreen(root), "Morning crew") as HTMLElement,
-				).join() === `coffee,${extra}`,
+				).join() ===
+				["coffee", extra]
+					.sort((a, b) => byEmojiName({ name: a }, { name: b }))
+					.join(),
 			6000,
 		);
 

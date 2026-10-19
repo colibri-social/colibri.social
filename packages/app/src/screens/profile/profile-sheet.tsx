@@ -17,6 +17,7 @@ import {
 } from "solid-js";
 import { nowPlayingOf } from "../../data/activity";
 import { displayNameOf } from "../../data/adapters/authors";
+import { uiStatus } from "../../data/adapters/status";
 import { profileBannerFill } from "../../data/profile-theme";
 import { roleIdentity, rolesOf } from "../../data/roles";
 import { useData } from "../../data/store";
@@ -83,7 +84,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 		if (!actor) return undefined;
 		const presence = data.presenceOf(actor.did) ?? actor.presence;
 		const roles = space ? rolesOf(member, space.roleByKey) : [];
-		const status = presence?.status;
+		const status = uiStatus(presence?.status, data.emoji);
 		const self = actor.did === data.viewer.did;
 		return {
 			displayName: displayNameOf(actor),
@@ -101,6 +102,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 			links: blueskyProfileLinks(data.preferences, actor.did),
 			status: status?.text,
 			statusEmoji: status?.emoji,
+			statusCustomEmoji: status?.customEmoji,
 			statusShowWhileOffline: status?.showWhileOffline,
 			bio: bioOf(actor.description),
 			nowPlaying: nowPlayingOf(presence, bio.openLink),

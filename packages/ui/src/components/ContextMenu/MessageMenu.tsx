@@ -9,6 +9,7 @@ import { HeartIcon } from "@solar-icons/solid/bold/heart";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
 import { LinkMinimalisticIcon } from "@solar-icons/solid/bold/link-minimalistic";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
+import { RefreshIcon } from "@solar-icons/solid/bold/refresh";
 import { ReplyIcon } from "@solar-icons/solid/bold/reply";
 import { StarIcon } from "@solar-icons/solid/bold/star";
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
@@ -57,6 +58,7 @@ export type MessageMenuGif = {
 
 export type MessageMenuActions = DeveloperMenuActions & {
 	onCopySelection?: () => void;
+	onRetry?: () => void;
 	link?: MessageMenuLink;
 	image?: MessageMenuImage;
 	onEdit?: () => void;
@@ -79,6 +81,7 @@ export const MessageMenuItems = (props: MessageMenuActions) => {
 	const hasLink = () => !!(props.link?.onCopy || props.link?.onOpen);
 	const hasPrimary = () =>
 		!!(
+			props.onRetry ||
 			props.onEdit ||
 			props.onReply ||
 			props.onForward ||
@@ -117,18 +120,18 @@ export const MessageMenuItems = (props: MessageMenuActions) => {
 				</Show>
 			</Show>
 			<Show when={hasLink()}>
-				<Show when={props.link?.onOpen}>
-					<MenuItem
-						icon={<LinkMinimalisticIcon />}
-						label="Open link"
-						onSelect={props.link?.onOpen}
-					/>
-				</Show>
 				<Show when={props.link?.onCopy}>
 					<MenuItem
 						icon={<LinkIcon />}
 						label="Copy link"
 						onSelect={props.link?.onCopy}
+					/>
+				</Show>
+				<Show when={props.link?.onOpen}>
+					<MenuItem
+						icon={<LinkMinimalisticIcon />}
+						label="Open link"
+						onSelect={props.link?.onOpen}
 					/>
 				</Show>
 				<Show
@@ -147,6 +150,13 @@ export const MessageMenuItems = (props: MessageMenuActions) => {
 				<Show when={hasPrimary() || hasUtility() || hasDanger()}>
 					<MenuSeparator />
 				</Show>
+			</Show>
+			<Show when={props.onRetry}>
+				<MenuItem
+					icon={<RefreshIcon />}
+					label="Retry"
+					onSelect={props.onRetry}
+				/>
 			</Show>
 			<Show when={props.onEdit}>
 				<MenuItem

@@ -3,9 +3,12 @@ import {
 	type RichTextCustomEmoji,
 	toast,
 } from "@colibri-social/ui";
-import { createMemo, createResource, createSignal, Show } from "solid-js";
+import { createMemo, createSignal, Show } from "solid-js";
 import { repoOfUri } from "../../../data/emoji";
-import { knownOwner, loadOwner } from "../../../data/emoji/pack-preview";
+import {
+	createFetchedOwner,
+	knownOwner,
+} from "../../../data/emoji/pack-preview";
 import { emojiOwnerName, OWN_EMOJI_LABEL } from "../../../data/emoji-store";
 import type { DataStore } from "../../../data/store";
 import type { Did } from "../../../data/types";
@@ -43,7 +46,9 @@ export const createCustomEmojiDrawer = (options: {
 			source,
 			own,
 			sourceLabel: own
-				? OWN_EMOJI_LABEL
+				? pack
+					? undefined
+					: OWN_EMOJI_LABEL
 				: (space?.name ??
 					(followOwner ? emojiOwnerName(followOwner) : undefined)),
 			pack,
@@ -57,13 +62,10 @@ export const createCustomEmojiDrawer = (options: {
 		const source = target()?.id;
 		return source ? repoOfUri(source) || undefined : undefined;
 	});
-	const [fetchedOwner] = createResource(
-		() => {
-			const did = ownerDid();
-			return did && !knownOwner(data, did) ? did : undefined;
-		},
-		(did) => loadOwner(data, did),
-	);
+	const fetchedOwner = createFetchedOwner(data, () => {
+		const did = ownerDid();
+		return did && !knownOwner(data, did) ? did : undefined;
+	});
 	const ownerHandle = () => {
 		const did = ownerDid();
 		if (!did) return undefined;

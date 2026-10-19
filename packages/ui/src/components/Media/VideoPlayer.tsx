@@ -2,6 +2,7 @@ import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { PlayIcon } from "@solar-icons/solid/bold/play";
 import {
 	createEffect,
+	createMemo,
 	createSignal,
 	type JSX,
 	on,
@@ -27,7 +28,7 @@ import {
 	stashPlayback,
 } from "./handoff";
 import { Scrubber } from "./Scrubber";
-import { VideoSource } from "./VideoSource";
+import { mediaSourceKey, sameMediaSource, VideoSource } from "./VideoSource";
 
 export type VideoPlayerHandle = {
 	currentTime: () => number;
@@ -117,6 +118,7 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 	let pendingStart = props.startTime ?? 0;
 	let pendingPlay = !!props.autoPlay;
 
+	const handoffKey = createMemo(() => mediaSourceKey(props.src));
 	const interactive = () => props.interactive !== false;
 	const label = () => props.label ?? "Video";
 	const volumeLevel = (): VolumeLevel => {
@@ -218,10 +220,14 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 		on(started, (value) => props.onStartedChange?.(value), { defer: true }),
 	);
 
+	let shownSrc = props.src;
 	createEffect(
 		on(
 			() => props.src,
-			() => {
+			(src) => {
+				const same = sameMediaSource(shownSrc, src);
+				shownSrc = src;
+				if (same && !failed()) return;
 				setFailed(false);
 				setStarted(false);
 				setDuration(0);
@@ -329,35 +335,21 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 		props.ref?.(handle);
 		surface?.addEventListener("click", onSurfaceClick);
 		document.addEventListener("fullscreenchange", onFullscreenChange);
-		const key = props.src;
 		if (props.handoff === "viewer") {
-			const state = claimPlayback(key);
+			const state = claimPlayback(handoffKey());
 			if (state) {
 				pendingStart = state.time;
 				pendingPlay = state.playing;
 				setTime(state.time);
 			}
 		}
-		const unsubscribe =
-			props.handoff === "inline"
-				? onPlaybackHandoff(key, (event) => {
-						if (!video) return;
-						if (event.kind === "claim") {
-							video.pause();
-							return;
-						}
-						seek(event.time);
-						if (event.playing) void play();
-					})
-				: undefined;
 		if (video && video.readyState >= 1) onLoadedMetadata();
 		onCleanup(() => {
-			unsubscribe?.();
 			surface?.removeEventListener("click", onSurfaceClick);
 			document.removeEventListener("fullscreenchange", onFullscreenChange);
 			clearHide();
 			if (props.handoff === "viewer" && video)
-				releasePlayback(key, {
+				releasePlayback(handoffKey(), {
 					time: video.currentTime,
 					playing: !video.paused && !video.ended,
 				});
@@ -365,9 +357,26 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 		});
 	});
 
+	createEffect(
+		on(handoffKey, (key) => {
+			if (props.handoff !== "inline") return;
+			onCleanup(
+				onPlaybackHandoff(key, (event) => {
+					if (!video) return;
+					if (event.kind === "claim") {
+						video.pause();
+						return;
+					}
+					seek(event.time);
+					if (event.playing) void play();
+				}),
+			);
+		}),
+	);
+
 	const expand = () => {
 		if (props.handoff === "inline" && video) {
-			stashPlayback(props.src, {
+			stashPlayback(handoffKey(), {
 				time: video.currentTime,
 				playing: !video.paused && !video.ended,
 			});
