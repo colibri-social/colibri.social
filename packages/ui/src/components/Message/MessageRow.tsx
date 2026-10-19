@@ -765,8 +765,8 @@ export const MessageRow = (props: MessageRowProps) => {
 						class={cx(
 							"m-0 block overflow-visible border-0 bg-transparent p-0 pb-px text-foreground",
 							inTopLayer()
-								? "inset-auto -translate-y-full"
-								: "absolute inset-auto top-px right-3 z-10 -translate-y-full",
+								? "inset-auto -translate-y-3/4"
+								: "absolute inset-auto top-px right-3 z-10 -translate-y-3/4",
 							!toolbarActive() && "hidden",
 							overlayHides() && "pointer-events-none opacity-0",
 							toolbarHeld()
