@@ -300,11 +300,13 @@ export const MessageRow = (props: MessageRowProps) => {
 		!editing() && (toolbarMounted() ? toolbar.has() : !mobile());
 	const typing = useTypingSincePointer();
 	const [pointerInside, setPointerInside] = createSignal(false);
+	const [pointerOnToolbar, setPointerOnToolbar] = createSignal(false);
 	const [focusInside, setFocusInside] = createSignal(false);
 	const [returning, setReturning] = createSignal(false);
 	const toolbarHeld = () => !!local.toolbarOpen || returning();
 	const toolbarActive = () =>
-		toolbarHeld() || (!typing() && (pointerInside() || focusInside()));
+		toolbarHeld() ||
+		(!typing() && (pointerInside() || pointerOnToolbar() || focusInside()));
 	const [toolbarLayer, setToolbarLayer] = createSignal<HTMLDivElement>();
 	const [overlayOpen, setOverlayOpen] = createSignal(false);
 	const inTopLayer = () => supportsTopLayer && !local.toolbarOpen;
@@ -762,6 +764,8 @@ export const MessageRow = (props: MessageRowProps) => {
 						popover={supportsTopLayer ? "manual" : undefined}
 						data-overlay-hidden={overlayHides() || undefined}
 						data-toolbar-layer={inTopLayer() ? "top" : "row"}
+						onPointerEnter={() => setPointerOnToolbar(true)}
+						onPointerLeave={() => setPointerOnToolbar(false)}
 						class={cx(
 							"m-0 block overflow-visible border-0 bg-transparent p-0 pb-px text-foreground",
 							inTopLayer()
@@ -771,7 +775,7 @@ export const MessageRow = (props: MessageRowProps) => {
 							overlayHides() && "pointer-events-none opacity-0",
 							toolbarHeld()
 								? "visible"
-								: "invisible group-hover/message:visible [@media(hover:hover)]:group-data-keyboard-focus/message:visible",
+								: "invisible group-hover/message:visible hover:visible [@media(hover:hover)]:group-data-keyboard-focus/message:visible",
 						)}
 					>
 						{toolbar()}
