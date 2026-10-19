@@ -138,7 +138,7 @@ export const bridges = defineContract({
 			<AdminNavHeader
 				safeTop
 				kind="back"
-				navigateLabel="Back to Space settings"
+				navigateLabel="Back to Manage Space"
 				onNavigate={() => m.stack.pop()}
 				title="Bridges"
 				action={

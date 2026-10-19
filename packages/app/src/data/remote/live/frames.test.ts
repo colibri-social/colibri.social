@@ -255,23 +255,29 @@ describe("toLiveEvents", () => {
 		).toEqual([]);
 	});
 
-	it("maps member updates to their roles", () => {
+	it("maps member updates to the full member view", () => {
+		const member = {
+			actor: {
+				did: ALICE,
+				handle: "alice.test",
+				displayName: "Alice",
+				pronouns: "she/her",
+				avatar: "https://example.test/avatar",
+				banner: "https://example.test/banner",
+			},
+			roles: ["mod"],
+			joinedAt: "x",
+			nickname: "Al",
+		};
 		expect(
 			toLiveEvents(
 				frame("memberEvent", {
 					event: "update",
 					community: COMMUNITY,
-					member: { actor: { did: ALICE }, roles: ["mod"], joinedAt: "x" },
+					member,
 				}),
 			),
-		).toEqual([
-			{
-				$type: "memberRolesEvent",
-				community: COMMUNITY,
-				subject: ALICE,
-				roles: ["mod"],
-			},
-		]);
+		).toEqual([{ $type: "memberUpdateEvent", community: COMMUNITY, member }]);
 		expect(
 			toLiveEvents(
 				frame("memberEvent", { event: "join", community: COMMUNITY }),
@@ -530,6 +536,7 @@ describe("toLiveEvents", () => {
 						},
 					],
 					spaceLevels: { [COMMUNITY]: "mentionsAndReplies" },
+					spaceModeration: {},
 					client: { theme: "light", controls: { swipeLeftAction: "reply" } },
 					composer: {
 						emojiUsage: {

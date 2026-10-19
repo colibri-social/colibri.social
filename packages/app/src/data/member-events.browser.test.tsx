@@ -50,6 +50,49 @@ describe("member live events", () => {
 		).toBe(false);
 	});
 
+	it("replaces a member's profile, roles and nickname on update", async () => {
+		const { source, space } = await setup();
+		const current = space.members.value()?.[0];
+		if (!current) throw new Error("Seed changed");
+		const member = {
+			...current,
+			actor: {
+				...current.actor,
+				displayName: "Renamed",
+				pronouns: "they/them",
+				banner: "https://example.test/banner.webp",
+			},
+			nickname: "Nick",
+		} as MemberView;
+		source.emit({ $type: "memberUpdateEvent", community: HQ, member });
+		const updated = space.members
+			.value()
+			?.find((entry) => entry.actor.did === current.actor.did);
+		expect(updated?.actor.displayName).toBe("Renamed");
+		expect(updated?.actor.pronouns).toBe("they/them");
+		expect(updated?.actor.banner).toBe("https://example.test/banner.webp");
+		expect(updated?.nickname).toBe("Nick");
+	});
+
+	it("refreshes the viewer when the update is about the viewer", async () => {
+		const { source, store } = await setup();
+		source.emit({
+			$type: "memberUpdateEvent",
+			community: HQ,
+			member: {
+				actor: {
+					...store.viewer,
+					displayName: "New name",
+					avatar: "https://example.test/avatar.webp",
+				},
+				roles: [],
+				joinedAt: new Date().toISOString(),
+			} as unknown as MemberView,
+		});
+		expect(store.viewer.displayName).toBe("New name");
+		expect(store.viewer.avatar).toBe("https://example.test/avatar.webp");
+	});
+
 	it("refreshes the Space list when the viewer joins elsewhere", async () => {
 		const { source, store, listed } = await setup();
 		const before = listed();

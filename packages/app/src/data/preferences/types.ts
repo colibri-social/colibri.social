@@ -66,6 +66,7 @@ export type Preferences = {
 	gifFavorites: GifView[];
 	mutes: Mute[];
 	spaceLevels: Readonly<Record<string, NotificationLevel>>;
+	spaceModeration: Readonly<Record<string, boolean>>;
 	client: ClientPreferences;
 	composer: ComposerState;
 };
@@ -98,6 +99,10 @@ export type PreferenceBackend = {
 		community: Did,
 		level: NotificationLevel | undefined,
 	) => Promise<Preferences>;
+	putSpaceModeration: (
+		community: Did,
+		hideModeratedMessages: boolean | undefined,
+	) => Promise<Preferences>;
 	listMutes: () => Promise<MuteRecord[]>;
 	createMute: (rkey: string, mute: Mute) => Promise<void>;
 	deleteMute: (rkey: string) => Promise<void>;
@@ -117,6 +122,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
 	gifFavorites: [],
 	mutes: [],
 	spaceLevels: {},
+	spaceModeration: {},
 	client: {},
 	composer: DEFAULT_COMPOSER,
 };

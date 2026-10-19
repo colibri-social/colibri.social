@@ -207,11 +207,11 @@ export const VoiceVideoMobile: Story = {
 			canvasElement.querySelectorAll("[data-mic-meter] [data-lit]").length;
 		await expect(lit()).toBe(0);
 		const test = canvas.getByRole("button", { name: "Test microphone" });
-		const before = test.getBoundingClientRect().width;
+		const before = test.offsetWidth;
 		await userEvent.click(test);
 		const stop = canvas.getByRole("button", { name: "Stop test" });
 		await expect(stop).toHaveAttribute("aria-pressed", "true");
-		await expect(stop.getBoundingClientRect().width).toBe(before);
+		await expect(stop.offsetWidth).toBe(before);
 		await expect(lit()).toBe(16);
 		await expect(meter.value).toBe(50);
 		await userEvent.click(stop);

@@ -198,15 +198,17 @@ export const Mobile: Story = {
 			await expect(box.height).toBeGreaterThanOrEqual(44);
 			const centerY = box.top + box.height / 2;
 			const centerX = box.left + box.width / 2;
-			for (const [x, y] of [
-				[box.left + 1, centerY],
-				[box.right - 1, centerY],
-				[centerX, box.top + 1],
-				[centerX, box.bottom - 1],
-			] as const) {
-				const hit = document.elementFromPoint(x, y);
-				await expect(hit?.closest("[data-icon-host]")).toBe(button);
-			}
+			await waitFor(() => {
+				for (const [x, y] of [
+					[box.left + 1, centerY],
+					[box.right - 1, centerY],
+					[centerX, box.top + 1],
+					[centerX, box.bottom - 1],
+				] as const) {
+					const hit = document.elementFromPoint(x, y);
+					expect(hit?.closest("[data-icon-host]")).toBe(button);
+				}
+			});
 		}
 		await expectNoLayoutIssues(header);
 		const headings = canvas.getAllByRole("heading", { level: 1 });

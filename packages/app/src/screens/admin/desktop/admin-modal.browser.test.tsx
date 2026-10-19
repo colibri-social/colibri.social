@@ -56,7 +56,7 @@ const visiblePage = () =>
 	dialog()?.querySelector<HTMLElement>("[data-modal-page]:not([hidden])")
 		?.dataset.modalPage;
 
-it("opens Space settings on the first page with a sidebar", async () => {
+it("opens Manage Space on the first page with a sidebar", async () => {
 	await mount(`/app/c/${HQ}/manage/overview`);
 	await expect
 		.poll(() => location.pathname, SLOW)

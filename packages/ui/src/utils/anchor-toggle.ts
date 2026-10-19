@@ -28,18 +28,29 @@ export const createAnchorToggle = (options: AnchorToggleOptions) => {
 		options.close();
 	};
 
+	const onKeyDown = () => {
+		pressed = undefined;
+	};
+
 	createEffect(() => {
 		if (!options.open()) return;
 		window.addEventListener("pointerdown", onPointerDown, true);
 		window.addEventListener("click", onClick, true);
+		window.addEventListener("keydown", onKeyDown, true);
 		onCleanup(() => {
 			window.removeEventListener("pointerdown", onPointerDown, true);
 			window.removeEventListener("click", onClick, true);
+			window.removeEventListener("keydown", onKeyDown, true);
 			pressed = undefined;
 		});
 	});
 
+	const focusFromPress = (event: Event) =>
+		event.type === "focusin" && !!pressed && pressed === options.anchor();
+
 	return (event: InteractOutsideEvent) => {
-		if (within(event.detail.originalEvent.target)) event.preventDefault();
+		const original = event.detail.originalEvent;
+		if (within(original.target) || focusFromPress(original))
+			event.preventDefault();
 	};
 };

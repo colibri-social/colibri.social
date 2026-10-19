@@ -88,6 +88,31 @@ export const ChannelMobile: Story = {
 	},
 };
 
+export const ScrollUpSurvivesResizeBeforeScrollEvent: Story = {
+	render: () => {
+		const channel = createChannel({ paging: false });
+		return <ChannelView channel={channel} height="800px" />;
+	},
+	play: async ({ canvasElement }) => {
+		await settled(canvasElement);
+		const scroller = scrollerOf(canvasElement);
+		await expect(distanceOf(scroller)).toBeLessThanOrEqual(1);
+		const feed = canvasElement.querySelector<HTMLElement>(
+			"[data-message-feed]",
+		) as HTMLElement;
+		const before = scroller.scrollTop;
+		scroller.scrollTop = before - 800;
+		feed.style.setProperty("--resize-probe", "1");
+		await Promise.resolve();
+		await expect(scroller.scrollTop).toBeLessThanOrEqual(before - 799);
+		await frames(3);
+		await expect(distanceOf(scroller)).toBeGreaterThan(700);
+		await waitFor(() =>
+			expect(jumpCardOf(canvasElement)).toHaveAttribute("data-visible"),
+		);
+	},
+};
+
 export const BoundedDom: Story = {
 	render: () => {
 		const channel = createChannel({ paging: false });

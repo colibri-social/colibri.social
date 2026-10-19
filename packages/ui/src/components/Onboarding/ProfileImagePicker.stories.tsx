@@ -224,7 +224,17 @@ export const StillGifOpensCropper: Story = {
 	play: async ({ canvasElement }) => {
 		onCropped.mockClear();
 		pick(fileInput(canvasElement), gifFile("still.gif"));
-		await expect(await screen.findByRole("dialog")).toBeVisible();
+		const dialog = await screen.findByRole("dialog");
+		await expect(dialog).toBeVisible();
+		await waitFor(
+			() => {
+				const rect = dialog.getBoundingClientRect();
+				expect(rect.top).toBeGreaterThanOrEqual(-0.5);
+				expect(rect.bottom).toBeLessThanOrEqual(window.innerHeight + 0.5);
+				expect(dialog.getAnimations()).toHaveLength(0);
+			},
+			{ timeout: 5000 },
+		);
 		await expect(onCropped).not.toHaveBeenCalled();
 	},
 };

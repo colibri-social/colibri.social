@@ -354,11 +354,14 @@ export const MessageList = <T extends GroupableMessage>(
 		);
 	};
 
+	let observedTop = 0;
+
 	const stickToBottom = () => {
 		const element = scroller();
 		if (!element) return;
 		const max = element.scrollHeight - element.clientHeight;
 		if (element.scrollTop < max - 0.5) element.scrollTop = max;
+		observedTop = element.scrollTop;
 	};
 
 	const bottomPadding = () => {
@@ -729,6 +732,7 @@ export const MessageList = <T extends GroupableMessage>(
 	}
 
 	const onScroll = () => {
+		observedTop = scroller()?.scrollTop ?? observedTop;
 		distance = measureDistance();
 		if (autoScroll) armAutoScroll(SCROLL_QUIET_MS);
 		else if (props.hasNewer) setPinned(false);
@@ -777,7 +781,15 @@ export const MessageList = <T extends GroupableMessage>(
 		window.addEventListener("pointercancel", release, true);
 	};
 
-	const followsBottom = () => untrack(pinned) && !autoScroll && !touching;
+	const catchUpScrolledUp = () => {
+		const element = scroller();
+		if (element && element.scrollTop < observedTop - 0.5) onScroll();
+	};
+
+	const followsBottom = () => {
+		catchUpScrolledUp();
+		return untrack(pinned) && !autoScroll && !touching;
+	};
 
 	const onTouchStart = () => {
 		touching = true;
@@ -796,6 +808,7 @@ export const MessageList = <T extends GroupableMessage>(
 		if (!element) return;
 		const height = element.clientHeight;
 		if (lastClientHeight && height !== lastClientHeight) {
+			catchUpScrolledUp();
 			if (untrack(pinned) && !autoScroll) stickToBottom();
 			else if (!untrack(settling) && !autoScroll)
 				element.scrollTop += lastClientHeight - height;

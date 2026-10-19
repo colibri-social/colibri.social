@@ -234,6 +234,26 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 		);
 	};
 
+	const setSpaceModeration = (
+		community: Did,
+		hideModeratedMessages: boolean | undefined,
+	) => {
+		const { [community]: _, ...rest } = preferences().spaceModeration;
+		commit({
+			...preferences(),
+			spaceModeration:
+				hideModeratedMessages === undefined
+					? rest
+					: { ...rest, [community]: hideModeratedMessages },
+		});
+		return enqueue("the Space moderation setting", () =>
+			backend.putSpaceModeration(community, hideModeratedMessages),
+		);
+	};
+
+	const spaceModeration = (community: string): boolean | undefined =>
+		preferences().spaceModeration[community];
+
 	return {
 		preferences,
 		client,
@@ -265,6 +285,10 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 			return update({ gifFavorites }, "GIF favorites");
 		},
 		setSpaceLevel,
+		spaceModeration,
+		setSpaceModeration,
+		hidesModerated: (community: string) =>
+			spaceModeration(community) ?? client().hideModeratedMessages,
 		recordEmoji: (emoji: string) =>
 			updateComposer((current) => {
 				const previous = current.emojiUsage[emoji];

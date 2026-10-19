@@ -44,14 +44,14 @@ export const spaceContextMenuEntries = (
 					onSelect: actions.onInvite,
 				},
 				actions.onOpenSettings && {
-					label: "Space settings",
+					label: "Manage Space",
 					get icon() {
 						return <SettingsIcon />;
 					},
 					onSelect: actions.onOpenSettings,
 				},
 				actions.onOpenNotificationSettings && {
-					label: "Notification settings",
+					label: "Space settings",
 					get icon() {
 						return <BellIcon />;
 					},

@@ -1382,6 +1382,51 @@ export const SplitStepListNavigation: Story = {
 	},
 };
 
+export const KeysWorkWhileFocusIsLost: Story = {
+	...desktop("welcome", {
+		colibriProfile: false,
+		blueskyProfile: true,
+	}),
+	play: async () => {
+		const dialog = await screen.findByRole("dialog");
+		const view = within(dialog);
+		dialog.focus();
+		await userEvent.keyboard("{Enter}");
+		const field = await view.findByLabelText("Handle or username", undefined, {
+			timeout: 3000,
+		});
+		await userEvent.type(field, "alice.bsky.social{Enter}");
+		await view.findByRole(
+			"heading",
+			{ name: /profile going/ },
+			{ timeout: 3000 },
+		);
+		dialog.focus();
+		await userEvent.keyboard("{Enter}");
+		await view.findByLabelText("Display name", undefined, {
+			timeout: 3000,
+		});
+		const pressOnBody = (init: KeyboardEventInit) =>
+			document.body.dispatchEvent(
+				new KeyboardEvent("keydown", {
+					...init,
+					bubbles: true,
+					cancelable: true,
+				}),
+			);
+		pressOnBody({ key: "ArrowLeft", altKey: true });
+		await view.findByRole(
+			"heading",
+			{ name: /profile going/ },
+			{ timeout: 3000 },
+		);
+		pressOnBody({ key: "Enter" });
+		await view.findByLabelText("Display name", undefined, {
+			timeout: 3000,
+		});
+	},
+};
+
 export const KeyboardFlowDesktop: Story = {
 	...desktop("welcome", {
 		colibriProfile: false,

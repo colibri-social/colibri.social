@@ -93,6 +93,13 @@ const openDrawer = async (canvasElement: HTMLElement, label: string) => {
 	return dialog;
 };
 
+const openRenameView = async (dialog: HTMLElement) => {
+	await userEvent.click(
+		within(dialog).getByRole("button", { name: "Rename emoji" }),
+	);
+	return within(dialog).findByRole("textbox", { name: "Name" });
+};
+
 const waitForClosed = () =>
 	waitFor(() => expect(screen.queryByRole("dialog")).toBeNull(), {
 		timeout: 3000,
@@ -117,11 +124,7 @@ export const RenameInPlace: Story = {
 	play: async ({ canvasElement }) => {
 		resetSpies();
 		const dialog = await openDrawer(canvasElement, ":party_parrot: options");
-		await userEvent.click(
-			within(dialog).getByRole("button", { name: "Rename emoji" }),
-		);
-		const field = await within(dialog).findByRole("textbox", { name: "Name" });
-		await new Promise((resolve) => setTimeout(resolve, 300));
+		const field = await openRenameView(dialog);
 		await userEvent.clear(field);
 		await userEvent.type(field, "tux");
 		await expect(field).toHaveValue("tux");
@@ -291,10 +294,7 @@ export const RenameDrawerGuardsDraft: Story = {
 	play: async ({ canvasElement }) => {
 		resetSpies();
 		const dialog = await openDrawer(canvasElement, ":party_parrot: options");
-		await userEvent.click(
-			within(dialog).getByRole("button", { name: "Rename emoji" }),
-		);
-		const field = await within(dialog).findByRole("textbox", { name: "Name" });
+		const field = await openRenameView(dialog);
 		await userEvent.clear(field);
 		await userEvent.type(field, "sleepy_parrot");
 		await userEvent.click(drawerOverlay());

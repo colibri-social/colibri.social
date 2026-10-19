@@ -10,6 +10,7 @@ import {
 	type PreferenceBackend,
 	type Preferences,
 } from "./types";
+import { fromWire } from "./wire";
 
 const VIEWER = "did:plc:viewer";
 const KEY = preferencesSnapshotKey(VIEWER);
@@ -374,6 +375,54 @@ describe("Space notification levels", () => {
 		});
 		expect(await store.setSpaceLevel(SPACE, "nothing")).toBe(false);
 		expect(store.spaceLevel(SPACE)).toBeUndefined();
+	});
+});
+
+describe("hidden messages", () => {
+	it("follows the global setting until a Space overrides it", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const putSpaceModeration = vi.spyOn(memory.backend, "putSpaceModeration");
+		const store = create(memory.backend);
+
+		expect(store.hidesModerated(SPACE)).toBe(false);
+		await store.setClient({ hideModeratedMessages: true });
+		expect(store.hidesModerated(SPACE)).toBe(true);
+
+		await store.setSpaceModeration(SPACE, false);
+		expect(store.hidesModerated(SPACE)).toBe(false);
+		expect(store.hidesModerated(OTHER)).toBe(true);
+		expect(memory.state().spaceModeration).toEqual({ [SPACE]: false });
+
+		await store.setSpaceModeration(SPACE, undefined);
+		expect(store.spaceModeration(SPACE)).toBeUndefined();
+		expect(store.hidesModerated(SPACE)).toBe(true);
+		expect(putSpaceModeration.mock.calls).toEqual([
+			[SPACE, false],
+			[SPACE, undefined],
+		]);
+	});
+
+	it("reads Space overrides and the global flag from the wire", () => {
+		const decoded = fromWire({
+			clientPreferences: { hideModeratedMessages: true },
+			spaceModerations: [
+				{ community: SPACE, hideModeratedMessages: false },
+				{ community: OTHER, hideModeratedMessages: "yes" as never },
+			],
+		});
+		expect(decoded.client.hideModeratedMessages).toBe(true);
+		expect(decoded.spaceModeration).toEqual({ [SPACE]: false });
+	});
+
+	it("reloads after a refused Space override", async () => {
+		const store = create({
+			...createMemoryPreferenceBackend().backend,
+			putSpaceModeration: async () => {
+				throw new ColibriError({ code: "Unexpected" });
+			},
+		});
+		expect(await store.setSpaceModeration(SPACE, true)).toBe(false);
+		expect(store.spaceModeration(SPACE)).toBeUndefined();
 	});
 });
 

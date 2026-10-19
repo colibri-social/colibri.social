@@ -746,8 +746,8 @@ export const SpaceMenu: Story = {
 		]);
 		await expect(itemNames(menu)).toEqual([
 			"Invite people",
+			"Manage Space",
 			"Space settings",
-			"Notification settings",
 			"Mark as read",
 			"Create channel",
 			"Create category",
@@ -931,7 +931,7 @@ export const MemberPermissions: Story = {
 		const space = await openMenu(railItem(canvas), SPACE_MENU);
 		await expect(itemNames(space)).toEqual([
 			"Invite people",
-			"Notification settings",
+			"Space settings",
 			"Mark as read",
 			"Developer mode",
 			"Leave Space",

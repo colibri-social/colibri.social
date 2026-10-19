@@ -182,88 +182,98 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 	const activityPrompt = createSlot(() => props.profile.activityPrompt);
 	const footer = createSlot(() => props.footer);
 	const tone = () => (props.surface === "background" ? "card" : "secondary");
+	const hasContent = () =>
+		bio.has() ||
+		(props.profile.nowPlaying ?? []).length > 0 ||
+		activityPrompt.has() ||
+		(props.profile.roles ?? []).length > 0 ||
+		profileActionsOf(props.profile).length > 0 ||
+		!!props.profile.developer ||
+		footer.has();
 
 	return (
-		<div
-			data-profile-body=""
-			class={cx("flex min-w-0 flex-col gap-4", props.class)}
-		>
-			<Show when={bio.has()}>
-				<ProfileBio>{bio()}</ProfileBio>
-			</Show>
-			<For each={props.profile.nowPlaying ?? []}>
-				{(activity) => <NowPlayingCard {...activity} tone={tone()} />}
-			</For>
-			<Show when={activityPrompt.has()}>{activityPrompt()}</Show>
-			<Show when={(props.profile.roles ?? []).length > 0}>
-				<ProfileSection label="Space roles">
-					<div class="flex flex-wrap gap-1">
-						<For each={props.profile.roles}>
-							{(role) => (
-								<Chip
-									icon={
-										role.icon ?? (
-											<span
-												aria-hidden="true"
-												class="block size-2 rounded-full"
-												style={{
-													background: role.color ?? "var(--foreground)",
-												}}
-											/>
-										)
+		<Show when={hasContent()}>
+			<div
+				data-profile-body=""
+				class={cx("flex min-w-0 flex-col gap-4", props.class)}
+			>
+				<Show when={bio.has()}>
+					<ProfileBio>{bio()}</ProfileBio>
+				</Show>
+				<For each={props.profile.nowPlaying ?? []}>
+					{(activity) => <NowPlayingCard {...activity} tone={tone()} />}
+				</For>
+				<Show when={activityPrompt.has()}>{activityPrompt()}</Show>
+				<Show when={(props.profile.roles ?? []).length > 0}>
+					<ProfileSection label="Space roles">
+						<div class="flex flex-wrap gap-1">
+							<For each={props.profile.roles}>
+								{(role) => (
+									<Chip
+										icon={
+											role.icon ?? (
+												<span
+													aria-hidden="true"
+													class="block size-2 rounded-full"
+													style={{
+														background: role.color ?? "var(--foreground)",
+													}}
+												/>
+											)
+										}
+									>
+										{role.name}
+									</Chip>
+								)}
+							</For>
+						</div>
+					</ProfileSection>
+				</Show>
+				<Show when={profileActionsOf(props.profile).length > 0}>
+					<ListGroup label={props.profile.actionsLabel ?? "Actions"}>
+						<For each={profileActionsOf(props.profile)}>
+							{(action) => (
+								<Show
+									when={action.tone === "destructive"}
+									fallback={
+										<NavRow
+											icon={renderActionIcon(action.icon)}
+											label={action.label}
+											onClick={() => runAction(action, props.onAction)}
+										/>
 									}
 								>
-									{role.name}
-								</Chip>
-							)}
-						</For>
-					</div>
-				</ProfileSection>
-			</Show>
-			<Show when={profileActionsOf(props.profile).length > 0}>
-				<ListGroup label={props.profile.actionsLabel ?? "Actions"}>
-					<For each={profileActionsOf(props.profile)}>
-						{(action) => (
-							<Show
-								when={action.tone === "destructive"}
-								fallback={
-									<NavRow
+									<DestructiveRow
 										icon={renderActionIcon(action.icon)}
 										label={action.label}
 										onClick={() => runAction(action, props.onAction)}
 									/>
-								}
-							>
-								<DestructiveRow
-									icon={renderActionIcon(action.icon)}
-									label={action.label}
-									onClick={() => runAction(action, props.onAction)}
-								/>
-							</Show>
-						)}
-					</For>
-				</ListGroup>
-			</Show>
-			<Show when={props.profile.developer}>
-				{(developer) => (
-					<DeveloperModeCard
-						copyLabel={developer().copyLabel ?? "Copy DID"}
-						copyValue={developer().copyValue}
-						pdslsHref={developer().pdslsHref}
-					/>
-				)}
-			</Show>
-			<Show when={footer.has()}>
-				<div data-profile-footer="" class="flex flex-col">
-					{footer()}
-				</div>
-			</Show>
-		</div>
+								</Show>
+							)}
+						</For>
+					</ListGroup>
+				</Show>
+				<Show when={props.profile.developer}>
+					{(developer) => (
+						<DeveloperModeCard
+							copyLabel={developer().copyLabel ?? "Copy DID"}
+							copyValue={developer().copyValue}
+							pdslsHref={developer().pdslsHref}
+						/>
+					)}
+				</Show>
+				<Show when={footer.has()}>
+					<div data-profile-footer="" class="flex flex-col">
+						{footer()}
+					</div>
+				</Show>
+			</div>
+		</Show>
 	);
 };
 
 export const ProfileContent = (props: ProfileContentPartProps) => (
-	<div data-profile-content="" class={cx("flex flex-col", props.class)}>
+	<div data-profile-content="" class={cx("flex flex-col pb-4", props.class)}>
 		<ProfileContentHeader
 			profile={props.profile}
 			surface={props.surface}
@@ -277,7 +287,7 @@ export const ProfileContent = (props: ProfileContentPartProps) => (
 			surface={props.surface}
 			onAction={props.onAction}
 			footer={props.footer}
-			class="px-4 pt-4 pb-4"
+			class="px-4 pt-4"
 		/>
 	</div>
 );

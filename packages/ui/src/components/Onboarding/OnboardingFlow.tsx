@@ -7,6 +7,7 @@ import {
 	Match,
 	on,
 	onCleanup,
+	onMount,
 	Show,
 	Switch,
 } from "solid-js";
@@ -243,6 +244,15 @@ export const OnboardingFlow = (props: OnboardingFlowProps) => {
 	);
 	onCleanup(() => {
 		if (focusFrame !== undefined) cancelAnimationFrame(focusFrame);
+	});
+	const onOrphanedKeyDown = (event: KeyboardEvent) => {
+		if (event.target !== document.body) return;
+		if (variant() !== "split" || !dialogElement?.isConnected) return;
+		onKeyDown(event);
+	};
+	onMount(() => {
+		document.addEventListener("keydown", onOrphanedKeyDown);
+		onCleanup(() => document.removeEventListener("keydown", onOrphanedKeyDown));
 	});
 
 	const dialogContent = (inner: () => JSX.Element, contentClass: string) => (

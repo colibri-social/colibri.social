@@ -5,6 +5,8 @@ import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { Modal, ModalContent } from "../Modal/Modal";
 import {
+	HIDDEN_MESSAGES_COPY,
+	type HiddenMessageChoice,
 	SPACE_NOTIFICATION_COPY,
 	type SpaceNotificationChoice,
 	SpaceNotificationSettings,
@@ -134,5 +136,90 @@ export const InModal: Story = {
 		});
 		await interact(dialog);
 		await expectNoLayoutIssues(dialog);
+	},
+};
+
+const ModeratorState = () => {
+	const base = State();
+	const [hidden, setHidden] = createSignal<HiddenMessageChoice>("default");
+	return {
+		props: {
+			...base.props,
+			get hiddenMessages() {
+				return hidden();
+			},
+			defaultHidesMessages: false,
+			onHiddenMessagesChange: setHidden,
+		},
+		hidden,
+	};
+};
+
+const interactHidden = async (dialog: HTMLElement) => {
+	const group = within(dialog).getByRole("radiogroup", {
+		name: HIDDEN_MESSAGES_COPY.label,
+	});
+	const scope = within(group);
+	await expect(
+		scope.getByRole("radio", { name: /Follow my default/ }),
+	).toBeChecked();
+	await waitFor(() =>
+		expect(
+			scope.getByText("Uses your chat setting, currently shown."),
+		).toBeVisible(),
+	);
+	await userEvent.click(scope.getByText(HIDDEN_MESSAGES_COPY.hide));
+	await waitFor(() =>
+		expect(scope.getByRole("radio", { name: /^Hide/ })).toBeChecked(),
+	);
+	await userEvent.click(scope.getByText(HIDDEN_MESSAGES_COPY.show));
+	await waitFor(() =>
+		expect(scope.getByRole("radio", { name: /^Show/ })).toBeChecked(),
+	);
+};
+
+export const ModeratorInModal: Story = {
+	...InModal,
+	render: () => {
+		const state = ModeratorState();
+		return (
+			<Modal defaultOpen>
+				<ModalContent
+					title={SPACE_NOTIFICATION_COPY.title}
+					description="Hummingbird Club"
+					class="md:w-[440px]"
+				>
+					<SpaceNotificationSettings {...state.props} />
+				</ModalContent>
+			</Modal>
+		);
+	},
+	play: async () => {
+		const dialog = await screen.findByRole("dialog", {
+			name: SPACE_NOTIFICATION_COPY.title,
+		});
+		await interactHidden(dialog);
+		await expectNoLayoutIssues(dialog);
+	},
+};
+
+export const ModeratorInDrawer: Story = {
+	...InDrawer,
+	render: () => {
+		const state = ModeratorState();
+		return (
+			<Drawer initialOpen>
+				<DrawerContent aria-label={SPACE_NOTIFICATION_COPY.title}>
+					<SpaceNotificationSettings {...state.props} />
+				</DrawerContent>
+			</Drawer>
+		);
+	},
+	play: async () => {
+		const dialog = await screen.findByRole("dialog");
+		await interactHidden(dialog);
+		await expectNoLayoutIssues(
+			dialog.querySelector("[data-space-notification-settings]") as HTMLElement,
+		);
 	},
 };

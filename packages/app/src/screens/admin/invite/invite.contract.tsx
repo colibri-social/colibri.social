@@ -26,7 +26,7 @@ export const INVITE_COPY = {
 	newTitle: "Create invite link",
 	intro: "Choose how long the link works and how often it can be used.",
 	created: "Give this link to anyone you want to join this Space!",
-	manage: "You can manage invite links in the Space settings.",
+	manage: "You can manage invite links in Manage Space.",
 	error: "The invite link couldn't be created. Try again.",
 } as const;
 

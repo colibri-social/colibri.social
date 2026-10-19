@@ -335,6 +335,69 @@ export const Reply: Story = {
 	},
 };
 
+const replyEmoji = (letter: string, fill: string) =>
+	`data:image/svg+xml,${encodeURIComponent(
+		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="${fill}"/><text x="12" y="17" font-size="13" text-anchor="middle" font-family="sans-serif" fill="#111">${letter}</text></svg>`,
+	)}`;
+
+export const ReplyCustomEmoji: Story = {
+	parameters: mobile,
+	render: () => (
+		<div class="flex min-h-dvh flex-col bg-background py-2 text-foreground">
+			<MessageRow
+				author={{ name: "Lou" }}
+				timestamp={at(9, 36)}
+				now={NOW}
+				locale="en-GB"
+				reply={{
+					author: { name: "Username" },
+					parts: [
+						"Shipping it today ",
+						{ name: "kek", src: replyEmoji("k", "#e0a458") },
+						" and then ",
+						{ name: "party", src: replyEmoji("p", "#8fbf7f") },
+						" all weekend, with a long tail so the preview has to cut off at the edge",
+					],
+					onClick: () => {},
+				}}
+			>
+				Same here!
+			</MessageRow>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const line = canvasElement.querySelector(
+			"[data-message-reply] [data-reply-text]",
+		) as HTMLElement;
+		const emoji = Array.from(
+			line.querySelectorAll<HTMLImageElement>("[data-reply-emoji]"),
+		);
+		await expect(emoji.map((image) => image.alt)).toEqual([":kek:", ":party:"]);
+		await expect(line.textContent).not.toContain(":kek:");
+		await expect(line).toHaveTextContent("Shipping it today and then all");
+		const button = canvasElement.querySelector(
+			"[data-message-reply] button",
+		) as HTMLElement;
+		await expect(
+			button.querySelector("a, button, [tabindex], input"),
+		).toBeNull();
+		const lineBox = line.getBoundingClientRect();
+		for (const image of emoji) {
+			await waitFor(() => expect(image.complete).toBe(true));
+			const box = image.getBoundingClientRect();
+			await expect(box.height).toBe(16);
+			await expect(box.top).toBeGreaterThanOrEqual(lineBox.top - 1);
+			await expect(box.bottom).toBeLessThanOrEqual(lineBox.bottom + 1);
+		}
+		await expect(line.scrollWidth).toBeGreaterThan(line.clientWidth);
+		await expect(getComputedStyle(line).textOverflow).toBe("ellipsis");
+		const row = canvasElement.querySelector("[data-message-reply]") as Element;
+		await expect(row.getBoundingClientRect().right).toBeLessThanOrEqual(
+			window.innerWidth,
+		);
+	},
+};
+
 export const PendingToSent: Story = {
 	parameters: mobile,
 	render: () => {
@@ -1128,15 +1191,17 @@ const expectToolbarAboveRow = async (row: HTMLElement) => {
 	await waitFor(() => expect(layer.matches(":popover-open")).toBe(true));
 	const rowRect = row.getBoundingClientRect();
 	const barRect = bar.getBoundingClientRect();
-	await expect(Math.abs(barRect.bottom - rowRect.top)).toBeLessThanOrEqual(0.5);
+	const liftedTop = rowRect.top + 1 - layer.offsetHeight * 0.75;
+	await expect(Math.abs(barRect.top - liftedTop)).toBeLessThanOrEqual(0.5);
+	await expect(barRect.bottom).toBeGreaterThan(rowRect.top);
 	await expect(
 		Math.abs(rowRect.right - 12 - barRect.right),
 	).toBeLessThanOrEqual(0.5);
 	const x = barRect.left + barRect.width / 2;
 	const center = document.elementFromPoint(x, barRect.top + barRect.height / 2);
 	await expect(center && bar.contains(center)).toBe(true);
-	const above = document.elementFromPoint(x, rowRect.top - 0.5);
-	const below = document.elementFromPoint(x, rowRect.top + 0.5);
+	const above = document.elementFromPoint(x, barRect.bottom - 0.5);
+	const below = document.elementFromPoint(x, barRect.bottom + 0.5);
 	await expect(above && layer.contains(above)).toBe(true);
 	await expect(below && row.contains(below)).toBe(true);
 	return { rowRect, barRect };

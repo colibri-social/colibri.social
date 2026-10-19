@@ -11,7 +11,7 @@ const HQ = "did:plc:colibrihqspace2a4b6c8d";
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const short = () => location.pathname.replace(`/app/c/${HQ}`, "") || "/";
 
-it("opens Space settings from the Space menu and closes back to the list without a stale history entry", async () => {
+it("opens Manage Space from the Space menu and closes back to the list without a stale history entry", async () => {
 	setLatency(0);
 	history.replaceState(null, "", `/app/c/${HQ}`);
 	const store = createDataStore(createMockSource({ live: false }));

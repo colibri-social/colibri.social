@@ -4,6 +4,7 @@ import {
 	createEffect,
 	createMemo,
 	createSignal,
+	For,
 	type JSX,
 	on,
 	onCleanup,
@@ -54,9 +55,12 @@ export const useAuthorNameColor = (author: () => MessageAuthor | undefined) =>
 		context: "chat",
 	}));
 
+export type MessageReplyEmoji = { name: string; src: string; alt?: string };
+
 export type MessageReply = {
 	author?: MessageAuthor;
 	text?: JSX.Element;
+	parts?: (string | MessageReplyEmoji)[];
 	unavailable?: boolean;
 	onClick?: () => void;
 };
@@ -226,8 +230,30 @@ const ReplyLine = (props: { reply: MessageReply }) => {
 							</span>
 						)}
 					</Show>
-					<span class="min-w-0 flex-1 truncate text-muted-foreground group-hover/reply:text-foreground">
-						{props.reply.text}
+					<span
+						data-reply-text=""
+						class="min-w-0 flex-1 truncate text-muted-foreground group-hover/reply:text-foreground"
+					>
+						<Show when={props.reply.parts} fallback={props.reply.text}>
+							{(parts) => (
+								<For each={parts()}>
+									{(part) =>
+										typeof part === "string" ? (
+											part
+										) : (
+											<img
+												data-reply-emoji=""
+												src={part.src}
+												alt={part.alt ?? `:${part.name}:`}
+												title={`:${part.name}:`}
+												draggable={false}
+												class="inline-block size-4 align-[-0.1875rem] object-contain"
+											/>
+										)
+									}
+								</For>
+							)}
+						</Show>
 					</span>
 				</button>
 			</Show>

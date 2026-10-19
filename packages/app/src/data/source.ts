@@ -158,6 +158,7 @@ export type LiveEvent =
 			roles: string[];
 	  }
 	| { $type: "memberJoinEvent"; community: Did; member: MemberView }
+	| { $type: "memberUpdateEvent"; community: Did; member: MemberView }
 	| { $type: "memberLeaveEvent"; community: Did; subject: Did }
 	| {
 			$type: "seenEvent";

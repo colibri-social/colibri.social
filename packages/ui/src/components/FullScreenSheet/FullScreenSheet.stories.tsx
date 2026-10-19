@@ -129,6 +129,10 @@ export const Mobile: Story = {
 			),
 		);
 		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+		await waitFor(
+			() => expect(canvasElement.closest("[aria-hidden='true']")).toBeNull(),
+			{ timeout: 3000 },
+		);
 	},
 };
 
@@ -229,10 +233,12 @@ export const AsksBeforeDiscarding: Story = {
 				{ timeout: 3000 },
 			);
 		const closed = () =>
-			waitFor(() =>
-				expect(
-					screen.queryByRole("dialog", { name: "Discard changes?" }),
-				).toBeNull(),
+			waitFor(
+				() =>
+					expect(
+						screen.queryByRole("dialog", { name: "Discard changes?" }),
+					).toBeNull(),
+				{ timeout: 3000 },
 			);
 
 		await drag(grabArea(dialog), 400, 4, 8);

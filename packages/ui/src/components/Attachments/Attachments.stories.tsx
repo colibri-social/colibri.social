@@ -1509,12 +1509,14 @@ export const MediaVideoKeepsPlaybackOnResign: Story = {
 				);
 				expect(found).not.toBeNull();
 				expect(Number.isFinite(found?.duration)).toBe(true);
+				expect(found?.seeking).toBe(false);
 				return found as HTMLVideoElement;
 			},
 			{ timeout: 8000 },
 		);
-		video.currentTime = 1.2;
-		await waitFor(() => expect(video.currentTime).toBeCloseTo(1.2, 1));
+		const resumeAt = Math.round(video.duration * 50) / 100;
+		video.currentTime = resumeAt;
+		await waitFor(() => expect(video.currentTime).toBeCloseTo(resumeAt, 1));
 		await userEvent.click(canvas.getByRole("button", { name: "Re-sign link" }));
 		await new Promise((resolve) => setTimeout(resolve, 300));
 		await expect(
@@ -1522,7 +1524,7 @@ export const MediaVideoKeepsPlaybackOnResign: Story = {
 				"[data-media-tile] [data-video-player] video",
 			),
 		).toBe(video);
-		await expect(video.currentTime).toBeCloseTo(1.2, 1);
+		await expect(video.currentTime).toBeCloseTo(resumeAt, 1);
 		await expect(video.error).toBeNull();
 		await expect(
 			canvasElement.querySelector("[data-media-tile]"),

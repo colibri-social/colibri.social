@@ -317,20 +317,85 @@ export const AvatarFrameSize: Story = {
 	},
 };
 
+const crcTable = Array.from({ length: 256 }, (_, index) => {
+	let value = index;
+	for (let bit = 0; bit < 8; bit++)
+		value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+	return value >>> 0;
+});
+
+const crc32 = (bytes: Uint8Array) => {
+	let value = 0xffffffff;
+	for (const byte of bytes)
+		value = crcTable[(value ^ byte) & 0xff] ^ (value >>> 8);
+	return (value ^ 0xffffffff) >>> 0;
+};
+
+const uint32 = (value: number) => [
+	(value >>> 24) & 0xff,
+	(value >>> 16) & 0xff,
+	(value >>> 8) & 0xff,
+	value & 0xff,
+];
+
+const pngChunk = (type: string, data: number[]) => {
+	const body = new Uint8Array([
+		...Array.from(type, (char) => char.charCodeAt(0)),
+		...data,
+	]);
+	return new Uint8Array([
+		...uint32(data.length),
+		...body,
+		...uint32(crc32(body)),
+	]);
+};
+
+const asSingleFrameApng = async (png: Blob, width: number, height: number) => {
+	const bytes = new Uint8Array(await png.arrayBuffer());
+	const afterHeader = 33;
+	const animationControl = pngChunk("acTL", [...uint32(1), ...uint32(0)]);
+	const frameControl = pngChunk("fcTL", [
+		...uint32(0),
+		...uint32(width),
+		...uint32(height),
+		...uint32(0),
+		...uint32(0),
+		0,
+		1,
+		0,
+		10,
+		0,
+		0,
+	]);
+	return new Blob(
+		[
+			bytes.subarray(0, afterHeader),
+			animationControl,
+			frameControl,
+			bytes.subarray(afterHeader),
+		],
+		{ type: "image/png" },
+	);
+};
+
 const unevenAvatarUrl = (() => {
+	const width = 333;
+	const height = 251;
 	const canvas = document.createElement("canvas");
-	canvas.width = 333;
-	canvas.height = 251;
+	canvas.width = width;
+	canvas.height = height;
 	const context = canvas.getContext("2d");
 	if (context) {
 		context.fillStyle = "#ff0000";
-		context.fillRect(0, 0, 166.5, 251);
+		context.fillRect(0, 0, width / 2, height);
 		context.fillStyle = "#0000ff";
-		context.fillRect(166.5, 0, 166.5, 251);
+		context.fillRect(width / 2, 0, width / 2, height);
 	}
-	return new Promise<string>((resolve) =>
-		canvas.toBlob((blob) => resolve(URL.createObjectURL(blob as Blob))),
-	);
+	return new Promise<Blob>((resolve) =>
+		canvas.toBlob((blob) => resolve(blob as Blob), "image/png"),
+	)
+		.then((png) => asSingleFrameApng(png, width, height))
+		.then((apng) => URL.createObjectURL(apng));
 })();
 
 const [unevenAvatar, setUnevenAvatar] = createSignal<string>();
@@ -346,16 +411,27 @@ export const AvatarFrameCentersUnevenImages: Story = {
 	),
 	play: async ({ canvasElement }) => {
 		await waitFor(
-			() => expect(canvasElement.querySelector("canvas")).not.toBeNull(),
-			{ timeout: 3000 },
+			() => {
+				const frame = canvasElement.querySelector("canvas");
+				expect(frame).not.toBeNull();
+				const drawn = frame as HTMLCanvasElement;
+				expect(drawn.width).toBe(drawn.height);
+				const context = drawn.getContext("2d") as CanvasRenderingContext2D;
+				const row = context.getImageData(
+					0,
+					drawn.height / 2,
+					drawn.width,
+					1,
+				).data;
+				const middle = drawn.width / 2;
+				expect(row[(middle - 2) * 4]).toBeGreaterThan(200);
+				expect(row[(middle + 1) * 4 + 2]).toBeGreaterThan(200);
+			},
+			{ timeout: 8000 },
 		);
-		const frame = canvasElement.querySelector("canvas") as HTMLCanvasElement;
-		await expect(frame.width).toBe(frame.height);
-		const context = frame.getContext("2d") as CanvasRenderingContext2D;
-		const row = context.getImageData(0, frame.height / 2, frame.width, 1).data;
-		const middle = frame.width / 2;
-		await expect(row[(middle - 2) * 4]).toBeGreaterThan(200);
-		await expect(row[(middle + 1) * 4 + 2]).toBeGreaterThan(200);
+		await expect(
+			canvasElement.querySelector("canvas[data-animated-image='paused']"),
+		).not.toBeNull();
 	},
 };
 

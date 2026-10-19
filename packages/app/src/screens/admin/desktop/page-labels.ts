@@ -1,7 +1,7 @@
 import type { AdminLayer, AdminPage } from "../../../shell/layers";
 
 const LABELS: Record<AdminPage, string> = {
-	overview: "Space settings",
+	overview: "Manage Space",
 	profile: "Space profile",
 	messages: "Messages",
 	transfer: "Transfer ownership",

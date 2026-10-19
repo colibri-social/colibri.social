@@ -152,6 +152,13 @@ export const Drawer = (props: DrawerProps) => {
 		props.initialFocusEl ??
 		(props.initialFocus === "content" ? contentElement() : undefined);
 
+	const keepFocusInsideContent = (event: Event) => {
+		const content = contentElement();
+		const active = document.activeElement;
+		if (content && active !== content && content.contains(active))
+			event.preventDefault();
+	};
+
 	let releaseVelocity = 0;
 	let releasedAt = 0;
 
@@ -189,10 +196,12 @@ export const Drawer = (props: DrawerProps) => {
 
 	const guard = createDirtyGuard();
 	guard.register({ dirty: () => !!props.dirty });
-	const [promptMounted, setPromptMounted] = createSignal(false);
-	createEffect(() => {
-		if (guard.prompting()) setPromptMounted(true);
-	});
+	const [promptKey, setPromptKey] = createSignal(0);
+	createEffect(
+		on(guard.prompting, (prompting) => {
+			if (prompting) setPromptKey((key) => key + 1);
+		}),
+	);
 	createEffect(
 		on(open, (isOpen) => {
 			if (!isOpen) guard.keep();
@@ -235,6 +244,7 @@ export const Drawer = (props: DrawerProps) => {
 				activeSnapPoint={snapPoint()}
 				onActiveSnapPointChange={setSnapPoint}
 				initialFocusEl={initialFocusEl()}
+				onInitialFocus={keepFocusInsideContent}
 				restoreFocus={props.restoreFocus ?? true}
 			>
 				{() => (
@@ -245,11 +255,13 @@ export const Drawer = (props: DrawerProps) => {
 					</DrawerContentRef.Provider>
 				)}
 			</CorvuDrawer>
-			<Show when={promptMounted()}>
-				<DiscardChangesDrawer
-					guard={guard}
-					description={props.discardDescription}
-				/>
+			<Show when={promptKey()} keyed>
+				{(_prompt) => (
+					<DiscardChangesDrawer
+						guard={guard}
+						description={props.discardDescription}
+					/>
+				)}
 			</Show>
 		</>
 	);

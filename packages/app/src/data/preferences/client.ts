@@ -17,6 +17,7 @@ export type ResolvedClient = {
 	blueskyClient: BlueskyClient;
 	customBlueskyClientBase: string;
 	developerMode: boolean;
+	hideModeratedMessages: boolean;
 	inboxPresentation: InboxPresentation;
 	controls: {
 		swipeLeftAction: ControlsPreferences["swipeLeftAction"];
@@ -52,6 +53,7 @@ export const resolveClient = (
 	blueskyClient: oneOf(BLUESKY_CLIENTS, client.blueskyClient, "bluesky"),
 	customBlueskyClientBase: client.customBlueskyClientBase ?? "",
 	developerMode: client.developerMode ?? defaults.developerMode,
+	hideModeratedMessages: client.hideModeratedMessages ?? false,
 	inboxPresentation: oneOf(
 		INBOX_PRESENTATIONS,
 		client.inboxPresentation,

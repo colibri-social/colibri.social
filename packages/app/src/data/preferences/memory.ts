@@ -27,6 +27,17 @@ export const createMemoryPreferenceBackend = (
 			};
 			return state;
 		},
+		putSpaceModeration: async (community, hideModeratedMessages) => {
+			const { [community]: _, ...rest } = state.spaceModeration;
+			state = {
+				...state,
+				spaceModeration:
+					hideModeratedMessages === undefined
+						? rest
+						: { ...rest, [community]: hideModeratedMessages },
+			};
+			return state;
+		},
 		listMutes: async () => [...records].map(([rkey, mute]) => ({ rkey, mute })),
 		createMute: async (rkey, mute) => {
 			records.set(rkey, mute);

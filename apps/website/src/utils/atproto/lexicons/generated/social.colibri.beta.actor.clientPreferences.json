@@ -69,6 +69,10 @@
 						"type": "boolean",
 						"description": "Whether the client shows identifiers and links to inspect records."
 					},
+					"hideModeratedMessages": {
+						"type": "boolean",
+						"description": "Whether messages a moderator hid stay out of view for a user who could otherwise see them. A community can override this with social.colibri.beta.actor.spaceModeration."
+					},
 					"voiceView": {
 						"type": "ref",
 						"ref": "social.colibri.beta.actor.defs#voiceView",

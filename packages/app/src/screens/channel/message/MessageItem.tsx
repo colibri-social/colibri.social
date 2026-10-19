@@ -24,6 +24,7 @@ import {
 	ReactionBar,
 	ReactionsViewer,
 	type RichText,
+	type RichTextCustomEmoji,
 	RichTextRenderer,
 	SwipeToReply,
 	ThreadCard,
@@ -57,7 +58,6 @@ import {
 	linkUris,
 	mentionsDid,
 	mentionsRole,
-	previewText,
 	sameTextValue,
 	spoileredLinkUris,
 	toTextValue,
@@ -95,6 +95,7 @@ import {
 	MessageAttachments,
 } from "./MessageAttachments";
 import { packLinkOf } from "./pack-embed";
+import { type ReplyPartEmoji, replyParts } from "./reply-parts";
 import {
 	type ChatMessage,
 	isDeletedParent,
@@ -128,6 +129,11 @@ const unknownProfile = (did: string): ProfileView =>
 		isBot: false,
 		syncBluesky: false,
 	}) as unknown as ProfileView;
+
+const replyEmoji = (
+	emoji: RichTextCustomEmoji | undefined,
+): ReplyPartEmoji | undefined =>
+	emoji ? { name: emoji.name, src: emoji.src, alt: emoji.alt } : undefined;
 
 export type MessageItemProps = {
 	entry: Accessor<MessageListEntry<ChatMessage>>;
@@ -163,11 +169,17 @@ export const MessageItem = (props: MessageItemProps) => {
 	const reply = createMemo((): MessageReply | undefined => {
 		const parent = message().parent;
 		if (isVisibleParent(parent)) {
+			const parts = replyParts(parent.text, parent.facets, {
+				byFeature: (feature) => replyEmoji(chat.customEmojiFeature?.(feature)),
+				byName: (name) => replyEmoji(chat.customEmoji?.(name)),
+			});
 			return {
 				author: toMessageAuthor(parent.author, directory()),
 				text:
-					previewText(parent.text) ||
-					(parent.attachments.length > 0 ? "Sent an attachment" : ""),
+					parts.length === 0 && parent.attachments.length > 0
+						? "Sent an attachment"
+						: "",
+				parts: parts.length > 0 ? parts : undefined,
 				onClick: () => chat.onJumpTo(parent.rkey),
 			};
 		}

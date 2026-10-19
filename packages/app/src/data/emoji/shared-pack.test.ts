@@ -38,10 +38,10 @@ describe("shared packs", () => {
 		expect(packTargetOf(PACK)).toEqual({ did: OWNER, rkey: "3kowls" });
 	});
 
-	it("finds the pack and its emoji in pack order, skipping missing ones", () => {
+	it("finds the pack and its emoji sorted by name, skipping missing ones", () => {
 		const shared = sharedPackIn(catalog, { did: OWNER, rkey: "3kowls" });
 		expect(shared?.pack.name).toBe("Night owls");
-		expect(shared?.emojis.map((entry) => entry.name)).toEqual(["owl", "kek"]);
+		expect(shared?.emojis.map((entry) => entry.name)).toEqual(["kek", "owl"]);
 	});
 
 	it("returns nothing for an unknown rkey, another owner or no catalog", () => {

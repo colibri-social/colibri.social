@@ -295,6 +295,14 @@
 					},
 					"description": "Notification levels the user set for single communities. A community without an entry follows notificationLevel."
 				},
+				"spaceModerations": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#spaceModeration"
+					},
+					"description": "Moderation view options the user set for single communities. A community without an entry follows clientPreferences."
+				},
 				"clientPreferences": {
 					"type": "ref",
 					"ref": "#clientPreferences",
@@ -398,6 +406,25 @@
 				}
 			}
 		},
+		"spaceModeration": {
+			"type": "object",
+			"description": "Moderation view options for one community.",
+			"required": [
+				"community",
+				"hideModeratedMessages"
+			],
+			"properties": {
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community."
+				},
+				"hideModeratedMessages": {
+					"type": "boolean",
+					"description": "Whether messages a moderator hid stay out of view in this community."
+				}
+			}
+		},
 		"clientPreferences": {
 			"type": "object",
 			"description": "Client settings that follow the user across devices. Every field is optional and a client applies its own default for an absent one.",
@@ -460,6 +487,10 @@
 				"developerMode": {
 					"type": "boolean",
 					"description": "Whether the client shows identifiers and links to inspect records."
+				},
+				"hideModeratedMessages": {
+					"type": "boolean",
+					"description": "Whether messages a moderator hid stay out of view for a user who could otherwise see them. A community can override this with an entry in spaceModerations."
 				},
 				"voiceView": {
 					"type": "ref",

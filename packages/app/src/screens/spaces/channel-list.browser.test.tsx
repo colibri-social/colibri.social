@@ -422,8 +422,8 @@ describe("muted Spaces", () => {
 			entry.querySelector(".sr-only")?.textContent?.startsWith(hq?.name ?? "-"),
 		);
 		rightClick(item?.querySelector("button") as HTMLElement);
-		await until(() => !!menuItem("Notification settings"));
-		await userEvent.click(menuItem("Notification settings") as HTMLElement);
+		await until(() => !!menuItem("Space settings"));
+		await userEvent.click(menuItem("Space settings") as HTMLElement);
 		await until(
 			() => !!document.querySelector("[data-space-notification-settings]"),
 		);

@@ -139,6 +139,28 @@ export const createRemotePreferenceBackend = (input: {
 			);
 			return fromWire(result.preferences);
 		},
+		putSpaceModeration: async (community, hideModeratedMessages) => {
+			const record = target(COLLECTIONS.spaceModeration, community);
+			if (hideModeratedMessages === undefined)
+				await records.deleteInSpace(record);
+			else
+				await space.write(() =>
+					records.putInSpace(record, {
+						hideModeratedMessages,
+						createdAt: new Date().toISOString(),
+					}),
+				);
+			const result = await transport.procedure(
+				colibri.actor.putSpaceModeration.main,
+				{
+					body:
+						hideModeratedMessages === undefined
+							? { community, remove: true }
+							: { community, hideModeratedMessages },
+				},
+			);
+			return fromWire(result.preferences);
+		},
 		listMutes: async () => {
 			try {
 				const found = await records.listInSpace({

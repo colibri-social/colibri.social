@@ -28,9 +28,11 @@ export const sharedPackIn = (
 	const byId = new Map(catalog.emojis.map((emoji) => [emoji.id, emoji]));
 	return {
 		pack,
-		emojis: pack.emojis.flatMap((id) => {
-			const emoji = byId.get(id);
-			return emoji ? [emoji] : [];
-		}),
+		emojis: pack.emojis
+			.flatMap((id) => {
+				const emoji = byId.get(id);
+				return emoji ? [emoji] : [];
+			})
+			.sort((a, b) => a.name.localeCompare(b.name)),
 	};
 };

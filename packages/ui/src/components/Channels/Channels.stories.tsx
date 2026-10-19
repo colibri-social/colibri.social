@@ -589,8 +589,8 @@ export const DesktopHeaderMenu: Story = {
 			.map((item) => item.textContent?.trim());
 		await expect(labels).toEqual([
 			"Invite people",
+			"Manage Space",
 			"Space settings",
-			"Notification settings",
 			"Mark as read",
 			"Create channel",
 			"Create category",
@@ -1041,7 +1041,7 @@ export const SpaceDrawerForMembers: Story = {
 		);
 		const dialog = await screen.findByRole("dialog");
 		const row = await within(dialog).findByRole("button", {
-			name: "Notification settings",
+			name: "Space settings",
 		});
 		await new Promise((resolve) => setTimeout(resolve, 400));
 		await expectNoLayoutIssues(dialog);

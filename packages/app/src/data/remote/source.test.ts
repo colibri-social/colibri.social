@@ -1312,6 +1312,7 @@ describe("createRemoteSource", () => {
 				shareActivity: false,
 				mutes: [],
 				spaceLevels: {},
+				spaceModeration: {},
 				client: {},
 				composer: DEFAULT_COMPOSER,
 				gifFavorites: [{ id: "gif-3", url: "https://gif.test/3.gif" }] as never,
@@ -1384,6 +1385,38 @@ describe("createRemoteSource", () => {
 		).toEqual([
 			{ community: COMMUNITY, level: "mentionsAndReplies" },
 			{ community: COMMUNITY, removeLevel: true },
+		]);
+	});
+
+	it("writes a Space moderation record keyed by the Space, then removes it", async () => {
+		const empty = {
+			preferences: {
+				notificationLevel: "all",
+				communityOrder: [],
+				mutes: [],
+				gifFavorites: [],
+			},
+		};
+		const nsid = "social.colibri.beta.actor.putSpaceModeration";
+		const { fake, source } = await setup((fake) => {
+			fake.on("com.atproto.space.putRecord", json({ uri: "at://x", cid: "c" }));
+			fake.on("com.atproto.space.deleteRecord", json({}));
+			fake.on(nsid, json(empty));
+		});
+
+		await source.preferences.setSpaceModeration(COMMUNITY, true);
+		await source.preferences.setSpaceModeration(COMMUNITY, undefined);
+
+		const put = fake.callsTo("com.atproto.space.putRecord").at(-1)?.body as any;
+		expect(put.collection).toBe("social.colibri.beta.actor.spaceModeration");
+		expect(put.rkey).toBe(COMMUNITY);
+		expect(put.record.hideModeratedMessages).toBe(true);
+		const removed = fake.callsTo("com.atproto.space.deleteRecord").at(-1)
+			?.body as any;
+		expect(removed.rkey).toBe(COMMUNITY);
+		expect(fake.callsTo(nsid).map((call) => call.body)).toEqual([
+			{ community: COMMUNITY, hideModeratedMessages: true },
+			{ community: COMMUNITY, remove: true },
 		]);
 	});
 

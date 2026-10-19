@@ -11,6 +11,6 @@ export const SpaceModalContext = createContext<SpaceModal>();
 
 export const useSpaceModal = () => {
 	const modal = useContext(SpaceModalContext);
-	if (!modal) throw new Error("useSpaceModal needs the Space settings modal");
+	if (!modal) throw new Error("useSpaceModal needs the Manage Space modal");
 	return modal;
 };

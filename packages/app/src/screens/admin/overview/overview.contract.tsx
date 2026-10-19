@@ -167,9 +167,9 @@ export const overview = defineContract({
 			<NavHeader
 				safeTop
 				kind="close"
-				navigateLabel="Close Space settings"
+				navigateLabel="Close"
 				onNavigate={() => m.stack.pop()}
-				title="Space settings"
+				title="Manage Space"
 			/>
 		)),
 		Missing: slot((m) => (

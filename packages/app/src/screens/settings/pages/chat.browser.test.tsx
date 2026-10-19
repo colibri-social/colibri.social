@@ -13,3 +13,14 @@ it("syncs sharing what you're doing", async () => {
 	await userEvent.click(page.getByText("Share what I'm doing"));
 	await expect.poll(() => store.preferences.shareActivity()).toBe(!before);
 });
+
+it("hides messages that moderators hid when the viewer turns them off", async () => {
+	const { store } = await mountPage(() => <ChatPage platform="mobile" />);
+	const toggle = page.getByRole("switch", { name: /Show hidden messages/ });
+	await expect.element(toggle).toHaveAttribute("aria-checked", "true");
+	await userEvent.click(page.getByText("Show hidden messages"));
+	await expect
+		.poll(() => store.preferences.client().hideModeratedMessages)
+		.toBe(true);
+	await expect.element(toggle).toHaveAttribute("aria-checked", "false");
+});

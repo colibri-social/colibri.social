@@ -539,6 +539,21 @@ export const createDataStore = (
 				if (event.subject === viewer.did) {
 					syncViewer(event.community, event.roles);
 				}
+				return;
+			}
+			if (event.$type === "memberUpdateEvent") {
+				const subject = event.member.actor.did;
+				memberLoads
+					.get(event.community)
+					?.update((list) =>
+						list.map((member) =>
+							member.actor.did === subject ? event.member : member,
+						),
+					);
+				if (subject === viewer.did) {
+					syncViewer(event.community, event.member.roles);
+					applyViewer(event.member.actor);
+				}
 			}
 		});
 		const channels = new Map<SpaceRef, ChannelData>();

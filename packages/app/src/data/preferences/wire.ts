@@ -163,6 +163,16 @@ const decodeSpaceLevels = (
 		if (isLevel(entry.level)) levels[entry.community] = entry.level;
 	return levels;
 };
+const decodeSpaceModeration = (
+	entries: PreferencesWire["spaceModerations"],
+): Record<string, boolean> => {
+	const options: Record<string, boolean> = {};
+	for (const entry of entries ?? [])
+		if (typeof entry.hideModeratedMessages === "boolean")
+			options[entry.community] = entry.hideModeratedMessages;
+	return options;
+};
+
 export const fromWire = (wire: Partial<PreferencesWire>): Preferences => ({
 	notificationLevel: asLevel(wire.notificationLevel),
 	communityOrder: [...(wire.communityOrder ?? [])] as Did[],
@@ -173,6 +183,7 @@ export const fromWire = (wire: Partial<PreferencesWire>): Preferences => ({
 		return mute ? [mute] : [];
 	}),
 	spaceLevels: decodeSpaceLevels(wire.spaceNotifications),
+	spaceModeration: decodeSpaceModeration(wire.spaceModerations),
 	client: decodeClient(wire.clientPreferences),
 	composer: decodeComposer(wire.composerState),
 });

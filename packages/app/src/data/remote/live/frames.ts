@@ -303,10 +303,9 @@ export const toLiveEvents = (
 		if (frame.event !== "update" || !member) return [];
 		return [
 			{
-				$type: "memberRolesEvent",
+				$type: "memberUpdateEvent",
 				community: asDid(frame.community),
-				subject: asDid(member.actor.did),
-				roles: [...member.roles],
+				member: member as MemberView,
 			},
 		];
 	}

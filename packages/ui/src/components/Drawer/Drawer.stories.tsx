@@ -7,6 +7,7 @@ import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import { createSignal, For, type JSX, Show } from "solid-js";
 import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { findSettledDrawer } from "../../foundations/drawer-test";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import {
 	hasIntermediate,
@@ -437,6 +438,82 @@ const drawerContent = () =>
 
 const discardDialog = () =>
 	screen.queryByRole("dialog", { name: "Discard changes?" });
+
+const SwappingDrawer = () => {
+	const [renaming, setRenaming] = createSignal(false);
+	return (
+		<Drawer initialFocus="content">
+			<DrawerTrigger as={Button} variant="secondary">
+				Open options
+			</DrawerTrigger>
+			<DrawerContent title="Emoji options">
+				<Show
+					when={renaming()}
+					fallback={
+						<Button variant="secondary" onClick={() => setRenaming(true)}>
+							Rename
+						</Button>
+					}
+				>
+					<TextField label="New name" placeholder="party_parrot" />
+				</Show>
+			</DrawerContent>
+		</Drawer>
+	);
+};
+
+const nextFrame = () =>
+	new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+export const ViewSwapKeepsMovedFocus: Story = {
+	render: () => <SwappingDrawer />,
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Open options" }),
+		);
+		const dialog = await screen.findByRole("dialog", { name: "Emoji options" });
+		await waitFor(() => expect(document.activeElement).toBe(dialog), {
+			timeout: 3000,
+		});
+		const rename = within(dialog).getByRole("button", { name: "Rename" });
+		rename.focus();
+		rename.click();
+		await expect(document.activeElement).toBe(document.body);
+		await nextFrame();
+		await nextFrame();
+		await nextFrame();
+		const field = within(dialog).getByRole("textbox", { name: "New name" });
+		field.focus();
+		for (let frame = 0; frame < 4; frame++) await nextFrame();
+		await expect(document.activeElement).toBe(field);
+	},
+};
+
+export const RepromptsDuringPromptClose: Story = {
+	render: () => <UnsavedDrawer />,
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Edit nickname" }),
+		);
+		const field = await screen.findByRole("textbox", { name: "Nickname" });
+		await userEvent.type(field, "Wren");
+		await userEvent.keyboard("{Escape}");
+		const first = await findSettledDrawer("Discard changes?");
+		await userEvent.click(
+			within(first).getByRole("button", { name: "Cancel" }),
+		);
+		await expect(first).toHaveAttribute("data-closing");
+		await userEvent.keyboard("{Escape}");
+		const second = await findSettledDrawer("Discard changes?");
+		await userEvent.click(
+			within(second).getByRole("button", { name: "Discard changes" }),
+		);
+		await waitFor(() => expect(drawerContent()).toBeNull(), { timeout: 3000 });
+		await waitFor(() =>
+			expect(document.body.style.pointerEvents).not.toBe("none"),
+		);
+	},
+};
 
 export const GuardsUnsavedChanges: Story = {
 	render: () => <UnsavedDrawer />,

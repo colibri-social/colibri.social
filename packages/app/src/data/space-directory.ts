@@ -22,7 +22,7 @@ export type CreateSpaceResult = {
 };
 
 export const IMAGES_NOT_SAVED =
-	"Your picture and banner weren't saved. You can set them in Space settings.";
+	"Your picture and banner weren't saved. You can set them in Manage Space.";
 
 const replaceCommunity = (
 	list: readonly CommunityView[],

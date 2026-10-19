@@ -128,7 +128,7 @@ describe("space settings hub", () => {
 			"Bridges",
 			"Messages",
 		]);
-		expect(buttonNamed(root, "Close Space settings")).toBeTruthy();
+		expect(buttonNamed(root, "Close")).toBeTruthy();
 		expect(buttonNamed(root, "Transfer ownership")).toBeTruthy();
 		expect(buttonNamed(root, "Delete Space")).toBeTruthy();
 		expect(buttonNamed(root, "Leave Space")).toBeFalsy();

@@ -1717,3 +1717,47 @@ export const HeaderLongPronouns: Story = {
 		await expectNoLayoutIssues(canvasElement);
 	},
 };
+
+export const PopoverWithoutBody: Story = {
+	parameters: desktop,
+	render: () => (
+		<div class="flex min-h-[720px] w-full justify-end bg-background p-4">
+			<ProfilePopover
+				profile={lou({
+					bio: undefined,
+					nowPlaying: [],
+					roles: [],
+					actions: [],
+					developer: undefined,
+				})}
+				triggerLabel="Lou, no bio"
+				as="button"
+			>
+				<span class="text-sm text-foreground">No bio</span>
+			</ProfilePopover>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(canvas.getByRole("button", { name: "Lou, no bio" }));
+		const popover = await screen.findByRole("dialog", {
+			name: "Lou's profile",
+		});
+		const content = popover.querySelector<HTMLElement>(
+			"[data-profile-content]",
+		);
+		if (!content) throw new Error("profile content missing");
+		await expect(content.querySelector("[data-profile-body]")).toBeNull();
+		const header = content.firstElementChild as HTMLElement;
+		await waitFor(() =>
+			expect(
+				content.getBoundingClientRect().bottom -
+					header.getBoundingClientRect().bottom,
+			).toBeCloseTo(
+				16 * (content.getBoundingClientRect().height / content.offsetHeight),
+				0,
+			),
+		);
+		await expectNoLayoutIssues(popover);
+	},
+};

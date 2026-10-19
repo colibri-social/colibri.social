@@ -481,13 +481,16 @@ export const createConversation = (options: ConversationOptions) => {
 		const current = feed();
 		if (!current || !revealed()) return [];
 		const threads = threadsByAnchor();
-		const moderator = canModerate();
+		const communityDid = community()?.did;
+		const showsHidden =
+			canModerate() &&
+			!(communityDid && data.preferences.hidesModerated(communityDid));
 		const viewerDid = data.viewer.did;
 		const sent = current
 			.messages()
 			.filter(
 				(message) =>
-					moderator ||
+					showsHidden ||
 					message.author.did === viewerDid ||
 					!isHiddenMessage(message),
 			)

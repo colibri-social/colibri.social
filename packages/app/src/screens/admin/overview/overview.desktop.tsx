@@ -49,7 +49,7 @@ export default overview.view({
 				<AdminModalFrame
 					pages={modal.pages()}
 					baseDepth={modal.baseDepth()}
-					fallbackTitle="Space settings"
+					fallbackTitle="Manage Space"
 					label={adminPageLabel}
 					missing={m.missing()}
 					missingView={<s.Missing />}
