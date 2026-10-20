@@ -4,20 +4,43 @@ import type { DataStore, SpaceData } from "../../data/store";
 import type { NotificationView, SpaceRef, ThreadView } from "../../data/types";
 
 export const SIDEBAR_THREAD_LIMIT = 5;
+export const SIDEBAR_ACTIVITY_WINDOW_MS = 6 * 60 * 60 * 1000;
+export const SIDEBAR_OPENED_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const newestFirst = (a: ThreadView, b: ThreadView) => {
 	if (a.lastActivityAt === b.lastActivityAt) return a.space < b.space ? -1 : 1;
 	return a.lastActivityAt < b.lastActivityAt ? 1 : -1;
 };
 
+export type SidebarThreadContext = {
+	mentions: number;
+	unread: boolean;
+	now: number;
+	activeThread?: string;
+	openedAt?: number;
+};
+
+const isRecentlyActive = (thread: ThreadView, now: number) => {
+	const at = Date.parse(thread.lastActivityAt);
+	return !Number.isNaN(at) && now - at <= SIDEBAR_ACTIVITY_WINDOW_MS;
+};
+
+const wasRecentlyOpened = (openedAt: number | undefined, now: number) =>
+	openedAt !== undefined && now - openedAt <= SIDEBAR_OPENED_WINDOW_MS;
+
 export const belongsInSidebar = (
 	thread: ThreadView,
-	mentions: number,
-	activeThread?: string,
+	context: SidebarThreadContext,
 ) => {
-	if (activeThread === skeyOf(thread.space)) return true;
-	if (mentions > 0) return true;
-	return !!thread.viewer.following && !thread.closedAt;
+	if (context.activeThread === skeyOf(thread.space)) return true;
+	if (context.mentions > 0) return true;
+	if (thread.closedAt) return false;
+	return (
+		!!thread.viewer.following ||
+		context.unread ||
+		wasRecentlyOpened(context.openedAt, context.now) ||
+		isRecentlyActive(thread, context.now)
+	);
 };
 
 export const capKeepingPinned = <T extends { thread: ThreadView }>(
@@ -56,6 +79,7 @@ export const sidebarThreadsFor = (
 	space: SpaceData | undefined,
 	channel: SpaceRef,
 	activeThread?: string,
+	now: number = Date.now(),
 ): SidebarThreadState[] => {
 	const unseen = unseenThreadPings(data.notifications.items());
 	const listed = sidebarThreads(data, channel)
@@ -71,7 +95,13 @@ export const sidebarThreadsFor = (
 			};
 		})
 		.filter((state) =>
-			belongsInSidebar(state.thread, state.mentions, activeThread),
+			belongsInSidebar(state.thread, {
+				mentions: state.mentions,
+				unread: state.unread,
+				now,
+				activeThread,
+				openedAt: data.threads.openedAt(state.thread.space),
+			}),
 		)
 		.sort((a, b) => newestFirst(a.thread, b.thread));
 	return capKeepingPinned(listed, activeThread);

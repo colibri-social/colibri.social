@@ -1,6 +1,8 @@
 import { createMemoryKvStore } from "@colibri-social/lib";
+import { setAppActive } from "@colibri-social/ui";
 import { createEffect, createRoot } from "solid-js";
 import { describe, expect, it } from "vitest";
+import { sidebarThreadsFor } from "../screens/spaces/sidebar-threads";
 import { channelSlug, isVoiceChannel } from "./ids";
 import { createMockSource, setLatency } from "./mock/source";
 import { createOutboxQueue } from "./outbox/queue";
@@ -146,6 +148,111 @@ describe("thread lists", () => {
 	});
 });
 
+describe("thread auto-follow", () => {
+	const DAY = 24 * 60 * 60 * 1000;
+	const critiqueOf = async (store: ReturnType<typeof createDataStore>) => {
+		const owls = store.communities
+			.value()
+			?.find((entry) => entry.handle.startsWith("nightowls.")) as NonNullable<
+			ReturnType<typeof store.communities.value>
+		>[number];
+		const space = store.space(owls);
+		await until(() => !!space.channels.value());
+		const critique = space.channelBySlug("critique");
+		if (!critique) throw new Error("critique missing");
+		const parent = store.channel(critique.space);
+		await until(() => !!parent.threads.value());
+		const hands = parent.threads
+			.value()
+			?.find((thread) => thread.name === "Hands help");
+		if (!hands) throw new Error("thread missing");
+		return { space, critique, hands };
+	};
+
+	it("follows a thread after sending in it and keeps its row once you leave", async () => {
+		const { store } = await setup();
+		const { space, critique, hands } = await critiqueOf(store);
+		const later = Date.now() + 2 * DAY;
+		const rows = () =>
+			sidebarThreadsFor(store, space, critique.space, undefined, later).map(
+				(state) => state.thread.space,
+			);
+		expect(hands.viewer.following).toBe(false);
+		expect(rows()).not.toContain(hands.space);
+		const thread = store.channel(hands.space);
+		store.setViewing(hands.space);
+		const sending = thread.send({ text: "count the knuckles first" });
+		expect(store.threads.find(hands.space)?.viewer.following).toBe(false);
+		await sending;
+		await until(() => !!store.threads.find(hands.space)?.viewer.following);
+		store.setViewing(undefined);
+		expect(rows()).toContain(hands.space);
+		store.dispose();
+	});
+
+	it("follows a thread once when mentions for it arrive", async () => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const listeners = new Set<(event: LiveEvent) => void>();
+		const follows: SpaceRef[] = [];
+		const source: DataSource = {
+			...base,
+			subscribe: (listener) => {
+				listeners.add(listener);
+				const stop = base.subscribe(listener);
+				return () => {
+					listeners.delete(listener);
+					stop();
+				};
+			},
+			followThread: (input) => {
+				follows.push(input.thread);
+				return base.followThread(input);
+			},
+		};
+		const { store } = await setup({ source });
+		const { hands } = await critiqueOf(store);
+		const author = { did: "did:plc:maya", handle: "maya.test" };
+		for (const id of ["first", "second"]) {
+			for (const listener of [...listeners])
+				listener({
+					$type: "notificationEvent",
+					notification: {
+						id,
+						kind: "mention",
+						author,
+						channel: hands.channel,
+						thread: hands.space,
+						indexedAt: new Date().toISOString(),
+					} as never,
+				});
+		}
+		await until(() => !!store.threads.find(hands.space)?.viewer.following);
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(follows).toEqual([hands.space]);
+		store.dispose();
+	});
+
+	it("keeps an opened thread in the sidebar for a day", async () => {
+		let clock = Date.now();
+		const { store } = await setup({ store: { now: () => clock } });
+		const { space, critique, hands } = await critiqueOf(store);
+		store.setViewing(hands.space);
+		store.setViewing(undefined);
+		const rows = (now: number) =>
+			sidebarThreadsFor(store, space, critique.space, undefined, now).map(
+				(state) => state.thread.space,
+			);
+		expect(rows(clock + DAY)).toContain(hands.space);
+		expect(rows(clock + DAY + 1)).not.toContain(hands.space);
+		clock += DAY;
+		store.setViewing(hands.space);
+		store.setViewing(undefined);
+		expect(rows(clock + DAY)).toContain(hands.space);
+		store.dispose();
+	});
+});
+
 describe("unread marker", () => {
 	it("keeps the marker when reading by viewing", async () => {
 		const { channel } = await setup();
@@ -264,6 +371,20 @@ describe("channel watching", () => {
 		store.setViewing(undefined);
 		expect(released).toEqual([general.space, dev.space]);
 		expect(viewed).toEqual([general.space, undefined, dev.space, undefined]);
+		store.dispose();
+	});
+
+	it("stops viewing while the app is in the background and keeps watching", async () => {
+		const { store, space, watched, released, viewed } = await setupWithEvents();
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("channel missing");
+		store.setViewing(general.space);
+		setAppActive(false);
+		expect(viewed).toEqual([general.space, undefined]);
+		expect(released).toEqual([]);
+		setAppActive(true);
+		expect(viewed).toEqual([general.space, undefined, general.space]);
+		expect(watched).toEqual([general.space]);
 		store.dispose();
 	});
 

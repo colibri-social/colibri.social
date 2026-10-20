@@ -57,6 +57,21 @@ describe("createTransport", () => {
 		});
 	});
 
+	it("sends push procedures through the notification service proxy", async () => {
+		const { fake, transport } = setup();
+		fake.on(colibri.notification.registerPush.main.nsid, json({}));
+
+		await transport.notifProcedure(colibri.notification.registerPush.main, {
+			body: { provider: "fcm", platform: "android", token: "t" },
+		});
+
+		const [call] = fake.callsTo(colibri.notification.registerPush.main.nsid);
+		expect(call?.method).toBe("POST");
+		expect(call?.headers.get("atproto-proxy")).toBe(
+			`${APPVIEW}#colibri_notifs`,
+		);
+	});
+
 	it("leaves the proxy header off PDS calls", async () => {
 		const { fake, transport } = setup();
 		fake.on("com.atproto.space.getRecord", json({ uri: "at://x", value: {} }));

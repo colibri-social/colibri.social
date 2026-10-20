@@ -7,6 +7,7 @@ import { paintImage } from "../Banner/story-images";
 import { createStoryClip } from "../Media/story-clip";
 import { MessageRow } from "../Message/MessageRow";
 import {
+	type BlueskyEmbedClient,
 	type BlueskyPost,
 	BlueskyPostEmbed,
 	BlueskyPostEmbedSkeleton,
@@ -459,13 +460,31 @@ export const LinksDesktop: Story = {
 const quoted: BlueskyPost = {
 	author: { name: "Lis", handle: "lis.example.social" },
 	time: "2h",
-	text: "The crows know my face now. They wait for me at the bridge every morning.",
+	text: "The crows know my face now. They wait for me at the bridge every morning. #crows",
+	segments: [
+		{
+			text: "The crows know my face now. They wait for me at the bridge every morning. ",
+		},
+		{ text: "#crows", href: "https://bsky.app/search?q=%23crows" },
+	],
 };
 
 const post: BlueskyPost = {
 	author: { name: "Lou", handle: "lou.gg", verified: true },
 	time: "1h",
-	text: "Saw a kingfisher on the canal this morning. Bright blue, gone in a second.",
+	text: "Saw a kingfisher on the canal this morning with @lis.example.social. Bright blue, gone in a second. Photos: birdwatch.example/canal-kingf...",
+	segments: [
+		{ text: "Saw a kingfisher on the canal this morning with " },
+		{
+			text: "@lis.example.social",
+			href: "https://bsky.app/profile/did:plc:lis",
+		},
+		{ text: ". Bright blue, gone in a second. Photos: " },
+		{
+			text: "birdwatch.example/canal-kingf...",
+			href: "https://birdwatch.example/canal-kingfisher",
+		},
+	],
 	url: "https://bsky.app/profile/lou.gg",
 	images: [fixtureImage(4, 1600, 1000), fixtureImage(1, 900, 1200)],
 	quote: quoted,
@@ -499,18 +518,82 @@ export const Bluesky: Story = {
 	render: () => <BlueskyCases />,
 	play: async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
-		const article = canvas.getByRole("article", {
-			name: "Bluesky post by Lou",
-		});
+		const article = canvas.getByRole("article", { name: "Post by Lou" });
 		await expect(
 			within(article).getAllByRole("link", { name: "Open on Bluesky" })[0],
 		).toHaveAttribute("href", "https://bsky.app/profile/lou.gg");
 		await expect(within(article).getByText("1.2K")).toBeInTheDocument();
+		await expect(
+			within(article).getByRole("link", { name: "@lis.example.social" }),
+		).toHaveAttribute("href", "https://bsky.app/profile/did:plc:lis");
+		await expect(
+			within(article).getByRole("link", {
+				name: "birdwatch.example/canal-kingf...",
+			}),
+		).toHaveAttribute("href", "https://birdwatch.example/canal-kingfisher");
+		await expect(
+			within(article).getByRole("link", { name: "#crows" }),
+		).toHaveAttribute("href", "https://bsky.app/search?q=%23crows");
+		await expectNoLayoutIssues(canvasElement);
 	},
 };
 
 export const BlueskyDesktop: Story = {
 	render: () => <BlueskyCases desktop />,
+};
+
+const clients: BlueskyEmbedClient[] = [
+	{ id: "mu", name: "Mu Social", accentColor: "#db4aa6" },
+	{ id: "northsky", name: "Northsky", accentColor: "#8a5fe5" },
+	{ id: "witchsky", name: "Witchsky", accentColor: "#ed5345" },
+	{ id: "custom", name: "sky.example.org", accentColor: "var(--primary)" },
+];
+
+const BlueskyClientCases = (props: { desktop?: boolean }) => (
+	<Screen desktop={props.desktop}>
+		{clients.map((client) => (
+			<Message
+				name={client.name}
+				attachments={
+					<BlueskyPostEmbed
+						post={{
+							...quoted,
+							author: { name: client.name, handle: "lou.gg" },
+							url: `https://${client.id === "custom" ? client.name : "bsky.app"}/profile/lou.gg/post/3kingfisher`,
+						}}
+						client={client}
+					/>
+				}
+			/>
+		))}
+	</Screen>
+);
+
+export const BlueskyClients: Story = {
+	parameters: mobile,
+	render: () => <BlueskyClientCases />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const mu = canvas.getByRole("link", { name: "Open on Mu Social" });
+		await expect(mu.querySelector("[data-bluesky-client]")).toHaveAttribute(
+			"data-bluesky-client",
+			"mu",
+		);
+		await expect(mu.style.color).not.toBe("");
+		const custom = canvas.getByRole("link", {
+			name: "Open on sky.example.org",
+		});
+		await expect(custom.querySelector("[data-bluesky-client]")).toBeNull();
+		await expect(custom.querySelector("svg")).not.toBeNull();
+		await expect(
+			canvas.queryByRole("link", { name: "Open on Bluesky" }),
+		).toBeNull();
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
+export const BlueskyClientsDesktop: Story = {
+	render: () => <BlueskyClientCases desktop />,
 };
 
 const ContextCases = (props: { desktop?: boolean }) => (

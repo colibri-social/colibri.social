@@ -27,7 +27,12 @@ import {
 	toMessageAuthor,
 	viaLabel,
 } from "./authors";
-import { parseBlueskyPostUrl, toBlueskyPost } from "./bluesky-post";
+import {
+	blueskyTextSegments,
+	canonicalBlueskyPostUrl,
+	parseBlueskyPostUrl,
+	toBlueskyPost,
+} from "./bluesky-post";
 import {
 	fromComposerValue,
 	linkUris,
@@ -642,6 +647,153 @@ describe("bluesky posts", () => {
 			images: [{ src: "https://img.test/1.jpg", kind: "image" }],
 			stats: { replies: 0, reposts: 0, likes: 3 },
 		});
+	});
+
+	it("accepts post links on a custom client host", () => {
+		const custom = "https://sky.example.org/profile/ana.test/post/3labc";
+		expect(parseBlueskyPostUrl(custom)).toBeUndefined();
+		expect(parseBlueskyPostUrl(custom, "sky.example.org")).toEqual({
+			authority: "ana.test",
+			rkey: "3labc",
+		});
+		expect(canonicalBlueskyPostUrl(custom, "sky.example.org")).toBe(
+			"https://bsky.app/profile/ana.test/post/3labc",
+		);
+		expect(canonicalBlueskyPostUrl("https://example.com/a")).toBe(
+			"https://example.com/a",
+		);
+	});
+
+	it("turns the truncated link of a post into a link segment", () => {
+		const text =
+			"... It may have custom emojis \u{1F440}\n\nFor instructions on how to get started, head to github.com/colibri-soci.... Please let us know!";
+		const bytes = new TextEncoder().encode(text);
+		const label = new TextEncoder().encode("github.com/colibri-soci...");
+		const byteStart = bytes.findIndex((_, index) =>
+			label.every((byte, offset) => bytes[index + offset] === byte),
+		);
+		const segments = blueskyTextSegments(
+			text,
+			[
+				{
+					index: { byteStart, byteEnd: byteStart + label.length },
+					features: [
+						{
+							$type: "app.bsky.richtext.facet#link",
+							uri: "https://github.com/colibri-social/colibri.social/releases/tag/v0.6.0-spaces.7",
+						},
+					],
+				},
+			],
+			{ base: "mu.social" },
+		);
+		expect(segments).toEqual([
+			{
+				text: "... It may have custom emojis \u{1F440}\n\nFor instructions on how to get started, head to ",
+			},
+			{
+				text: "github.com/colibri-soci...",
+				href: "https://github.com/colibri-social/colibri.social/releases/tag/v0.6.0-spaces.7",
+			},
+			{ text: ". Please let us know!" },
+		]);
+	});
+
+	it("counts facet offsets in UTF-8 bytes past emoji", () => {
+		const text = "\u{1F426}\u{1F426} see bsky.app/x and @ana.test #birds";
+		const at = (needle: string) =>
+			new TextEncoder().encode(text.slice(0, text.indexOf(needle))).length;
+		const span = (needle: string) => ({
+			byteStart: at(needle),
+			byteEnd: at(needle) + new TextEncoder().encode(needle).length,
+		});
+		expect(span("bsky.app/x").byteStart).toBe(13);
+		const segments = blueskyTextSegments(
+			text,
+			[
+				{
+					index: span("#birds"),
+					features: [{ $type: "app.bsky.richtext.facet#tag", tag: "birds" }],
+				},
+				{
+					index: span("bsky.app/x"),
+					features: [
+						{
+							$type: "app.bsky.richtext.facet#link",
+							uri: "https://bsky.app/profile/ana.test",
+						},
+					],
+				},
+				{
+					index: span("@ana.test"),
+					features: [
+						{ $type: "app.bsky.richtext.facet#mention", did: "did:plc:ana" },
+					],
+				},
+			],
+			{ base: "mu.social" },
+		);
+		expect(segments).toEqual([
+			{ text: "\u{1F426}\u{1F426} see " },
+			{ text: "bsky.app/x", href: "https://mu.social/profile/ana.test" },
+			{ text: " and " },
+			{ text: "@ana.test", href: "https://mu.social/profile/did:plc:ana" },
+			{ text: " " },
+			{ text: "#birds", href: "https://mu.social/search?q=%23birds" },
+		]);
+	});
+
+	it("leaves unsafe and broken facets as plain text", () => {
+		const segments = blueskyTextSegments(
+			"click here and there",
+			[
+				{
+					index: { byteStart: 0, byteEnd: 10 },
+					features: [
+						{
+							$type: "app.bsky.richtext.facet#link",
+							uri: "javascript:alert(1)",
+						},
+					],
+				},
+				{
+					index: { byteStart: 15, byteEnd: 99 },
+					features: [
+						{
+							$type: "app.bsky.richtext.facet#link",
+							uri: "https://example.com",
+						},
+					],
+				},
+			],
+			{ base: "bsky.app" },
+		);
+		expect(segments).toEqual([{ text: "click here and there" }]);
+	});
+
+	it("carries facets into the mapped post", () => {
+		const post = toBlueskyPost(
+			{
+				url: "https://bsky.app/profile/did:plc:ana/post/3labc",
+				author: { did: "did:plc:ana" as never, handle: "ana.test" },
+				text: "hi #birds",
+				facets: [
+					{
+						index: { byteStart: 3, byteEnd: 9 },
+						features: [{ $type: "app.bsky.richtext.facet#tag", tag: "birds" }],
+					},
+				],
+				createdAt: "2026-10-14T10:00:00.000Z" as never,
+			},
+			{ base: "sky.example.org" },
+		);
+		expect(post.segments).toEqual([
+			{ text: "hi " },
+			{ text: "#birds", href: "https://sky.example.org/search?q=%23birds" },
+		]);
+		expect(post.url).toBe(
+			"https://sky.example.org/profile/ana.test/post/3labc",
+		);
 	});
 });
 

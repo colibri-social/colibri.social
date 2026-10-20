@@ -374,6 +374,7 @@ export type DataStoreOptions = {
 	spaces?: SpaceCache;
 	outbox?: { queue?: OutboxQueue; held?: () => boolean };
 	live?: { epoch: Accessor<number | undefined> };
+	now?: () => number;
 };
 
 type ReadState = { cursor?: string; hasUnread: boolean };
@@ -604,6 +605,8 @@ export const createDataStore = (
 				[slug]: state,
 			}));
 		const [viewing, setViewing] = createSignal<SpaceRef>();
+		const clock = options.now ?? Date.now;
+		const threadOpenedAt = createRecordStore<number>();
 		const holds = new Map<SpaceRef, { count: number; release: () => void }>();
 		const holdChannel = (ref: SpaceRef): (() => void) => {
 			const held = holds.get(ref);
@@ -632,13 +635,18 @@ export const createDataStore = (
 			createEffect(
 				on(viewing, (ref) => {
 					if (!ref) return;
-					const release = holdChannel(ref);
-					source.viewChannel(ref);
-					onCleanup(() => {
-						source.viewChannel(undefined);
-						release();
-					});
+					onCleanup(holdChannel(ref));
 				}),
+			);
+			createEffect(
+				on(
+					() => (appVisible() ? viewing() : undefined),
+					(ref) => {
+						if (!ref) return;
+						source.viewChannel(ref);
+						onCleanup(() => source.viewChannel(undefined));
+					},
+				),
 			);
 		}
 		const lastChannels = createRecordStore<string>();
@@ -1213,6 +1221,7 @@ export const createDataStore = (
 
 		const threadActions = {
 			find: findThread,
+			openedAt: (ref: SpaceRef) => threadOpenedAt.get(ref),
 			anchorMessage: anchorMessageOf,
 			rename: (thread: ThreadView, name: string) =>
 				patchThread(thread, { ...thread, name: name.trim() }, () =>
@@ -1283,6 +1292,40 @@ export const createDataStore = (
 				}
 			},
 		};
+
+		const autoFollowing = new Set<SpaceRef>();
+		const autoFollow = (ref: SpaceRef, lookup: boolean) => {
+			if (autoFollowing.has(ref)) return;
+			const known = untrack(() => findThread(ref));
+			if (known?.viewer.following) return;
+			if (!known && !lookup) return;
+			autoFollowing.add(ref);
+			const resolved = known ? Promise.resolve(known) : source.getThread(ref);
+			void resolved
+				.then((thread) =>
+					thread.viewer.following
+						? undefined
+						: threadActions.follow(thread, true),
+				)
+				.catch((thrown: unknown) => {
+					const failure = classifyThrown(thrown, {
+						method: "thread.autoFollow",
+					});
+					log.warn("thread auto-follow failed", { code: failure.code });
+				})
+				.finally(() => autoFollowing.delete(ref));
+		};
+		outbox.subscribe((event) => {
+			if (event.type !== "sent" || event.entry.op.t !== "send") return;
+			autoFollow(event.entry.op.channel, false);
+		});
+		source.subscribe((event) => {
+			if (event.$type !== "notificationEvent") return;
+			const view = event.notification;
+			if (!view.thread || !isPingNotification(view)) return;
+			if (view.author?.did === viewer.did) return;
+			autoFollow(view.thread, true);
+		});
 
 		const forgetLive = (match: (ref: SpaceRef) => boolean) => {
 			tails.dropWhere(match);
@@ -3109,7 +3152,10 @@ export const createDataStore = (
 				return () => writeFailureListeners.delete(listener);
 			},
 			viewing,
-			setViewing,
+			setViewing: (ref?: SpaceRef) => {
+				if (ref) threadOpenedAt.put(ref, clock());
+				setViewing(ref);
+			},
 			holdChannel,
 			lastChannel,
 			lastSpace: () => lastSpace(),

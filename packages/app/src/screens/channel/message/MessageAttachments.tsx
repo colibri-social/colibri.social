@@ -30,6 +30,7 @@ import {
 	toSocialPostProps,
 } from "../../../data/adapters/attachments";
 import {
+	canonicalBlueskyPostUrl,
 	parseBlueskyPostUrl,
 	toBlueskyPost,
 } from "../../../data/adapters/bluesky-post";
@@ -273,8 +274,12 @@ export const BlueskyEmbed = (props: {
 	onRemove?: RemoveEmbed;
 }) => {
 	const data = useData();
+	const client = () => blueskyClientOf(data.preferences);
 	const [post] = createResource(
-		() => (props.load ? props.url : undefined),
+		() =>
+			props.load
+				? canonicalBlueskyPostUrl(props.url, client().base)
+				: undefined,
 		(url) => props.load?.(url).catch(() => undefined),
 	);
 	const [open, setOpen] = createSignal(false);
@@ -302,7 +307,8 @@ export const BlueskyEmbed = (props: {
 				{(view) => (
 					<>
 						<BlueskyPostEmbed
-							post={toBlueskyPost(view(), blueskyClientOf(data.preferences))}
+							post={toBlueskyPost(view(), client())}
+							client={client()}
 							onRemove={
 								props.onRemove
 									? (event) => props.onRemove?.(props.url, event)
@@ -339,6 +345,7 @@ export const MessageAttachments = (props: {
 	embeds: readonly LinkEmbedView[];
 	blueskyLinks?: readonly string[];
 	loadBlueskyPost?: LoadBlueskyPost;
+	blueskyHost?: string;
 	inviteLinks?: readonly InviteLink[];
 	onOpenSpace?: (community: CommunityView) => void;
 	packLinks?: readonly string[];
@@ -404,7 +411,12 @@ export const MessageAttachments = (props: {
 										</div>
 									)}
 								</Match>
-								<Match when={props.loadBlueskyPost && parseBlueskyPostUrl(uri)}>
+								<Match
+									when={
+										props.loadBlueskyPost &&
+										parseBlueskyPostUrl(uri, props.blueskyHost)
+									}
+								>
 									<BlueskyEmbed
 										url={uri}
 										fallback={embed()}

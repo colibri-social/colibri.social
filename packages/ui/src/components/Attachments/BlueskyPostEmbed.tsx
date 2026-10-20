@@ -4,17 +4,34 @@ import { HeartIcon } from "@solar-icons/solid/bold/heart";
 import { RepeatIcon } from "@solar-icons/solid/bold/repeat";
 import { ReplyIcon } from "@solar-icons/solid/bold/reply";
 import { VerifiedCheckIcon } from "@solar-icons/solid/bold/verified-check";
-import { type JSX, Show } from "solid-js";
-import { BlueskyLogo } from "../../icons/animated/brand";
+import { ArrowRightUpIcon } from "@solar-icons/solid/linear/arrow-right-up";
+import { For, type JSX, Show } from "solid-js";
+import {
+	BlueskyClientLogo,
+	isBlueskyClientLogoId,
+} from "../../icons/animated/brand";
 import { cx } from "../../utils/cx";
 import { Avatar } from "../Avatar/Avatar";
 import { IconButton } from "../IconButton/IconButton";
 import { AvatarSkeleton, Skeleton, SkeletonText } from "../Skeleton/Skeleton";
 import { embedRemoveButtonClass } from "./LinkEmbed";
 import { MediaGrid, type MediaItem } from "./MediaGrid";
+import type { RichTextSpan } from "./SocialPostEmbed";
 import { embedSurface, formatCompact } from "./shared";
 
 export const BLUESKY_BLUE = "#1185fe";
+
+export type BlueskyEmbedClient = {
+	id: string;
+	name: string;
+	accentColor?: string;
+};
+
+export const DEFAULT_BLUESKY_EMBED_CLIENT: BlueskyEmbedClient = {
+	id: "bluesky",
+	name: "Bluesky",
+	accentColor: BLUESKY_BLUE,
+};
 
 export type BlueskyAuthor = {
 	name: string;
@@ -34,6 +51,7 @@ export type BlueskyPost = {
 	author: BlueskyAuthor;
 	time: string;
 	text: string;
+	segments?: RichTextSpan[];
 	url?: string;
 	images?: MediaItem[];
 	replyTo?: string;
@@ -80,6 +98,40 @@ const PostHeader = (props: { post: BlueskyPost; size: "sm" | "md" }) => (
 	</span>
 );
 
+const PostText = (props: { post: BlueskyPost }) => (
+	<Show when={props.post.segments} fallback={props.post.text}>
+		{(segments) => (
+			<For each={segments()}>
+				{(segment) => (
+					<Show when={segment.href} fallback={segment.text}>
+						{(href) => (
+							<a
+								href={href()}
+								target="_blank"
+								rel="noreferrer"
+								draggable={false}
+								data-bluesky-facet=""
+								class="text-primary-highlight underline-offset-2 outline-none hover:underline focus-ring rounded-control-xs"
+							>
+								{segment.text}
+							</a>
+						)}
+					</Show>
+				)}
+			</For>
+		)}
+	</Show>
+);
+
+const ClientIcon = (props: { client: BlueskyEmbedClient }) => (
+	<Show
+		when={isBlueskyClientLogoId(props.client.id) ? props.client.id : undefined}
+		fallback={<ArrowRightUpIcon class="size-[18px]" />}
+	>
+		{(id) => <BlueskyClientLogo client={id()} size={18} />}
+	</Show>
+);
+
 const QuotedPost = (props: { post: BlueskyPost }) => (
 	<div
 		data-bluesky-quote=""
@@ -87,7 +139,7 @@ const QuotedPost = (props: { post: BlueskyPost }) => (
 	>
 		<PostHeader post={props.post} size="sm" />
 		<p class="m-0 line-clamp-3 text-sm leading-prose select-text">
-			{props.post.text}
+			<PostText post={props.post} />
 		</p>
 	</div>
 );
@@ -102,80 +154,89 @@ const Stat = (props: { icon: JSX.Element; label: string; value: number }) => (
 
 export type BlueskyPostEmbedProps = {
 	post: BlueskyPost;
+	client?: BlueskyEmbedClient;
 	onOpenImage?: (index: number) => void;
 	onRemove?: (event: MouseEvent) => void;
 	removeLabel?: string;
 	class?: string;
 };
 
-export const BlueskyPostEmbed = (props: BlueskyPostEmbedProps) => (
-	<article
-		aria-label={`Bluesky post by ${props.post.author.name}`}
-		data-bluesky-embed=""
-		class={cx(
-			embedSurface,
-			"group/embed flex w-full max-w-[416px] flex-col gap-2.5 p-3",
-			props.class,
-		)}
-	>
-		<div class="flex items-start justify-between gap-2">
-			<PostHeader post={props.post} size="md" />
-			<span class="flex-1" />
-			<Show when={props.onRemove}>
-				<IconButton
-					variant="ghost"
-					size="md"
-					label={props.removeLabel ?? "Remove link preview"}
-					icon={<CloseIcon />}
-					onClick={(event) => props.onRemove?.(event)}
-					class={cx("shrink-0", embedRemoveButtonClass)}
+export const BlueskyPostEmbed = (props: BlueskyPostEmbedProps) => {
+	const client = () => props.client ?? DEFAULT_BLUESKY_EMBED_CLIENT;
+	return (
+		<article
+			aria-label={`Post by ${props.post.author.name}`}
+			data-bluesky-client={client().id}
+			data-bluesky-embed=""
+			class={cx(
+				embedSurface,
+				"group/embed flex w-full max-w-[416px] flex-col gap-2.5 p-3",
+				props.class,
+			)}
+		>
+			<div class="flex items-start justify-between gap-2">
+				<PostHeader post={props.post} size="md" />
+				<span class="flex-1" />
+				<Show when={props.onRemove}>
+					<IconButton
+						variant="ghost"
+						size="md"
+						label={props.removeLabel ?? "Remove link preview"}
+						icon={<CloseIcon />}
+						onClick={(event) => props.onRemove?.(event)}
+						class={cx("shrink-0", embedRemoveButtonClass)}
+					/>
+				</Show>
+				<a
+					href={props.post.url ?? "https://bsky.app"}
+					target="_blank"
+					rel="noreferrer"
+					aria-label={`Open on ${client().name}`}
+					class="pressable focus-ring flex size-8 shrink-0 items-center justify-center rounded-control-sm hover:bg-secondary"
+					style={{ color: client().accentColor || undefined }}
+				>
+					<ClientIcon client={client()} />
+				</a>
+			</div>
+			<Show when={props.post.replyTo}>
+				<span class="flex items-center gap-1 text-xs text-muted-foreground [&>svg]:size-3.5">
+					<ReplyIcon />
+					Replying to @{props.post.replyTo}
+				</span>
+			</Show>
+			<p class="m-0 text-sm leading-prose whitespace-pre-wrap break-words select-text">
+				<PostText post={props.post} />
+			</p>
+			<Show when={props.post.images?.length}>
+				<MediaGrid
+					items={props.post.images ?? []}
+					onOpen={props.onOpenImage}
+					radiusClass="rounded-badge"
 				/>
 			</Show>
-			<a
-				href={props.post.url ?? "https://bsky.app"}
-				target="_blank"
-				rel="noreferrer"
-				aria-label="Open on Bluesky"
-				class="pressable focus-ring flex size-8 shrink-0 items-center justify-center rounded-control-sm hover:bg-secondary"
-				style={{ color: BLUESKY_BLUE }}
-			>
-				<BlueskyLogo size={18} />
-			</a>
-		</div>
-		<Show when={props.post.replyTo}>
-			<span class="flex items-center gap-1 text-xs text-muted-foreground [&>svg]:size-3.5">
-				<ReplyIcon />
-				Replying to @{props.post.replyTo}
-			</span>
-		</Show>
-		<p class="m-0 text-sm leading-prose whitespace-pre-wrap select-text">
-			{props.post.text}
-		</p>
-		<Show when={props.post.images?.length}>
-			<MediaGrid
-				items={props.post.images ?? []}
-				onOpen={props.onOpenImage}
-				radiusClass="rounded-badge"
-			/>
-		</Show>
-		<Show when={props.post.quote}>
-			{(quote) => <QuotedPost post={quote()} />}
-		</Show>
-		<Show when={props.post.stats}>
-			{(stats) => (
-				<div class="flex items-center gap-4 text-xs text-muted-foreground tabular-nums [&_svg]:size-4">
-					<Stat
-						icon={<ChatRoundLineIcon />}
-						label="Replies"
-						value={stats().replies}
-					/>
-					<Stat icon={<RepeatIcon />} label="Reposts" value={stats().reposts} />
-					<Stat icon={<HeartIcon />} label="Likes" value={stats().likes} />
-				</div>
-			)}
-		</Show>
-	</article>
-);
+			<Show when={props.post.quote}>
+				{(quote) => <QuotedPost post={quote()} />}
+			</Show>
+			<Show when={props.post.stats}>
+				{(stats) => (
+					<div class="flex items-center gap-4 text-xs text-muted-foreground tabular-nums [&_svg]:size-4">
+						<Stat
+							icon={<ChatRoundLineIcon />}
+							label="Replies"
+							value={stats().replies}
+						/>
+						<Stat
+							icon={<RepeatIcon />}
+							label="Reposts"
+							value={stats().reposts}
+						/>
+						<Stat icon={<HeartIcon />} label="Likes" value={stats().likes} />
+					</div>
+				)}
+			</Show>
+		</article>
+	);
+};
 
 export type BlueskyPostEmbedSkeletonProps = {
 	lines?: number;

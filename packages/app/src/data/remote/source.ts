@@ -704,12 +704,12 @@ export const createRemoteSource = async (
 			);
 		},
 		registerPush: async (input) => {
-			await transport.procedure(colibri.notification.registerPush.main, {
+			await transport.notifProcedure(colibri.notification.registerPush.main, {
 				body: input,
 			});
 		},
 		unregisterPush: async (input) => {
-			await transport.procedure(colibri.notification.unregisterPush.main, {
+			await transport.notifProcedure(colibri.notification.unregisterPush.main, {
 				body: input,
 			});
 		},

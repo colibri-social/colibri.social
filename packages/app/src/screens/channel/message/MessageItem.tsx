@@ -73,6 +73,8 @@ import {
 	toReactions,
 } from "../../../data/adapters/reactions";
 import { formatAge } from "../../../data/adapters/time";
+import { blueskyClientOf } from "../../../data/bluesky-client";
+import { useData } from "../../../data/store";
 import type { ProfileView } from "../../../data/types";
 import { openExternalUrl } from "../../../native/open-external";
 import { PrimaryBadge } from "../../profile/user-badges";
@@ -142,6 +144,8 @@ export type MessageItemProps = {
 
 export const MessageItem = (props: MessageItemProps) => {
 	const chat = useChat();
+	const data = useData();
+	const blueskyHost = () => blueskyClientOf(data.preferences).base;
 	const message = () => props.entry().message;
 	const view = () => message().view;
 	const sent = () => message().state === "sent";
@@ -250,7 +254,7 @@ export const MessageItem = (props: MessageItemProps) => {
 		return linkUris(message().facets).filter(
 			(uri) =>
 				!covered.has(uri) &&
-				!!parseBlueskyPostUrl(uri) &&
+				!!parseBlueskyPostUrl(uri, blueskyHost()) &&
 				!isEmbedSuppressed(suppression(), uri),
 		);
 	});
@@ -261,7 +265,7 @@ export const MessageItem = (props: MessageItemProps) => {
 		};
 		for (const embed of unspoileredEmbeds()) add(embed.uri);
 		for (const uri of linkUris(message().facets)) {
-			if (parseBlueskyPostUrl(uri)) add(uri);
+			if (parseBlueskyPostUrl(uri, blueskyHost())) add(uri);
 		}
 		for (const uri of [...suppression().author, ...suppression().moderator]) {
 			if (!spoileredLinks().has(uri)) add(uri);
@@ -832,6 +836,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			embeds={embeds()}
 			blueskyLinks={blueskyLinks()}
 			loadBlueskyPost={chat.loadBlueskyPost}
+			blueskyHost={blueskyHost()}
 			inviteLinks={inviteLinks()}
 			onOpenSpace={chat.onOpenSpace}
 			packLinks={packLinks().map((link) => link.share)}

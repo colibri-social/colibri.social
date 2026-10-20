@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchBlueskyPost, PUBLIC_BSKY_APPVIEW } from "./bluesky";
+import {
+	fetchBlueskyPost,
+	PUBLIC_BSKY_APPVIEW,
+	toBlueskyPostView,
+} from "./bluesky";
 
 const URL_OF_POST = "https://bsky.app/profile/alice.test/post/3abc";
 
@@ -76,6 +80,71 @@ describe("fetchBlueskyPost", () => {
 			repostCount: 2,
 			likeCount: 3,
 		});
+	});
+
+	it("keeps link, mention and tag facets and drops unknown ones", () => {
+		const view = toBlueskyPostView(URL_OF_POST, {
+			post: {
+				...thread.thread.post,
+				record: {
+					text: "a b c d",
+					createdAt: "2026-10-14T10:00:00.000Z",
+					facets: [
+						{
+							index: { byteStart: 0, byteEnd: 1 },
+							features: [
+								{
+									$type: "app.bsky.richtext.facet#link",
+									uri: "https://example.com",
+								},
+							],
+						},
+						{
+							index: { byteStart: 2, byteEnd: 3 },
+							features: [
+								{ $type: "app.bsky.richtext.facet#mention", did: "did:plc:b" },
+							],
+						},
+						{
+							index: { byteStart: 4, byteEnd: 5 },
+							features: [{ $type: "app.bsky.richtext.facet#tag", tag: "c" }],
+						},
+						{
+							index: { byteStart: 6, byteEnd: 7 },
+							features: [{ $type: "app.bsky.richtext.facet#bold" }],
+						},
+						{ features: [{ $type: "app.bsky.richtext.facet#tag", tag: "x" }] },
+					],
+				},
+			},
+		});
+		expect(view?.facets).toEqual([
+			{
+				index: { byteStart: 0, byteEnd: 1 },
+				features: [
+					{ $type: "app.bsky.richtext.facet#link", uri: "https://example.com" },
+				],
+			},
+			{
+				index: { byteStart: 2, byteEnd: 3 },
+				features: [
+					{ $type: "app.bsky.richtext.facet#mention", did: "did:plc:b" },
+				],
+			},
+			{
+				index: { byteStart: 4, byteEnd: 5 },
+				features: [{ $type: "app.bsky.richtext.facet#tag", tag: "c" }],
+			},
+		]);
+	});
+
+	it("loads posts linked from a custom client host", async () => {
+		const fetcher = vi.fn(async () => new Response(JSON.stringify(thread)));
+		const custom = "https://sky.example.org/profile/alice.test/post/3abc";
+		expect(await fetchBlueskyPost(custom, fetcher as never)).toBeUndefined();
+		expect(
+			await fetchBlueskyPost(custom, fetcher as never, "sky.example.org"),
+		).toMatchObject({ url: custom, text: "Hello" });
 	});
 
 	it("returns nothing for links that are not Bluesky posts", async () => {

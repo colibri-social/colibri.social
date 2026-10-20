@@ -195,6 +195,14 @@ describe("createRemoteSource", () => {
 		expect(
 			only(fake.callsTo(colibri.notification.unregisterPush.main.nsid)).body,
 		).toEqual({ provider: "apns", token: "ab12" });
+		for (const nsid of [
+			colibri.notification.registerPush.main.nsid,
+			colibri.notification.unregisterPush.main.nsid,
+		]) {
+			expect(only(fake.callsTo(nsid)).headers.get("atproto-proxy")).toBe(
+				"did:web:spaces-api.colibri.social#colibri_notifs",
+			);
+		}
 	});
 
 	it("pages messages with the AppView cursor", async () => {

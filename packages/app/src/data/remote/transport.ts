@@ -6,6 +6,7 @@ import {
 	createLogger,
 	isOffline,
 	type Method,
+	notifServiceRef,
 	type Output,
 } from "@colibri-social/lib";
 
@@ -65,16 +66,17 @@ export const createTransport = (input: {
 	session: RemoteSession;
 	appViewDid: string;
 }) => {
-	const proxy = appViewServiceRef(input.appViewDid);
+	const appViewProxy = appViewServiceRef(input.appViewDid);
+	const notifProxy = notifServiceRef(input.appViewDid);
 
 	const send = async (
 		nsid: string,
 		kind: "query" | "procedure",
 		init: CallInit,
-		proxied: boolean,
+		proxy: string | undefined,
 	): Promise<unknown> => {
 		const headers = new Headers();
-		if (proxied) headers.set("atproto-proxy", proxy);
+		if (proxy) headers.set("atproto-proxy", proxy);
 		let body: BodyInit | undefined;
 		if (init.raw) {
 			headers.set("content-type", init.raw.encoding);
@@ -117,13 +119,15 @@ export const createTransport = (input: {
 		did: input.session.did,
 		appViewDid: input.appViewDid,
 		query: <M extends Method>(method: M, init: CallInit = {}) =>
-			send(method.nsid, "query", init, true) as Promise<Output<M>>,
+			send(method.nsid, "query", init, appViewProxy) as Promise<Output<M>>,
 		procedure: <M extends Method>(method: M, init: CallInit = {}) =>
-			send(method.nsid, "procedure", init, true) as Promise<Output<M>>,
+			send(method.nsid, "procedure", init, appViewProxy) as Promise<Output<M>>,
+		notifProcedure: <M extends Method>(method: M, init: CallInit = {}) =>
+			send(method.nsid, "procedure", init, notifProxy) as Promise<Output<M>>,
 		pdsQuery: <T>(nsid: string, init: CallInit = {}) =>
-			send(nsid, "query", init, false) as Promise<T>,
+			send(nsid, "query", init, undefined) as Promise<T>,
 		pdsProcedure: <T>(nsid: string, init: CallInit = {}) =>
-			send(nsid, "procedure", init, false) as Promise<T>,
+			send(nsid, "procedure", init, undefined) as Promise<T>,
 		pdsBlob: async (cid: string): Promise<Blob> => {
 			const nsid = "com.atproto.sync.getBlob";
 			const path = `/xrpc/${nsid}${encodeParams({ did: input.session.did, cid })}`;

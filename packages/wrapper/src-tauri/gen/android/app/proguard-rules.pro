@@ -5,8 +5,8 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
--keepclassmembers class social.colibri.app.MainActivity$SystemBarsBridge {
-   public *;
+-keep class social.colibri.app.NotificationTray {
+   public static void dismiss(android.content.Context, java.lang.String[]);
 }
 
 -keepclassmembers class social.colibri.app.MainActivity$NotificationActionsBridge {

@@ -117,6 +117,16 @@ export type BlueskyPostImage = {
 	height?: number;
 };
 
+export type BlueskyPostFacetFeature =
+	| { $type: "app.bsky.richtext.facet#link"; uri: string }
+	| { $type: "app.bsky.richtext.facet#mention"; did: string }
+	| { $type: "app.bsky.richtext.facet#tag"; tag: string };
+
+export type BlueskyPostFacet = {
+	index: { byteStart: number; byteEnd: number };
+	features: BlueskyPostFacetFeature[];
+};
+
 export type BlueskyPostView = {
 	url: string;
 	author: {
@@ -127,6 +137,7 @@ export type BlueskyPostView = {
 		verified?: boolean;
 	};
 	text: string;
+	facets?: BlueskyPostFacet[];
 	createdAt: Datetime;
 	replyTo?: string;
 	images?: BlueskyPostImage[];

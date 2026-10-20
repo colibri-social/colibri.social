@@ -17,9 +17,11 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.content.FileProvider
 import androidx.core.graphics.drawable.IconCompat
+import app.tauri.plugin.JSObject
 import com.bumptech.glide.Glide
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.plugin.fcm.FcmPlugin
 import java.io.File
 import java.io.FileOutputStream
 
@@ -91,6 +93,18 @@ private class TrayEntry(
 private fun rkeyOf(uri: String): String = uri.substringAfterLast('/')
 
 class ColibriFirebaseMessagingService : FirebaseMessagingService() {
+	override fun onNewToken(token: String) {
+		val plugin = FcmPlugin.instance
+		if (plugin != null) {
+			plugin.trigger("token-refresh", JSObject().put("token", token))
+		} else {
+			getSharedPreferences("fcm_plugin", Context.MODE_PRIVATE)
+				.edit()
+				.putString("fcm_token", token)
+				.apply()
+		}
+	}
+
 	override fun onMessageReceived(message: RemoteMessage) {
 		val data = message.data
 		val channelUri = data["channelUri"] ?: data["channel"] ?: return

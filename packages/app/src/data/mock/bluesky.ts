@@ -16,7 +16,31 @@ const SEEDS: PostSeed[] = [
 			displayName: "Dolomites Guide",
 			verified: true,
 		},
-		text: "Tre Cime loop is open again after the early snow. Microspikes recommended on the north side until the weekend.",
+		text: "Tre Cime loop is open again after the early snow. Microspikes recommended on the north side until the weekend, ask @rifugio.bsky.social for the latest. Trail report: dolomiti.example/tre-ci... #dolomites",
+		facets: [
+			{
+				index: { byteStart: 115, byteEnd: 135 },
+				features: [
+					{
+						$type: "app.bsky.richtext.facet#mention",
+						did: "did:plc:rifugiolocatelli3k9",
+					},
+				],
+			},
+			{
+				index: { byteStart: 166, byteEnd: 192 },
+				features: [
+					{
+						$type: "app.bsky.richtext.facet#link",
+						uri: "https://dolomiti.example/tre-cime/conditions",
+					},
+				],
+			},
+			{
+				index: { byteStart: 193, byteEnd: 203 },
+				features: [{ $type: "app.bsky.richtext.facet#tag", tag: "dolomites" }],
+			},
+		],
 		minutesAgo: 180,
 		images: [
 			{
