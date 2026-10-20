@@ -83,6 +83,9 @@ export const linkPreviewChange = (
 
 const NO_AUDIENCE: Audience = { roles: [], members: [] };
 
+const channelLabel = (view: ChannelView) =>
+	isVoiceChannel(view) ? view.name : `#${view.name}`;
+
 const visibleOf = (view: ChannelView | undefined): Audience => ({
 	roles: [...(view?.visibleToRoles ?? [])],
 	members: [...(view?.visibleToMembers ?? [])],
@@ -169,6 +172,10 @@ export const adminChannel = defineContract({
 			seeded = true;
 		});
 
+		const isVoice = () => {
+			const view = channel();
+			return !!view && isVoiceChannel(view);
+		};
 		const audience = (which: AudienceKind) =>
 			which === "visible" ? visible() : post();
 		const setAudience = (which: AudienceKind, next: Audience) =>
@@ -184,6 +191,7 @@ export const adminChannel = defineContract({
 				setAudience,
 				options,
 				disabled: () => saving() || !canEdit(),
+				voice: isVoice,
 				get form() {
 					return unsaved;
 				},
@@ -282,7 +290,7 @@ export const adminChannel = defineContract({
 				input.visibleToMembers = picked.members as Did[];
 			}
 			const created = await data.channels.create(input);
-			toast.success(`Created #${created.name}`);
+			toast.success(`Created ${channelLabel(created)}`);
 			if (isVoiceChannel(created)) {
 				leave();
 				return;
@@ -360,7 +368,7 @@ export const adminChannel = defineContract({
 			try {
 				await data.channels.remove(view);
 				setDeleteOpen(false);
-				toast.success(`Deleted #${view.name}`);
+				toast.success(`Deleted ${channelLabel(view)}`);
 				leave();
 			} catch {
 				setDeleting(false);
@@ -386,6 +394,7 @@ export const adminChannel = defineContract({
 			developerMode,
 			kind,
 			setKind,
+			isVoice,
 			name,
 			setName,
 			description,
@@ -602,12 +611,20 @@ export const adminChannel = defineContract({
 				<RadioRow
 					value="on"
 					title="Show previews"
-					description="Messages here show a preview card for the links they contain."
+					description={
+						m.isVoice()
+							? "Messages in the voice chat show a preview card for the links they contain."
+							: "Messages here show a preview card for the links they contain."
+					}
 				/>
 				<RadioRow
 					value="off"
 					title="Hide previews"
-					description="Messages here never show a preview card for links."
+					description={
+						m.isVoice()
+							? "Messages in the voice chat never show a preview card for links."
+							: "Messages here never show a preview card for links."
+					}
 				/>
 			</RadioRowGroup>
 		)),
@@ -672,8 +689,15 @@ export const adminChannel = defineContract({
 				</Button>
 				<Modal open={m.deleteOpen()} onOpenChange={m.setDeleteOpen}>
 					<ModalContent
-						title={`Delete #${m.channel()?.name ?? ""}?`}
-						description="Type the channel's name to confirm. Messages members wrote here stay in their own repos, but nobody except their authors can read them afterward. This can't be undone."
+						title={(() => {
+							const view = m.channel();
+							return `Delete ${view ? channelLabel(view) : ""}?`;
+						})()}
+						description={
+							m.isVoice()
+								? "Type the channel's name to confirm. Messages members wrote in its chat stay in their own repos, but nobody except their authors can read them afterward. This can't be undone."
+								: "Type the channel's name to confirm. Messages members wrote here stay in their own repos, but nobody except their authors can read them afterward. This can't be undone."
+						}
 						footer={
 							<>
 								<Button

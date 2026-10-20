@@ -161,6 +161,8 @@ export type VoiceJoinPanelProps = {
 	onJoinMutedChange?: (muted: boolean) => void;
 	onJoin?: () => void;
 	joining?: boolean;
+	joinDisabled?: boolean;
+	joinDisabledReason?: JSX.Element;
 	onOpenChat?: () => void;
 	chatOpen?: boolean;
 	onOpenSettings?: () => void;
@@ -179,7 +181,15 @@ export type VoiceJoinRosterProps = {
 		row: JSX.Element,
 	) => JSX.Element;
 	emptyText?: JSX.Element;
+	joinDisabled?: boolean;
 };
+
+const emptyFallback = (joinDisabled?: boolean) =>
+	joinDisabled
+		? "This voice channel is empty."
+		: "This voice channel is empty. Join to get the conversation started!";
+
+const JOIN_DISABLED_TEXT = "You can't join this voice channel.";
 
 export const VoiceJoinRoster = (props: VoiceJoinRosterProps) => {
 	const participants = () => props.participants ?? [];
@@ -191,8 +201,7 @@ export const VoiceJoinRoster = (props: VoiceJoinRosterProps) => {
 					data-voice-join-empty=""
 					class="m-0 flex min-h-16 items-center justify-center text-center text-base text-pretty text-foreground"
 				>
-					{props.emptyText ??
-						"This voice channel is empty. Join to get the conversation started!"}
+					{props.emptyText ?? emptyFallback(props.joinDisabled)}
 				</p>
 			}
 		>
@@ -232,6 +241,7 @@ const VoiceJoinBody = (props: VoiceJoinPanelProps) => (
 			participants={props.participants}
 			onOpenParticipant={props.onOpenParticipant}
 			emptyText={props.emptyText}
+			joinDisabled={props.joinDisabled}
 		/>
 	</>
 );
@@ -242,28 +252,42 @@ export type VoiceJoinActionsProps = Pick<
 	| "onJoinMutedChange"
 	| "onJoin"
 	| "joining"
+	| "joinDisabled"
+	| "joinDisabledReason"
 	| "onOpenChat"
 	| "chatOpen"
 >;
 
 export const VoiceJoinActions = (props: VoiceJoinActionsProps) => (
 	<div data-voice-join-actions="" class="flex shrink-0 items-center gap-4">
-		<CallControlButton
-			label="Join muted"
-			pressed={!!props.joinMuted}
-			tone={props.joinMuted ? "off" : "default"}
-			icon={<AnimatedMicrophoneIcon muted={!!props.joinMuted} />}
-			onClick={() => props.onJoinMutedChange?.(!props.joinMuted)}
-		/>
-		<Button
-			variant="primary"
-			block
-			loading={props.joining}
-			class="h-12 min-w-0 flex-1 rounded-control-lg"
-			onClick={() => props.onJoin?.()}
+		<Show
+			when={!props.joinDisabled}
+			fallback={
+				<p
+					data-voice-join-disabled=""
+					class="m-0 flex min-h-12 min-w-0 flex-1 items-center text-sm text-pretty text-muted-foreground"
+				>
+					{props.joinDisabledReason ?? JOIN_DISABLED_TEXT}
+				</p>
+			}
 		>
-			Join voice
-		</Button>
+			<CallControlButton
+				label="Join muted"
+				pressed={!!props.joinMuted}
+				tone={props.joinMuted ? "off" : "default"}
+				icon={<AnimatedMicrophoneIcon muted={!!props.joinMuted} />}
+				onClick={() => props.onJoinMutedChange?.(!props.joinMuted)}
+			/>
+			<Button
+				variant="primary"
+				block
+				loading={props.joining}
+				class="h-12 min-w-0 flex-1 rounded-control-lg"
+				onClick={() => props.onJoin?.()}
+			>
+				Join voice
+			</Button>
+		</Show>
 		<Show when={props.onOpenChat}>
 			<CallControlButton
 				label={chatToggleProps(props.chatOpen).label}
@@ -300,6 +324,8 @@ export type VoiceJoinPromptProps = {
 	emptyText?: JSX.Element;
 	onJoin?: () => void;
 	joining?: boolean;
+	joinDisabled?: boolean;
+	joinDisabledReason?: JSX.Element;
 	class?: string;
 };
 
@@ -322,16 +348,28 @@ export const VoiceJoinPrompt = (props: VoiceJoinPromptProps) => (
 			>
 				{voicePresenceText(props.participants ?? []) ??
 					props.emptyText ??
-					"This voice channel is empty. Join to get the conversation started!"}
+					emptyFallback(props.joinDisabled)}
 			</p>
 		</div>
-		<Button
-			variant="primary"
-			loading={props.joining}
-			onClick={() => props.onJoin?.()}
+		<Show
+			when={!props.joinDisabled}
+			fallback={
+				<p
+					data-voice-join-disabled=""
+					class="m-0 text-sm text-pretty text-muted-foreground"
+				>
+					{props.joinDisabledReason ?? JOIN_DISABLED_TEXT}
+				</p>
+			}
 		>
-			Join voice
-		</Button>
+			<Button
+				variant="primary"
+				loading={props.joining}
+				onClick={() => props.onJoin?.()}
+			>
+				Join voice
+			</Button>
+		</Show>
 	</div>
 );
 
@@ -444,6 +482,7 @@ export const VoiceJoinDrawer = (props: VoiceJoinDrawerProps) => {
 				channelName={props.channelName}
 				participants={props.participants}
 				emptyText={props.emptyText}
+				joinDisabled={props.joinDisabled}
 			/>
 		</VoiceDrawer>
 	);

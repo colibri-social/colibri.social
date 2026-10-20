@@ -427,7 +427,9 @@ export const createWorld = (now: number) => {
 		};
 		const channels: ChannelRecord[] = seed.channels.map((channel) => {
 			const ref = channelRefs.get(`${seed.key}:${channel.skey}`) as SpaceRef;
-			const readOnly = seed.key === "owls" && channel.skey === "prompts";
+			const readOnly =
+				seed.key === "owls" &&
+				(channel.skey === "prompts" || channel.skey === "quiet-studio");
 			const channelView: ChannelView = {
 				space: ref,
 				type:

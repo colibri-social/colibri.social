@@ -477,6 +477,39 @@ it("opens the voice channel without joining when confirm before joining is on", 
 	expect(voice.current()?.channel.endsWith("/standup")).toBe(true);
 });
 
+const OWLS = "did:plc:nightowlsartclub3e5f7g9h";
+
+it("opens a voice channel the viewer can't join without joining", async () => {
+	const { host } = await mountAt(`/app/c/${OWLS}`);
+	await expect.poll(() => location.pathname).toContain("channel.text");
+	await expect.poll(() => sidebarRow(host, "Quiet studio")).toBeTruthy();
+	await userEvent.click(sidebarRow(host, "Quiet studio") as HTMLElement);
+	await expect
+		.poll(() => document.querySelector("[data-voice-desktop]"))
+		.not.toBeNull();
+	expect(location.pathname).toBe(`/app/c/${OWLS}/${VOICE}/quiet-studio`);
+	expect(voice.current()).toBeUndefined();
+	const prompt = stage().querySelector<HTMLElement>("[data-voice-join-prompt]");
+	expect(prompt?.querySelector("[data-voice-join-disabled]")?.textContent).toBe(
+		"You can't join this voice channel.",
+	);
+	expect(button(stage(), "Join voice")).toBeUndefined();
+	expect(button(header(), "Open chat")).toBeTruthy();
+});
+
+it("hides Join voice in the context menu of a voice channel the viewer can't join", async () => {
+	const { host } = await mountAt(`/app/c/${OWLS}`);
+	await expect.poll(() => sidebarRow(host, "Quiet studio")).toBeTruthy();
+	rightClick(sidebarRow(host, "Quiet studio") as HTMLElement);
+	await expect.poll(() => document.querySelector("[role='menu']")).toBeTruthy();
+	const items = Array.from(
+		document.querySelectorAll<HTMLElement>("[role='menu'] [role='menuitem']"),
+	).map((item) => item.textContent?.trim());
+	expect(items).toContain("Open chat");
+	expect(items).not.toContain("Join voice");
+	await userEvent.keyboard("{Escape}");
+});
+
 it("offers confirm before joining on the Voice and video settings page", async () => {
 	await mountAt("/app/settings/voiceVideo");
 	await expect

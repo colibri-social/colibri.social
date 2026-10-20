@@ -33,6 +33,7 @@ import {
 	toggleScreenShare,
 } from "./screen-share";
 import { callTiles } from "./tiles";
+import { canJoinVoice } from "./voice-click";
 import { closeVoicePrompt, voicePrompt } from "./voice-prompt";
 
 export type VoiceArgs = { space?: string; channel?: string };
@@ -42,6 +43,8 @@ export type VoiceMode = "prompt" | "call";
 export const VOICE_COPY = {
 	fallbackName: "Voice",
 	empty: "This voice channel is empty. Join to get the conversation started!",
+	emptyLocked: "This voice channel is empty.",
+	cannotJoin: "You can't join this voice channel.",
 	minimize: "Minimize call",
 	close: "Close",
 	joinLabel: (name: string) => `Join ${name}`,
@@ -106,6 +109,12 @@ export const voiceScreen = defineContract({
 			return data.space(space).channelBySlug(skeyOf(current.channel));
 		});
 		const name = () => channel()?.name ?? VOICE_COPY.fallbackName;
+		const canJoin = () => {
+			const current = channel();
+			return !current || canJoinVoice(current);
+		};
+		const emptyText = () =>
+			canJoin() ? VOICE_COPY.empty : VOICE_COPY.emptyLocked;
 		const participants = () => {
 			const current = target();
 			return current ? voice.participants(current.channel) : [];
@@ -161,7 +170,7 @@ export const voiceScreen = defineContract({
 
 		const join = () => {
 			const current = isPinned() ? pinned() : voicePrompt();
-			if (!current) return;
+			if (!current || !canJoin()) return;
 			batch(() => {
 				voice.join(current, { muted: joinMuted() });
 				closeVoicePrompt();
@@ -220,6 +229,8 @@ export const voiceScreen = defineContract({
 			canManage,
 			joinMuted,
 			setJoinMuted,
+			canJoin,
+			emptyText,
 			close,
 			join,
 			leave,
@@ -268,14 +279,16 @@ export const voiceScreen = defineContract({
 				participantMenu={(participant, row) =>
 					m.memberMenuFor(participant.id, row)
 				}
-				emptyText={VOICE_COPY.empty}
+				emptyText={m.emptyText()}
 			/>
 		)),
 		DesktopJoin: slot((m) => (
 			<VoiceJoinPrompt
 				channelName={m.name()}
 				participants={m.participants()}
-				emptyText={VOICE_COPY.empty}
+				emptyText={m.emptyText()}
+				joinDisabled={!m.canJoin()}
+				joinDisabledReason={VOICE_COPY.cannotJoin}
 				onJoin={m.join}
 			/>
 		)),
@@ -287,6 +300,8 @@ export const voiceScreen = defineContract({
 					voice.cue(next ? "mute" : "unmute");
 				}}
 				onJoin={m.join}
+				joinDisabled={!m.canJoin()}
+				joinDisabledReason={VOICE_COPY.cannotJoin}
 				onOpenChat={m.openChat}
 				chatOpen={m.pinned() ? m.chatOpen() : undefined}
 			/>

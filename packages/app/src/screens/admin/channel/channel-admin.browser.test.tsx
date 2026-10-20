@@ -361,6 +361,23 @@ describe("channel settings", () => {
 		expect(space.channelBySlug("design")?.linkEmbeds).toBeUndefined();
 	});
 
+	it("words the permissions of a voice channel around joining", async () => {
+		const { root } = await mount(`/app/c/${HQ}/manage/channel/lounge`);
+		const page = await openPage(root, "Channel settings");
+		buttonNamed(page, /^Channel permissions/)?.click();
+		const permissions = await openPage(root, "Channel permissions");
+		expect(buttonNamed(permissions, /^Who can join it/)).toBeTruthy();
+		expect(buttonNamed(permissions, /^Who can post in it/)).toBeUndefined();
+		expect(permissions.textContent).toContain(
+			"Only you can join and chat here.",
+		);
+		buttonNamed(permissions, /^Who can join it/)?.click();
+		const picker = await openPage(root, "Who can join it");
+		expect(picker.textContent).toContain(
+			"No roles or members specified. Everyone will be allowed to join and chat here!",
+		);
+	});
+
 	it("edits channel permissions on pushed pages that go back one level at a time", async () => {
 		const { root, space } = await mount(`/app/c/${HQ}/manage/channel/dev`);
 		const page = await openPage(root, "Channel settings");

@@ -1452,6 +1452,106 @@ export const DesktopJoinPrompt: Story = {
 	},
 };
 
+const lockedJoin = fn();
+const lockedChat = fn();
+
+export const JoinDisabled: Story = {
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => (
+		<Screen class="flex min-h-dvh flex-col items-center justify-center gap-12 bg-card p-6 text-foreground">
+			<div data-testid="prompt-empty" class="flex w-full justify-center">
+				<VoiceJoinPrompt
+					channelName="Lounge"
+					joinDisabled
+					onJoin={lockedJoin}
+				/>
+			</div>
+			<div data-testid="prompt-full" class="flex w-full justify-center">
+				<VoiceJoinPrompt
+					channelName="Lounge"
+					participants={people.slice(0, 2)}
+					joinDisabled
+					onJoin={lockedJoin}
+				/>
+			</div>
+			<div
+				data-testid="panel"
+				class="w-full max-w-[400px] rounded-t-sheet bg-popover"
+			>
+				<VoiceJoinPanel
+					channelName="Hangout"
+					participants={people.slice(0, 3)}
+					joinDisabled
+					onJoin={lockedJoin}
+					onOpenChat={lockedChat}
+					onClose={() => {}}
+				/>
+			</div>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		lockedJoin.mockClear();
+		lockedChat.mockClear();
+		const canvas = within(canvasElement);
+		await expect(
+			canvas.queryByRole("button", { name: "Join voice" }),
+		).toBeNull();
+		await expect(
+			canvas.queryByRole("button", { name: "Join muted" }),
+		).toBeNull();
+		await expect(
+			canvasElement.querySelectorAll("[data-voice-join-disabled]"),
+		).toHaveLength(3);
+		await expect(
+			canvas.getAllByText("You can't join this voice channel."),
+		).toHaveLength(3);
+		await expect(
+			canvasElement.querySelector(
+				'[data-testid="prompt-empty"] [data-voice-join-text]',
+			)?.textContent,
+		).toBe("This voice channel is empty.");
+		const panel = within(canvas.getByTestId("panel"));
+		await expect(
+			within(panel.getByRole("list", { name: "In Hangout" })).getAllByRole(
+				"listitem",
+			),
+		).toHaveLength(3);
+		await userEvent.click(panel.getByRole("button", { name: "Open chat" }));
+		await expect(lockedChat).toHaveBeenCalledTimes(1);
+		await expect(lockedJoin).not.toHaveBeenCalled();
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
+export const JoinDrawerDisabled: Story = {
+	render: () => (
+		<Screen>
+			<VoiceJoinDrawer
+				initialOpen
+				channelName="Hangout"
+				joinDisabled
+				onJoin={lockedJoin}
+				onOpenChat={() => {}}
+			/>
+		</Screen>
+	),
+	play: async () => {
+		const dialog = await screen.findByRole("dialog", { name: "Join Hangout" });
+		await waitFor(() =>
+			expect(
+				within(dialog).getByText("You can't join this voice channel."),
+			).toBeVisible(),
+		);
+		await expect(
+			within(dialog).getByText("This voice channel is empty."),
+		).toBeVisible();
+		await expect(
+			within(dialog).queryByRole("button", { name: "Join voice" }),
+		).toBeNull();
+		await expectNoLayoutIssues(dialog);
+	},
+};
+
 export const TileBannerFill: Story = {
 	parameters: { viewport: { defaultViewport: "responsive" } },
 	render: () => (

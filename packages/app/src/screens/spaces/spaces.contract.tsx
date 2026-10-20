@@ -77,7 +77,7 @@ import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 import { useMemberMenu } from "../members/member-menu";
 import { useProfileSheet } from "../profile/profile-sheet";
 import { createThreadMenu } from "../threads/thread-menu";
-import { clickVoiceChannel } from "../voice/voice-click";
+import { canJoinVoice, clickVoiceChannel } from "../voice/voice-click";
 import { openVoicePrompt } from "../voice/voice-prompt";
 import { createCategoryCollapse } from "./category-collapse";
 import { createDeleteDialogs } from "./delete-dialogs";
@@ -311,6 +311,7 @@ export const spaces = defineContract({
 				: undefined;
 		};
 		const joinVoice = (channel: ChannelView) => {
+			if (!canJoinVoice(channel)) return;
 			const call = voiceCallFor(channel);
 			if (call) voice.join(call);
 		};
@@ -770,10 +771,14 @@ export const spaces = defineContract({
 					<VoiceChannelContextMenu
 						name={channel.name}
 						connected={m.joinedVoice(channel)}
-						onConnectedChange={(connected) => {
-							if (connected) m.joinVoice(channel);
-							else voice.leave();
-						}}
+						onConnectedChange={
+							canJoinVoice(channel) || m.joinedVoice(channel)
+								? (connected) => {
+										if (connected) m.joinVoice(channel);
+										else voice.leave();
+									}
+								: undefined
+						}
 						onOpenChat={() => m.openVoiceChatPane(channel)}
 						onCopyLink={() => m.copyChannelLink(channel)}
 						onDuplicate={
@@ -1022,7 +1027,7 @@ export const spaces = defineContract({
 									isVoiceChannel(channel()) ? <VolumeSmallIcon /> : undefined
 								}
 								onJoinVoice={
-									isVoiceChannel(channel())
+									isVoiceChannel(channel()) && canJoinVoice(channel())
 										? () => m.joinVoice(channel())
 										: undefined
 								}

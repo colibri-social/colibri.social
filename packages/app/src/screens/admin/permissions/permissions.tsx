@@ -30,31 +30,44 @@ export type PermissionDraft = {
 	setAudience: (kind: AudienceKind, audience: Audience) => void;
 	options: AudienceOptions;
 	disabled: () => boolean;
+	voice?: () => boolean;
 	form?: UnsavedForm;
 };
 
 const AUDIENCE_SEPARATOR = "~";
 
-const COPY: Record<
-	PermissionTarget,
-	{
-		title: string;
-		ownerOnly: string;
-		empty: Record<AudienceKind, string>;
-	}
-> = {
+type PermissionCopy = {
+	title: string;
+	ownerOnly: string;
+	audience: Record<AudienceKind, string>;
+	empty: Record<AudienceKind, string>;
+};
+
+const COPY: Record<PermissionTarget | "voice", PermissionCopy> = {
 	channel: {
 		title: "Channel permissions",
 		ownerOnly: "Only you can chat here.",
+		audience: { visible: "Who can see it", post: "Who can post in it" },
 		empty: {
 			visible:
 				"No roles or members specified. Every member will be able to see this channel!",
 			post: "No roles or members specified. Everyone will be allowed to chat here!",
 		},
 	},
+	voice: {
+		title: "Channel permissions",
+		ownerOnly: "Only you can join and chat here.",
+		audience: { visible: "Who can see it", post: "Who can join it" },
+		empty: {
+			visible:
+				"No roles or members specified. Every member will be able to see this voice channel!",
+			post: "No roles or members specified. Everyone will be allowed to join and chat here!",
+		},
+	},
 	category: {
 		title: "Category permissions",
 		ownerOnly: "Only you can chat in this category's channels.",
+		audience: { visible: "Who can see it", post: "Who can post in it" },
 		empty: {
 			visible:
 				"No roles or members specified. Every member will be able to see this category!",
@@ -63,10 +76,10 @@ const COPY: Record<
 	},
 };
 
-export const AUDIENCE_TITLE: Record<AudienceKind, string> = {
-	visible: "Who can see it",
-	post: "Who can post in it",
-};
+const copyFor = (
+	target: PermissionTarget,
+	draft: PermissionDraft | undefined,
+) => COPY[target === "channel" && draft?.voice?.() ? "voice" : target];
 
 const permissionsPage = (target: PermissionTarget): AdminPage =>
 	`${target}-permissions`;
@@ -132,7 +145,7 @@ export const createPermissionsContract = (
 				return !current || current.disabled() || current.ownerOnly();
 			};
 			return {
-				copy: COPY[target],
+				copy: () => copyFor(target, draft()),
 				draft,
 				locked,
 				back: () => stack.pop(),
@@ -151,7 +164,7 @@ export const createPermissionsContract = (
 					safeTop
 					kind="back"
 					onNavigate={m.back}
-					title={m.copy.title}
+					title={m.copy().title}
 				/>
 			)),
 			Bar: slot((m) => <UnsavedBar form={m.draft()?.form} />),
@@ -164,7 +177,7 @@ export const createPermissionsContract = (
 									<ListGroup>
 										<ToggleRow
 											title="Owner-only"
-											description={m.copy.ownerOnly}
+											description={m.copy().ownerOnly}
 											checked={draft().ownerOnly()}
 											onChange={(checked) => setOwnerOnly()(checked)}
 											disabled={draft().disabled()}
@@ -175,14 +188,14 @@ export const createPermissionsContract = (
 							<ListGroup>
 								<NavRow
 									icon={<EyeIcon />}
-									label={AUDIENCE_TITLE.visible}
+									label={m.copy().audience.visible}
 									value={audienceSummary(draft().audience("visible"))}
 									disabled={m.locked()}
 									onClick={() => m.pick("visible")}
 								/>
 								<NavRow
 									icon={<PenNewSquareIcon />}
-									label={AUDIENCE_TITLE.post}
+									label={m.copy().audience.post}
 									value={audienceSummary(draft().audience("post"))}
 									disabled={m.locked()}
 									onClick={() => m.pick("post")}
@@ -211,7 +224,7 @@ export const createAudienceContract = (id: string, target: PermissionTarget) =>
 			};
 			return {
 				kind: parsed.kind,
-				copy: COPY[target],
+				copy: () => copyFor(target, draft()),
 				draft,
 				selected,
 				empty,
@@ -230,7 +243,7 @@ export const createAudienceContract = (id: string, target: PermissionTarget) =>
 					safeTop
 					kind="back"
 					onNavigate={m.back}
-					title={AUDIENCE_TITLE[m.kind]}
+					title={m.copy().audience[m.kind]}
 				/>
 			)),
 			Bar: slot((m) => <UnsavedBar form={m.draft()?.form} />),
@@ -240,7 +253,7 @@ export const createAudienceContract = (id: string, target: PermissionTarget) =>
 						<div data-audience-page={m.kind} class="flex flex-col gap-4">
 							<p class="m-0 text-sm text-pretty text-muted-foreground">
 								{m.empty()
-									? m.copy.empty[m.kind]
+									? m.copy().empty[m.kind]
 									: "Only the roles and members you pick are allowed."}
 							</p>
 							<AudiencePicker

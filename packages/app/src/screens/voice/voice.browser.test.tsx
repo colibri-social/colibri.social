@@ -28,9 +28,9 @@ afterEach(() => {
 	dispose = undefined;
 });
 
-const mount = async () => {
+const mount = async (space = HQ) => {
 	setLatency(0);
-	history.pushState(null, "", `/app/c/${HQ}`);
+	history.pushState(null, "", `/app/c/${space}`);
 	const startIndex = nav().currentEntry.index;
 	const store = createDataStore(createMockSource({ live: false }));
 	const host = document.createElement("div");
@@ -108,6 +108,21 @@ it("opens the prompt for an empty voice channel and joins muted into the call sc
 	).toBe("true");
 	const height = (call as HTMLElement).getBoundingClientRect().height;
 	expect(Math.abs(height - window.innerHeight)).toBeLessThan(1);
+});
+
+it("shows a note instead of the join controls for a voice channel the viewer can't join", async () => {
+	const app = await mount("did:plc:nightowlsartclub3e5f7g9h");
+	await userEvent.click(row(app.host, "Quiet studio"));
+	await settle();
+	const prompt = dialog("Join Quiet studio") as HTMLElement;
+	expect(prompt).toBeTruthy();
+	expect(prompt.querySelector("[data-voice-join-disabled]")?.textContent).toBe(
+		"You can't join this voice channel.",
+	);
+	expect(button(prompt, "Join voice")).toBeUndefined();
+	expect(button(prompt, "Join muted")).toBeUndefined();
+	expect(button(prompt, "Open chat")).toBeTruthy();
+	expect(voice.current()).toBeUndefined();
 });
 
 it("collapses the call screen with the close button and reopens it from the channel row", async () => {
