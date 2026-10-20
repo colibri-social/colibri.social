@@ -231,6 +231,7 @@ describe("toLiveEvents", () => {
 			),
 		).toEqual([
 			{ $type: "roleRemovedEvent", community: COMMUNITY, rkey: "r1" },
+			{ $type: "layoutInvalidatedEvent", community: COMMUNITY },
 		]);
 		expect(
 			toLiveEvents(
@@ -251,6 +252,66 @@ describe("toLiveEvents", () => {
 		expect(
 			toLiveEvents(
 				frame("channelEvent", { event: "delete", community: COMMUNITY }),
+			),
+		).toEqual([]);
+	});
+
+	it("turns key-only channel and category changes into a layout refetch", () => {
+		for (const event of ["create", "update"]) {
+			expect(
+				toLiveEvents(
+					frame("channelEvent", {
+						event,
+						community: COMMUNITY,
+						space: GENERAL,
+					}),
+				),
+			).toEqual([{ $type: "layoutInvalidatedEvent", community: COMMUNITY }]);
+			expect(
+				toLiveEvents(
+					frame("categoryEvent", { event, community: COMMUNITY, rkey: "c1" }),
+				),
+			).toEqual([{ $type: "layoutInvalidatedEvent", community: COMMUNITY }]);
+		}
+	});
+
+	it("refetches roles and the layout for a key-only role change", () => {
+		for (const event of ["create", "update"]) {
+			expect(
+				toLiveEvents(
+					frame("roleEvent", { event, community: COMMUNITY, rkey: "r1" }),
+				),
+			).toEqual([
+				{ $type: "rolesInvalidatedEvent", community: COMMUNITY },
+				{ $type: "layoutInvalidatedEvent", community: COMMUNITY },
+			]);
+		}
+	});
+
+	it("refetches the Space and its layout for a key-only Space update", () => {
+		expect(
+			toLiveEvents(
+				frame("communityEvent", { event: "update", community: COMMUNITY }),
+			),
+		).toEqual([
+			{ $type: "communityInvalidatedEvent", community: COMMUNITY },
+			{ $type: "layoutInvalidatedEvent", community: COMMUNITY },
+		]);
+	});
+
+	it("drops key-only structure frames with an unknown event", () => {
+		expect(
+			toLiveEvents(
+				frame("channelEvent", {
+					event: "rename",
+					community: COMMUNITY,
+					space: GENERAL,
+				}),
+			),
+		).toEqual([]);
+		expect(
+			toLiveEvents(
+				frame("communityEvent", { event: "create", community: COMMUNITY }),
 			),
 		).toEqual([]);
 	});

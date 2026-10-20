@@ -22,7 +22,6 @@ import {
 } from "solid-js";
 import type { Did } from "../../../data/types";
 import { defineContract, slot } from "../../../screen/define";
-import { usePlatform } from "../../../screen/platform";
 import { NEW_ENTRY } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
@@ -229,6 +228,19 @@ export const adminCategory = defineContract({
 			void run(create, "Couldn't create the category");
 		};
 
+		const hasSelection = () => isRestricted(audience());
+		const createTitle = () =>
+			step() === 2 ? "Add members and roles" : "Create new category";
+		const submitLabel = () =>
+			step() === 2
+				? hasSelection()
+					? "Create"
+					: "Skip"
+				: restricted()
+					? "Next"
+					: "Create";
+		const submit = () => (step() === 2 ? submitAudience() : submitDetails());
+
 		const save = () => {
 			setAttempted(true);
 			const current = community();
@@ -304,7 +316,7 @@ export const adminCategory = defineContract({
 			setRestricted,
 			audience,
 			setAudience,
-			hasSelection: () => isRestricted(audience()),
+			hasSelection,
 			options,
 			openPermissions: () =>
 				openPermissions(stack, "category", args.space, args.id ?? ""),
@@ -312,6 +324,10 @@ export const adminCategory = defineContract({
 			dirty,
 			submitDetails,
 			submitAudience,
+			createTitle,
+			submitLabel,
+			submit,
+			ready: () => allowed() && !unavailable(),
 			save,
 			unsaved,
 			back: () => stack.pop(),
@@ -321,52 +337,37 @@ export const adminCategory = defineContract({
 		};
 	},
 	slots: {
-		Header: slot((m) => {
-			const ready = () => m.allowed() && !m.unavailable();
-			return (
-				<Show
-					when={m.creating}
-					fallback={
-						<AdminNavHeader
-							safeTop
-							kind="close"
-							navigateLabel="Close category settings"
-							onNavigate={m.back}
-							title="Category settings"
-						/>
-					}
-				>
+		Header: slot((m) => (
+			<Show
+				when={m.creating}
+				fallback={
 					<AdminNavHeader
 						safeTop
-						kind={
-							m.step() === 2 || usePlatform()() !== "desktop" ? "back" : "close"
-						}
+						kind="close"
+						navigateLabel="Close category settings"
 						onNavigate={m.back}
-						title={
-							m.step() === 2 ? "Add members and roles" : "Create new category"
-						}
-						action={
-							ready()
-								? {
-										type: "text",
-										label:
-											m.step() === 2
-												? m.hasSelection()
-													? "Create"
-													: "Skip"
-												: m.restricted()
-													? "Next"
-													: "Create",
-										onClick:
-											m.step() === 2 ? m.submitAudience : m.submitDetails,
-										loading: m.saving(),
-									}
-								: undefined
-						}
+						title="Category settings"
 					/>
-				</Show>
-			);
-		}),
+				}
+			>
+				<AdminNavHeader
+					safeTop
+					kind="back"
+					onNavigate={m.back}
+					title={m.createTitle()}
+					action={
+						m.ready()
+							? {
+									type: "text",
+									label: m.submitLabel(),
+									onClick: m.submit,
+									loading: m.saving(),
+								}
+							: undefined
+					}
+				/>
+			</Show>
+		)),
 		Bar: slot((m) => <UnsavedBar form={m.unsaved} />),
 		Unavailable: slot((m) => (
 			<Show

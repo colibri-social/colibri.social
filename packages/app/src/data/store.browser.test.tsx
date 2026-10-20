@@ -12,7 +12,7 @@ import {
 	type DataStoreOptions,
 	type WriteFailure,
 } from "./store";
-import type { MessageView, SpaceRef } from "./types";
+import type { Did, MessageView, SpaceRef } from "./types";
 
 const until = async (check: () => boolean, timeout = 8000) => {
 	const started = performance.now();
@@ -286,8 +286,21 @@ const setupWithEvents = async () => {
 	const watched: SpaceRef[] = [];
 	const released: SpaceRef[] = [];
 	const viewed: (SpaceRef | undefined)[] = [];
+	const calls = { channels: 0, categories: 0, roles: 0 };
 	const source = {
 		...base,
+		listChannels: (community: Did) => {
+			calls.channels += 1;
+			return base.listChannels(community);
+		},
+		listCategories: (community: Did) => {
+			calls.categories += 1;
+			return base.listCategories(community);
+		},
+		listRoles: (community: Did) => {
+			calls.roles += 1;
+			return base.listRoles(community);
+		},
 		subscribe: (listener: (event: LiveEvent) => void) => {
 			listeners.add(listener);
 			const stop = base.subscribe(listener);
@@ -318,8 +331,10 @@ const setupWithEvents = async () => {
 	const emit = (event: LiveEvent) => {
 		for (const listener of listeners) listener(event);
 	};
-	return { store, space, hq, emit, watched, released, viewed };
+	return { store, space, hq, emit, watched, released, viewed, calls, base };
 };
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 200));
 
 describe("key-only deletes", () => {
 	it("drops a channel, category, role and Space from their keys alone", async () => {
@@ -352,6 +367,58 @@ describe("key-only deletes", () => {
 		expect(
 			store.communities.value()?.some((entry) => entry.did === hq.did),
 		).toBe(false);
+	});
+});
+
+describe("key-only structure changes", () => {
+	it("refetches the layout and roles once per burst", async () => {
+		const { hq, emit, calls } = await setupWithEvents();
+		await until(() => calls.roles > 0);
+		const before = { ...calls };
+		emit({ $type: "layoutInvalidatedEvent", community: hq.did });
+		emit({ $type: "rolesInvalidatedEvent", community: hq.did });
+		emit({ $type: "layoutInvalidatedEvent", community: hq.did });
+		emit({ $type: "layoutInvalidatedEvent", community: hq.did });
+		await settle();
+		expect(calls).toEqual({
+			channels: before.channels + 1,
+			categories: before.categories + 1,
+			roles: before.roles + 1,
+		});
+	});
+
+	it("shows a channel created elsewhere from its key alone", async () => {
+		const { space, hq, base } = await setupWithEvents();
+		const created = await base.createChannel({
+			community: hq.did,
+			type: "social.colibri.beta.channel.text",
+			name: "granted",
+		});
+		await until(() => !!space.channelBySlug(channelSlug(created)));
+	});
+
+	it("refetches the layout when the viewer's roles change", async () => {
+		const { store, hq, emit, calls, base } = await setupWithEvents();
+		const page = await base.listMembers(hq.did, { limit: 100 });
+		const own = page.items.find(
+			(member) => member.actor.did === store.viewer.did,
+		);
+		const extra = (await base.listRoles(hq.did)).find(
+			(role) => !own?.roles?.includes(role.rkey),
+		);
+		if (!own || !extra) throw new Error("fixtures missing");
+		await settle();
+		const before = calls.channels;
+		emit({ $type: "memberUpdateEvent", community: hq.did, member: own });
+		await settle();
+		expect(calls.channels).toBe(before);
+		emit({
+			$type: "memberUpdateEvent",
+			community: hq.did,
+			member: { ...own, roles: [...(own.roles ?? []), extra.rkey] },
+		});
+		await settle();
+		expect(calls.channels).toBe(before + 1);
 	});
 });
 

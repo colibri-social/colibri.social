@@ -1003,14 +1003,8 @@ export const createMockSource = (
 					messages: [],
 					build: () => [],
 				});
-				const served = world.channelViewIn(space, view);
-				emit({
-					$type: "channelEvent",
-					event: "create",
-					community: space.did,
-					channel: served,
-				});
-				return served;
+				emit({ $type: "layoutInvalidatedEvent", community: space.did });
+				return world.channelViewIn(space, view);
 			}),
 		deleteChannel: (input) =>
 			withLatency(() => {
@@ -1028,10 +1022,9 @@ export const createMockSource = (
 					(thread) => thread.view.channel !== input.channel,
 				);
 				emit({
-					$type: "channelEvent",
-					event: "delete",
+					$type: "channelRemovedEvent",
 					community: space.did,
-					channel: record.view,
+					channel: record.view.space,
 				});
 			}),
 		updateChannel: (input) =>
@@ -1083,14 +1076,8 @@ export const createMockSource = (
 				view.private =
 					!!view.visibleToRoles?.length || !!view.visibleToMembers?.length;
 				record.view = view;
-				const served = world.channelViewIn(space, view);
-				emit({
-					$type: "channelEvent",
-					event: "update",
-					community: space.did,
-					channel: served,
-				});
-				return served;
+				emit({ $type: "layoutInvalidatedEvent", community: space.did });
+				return world.channelViewIn(space, view);
 			}),
 		createCategory: (input) =>
 			withLatency(() => {
@@ -1111,12 +1098,7 @@ export const createMockSource = (
 				const view = world
 					.categoriesOf(space)
 					.find((entry) => entry.rkey === rkey) as CategoryView;
-				emit({
-					$type: "categoryEvent",
-					event: "create",
-					community: space.did,
-					category: view,
-				});
+				emit({ $type: "layoutInvalidatedEvent", community: space.did });
 				return view;
 			}),
 		updateCategory: (input) =>
@@ -1142,20 +1124,7 @@ export const createMockSource = (
 				const view = world
 					.categoriesOf(space)
 					.find((entry) => entry.rkey === input.category) as CategoryView;
-				emit({
-					$type: "categoryEvent",
-					event: "update",
-					community: space.did,
-					category: view,
-				});
-				for (const channel of view.channels) {
-					emit({
-						$type: "channelEvent",
-						event: "update",
-						community: space.did,
-						channel,
-					});
-				}
+				emit({ $type: "layoutInvalidatedEvent", community: space.did });
 				return view;
 			}),
 		deleteCategory: (input) =>
@@ -1176,19 +1145,13 @@ export const createMockSource = (
 					const next: ChannelView = { ...record.view };
 					delete next.category;
 					record.view = next;
-					emit({
-						$type: "channelEvent",
-						event: "update",
-						community: space.did,
-						channel: next,
-					});
 				}
 				emit({
-					$type: "categoryEvent",
-					event: "delete",
+					$type: "categoryRemovedEvent",
 					community: space.did,
-					category: { ...view, channels: [] },
+					rkey: input.category,
 				});
+				emit({ $type: "layoutInvalidatedEvent", community: space.did });
 			}),
 		listUnreadStatus: (community) => withLatency(() => unreadFor(community)),
 		sendMessage: (input) =>

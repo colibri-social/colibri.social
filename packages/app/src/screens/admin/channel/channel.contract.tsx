@@ -37,7 +37,7 @@ import type {
 } from "../../../data/source";
 import type { ChannelView, Did } from "../../../data/types";
 import { defineContract, slot } from "../../../screen/define";
-import { type Platform, usePlatform } from "../../../screen/platform";
+import type { Platform } from "../../../screen/platform";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { useUnsavedChanges } from "../../../shell/unsaved-changes";
@@ -378,6 +378,18 @@ export const adminChannel = defineContract({
 
 		const hasSelection = () => isRestricted(visible());
 
+		const createTitle = () =>
+			step() === 2 ? "Add members and roles" : "Create new channel";
+		const submitLabel = () =>
+			step() === 2
+				? hasSelection()
+					? "Create"
+					: "Skip"
+				: restricted()
+					? "Next"
+					: "Create";
+		const submit = () => (step() === 2 ? submitAudience() : submitDetails());
+
 		return {
 			...admin,
 			creating,
@@ -423,6 +435,10 @@ export const adminChannel = defineContract({
 			nameError,
 			submitDetails,
 			submitAudience,
+			createTitle,
+			submitLabel,
+			submit,
+			ready: () => allowed() && !unavailable(),
 			save,
 			unsaved,
 			back: () => stack.pop(),
@@ -436,52 +452,37 @@ export const adminChannel = defineContract({
 		};
 	},
 	slots: {
-		Header: slot((m) => {
-			const ready = () => m.allowed() && !m.unavailable();
-			return (
-				<Show
-					when={m.creating}
-					fallback={
-						<AdminNavHeader
-							safeTop
-							kind="close"
-							navigateLabel="Close channel settings"
-							onNavigate={m.back}
-							title="Channel settings"
-						/>
-					}
-				>
+		Header: slot((m) => (
+			<Show
+				when={m.creating}
+				fallback={
 					<AdminNavHeader
 						safeTop
-						kind={
-							m.step() === 2 || usePlatform()() !== "desktop" ? "back" : "close"
-						}
+						kind="close"
+						navigateLabel="Close channel settings"
 						onNavigate={m.back}
-						title={
-							m.step() === 2 ? "Add members and roles" : "Create new channel"
-						}
-						action={
-							ready()
-								? {
-										type: "text",
-										label:
-											m.step() === 2
-												? m.hasSelection()
-													? "Create"
-													: "Skip"
-												: m.restricted()
-													? "Next"
-													: "Create",
-										onClick:
-											m.step() === 2 ? m.submitAudience : m.submitDetails,
-										loading: m.saving(),
-									}
-								: undefined
-						}
+						title="Channel settings"
 					/>
-				</Show>
-			);
-		}),
+				}
+			>
+				<AdminNavHeader
+					safeTop
+					kind="back"
+					onNavigate={m.back}
+					title={m.createTitle()}
+					action={
+						m.ready()
+							? {
+									type: "text",
+									label: m.submitLabel(),
+									onClick: m.submit,
+									loading: m.saving(),
+								}
+							: undefined
+					}
+				/>
+			</Show>
+		)),
 		Bar: slot((m) => <UnsavedBar form={m.unsaved} />),
 		Unavailable: slot((m) => (
 			<Show

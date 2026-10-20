@@ -5,7 +5,6 @@ import { batch, Show } from "solid-js";
 import type { ModalAreaProps } from "../../../shell/desktop/modal-areas";
 import type { AdminLayer, AdminPage } from "../../../shell/layers";
 import { useStack } from "../../../shell/stack";
-import { parseEntryId } from "../channel/channel-target";
 import { AdminModalFrame } from "./modal-frame";
 import { adminPageLabel } from "./page-labels";
 
@@ -20,7 +19,6 @@ export default function ChannelSettingsModal(props: ModalAreaProps) {
 	const kind = () =>
 		root().page.startsWith("category") ? "category" : "channel";
 	const settingsRoot = () => root().page === kind();
-	const creating = () => parseEntryId(root().id).creating;
 	const active = (): Section =>
 		pages().some((layer) =>
 			NESTED.some((suffix) => layer.page.endsWith(`-${suffix}`)),
@@ -57,7 +55,7 @@ export default function ChannelSettingsModal(props: ModalAreaProps) {
 			label={adminPageLabel}
 			rootBack
 			sidebar={
-				<Show when={settingsRoot() && !creating()}>
+				<Show when={settingsRoot()}>
 					<SidebarNavSection label={label()}>
 						<SidebarNavItem
 							label="General"

@@ -1,11 +1,13 @@
 import "../../../app.css";
 import { render } from "solid-js/web";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
+import { page as browser } from "vitest/browser";
 import { expectNoLayoutIssues } from "../../../../../ui/src/foundations/layout-test";
 import { channelSlug } from "../../../data/ids";
 import { createMockSource, setLatency } from "../../../data/mock/source";
 import { createDataStore, DataContext } from "../../../data/store";
 import { Providers } from "../../../providers";
+import { DesktopShell } from "../../../shell/desktop/DesktopShell";
 import { MobileShell } from "../../../shell/MobileShell";
 
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
@@ -751,5 +753,115 @@ describe("categories", () => {
 		expect(space.channelBySlug("typing")?.category).toBeUndefined();
 		await until(() => location.pathname === `/app/c/${HQ}`);
 		await until(() => !!channelRow(root, "typing"));
+	});
+});
+
+describe("desktop creation", () => {
+	afterAll(async () => {
+		await browser.viewport(402, 874);
+	});
+
+	const mountDesktop = async (path: string) => {
+		setLatency(0);
+		await browser.viewport(1440, 900);
+		history.replaceState(null, "", path);
+		const store = createDataStore(createMockSource({ live: false }));
+		host = document.createElement("div");
+		host.style.cssText = "position:fixed;inset:0";
+		document.body.append(host);
+		stop = render(
+			() => (
+				<DataContext.Provider value={store}>
+					<Providers>
+						<DesktopShell />
+					</Providers>
+				</DataContext.Provider>
+			),
+			host,
+		);
+		await until(() => !!store.communities.value());
+		const community = store.communities
+			.value()
+			?.find((entry) => entry.did === HQ);
+		if (!community) throw new Error("hq missing");
+		return { store, space: store.space(community) };
+	};
+
+	const settledDialog = async (title: string) => {
+		await until(() => !!dialogNamed(title));
+		await wait(400);
+		return dialogNamed(title) as HTMLElement;
+	};
+
+	it("creates a private channel in a small modal on both steps", async () => {
+		const { space } = await mountDesktop(`/app/c/${HQ}/manage/channel/new`);
+		const details = await settledDialog("Create new channel");
+		expect(details.offsetWidth).toBe(440);
+		expect(details.querySelector("[data-modal-page]")).toBeNull();
+		await expectNoLayoutIssues(details);
+		typeInto(field(details, "Channel name") as HTMLInputElement, "launch-room");
+		toggle(details, "Make channel private?")?.click();
+		await until(() => !!buttonNamed(details, "Next"));
+		buttonNamed(details, "Next")?.click();
+		const audience = await settledDialog("Add members and roles");
+		await until(
+			() => audience.querySelector("[data-audience-picker]") !== null,
+		);
+		await wait(400);
+		expect(audience.offsetWidth).toBe(440);
+		expect(audience.querySelector("[data-modal-back]")).not.toBeNull();
+		await expectNoLayoutIssues(audience);
+		pick(audience, "Moderators");
+		await until(() => !!buttonNamed(audience, "Create"));
+		buttonNamed(audience, "Create")?.click();
+		await until(() =>
+			(space.channels.value() ?? []).some(
+				(channel) => channel.name === "launch-room",
+			),
+		);
+		const created = (space.channels.value() ?? []).find(
+			(channel) => channel.name === "launch-room",
+		);
+		expect(created?.visibleToRoles).toEqual(["mods"]);
+		await until(() =>
+			location.pathname.endsWith(
+				`/${channelSlug(created ?? { space: "x" as never })}`,
+			),
+		);
+	});
+
+	it("creates a private category in a small modal on both steps", async () => {
+		const { space } = await mountDesktop(`/app/c/${HQ}/manage/category/new`);
+		const details = await settledDialog("Create new category");
+		expect(details.offsetWidth).toBe(440);
+		expect(details.querySelector("[data-modal-page]")).toBeNull();
+		await expectNoLayoutIssues(details);
+		typeInto(field(details, "Category name") as HTMLInputElement, "Events");
+		toggle(details, "Make category private?")?.click();
+		await until(() => !!buttonNamed(details, "Next"));
+		buttonNamed(details, "Next")?.click();
+		const audience = await settledDialog("Add members and roles");
+		await until(
+			() => audience.querySelector("[data-audience-picker]") !== null,
+		);
+		await wait(400);
+		expect(audience.offsetWidth).toBe(440);
+		expect(audience.querySelector("[data-modal-back]")).not.toBeNull();
+		await expectNoLayoutIssues(audience);
+		expect(buttonNamed(audience, "Skip")).toBeDefined();
+		pick(audience, "Moderators");
+		await until(() => !!buttonNamed(audience, "Create"));
+		buttonNamed(audience, "Create")?.click();
+		await until(() =>
+			(space.categories.value() ?? []).some(
+				(category) => category.name === "Events",
+			),
+		);
+		const events = (space.categories.value() ?? []).find(
+			(category) => category.name === "Events",
+		);
+		expect(events?.visibleToRoles).toEqual(["mods"]);
+		await until(() => !location.pathname.includes("/manage/"));
+		await until(() => !document.querySelector('[role="dialog"]'));
 	});
 });

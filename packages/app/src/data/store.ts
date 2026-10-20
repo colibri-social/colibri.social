@@ -103,6 +103,20 @@ const PAGE_SIZE = 60;
 const CATCH_UP_PAGES = 4;
 const CATCH_UP_SPACING_MS = 1_000;
 const TYPING_MS = 6000;
+const INVALIDATION_DELAY_MS = 50;
+
+type Invalidation = { layout: boolean; roles: boolean; community: boolean };
+
+const sameRoleSet = (
+	left: readonly string[] | undefined,
+	right: readonly string[] | undefined,
+) => {
+	const before = new Set(left ?? []);
+	const after = new Set(right ?? []);
+	return (
+		before.size === after.size && [...before].every((rkey) => after.has(rkey))
+	);
+};
 
 const log = createLogger("store");
 
@@ -502,7 +516,69 @@ export const createDataStore = (
 				),
 			);
 		};
+		const viewerRolesIn = (community: Did) =>
+			untrack(() => communities.value())?.find((view) => view.did === community)
+				?.viewer.roles;
+		const refetchCommunity = (community: Did) =>
+			source.getCommunity(community).then(
+				(view) =>
+					communities.update((list) =>
+						list.map((entry) => (entry.did === community ? view : entry)),
+					),
+				(thrown: unknown) =>
+					log.warn("community refetch failed", {
+						code: classifyThrown(thrown, { method: "community.get" }).code,
+					}),
+			);
+		const invalidated = new Map<Did, Invalidation>();
+		let invalidationTimer: ReturnType<typeof setTimeout> | undefined;
+		const flushInvalidations = () => {
+			invalidationTimer = undefined;
+			const pending = [...invalidated];
+			invalidated.clear();
+			for (const [community, scope] of pending) {
+				if (scope.community) void refetchCommunity(community);
+				if (scope.roles) {
+					void roleLoads
+						.get(community)
+						?.refresh()
+						.then(() => syncViewer(community));
+				}
+				if (!scope.layout) continue;
+				void categoryLoads.get(community)?.refresh();
+				void channelLoads.get(community)?.refresh();
+				if (!spaces.has(community)) continue;
+				void loadSummaries(community);
+				void loadUnread(community);
+			}
+		};
+		const invalidate = (community: Did, scope: keyof Invalidation) => {
+			const entry = invalidated.get(community) ?? {
+				layout: false,
+				roles: false,
+				community: false,
+			};
+			entry[scope] = true;
+			invalidated.set(community, entry);
+			invalidationTimer ??= setTimeout(
+				flushInvalidations,
+				INVALIDATION_DELAY_MS,
+			);
+		};
+		onCleanup(() => clearTimeout(invalidationTimer));
 		source.subscribe((event) => {
+			if (event.$type === "layoutInvalidatedEvent") {
+				invalidate(event.community, "layout");
+				return;
+			}
+			if (event.$type === "rolesInvalidatedEvent") {
+				invalidate(event.community, "roles");
+				return;
+			}
+			if (event.$type === "communityInvalidatedEvent") {
+				invalidate(event.community, "community");
+				return;
+			}
 			if (event.$type === "roleRemovedEvent") {
 				const roles = roleLoads.get(event.community);
 				if (!roles) return;
@@ -538,7 +614,12 @@ export const createDataStore = (
 						),
 					);
 				if (event.subject === viewer.did) {
+					const changed = !sameRoleSet(
+						viewerRolesIn(event.community),
+						event.roles,
+					);
 					syncViewer(event.community, event.roles);
+					if (changed) invalidate(event.community, "layout");
 				}
 				return;
 			}
@@ -552,8 +633,13 @@ export const createDataStore = (
 						),
 					);
 				if (subject === viewer.did) {
+					const changed = !sameRoleSet(
+						viewerRolesIn(event.community),
+						event.member.roles,
+					);
 					syncViewer(event.community, event.member.roles);
 					applyViewer(event.member.actor);
+					if (changed) invalidate(event.community, "layout");
 				}
 			}
 		});
@@ -1419,7 +1505,7 @@ export const createDataStore = (
 				}
 				return list.map((entry) =>
 					entry.rkey === view.rkey
-						? { ...entry, ...view, channels: entry.channels }
+						? { ...entry, ...view, channels: [...view.channels] }
 						: entry,
 				);
 			});

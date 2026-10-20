@@ -25,6 +25,11 @@ const asDid = (value: string): Did => value as Did;
 const CHANGE = ["create", "update", "delete"] as const;
 const TOGGLE = ["create", "delete"] as const;
 
+const layoutInvalidated = (community: string): LiveEvent => ({
+	$type: "layoutInvalidatedEvent",
+	community: asDid(community),
+});
+
 const known = <const T extends string>(
 	value: string,
 	allowed: ReadonlyArray<T>,
@@ -203,7 +208,8 @@ export const toLiveEvents = (
 				},
 			];
 		}
-		if (!frame.channel || !event) return [];
+		if (!event) return [];
+		if (!frame.channel) return [layoutInvalidated(frame.community)];
 		return [
 			{
 				$type: "channelEvent",
@@ -226,7 +232,8 @@ export const toLiveEvents = (
 				},
 			];
 		}
-		if (!frame.category || !event) return [];
+		if (!event) return [];
+		if (!frame.category) return [layoutInvalidated(frame.community)];
 		return [
 			{
 				$type: "categoryEvent",
@@ -247,9 +254,16 @@ export const toLiveEvents = (
 					community: asDid(frame.community),
 					rkey: frame.rkey,
 				},
+				layoutInvalidated(frame.community),
 			];
 		}
-		if (!frame.role || !event) return [];
+		if (!event) return [];
+		if (!frame.role) {
+			return [
+				{ $type: "rolesInvalidatedEvent", community: asDid(frame.community) },
+				layoutInvalidated(frame.community),
+			];
+		}
 		return [
 			{
 				$type: "roleEvent",
@@ -267,7 +281,16 @@ export const toLiveEvents = (
 				{ $type: "communityRemovedEvent", community: asDid(frame.community) },
 			];
 		}
-		if (!frame.view || !event) return [];
+		if (!event) return [];
+		if (!frame.view) {
+			return [
+				{
+					$type: "communityInvalidatedEvent",
+					community: asDid(frame.community),
+				},
+				layoutInvalidated(frame.community),
+			];
+		}
 		return [
 			{
 				$type: "communityEvent",

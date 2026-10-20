@@ -10,6 +10,7 @@ import {
 	Suspense,
 } from "solid-js";
 import { Dynamic } from "solid-js/web";
+import { parseEntryId } from "../../screens/admin/channel/channel-target";
 import type { Layer } from "../layers";
 import { useStack } from "../stack";
 
@@ -21,6 +22,7 @@ export type ModalAreaProps = {
 type Area =
 	| "space"
 	| "channel"
+	| "create"
 	| "settings"
 	| "inbox"
 	| "createSpace"
@@ -33,6 +35,7 @@ const areas: Record<Area, (props: ModalAreaProps) => JSX.Element> = {
 	channel: lazy(
 		() => import("../../screens/admin/desktop/channel-settings-modal"),
 	),
+	create: lazy(() => import("../../screens/admin/desktop/create-modal")),
 	settings: lazy(() => import("../../screens/settings/desktop/settings-modal")),
 	inbox: lazy(() => import("../../screens/inbox/desktop-modal")),
 	createSpace: lazy(() => import("../../screens/create-space/desktop-modal")),
@@ -40,6 +43,8 @@ const areas: Record<Area, (props: ModalAreaProps) => JSX.Element> = {
 	join: lazy(() => import("../../screens/join/desktop-modal")),
 	pack: lazy(() => import("../../screens/pack/desktop-modal")),
 };
+
+const CREATABLE: readonly string[] = ["channel", "category"];
 
 const STANDALONE: readonly string[] = [
 	"channel",
@@ -53,6 +58,9 @@ const STANDALONE: readonly string[] = [
 export const areaOf = (layer: Layer | undefined): Area | undefined => {
 	if (!layer) return undefined;
 	if (layer.kind === "admin") {
+		if (CREATABLE.includes(layer.page) && parseEntryId(layer.id).creating) {
+			return "create";
+		}
 		return STANDALONE.includes(layer.page) ? "channel" : "space";
 	}
 	if (layer.kind === "settings") return "settings";

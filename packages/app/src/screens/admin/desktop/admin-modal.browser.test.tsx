@@ -353,17 +353,28 @@ it("locks the create Space modal while the Space is being created", async () => 
 	setLatency(0);
 });
 
-it("shows the back arrow only on the second channel creation step", async () => {
+it("creates a channel in a small modal with a back button on the second step", async () => {
 	await mount(`/app/c/${HQ}/manage/channel/new`);
-	await expect.poll(visiblePage, SLOW).toBe("channel");
-	const modal = page.getByRole("dialog");
+	const modal = page.getByRole("dialog", { name: "Create new channel" });
+	await expect.element(modal).toBeVisible();
+	expect(dialog()?.offsetWidth).toBe(440);
+	expect(dialog()?.querySelector("[data-modal-page]")).toBeNull();
 	expect(dialog()?.querySelector("[data-modal-back]")).toBeNull();
+	await expect
+		.element(modal.getByRole("button", { name: "Cancel" }))
+		.toBeVisible();
 	await userEvent.fill(modal.getByLabelText("Channel name"), "launch-room");
 	await userEvent.click(modal.getByText("Make channel private?"));
 	await userEvent.click(modal.getByRole("button", { name: "Next" }));
+	const audience = page.getByRole("dialog", { name: "Add members and roles" });
+	await expect.element(audience).toBeVisible();
 	await expect
 		.poll(() => dialog()?.querySelector("[data-modal-back]"))
 		.not.toBeNull();
+	await expect
+		.element(audience.getByRole("button", { name: "Skip" }))
+		.toBeVisible();
+	expect(dialog()?.offsetWidth).toBe(440);
 	await userEvent.click(
 		dialog()?.querySelector("[data-modal-back]") as HTMLElement,
 	);
@@ -373,6 +384,19 @@ it("shows the back arrow only on the second channel creation step", async () => 
 	await expect
 		.element(modal.getByLabelText("Channel name"))
 		.toHaveValue("launch-room");
+	expect(location.pathname).toBe(`/app/c/${HQ}/manage/channel/new`);
+});
+
+it("warns before closing a channel that won't be created", async () => {
+	await mount(`/app/c/${HQ}/manage/channel/new`);
+	const modal = page.getByRole("dialog", { name: "Create new channel" });
+	await expect.element(modal).toBeVisible();
+	await userEvent.fill(modal.getByLabelText("Channel name"), "launch-room");
+	await userEvent.click(modal.getByRole("button", { name: "Cancel" }));
+	await expect
+		.element(page.getByText("This channel won't be created."))
+		.toBeVisible();
+	expect(location.pathname).toBe(`/app/c/${HQ}/manage/channel/new`);
 });
 
 it("shows bridges as summary cards with a desktop menu", async () => {

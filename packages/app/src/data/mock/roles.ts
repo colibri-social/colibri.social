@@ -126,7 +126,18 @@ export const createRoleOps = (options: {
 		space: SpaceRecord,
 		event: "create" | "update" | "delete",
 		role: RoleView,
-	) => emit({ $type: "roleEvent", event, community: space.did, role });
+	) => {
+		if (event === "delete") {
+			emit({
+				$type: "roleRemovedEvent",
+				community: space.did,
+				rkey: role.rkey,
+			});
+		} else {
+			emit({ $type: "rolesInvalidatedEvent", community: space.did });
+		}
+		emit({ $type: "layoutInvalidatedEvent", community: space.did });
+	};
 
 	const setMemberRoles = (input: MemberRolesInput) =>
 		withLatency(() => {

@@ -151,6 +151,9 @@ export type LiveEvent =
 	| { $type: "categoryRemovedEvent"; community: Did; rkey: string }
 	| { $type: "roleRemovedEvent"; community: Did; rkey: string }
 	| { $type: "communityRemovedEvent"; community: Did }
+	| { $type: "layoutInvalidatedEvent"; community: Did }
+	| { $type: "rolesInvalidatedEvent"; community: Did }
+	| { $type: "communityInvalidatedEvent"; community: Did }
 	| {
 			$type: "memberRolesEvent";
 			community: Did;
