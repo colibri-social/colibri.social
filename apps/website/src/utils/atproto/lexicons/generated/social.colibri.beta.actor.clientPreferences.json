@@ -32,6 +32,12 @@
 						"type": "boolean",
 						"description": "Whether a link in a new message gets a preview by default."
 					},
+					"gifLoopLimit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 5,
+						"description": "How many times a GIF in chat plays before it pauses. Absent means no limit."
+					},
 					"warnOnExternalLinks": {
 						"type": "boolean",
 						"description": "Whether opening a link to another site asks for confirmation first."

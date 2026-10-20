@@ -7,6 +7,7 @@ import {
 	MediaPickers,
 } from "@colibri-social/ui";
 import { type Component, createSignal } from "solid-js";
+import { linkMessage } from "../../../../data/adapters/facets";
 import type { GifView } from "../../../../data/types";
 import { createGifSource, type GifData } from "./gif-source";
 import { mediaSession } from "./session";
@@ -32,13 +33,7 @@ export type ComposerMedia = {
 	Sheet: Component;
 };
 
-export const gifAttachment = (gif: GifView) => ({
-	url: gif.url,
-	mimeType: "image/gif",
-	name: `${gif.title ?? "gif"}.gif`,
-	width: gif.width,
-	height: gif.height,
-});
+export const gifMessage = (gif: GifView) => linkMessage(gif.url);
 
 const OVERLAY_SELECTOR = '[role="dialog"]';
 const CLOSE_TIMEOUT_MS = 1200;

@@ -9,10 +9,13 @@ import {
 	Index,
 	type JSX,
 	on,
+	onCleanup,
 	Show,
 } from "solid-js";
 import { AnimatedDownloadIcon } from "../../icons/animated/navigation";
 import { cx } from "../../utils/cx";
+import { useGifLoopLimit } from "../../utils/gif-loops";
+import { bindPlayDemand } from "../../utils/play-demand";
 import {
 	appActive,
 	isAnimatedSource,
@@ -167,23 +170,58 @@ const LoopingVideo = (props: {
 	mimeType?: string;
 	poster?: string;
 	paused: boolean;
+	maxLoops?: number;
 	class?: string;
 	onLoad: () => void;
 	onError: () => void;
 }) => {
 	const [element, setElement] = createSignal<HTMLVideoElement>();
+	const [exhausted, setExhausted] = createSignal(false);
+	const [demand, setDemand] = createSignal(false);
+	let plays = 0;
+	createEffect(
+		on([() => props.src, () => props.maxLoops], () => {
+			plays = 0;
+			setExhausted(false);
+		}),
+	);
+	createEffect(() => {
+		const host = element()?.parentElement;
+		if (!host || !props.maxLoops) return;
+		onCleanup(bindPlayDemand(host, setDemand));
+	});
+	createEffect(
+		on(
+			demand,
+			(wanted) => {
+				const video = element();
+				if (wanted && exhausted() && video) video.currentTime = 0;
+			},
+			{ defer: true },
+		),
+	);
 	createEffect(() => {
 		const video = element();
 		if (!video) return;
-		if (props.paused) video.pause();
+		if (props.paused || (exhausted() && !demand())) video.pause();
 		else void video.play().catch(() => undefined);
 	});
+	const replayOrStop = (video: HTMLVideoElement) => {
+		plays += 1;
+		if (plays < (props.maxLoops ?? 0)) {
+			video.currentTime = 0;
+			void video.play().catch(() => undefined);
+			return;
+		}
+		setExhausted(true);
+	};
 	return (
 		<video
 			ref={setElement}
 			tabindex={-1}
 			muted
-			loop
+			loop={!props.maxLoops || exhausted()}
+			onEnded={(event) => replayOrStop(event.currentTarget)}
 			playsinline
 			autoplay={!props.paused}
 			preload="auto"
@@ -297,6 +335,7 @@ export const MediaTile = (props: MediaTileProps) => {
 		props.item.kind === "video" && !hidden() && !props.overflow;
 	const posterlessVideo = () =>
 		props.item.kind === "video" && !props.item.poster;
+	const gifLoops = useGifLoopLimit();
 	const loopingGif = () =>
 		props.item.kind === "gif" && isVideoMime(props.item.mimeType);
 	const tileFit = (): MediaFit => (hidden() ? "cover" : (props.fit ?? "cover"));
@@ -405,6 +444,7 @@ export const MediaTile = (props: MediaTileProps) => {
 									!appActive() ||
 									(reducedMotionActive() && !playing())
 								}
+								maxLoops={playing() ? undefined : gifLoops()}
 								onLoad={() => setLoaded(true)}
 								onError={() => void failMedia()}
 								class={previewClass()}
@@ -425,6 +465,7 @@ export const MediaTile = (props: MediaTileProps) => {
 						>
 							<AnimatedImage
 								animated={props.item.kind === "gif" ? true : undefined}
+								maxLoops={props.item.kind === "gif" ? gifLoops() : undefined}
 								playOnDemand="none"
 								play={playing()}
 								src={props.item.kind === "video" ? heldPoster() : heldSrc()}

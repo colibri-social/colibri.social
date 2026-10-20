@@ -52,6 +52,10 @@ export default function ChatPage(props: { platform: Platform }) {
 					void setBlueskyClient(data.preferences, "custom", domain);
 				}}
 				customClientDomainError={domainError()}
+				gifLoopLimit={client().gifLoopLimit}
+				onGifLoopLimitChange={(limit) =>
+					void data.preferences.setClient({ gifLoopLimit: limit })
+				}
 				gestures={props.platform === "mobile" ? client().controls : undefined}
 				onGesturesChange={(change) =>
 					void data.preferences.setClient({ controls: change })

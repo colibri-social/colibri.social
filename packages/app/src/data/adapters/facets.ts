@@ -6,6 +6,18 @@ export type TextValue = { text: string; facets: Facet[] };
 
 export const utf8Length = (text: string) => encoder.encode(text).length;
 
+export const linkMessage = (url: `${string}:${string}`): TextValue => ({
+	text: url,
+	facets: [
+		{
+			index: { byteStart: 0, byteEnd: utf8Length(url) },
+			features: [
+				{ $type: "social.colibri.beta.richtext.facet#link", uri: url },
+			],
+		},
+	],
+});
+
 const isContinuationByte = (byte: number | undefined) =>
 	byte !== undefined && (byte & 0b1100_0000) === 0b1000_0000;
 

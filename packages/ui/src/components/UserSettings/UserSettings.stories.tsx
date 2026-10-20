@@ -359,6 +359,7 @@ const ChatStory = (props: {
 	);
 	const [domain, setDomain] = createSignal("");
 	const [share, setShare] = createSignal(true);
+	const [gifLoops, setGifLoops] = createSignal<number>();
 	const [gestures, setGestures] = createSignal<TouchGestures>({
 		swipeLeftAction: "members",
 		doubleTapEnabled: true,
@@ -377,6 +378,8 @@ const ChatStory = (props: {
 				onBlueskyClientChange={setClient}
 				customClientDomain={domain()}
 				onCustomClientDomainSave={setDomain}
+				gifLoopLimit={gifLoops()}
+				onGifLoopLimitChange={setGifLoops}
 				gestures={props.gestures === false ? undefined : gestures()}
 				onGesturesChange={(change) =>
 					setGestures((current) => ({ ...current, ...change }))
@@ -387,6 +390,7 @@ const ChatStory = (props: {
 			/>
 			<output data-testid="client">{client()}</output>
 			<output data-testid="domain">{domain()}</output>
+			<output data-testid="gif-loops">{gifLoops() ?? "unlimited"}</output>
 		</Page>
 	);
 };
@@ -464,5 +468,34 @@ export const ChatPickClient: Story = {
 		await expect(
 			canvas.getByRole("textbox", { name: "Address of the app" }),
 		).toBeVisible();
+	},
+};
+
+export const ChatGifLoops: Story = {
+	parameters: { viewport: { defaultViewport: "desktop" } },
+	render: () => <ChatStory platform="desktop" gestures={false} />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const trigger = canvas.getByRole("button", { name: /Play GIFs in chat/ });
+		await expect(trigger).toHaveTextContent("Keep playing");
+		await userEvent.click(trigger);
+		const listbox = await screen.findByRole("listbox");
+		await userEvent.click(
+			within(listbox).getByRole("option", { name: "Play 3 times" }),
+		);
+		await waitFor(() =>
+			expect(canvas.getByTestId("gif-loops")).toHaveTextContent("3"),
+		);
+		await expect(trigger).toHaveTextContent("Play 3 times");
+		await userEvent.click(trigger);
+		await userEvent.click(
+			within(await screen.findByRole("listbox")).getByRole("option", {
+				name: "Keep playing",
+			}),
+		);
+		await waitFor(() =>
+			expect(canvas.getByTestId("gif-loops")).toHaveTextContent("unlimited"),
+		);
+		await expectNoLayoutIssues(pageRoot(canvasElement));
 	},
 };

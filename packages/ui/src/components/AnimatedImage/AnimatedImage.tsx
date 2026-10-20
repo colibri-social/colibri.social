@@ -7,8 +7,14 @@ import {
 	onCleanup,
 	Show,
 	splitProps,
+	untrack,
 } from "solid-js";
-import { sniffAnimation } from "../../utils/animation-sniff";
+import {
+	freshAnimationUrl,
+	sniffAnimation,
+	sniffLoopDuration,
+} from "../../utils/animation-sniff";
+import { bindPlayDemand } from "../../utils/play-demand";
 import {
 	appActive,
 	isAnimatedSource,
@@ -27,6 +33,7 @@ export type AnimatedImageProps = JSX.ImgHTMLAttributes<HTMLImageElement> & {
 	playback?: AnimatedImagePlayback;
 	frameSize?: number;
 	play?: boolean;
+	maxLoops?: number;
 	ref?: (element: HTMLImageElement) => void;
 };
 
@@ -109,7 +116,15 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 	const merged = mergeProps({ playOnDemand: "hover" as PlayOnDemand }, props);
 	const [local, imageProps, shared] = splitProps(
 		merged,
-		["animated", "playOnDemand", "playback", "frameSize", "play", "ref"],
+		[
+			"animated",
+			"playOnDemand",
+			"playback",
+			"frameSize",
+			"play",
+			"maxLoops",
+			"ref",
+		],
 		IMAGE_ONLY_PROPS,
 	);
 	const [image, setImage] = createSignal<HTMLImageElement>();
@@ -132,21 +147,78 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 	const candidate = () =>
 		(local.animated ?? isAnimatedSource(imageProps.src)) &&
 		stillSrc() !== imageProps.src;
+	const [loopMs, setLoopMs] = createSignal<number>();
+	const [exhausted, setExhausted] = createSignal(false);
+	const [replaySrc, setReplaySrc] = createSignal<string>();
+	const shownSrc = () => replaySrc() ?? imageProps.src;
+	const releaseReplay = () => {
+		const previous = replaySrc();
+		setReplaySrc(undefined);
+		if (previous) URL.revokeObjectURL(previous);
+	};
+	onCleanup(() => {
+		const current = untrack(replaySrc);
+		if (current) URL.revokeObjectURL(current);
+	});
+	createEffect(() => {
+		const src = imageProps.src;
+		const limit = local.maxLoops;
+		setLoopMs(undefined);
+		setExhausted(false);
+		untrack(releaseReplay);
+		if (!src || !limit || !candidate()) return;
+		void sniffLoopDuration(src).then((ms) => {
+			if (!disposed && imageProps.src === src) setLoopMs(ms);
+		});
+	});
+
 	const demandOnly = () => local.playback === "demand";
 	const paused = () =>
 		candidate() &&
 		(!appActive() ||
-			((demandOnly() || reducedMotionActive()) && !local.play && !demand()));
+			((demandOnly() || reducedMotionActive() || exhausted()) &&
+				!local.play &&
+				!demand()));
 	const frameSrc = () => {
 		const src = imageProps.src;
-		return paused() && src && loadedSrc() === src ? src : undefined;
+		return paused() && src && loadedSrc() === shownSrc() ? src : undefined;
 	};
+
+	createEffect(() => {
+		const ms = loopMs();
+		const limit = local.maxLoops;
+		if (!ms || !limit || exhausted() || paused()) return;
+		if (loadedSrc() !== shownSrc()) return;
+		const timer = setTimeout(() => setExhausted(true), ms * limit);
+		onCleanup(() => clearTimeout(timer));
+	});
+
+	createEffect(
+		on(
+			demand,
+			(wanted) => {
+				const src = imageProps.src;
+				if (!wanted || !exhausted() || !src) return;
+				void freshAnimationUrl(src).then((url) => {
+					if (!url) return;
+					if (disposed || imageProps.src !== src || !demand()) {
+						URL.revokeObjectURL(url);
+						return;
+					}
+					const previous = replaySrc();
+					setReplaySrc(url);
+					if (previous) URL.revokeObjectURL(previous);
+				});
+			},
+			{ defer: true },
+		),
+	);
 
 	let announcedSrc: string | undefined;
 	const announceLoad = (event: Event) => {
 		if (disposed) return;
 		const src = imageProps.src;
-		setLoadedSrc(src);
+		setLoadedSrc(shownSrc());
 		if (announcedSrc === src) return;
 		announcedSrc = src;
 		const handler = imageProps.onLoad;
@@ -161,8 +233,8 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 
 	const markLoaded = (element: HTMLImageElement) => {
 		if (disposed) return;
-		const src = imageProps.src;
-		if (!src || announcedSrc === src) return;
+		const src = shownSrc();
+		if (!src || (src === imageProps.src && announcedSrc === src)) return;
 		if (element.getAttribute("src") !== src) return;
 		if (element.complete && element.naturalWidth > 0) {
 			element.dispatchEvent(new Event("load"));
@@ -171,7 +243,7 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 
 	createEffect(
 		on(
-			() => imageProps.src,
+			shownSrc,
 			() => {
 				const element = image();
 				if (element) queueMicrotask(() => markLoaded(element));
@@ -196,43 +268,9 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 		const element = placed();
 		if (!element) return;
 		const host = playHostOf(element, demandOnly());
-		if (!host || local.playOnDemand !== "hover" || !candidate()) return;
-		const start = (event: PointerEvent) => {
-			if (event.pointerType === "mouse") setDemand(true);
-		};
-		const press = (event: PointerEvent) => {
-			if (event.pointerType !== "mouse") setDemand(true);
-		};
-		const release = (event: PointerEvent) => {
-			if (event.pointerType !== "mouse") setDemand(false);
-		};
-		const stop = () => setDemand(false);
-		const focusOut = (event: FocusEvent) => {
-			const next = event.relatedTarget;
-			if (next instanceof Node && host.contains(next)) return;
-			setDemand(false);
-		};
-		const focusIn = (event: FocusEvent) => {
-			if ((event.target as HTMLElement).matches?.(":focus-visible")) {
-				setDemand(true);
-			}
-		};
-		host.addEventListener("pointerenter", start);
-		host.addEventListener("pointerleave", stop);
-		host.addEventListener("pointerdown", press);
-		host.addEventListener("pointerup", release);
-		host.addEventListener("pointercancel", stop);
-		host.addEventListener("focusin", focusIn);
-		host.addEventListener("focusout", focusOut);
-		onCleanup(() => {
-			host.removeEventListener("pointerenter", start);
-			host.removeEventListener("pointerleave", stop);
-			host.removeEventListener("pointerdown", press);
-			host.removeEventListener("pointerup", release);
-			host.removeEventListener("pointercancel", stop);
-			host.removeEventListener("focusin", focusIn);
-			host.removeEventListener("focusout", focusOut);
-		});
+		const hoverable = local.playOnDemand === "hover" || !!local.maxLoops;
+		if (!host || !hoverable || !candidate()) return;
+		onCleanup(bindPlayDemand(host, setDemand));
 	});
 
 	return (
@@ -261,8 +299,8 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 					local.ref?.(element);
 					queueMicrotask(() => markLoaded(element));
 				}}
-				src={imageProps.src}
-				srcset={imageProps.srcset}
+				src={shownSrc()}
+				srcset={replaySrc() ? undefined : imageProps.srcset}
 				sizes={imageProps.sizes}
 				loading={imageProps.loading}
 				decoding={imageProps.decoding}

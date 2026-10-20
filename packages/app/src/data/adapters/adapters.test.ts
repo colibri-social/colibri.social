@@ -13,6 +13,7 @@ import type {
 import {
 	embedSuppression,
 	gifOfAttachments,
+	gifOfEmbed,
 	inlineMediaOf,
 	isGifSiteUrl,
 	lightboxMediaOf,
@@ -522,6 +523,37 @@ describe("gif attachments", () => {
 			] as AttachmentView[]),
 		).toBeUndefined();
 		expect(gifOfAttachments(undefined)).toBeUndefined();
+	});
+});
+
+describe("gif embeds", () => {
+	it("finds a GIF site link", () => {
+		expect(
+			gifOfEmbed({
+				uri: "https://tenor.com/view/cat-gif-1",
+				title: "Cat GIF",
+				image: { url: "https://media.test/cat.gif", width: 220, height: 140 },
+			} as LinkEmbed),
+		).toEqual({
+			id: "https://tenor.com/view/cat-gif-1",
+			url: "https://tenor.com/view/cat-gif-1",
+			previewUrl: "https://media.test/cat.gif",
+			width: 220,
+			height: 140,
+			title: "Cat GIF",
+		});
+	});
+
+	it("skips still images and plain links", () => {
+		expect(
+			gifOfEmbed({
+				uri: "https://media.test/cat.png",
+				image: { url: "https://media.test/cat.png" },
+			} as LinkEmbed),
+		).toBeUndefined();
+		expect(
+			gifOfEmbed({ uri: "https://example.com", title: "Example" } as LinkEmbed),
+		).toBeUndefined();
 	});
 });
 

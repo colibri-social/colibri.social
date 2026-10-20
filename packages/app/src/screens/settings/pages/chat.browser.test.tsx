@@ -24,3 +24,17 @@ it("hides messages that moderators hid when the viewer turns them off", async ()
 		.toBe(true);
 	await expect.element(toggle).toHaveAttribute("aria-checked", "false");
 });
+
+it("syncs how many times GIFs play", async () => {
+	const { store } = await mountPage(() => <ChatPage platform="desktop" />);
+	const trigger = page.getByRole("button", { name: /Play GIFs in chat/ });
+	await expect.element(trigger).toHaveTextContent("Keep playing");
+	await userEvent.click(trigger);
+	await userEvent.click(page.getByRole("option", { name: "Play once" }));
+	await expect.poll(() => store.preferences.client().gifLoopLimit).toBe(1);
+	await userEvent.click(trigger);
+	await userEvent.click(page.getByRole("option", { name: "Keep playing" }));
+	await expect
+		.poll(() => store.preferences.client().gifLoopLimit)
+		.toBeUndefined();
+});

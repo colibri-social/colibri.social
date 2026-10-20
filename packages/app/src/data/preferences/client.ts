@@ -3,6 +3,7 @@ import {
 	BLUESKY_CLIENTS,
 	type BlueskyClient,
 	type ClientPreferences,
+	GIF_LOOP_LIMITS,
 	INBOX_PRESENTATIONS,
 	type InboxPresentation,
 	THEMES,
@@ -19,6 +20,7 @@ export type ResolvedClient = {
 	developerMode: boolean;
 	hideModeratedMessages: boolean;
 	inboxPresentation: InboxPresentation;
+	gifLoopLimit: number | undefined;
 	controls: {
 		swipeLeftAction: ControlsPreferences["swipeLeftAction"];
 		doubleTapEnabled: boolean;
@@ -59,6 +61,11 @@ export const resolveClient = (
 		client.inboxPresentation,
 		"popover",
 	),
+	gifLoopLimit: (GIF_LOOP_LIMITS as readonly number[]).includes(
+		client.gifLoopLimit ?? 0,
+	)
+		? client.gifLoopLimit
+		: undefined,
 	controls: {
 		swipeLeftAction: oneOf(
 			["members", "reply"],

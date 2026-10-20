@@ -302,6 +302,19 @@ describe("client preferences", () => {
 		store.adopt(prefs({ client: { inboxPresentation: "sheet" } }));
 		expect(store.client().inboxPresentation).toBe("popover");
 	});
+
+	it("keeps GIFs playing unless the synced record sets a loop limit", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const store = create(memory.backend);
+		expect(store.client().gifLoopLimit).toBeUndefined();
+
+		await store.setClient({ gifLoopLimit: 3 });
+		expect(store.client().gifLoopLimit).toBe(3);
+		expect(memory.state().client).toEqual({ gifLoopLimit: 3 });
+
+		store.adopt(prefs({ client: { gifLoopLimit: 4 } }));
+		expect(store.client().gifLoopLimit).toBeUndefined();
+	});
 });
 
 describe("composer state", () => {

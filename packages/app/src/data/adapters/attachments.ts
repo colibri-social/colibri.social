@@ -222,6 +222,19 @@ export const inlineMediaOf = (embed: LinkEmbed): MediaItem | undefined => {
 	return undefined;
 };
 
+export const gifOfEmbed = (embed: LinkEmbed): GifView | undefined => {
+	const media = inlineMediaOf(embed);
+	if (media?.kind !== "gif") return undefined;
+	return {
+		id: embed.uri,
+		url: embed.uri,
+		previewUrl: embed.image?.url ?? embed.uri,
+		width: media.width ?? 0,
+		height: media.height ?? 0,
+		title: embed.title,
+	};
+};
+
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 const accentOf = (embed: LinkEmbed) =>

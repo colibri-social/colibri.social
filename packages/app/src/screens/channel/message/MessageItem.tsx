@@ -42,6 +42,7 @@ import {
 import {
 	embedSuppression,
 	gifOfAttachments,
+	gifOfEmbed,
 	inlineMediaOf,
 	isEmbedSuppressed,
 	type SplitAttachments,
@@ -272,13 +273,15 @@ export const MessageItem = (props: MessageItemProps) => {
 		}
 		return uris;
 	});
-	const loneMediaLink = createMemo(() => {
-		if (view()?.forward) return false;
+	const loneMediaEmbed = createMemo(() => {
+		if (view()?.forward) return undefined;
 		const links = linkUris(message().facets);
-		if (links.length !== 1 || message().text.trim() !== links[0]) return false;
+		if (links.length !== 1 || message().text.trim() !== links[0])
+			return undefined;
 		const embed = embeds().find((entry) => entry.uri === links[0]);
-		return !!embed && !!inlineMediaOf(embed);
+		return embed && inlineMediaOf(embed) ? embed : undefined;
 	});
+	const loneMediaLink = () => !!loneMediaEmbed();
 	const attachmentContent = () =>
 		hasAttachmentContent(
 			split(),
@@ -645,7 +648,9 @@ export const MessageItem = (props: MessageItemProps) => {
 	};
 
 	const gif = createMemo(() => {
-		const value = gifOfAttachments(view()?.attachments);
+		const lone = loneMediaEmbed();
+		const value =
+			gifOfAttachments(view()?.attachments) ?? (lone && gifOfEmbed(lone));
 		if (!value || !chat.onToggleGif) return undefined;
 		return value;
 	});

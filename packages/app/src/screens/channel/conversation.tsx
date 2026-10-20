@@ -5,6 +5,7 @@ import {
 	Composer,
 	ComposerBar,
 	ConfirmDialog,
+	GifLoopContext,
 	MessageList,
 	type MessageListHandle,
 	ReplyBar,
@@ -75,7 +76,7 @@ import { suppressedLinksFor } from "./composer/link-previews";
 import {
 	createComposerMedia,
 	createReactionPicker,
-	gifAttachment,
+	gifMessage,
 } from "./composer/media";
 import { createMediaSession } from "./composer/media/session";
 import { createAttachmentDraft } from "./composer/uploads/attachment-draft";
@@ -178,10 +179,7 @@ export const createConversation = (options: ConversationOptions) => {
 		onSendGif: (gif) => {
 			const current = feed();
 			if (!current) return;
-			pinWhile(
-				() =>
-					void current.send({ text: "", attachments: [gifAttachment(gif)] }),
-			);
+			pinWhile(() => void current.send(gifMessage(gif)));
 		},
 	});
 	const reactionPicker = createReactionPicker({ packs: emojiPacks });
@@ -1143,60 +1141,64 @@ export const ConversationMessages = (props: {
 	return (
 		<ChatContextProvider value={m.chat}>
 			<MediaLinkContext.Provider value={mediaLinks}>
-				<ChatRichTextProvider>
-					<MessageList
-						label={`Messages in ${m.options.label()}`}
-						platform={props.platform ?? "mobile"}
-						messages={m.items()}
-						getKey={(message) => message.key}
-						unreadAfter={(() => {
-							const rkey = m.feed()?.unreadAfter();
-							return rkey ? (m.data.nonceFor(rkey) ?? rkey) : undefined;
-						})()}
-						isOwnMessage={(message) => message.author === m.data.viewer.did}
-						getAuthorName={(message) => m.nameOf(message.author)}
-						locale="en-GB"
-						hasOlder={!m.revealed() || (m.feed()?.hasOlder() ?? false)}
-						bottomInset={COMPOSER_TYPING_INSET}
-						jumpLift={COMPOSER_TYPING_INSET - 4}
-						loadingOlder={m.feed()?.loadingOlder() || !m.revealed()}
-						onLoadOlder={() => m.feed()?.loadOlder()}
-						hasNewer={m.feed()?.hasNewer() ?? false}
-						loadingNewer={m.feed()?.loadingNewer() ?? false}
-						onLoadNewer={() => m.feed()?.loadNewer()}
-						onJumpToLatest={() => m.feed()?.jumpToLatest()}
-						onJump={m.focusComposer}
-						onAtBottomChange={m.setAtBottom}
-						ref={m.setList}
-						header={props.header}
-						empty={
-							props.header ? undefined : (
-								<div class="flex flex-1 flex-col items-center justify-center gap-1 px-8 text-center">
-									<span class="text-base font-semibold">No messages yet</span>
-									<span class="text-sm text-muted-foreground">
-										{`Say hi in #${m.options.label()}.`}
-									</span>
-								</div>
-							)
-						}
-					>
-						{(entry) => (
-							<MessageItem
-								entry={entry}
-								highlight={
-									m.chat.replyingKey?.() === entry().message.key
-										? "replying"
-										: undefined
-								}
-							/>
-						)}
-					</MessageList>
-					<m.links.LinkWarningOutlet />
-					<m.forwardPicker.Sheet />
-					<m.media.Sheet />
-					<m.reactionPicker.Sheet />
-					<m.selection.Sheets />
-				</ChatRichTextProvider>
+				<GifLoopContext.Provider
+					value={() => m.data.preferences.client().gifLoopLimit}
+				>
+					<ChatRichTextProvider>
+						<MessageList
+							label={`Messages in ${m.options.label()}`}
+							platform={props.platform ?? "mobile"}
+							messages={m.items()}
+							getKey={(message) => message.key}
+							unreadAfter={(() => {
+								const rkey = m.feed()?.unreadAfter();
+								return rkey ? (m.data.nonceFor(rkey) ?? rkey) : undefined;
+							})()}
+							isOwnMessage={(message) => message.author === m.data.viewer.did}
+							getAuthorName={(message) => m.nameOf(message.author)}
+							locale="en-GB"
+							hasOlder={!m.revealed() || (m.feed()?.hasOlder() ?? false)}
+							bottomInset={COMPOSER_TYPING_INSET}
+							jumpLift={COMPOSER_TYPING_INSET - 4}
+							loadingOlder={m.feed()?.loadingOlder() || !m.revealed()}
+							onLoadOlder={() => m.feed()?.loadOlder()}
+							hasNewer={m.feed()?.hasNewer() ?? false}
+							loadingNewer={m.feed()?.loadingNewer() ?? false}
+							onLoadNewer={() => m.feed()?.loadNewer()}
+							onJumpToLatest={() => m.feed()?.jumpToLatest()}
+							onJump={m.focusComposer}
+							onAtBottomChange={m.setAtBottom}
+							ref={m.setList}
+							header={props.header}
+							empty={
+								props.header ? undefined : (
+									<div class="flex flex-1 flex-col items-center justify-center gap-1 px-8 text-center">
+										<span class="text-base font-semibold">No messages yet</span>
+										<span class="text-sm text-muted-foreground">
+											{`Say hi in #${m.options.label()}.`}
+										</span>
+									</div>
+								)
+							}
+						>
+							{(entry) => (
+								<MessageItem
+									entry={entry}
+									highlight={
+										m.chat.replyingKey?.() === entry().message.key
+											? "replying"
+											: undefined
+									}
+								/>
+							)}
+						</MessageList>
+						<m.links.LinkWarningOutlet />
+						<m.forwardPicker.Sheet />
+						<m.media.Sheet />
+						<m.reactionPicker.Sheet />
+						<m.selection.Sheets />
+					</ChatRichTextProvider>
+				</GifLoopContext.Provider>
 			</MediaLinkContext.Provider>
 		</ChatContextProvider>
 	);

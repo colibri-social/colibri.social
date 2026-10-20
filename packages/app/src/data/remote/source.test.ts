@@ -1,5 +1,6 @@
 import { type ColibriError, colibri } from "@colibri-social/lib";
 import { describe, expect, it } from "vitest";
+import { linkMessage } from "../adapters/facets";
 import { DEFAULT_COMPOSER } from "../preferences/types";
 import { type DataSource, TransferOwnershipError } from "../source";
 import type { MessageView, SpaceRef } from "../types";
@@ -304,6 +305,27 @@ describe("createRemoteSource", () => {
 			`${CHANNEL}/${VIEWER}/social.colibri.beta.message/${view.rkey}`,
 		);
 		expect((view.parent as MessageView | undefined)?.rkey).toBe("2");
+	});
+
+	it("sends a picked GIF as a link", async () => {
+		const { fake, source } = await setup((fake) =>
+			fake.on("com.atproto.space.createRecord", json({ uri: "x", cid: "c" })),
+		);
+		const url = "https://media.test/party.gif";
+
+		await source.sendMessage({
+			channel: CHANNEL,
+			...linkMessage(url),
+		});
+
+		const body = only(fake.callsTo("com.atproto.space.createRecord"))
+			.body as Record<string, any>;
+		expect(body.record.text).toBe(url);
+		expect(body.record.attachments ?? []).toEqual([]);
+		expect(body.record.facets[0].features[0]).toEqual({
+			$type: "social.colibri.beta.richtext.facet#link",
+			uri: url,
+		});
 	});
 
 	it("attaches uploaded blobs to a sent message", async () => {

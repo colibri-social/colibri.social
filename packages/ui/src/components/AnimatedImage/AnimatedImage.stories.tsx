@@ -1,6 +1,7 @@
 import { createSignal, Show } from "solid-js";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { GifLoopContext } from "../../utils/gif-loops";
 import { setAppActive } from "../../utils/playback";
 import { MediaGrid } from "../Attachments/MediaGrid";
 import { Avatar } from "../Avatar/Avatar";
@@ -218,6 +219,53 @@ export const ChatGifToggle: Story = {
 			await userEvent.click(canvas.getByRole("button", { name: "Pause GIF" }));
 			await waitFor(() => expect(mediaState(canvasElement)).toBe("paused"));
 		});
+	},
+};
+
+const dotGrid = (label: string) => (
+	<MediaGrid
+		items={[
+			{
+				src: bouncingDotGif,
+				kind: "gif",
+				width: 64,
+				height: 64,
+				alt: label,
+			},
+		]}
+	/>
+);
+
+export const ChatGifLoopLimit: Story = {
+	render: () => (
+		<div class="flex w-80 flex-col gap-4">
+			<div data-limited="">
+				<GifLoopContext.Provider value={() => 2}>
+					{dotGrid("Limited dot")}
+				</GifLoopContext.Provider>
+			</div>
+			<div data-unlimited="">{dotGrid("Unlimited dot")}</div>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const limited = canvasElement.querySelector<HTMLElement>("[data-limited]");
+		const unlimited =
+			canvasElement.querySelector<HTMLElement>("[data-unlimited]");
+		if (!limited || !unlimited) throw new Error("Missing grids");
+		await loaded(limited);
+		await loaded(unlimited);
+		await expect(mediaState(limited)).toBe("playing");
+		await waitFor(() => expect(mediaState(limited)).toBe("paused"), {
+			timeout: 3000,
+		});
+		await expect(mediaState(unlimited)).toBe("playing");
+		const tile = within(limited).getByRole("button", {
+			name: "Open GIF: Limited dot",
+		});
+		await userEvent.hover(tile);
+		await waitFor(() => expect(mediaState(limited)).toBe("playing"));
+		await userEvent.unhover(tile);
+		await waitFor(() => expect(mediaState(limited)).toBe("paused"));
 	},
 };
 

@@ -43,6 +43,8 @@ export const INBOX_PRESENTATIONS = ["popover", "modal"] as const;
 
 export type InboxPresentation = (typeof INBOX_PRESENTATIONS)[number];
 
+export const GIF_LOOP_LIMITS = [1, 2, 3, 5] as const;
+
 export type ClientPreferences = Omit<
 	ClientPreferencesWire,
 	"$type" | "controls" | "voiceView"

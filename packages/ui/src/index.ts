@@ -252,6 +252,7 @@ export * from "./utils/emoji-data";
 export * from "./utils/emoji-usage";
 export * from "./utils/fold-text";
 export * from "./utils/gestures";
+export * from "./utils/gif-loops";
 export * from "./utils/haptics";
 export * from "./utils/icon-fx";
 export * from "./utils/image-tint";

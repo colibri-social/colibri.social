@@ -58,6 +58,26 @@ const clientOptions = (): SelectOption[] =>
 			),
 	}));
 
+export const GIF_LOOP_LIMITS = [1, 2, 3, 5] as const;
+
+const UNLIMITED_LOOPS = "unlimited";
+
+const gifLoopLabel = (limit: number) =>
+	limit === 1 ? "Play once" : `Play ${limit} times`;
+
+const gifLoopOptions = (): SelectOption[] => [
+	...GIF_LOOP_LIMITS.map((limit) => ({
+		value: String(limit),
+		label: gifLoopLabel(limit),
+	})),
+	{ value: UNLIMITED_LOOPS, label: CHAT_SETTINGS_COPY.gifLoopsUnlimited },
+];
+
+const gifLoopValue = (limit: number | undefined) =>
+	limit && (GIF_LOOP_LIMITS as readonly number[]).includes(limit)
+		? String(limit)
+		: UNLIMITED_LOOPS;
+
 const DOUBLE_TAP_ACTIONS: {
 	value: DoubleTapAction;
 	title: string;
@@ -93,6 +113,11 @@ export const CHAT_SETTINGS_COPY = {
 	customDomain: "Address of the app",
 	customDomainDescription: "For example bsky.app.",
 	customDomainSave: "Save",
+	gifs: "GIFs",
+	gifLoops: "Play GIFs in chat",
+	gifLoopsDescription:
+		"A paused GIF plays again when you hover over it or open it.",
+	gifLoopsUnlimited: "Keep playing",
 	gestures: "Touch gestures",
 	swipeToReply: "Swipe left to reply",
 	swipeToReplyDescription:
@@ -118,6 +143,8 @@ export type ChatSettingsProps = {
 	customClientDomain: string;
 	onCustomClientDomainSave: (domain: string) => void;
 	customClientDomainError?: JSX.Element;
+	gifLoopLimit?: number;
+	onGifLoopLimitChange?: (limit: number | undefined) => void;
 	gestures?: TouchGestures;
 	onGesturesChange?: (change: Partial<TouchGestures>) => void;
 	onPickReactionEmoji?: () => void;
@@ -207,6 +234,24 @@ export const ChatSettings = (props: ChatSettingsProps) => {
 					</form>
 				</Show>
 			</section>
+			<Show when={props.onGifLoopLimitChange}>
+				{(onChange) => (
+					<section data-gif-settings="" class="flex flex-col gap-2">
+						<SectionLabel label={CHAT_SETTINGS_COPY.gifs} />
+						<Select
+							platform={props.platform}
+							options={gifLoopOptions()}
+							value={gifLoopValue(props.gifLoopLimit)}
+							onChange={(value) => {
+								const limit = Number(value);
+								onChange()(Number.isInteger(limit) ? limit : undefined);
+							}}
+							label={CHAT_SETTINGS_COPY.gifLoops}
+							description={CHAT_SETTINGS_COPY.gifLoopsDescription}
+						/>
+					</section>
+				)}
+			</Show>
 			<Show when={props.shareActivity !== undefined}>
 				<ListGroup label={CHAT_SETTINGS_COPY.activity}>
 					<ToggleRow

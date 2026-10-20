@@ -17,7 +17,7 @@
 	"dependencies": {
 		"@atproto/lex": "0.0.0-spaces-alpha-20261001173819",
 		"@atproto/lex-client": "0.0.0-spaces-alpha-20261001173819",
-		"@colibri-social/lexicons": "^2.27.0",
+		"@colibri-social/lexicons": "^2.28.0",
 		"mdast-util-from-markdown": "^2.0.2",
 		"mdast-util-gfm-strikethrough": "^2.0.0",
 		"micromark-extension-gfm-strikethrough": "^2.1.0"
