@@ -82,11 +82,11 @@ pub async fn save_image<R: Runtime>(
     let mime = raw_type
         .filter(|value| value.starts_with("image/"))
         .unwrap_or_else(|| "image/png".to_string());
-    save(&app, name, mime, bytes)
+    save(&app, name, mime, bytes).await
 }
 
 #[cfg(desktop)]
-fn save<R: Runtime>(
+async fn save<R: Runtime>(
     app: &AppHandle<R>,
     name: String,
     _mime: String,
@@ -108,17 +108,21 @@ fn save<R: Runtime>(
 }
 
 #[cfg(target_os = "android")]
-fn save<R: Runtime>(
-    _app: &AppHandle<R>,
+async fn save<R: Runtime>(
+    app: &AppHandle<R>,
     name: String,
     mime: String,
     bytes: Vec<u8>,
 ) -> Result<Option<String>, NativeError> {
-    android::save_to_downloads(&name, &mime, &bytes).map(Some)
+    crate::android_jni::on_activity(app, move |env, activity| {
+        android::save_to_downloads(env, activity, &name, &mime, &bytes)
+    })
+    .await
+    .map(Some)
 }
 
 #[cfg(target_os = "ios")]
-fn save<R: Runtime>(
+async fn save<R: Runtime>(
     _app: &AppHandle<R>,
     _name: String,
     _mime: String,
@@ -133,32 +137,24 @@ fn save<R: Runtime>(
 #[cfg(target_os = "android")]
 mod android {
     use jni::objects::{JObject, JValue};
-    use jni::{JNIEnv, JavaVM};
+    use jni::JNIEnv;
 
+    use crate::android_jni::clear_exception as fail;
     use crate::native_error::{NativeError, NativeErrorCode};
 
     const DOWNLOADS_PATH: &str = "Download/";
 
-    fn fail(env: &mut JNIEnv<'_>, error: jni::errors::Error) -> NativeError {
-        if env.exception_check().unwrap_or(false) {
-            let _ = env.exception_clear();
-        }
-        NativeError::failed(error.to_string())
-    }
-
-    pub fn save_to_downloads(name: &str, mime: &str, bytes: &[u8]) -> Result<String, NativeError> {
-        let context = ndk_context::android_context();
-        let vm = unsafe { JavaVM::from_raw(context.vm().cast()) }
-            .map_err(|error| NativeError::failed(error.to_string()))?;
-        let mut env = vm
-            .attach_current_thread()
-            .map_err(|error| NativeError::failed(error.to_string()))?;
-        let activity = unsafe { JObject::from_raw(context.context().cast()) };
-
+    pub fn save_to_downloads(
+        env: &mut JNIEnv<'_>,
+        activity: &JObject<'_>,
+        name: &str,
+        mime: &str,
+        bytes: &[u8],
+    ) -> Result<String, NativeError> {
         let sdk = env
             .get_static_field("android/os/Build$VERSION", "SDK_INT", "I")
             .and_then(|value| value.i())
-            .map_err(|error| fail(&mut env, error))?;
+            .map_err(|error| fail(env, error))?;
         if sdk < 29 {
             return Err(NativeError::new(
                 NativeErrorCode::Unsupported,
@@ -169,7 +165,7 @@ mod android {
         let result = (|| -> jni::errors::Result<String> {
             let resolver = env
                 .call_method(
-                    &activity,
+                    activity,
                     "getContentResolver",
                     "()Landroid/content/ContentResolver;",
                     &[],
@@ -255,7 +251,7 @@ mod android {
             env.call_method(&cursor, "close", "()V", &[])?;
             Ok(saved)
         })();
-        result.map_err(|error| fail(&mut env, error))
+        result.map_err(|error| fail(env, error))
     }
 }
 

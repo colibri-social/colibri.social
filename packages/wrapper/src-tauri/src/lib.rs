@@ -1,5 +1,7 @@
 use tauri::Manager;
 
+#[cfg(target_os = "android")]
+mod android_jni;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod apns;
 #[cfg(target_os = "linux")]

@@ -963,7 +963,6 @@ dependencies = [
  "getrandom 0.3.4",
  "gtk",
  "jni 0.21.1",
- "ndk-context",
  "notify-rust",
  "objc2",
  "objc2-app-kit",
