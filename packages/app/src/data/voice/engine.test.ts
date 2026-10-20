@@ -15,6 +15,7 @@ import {
 	FakeTrack,
 	type FakeTransport,
 	flush,
+	OTHER_CHANNEL,
 	PEER,
 	pending,
 	reply,
@@ -238,6 +239,16 @@ describe("voice engine", () => {
 		expect(harness.ended).toEqual(["moderator"]);
 		expect(harness.engine.connection().state).toBe("disconnected");
 		expect(socket.closed).toBe(true);
+	});
+
+	it("reports a move without ending the call", async () => {
+		const harness = track(setup());
+		const { socket } = await connect(harness);
+		const moves: string[] = [];
+		harness.engine.onMoved((channel) => moves.push(channel));
+		socket.serve({ $type: `${DEFS}moved`, channel: OTHER_CHANNEL });
+		expect(moves).toEqual([OTHER_CHANNEL]);
+		expect(harness.ended).toEqual([]);
 	});
 
 	it("reconnects after the signaling socket drops", async () => {

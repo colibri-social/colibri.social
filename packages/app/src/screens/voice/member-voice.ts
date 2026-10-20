@@ -1,7 +1,12 @@
 import { classifyThrown, createLogger } from "@colibri-social/lib";
-import { type MemberMenuVoice, toast } from "@colibri-social/ui";
+import {
+	type MemberMenuVoice,
+	type MemberMenuVoiceChannel,
+	toast,
+} from "@colibri-social/ui";
 import { mergeProps } from "solid-js";
 import { describeError } from "../../data/error-copy";
+import { isVoiceChannel } from "../../data/ids";
 import { canModerateVoice } from "../../data/member-permissions";
 import type { DataStore } from "../../data/store";
 import type { Did, SpaceRef } from "../../data/types";
@@ -15,6 +20,7 @@ export const VOICE_MODERATION_COPY = {
 	muteFailed: "Couldn't change their microphone",
 	deafenFailed: "Couldn't change what they hear",
 	disconnectFailed: "Couldn't disconnect them",
+	moveFailed: "Couldn't move them",
 } as const;
 
 export type VoiceMemberTarget = { did: string; space: string };
@@ -27,11 +33,13 @@ type VoiceMemberStore = Pick<
 type Moderation =
 	| { muted: boolean }
 	| { deafened: boolean }
-	| { disconnect: true };
+	| { disconnect: true }
+	| { moveTo: SpaceRef };
 
 const failureTitle = (action: Moderation) => {
 	if ("muted" in action) return VOICE_MODERATION_COPY.muteFailed;
 	if ("deafened" in action) return VOICE_MODERATION_COPY.deafenFailed;
+	if ("moveTo" in action) return VOICE_MODERATION_COPY.moveFailed;
 	return VOICE_MODERATION_COPY.disconnectFailed;
 };
 
@@ -56,7 +64,7 @@ export const moderateVoice = async (
 	}
 };
 
-const allowedToModerate = (
+export const canModerateVoiceMember = (
 	data: VoiceMemberStore,
 	target: VoiceMemberTarget,
 ) => {
@@ -75,6 +83,23 @@ const allowedToModerate = (
 		roles: space.roles.value() ?? [],
 		requiresApproval: !!community.requiresApprovalToJoin,
 	});
+};
+
+const moveTargets = (
+	data: VoiceMemberStore,
+	target: VoiceMemberTarget,
+	channel: string,
+): MemberMenuVoiceChannel[] => {
+	const community = data.spaceByKey(target.space);
+	if (!community) return [];
+	return (data.space(community).channels.value() ?? [])
+		.filter(
+			(entry) =>
+				isVoiceChannel(entry) &&
+				entry.viewer.canRead &&
+				entry.space !== channel,
+		)
+		.map((entry) => ({ id: entry.space, name: entry.name }));
 };
 
 const hasScreenShare = (did: string) =>
@@ -125,7 +150,7 @@ export const voiceMemberMenu = (
 			void data.preferences.setClient({ voiceView: { showOwnCamera: show } });
 	}
 
-	if (!self && allowedToModerate(data, target)) {
+	if (!self && canModerateVoiceMember(data, target)) {
 		const input = { channel, subject: target.did };
 		const state = voice.moderationOf(target.did);
 		menu.serverMuted = state.serverMuted;
@@ -134,6 +159,9 @@ export const voiceMemberMenu = (
 		menu.serverDeafened = state.serverDeafened;
 		menu.onServerDeafenedChange = (deafened) =>
 			void moderateVoice(data, input, { deafened });
+		menu.moveTargets = moveTargets(data, target, channel);
+		menu.onMove = (destination) =>
+			void moderateVoice(data, input, { moveTo: destination as SpaceRef });
 		menu.onDisconnect = () =>
 			void moderateVoice(data, input, { disconnect: true });
 	}

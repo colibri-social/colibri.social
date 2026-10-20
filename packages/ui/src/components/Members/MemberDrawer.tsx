@@ -3,10 +3,12 @@ import { CopyIcon } from "@solar-icons/solid/bold/copy";
 import { EndCallRoundedIcon } from "@solar-icons/solid/bold/end-call-rounded";
 import { MonitorCameraIcon } from "@solar-icons/solid/bold/monitor-camera";
 import { ShieldUserIcon } from "@solar-icons/solid/bold/shield-user";
+import { TransferHorizontalIcon } from "@solar-icons/solid/bold/transfer-horizontal";
 import { UserBlockRoundedIcon } from "@solar-icons/solid/bold/user-block-rounded";
 import { UserCircleIcon } from "@solar-icons/solid/bold/user-circle";
 import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded";
 import { UsersGroupRoundedIcon } from "@solar-icons/solid/bold/users-group-rounded";
+import { VolumeIcon } from "@solar-icons/solid/bold/volume";
 import { ArrowLeftIcon } from "@solar-icons/solid/linear/arrow-left";
 import {
 	createEffect,
@@ -46,7 +48,7 @@ import { RoleColorDot } from "../Roles/RoleBadge";
 import { Slider } from "../Slider/Slider";
 import { memberHandleLabel } from "./MemberIdentity";
 
-export type MemberDrawerView = "actions" | "roles";
+export type MemberDrawerView = "actions" | "roles" | "move";
 
 const VolumeRow = (props: {
 	label: string;
@@ -83,8 +85,12 @@ const hasVoiceModeration = (voice: MemberMenuVoice) =>
 	!!(
 		voice.onServerMutedChange ||
 		voice.onServerDeafenedChange ||
+		canMoveMember(voice) ||
 		voice.onDisconnect
 	);
+
+const canMoveMember = (voice: MemberMenuVoice) =>
+	!!voice.onMove && (voice.moveTargets?.length ?? 0) > 0;
 
 export type MemberDrawerProps = MemberMenuActions & {
 	open: boolean;
@@ -113,7 +119,7 @@ export const MemberDrawer = (props: MemberDrawerProps) => {
 		action?.();
 	};
 	const backToActions = (event: KeyboardEvent) => {
-		if (view() !== "roles") return;
+		if (view() === "actions") return;
 		event.preventDefault();
 		event.stopPropagation();
 		setView("actions");
@@ -134,7 +140,7 @@ export const MemberDrawer = (props: MemberDrawerProps) => {
 				onEscapeKeyDown={backToActions}
 				header={
 					<Show
-						when={view() === "roles"}
+						when={view() !== "actions"}
 						fallback={
 							<div
 								data-member-drawer-header=""
@@ -184,7 +190,9 @@ export const MemberDrawer = (props: MemberDrawerProps) => {
 								class="-ml-1.5 [&_svg]:size-5"
 							/>
 							<span class="flex min-w-0 flex-1 flex-col">
-								<span class="text-base leading-5 font-bold">Roles</span>
+								<span class="text-base leading-5 font-bold">
+									{view() === "move" ? "Move to" : "Roles"}
+								</span>
 								<span class="min-w-0 truncate text-sm text-muted-foreground">
 									{props.name}
 								</span>
@@ -206,6 +214,19 @@ export const MemberDrawer = (props: MemberDrawerProps) => {
 										props.onRoleChange?.(role().id, checked)
 									}
 									class="min-h-12"
+								/>
+							)}
+						</Index>
+					</ListGroup>
+				</Show>
+				<Show when={view() === "move"}>
+					<ListGroup>
+						<Index each={props.voice?.moveTargets ?? []}>
+							{(target) => (
+								<NavRow
+									icon={<VolumeIcon />}
+									label={target().name}
+									onClick={run(() => props.voice?.onMove?.(target().id))}
 								/>
 							)}
 						</Index>
@@ -307,6 +328,13 @@ export const MemberDrawer = (props: MemberDrawerProps) => {
 													onChange={change()}
 												/>
 											)}
+										</Show>
+										<Show when={canMoveMember(voice())}>
+											<NavRow
+												icon={<TransferHorizontalIcon />}
+												label="Move to"
+												onClick={() => setView("move")}
+											/>
 										</Show>
 										<Show when={voice().onDisconnect}>
 											{(disconnect) => (

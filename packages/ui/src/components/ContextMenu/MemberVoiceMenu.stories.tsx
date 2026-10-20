@@ -28,6 +28,7 @@ const spy = {
 	serverMuted: fn(),
 	serverDeafened: fn(),
 	disconnect: fn(),
+	move: fn(),
 	selfMuted: fn(),
 	selfDeafened: fn(),
 	previewCamera: fn(),
@@ -65,6 +66,11 @@ const createVoice = (role: VoiceRole) => {
 			spy.serverDeafened(deafened);
 			setServerDeafened(deafened);
 		},
+		moveTargets: [
+			{ id: "lounge", name: "Lounge" },
+			{ id: "birdwatch", name: "Birdwatch call" },
+		],
+		onMove: spy.move,
 		onDisconnect: spy.disconnect,
 	};
 	if (role === "observer") return moderation;
@@ -203,6 +209,7 @@ export const PeerInCall: Story = {
 			"slider:60%",
 			"Server mute",
 			"Server deafen",
+			"Move to",
 			`Disconnect ${NAME} from voice`,
 			"View profile",
 			`Kick ${NAME}`,
@@ -276,6 +283,7 @@ export const ModeratorOutsideCall: Story = {
 		await expect(entryNames(menu)).toEqual([
 			"Server mute",
 			"Server deafen",
+			"Move to",
 			`Disconnect ${NAME} from voice`,
 			...REGULAR_ENTRIES,
 		]);
@@ -379,5 +387,62 @@ export const DrawerSelfInCall: Story = {
 			within(dialog).getByRole("button", { name: "Preview camera" }),
 		);
 		await expect(spy.previewCamera).toHaveBeenCalledTimes(1);
+	},
+};
+
+export const MoveToChannel: Story = {
+	render: () => <DesktopDemo kind="observer" />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const menu = await openMenu(canvasElement);
+		await userEvent.click(
+			within(menu).getByRole("menuitem", { name: "Move to" }),
+		);
+		const submenu = await screen.findByRole("menu", { name: "Move to" });
+		await expectNoLayoutIssues(submenu);
+		await expect(entryNames(submenu)).toEqual(["Lounge", "Birdwatch call"]);
+		await userEvent.click(
+			within(submenu).getByRole("menuitem", { name: "Birdwatch call" }),
+		);
+		await expect(spy.move).toHaveBeenCalledWith("birdwatch");
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+	},
+};
+
+export const DrawerMoveToChannel: Story = {
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => <DrawerDemo kind="observer" />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const dialog = await openDrawer(canvasElement);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Move to" }),
+		);
+		const back = await within(dialog).findByRole("button", {
+			name: "Back to member options",
+		});
+		await expect(back).toBeVisible();
+		await expect(
+			within(dialog).getByRole("button", { name: "Lounge" }),
+		).toBeVisible();
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		await expectNoLayoutIssues(dialog);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(
+				within(dialog).getByRole("button", { name: "Move to" }),
+			).toBeVisible(),
+		);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Move to" }),
+		);
+		await userEvent.click(
+			await within(dialog).findByRole("button", { name: "Lounge" }),
+		);
+		await expect(spy.move).toHaveBeenCalledWith("lounge");
+		await waitFor(
+			() => expect(screen.queryByRole("dialog", { name: MENU })).toBeNull(),
+			{ timeout: 3000 },
+		);
 	},
 };

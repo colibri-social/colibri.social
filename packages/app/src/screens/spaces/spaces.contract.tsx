@@ -77,6 +77,7 @@ import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 import { useMemberMenu } from "../members/member-menu";
 import { useProfileSheet } from "../profile/profile-sheet";
 import { createThreadMenu } from "../threads/thread-menu";
+import { canModerateVoiceMember, moderateVoice } from "../voice/member-voice";
 import { canJoinVoice, clickVoiceChannel } from "../voice/voice-click";
 import { openVoicePrompt } from "../voice/voice-prompt";
 import { createCategoryCollapse } from "./category-collapse";
@@ -225,6 +226,22 @@ export const spaces = defineContract({
 			const current = community();
 			if (current) memberMenu.open(did, spaceKey(current));
 		};
+		const canMoveParticipant = (did: string) => {
+			const current = community();
+			return (
+				!!current &&
+				did !== data.viewer.did &&
+				canModerateVoiceMember(data, { did, space: spaceKey(current) })
+			);
+		};
+		const acceptsParticipants = (channel: ChannelView) =>
+			isVoiceChannel(channel) && channel.viewer.canRead;
+		const moveParticipant = (did: string, from: ChannelView, to: ChannelView) =>
+			void moderateVoice(
+				data,
+				{ channel: from.space, subject: did },
+				{ moveTo: to.space as SpaceRef },
+			);
 		const openParticipant = (did: string) => {
 			const current = community();
 			profileSheet.open(did, current ? spaceKey(current) : undefined);
@@ -565,6 +582,9 @@ export const spaces = defineContract({
 			openParticipant,
 			participantMenu,
 			openParticipantMenu,
+			canMoveParticipant,
+			acceptsParticipants,
+			moveParticipant,
 			joinedVoice,
 			categories,
 			setCategoryCollapsed,
@@ -713,6 +733,7 @@ export const spaces = defineContract({
 					onParticipantMenu={
 						desktop() ? undefined : (id) => m.openParticipantMenu(id)
 					}
+					canMoveParticipant={m.canMoveParticipant}
 					onClick={() => m.openChannel(channel)}
 					onOpenChat={
 						desktop() && channel.viewer.canRead
@@ -1001,6 +1022,9 @@ export const spaces = defineContract({
 						onCategoryLongPress={
 							desktop() ? undefined : (rkey) => m.holdCategory(rkey)
 						}
+						acceptsParticipants={m.acceptsParticipants}
+						onMoveParticipant={m.moveParticipant}
+						onParticipantLongPress={(id) => m.openParticipantMenu(id)}
 						onCreateChannel={
 							desktop() && m.can("channel.create")
 								? (rkey) => m.createChannelIn(rkey)

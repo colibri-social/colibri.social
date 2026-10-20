@@ -24,6 +24,15 @@ type StoryArgs = {
 	onReorder: (change: ChannelReorder) => unknown;
 	onChannelLongPress: (channel: StoryChannel, event: PointerEvent) => void;
 	onCategoryLongPress: (categoryId: string, event: PointerEvent) => void;
+	onMoveParticipant: (
+		participantId: string,
+		from: StoryChannel,
+		to: StoryChannel,
+	) => void;
+	onParticipantLongPress: (
+		participantId: string,
+		channel: StoryChannel,
+	) => void;
 };
 
 const meta: Meta<StoryArgs> = {
@@ -33,6 +42,8 @@ const meta: Meta<StoryArgs> = {
 		onReorder: fn(),
 		onChannelLongPress: fn(),
 		onCategoryLongPress: fn(),
+		onMoveParticipant: fn(),
+		onParticipantLongPress: fn(),
 	},
 };
 
@@ -156,6 +167,7 @@ const Playground = (props: {
 	height?: string;
 	withMenu?: boolean;
 	previews?: boolean;
+	moveParticipants?: boolean;
 }) => {
 	const [space, setSpace] = createSignal(initialSpace());
 	const [mode, setMode] = createSignal(!!props.reorderMode);
@@ -172,6 +184,40 @@ const Playground = (props: {
 			);
 		setSpace((current) => applyLayout(current, change.layout));
 		return undefined;
+	};
+
+	const moveParticipant = (
+		participantId: string,
+		from: StoryChannel,
+		to: StoryChannel,
+	) => {
+		props.args.onMoveParticipant(participantId, from, to);
+		const person = from.participants?.find(
+			(entry) => entry.id === participantId,
+		);
+		if (!person) return;
+		const relocate = (entry: StoryChannel): StoryChannel => {
+			if (entry.id === from.id)
+				return {
+					...entry,
+					participants: entry.participants?.filter(
+						(other) => other.id !== participantId,
+					),
+				};
+			if (entry.id === to.id)
+				return {
+					...entry,
+					participants: [...(entry.participants ?? []), person],
+				};
+			return entry;
+		};
+		setSpace((current) => ({
+			uncategorized: current.uncategorized.map(relocate),
+			categories: current.categories.map((category) => ({
+				...category,
+				channels: category.channels.map(relocate),
+			})),
+		}));
 	};
 
 	const spaceHeader = (
@@ -245,6 +291,19 @@ const Playground = (props: {
 					onReorder={onReorder}
 					onChannelLongPress={props.args.onChannelLongPress}
 					onCategoryLongPress={props.args.onCategoryLongPress}
+					acceptsParticipants={
+						props.moveParticipants
+							? (entry) => entry.kind === "voice"
+							: undefined
+					}
+					onMoveParticipant={
+						props.moveParticipants ? moveParticipant : undefined
+					}
+					onParticipantLongPress={
+						props.moveParticipants
+							? props.args.onParticipantLongPress
+							: undefined
+					}
 					onCollapsedChange={(categoryId, collapsed) =>
 						setSpace((current) => ({
 							...current,
@@ -263,6 +322,9 @@ const Playground = (props: {
 								platform={props.platform}
 								density={density}
 								participants={entry.participants}
+								canMoveParticipant={
+									props.moveParticipants ? () => true : undefined
+								}
 							/>
 						) : (
 							<ChannelRow
@@ -1353,5 +1415,180 @@ export const ReorderModeFocus: Story = {
 		await expect(document.activeElement).toBe(
 			nodeOf(canvasElement, "rules").querySelector("button"),
 		);
+	},
+};
+
+const participantIn = (root: HTMLElement, channelId: string, id: string) =>
+	root.querySelector<HTMLElement>(
+		`[data-channel-id="${channelId}"] [data-participant-id="${id}"]`,
+	);
+
+const participantsIn = (root: HTMLElement, channelId: string) =>
+	Array.from(
+		root.querySelectorAll<HTMLElement>(
+			`[data-channel-id="${channelId}"] [data-participant-id]`,
+		),
+	).map((element) => element.dataset.participantId);
+
+const participantSettled = async () => {
+	await waitFor(
+		() => expect(document.querySelector("[data-reorder-overlay]")).toBeNull(),
+		{ timeout: 3000 },
+	);
+};
+
+export const DesktopMoveParticipant: Story = {
+	parameters: desktop,
+	render: (args) => (
+		<Playground args={args} platform="desktop" moveParticipants />
+	),
+	play: async ({ canvasElement, args }) => {
+		const tim = participantIn(canvasElement, "call", "tim") as HTMLElement;
+		const lounge = nodeOf(canvasElement, "lounge");
+		const target = centerOf(lounge);
+		const init = await mouseDrag(tim, target, { release: false });
+
+		const overlay = document.querySelector<HTMLElement>(
+			"[data-reorder-overlay]",
+		);
+		await expect(overlay).not.toBeNull();
+		await expect(overlay?.getAttribute("aria-hidden")).toBe("true");
+		await expect(getComputedStyle(tim).opacity).toBe("0");
+		await expect(lounge).toHaveAttribute("data-participant-target");
+		await expect(nodeOf(canvasElement, "call")).not.toHaveAttribute(
+			"data-participant-target",
+		);
+		await expect(args.onReorder).not.toHaveBeenCalled();
+
+		pointer(tim, "pointerup", { x: target.x, y: target.y + NUDGE }, init);
+		await participantSettled();
+		await expect(args.onMoveParticipant).toHaveBeenCalledTimes(1);
+		const [id, from, to] = (args.onMoveParticipant as ReturnType<typeof fn>)
+			.mock.calls[0];
+		await expect(id).toBe("tim");
+		await expect(from).toMatchObject({ id: "call" });
+		await expect(to).toMatchObject({ id: "lounge" });
+		await expect(participantsIn(canvasElement, "lounge")).toEqual([
+			"lis",
+			"tim",
+		]);
+		await expect(participantsIn(canvasElement, "call")).toEqual(["lis"]);
+		await expect(
+			canvasElement.querySelector("[data-participant-target]"),
+		).toBeNull();
+		await expect(document.documentElement.style.userSelect).toBe("");
+		await expect(args.onReorder).not.toHaveBeenCalled();
+	},
+};
+
+export const DesktopMoveParticipantCancels: Story = {
+	parameters: desktop,
+	render: (args) => (
+		<Playground args={args} platform="desktop" moveParticipants />
+	),
+	play: async ({ canvasElement, args }) => {
+		const tim = () =>
+			participantIn(canvasElement, "call", "tim") as HTMLElement;
+		const general = centerOf(nodeOf(canvasElement, "general"));
+		const own = centerOf(nodeOf(canvasElement, "call"));
+
+		const onText = await mouseDrag(tim(), general, { release: false });
+		await expect(
+			canvasElement.querySelector("[data-participant-target]"),
+		).toBeNull();
+		pointer(tim(), "pointerup", { x: general.x, y: general.y + NUDGE }, onText);
+		await participantSettled();
+
+		const onOwn = await mouseDrag(tim(), own, { release: false });
+		await expect(
+			canvasElement.querySelector("[data-participant-target]"),
+		).toBeNull();
+		pointer(tim(), "pointerup", { x: own.x, y: own.y + NUDGE }, onOwn);
+		await participantSettled();
+
+		const lounge = centerOf(nodeOf(canvasElement, "lounge"));
+		const outside = { x: lounge.x + 600, y: lounge.y };
+		const offList = await mouseDrag(tim(), lounge, { release: false });
+		await glide(tim(), lounge, outside, offList, 6);
+		await expect(
+			canvasElement.querySelector("[data-participant-target]"),
+		).toBeNull();
+		pointer(tim(), "pointerup", outside, offList);
+		await participantSettled();
+
+		const escaped = await mouseDrag(tim(), lounge, { release: false });
+		await expect(nodeOf(canvasElement, "lounge")).toHaveAttribute(
+			"data-participant-target",
+		);
+		document.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+		);
+		await participantSettled();
+		pointer(tim(), "pointerup", lounge, escaped);
+
+		await expect(args.onMoveParticipant).not.toHaveBeenCalled();
+		await expect(participantsIn(canvasElement, "call")).toEqual(["lis", "tim"]);
+		await expect(getComputedStyle(tim()).opacity).toBe("1");
+		await expect(
+			canvasElement.querySelector("[data-participant-target]"),
+		).toBeNull();
+	},
+};
+
+export const TouchMoveParticipant: Story = {
+	render: (args) => (
+		<Playground args={args} platform="mobile" moveParticipants />
+	),
+	play: async ({ canvasElement, args }) => {
+		const tim = participantIn(canvasElement, "call", "tim") as HTMLElement;
+		const start = centerOf(tim);
+
+		const swipe = { pointerType: "touch", pointerId: ++pointerSeed };
+		pointer(tim, "pointerdown", start, swipe);
+		const prevented: boolean[] = [];
+		for (let step = 1; step <= 4; step++) {
+			const point = { x: start.x, y: start.y - step * 12 };
+			pointer(tim, "pointermove", point, swipe);
+			prevented.push(touchMove(tim, point));
+			await wait(16);
+		}
+		await wait(500);
+		await expect(prevented).toEqual([false, false, false, false]);
+		await expect(document.querySelector("[data-reorder-overlay]")).toBeNull();
+		pointer(tim, "pointerup", start, swipe);
+		await expect(args.onParticipantLongPress).not.toHaveBeenCalled();
+
+		const press = { pointerType: "touch", pointerId: ++pointerSeed };
+		pointer(tim, "pointerdown", start, press);
+		await wait(480);
+		await expect(
+			document.querySelector("[data-reorder-overlay]"),
+		).not.toBeNull();
+		pointer(tim, "pointerup", start, press);
+		await participantSettled();
+		await expect(args.onParticipantLongPress).toHaveBeenCalledTimes(1);
+		await expect(
+			(args.onParticipantLongPress as ReturnType<typeof fn>).mock.calls[0],
+		).toMatchObject(["tim", { id: "call" }]);
+		await expect(args.onMoveParticipant).not.toHaveBeenCalled();
+
+		const drag = { pointerType: "touch", pointerId: ++pointerSeed };
+		pointer(tim, "pointerdown", start, drag);
+		await wait(480);
+		await expect(touchMove(tim, start)).toBe(true);
+		const target = centerOf(nodeOf(canvasElement, "lounge"));
+		await glide(tim, start, target, drag, 20);
+		await expect(nodeOf(canvasElement, "lounge")).toHaveAttribute(
+			"data-participant-target",
+		);
+		pointer(tim, "pointerup", target, drag);
+		await participantSettled();
+		await expect(args.onMoveParticipant).toHaveBeenCalledTimes(1);
+		await expect(participantsIn(canvasElement, "lounge")).toEqual([
+			"lis",
+			"tim",
+		]);
+		await expect(args.onParticipantLongPress).toHaveBeenCalledTimes(1);
+		await expect(args.onReorder).not.toHaveBeenCalled();
 	},
 };

@@ -433,6 +433,20 @@
 				}
 			}
 		},
+		"moved": {
+			"type": "object",
+			"description": "A moderator moved this client to another voice channel. The server has already removed it from the previous one. Sent only to the client it applies to.",
+			"required": [
+				"channel"
+			],
+			"properties": {
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The voice channel to join."
+				}
+			}
+		},
 		"moderationChanged": {
 			"type": "object",
 			"description": "A peer's mute or deafen state changed, whether they did it themselves or a moderator did it to them.",

@@ -248,6 +248,7 @@ const fakeMonitor = () => {
 		Record<string, VoiceModeration>
 	>({});
 	let endedListener: ((reason: VoiceEndReason) => void) | undefined;
+	let movedListener: ((channel: string) => void) | undefined;
 	let cameraResult = true;
 	const [screenSharing, setScreenSharing] = createSignal(false);
 	let screenShareListener: ((sharing: boolean) => void) | undefined;
@@ -286,6 +287,12 @@ const fakeMonitor = () => {
 				endedListener = undefined;
 			};
 		},
+		onMoved: (listener: (channel: string) => void) => {
+			movedListener = listener;
+			return () => {
+				movedListener = undefined;
+			};
+		},
 	} satisfies VoiceConnectionMonitor;
 	return {
 		monitor,
@@ -293,6 +300,7 @@ const fakeMonitor = () => {
 		setVideos,
 		setModeration,
 		end: (reason: VoiceEndReason) => endedListener?.(reason),
+		move: (channel: string) => movedListener?.(channel),
 		peerScreen: (sharing: boolean) => screenShareListener?.(sharing),
 		failCamera: () => {
 			cameraResult = false;
@@ -405,6 +413,33 @@ describe("voice with a media engine", () => {
 		expect(notices).toEqual(["moderator"]);
 		expect(played).toEqual(["leave"]);
 		expect(sent.at(-1)).toBeUndefined();
+	});
+
+	it("rejoins the destination when a moderator moves the viewer", () => {
+		const { voice, fake, notices, sent, played } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE }, { muted: true });
+		played.length = 0;
+		fake.move(STANDUP);
+		expect(voice.current()).toEqual({ space: SPACE, channel: STANDUP });
+		expect(fake.monitor.start).toHaveBeenLastCalledWith({
+			channel: STANDUP,
+			muted: true,
+			deafened: false,
+		});
+		expect(notices).toEqual(["moved"]);
+		expect(played).toEqual(["join"]);
+		expect(sent.at(-1)).toEqual({
+			channel: STANDUP,
+			muted: true,
+			deafened: undefined,
+		});
+	});
+
+	it("ignores a move while the viewer is not in a call", () => {
+		const { voice, fake, notices } = setupWithMonitor();
+		fake.move(STANDUP);
+		expect(voice.current()).toBeUndefined();
+		expect(notices).toEqual([]);
 	});
 
 	it("turns the camera back off when the engine can't start it", async () => {

@@ -46,6 +46,7 @@ export type VoiceModeration = {
 };
 
 export type VoiceNotice =
+	| "moved"
 	| "noMicrophone"
 	| "streamFailed"
 	| "cameraFailed"
@@ -76,6 +77,7 @@ export type VoiceConnectionMonitor = {
 	videos?: () => readonly VoiceVideo[];
 	moderation?: () => Readonly<Record<string, VoiceModeration>>;
 	onEnded?: (listener: (reason: VoiceEndReason) => void) => () => void;
+	onMoved?: (listener: (channel: string) => void) => () => void;
 	onNotice?: (listener: (notice: VoiceNotice) => void) => () => void;
 	dispose?: () => void;
 };

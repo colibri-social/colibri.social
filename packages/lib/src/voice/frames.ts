@@ -84,6 +84,7 @@ export type ModerationChangedFrame = ReturnType<
 	typeof defs.moderationChanged.build
 >;
 export type DisconnectedFrame = ReturnType<typeof defs.disconnected.build>;
+export type MovedFrame = ReturnType<typeof defs.moved.build>;
 
 export type ServerVoiceFrame =
 	| RtpCapabilitiesFrame
@@ -98,7 +99,8 @@ export type ServerVoiceFrame =
 	| ProducerRemovedFrame
 	| SpeakingUpdateFrame
 	| ModerationChangedFrame
-	| DisconnectedFrame;
+	| DisconnectedFrame
+	| MovedFrame;
 
 export type VoiceFrame = ClientVoiceFrame | ServerVoiceFrame;
 
@@ -197,6 +199,7 @@ const FRAME_SCHEMAS = [
 	defs.speakingUpdate,
 	defs.moderationChanged,
 	defs.disconnected,
+	defs.moved,
 ] as unknown as ReadonlyArray<AnyFrameSchema>;
 
 const FRAME_SCHEMA_BY_TYPE = new Map<string, AnyFrameSchema>(
@@ -217,6 +220,7 @@ const SERVER_FRAME_TYPES = new Set<string>([
 	defs.speakingUpdate.$type,
 	defs.moderationChanged.$type,
 	defs.disconnected.$type,
+	defs.moved.$type,
 ]);
 
 export const isServerVoiceFrame = (

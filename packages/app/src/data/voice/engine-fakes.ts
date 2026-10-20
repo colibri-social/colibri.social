@@ -17,6 +17,11 @@ export const CHANNEL = channelSpace(
 	"social.colibri.beta.channel.voice",
 	"3lz4x5y6z7a8b",
 );
+export const OTHER_CHANNEL = channelSpace(
+	"did:plc:examplecommunityauthority01",
+	"social.colibri.beta.channel.voice",
+	"3lz4x5y6z7a8c",
+);
 export const DEFS = "social.colibri.beta.voice.defs#";
 
 export type Frame = { $type: string } & Record<string, unknown>;

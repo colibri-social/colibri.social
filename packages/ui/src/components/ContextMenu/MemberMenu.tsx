@@ -3,10 +3,12 @@ import { CopyIcon } from "@solar-icons/solid/bold/copy";
 import { EndCallRoundedIcon } from "@solar-icons/solid/bold/end-call-rounded";
 import { MonitorCameraIcon } from "@solar-icons/solid/bold/monitor-camera";
 import { ShieldUserIcon } from "@solar-icons/solid/bold/shield-user";
+import { TransferHorizontalIcon } from "@solar-icons/solid/bold/transfer-horizontal";
 import { UserBlockRoundedIcon } from "@solar-icons/solid/bold/user-block-rounded";
 import { UserCircleIcon } from "@solar-icons/solid/bold/user-circle";
 import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded";
 import { UsersGroupRoundedIcon } from "@solar-icons/solid/bold/users-group-rounded";
+import { VolumeIcon } from "@solar-icons/solid/bold/volume";
 import { createMemo, type JSX, untrack } from "solid-js";
 import { HeadphonesSlashIcon, MicrophoneSlashIcon } from "../../icons/custom";
 import {
@@ -55,7 +57,14 @@ export type MemberMenuVoice = {
 	onServerMutedChange?: (muted: boolean) => void;
 	serverDeafened?: boolean;
 	onServerDeafenedChange?: (deafened: boolean) => void;
+	moveTargets?: MemberMenuVoiceChannel[];
+	onMove?: (channelId: string) => void;
 	onDisconnect?: () => void;
+};
+
+export type MemberMenuVoiceChannel = {
+	id: string;
+	name: string;
 };
 
 export type MemberMenuActions = DeveloperMenuActions & {
@@ -134,6 +143,14 @@ const voiceToggle = (
 	onChange,
 });
 
+const canMove = (voice: MemberMenuVoice) =>
+	!!voice.onMove && (voice.moveTargets?.length ?? 0) > 0;
+
+const movableShape = (voice: MemberMenuVoice) =>
+	canMove(voice)
+		? `:${(voice.moveTargets ?? []).map((target) => target.id).join(",")}`
+		: "";
+
 export const memberVoiceShape = (voice: MemberMenuVoice | undefined) =>
 	voice
 		? [
@@ -149,7 +166,7 @@ export const memberVoiceShape = (voice: MemberMenuVoice | undefined) =>
 				!!voice.onDisconnect,
 			]
 				.map(Number)
-				.join("")
+				.join("") + movableShape(voice)
 		: "";
 
 export const memberVoiceEntries = (
@@ -228,6 +245,20 @@ export const memberVoiceEntries = (
 						() => current().serverDeafened,
 						(checked) => current().onServerDeafenedChange?.(checked),
 					),
+				canMove(voice) && {
+					kind: "submenu",
+					label: "Move to",
+					get icon() {
+						return <TransferHorizontalIcon />;
+					},
+					items: (voice.moveTargets ?? []).map((target) => ({
+						label: target.name,
+						get icon() {
+							return <VolumeIcon />;
+						},
+						onSelect: () => current().onMove?.(target.id),
+					})),
+				},
 				voice.onDisconnect && {
 					label: `Disconnect ${name} from voice`,
 					get icon() {

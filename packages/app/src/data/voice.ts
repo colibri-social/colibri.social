@@ -264,6 +264,21 @@ export const createVoice = (
 			publish();
 		};
 
+		const moved = (channel: string) => {
+			const active = current();
+			if (!active || active.channel === channel) return;
+			batch(() => {
+				setCurrent({ ...active, channel });
+				setCamera(false);
+				setStartedAt(Date.now());
+				setFocusedKey(null);
+			});
+			link().start(session());
+			play("join");
+			notify("moved");
+			publish();
+		};
+
 		let detach: (() => void) | undefined;
 		const attach = (active: VoiceConnectionMonitor) => {
 			detach?.();
@@ -272,12 +287,14 @@ export const createVoice = (
 				notify(reason);
 				ended();
 			});
+			const releaseMoved = active.onMoved?.(moved);
 			const releaseNotice = active.onNotice?.(notify);
 			const releaseScreenShare = active.onScreenShare?.((sharing) => {
 				if (current()) play(sharing ? "screenShared" : "screenUnshared");
 			});
 			detach = () => {
 				releaseEnded?.();
+				releaseMoved?.();
 				releaseNotice?.();
 				releaseScreenShare?.();
 			};

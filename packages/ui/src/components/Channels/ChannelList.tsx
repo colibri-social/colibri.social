@@ -77,6 +77,9 @@ export type ChannelListProps<T> = {
 	onReorderModeChange?: (reorderMode: boolean) => void;
 	onReorder?: (change: ChannelReorder) => unknown;
 	onChannelLongPress?: (channel: T, event: PointerEvent) => void;
+	acceptsParticipants?: (channel: T) => boolean;
+	onMoveParticipant?: (participantId: string, from: T, to: T) => void;
+	onParticipantLongPress?: (participantId: string, channel: T) => void;
 	onCategoryLongPress?: (categoryId: string, event: PointerEvent) => void;
 	onCollapsedChange?: (categoryId: string, collapsed: boolean) => void;
 	onCreateChannel?: (categoryId: string) => void;
@@ -129,6 +132,24 @@ type Session = DragState & {
 	springTimer?: ReturnType<typeof setTimeout>;
 	springCategory?: string;
 	outside: boolean;
+	settling: boolean;
+};
+
+type ParticipantSession = {
+	participantId: string;
+	name: string;
+	from: string;
+	element: HTMLElement;
+	press?: ReorderPress;
+	overlay?: Overlay;
+	liftPoint: PressPoint;
+	grab: PressPoint;
+	left: number;
+	pointer: PressPoint;
+	scroller?: HTMLElement;
+	autoscroll?: ReturnType<typeof createAutoscroller>;
+	outside: boolean;
+	target?: string;
 	settling: boolean;
 };
 
@@ -281,6 +302,8 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 		new Set(),
 	);
 	const [dropTarget, setDropTarget] = createSignal<string>();
+	const [participantTarget, setParticipantTarget] = createSignal<string>();
+	let participantSession: ParticipantSession | undefined;
 	const [innerCollapsed, setInnerCollapsed] = createSignal<
 		Record<string, boolean>
 	>({});
@@ -759,6 +782,197 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 		);
 	};
 
+	const participantTargetAt = (active: ParticipantSession) => {
+		if (active.outside) return undefined;
+		const accepts = props.acceptsParticipants;
+		if (!accepts) return undefined;
+		for (const [id, channel] of channelsById()) {
+			if (id === active.from || !accepts(channel)) continue;
+			const element = nodes.get(keyFor("channel", id));
+			if (!element) continue;
+			const rect = element.getBoundingClientRect();
+			if (active.pointer.y >= rect.top && active.pointer.y < rect.bottom)
+				return id;
+		}
+		return undefined;
+	};
+
+	const retargetParticipant = () => {
+		const active = participantSession;
+		if (!active || active.settling) return;
+		const next = participantTargetAt(active);
+		if (next === active.target) return;
+		active.target = next;
+		if (next !== undefined) haptics().selection();
+		setParticipantTarget(next);
+	};
+
+	const onParticipantScroll = () => retargetParticipant();
+
+	const startParticipantDrag = (
+		active: ParticipantSession,
+		point: PressPoint,
+		pointerType: string,
+	) => {
+		const rect = active.element.getBoundingClientRect();
+		active.liftPoint = point;
+		active.pointer = point;
+		active.grab = { x: point.x - rect.left, y: point.y - rect.top };
+		active.left = rect.left;
+		active.overlay = createOverlay(
+			active.element,
+			rect,
+			active.grab,
+			pointerType === "mouse" ? LIFT_SCALE_POINTER : LIFT_SCALE_TOUCH,
+		);
+		active.element.style.opacity = "0";
+		active.scroller = root ? scrollParent(root) : undefined;
+		if (active.scroller) {
+			active.autoscroll = createAutoscroller({
+				scroller: active.scroller,
+				onScroll: onParticipantScroll,
+			});
+			active.scroller.addEventListener("scroll", onParticipantScroll, {
+				passive: true,
+			});
+		}
+		haptics().impact("medium");
+		announce(
+			`Picked up ${active.name}. Drop them on another voice channel to move them there.`,
+		);
+	};
+
+	const moveParticipantDrag = (
+		active: ParticipantSession,
+		point: PressPoint,
+	) => {
+		active.pointer = point;
+		active.overlay?.place(
+			active.left + rubberBand(point.x - active.liftPoint.x, RUBBER_BAND_RANGE),
+			point.y - active.grab.y,
+		);
+		const bounds = root?.getBoundingClientRect();
+		const outside =
+			!!bounds &&
+			(point.x < bounds.left - OUTSIDE_MARGIN ||
+				point.x > bounds.right + OUTSIDE_MARGIN);
+		if (outside !== active.outside) {
+			active.outside = outside;
+			active.overlay?.fade(outside);
+			haptics().impact("light");
+		}
+		if (outside) active.autoscroll?.stop();
+		else active.autoscroll?.update(point.y);
+		retargetParticipant();
+	};
+
+	const endParticipantSession = (active: ParticipantSession) => {
+		if (participantSession !== active) return;
+		active.autoscroll?.stop();
+		active.scroller?.removeEventListener("scroll", onParticipantScroll);
+		active.overlay?.remove();
+		active.element.style.removeProperty("opacity");
+		participantSession = undefined;
+		setParticipantTarget(undefined);
+	};
+
+	const settleParticipant = (active: ParticipantSession, target?: string) => {
+		active.settling = true;
+		active.autoscroll?.stop();
+		const destination = target
+			? nodes.get(keyFor("channel", target))?.getBoundingClientRect()
+			: active.element.getBoundingClientRect();
+		if (!active.overlay || !destination) {
+			endParticipantSession(active);
+			return;
+		}
+		void active.overlay
+			.settle(destination)
+			.then(() => endParticipantSession(active));
+	};
+
+	const dropParticipant = (active: ParticipantSession) => {
+		const target = active.outside ? undefined : active.target;
+		const from = channelsById().get(active.from);
+		const to = target === undefined ? undefined : channelsById().get(target);
+		if (from === undefined || to === undefined) {
+			announce(`Dropped ${active.name}. They stayed where they were.`);
+			settleParticipant(active);
+			return;
+		}
+		haptics().impact("medium");
+		announce(`Moved ${active.name} to ${props.channelName(to)}.`);
+		settleParticipant(active, target);
+		props.onMoveParticipant?.(active.participantId, from, to);
+	};
+
+	const finishParticipantImmediately = () => {
+		const active = participantSession;
+		if (!active) return;
+		active.press?.cancel();
+		endParticipantSession(active);
+	};
+
+	const startParticipantPress = (
+		event: PointerEvent,
+		channelId: string,
+		element: HTMLElement,
+	) => {
+		if (event.button !== 0 || !event.isPrimary) return;
+		const participantId = element.dataset.participantId;
+		if (!participantId) return;
+		if (participantSession && !participantSession.settling) return;
+		finishParticipantImmediately();
+		const active: ParticipantSession = {
+			participantId,
+			name: element.dataset.participantName ?? participantId,
+			from: channelId,
+			element,
+			liftPoint: { x: 0, y: 0 },
+			grab: { x: 0, y: 0 },
+			left: 0,
+			pointer: { x: 0, y: 0 },
+			outside: false,
+			settling: false,
+		};
+		active.press = startReorderPress({
+			event,
+			element,
+			canDrag: true,
+			onLift: (point, pointerType) => {
+				participantSession = active;
+				startParticipantDrag(active, point, pointerType);
+			},
+			onMove: (point) => {
+				if (participantSession === active) moveParticipantDrag(active, point);
+			},
+			onRelease: (moved) => {
+				if (participantSession !== active) return;
+				if (!moved) {
+					settleParticipant(active);
+					const channel = channelsById().get(channelId);
+					if (channel !== undefined)
+						props.onParticipantLongPress?.(participantId, channel);
+					return;
+				}
+				dropParticipant(active);
+			},
+			onCancel: () => {
+				if (participantSession !== active) return;
+				announce(`Dropped ${active.name}. They stayed where they were.`);
+				settleParticipant(active);
+			},
+		});
+	};
+
+	const movableParticipant = (event: PointerEvent) => {
+		if (!props.onMoveParticipant || reorderMode()) return undefined;
+		const element = (event.target as Element | null)?.closest?.(
+			"[data-voice-participant][data-movable]",
+		);
+		return element instanceof HTMLElement ? element : undefined;
+	};
+
 	const startPress = (
 		event: PointerEvent,
 		kind: DragKind,
@@ -1110,6 +1324,7 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 	onCleanup(() => {
 		releaseFocusHold?.();
 		finishImmediately();
+		finishParticipantImmediately();
 		nodes.clear();
 		handles.clear();
 	});
@@ -1237,6 +1452,11 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 						data-lifted={keyboardLifted("channel", id) || undefined}
 						data-placeholder={pointerDragging("channel", id) || undefined}
 						onPointerDown={(event) => {
+							const participant = movableParticipant(event);
+							if (participant) {
+								startParticipantPress(event, id, participant);
+								return;
+							}
 							if (
 								!reorderMode() &&
 								(event.target as Element | null)?.closest?.(
@@ -1252,7 +1472,10 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 							reorderMode() && "pr-16",
 							pointerDragging("channel", id) && "opacity-0",
 							keyboardLifted("channel", id) && "z-10 bg-popover shadow-overlay",
+							participantTarget() === id &&
+								"bg-primary/10 outline-2 -outline-offset-2 outline-primary outline-solid",
 						)}
+						data-participant-target={participantTarget() === id || undefined}
 					>
 						<div
 							data-channel-slot=""

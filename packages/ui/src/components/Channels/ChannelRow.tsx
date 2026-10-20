@@ -442,6 +442,7 @@ export type VoiceChannelRowProps = RowEvents & {
 	participants?: VoiceParticipant[];
 	onOpenParticipant?: (id: string) => void;
 	onParticipantMenu?: (id: string) => void;
+	canMoveParticipant?: (id: string) => boolean;
 	participantMenu?: (
 		participant: VoiceParticipant,
 		row: JSX.Element,
@@ -580,6 +581,7 @@ export const VoiceChannelRow = (props: VoiceChannelRowProps) => {
 								live={!!props.joined}
 								onOpen={props.onOpenParticipant}
 								onMenu={props.onParticipantMenu}
+								movable={!!props.canMoveParticipant?.(person().id)}
 								wrap={
 									props.participantMenu
 										? (row) => props.participantMenu?.(person(), row)
@@ -668,16 +670,21 @@ const ParticipantRow = (props: {
 	live: boolean;
 	onOpen?: (id: string) => void;
 	onMenu?: (id: string) => void;
+	movable?: boolean;
 	wrap?: (row: JSX.Element) => JSX.Element;
 }) => (
 	<li
 		ref={(element) =>
 			createMenuTrigger(element, {
-				enabled: () => !!props.onMenu && !props.person.pending,
+				enabled: () =>
+					!!props.onMenu && !props.person.pending && !props.movable,
 				onMenu: () => props.onMenu?.(props.person.id),
 			})
 		}
 		data-voice-participant=""
+		data-participant-id={props.person.id}
+		data-participant-name={props.person.name}
+		data-movable={(props.movable && !props.person.pending) || undefined}
 		data-pending={props.person.pending || undefined}
 		data-speaking={(props.live && props.person.speaking) || undefined}
 		class="flex min-w-0"

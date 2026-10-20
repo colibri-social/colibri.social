@@ -165,7 +165,8 @@ export const ROLE_PERMISSION_GROUPS: readonly RolePermissionGroup[] = [
 			{
 				key: "voice.moderate",
 				name: "Moderate voice",
-				description: "Mute, deafen and disconnect members in voice channels.",
+				description:
+					"Mute, deafen, move and disconnect members in voice channels.",
 			},
 		],
 	},

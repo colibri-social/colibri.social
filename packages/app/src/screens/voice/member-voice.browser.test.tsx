@@ -101,4 +101,22 @@ describe("voiceMemberMenu", () => {
 		menu?.onDisconnect?.();
 		await vi.waitFor(() => expect(voice.channelOf(peer)).toBeUndefined());
 	});
+
+	it("lets someone with the voice permission move a peer to another voice channel", async () => {
+		const { store, key, peer, channel } = await mount();
+		const community = store.spaceByKey(key);
+		if (!community) throw new Error("missing HQ");
+		await vi.waitFor(() =>
+			expect(store.space(community).channels.value()?.length).toBeGreaterThan(
+				0,
+			),
+		);
+		const menu = voiceMemberMenu(store, target(peer, key));
+		const targets = menu?.moveTargets ?? [];
+		expect(targets.length).toBeGreaterThan(0);
+		expect(targets.map((entry) => entry.id)).not.toContain(channel);
+		const destination = targets[0]?.id as string;
+		menu?.onMove?.(destination);
+		await vi.waitFor(() => expect(voice.channelOf(peer)).toBe(destination));
+	});
 });

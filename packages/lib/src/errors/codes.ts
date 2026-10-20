@@ -12,6 +12,7 @@ export type AppViewErrorCode =
 	| "CommunityNotFound"
 	| "CredentialsRejected"
 	| "CredentialsUnavailable"
+	| "DestinationForbidden"
 	| "Forbidden"
 	| "GifsNotConfigured"
 	| "IdentityMismatch"
@@ -131,6 +132,7 @@ const APPVIEW_CODES = new Set<string>([
 	"CommunityNotFound",
 	"CredentialsRejected",
 	"CredentialsUnavailable",
+	"DestinationForbidden",
 	"Forbidden",
 	"GifsNotConfigured",
 	"IdentityMismatch",
@@ -211,6 +213,7 @@ const DOMAIN_BY_CODE: Partial<Record<ColibriErrorCode, ErrorDomain>> = {
 	NotJoined: "voice",
 	NotVoiceChannel: "voice",
 	NotInVoice: "voice",
+	DestinationForbidden: "voice",
 	VoiceUnavailable: "voice",
 
 	CacheUnavailable: "storage",

@@ -62,6 +62,10 @@ const CATALOG: ErrorCopyCatalog = {
 		description:
 			"An owner has to give Colibri its credentials again before this will work.",
 	},
+	DestinationForbidden: {
+		title: "They can't join that channel.",
+		description: "Their roles don't let them speak there.",
+	},
 	GifsNotConfigured: {
 		title: "GIFs aren't available here.",
 		description: "This AppView has no GIF provider set up.",

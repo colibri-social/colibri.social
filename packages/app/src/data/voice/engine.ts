@@ -155,6 +155,7 @@ export type VoiceEngine = Required<
 		| "videos"
 		| "moderation"
 		| "onEnded"
+		| "onMoved"
 		| "onNotice"
 		| "dispose"
 	>
@@ -309,6 +310,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		const [screenSharing, setScreenSharing] = createSignal(false);
 
 		const endedListeners = new Set<(reason: VoiceEndReason) => void>();
+		const movedListeners = new Set<(channel: string) => void>();
 		const noticeListeners = new Set<(notice: VoiceNotice) => void>();
 		const screenShareListeners = new Set<(sharing: boolean) => void>();
 
@@ -1046,6 +1048,10 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 					log.info("the server ended the call", { reason: frame.reason });
 					finish(endReasonOf(frame.reason));
 					return;
+				case `${DEFS}moved`:
+					log.info("a moderator moved this client to another channel");
+					for (const listener of [...movedListeners]) listener(frame.channel);
+					return;
 			}
 		};
 
@@ -1507,6 +1513,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			stop();
 			stopDeviceWatch?.();
 			endedListeners.clear();
+			movedListeners.clear();
 			noticeListeners.clear();
 			screenShareListeners.clear();
 			disposeRoot();
@@ -1529,6 +1536,10 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			onEnded: (listener) => {
 				endedListeners.add(listener);
 				return () => endedListeners.delete(listener);
+			},
+			onMoved: (listener) => {
+				movedListeners.add(listener);
+				return () => movedListeners.delete(listener);
 			},
 			onNotice: (listener) => {
 				noticeListeners.add(listener);

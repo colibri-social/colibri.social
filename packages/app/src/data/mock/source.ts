@@ -1346,6 +1346,9 @@ export const createMockSource = (
 				const next: Presence = { ...current };
 				if (input.disconnect) {
 					delete next.voice;
+				} else if (input.moveTo && input.moveTo !== input.channel) {
+					const { camera: _camera, screen: _screen, ...voice } = current.voice;
+					next.voice = { ...voice, channel: input.moveTo };
 				} else {
 					const voice = { ...current.voice };
 					if (input.muted !== undefined) voice.serverMuted = input.muted;

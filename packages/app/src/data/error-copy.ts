@@ -72,6 +72,10 @@ export const APP_ERROR_COPY: ErrorCopyCatalog = {
 		title: "That Space isn't there anymore",
 		description: "It may have been deleted, or you no longer have access.",
 	},
+	DestinationForbidden: {
+		title: "They can't join that voice channel",
+		description: "Their roles don't let them talk there. Pick another one.",
+	},
 	CredentialsRejected: {
 		title: "That username or password didn't work",
 		description: "Check both and try again.",
@@ -332,6 +336,10 @@ export const VOICE_NOTICE_COPY: Record<VoiceNoticeKey, ErrorCopy> = {
 	failed: {
 		title: "Couldn't join the call",
 		description: "Check your internet connection and try again.",
+	},
+	moved: {
+		title: "A moderator moved you to another voice channel",
+		description: "You're still in the call, just somewhere else.",
 	},
 	noMicrophone: {
 		title: "You joined without a microphone",

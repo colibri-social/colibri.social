@@ -256,6 +256,7 @@ export type VoiceModerationInput = {
 	muted?: boolean;
 	deafened?: boolean;
 	disconnect?: boolean;
+	moveTo?: SpaceRef;
 };
 
 export type MemberModerationInput = {

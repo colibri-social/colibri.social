@@ -425,3 +425,31 @@ describe("disconnected", () => {
 		expect(frame?.$type).toBe("social.colibri.beta.voice.defs#disconnected");
 	});
 });
+
+describe("moved", () => {
+	it("decodes a move to another channel", () => {
+		const frame = decodeVoiceFrame(
+			JSON.stringify({
+				$type: "social.colibri.beta.voice.defs#moved",
+				channel: CHANNEL,
+			}),
+		);
+
+		expect(frame).toEqual({
+			$type: "social.colibri.beta.voice.defs#moved",
+			channel: CHANNEL,
+		});
+		expect(frame && isServerVoiceFrame(frame)).toBe(true);
+	});
+
+	it("rejects one without a valid channel", () => {
+		expect(
+			decodeVoiceFrame(
+				JSON.stringify({
+					$type: "social.colibri.beta.voice.defs#moved",
+					channel: "not-a-space-ref",
+				}),
+			),
+		).toBeNull();
+	});
+});
