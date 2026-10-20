@@ -4,6 +4,7 @@ import {
 	defaultAvatarFor,
 	defaultAvatarUrl,
 	EntranceText,
+	firstProfileStep,
 	NotificationsScreen,
 	ONBOARDING_DOT_COUNT,
 	OnboardingActions,
@@ -17,7 +18,6 @@ import {
 	profileSetupOptions,
 	renderDefaultAvatar,
 	Spinner,
-	WelcomeScreen,
 } from "@colibri-social/ui";
 import {
 	createEffect,
@@ -144,17 +144,13 @@ export const ProfileOnboarding = (props: ProfileOnboardingProps) => {
 
 	const onboarding = createOnboarding({
 		records,
-		start: "welcome",
+		start: firstProfileStep(records()),
 		onComplete: (result) => void save(result),
 	});
 
 	createEffect(on(onboarding.source, fill));
 
-	const back = () => {
-		if (onboarding.canGoBack()) return onboarding.back;
-		if (onboarding.step() === "welcome") return undefined;
-		return () => onboarding.goTo("welcome");
-	};
+	const back = () => (onboarding.canGoBack() ? onboarding.back : undefined);
 
 	const avatarSrc = createMemo(() => {
 		const blob = avatar();
@@ -252,9 +248,6 @@ export const ProfileOnboarding = (props: ProfileOnboardingProps) => {
 					onBack={back()}
 				>
 					<Switch>
-						<Match when={onboarding.step() === "welcome"}>
-							<WelcomeScreen onStart={onboarding.signedIn} />
-						</Match>
 						<Match when={onboarding.step() === "profile-source"}>
 							<ProfileSourceScreen
 								options={profileSetupOptions(records())}

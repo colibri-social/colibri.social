@@ -68,16 +68,11 @@ it("walks a new account through setup and writes the profile", async () => {
 		complete: false,
 	}));
 
-	await until(() => welcome() !== null);
+	await until(() => screen("profile-editor") !== null);
 	expect(app()).toBeNull();
+	expect(welcome()).toBeNull();
 	expect(screen("sign-in")).toBeNull();
-	await userEvent.click(page.getByRole("button", { name: "Start setup" }));
-
-	await until(() => screen("profile-editor") !== null);
-	await userEvent.click(page.getByRole("button", { name: "Back" }));
-	await until(() => welcome() !== null);
-	await userEvent.click(page.getByRole("button", { name: "Start setup" }));
-	await until(() => screen("profile-editor") !== null);
+	expect(button("Back")).toBeUndefined();
 	await userEvent.fill(
 		page.getByRole("textbox", { name: "Display name" }),
 		"Ada",
@@ -106,9 +101,8 @@ it("prefills the editor from an existing Colibri profile", async () => {
 		colibri: { displayName: "Old name", pronouns: "she/her" },
 	}));
 
-	await until(() => welcome() !== null);
-	await userEvent.click(page.getByRole("button", { name: "Start setup" }));
 	await until(() => screen("profile-source") !== null);
+	expect(welcome()).toBeNull();
 	const existing = document.querySelector<HTMLInputElement>(
 		"input[type='radio'][value='existing']",
 	);
@@ -123,6 +117,32 @@ it("prefills the editor from an existing Colibri profile", async () => {
 	].map((input) => input.value);
 	expect(values).toContain("Old name");
 	expect(values).toContain("she/her");
+});
+
+it("opens the editor from the source step on desktop without saving", async () => {
+	await page.viewport(1440, 900);
+	try {
+		const { putProfile } = mount(async () => ({
+			complete: false,
+			bluesky: { displayName: "Sky name" },
+		}));
+
+		await until(() => screen("profile-source") !== null);
+		const primary = () =>
+			document.querySelector<HTMLButtonElement>(
+				'[data-onboarding-action="primary"]:not(:disabled)',
+			);
+		await until(() => primary() !== null);
+		await userEvent.click(primary() as HTMLButtonElement);
+
+		await until(() => screen("profile-editor") !== null);
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		expect(screen("profile-editor")).not.toBeNull();
+		expect(screen("notifications")).toBeNull();
+		expect(putProfile).not.toHaveBeenCalled();
+	} finally {
+		await page.viewport(402, 874);
+	}
 });
 
 it("shows the app at once for an account it already checked", async () => {

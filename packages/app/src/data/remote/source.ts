@@ -64,6 +64,7 @@ import { createTransport, type RemoteSession } from "./transport";
 const log = createLogger("remote/source");
 
 const PROFILE_COLLECTION = "social.colibri.beta.actor.profile";
+const INVALID_HANDLE = "handle.invalid";
 const LEGACY_PROFILE_COLLECTION = "social.colibri.actor.profile";
 const BLUESKY_PROFILE_COLLECTION = "app.bsky.actor.profile";
 const THREAD_FOLLOW_COLLECTION = "social.colibri.beta.thread.follow";
@@ -128,12 +129,30 @@ export const createRemoteSource = async (
 	const index = createMessageIndex();
 	const uploads = createUploads();
 
-	const fetchProfile = () =>
-		transport
-			.query(colibri.actor.getProfile.main, {
-				params: { actor: options.session.did },
-			})
-			.then((result) => result.profile as ProfileView);
+	const sessionHandle = async () => {
+		try {
+			const session = await transport.pdsQuery<{
+				handle?: ProfileView["handle"];
+			}>("com.atproto.server.getSession");
+			return session.handle;
+		} catch (thrown) {
+			log.warn("could not read the session handle", {
+				code: classifyThrown(thrown).code,
+			});
+			return undefined;
+		}
+	};
+	const fetchProfile = async () => {
+		const result = await transport.query(colibri.actor.getProfile.main, {
+			params: { actor: options.session.did },
+		});
+		const profile = result.profile as ProfileView;
+		if (profile.handle !== INVALID_HANDLE) return profile;
+		const handle = await sessionHandle();
+		return handle && handle !== INVALID_HANDLE
+			? { ...profile, handle }
+			: profile;
+	};
 	const localListeners = new Set<(event: LiveEvent) => void>();
 	const emitLocal = (event: LiveEvent) => {
 		for (const listener of localListeners) listener(event);
@@ -757,10 +776,7 @@ export const createRemoteSource = async (
 			}
 			delete record.$type;
 			await records.putInRepo(PROFILE_COLLECTION, "self", record);
-			const refreshed = await transport.query(colibri.actor.getProfile.main, {
-				params: { actor: viewer.did },
-			});
-			viewer = { ...(refreshed.profile as ProfileView) };
+			viewer = await fetchProfile();
 			return viewer;
 		},
 		loadProfileSetup: async () => {

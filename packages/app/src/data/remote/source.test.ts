@@ -93,6 +93,31 @@ describe("createRemoteSource", () => {
 		expect(source.gifFavorites().map((gif) => gif.id)).toEqual(["gif-1"]);
 	});
 
+	it("takes the session handle when the AppView reports handle.invalid", async () => {
+		const { source } = await setup((fake) => {
+			fake.on(
+				colibri.actor.getProfile.main.nsid,
+				json({ profile: { ...profileOf(VIEWER), handle: "handle.invalid" } }),
+			);
+			fake.on(
+				"com.atproto.server.getSession",
+				json({ did: VIEWER, handle: "fresh.test" }),
+			);
+		});
+		expect(source.viewer().handle).toBe("fresh.test");
+	});
+
+	it("keeps handle.invalid when the session cannot be read", async () => {
+		const { source } = await setup((fake) => {
+			fake.on(
+				colibri.actor.getProfile.main.nsid,
+				json({ profile: { ...profileOf(VIEWER), handle: "handle.invalid" } }),
+			);
+			fake.on("com.atproto.server.getSession", xrpcError(500, "InternalError"));
+		});
+		expect(source.viewer().handle).toBe("handle.invalid");
+	});
+
 	it("still starts when preferences fail to load", async () => {
 		const { source } = await setup((fake) =>
 			fake.on(colibri.actor.getPreferences.main.nsid, json({}, 500)),

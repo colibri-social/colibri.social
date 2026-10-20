@@ -100,9 +100,11 @@ const actionButton = (
 		loading={action()?.loading}
 		icon={action()?.icon}
 		aria-keyshortcuts={extra.hint ? "Enter" : undefined}
-		onClick={() => {
+		onClick={(event) => {
 			const current = action();
-			if (current && current.type !== "submit") current.onClick?.();
+			if (!current || current.type === "submit") return;
+			event.preventDefault();
+			current.onClick?.();
 		}}
 	>
 		{action()?.label}
