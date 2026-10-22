@@ -45,11 +45,7 @@ import { openAppLink } from "../../../native/deep-links";
 import { toListMember } from "../../members/member-adapter";
 import type { MessageSelection } from "../selection/selection";
 import { highlightCode } from "./code-highlight";
-import {
-	type LinkTargetContext,
-	linkTargetFor,
-	type PackSummary,
-} from "./link-targets";
+import { type LinkTargetContext, linkTargetFor } from "./link-targets";
 import type { LoadBlueskyPost } from "./MessageAttachments";
 import type { ChatMessage } from "./types";
 
@@ -291,14 +287,28 @@ export const ChatRichTextProvider = (props: ParentProps) => {
 			did,
 			rkey: target.rkey,
 		});
-		if (!shared) return undefined;
-		const cover = shared.emojis[0];
-		const summary: PackSummary = { name: shared.pack.name };
-		if (cover)
-			summary.cover = { src: cover.image, alt: cover.alt ?? cover.name };
-		return summary;
+		return shared ? { name: shared.pack.name } : undefined;
 	};
 	const resolvers = createChatRichTextResolvers(chat, data.emoji, packSummary);
+	resolvers.channelIn = (space, skey): RichTextChannel => {
+		const community = data.communities
+			.value()
+			?.find((entry) => entry.did === space);
+		if (!community) return { state: "locked" };
+		const spaceData = data.space(community);
+		const channel = spaceData.channelBySlug(skey);
+		if (!channel) {
+			return spaceData.channels.value() === undefined
+				? { state: "loading" }
+				: { state: "locked" };
+		}
+		if (!channel.viewer.canRead) return { state: "locked" };
+		return {
+			state: "ready",
+			name: channel.name,
+			space: { name: community.name, iconSrc: community.picture },
+		};
+	};
 	resolvers.rewriteUrl = blueskyUrlRewriter(data.preferences);
 	return (
 		<NameColorProvider

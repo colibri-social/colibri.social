@@ -99,10 +99,11 @@ describe("thread links", () => {
 		);
 	});
 
-	it("keeps a thread link to another Space as an app link", () => {
+	it("maps a thread link to another Space to a foreign thread chip", () => {
 		const other = threadLink("did:plc:elsewhere");
-		expect(resolvers.linkTarget?.(other)).toEqual({
-			kind: "internal",
+		expect(resolvers.linkTarget?.(other)).toMatchObject({
+			kind: "thread",
+			space: "did:plc:elsewhere",
 			href: other,
 		});
 	});

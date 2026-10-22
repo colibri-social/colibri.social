@@ -1478,7 +1478,14 @@ export const ConversationComposer = (props: {
 					platform={props.platform ?? "mobile"}
 					safeBottom={!desktop()}
 					onEditLast={desktop() ? m.editLast : undefined}
-					onEscape={m.replyTo() ? () => m.setReplyTo(undefined) : undefined}
+					onEscape={
+						m.replyTo() || m.attachments.hasAttachments()
+							? () => {
+									m.setReplyTo(undefined);
+									m.attachments.clear();
+								}
+							: undefined
+					}
 					channelName={m.options.label()}
 					sources={m.sources}
 					onSend={send}

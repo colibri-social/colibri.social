@@ -400,9 +400,6 @@ export const MediaTile = (props: MediaTileProps) => {
 					onReady={() => setLoaded(true)}
 					onError={() => void failMedia()}
 					onStartedChange={setStarted}
-					onExpand={
-						props.onOpen ? () => props.onOpen?.(props.index) : undefined
-					}
 				/>
 				<Show when={!started()}>
 					<Show when={props.item.duration}>

@@ -16,10 +16,7 @@ const THREAD_REF = `at://${SPACE}/space/${THREAD}/3kthread`;
 const context: LinkTargetContext = {
 	space: SPACE,
 	threadChannel: (thread) => (thread === THREAD_REF ? CHANNEL_REF : undefined),
-	pack: ({ rkey }) =>
-		rkey === "3kowls"
-			? { name: "Owls", cover: { src: "https://blobs.test/owl", alt: "owl" } }
-			: undefined,
+	pack: ({ rkey }) => (rkey === "3kowls" ? { name: "Owls" } : undefined),
 };
 
 describe("message links", () => {
@@ -46,9 +43,36 @@ describe("message links", () => {
 		});
 	});
 
-	it("links a message in another space inside the app", () => {
+	it("maps a message in another space to a foreign message chip", () => {
 		const href = `https://spaces.colibri.social/app/c/${OTHER}/${TEXT}/general/m/3kmsg`;
-		expect(linkTargetFor(href, context)).toEqual({ kind: "internal", href });
+		expect(linkTargetFor(href, context)).toEqual({
+			kind: "message",
+			space: OTHER,
+			foreign: true,
+			channel: "general",
+			rkey: "3kmsg",
+			href,
+		});
+	});
+
+	it("maps a channel in another space to a foreign channel chip", () => {
+		const href = `https://spaces.colibri.social/app/c/${OTHER}/${TEXT}/general`;
+		expect(linkTargetFor(href, context)).toEqual({
+			kind: "channel",
+			channel: "general",
+			space: OTHER,
+		});
+	});
+
+	it("keeps the app link on a thread in another space", () => {
+		const href = `https://spaces.colibri.social/app/c/${OTHER}/${TEXT}/general/t/3kthread`;
+		expect(linkTargetFor(href, context)).toEqual({
+			kind: "thread",
+			channel: "general",
+			thread: "3kthread",
+			space: OTHER,
+			href,
+		});
 	});
 
 	it("maps a channel at uri to a channel chip", () => {
@@ -90,11 +114,12 @@ describe("message links", () => {
 		});
 	});
 
-	it("links a channel at uri in another space inside the app", () => {
+	it("maps a channel at uri in another space to a foreign channel chip", () => {
 		const uri = `at://${OTHER}/space/${TEXT}/general`;
 		expect(linkTargetFor(uri, context)).toEqual({
-			kind: "internal",
-			href: `${clientOrigin()}/app/c/${OTHER}/${TEXT}/general`,
+			kind: "channel",
+			channel: "general",
+			space: OTHER,
 		});
 	});
 });
@@ -132,7 +157,6 @@ describe("pack links", () => {
 		rkey: "3kowls",
 		href: `${clientOrigin()}/app/emoji/did:plc:lou/3kowls`,
 		name: "Owls",
-		cover: { src: "https://blobs.test/owl", alt: "owl" },
 	};
 
 	it.each([

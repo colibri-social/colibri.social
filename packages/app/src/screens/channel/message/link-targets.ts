@@ -8,7 +8,6 @@ import {
 	parseEmojiPackShareUrl,
 	pdslsHrefFor,
 	type RichTextLinkTarget,
-	type RichTextPackCover,
 } from "@colibri-social/ui";
 import { emojiRegistry } from "../../../data/emoji";
 import { skeyOf } from "../../../data/ids";
@@ -18,7 +17,7 @@ import { channelPath, type Layer, packPath } from "../../../shell/layers";
 
 const MOJI_BLUE_HOSTS = new Set(["moji.blue", "www.moji.blue"]);
 
-export type PackSummary = { name?: string; cover?: RichTextPackCover };
+export type PackSummary = { name?: string };
 
 export type PackLinkTarget = { did: string; rkey: string };
 
@@ -169,7 +168,7 @@ const recordTarget = (
 	context: LinkTargetContext,
 	channelChip: boolean,
 ): RichTextLinkTarget => {
-	if (record.space !== context.space) return { kind: "internal", href };
+	const foreign = record.space !== context.space;
 	if (record.message) {
 		const target: RichTextLinkTarget = {
 			kind: "message",
@@ -179,6 +178,7 @@ const recordTarget = (
 			href,
 		};
 		if (record.thread) target.thread = record.thread;
+		if (foreign) target.foreign = true;
 		return target;
 	}
 	if (record.thread) {
@@ -187,11 +187,13 @@ const recordTarget = (
 			channel: record.channel,
 			thread: record.thread,
 			href,
+			...(foreign ? { space: record.space } : {}),
 		};
 	}
-	return channelChip
-		? { kind: "channel", channel: record.channel }
-		: { kind: "internal", href };
+	if (!channelChip && !foreign) return { kind: "internal", href };
+	return foreign
+		? { kind: "channel", channel: record.channel, space: record.space }
+		: { kind: "channel", channel: record.channel };
 };
 
 const packTarget = (
@@ -206,7 +208,6 @@ const packTarget = (
 		href: `${clientOrigin()}${packPath(pack)}`,
 	};
 	if (summary?.name) target.name = summary.name;
-	if (summary?.cover) target.cover = summary.cover;
 	return target;
 };
 
@@ -234,7 +235,8 @@ export const linkTargetFor = (
 		return routeFromLink(uri) ? { kind: "internal", href: uri } : undefined;
 	}
 	const target = recordTarget(record, uri, context, false);
-	return target.kind === "thread"
-		? { kind: "thread", channel: target.channel, thread: target.thread }
-		: target;
+	if (target.kind !== "thread") return target;
+	return target.space
+		? { ...target, href: uri }
+		: { kind: "thread", channel: target.channel, thread: target.thread };
 };

@@ -55,7 +55,10 @@ const LOCKED_CLASS = cx(
 );
 
 const CHIP_GLYPH_CLASS =
-	"mx-px inline-block size-[0.85em] -translate-y-px align-middle";
+	"mx-px inline-block size-[0.875em]! align-[-0.09375em]";
+
+const CHIP_SPACE_ICON_CLASS =
+	"mx-px inline-block size-[1em] overflow-hidden rounded-[3px] align-[-0.15625em]";
 
 export const Spoiler = (props: ParentProps) => {
 	const [revealed, setRevealed] = createSignal(false);
@@ -224,10 +227,15 @@ export const ChannelChip = (props: {
 	channel: string;
 	text: string;
 	ctx: RichTextResolvers;
+	space?: string;
 	thread?: { thread: string; href: string };
 	message?: { rkey: string; href: string };
 }) => {
-	const resolved = createMemo(() => props.ctx.channel?.(props.channel));
+	const resolved = createMemo(() =>
+		props.space
+			? props.ctx.channelIn?.(props.space, props.channel)
+			: props.ctx.channel?.(props.channel),
+	);
 	const facetType = () => {
 		if (props.message) return "message";
 		return props.thread ? "thread" : "channel";
@@ -236,7 +244,10 @@ export const ChannelChip = (props: {
 	const threadName = () => {
 		const target = props.thread;
 		if (!target) return undefined;
-		return props.ctx.threadName?.(props.channel, target.thread) ?? "Thread";
+		return (
+			props.ctx.threadName?.(props.channel, target.thread, props.space) ??
+			"Thread"
+		);
 	};
 
 	const locked = () => (
@@ -248,13 +259,15 @@ export const ChannelChip = (props: {
 			data-channel={props.channel}
 			data-thread={props.thread?.thread}
 			data-message={props.message?.rkey}
+			data-space={props.space}
 			class={cx(
 				LOCKED_CLASS,
-				"inline border-0 font-[inherit] text-[length:inherit] leading-[inherit]",
+				"inline border-0 font-[inherit] text-[length:inherit] leading-[1.3125]",
 			)}
 			onClick={() => props.ctx.onLockedChannel?.(props.channel)}
 		>
 			<LockKeyholeMinimalisticIcon
+				size="1em"
 				class={CHIP_GLYPH_CLASS}
 				aria-hidden="true"
 			/>
@@ -272,6 +285,7 @@ export const ChannelChip = (props: {
 					data-channel={props.channel}
 					data-thread={props.thread?.thread}
 					data-message={props.message?.rkey}
+					data-space={props.space}
 					class={cx(CHIP_CLASS, "text-muted-foreground")}
 				>
 					{props.text}
@@ -292,6 +306,7 @@ export const ChannelChip = (props: {
 							data-channel={props.channel}
 							data-thread={props.thread?.thread}
 							data-message={props.message?.rkey}
+							data-space={props.space}
 							href={targetHref() ?? ready().href ?? "#"}
 							class={CHANNEL_CLASS}
 							onClick={(event) => {
@@ -312,9 +327,14 @@ export const ChannelChip = (props: {
 											fallback={
 												<span
 													aria-hidden="true"
-													class="mx-px inline-flex size-[1.1em] -translate-y-px items-center justify-center rounded-[3px] bg-secondary align-middle text-[0.55em] font-semibold"
+													class={cx(
+														CHIP_SPACE_ICON_CLASS,
+														"bg-secondary text-center leading-[1em]",
+													)}
 												>
-													{spaceInitials(space().name)}
+													<span class="align-middle text-[0.55em] font-semibold">
+														{spaceInitials(space().name)}
+													</span>
 												</span>
 											}
 										>
@@ -322,11 +342,12 @@ export const ChannelChip = (props: {
 												<AnimatedImage
 													src={src()}
 													alt=""
-													class="mx-px inline-block size-[1.1em] -translate-y-px rounded-[3px] object-cover align-middle"
+													class={cx(CHIP_SPACE_ICON_CLASS, "object-cover")}
 												/>
 											)}
 										</Show>
 										<AltArrowRightIcon
+											size="1em"
 											class={CHIP_GLYPH_CLASS}
 											aria-hidden="true"
 										/>
@@ -338,6 +359,7 @@ export const ChannelChip = (props: {
 									<>
 										{category()}
 										<AltArrowRightIcon
+											size="1em"
 											class={CHIP_GLYPH_CLASS}
 											aria-hidden="true"
 										/>
@@ -349,6 +371,7 @@ export const ChannelChip = (props: {
 								{(name) => (
 									<>
 										<AltArrowRightIcon
+											size="1em"
 											class={CHIP_GLYPH_CLASS}
 											aria-hidden="true"
 										/>
@@ -359,14 +382,16 @@ export const ChannelChip = (props: {
 							</Show>
 							<Show when={props.message}>
 								<AltArrowRightIcon
+									size="1em"
 									class={CHIP_GLYPH_CLASS}
 									aria-hidden="true"
 								/>
 								<ChatRoundLineIcon
+									size="1em"
 									class={CHIP_GLYPH_CLASS}
 									aria-hidden="true"
 								/>
-								{MESSAGE_CHIP_LABEL}
+								<span class="sr-only">{MESSAGE_CHIP_LABEL}</span>
 							</Show>
 						</TooltipTrigger>
 						<TooltipContent>{ready().space?.name}</TooltipContent>
@@ -391,19 +416,7 @@ export const PackChip = (props: {
 		class={CHANNEL_CLASS}
 		onClick={(event) => props.ctx.onNavigate?.(props.target.href, event)}
 	>
-		<Show
-			when={props.target.cover}
-			fallback={<SmileCircleIcon class={CHIP_GLYPH_CLASS} aria-hidden="true" />}
-		>
-			{(cover) => (
-				<AnimatedImage
-					src={cover().src}
-					alt=""
-					data-pack-cover=""
-					class="mx-px inline-block size-[1.1em] -translate-y-px object-contain align-middle"
-				/>
-			)}
-		</Show>
+		<SmileCircleIcon size="1em" class={CHIP_GLYPH_CLASS} aria-hidden="true" />
 		{props.target.name || PACK_CHIP_FALLBACK_LABEL}
 	</a>
 );
@@ -478,6 +491,7 @@ export const LinkFacet = (props: {
 						channel={channel().channel}
 						text={props.label}
 						ctx={props.ctx}
+						space={channel().space}
 					/>
 				)}
 			</Match>
@@ -492,6 +506,7 @@ export const LinkFacet = (props: {
 						channel={thread().channel}
 						text={props.label}
 						ctx={props.ctx}
+						space={thread().space}
 						thread={{
 							thread: thread().thread,
 							href: thread().href ?? props.uri,
@@ -510,6 +525,7 @@ export const LinkFacet = (props: {
 						channel={message().channel}
 						text={props.label}
 						ctx={props.ctx}
+						space={message().foreign ? message().space : undefined}
 						thread={(() => {
 							const thread = message().thread;
 							return thread ? { thread, href: message().href } : undefined;

@@ -35,17 +35,19 @@ export type RichTextChannel =
 	| { state: "loading" }
 	| { state: "locked" };
 
-export type RichTextPackCover = {
-	src: string;
-	alt?: string;
-};
-
 export type RichTextLinkTarget =
-	| { kind: "channel"; channel: string }
-	| { kind: "thread"; channel: string; thread: string; href?: string }
+	| { kind: "channel"; channel: string; space?: string }
+	| {
+			kind: "thread";
+			channel: string;
+			thread: string;
+			href?: string;
+			space?: string;
+	  }
 	| {
 			kind: "message";
 			space: string;
+			foreign?: boolean;
 			channel: string;
 			thread?: string;
 			rkey: string;
@@ -57,7 +59,6 @@ export type RichTextLinkTarget =
 			rkey: string;
 			href: string;
 			name?: string;
-			cover?: RichTextPackCover;
 	  }
 	| { kind: "internal"; href: string }
 	| { kind: "external"; href: string };
@@ -107,7 +108,12 @@ export type RichTextResolvers = {
 	role?: (rkey: string) => RichTextRole | undefined;
 	wrapRole?: (role: RichTextRole, chip: JSX.Element) => JSX.Element;
 	channel?: (channel: string) => RichTextChannel | undefined;
-	threadName?: (channel: string, thread: string) => string | undefined;
+	channelIn?: (space: string, channel: string) => RichTextChannel | undefined;
+	threadName?: (
+		channel: string,
+		thread: string,
+		space?: string,
+	) => string | undefined;
 	onChannelOpen?: (channel: string, event: MouseEvent) => void;
 	onLockedChannel?: (channel: string) => void;
 	linkTarget?: (uri: string) => RichTextLinkTarget | undefined;

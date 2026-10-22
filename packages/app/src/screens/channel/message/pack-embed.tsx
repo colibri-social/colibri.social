@@ -3,15 +3,15 @@ import {
 	EmojiPackCardSkeleton,
 	EmojiPackCardUnavailable,
 	emojiPackShareUrl,
-	parseEmojiPackShareUrl,
 } from "@colibri-social/ui";
 import { createMemo, Match, Switch } from "solid-js";
 import { usePackPreview } from "../../../data/emoji/pack-preview";
 import type { PackTarget } from "../../../data/emoji/shared-pack";
 import type { Did } from "../../../data/types";
+import { packLinkTarget } from "./link-targets";
 
 export const packLinkOf = (uri: string): string | undefined => {
-	const target = parseEmojiPackShareUrl(uri);
+	const target = packLinkTarget(uri);
 	return target ? emojiPackShareUrl(target) : undefined;
 };
 
@@ -20,7 +20,7 @@ export const PackEmbed = (props: {
 	platform: "mobile" | "desktop";
 }) => {
 	const target = createMemo((): PackTarget | undefined => {
-		const parsed = parseEmojiPackShareUrl(props.url);
+		const parsed = packLinkTarget(props.url);
 		return parsed ? { did: parsed.did as Did, rkey: parsed.rkey } : undefined;
 	});
 	const preview = usePackPreview(target);

@@ -69,11 +69,11 @@ export const emojiFacetText = (
 	const bytes = encoder.encode(text);
 	const ranges: { start: number; end: number }[] = [];
 	for (const facet of facets) {
-		const emoji = facet.features.every(
-			(feature) =>
-				kindOf(feature) === CUSTOM_EMOJI_KIND &&
-				!!resolve(feature as RichTextForeignFeature)?.src,
-		);
+		const emoji = facet.features.every((feature) => {
+			if (kindOf(feature) !== CUSTOM_EMOJI_KIND) return false;
+			const resolved = resolve(feature as RichTextForeignFeature);
+			return !!resolved?.src || !!resolved?.pending;
+		});
 		if (!emoji || facet.features.length === 0) return undefined;
 		ranges.push({ start: facet.index.byteStart, end: facet.index.byteEnd });
 	}

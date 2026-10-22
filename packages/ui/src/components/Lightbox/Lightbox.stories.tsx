@@ -570,23 +570,30 @@ export const VideoHandoff: Story = {
 		await waitFor(() => expect(inlineVideo.currentTime).toBeGreaterThan(0.6), {
 			timeout: 3000,
 		});
+		await expect(
+			within(inline).getByRole("button", { name: "Fullscreen" }),
+		).toBeInTheDocument();
+		await expect(
+			within(inline).queryByRole("button", { name: "Expand video" }),
+		).toBeNull();
 		await userEvent.click(
-			within(inline).getByRole("button", { name: "Expand video" }),
+			within(canvasElement).getByRole("button", { name: /^Open image/ }),
 		);
-		const handedOff = inlineVideo.currentTime;
-		await expect(inlineVideo.paused).toBe(true);
 		const viewer = await dialog();
+		await waitFor(() => expect(viewer).toHaveAttribute("data-phase", "open"));
+		await userEvent.keyboard("{ArrowRight}");
 		await waitFor(() => expect(viewer).toHaveAttribute("data-index", "1"));
 		const viewerVideo = await waitFor(() => {
 			const video = playerVideo(viewer);
 			expect(video).not.toBeNull();
 			return video;
 		});
-		await waitFor(
-			() =>
-				expect(Math.abs(viewerVideo.currentTime - handedOff)).toBeLessThan(0.5),
-			{ timeout: 3000 },
+		await waitFor(() => expect(inlineVideo.paused).toBe(true));
+		await waitFor(() =>
+			expect(Number.isFinite(viewerVideo.duration)).toBe(true),
 		);
+		viewerVideo.currentTime = 1.5;
+		await waitFor(() => expect(viewerVideo.currentTime).toBeCloseTo(1.5, 1));
 		viewerVideo.pause();
 		const closedAt = viewerVideo.currentTime;
 		await userEvent.keyboard("{Escape}");

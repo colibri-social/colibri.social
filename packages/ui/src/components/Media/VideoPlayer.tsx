@@ -21,12 +21,7 @@ import { keyboardFocusWithin } from "../../utils/keyboard-modality";
 import { motionScale } from "../../utils/motion";
 import { Spinner } from "../Spinner/Spinner";
 import { formatClock } from "./format";
-import {
-	claimPlayback,
-	onPlaybackHandoff,
-	releasePlayback,
-	stashPlayback,
-} from "./handoff";
+import { claimPlayback, onPlaybackHandoff, releasePlayback } from "./handoff";
 import { Scrubber } from "./Scrubber";
 import { mediaSourceKey, sameMediaSource, VideoSource } from "./VideoSource";
 
@@ -55,7 +50,6 @@ export type VideoPlayerProps = {
 	interactive?: boolean;
 	controlsHideDelay?: number;
 	handoff?: VideoPlayerHandoff;
-	onExpand?: () => void;
 	onTimeUpdate?: (time: number) => void;
 	onPlayingChange?: (playing: boolean) => void;
 	onStartedChange?: (started: boolean) => void;
@@ -178,10 +172,6 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 	};
 
 	const toggleFullscreen = async () => {
-		if (props.onExpand) {
-			props.onExpand();
-			return;
-		}
 		if (!root || !video) return;
 		if (document.fullscreenElement) {
 			await document.exitFullscreen().catch(() => {});
@@ -335,14 +325,7 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 		props.ref?.(handle);
 		surface?.addEventListener("click", onSurfaceClick);
 		document.addEventListener("fullscreenchange", onFullscreenChange);
-		if (props.handoff === "viewer") {
-			const state = claimPlayback(handoffKey());
-			if (state) {
-				pendingStart = state.time;
-				pendingPlay = state.playing;
-				setTime(state.time);
-			}
-		}
+		if (props.handoff === "viewer") claimPlayback(handoffKey());
 		if (video && video.readyState >= 1) onLoadedMetadata();
 		onCleanup(() => {
 			surface?.removeEventListener("click", onSurfaceClick);
@@ -373,17 +356,6 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 			);
 		}),
 	);
-
-	const expand = () => {
-		if (props.handoff === "inline" && video) {
-			stashPlayback(handoffKey(), {
-				time: video.currentTime,
-				playing: !video.paused && !video.ended,
-			});
-			video.pause();
-		}
-		void toggleFullscreen();
-	};
 
 	const aspect = () =>
 		props.width && props.height
@@ -599,15 +571,9 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 						<button
 							type="button"
 							data-icon-host=""
-							aria-label={
-								props.onExpand
-									? "Expand video"
-									: fullscreen()
-										? "Exit fullscreen"
-										: "Fullscreen"
-							}
+							aria-label={fullscreen() ? "Exit fullscreen" : "Fullscreen"}
 							class={controlButton}
-							onClick={expand}
+							onClick={() => void toggleFullscreen()}
 						>
 							<AnimatedMaximizeIcon />
 						</button>

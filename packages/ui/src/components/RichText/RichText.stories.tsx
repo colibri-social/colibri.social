@@ -50,16 +50,31 @@ const CHANNELS: Record<string, RichTextChannel> = {
 	pending: { state: "loading" },
 };
 
+const CLUB_ICON = `data:image/svg+xml,${encodeURIComponent(
+	'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" fill="#7c5cff"/><circle cx="12" cy="12" r="6" fill="#ffd166"/></svg>',
+)}`;
+
+const OTHER_SPACE_CHANNELS: Record<string, RichTextChannel> = {
+	"did:plc:club/showcase": {
+		state: "ready",
+		name: "showcase",
+		space: { name: "Hummingbird Club", iconSrc: CLUB_ICON },
+	},
+	"did:plc:garden/general": {
+		state: "ready",
+		name: "general",
+		space: { name: "Night Garden" },
+	},
+	"did:plc:club/staff": { state: "locked" },
+	"did:plc:club/pending": { state: "loading" },
+};
+
 const THREADS: Record<string, string> = {
 	"spring-tuning": "Spring tuning",
 };
 
-const PACK_COVER = `data:image/svg+xml,${encodeURIComponent(
-	'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#e8a33d"/></svg>',
-)}`;
-
-const PACKS: Record<string, { name?: string; cover?: { src: string } }> = {
-	owls: { name: "Night owls", cover: { src: PACK_COVER } },
+const PACKS: Record<string, { name?: string }> = {
+	owls: { name: "Night owls" },
 	plain: { name: "Plain pack" },
 	loading: {},
 };
@@ -95,9 +110,30 @@ const resolvers: RichTextResolvers = {
 	),
 	role: (rkey) => ROLES[rkey],
 	channel: (channel) => CHANNELS[channel],
+	channelIn: (space, channel) => OTHER_SPACE_CHANNELS[`${space}/${channel}`],
 	onChannelOpen,
 	onLockedChannel,
 	linkTarget: (uri) => {
+		const other = uri.match(
+			/^https:\/\/colibri\.social\/s\/([\w:]+)\/c\/(\w+)(?:\/t\/([\w-]+))?(?:\/m\/(\w+))?$/,
+		);
+		if (other) {
+			const [, space, channel, thread, rkey] = other;
+			if (rkey) {
+				return {
+					kind: "message",
+					space,
+					foreign: true,
+					channel,
+					rkey,
+					href: uri,
+					...(thread ? { thread } : {}),
+				};
+			}
+			return thread
+				? { kind: "thread", space, channel, thread, href: uri }
+				: { kind: "channel", space, channel };
+		}
 		const message = uri.match(
 			/^https:\/\/colibri\.social\/c\/(\w+)(?:\/t\/([\w-]+))?\/m\/(\w+)$/,
 		);
@@ -514,11 +550,12 @@ export const MessageLinks: Story = {
 		await expect(chips()).toHaveLength(4);
 		const [plain, threaded, hidden, waiting] = chips();
 		await expect(plain).toHaveTextContent("#general");
-		await expect(plain).toHaveTextContent("Message");
+		await expect(plain).toHaveAccessibleName("#general Message");
+		await expect(plain.querySelector(".sr-only")).toHaveTextContent("Message");
 		await expect(plain).toHaveAttribute("data-message", "3kmsg");
 		await expect(plain.querySelector("[data-icon='thread']")).toBeNull();
 		await expect(threaded).toHaveTextContent("Spring tuning");
-		await expect(threaded).toHaveTextContent("Message");
+		await expect(threaded).toHaveTextContent("Spring tuning");
 		await expect(threaded.querySelector("[data-icon='thread']")).not.toBeNull();
 		await expect(threaded).toHaveAttribute(
 			"href",
@@ -532,6 +569,96 @@ export const MessageLinks: Story = {
 			expect.anything(),
 		);
 		await expect(onChannelOpen).not.toHaveBeenCalled();
+	},
+};
+
+const pill = (label: string, uri: string) => [
+	`${label}: `,
+	mark(uri, f.link(uri)),
+	"\n",
+];
+
+const LINK_PILLS = build([
+	...pill("Channel", "https://colibri.social/c/general"),
+	...pill("Channel in a category", "https://colibri.social/c/rules"),
+	...pill("Thread", "https://colibri.social/c/general/t/spring-tuning"),
+	...pill("Message", "https://colibri.social/c/general/m/3kmsg"),
+	...pill(
+		"Message in a thread",
+		"https://colibri.social/c/general/t/spring-tuning/m/3kreply",
+	),
+	...pill(
+		"Other Space channel",
+		"https://colibri.social/s/did:plc:club/c/showcase",
+	),
+	...pill(
+		"Other Space message",
+		"https://colibri.social/s/did:plc:club/c/showcase/m/3kmsg",
+	),
+	...pill(
+		"Other Space without icon",
+		"https://colibri.social/s/did:plc:garden/c/general/m/3kmsg",
+	),
+	...pill(
+		"Other Space thread message",
+		"https://colibri.social/s/did:plc:club/c/showcase/t/spring-tuning/m/3kreply",
+	),
+	...pill(
+		"Channel you can't read",
+		"https://colibri.social/s/did:plc:club/c/staff/m/3kmsg",
+	),
+	...pill(
+		"Space you haven't joined",
+		"https://colibri.social/s/did:plc:stranger/c/general/m/3kmsg",
+	),
+	...pill("Loading", "https://colibri.social/s/did:plc:club/c/pending/m/3kmsg"),
+	...pill("Emoji pack", "https://colibri.social/emoji/owls"),
+	"Inline: check ",
+	mark(
+		"this",
+		f.link("https://colibri.social/s/did:plc:club/c/showcase/m/3kmsg"),
+	),
+	" before replying in ",
+	mark("general", f.link("https://colibri.social/c/general")),
+	".",
+]);
+
+export const LinkPills: Story = {
+	render: () => <Frame value={LINK_PILLS} platform="desktop" />,
+	play: async ({ canvasElement }) => {
+		const foreign = Array.from(
+			canvasElement.querySelectorAll<HTMLElement>("[data-space]"),
+		);
+		await expect(foreign.length).toBeGreaterThan(0);
+		const canvas = within(canvasElement);
+		await expect(
+			canvas.getAllByRole("link", { name: "#showcase Message" }),
+		).toHaveLength(2);
+		const offCenter: string[] = [];
+		for (const chip of canvasElement.querySelectorAll<HTMLElement>(
+			"[data-chip]",
+		)) {
+			const rects = chip.getClientRects();
+			const box = rects[0];
+			if (!box || rects.length > 1) continue;
+			for (const icon of chip.querySelectorAll<Element>(
+				"[aria-hidden='true'], img",
+			)) {
+				const rect = icon.getBoundingClientRect();
+				const top = rect.top - box.top;
+				const bottom = box.bottom - rect.bottom;
+				if (Math.abs(top - bottom) > 0.5 || top < 2) {
+					offCenter.push(
+						`${chip.dataset.facetType} ${icon.tagName} ${top} ${bottom}`,
+					);
+				}
+			}
+		}
+		await expect(offCenter).toEqual([]);
+		const locked = canvasElement.querySelectorAll("[data-locked]");
+		await expect(locked).toHaveLength(2);
+		for (const chip of locked)
+			await expect(chip).toHaveTextContent("No access");
 	},
 };
 
@@ -564,7 +691,8 @@ export const PackLinks: Story = {
 		await expect(chips).toHaveLength(3);
 		const [owls, plain, loading] = chips;
 		await expect(owls).toHaveTextContent("Night owls");
-		await expect(owls.querySelector("[data-pack-cover]")).not.toBeNull();
+		await expect(owls.querySelector("[data-pack-cover]")).toBeNull();
+		await expect(owls.querySelector("svg")).not.toBeNull();
 		await expect(owls).not.toHaveAttribute("data-loading");
 		await expect(plain).toHaveTextContent("Plain pack");
 		await expect(plain.querySelector("[data-pack-cover]")).toBeNull();
@@ -1038,6 +1166,65 @@ const foreignFacet = (text: string, token: string, uri = OWL_URI) => {
 		index: { byteStart, byteEnd: byteStart + encoder.encode(token).length },
 		features: [{ $type: CUSTOM_EMOJI_FEATURE, uri }],
 	} as unknown as NonNullable<TextWithFacets["facets"]>[number];
+};
+
+export const CustomEmojiPendingJumbo: Story = {
+	render: () => {
+		const [ready, setReady] = createSignal(false);
+		return (
+			<RichTextProvider
+				value={{
+					...resolvers,
+					customEmojiFeature: (feature) =>
+						feature.$type === CUSTOM_EMOJI_FEATURE && feature.uri === OWL_URI
+							? ready()
+								? {
+										id: OWL_URI,
+										name: "owl",
+										src: CUSTOM_EMOJI.party_parrot as string,
+									}
+								: { id: OWL_URI, name: "", src: "", pending: true }
+							: undefined,
+				}}
+			>
+				<div class="bg-background p-4 text-base leading-message text-foreground">
+					<RichTextRenderer
+						value={{
+							text: ":owl:",
+							facets: [foreignFacet(":owl:", ":owl:")],
+						}}
+					/>
+				</div>
+				<button type="button" onClick={() => setReady(true)}>
+					Resolve
+				</button>
+			</RichTextProvider>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expect(canvasElement.querySelector("[data-jumbo]")).not.toBeNull();
+		const skeleton = canvasElement.querySelector<HTMLElement>(
+			"[data-custom-emoji-pending]",
+		);
+		const pending = skeleton?.getBoundingClientRect();
+		await userEvent.click(canvas.getByRole("button", { name: "Resolve" }));
+		await waitFor(() =>
+			expect(
+				canvasElement.querySelector("img[data-custom-emoji='owl']"),
+			).not.toBeNull(),
+		);
+		const image = canvasElement
+			.querySelector("img[data-custom-emoji='owl']")
+			?.getBoundingClientRect();
+		await expect(Math.round(pending?.width ?? 0)).toBeGreaterThan(22);
+		await expect(Math.round(pending?.width ?? 0)).toBe(
+			Math.round(image?.width ?? -1),
+		);
+		await expect(Math.round(pending?.height ?? 0)).toBe(
+			Math.round(image?.height ?? -1),
+		);
+	},
 };
 
 export const CustomEmojiPending: Story = {
