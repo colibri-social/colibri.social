@@ -398,3 +398,29 @@ describe("scopes", () => {
 		expect([...EMOJI_COLLECTIONS].sort()).toEqual([...new Set(written)].sort());
 	});
 });
+
+describe("batch lookup", () => {
+	it("asks for every URI in one request and builds image URLs", async () => {
+		const USER = "did:plc:user";
+		const wave = wireEmoji(COMMUNITY, "wave");
+		const badger = wireEmoji(USER, "badger");
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				"social.colibri.beta.emoji.getEmojis",
+				json({ emojis: [wave, badger], unreachable: ["did:plc:gone"] }),
+			);
+		});
+		const batch = await source.getEmojis?.([wave.uri, badger.uri]);
+		const calls = fake.callsTo("social.colibri.beta.emoji.getEmojis");
+		expect(calls).toHaveLength(1);
+		expect(calls[0]?.params.getAll("uris")).toEqual([wave.uri, badger.uri]);
+		expect(batch?.emojis.map((emoji) => emoji.id)).toEqual([
+			wave.uri,
+			badger.uri,
+		]);
+		expect(batch?.emojis[1]?.image).toContain(
+			`did=${encodeURIComponent(USER)}`,
+		);
+		expect(batch?.unreachable).toEqual(["did:plc:gone"]);
+	});
+});

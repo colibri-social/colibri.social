@@ -3,9 +3,10 @@ import type {
 	ColibriErrorCode,
 	ErrorCopy,
 } from "@colibri-social/lib";
-import { ErrorState } from "@colibri-social/ui";
+import { ErrorState, FEEDBACK_URL } from "@colibri-social/ui";
 import { type JSX, Show } from "solid-js";
 import { describeError } from "../../data/error-copy";
+import { openExternalUrl } from "../../native/open-external";
 import { usePlatform } from "../../screen/platform";
 import { WindowChrome } from "../desktop/TitleBar";
 
@@ -51,6 +52,7 @@ export const StartupError = (props: {
 					code={props.error.code}
 					onRetry={props.onRetry}
 					report={props.report}
+					onFeedback={() => openExternalUrl(FEEDBACK_URL)}
 				/>
 			</div>
 		</div>

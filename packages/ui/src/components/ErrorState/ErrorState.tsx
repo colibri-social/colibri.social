@@ -14,6 +14,8 @@ export type ErrorStateProps = {
 	retryLabel?: string;
 	actions?: JSX.Element;
 	report?: JSX.Element;
+	onFeedback?: () => void;
+	feedbackLabel?: string;
 	variant?: "screen" | "inline";
 	class?: string;
 };
@@ -78,12 +80,27 @@ export const ErrorState = (props: ErrorStateProps) => {
 						</>
 					}
 					actions={
-						props.onRetry || actions.has() || report.has() ? (
+						props.onRetry ||
+						actions.has() ||
+						report.has() ||
+						props.onFeedback ? (
 							<>
 								{retryButton(true)}
 								{actions()}
 								<Show when={report.has()}>
 									<div class="mt-4 flex w-full">{report()}</div>
+								</Show>
+								<Show when={props.onFeedback}>
+									{(onFeedback) => (
+										<Button
+											block
+											variant="tertiary"
+											data-error-feedback=""
+											onClick={() => onFeedback()()}
+										>
+											{props.feedbackLabel ?? "Send feedback"}
+										</Button>
+									)}
 								</Show>
 							</>
 						) : undefined

@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { DISCOVERY_ENABLED } from "./features";
-import { parsePath, pathAt, type Route, rootPath, routeRoot } from "./layers";
+import {
+	messagePath,
+	messageTargetOf,
+	parsePath,
+	pathAt,
+	type Route,
+	rootPath,
+	routeRoot,
+	sameLayer,
+	withoutMessages,
+} from "./layers";
 
 const DID = "did:plc:hq";
 const TEXT = "social.colibri.beta.channel.text";
@@ -208,6 +218,91 @@ describe("paths", () => {
 		const route = parsePath(`/app/c/${DID}/${TEXT}/c%2Fd`);
 		expect(route.layers[0]).toMatchObject({ channel: "c/d" });
 		expect(pathAt(route, 1)).toBe(`/app/c/${DID}/${TEXT}/c%2Fd`);
+	});
+});
+
+describe("message permalinks", () => {
+	const chat = `/app/c/${DID}/${TEXT}/general`;
+
+	it("parses a channel message link into a chat layer with the message", () => {
+		const route = parsePath(`${chat}/m/3kmsg`);
+		expect(route.root).toEqual({ tab: "spaces", space: DID });
+		expect(route.layers).toEqual([
+			{
+				kind: "chat",
+				space: DID,
+				channel: "general",
+				channelType: TEXT,
+				message: "3kmsg",
+			},
+		]);
+		expect(messageTargetOf(route)).toEqual({
+			space: DID,
+			channel: "general",
+			channelType: TEXT,
+			rkey: "3kmsg",
+		});
+	});
+
+	it("parses a thread message link into a thread layer with the message", () => {
+		const route = parsePath(`${chat}/t/3kthread/m/3kmsg`);
+		expect(route.layers).toEqual([
+			{ kind: "chat", space: DID, channel: "general", channelType: TEXT },
+			{
+				kind: "thread",
+				space: DID,
+				channel: "general",
+				channelType: TEXT,
+				thread: "3kthread",
+				message: "3kmsg",
+			},
+		]);
+		expect(messageTargetOf(route)).toEqual({
+			space: DID,
+			channel: "general",
+			channelType: TEXT,
+			thread: "3kthread",
+			rkey: "3kmsg",
+		});
+	});
+
+	it("builds links that parse back to the same message", () => {
+		const target = {
+			space: DID,
+			channel: "general",
+			channelType: TEXT,
+			thread: "3kthread",
+			rkey: "3kmsg",
+		};
+		expect(messagePath(target)).toBe(`${chat}/t/3kthread/m/3kmsg`);
+		expect(messageTargetOf(parsePath(messagePath(target)))).toEqual(target);
+		const { thread: _thread, ...inChannel } = target;
+		expect(messagePath(inChannel)).toBe(`${chat}/m/3kmsg`);
+		expect(messageTargetOf(parsePath(messagePath(inChannel)))).toEqual(
+			inChannel,
+		);
+	});
+
+	it("keeps the message out of the layer path and identity", () => {
+		const route = parsePath(`${chat}/t/3kthread/m/3kmsg`);
+		expect(pathAt(route, 1)).toBe(chat);
+		expect(pathAt(route, 2)).toBe(`${chat}/t/3kthread`);
+		expect(
+			sameLayer(route.layers[1], parsePath(`${chat}/t/3kthread`).layers[1]),
+		).toBe(true);
+		expect(withoutMessages(route)).toEqual(parsePath(`${chat}/t/3kthread`));
+		expect(messageTargetOf(parsePath(chat))).toBeUndefined();
+	});
+
+	it("rejects malformed message links", () => {
+		for (const path of [
+			`${chat}/m`,
+			`${chat}/m/3kmsg/extra`,
+			`${chat}/t/3kthread/m`,
+			`${chat}/t/3kthread/m/3kmsg/extra`,
+		]) {
+			expect(parsePath(path).layers[0]?.kind).toBe("notFound");
+		}
 	});
 });
 

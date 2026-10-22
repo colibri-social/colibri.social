@@ -1,5 +1,5 @@
 {
-	"count": 166,
+	"count": 167,
 	"lexicons": {
 		"social.colibri.beta.actor.clientPreferences": "6aa42f07078e1c03e0f98c62842acee393edd5dc8aab2134e4eb45c0a7658da5",
 		"social.colibri.beta.actor.composerState": "abe7e1c4d10e30b449e8b487ab49d599157f9a14282d868f8a7f0dba2cda92d7",
@@ -120,6 +120,7 @@
 		"social.colibri.beta.emoji.deletePack": "b17c4caf54e050e21cfc75b5e0076a3cf479c064e5a1e51a74dc6f8233218dc7",
 		"social.colibri.beta.emoji.follow": "2455255850c7227a5918c18ff5dba5943481fd195646e2efdfa4f9572d5e8570",
 		"social.colibri.beta.emoji.getCatalog": "b85cd990643140d868e74d8201e7e01e8f3db0c37860130b4b16054a2bdbe9b3",
+		"social.colibri.beta.emoji.getEmojis": "4c8aaf83837a220117f29129c58317ce9adebef52d5cd3b89c3a58b8c1ea103b",
 		"social.colibri.beta.emoji.getLibrary": "f2c0b89812ac5cb2960ad437e2d8b86c7d1a40903d5989a22c448a38f07ecf56",
 		"social.colibri.beta.emoji.putFollow": "92cdba1f6d8ce9075afcbf98fc35c363c75cc8e57d6bc741536162d072717169",
 		"social.colibri.beta.emoji.rename": "69fc60d08a2aa1d1caa57894a922dc41c40c1244c55ac9e0e498b1fd3e99cf6b",
@@ -141,7 +142,7 @@
 		"social.colibri.beta.notification.updateSeenForMessage": "aede1ebcd2a5a5c1dae09619d5bf3eb5a65694d81fe6ac367d30276b97a46fd5",
 		"social.colibri.beta.permissionAccount": "1781b1b417066c3e3de688dac33e2aa783f63d96597a44b6833feb144db31bf1",
 		"social.colibri.beta.permissionBridge": "0ff8a52a14a1f1dbef19f6e62d5fda332143dc32569a2765f58d95d47515fa35",
-		"social.colibri.beta.permissionCommunity": "9dc05a1772fed7bb8f85cc38c62302aeb31b4cab35bba1177da39b9c30e2b4ba",
+		"social.colibri.beta.permissionCommunity": "f79e29e03d3fae10d4c373f9b90a97d1607ac0760609a2374ffe3978a9fdf035",
 		"social.colibri.beta.permissionMessaging": "a3db22b95c5c9bb9e2e04403d065f322751a780f37e0dde1f1b304a0144633cd",
 		"social.colibri.beta.permissionNotification": "6882f2baf996c43968b2ef464ffaee0bdedab95d5e3dfb24f7a07b4d3595b000",
 		"social.colibri.beta.permissionPush": "fd3f70df690054de3775aa4d9fce297158dd0805396fec5f2fb06beac21ee16b",

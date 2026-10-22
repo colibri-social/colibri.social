@@ -35,11 +35,19 @@ describe("isSafeLinkUri", () => {
 		expect(isSafeLinkUri("mailto:someone@good.com")).toBe(true);
 	});
 
+	it("accepts well-formed at uris", () => {
+		expect(isSafeLinkUri("at://did:plc:abc/app.bsky.feed.post/1")).toBe(true);
+		expect(
+			isSafeLinkUri("at://lou.colibri.social/blue.moji.packs.pack/x"),
+		).toBe(true);
+		expect(isSafeLinkUri("at://did:plc:abc/x?y=<z>")).toBe(false);
+		expect(isSafeLinkUri("at://")).toBe(false);
+	});
+
 	it("rejects every other scheme", () => {
 		expect(isSafeLinkUri("javascript:alert(1)")).toBe(false);
 		expect(isSafeLinkUri("data:text/html,<script>x</script>")).toBe(false);
 		expect(isSafeLinkUri("file:///etc/passwd")).toBe(false);
-		expect(isSafeLinkUri("at://did:plc:abc/app.bsky.feed.post/1")).toBe(false);
 	});
 
 	it("rejects strings that aren't URLs", () => {

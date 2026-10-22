@@ -101,6 +101,7 @@ import { appVisible } from "./visibility";
 import { connectVoice } from "./voice";
 
 const PAGE_SIZE = 60;
+const STALE_OPEN_MS = 15_000;
 const CATCH_UP_PAGES = 4;
 const CATCH_UP_SPACING_MS = 1_000;
 const TYPING_MS = 6000;
@@ -138,7 +139,7 @@ export type Load<T> = {
 	value: Accessor<T | undefined>;
 	loading: Accessor<boolean>;
 	error: Accessor<ColibriError | undefined>;
-	retry: () => void;
+	retry: () => Promise<void> | void;
 };
 
 type MutableLoad<T> = Load<T> & {
@@ -205,7 +206,7 @@ export type ChannelData = {
 	ready: Accessor<boolean>;
 	confirmed: Accessor<boolean>;
 	loadError: Accessor<ColibriError | undefined>;
-	reload: () => void;
+	reload: () => Promise<void>;
 	hasOlder: Accessor<boolean>;
 	loadingOlder: Accessor<boolean>;
 	loadOlder: () => void;
@@ -306,6 +307,7 @@ const createLoad = <T>(
 	const [loading, setLoading] = createSignal(seed === undefined);
 	const [error, setError] = createSignal<ColibriError>();
 	let attempt = 0;
+	let running: Promise<void> | undefined;
 	const run = (quiet = false): Promise<void> => {
 		const current = ++attempt;
 		if (!quiet)
@@ -319,7 +321,7 @@ const createLoad = <T>(
 		} catch (thrown) {
 			request = Promise.reject(thrown);
 		}
-		return request.then(
+		const settled = request.then(
 			(result) => {
 				if (current !== attempt) return;
 				batch(() => {
@@ -342,13 +344,14 @@ const createLoad = <T>(
 				});
 			},
 		);
+		running = settled;
+		return settled;
 	};
 	void run(seed !== undefined);
 	const update = (change: (current: T) => T) =>
 		setValue((current) => (current === undefined ? current : change(current)));
-	const retry = () => {
-		if (!loading()) void run();
-	};
+	const retry = (): Promise<void> =>
+		untrack(loading) ? (running ?? Promise.resolve()) : run();
 	const refresh = () =>
 		untrack(value) === undefined || untrack(loading)
 			? Promise.resolve()
@@ -374,7 +377,7 @@ const createLazyLoad = <T>(
 		value: () => ensure().value(),
 		loading: () => ensure().loading(),
 		error: () => ensure().error(),
-		retry: () => ensure().retry(),
+		retry: () => ensure().retry() ?? Promise.resolve(),
 		update: (change) => inner?.update(change),
 		refresh: () => inner?.refresh() ?? Promise.resolve(),
 		peek: () => (started() ? inner?.value() : undefined),
@@ -1797,6 +1800,24 @@ export const createDataStore = (
 			const [confirmed, setConfirmed] = createSignal(false);
 			const [openError, setOpenError] = createSignal<ColibriError>();
 			let opening = false;
+			let attempt: { started: number; promise: Promise<void> } | undefined;
+			const track = (
+				run: (isCurrent: () => boolean) => Promise<void>,
+			): Promise<void> => {
+				const entry = {
+					started: Date.now(),
+					promise: Promise.resolve(),
+				};
+				const isCurrent = () => attempt === entry;
+				attempt = entry;
+				opening = true;
+				entry.promise = run(isCurrent).finally(() => {
+					if (!isCurrent()) return;
+					attempt = undefined;
+					opening = false;
+				});
+				return entry.promise;
+			};
 			const [cursor, setCursor] = createSignal<string>();
 			const [loadingOlder, setLoadingOlder] = createSignal(false);
 			const [unreadAfter, setUnreadAfter] = createSignal<string>();
@@ -2073,25 +2094,39 @@ export const createDataStore = (
 				setConfirmed(true);
 			};
 
-			const openFeed = () => {
-				if (opening) return;
-				opening = true;
-				setOpenError(undefined);
+			const openFeed = (keepError = false): Promise<void> => {
+				if (attempt) return attempt.promise;
+				if (!keepError) setOpenError(undefined);
 				const epoch = currentEpoch();
-				open().then(
-					(continuous) => {
-						opening = false;
-						if (!continuous) confirm(epoch);
-					},
-					(thrown: unknown) => {
-						opening = false;
-						const failure = classifyThrown(thrown, {
-							method: "channel.listMessages",
-						});
-						log.warn("channel open failed", { code: failure.code });
-						setOpenError(failure);
-					},
+				return track((isCurrent) =>
+					open().then(
+						(continuous) => {
+							if (!isCurrent()) return;
+							setOpenError(undefined);
+							if (!continuous) confirm(epoch);
+						},
+						(thrown: unknown) => {
+							const failure = classifyThrown(thrown, {
+								method: "channel.listMessages",
+							});
+							log.warn("channel open failed", { code: failure.code });
+							if (isCurrent()) setOpenError(failure);
+						},
+					),
 				);
+			};
+
+			const reload = (): Promise<void> => {
+				const running = attempt;
+				if (running && Date.now() - running.started < STALE_OPEN_MS) {
+					return running.promise;
+				}
+				if (running) {
+					attempt = undefined;
+					opening = false;
+				}
+				if (untrack(ready) && !untrack(openError)) return Promise.resolve();
+				return openFeed(true);
 			};
 
 			const loadOlder = () => {
@@ -2490,9 +2525,7 @@ export const createDataStore = (
 				ready,
 				confirmed,
 				loadError: openError,
-				reload: () => {
-					if (!ready()) openFeed();
-				},
+				reload,
 				hasOlder: () => !!cursor(),
 				hasNewer: () => !!gap(),
 				loadingNewer,
@@ -2801,23 +2834,22 @@ export const createDataStore = (
 			channels.set(ref, data);
 			const refresh = (): Promise<void> => {
 				if (!untrack(ready) || opening) return Promise.resolve();
-				opening = true;
 				const epoch = currentEpoch();
-				return refreshFromNetwork(
-					untrack(viewing) === ref || holds.has(ref),
-				).then(
-					() => {
-						opening = false;
-						confirm(epoch);
-					},
-					(thrown: unknown) => {
-						opening = false;
-						log.warn("channel refresh failed", {
-							code: classifyThrown(thrown, {
-								method: "channel.listMessages",
-							}).code,
-						});
-					},
+				return track((isCurrent) =>
+					refreshFromNetwork(untrack(viewing) === ref || holds.has(ref)).then(
+						() => {
+							if (!isCurrent()) return;
+							setOpenError(undefined);
+							confirm(epoch);
+						},
+						(thrown: unknown) => {
+							log.warn("channel refresh failed", {
+								code: classifyThrown(thrown, {
+									method: "channel.listMessages",
+								}).code,
+							});
+						},
+					),
 				);
 			};
 
@@ -3257,6 +3289,11 @@ export const createDataStore = (
 			isSpeaking: (did: Did) => !!speaking[did],
 			setVoice,
 			nonceFor: (rkey: string) => sentNonces.get(rkey),
+			peekMessage: (ref: SpaceRef, rkey: string): MessageView | undefined =>
+				channels
+					.get(ref)
+					?.messages()
+					.find((entry) => entry.rkey === rkey),
 			forward: (input: ForwardInput): Promise<unknown> => {
 				const message = untrack(() =>
 					channels.get(input.from)?.messages(),

@@ -78,7 +78,7 @@ type KeyboardProgress =
 	| { phase: "start"; from: number; to: number }
 	| { phase: "progress"; inset: number };
 
-const readProgress = (value: unknown): KeyboardProgress | undefined => {
+export const readProgress = (value: unknown): KeyboardProgress | undefined => {
 	if (!value || typeof value !== "object") return undefined;
 	const detail = value as Record<string, unknown>;
 	if (

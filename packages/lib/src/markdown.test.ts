@@ -492,3 +492,52 @@ describe("parseMarkdown link policy", () => {
 		expect(facets.flatMap((f) => f.features.map(kindOf))).toEqual(["link"]);
 	});
 });
+
+describe("bare link source", () => {
+	const link = (uri: string): Feature => ({
+		$type: "social.colibri.beta.richtext.facet#link",
+		uri,
+	});
+	const URI = "https://colibri.social/docs";
+
+	it("writes a link whose text is its url as the bare url", () => {
+		const text = `read ${URI} now`;
+		expect(
+			facetsToSource(text, [buildFacet(5, 5 + URI.length, link(URI))]).source,
+		).toBe(text);
+	});
+
+	it("writes a bare at uri as plain text", () => {
+		const uri = "at://did:plc:abc/app.bsky.feed.post/3k";
+		expect(
+			facetsToSource(uri, [buildFacet(0, uri.length, link(uri))]).source,
+		).toBe(uri);
+	});
+
+	it("keeps the markdown when the label differs", () => {
+		expect(facetsToSource("docs", [buildFacet(0, 4, link(URI))]).source).toBe(
+			`[docs](${URI})`,
+		);
+	});
+
+	it("keeps the markdown when the url touches other text", () => {
+		const text = `a${URI}`;
+		expect(
+			facetsToSource(text, [buildFacet(1, 1 + URI.length, link(URI))]).source,
+		).toBe(`a[${URI}](${URI})`);
+	});
+
+	it("keeps the markdown when a trailing full stop would fall off", () => {
+		const uri = `${URI}.`;
+		expect(
+			facetsToSource(uri, [buildFacet(0, uri.length, link(uri))]).source,
+		).toBe(`[${uri}](${uri})`);
+	});
+
+	it("keeps the markdown for a non-web scheme", () => {
+		const uri = "mailto:hi@colibri.social";
+		expect(
+			facetsToSource(uri, [buildFacet(0, uri.length, link(uri))]).source,
+		).toBe(`[${uri}](${uri})`);
+	});
+});

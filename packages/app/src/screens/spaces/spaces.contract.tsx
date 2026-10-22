@@ -1,4 +1,4 @@
-import { ColibriError } from "@colibri-social/lib";
+import { ColibriError, clientOrigin } from "@colibri-social/lib";
 import {
 	afterSpaceRailMotion,
 	Button,
@@ -435,7 +435,7 @@ export const spaces = defineContract({
 		const copyChannelLink = (channel: ChannelView) => {
 			const current = community();
 			if (!current) return;
-			const url = `${location.origin}${channelPath({
+			const url = `${clientOrigin()}${channelPath({
 				space: spaceKey(current),
 				channel: channelSlug(channel),
 				channelType: channel.type,

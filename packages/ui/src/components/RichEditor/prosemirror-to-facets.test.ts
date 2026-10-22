@@ -113,3 +113,32 @@ describe("autolinked absolute urls", () => {
 		]);
 	});
 });
+
+describe("autolinked at uris", () => {
+	it("links a record uri", () => {
+		const uri = "at://did:plc:abc123/app.bsky.feed.post/3kabc";
+		expect(linksIn(`see ${uri} now`)).toEqual([{ uri, covers: uri }]);
+	});
+
+	it("links a space record uri and drops a trailing full stop", () => {
+		const uri =
+			"at://did:plc:space/space/social.colibri.beta.channel.text/general";
+		expect(linksIn(`over in ${uri}.`)).toEqual([{ uri, covers: uri }]);
+	});
+
+	it("links a handle authority", () => {
+		const uri = "at://lou.colibri.social/blue.moji.packs.pack/3kowls";
+		expect(linksIn(uri)).toEqual([{ uri, covers: uri }]);
+	});
+
+	it("skips a uri without an authority", () => {
+		expect(linksIn("at:// is the scheme")).toEqual([]);
+	});
+
+	it("keeps an at uri as a markdown link target", () => {
+		const uri = "at://did:plc:abc123/app.bsky.feed.post/3kabc";
+		expect(linksIn(`[the post](${uri})`)).toEqual([
+			{ uri, covers: "the post" },
+		]);
+	});
+});

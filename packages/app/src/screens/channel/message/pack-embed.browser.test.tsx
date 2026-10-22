@@ -1,3 +1,4 @@
+import { clientOrigin } from "@colibri-social/lib";
 import "../../../app.css";
 import { emojiPackShareUrl } from "@colibri-social/ui";
 import { render } from "solid-js/web";
@@ -51,9 +52,7 @@ const mount = async (url: (packId: string) => string) => {
 
 it("normalizes share links from every Colibri host", () => {
 	const url = "https://next.colibri.social/emoji/did%3Aplc%3Aabc/3kowls";
-	expect(packLinkOf(url)).toBe(
-		"https://spaces.colibri.social/emoji/did:plc:abc/3kowls",
-	);
+	expect(packLinkOf(url)).toBe(`${clientOrigin()}/emoji/did:plc:abc/3kowls`);
 	expect(packLinkOf("https://example.com/emoji/did:plc:abc/3kowls")).toBe(
 		undefined,
 	);

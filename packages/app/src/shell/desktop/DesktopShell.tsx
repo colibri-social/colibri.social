@@ -240,10 +240,8 @@ export const DesktopShell = () => {
 			? {
 					error,
 					title: "Channels didn't load",
-					retry: () => {
-						space.channels.retry();
-						space.categories.retry();
-					},
+					retry: () =>
+						Promise.all([space.channels.retry(), space.categories.retry()]),
 				}
 			: undefined;
 	});

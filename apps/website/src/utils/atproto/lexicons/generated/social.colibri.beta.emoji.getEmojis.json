@@ -1,0 +1,55 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.emoji.getEmojis",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets custom emoji by record URI, across any number of repos and every supported emoji provider. URIs that name no emoji are left out.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"uris"
+				],
+				"properties": {
+					"uris": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "at-uri"
+						},
+						"maxLength": 100,
+						"description": "The emoji record URIs to get."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"emojis"
+					],
+					"properties": {
+						"emojis": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.emoji.defs#emojiView"
+							},
+							"description": "The emoji found, in the order their URIs were requested."
+						},
+						"unreachable": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "did"
+							},
+							"description": "Owners whose repo could not be read. Their emoji are left out of emojis, and asking again later can return them."
+						}
+					}
+				}
+			},
+			"errors": []
+		}
+	}
+}

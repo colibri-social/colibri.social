@@ -12,16 +12,18 @@ export const TEXT_CHANNEL_TYPE = "social.colibri.beta.channel.text";
 
 type ChannelTarget = { space: string; channel: string; channelType?: string };
 
-export type ChatLayer = ChannelTarget & { kind: "chat" };
+export type ChatLayer = ChannelTarget & { kind: "chat"; message?: string };
 export type MembersLayer = ChannelTarget & { kind: "members" };
 export type ThreadLayer = ChannelTarget & {
 	kind: "thread";
 	thread: string;
 	via?: "threads";
 	presentation?: "full";
+	message?: string;
 };
 
 export const FULL_THREAD_SEGMENT = "full";
+export const MESSAGE_SEGMENT = "m";
 export type ThreadsLayer = ChannelTarget & { kind: "threads" };
 export type ThreadDraftLayer = ChannelTarget & {
 	kind: "threadDraft";
@@ -225,6 +227,42 @@ export const layerPath = (layer: Layer) => {
 	return chat;
 };
 
+export type MessageTarget = ChannelTarget & { thread?: string; rkey: string };
+
+export const messagePath = (target: MessageTarget) => {
+	const base = channelPath(target);
+	const scope = target.thread ? `${base}/t/${segment(target.thread)}` : base;
+	return `${scope}/${MESSAGE_SEGMENT}/${segment(target.rkey)}`;
+};
+
+export const messageTargetOf = (route: Route): MessageTarget | undefined => {
+	const layer = route.layers.findLast(
+		(entry) =>
+			(entry.kind === "chat" || entry.kind === "thread") && !!entry.message,
+	);
+	if (layer?.kind !== "chat" && layer?.kind !== "thread") return undefined;
+	if (!layer.message) return undefined;
+	const target: MessageTarget = {
+		space: layer.space,
+		channel: layer.channel,
+		rkey: layer.message,
+	};
+	if (layer.channelType) target.channelType = layer.channelType;
+	if (layer.kind === "thread") target.thread = layer.thread;
+	return target;
+};
+
+export const withoutMessages = (route: Route): Route => ({
+	root: route.root,
+	layers: route.layers.map((layer) => {
+		if ((layer.kind !== "chat" && layer.kind !== "thread") || !layer.message) {
+			return layer;
+		}
+		const { message: _message, ...rest } = layer;
+		return rest;
+	}),
+});
+
 export const packPath = (target: { did: string; rkey: string }) =>
 	`/app/emoji/${target.did}/${segment(target.rkey)}`;
 
@@ -262,7 +300,8 @@ export const notFoundRoute = (pathname: string): Route => ({
 });
 
 const parseKnownPath = (parts: readonly string[]): Route | undefined => {
-	const [app, head, space, channelType, channel, tail, thread, anchor] = parts;
+	const [app, head, space, channelType, channel, tail, thread, anchor, rest] =
+		parts;
 	const length = parts.length;
 	if (length === 0) return { root: { tab: "spaces" }, layers: [] };
 	if (app === "invite") {
@@ -325,6 +364,10 @@ const parseKnownPath = (parts: readonly string[]): Route | undefined => {
 	const target = { space, channel, channelType };
 	const chat: ChatLayer = { kind: "chat", ...target };
 	if (!tail) return { root, layers: [chat] };
+	if (tail === MESSAGE_SEGMENT) {
+		if (!thread || length !== 7) return undefined;
+		return { root, layers: [{ ...chat, message: thread }] };
+	}
 	if (tail === "members") {
 		if (length > 6) return undefined;
 		return { root, layers: [chat, { kind: "members", ...target }] };
@@ -334,6 +377,13 @@ const parseKnownPath = (parts: readonly string[]): Route | undefined => {
 		const draft: ThreadDraftLayer = { kind: "threadDraft", ...target };
 		if (anchor) draft.anchor = anchor;
 		return { root, layers: [chat, draft] };
+	}
+	if (tail === "t" && thread && anchor === MESSAGE_SEGMENT) {
+		if (!rest || length !== 9) return undefined;
+		return {
+			root,
+			layers: [chat, { kind: "thread", ...target, thread, message: rest }],
+		};
 	}
 	if (tail === "t" && thread) {
 		if (length > 8 || (anchor && anchor !== FULL_THREAD_SEGMENT)) {

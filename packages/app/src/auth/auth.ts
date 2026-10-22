@@ -13,11 +13,14 @@ import {
 	classifyThrown,
 	configureXrpc,
 	createLogger,
+	getMissingScopeMethods,
 	getMissingScopeSets,
 	isColibriError,
+	isRequestedScopeResource,
 	isRetryableCode,
 	isSignInDenial,
 	isStorageFailure,
+	scopeFeatureLabel,
 	supportsSpaces,
 } from "@colibri-social/lib";
 import {
@@ -27,10 +30,13 @@ import {
 	createSignal,
 	getOwner,
 	onCleanup,
+	untrack,
 } from "solid-js";
+import { type ResumeEnvironment, watchResume } from "../data/resume";
 import { openAppLink } from "../native/deep-links";
 import { openNotificationLink } from "../native/push/activation";
 import { reportError } from "../sentry/report";
+import { rememberLaunchPath } from "../shell/message-jump";
 import { appViewDid } from "./appview";
 import {
 	callbackParamsFrom,
@@ -55,7 +61,11 @@ import {
 	listenForDeepLinks,
 	startWebAuth,
 } from "./native";
-import { createSessionHealth, type SessionHealth } from "./session-health";
+import {
+	createSessionHealth,
+	type SessionHealth,
+	UNATTRIBUTED_REJECTION,
+} from "./session-health";
 
 const log = createLogger("auth");
 
@@ -63,6 +73,9 @@ const SUB_KEY = "sub";
 const RETURN_KEY = "colibri:return-to";
 const HANDLED_LINK_KEY = "colibri:handled-deep-link";
 const FALLBACK_FLAG_KEY = "colibri:oauth-storage-fallback";
+const SCOPE_PAUSED_KEY = "colibri:scope-prompt-paused";
+const SCOPE_REAPPROVAL_KEY = "colibri:scope-reapproval";
+export const GRANT_REFRESH_AFTER_MS = 15 * 60_000;
 const SIGN_IN_TIMEOUT_MS = 75_000;
 export const STARTUP_TIMEOUT_MS = 30_000;
 export const BEFORE_SIGN_OUT_TIMEOUT_MS = 3_000;
@@ -104,6 +117,11 @@ export type AuthStatus =
 
 export type SignInPhase = "checking" | "redirecting" | "browser";
 
+export type ScopeNotice = {
+	methods: string[];
+	features: string[];
+};
+
 export type AuthOptions = {
 	native?: boolean;
 	loadClient?: LoadOAuthClient;
@@ -121,6 +139,8 @@ export type AuthOptions = {
 	spacesSupport?: (host: string) => Promise<boolean | undefined>;
 	startupTimeoutMs?: number;
 	beforeSignOutTimeoutMs?: number;
+	appVersion?: string;
+	resumeEnvironment?: ResumeEnvironment | null;
 };
 
 export type Auth = {
@@ -132,6 +152,8 @@ export type Auth = {
 	error: Accessor<ColibriError | undefined>;
 	startupError: Accessor<ColibriError | undefined>;
 	missingScopes: Accessor<string[]>;
+	scopeNotice: Accessor<ScopeNotice | undefined>;
+	dismissScopeNotice: () => void;
 	expiredCode: Accessor<ColibriErrorCode | undefined>;
 	health: SessionHealth;
 	init: () => Promise<void>;
@@ -205,6 +227,33 @@ export const asSignInError = (err: unknown): ColibriError => {
 const isReturnablePath = (path: string) =>
 	path.startsWith("/app") && !path.startsWith(SIGN_IN_PATH);
 
+const readStringList = (raw: string | null, field: string): string[] => {
+	if (!raw) return [];
+	try {
+		const parsed = JSON.parse(raw) as Record<string, unknown>;
+		const list = parsed[field];
+		return Array.isArray(list)
+			? list.filter((item): item is string => typeof item === "string")
+			: [];
+	} catch {
+		return [];
+	}
+};
+
+const readField = (raw: string | null, field: string): unknown => {
+	if (!raw) return undefined;
+	try {
+		return (JSON.parse(raw) as Record<string, unknown>)[field];
+	} catch {
+		return undefined;
+	}
+};
+
+const scopeNoticeKey = (method: string) =>
+	method === UNATTRIBUTED_REJECTION || isRequestedScopeResource(method)
+		? method
+		: UNATTRIBUTED_REJECTION;
+
 export const createAuth = (options: AuthOptions = {}): Auth => {
 	const native = options.native ?? isNativeShell();
 	const loadClient = options.loadClient ?? defaultLoadClient;
@@ -227,8 +276,44 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 	const startupTimeoutMs = options.startupTimeoutMs ?? STARTUP_TIMEOUT_MS;
 	const beforeSignOutTimeoutMs =
 		options.beforeSignOutTimeoutMs ?? BEFORE_SIGN_OUT_TIMEOUT_MS;
+	const appVersion =
+		options.appVersion ?? import.meta.env.VITE_APP_VERSION ?? "development";
 
-	const health = createSessionHealth();
+	const readPaused = (): ReadonlySet<string> => {
+		const raw = local.get(SCOPE_PAUSED_KEY);
+		if (readField(raw, "version") === appVersion) {
+			return new Set(readStringList(raw, "methods"));
+		}
+		if (raw !== null) local.remove(SCOPE_PAUSED_KEY);
+		return new Set();
+	};
+	const [pausedMethods, setPausedMethods] = createSignal(readPaused());
+	const [dismissedMethods, setDismissedMethods] = createSignal<
+		ReadonlySet<string>
+	>(new Set());
+	let justReapproved: ReadonlySet<string> = new Set();
+
+	const pauseMethods = (methods: readonly string[]) => {
+		const current = pausedMethods();
+		const added = methods.filter((method) => !current.has(method));
+		if (added.length === 0) return;
+		const next = new Set([...current, ...added]);
+		setPausedMethods(next);
+		local.set(
+			SCOPE_PAUSED_KEY,
+			JSON.stringify({ version: appVersion, methods: [...next] }),
+		);
+		log.info("access is still missing after approval, pausing the prompt", {
+			count: added.length,
+		});
+	};
+
+	const health = createSessionHealth(Date.now, {
+		onScopesRejected: (method) => {
+			const key = scopeNoticeKey(method);
+			if (justReapproved.has(key)) pauseMethods([key]);
+		},
+	});
 	const [base, setBase] = createSignal<AuthStatus>("loading");
 	const [agent, setAgent] = createSignal<Agent>();
 	const [grantedScope, setGrantedScope] = createSignal<string>();
@@ -242,10 +327,31 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		if (current === "signedIn" && health.dead()) return "expired";
 		return current;
 	});
-	const missingScopes = createMemo(() => {
-		const scope = grantedScope();
-		if (health.scopesRejected()) return getMissingScopeSets(scope ?? "");
-		return scope === undefined ? [] : getMissingScopeSets(scope);
+	const missingScopes = createMemo(() => getMissingScopeSets(grantedScope()));
+
+	const neededMethods = createMemo(() => {
+		const fromGrant = getMissingScopeMethods(grantedScope());
+		const rejected = [...health.rejectedMethods()].map(scopeNoticeKey);
+		return [...new Set([...fromGrant, ...rejected])];
+	});
+
+	const scopeNotice = createMemo<ScopeNotice | undefined>(() => {
+		if (status() !== "signedIn" || missingScopes().length > 0) return;
+		const paused = pausedMethods();
+		const dismissed = dismissedMethods();
+		const methods = neededMethods().filter(
+			(method) => !paused.has(method) && !dismissed.has(method),
+		);
+		if (methods.length === 0) return;
+		const features = [
+			...new Set(
+				methods.flatMap((method) => {
+					const label = scopeFeatureLabel(method);
+					return label ? [label] : [];
+				}),
+			),
+		];
+		return { methods, features };
 	});
 
 	let client: OAuthClientLike | undefined;
@@ -253,6 +359,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 	let initializing: Promise<void> | undefined;
 	let startup = 0;
 	let stopDeepLinks: (() => void) | undefined;
+	let stopGrantRefresh: (() => void) | undefined;
 
 	const clientId = () => makeClientId({ native, location: location() });
 
@@ -268,11 +375,44 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 
 	const clearSession = () => {
 		local.remove(SUB_KEY);
+		session.remove(SCOPE_REAPPROVAL_KEY);
+		stopGrantRefresh?.();
+		stopGrantRefresh = undefined;
 		batch(() => {
 			setAgent(undefined);
 			setGrantedScope(undefined);
 			setAccountHost(undefined);
 		});
+	};
+
+	const refreshGrant = (oauth: OAuthSession, owner: Agent) =>
+		oauth.getTokenInfo(true).then(
+			(info) => {
+				if (agent() !== owner) return;
+				if (info.scope !== untrack(grantedScope)) {
+					health.clearScopeRejections();
+				}
+				setGrantedScope(info.scope);
+			},
+			(err: unknown) => {
+				const failure = classifyThrown(err, { method: "oauth.getTokenInfo" });
+				log.warn("refreshing access failed", { code: failure.code });
+				if (failure.needsReauth) health.markDead(failure.code);
+			},
+		);
+
+	const isOnline = () => typeof navigator === "undefined" || navigator.onLine;
+
+	const settleReapproval = (did: string, scope: string | undefined) => {
+		const raw = session.get(SCOPE_REAPPROVAL_KEY);
+		session.remove(SCOPE_REAPPROVAL_KEY);
+		if (readField(raw, "did") !== did) return;
+		const asked = readStringList(raw, "methods");
+		const stillMissing = new Set(getMissingScopeMethods(scope));
+		pauseMethods(asked.filter((method) => stillMissing.has(method)));
+		justReapproved = new Set(
+			asked.filter((method) => !stillMissing.has(method)),
+		);
 	};
 
 	const adopt = async (oauth: OAuthSession, fresh: boolean) => {
@@ -290,29 +430,35 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		} catch {}
 		local.set(SUB_KEY, oauth.sub);
 		health.reset();
+		if (fresh) settleReapproval(oauth.did, scope);
 		batch(() => {
 			setAgent(next);
 			setGrantedScope(scope);
 			setAccountHost(host);
+			setDismissedMethods(new Set<string>());
 			setBase("signedIn");
 		});
-		const online = typeof navigator === "undefined" || navigator.onLine;
-		if (!fresh && online && scope && getMissingScopeSets(scope).length === 0) {
-			void oauth.getTokenInfo(true).then(
-				(info) => setGrantedScope(info.scope),
-				(err: unknown) => {
-					const failure = classifyThrown(err, { method: "oauth.getTokenInfo" });
-					log.warn("refreshing access failed", { code: failure.code });
-					if (failure.needsReauth) health.markDead(failure.code);
-				},
-			);
-		}
+		const refreshable = () =>
+			isOnline() && getMissingScopeSets(untrack(grantedScope)).length === 0;
+		if (!fresh && scope && refreshable()) void refreshGrant(oauth, next);
+		stopGrantRefresh?.();
+		stopGrantRefresh = watchResume({
+			onResume: () => {
+				if (agent() === next && untrack(grantedScope) && refreshable()) {
+					void refreshGrant(oauth, next);
+				}
+			},
+			afterMs: GRANT_REFRESH_AFTER_MS,
+			environment: options.resumeEnvironment,
+		});
 	};
 
 	const returnAfterSignIn = () => {
 		const target = session.get(RETURN_KEY);
 		session.remove(RETURN_KEY);
-		navigate(target && isReturnablePath(target) ? target : "/app");
+		const destination = target && isReturnablePath(target) ? target : "/app";
+		rememberLaunchPath(destination);
+		navigate(destination);
 	};
 
 	const rememberReturn = () => {
@@ -595,6 +741,10 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 	const reauthorize = async () => {
 		const did = agent()?.did ?? local.get(SUB_KEY) ?? undefined;
 		if (!did) return;
+		session.set(
+			SCOPE_REAPPROVAL_KEY,
+			JSON.stringify({ did, methods: untrack(neededMethods) }),
+		);
 		await signIn(did);
 	};
 
@@ -636,10 +786,15 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		report: (error, options) => reportError(error, options),
 		sessionDead: health.dead,
 		sessionDeadCode: health.deadCode,
-		noteScopesRejected: () => health.noteScopesRejected(),
+		noteScopesRejected: ({ method }) => health.noteScopesRejected(method),
 	});
 
-	if (getOwner()) onCleanup(() => stopDeepLinks?.());
+	if (getOwner()) {
+		onCleanup(() => {
+			stopDeepLinks?.();
+			stopGrantRefresh?.();
+		});
+	}
 
 	return {
 		status,
@@ -650,6 +805,11 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		error,
 		startupError,
 		missingScopes,
+		scopeNotice,
+		dismissScopeNotice: () => {
+			const shown = untrack(scopeNotice)?.methods ?? [];
+			setDismissedMethods(new Set([...untrack(dismissedMethods), ...shown]));
+		},
 		expiredCode: health.deadCode,
 		health,
 		init,

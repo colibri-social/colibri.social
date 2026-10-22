@@ -1,3 +1,4 @@
+import { clientOrigin } from "@colibri-social/lib";
 import { createSignal, type JSX, Show } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -101,7 +102,7 @@ it("copies a share link for a pack", async () => {
 	const [did, , rkey] = followed.id.slice("at://".length).split("/");
 	await until(() => writeText.mock.calls.length > 0);
 	expect(writeText).toHaveBeenCalledWith(
-		`https://spaces.colibri.social/emoji/${did}/${rkey}`,
+		`${clientOrigin()}/emoji/${did}/${rkey}`,
 	);
 	writeText.mockRestore();
 });

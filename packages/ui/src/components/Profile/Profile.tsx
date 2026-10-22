@@ -34,6 +34,7 @@ export type StatusBubbleProps = {
 	editable?: boolean;
 	onClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
 	actionLabel?: string;
+	play?: boolean;
 	class?: string;
 };
 
@@ -69,6 +70,7 @@ export const StatusBubble = (props: StatusBubbleProps) => {
 						emoji={props.emoji}
 						customEmoji={props.customEmoji}
 						size={18}
+						play={props.play}
 					/>
 				</span>
 			</Show>
@@ -217,6 +219,7 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 						customEmoji={props.statusCustomEmoji}
 						editable={props.statusEditable}
 						onClick={props.onStatusClick}
+						play={props.avatarPlay}
 					>
 						{status()}
 					</StatusBubble>

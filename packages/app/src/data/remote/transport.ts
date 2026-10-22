@@ -65,6 +65,7 @@ const readBody = async (response: Response): Promise<unknown> => {
 export const createTransport = (input: {
 	session: RemoteSession;
 	appViewDid: string;
+	onScopesRejected?: (method: string) => void;
 }) => {
 	const appViewProxy = appViewServiceRef(input.appViewDid);
 	const notifProxy = notifServiceRef(input.appViewDid);
@@ -112,6 +113,7 @@ export const createTransport = (input: {
 		const error =
 			failure ?? new ColibriError({ code: "Unexpected", method: nsid });
 		log.warn("request failed", { method: nsid, code: error.code });
+		if (error.code === "ScopesMissing") input.onScopesRejected?.(nsid);
 		throw error;
 	};
 

@@ -1,3 +1,4 @@
+import { clientOrigin } from "@colibri-social/lib";
 import {
 	Button,
 	ConfirmDialog,
@@ -99,7 +100,7 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 			channelType: parent?.type ?? options.channelType,
 			thread: skeyOf(view.space),
 		});
-		void copyText(`${location.origin}${path}`).then(() =>
+		void copyText(`${clientOrigin()}${path}`).then(() =>
 			toast.success("Thread link copied"),
 		);
 	};

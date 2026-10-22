@@ -10,6 +10,7 @@ import type { Editor, MarkType, NodeType, TextType } from "@tiptap/core";
 import { shortcodeToEmoji } from "@tiptap/extension-emoji";
 import { TIPTAP_EMOJIS } from "../../utils/emoji-data";
 import {
+	isAtUri,
 	isValidDomain,
 	MARKDOWN_LINK_POLICY,
 } from "../../utils/rich-text/link-safety";
@@ -85,7 +86,9 @@ export type MentionType = {
 const textEncoder = new TextEncoder();
 
 const URL_REGEX =
-	/(^|\s|\()((https?:\/\/[\S]+)|((?<domain>[a-z][a-z0-9]*(\.[a-z0-9]+)+)[\S]*))/gim;
+	/(^|\s|\()((https?:\/\/[\S]+)|(at:\/\/[\S]+)|((?<domain>[a-z][a-z0-9]*(\.[a-z0-9]+)+)[\S]*))/gim;
+
+const SCHEME_LINK_REGEX = /^(https?|at):\/\//i;
 
 const docToSource = (
 	content: DocContent,
@@ -288,7 +291,7 @@ const detectMissingLinkFacets = (
 
 	while ((match = re.exec(text))) {
 		let uri = match[2];
-		const isBareDomain = !uri.startsWith("http");
+		const isBareDomain = !SCHEME_LINK_REGEX.test(uri);
 		if (isBareDomain) {
 			const domain = match.groups?.domain;
 			if (!domain || !isValidDomain(domain)) continue;
@@ -301,6 +304,7 @@ const detectMissingLinkFacets = (
 		const endUtf16 = trimmed.endUtf16;
 
 		if (isBareDomain && !hasParsableHostname(uri)) continue;
+		if (/^at:/i.test(uri) && !isAtUri(uri)) continue;
 
 		const byteStart = textEncoder.encode(text.slice(0, startUtf16)).length;
 		const byteEnd = textEncoder.encode(text.slice(0, endUtf16)).length;

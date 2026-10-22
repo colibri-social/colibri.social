@@ -3,6 +3,7 @@ import { Drawer, DrawerContent, TextField } from "@colibri-social/ui";
 import { For } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, expect, it } from "vitest";
+import { GateShell } from "./gate-shell";
 import {
 	installKeyboardInset,
 	KEYBOARD_PROGRESS_EVENT,
@@ -204,4 +205,108 @@ it("resets the app when the keyboard closes inside a drawer it opened for", asyn
 	await settle();
 	expect(shell().getBoundingClientRect().height).toBe(fullHeight);
 	expect(follower().style.transform).toBe("");
+});
+
+const mountGate = async () => {
+	const host = document.createElement("div");
+	document.body.append(host);
+	dispose = render(
+		() => (
+			<GateShell platform="mobile">
+				<div class="flex min-h-dvh flex-col">
+					<div class="flex flex-1 flex-col justify-center px-6 py-8">
+						<div class="h-72 shrink-0" />
+						<div data-onboarding-screen="sign-in" class="flex flex-col gap-4">
+							<h1 class="m-0 h-24">Sign in with your existing account</h1>
+							<TextField label="Handle or username" placeholder="alice" />
+							<p class="m-0 h-10">Please sign in again.</p>
+							<button type="button" data-gate-continue="" class="h-11">
+								Continue
+							</button>
+						</div>
+					</div>
+				</div>
+			</GateShell>
+		),
+		host,
+	);
+	await until(() => !!gateInput());
+	gateInput()?.focus({ preventScroll: true });
+	await settle();
+};
+
+const gate = () =>
+	document.querySelector<HTMLElement>("[data-gate-shell]") as HTMLElement;
+
+const gateInput = () =>
+	document.querySelector<HTMLInputElement>("[data-gate-shell] input");
+
+it("keeps the sign-in input above an Android keyboard before the app shell exists", async () => {
+	await mountGate();
+	const fullHeight = gate().getBoundingClientRect().height;
+	expect(Math.round(fullHeight)).toBe(window.innerHeight);
+	const covered = (gateInput() as HTMLInputElement).getBoundingClientRect();
+	expect(covered.bottom).toBeGreaterThan(window.innerHeight - KEYBOARD);
+	const actionTop = () =>
+		(
+			document.querySelector("[data-gate-continue]") as HTMLElement
+		).getBoundingClientRect().top;
+	const resting = actionTop();
+	progress({ phase: "start", from: 0, to: KEYBOARD });
+	await frame();
+	const tops: number[] = [];
+	for (const inset of steps(0, KEYBOARD)) {
+		progress({ phase: "progress", inset });
+		await frame();
+		tops.push(actionTop());
+	}
+	expect(tops[0]).toBeLessThan(resting);
+	for (let index = 1; index < tops.length; index++)
+		expect(tops[index]).toBeLessThanOrEqual((tops[index - 1] ?? 0) + 0.5);
+	const beforeCommit = actionTop();
+	commit(KEYBOARD);
+	await settle();
+	await new Promise((resolve) => setTimeout(resolve, 100));
+	expect(Math.abs(actionTop() - beforeCommit)).toBeLessThanOrEqual(1);
+	expect(gate().getBoundingClientRect().height).toBe(fullHeight - KEYBOARD);
+	const field = (gateInput() as HTMLInputElement).getBoundingClientRect();
+	expect(field.top).toBeGreaterThanOrEqual(0);
+	const action = document
+		.querySelector("[data-gate-continue]")
+		?.getBoundingClientRect();
+	expect(action?.bottom).toBeLessThanOrEqual(
+		window.innerHeight - KEYBOARD - 15,
+	);
+	const lifted = actionTop();
+	progress({ phase: "start", from: KEYBOARD, to: 0 });
+	await frame();
+	expect(Math.abs(actionTop() - lifted)).toBeLessThanOrEqual(1);
+	const closing: number[] = [];
+	for (const inset of steps(KEYBOARD, 0)) {
+		progress({ phase: "progress", inset });
+		await frame();
+		closing.push(actionTop());
+	}
+	for (let index = 1; index < closing.length; index++)
+		expect(closing[index]).toBeGreaterThanOrEqual(
+			(closing[index - 1] ?? 0) - 0.5,
+		);
+	commit(0);
+	await settle();
+	expect(gate().getBoundingClientRect().height).toBe(fullHeight);
+	expect(Math.abs(actionTop() - resting)).toBeLessThanOrEqual(1);
+});
+
+it("removes the keyboard inset when the gate unmounts", async () => {
+	await mountGate();
+	commit(KEYBOARD);
+	await settle();
+	expect(document.documentElement.style.getPropertyValue(SHELL_INSET_VAR)).toBe(
+		`${KEYBOARD}px`,
+	);
+	dispose?.();
+	dispose = undefined;
+	expect(document.documentElement.style.getPropertyValue(SHELL_INSET_VAR)).toBe(
+		"",
+	);
 });

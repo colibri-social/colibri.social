@@ -248,11 +248,11 @@ describe("moving messages", () => {
 
 	const groupNamed = (picker: HTMLElement, name: string) =>
 		Array.from(
-			picker.querySelectorAll<HTMLElement>("[data-collapsible-group]"),
+			picker.querySelectorAll<HTMLElement>("[data-destination-channel]"),
 		).find(
 			(group) =>
 				group
-					.querySelector("[data-collapsible-group-select]")
+					.querySelector("[data-destination-main]")
 					?.textContent?.trim()
 					.startsWith(name) ?? false,
 		);
@@ -262,21 +262,19 @@ describe("moving messages", () => {
 		const picker = await openPicker(root, targets[0] as MessageView);
 
 		const groups = picker.querySelectorAll<HTMLElement>(
-			"[data-collapsible-group]",
+			"[data-destination-channel]",
 		);
 		const dev = groupNamed(picker, "dev");
 		expect(groups[0]).toBe(dev);
 		expect(dev?.hasAttribute("data-expanded")).toBe(true);
-		expect(dev?.textContent).toContain("this channel");
+		expect(dev?.textContent).toContain("Current channel");
 		expect(buttonNamed(/Spring tuning/, dev)).toBeDefined();
 		expect(buttonNamed("New thread in #dev", dev)).toBeDefined();
 
 		const general = groupNamed(picker, "general");
 		expect(general?.hasAttribute("data-expanded")).toBe(false);
 		expect(buttonNamed("New thread in #general", general)).toBeUndefined();
-		general
-			?.querySelector<HTMLElement>("[data-collapsible-group-toggle]")
-			?.click();
+		general?.querySelector<HTMLElement>("[data-destination-toggle]")?.click();
 		await until(() => !!buttonNamed("New thread in #general", general));
 
 		const drawer = picker.closest<HTMLElement>('[role="dialog"]');
@@ -295,7 +293,7 @@ describe("moving messages", () => {
 		await userEvent.type(search, "spring");
 		await until(
 			() =>
-				picker.querySelectorAll("[data-collapsible-group]").length === 1 &&
+				picker.querySelectorAll("[data-destination-channel]").length === 1 &&
 				!!buttonNamed(/Spring tuning/, picker),
 		);
 		expect(groupNamed(picker, "dev")).toBeDefined();
@@ -311,9 +309,7 @@ describe("moving messages", () => {
 		const { source, store, root, targets } = await setup();
 		const picker = await openPicker(root, targets[0] as MessageView);
 		const general = groupNamed(picker, "general");
-		general
-			?.querySelector<HTMLElement>("[data-collapsible-group-toggle]")
-			?.click();
+		general?.querySelector<HTMLElement>("[data-destination-toggle]")?.click();
 		await until(() => !!buttonNamed("New thread in #general", general));
 		buttonNamed("New thread in #general", general)?.click();
 		await until(() => !!document.querySelector('input[maxlength="128"]'));

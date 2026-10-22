@@ -1,21 +1,24 @@
 import { isOffline } from "@colibri-social/lib";
 import {
 	Button,
-	CheckboxRow,
-	CollapsibleGroup,
+	DestinationAction,
+	DestinationChannel,
+	DestinationEmpty,
+	DestinationList,
+	DestinationNote,
+	DestinationSpace,
+	DestinationThread,
+	DestinationThreadSkeleton,
+	ForwardPreview,
+	type ForwardPreviewAttachment,
 	FullScreenSheet,
-	ListGroup,
 	Modal,
-	ModalClose,
 	ModalContent,
-	NavRow,
+	RichTextRenderer,
 	SearchField,
-	SpaceIcon,
 	TextField,
 	toast,
 } from "@colibri-social/ui";
-import { ChatRoundDotsIcon } from "@solar-icons/solid/bold/chat-round-dots";
-import { ChatSquareDotsIcon } from "@solar-icons/solid/bold/chat-square-dots";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import {
 	type Component,
@@ -27,11 +30,14 @@ import {
 	on,
 	Show,
 } from "solid-js";
+import { mediaKindOf } from "../../../data/adapters/attachments";
+import { displayNameOf } from "../../../data/adapters/display-name";
+import { toTextValue } from "../../../data/adapters/facets";
 import type { ForwardTarget as ForwardPlace } from "../../../data/adapters/forward";
 import { formatAge } from "../../../data/adapters/time";
 import { skeyOf } from "../../../data/ids";
 import { useData } from "../../../data/store";
-import type { SpaceRef } from "../../../data/types";
+import type { AttachmentView, SpaceRef } from "../../../data/types";
 import { usePlatform } from "../../../screen/platform";
 import {
 	type ForwardChannelGroup,
@@ -64,6 +70,27 @@ const placeOf = (target: ForwardTarget): ForwardPlace => ({
 });
 
 const DISCARD_NOTE = "Your message won't be forwarded.";
+
+const threadCount = (count: number) =>
+	`${count} ${count === 1 ? "thread" : "threads"}`;
+
+const previewAttachments = (
+	attachments: readonly AttachmentView[] = [],
+): ForwardPreviewAttachment[] =>
+	attachments.map((attachment) => {
+		const media = mediaKindOf(attachment.mimeType);
+		const kind = media
+			? media
+			: attachment.mimeType.toLowerCase().startsWith("audio/")
+				? "audio"
+				: "file";
+		return {
+			kind,
+			src: media === "image" || media === "gif" ? attachment.url : undefined,
+			alt: attachment.alt,
+			spoiler: attachment.spoiler === true,
+		};
+	});
 
 export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 	const [request, setRequest] = createSignal<ForwardRequest>();
@@ -295,12 +322,12 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 			return `Forward to ${forwardDestinationNoun(targets())}`;
 		};
 
-		const forwardButton = (block: boolean) => (
+		const forwardButton = () => (
 			<Button
-				block={block}
 				disabled={targets().length === 0}
 				loading={sending()}
 				onClick={() => void forward()}
+				class="shrink-0"
 			>
 				<span data-forward-submit="" class="tabular-nums">
 					{forwardLabel()}
@@ -308,21 +335,67 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 			</Button>
 		);
 
-		const previewAndSearch = () => (
-			<>
-				<div
-					data-forward-preview=""
-					class="min-w-0 overflow-hidden rounded-control bg-secondary px-3 py-2 text-sm text-muted-foreground [overflow-wrap:anywhere]"
-				>
-					<div class="line-clamp-3">{request()?.preview}</div>
+		const message = createMemo(() => {
+			const current = request();
+			return current
+				? data.peekMessage(current.channel, current.rkey)
+				: undefined;
+		});
+
+		const previewBody = () => {
+			const found = message();
+			if (!found) return request()?.preview;
+			return found.text.trim() ? (
+				<RichTextRenderer
+					value={toTextValue(found.text, found.facets)}
+					platform={platform()}
+				/>
+			) : undefined;
+		};
+
+		const previewCard = () => (
+			<ForwardPreview
+				author={displayNameOf(message()?.author)}
+				avatarSrc={message()?.author.avatar}
+				seed={message()?.author.did}
+				timestamp={message()?.createdAt}
+				attachments={previewAttachments(message()?.attachments)}
+			>
+				{previewBody()}
+			</ForwardPreview>
+		);
+
+		const footer = () => (
+			<div data-forward-actions="" class="flex min-w-0 flex-col gap-3">
+				{previewCard()}
+				<div class="flex min-w-0 items-center gap-2">
+					<TextField
+						aria-label="Add a message"
+						placeholder="Add a message"
+						value={note()}
+						onChange={setNote}
+						maxLength={2000}
+						disabled={sending()}
+						class="min-w-0 flex-1"
+					/>
+					{forwardButton()}
 				</div>
+			</div>
+		);
+
+		const search = (sticky: boolean) => (
+			<div
+				class={
+					sticky ? "sticky top-0 z-10 -mx-4 bg-popover px-4 pb-1" : undefined
+				}
+			>
 				<SearchField
 					aria-label="Search channels and threads"
 					placeholder="Search channels and threads"
 					value={query()}
 					onChange={setQuery}
 				/>
-			</>
+			</div>
 		);
 
 		const failedNote = () => (
@@ -341,59 +414,48 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 								{(ref) => (
 									<Show when={threadOf(group(), ref)}>
 										{(thread) => (
-											<CheckboxRow
+											<DestinationThread
 												value={thread().key}
-												checked={
-													!thread().current && selected().has(thread().key)
-												}
-												onChange={(checked) => toggle(thread(), checked)}
-												disabled={thread().current || sending()}
-												leading={
-													<span
-														aria-hidden="true"
-														class="flex size-6 items-center justify-center text-foreground [&>svg]:size-6"
-													>
-														<ChatRoundDotsIcon />
-													</span>
-												}
-												label={
-													<span
-														data-forward-thread=""
-														class="block min-w-0 truncate"
-													>
+												name={
+													<span data-forward-thread="">
 														{thread().thread?.name}
 													</span>
 												}
-												description={
+												hint={
 													thread().current
 														? "Current thread"
 														: failed().has(thread().key)
 															? failedNote()
-															: formatAge(thread().thread?.lastActivityAt ?? "")
+															: undefined
 												}
-												class="min-w-0 gap-2 pl-9"
+												meta={formatAge(thread().thread?.lastActivityAt ?? "")}
+												checked={
+													!thread().current && selected().has(thread().key)
+												}
+												onCheckedChange={(checked) => toggle(thread(), checked)}
+												disabled={thread().current || sending()}
 											/>
 										)}
 									</Show>
 								)}
 							</For>
 							<Show when={group().failed}>
-								<NavRow
-									class="pl-9"
+								<DestinationAction
+									tone="muted"
 									icon={<DangerTriangleIcon />}
 									label="Couldn't load threads. Try again"
-									chevron={false}
 									onClick={() =>
 										data.threadsOf(props.channel as SpaceRef).retry()
 									}
 								/>
 							</Show>
 							<Show when={!group().failed && group().threads.length === 0}>
-								<p class="m-0 py-2.5 pr-3 pl-9 text-sm text-muted-foreground">
-									{group().loading || !group().loaded
-										? "Loading threads"
-										: "No threads yet"}
-								</p>
+								<Show
+									when={group().loading || !group().loaded}
+									fallback={<DestinationNote>No threads yet</DestinationNote>}
+								>
+									<DestinationThreadSkeleton />
+								</Show>
 							</Show>
 						</>
 					)}
@@ -402,99 +464,76 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 		};
 
 		const targetList = () => (
-			<div data-forward-targets="" class="flex flex-col gap-4">
+			<DestinationList mode="multi" platform={desktop() ? "desktop" : "mobile"}>
 				<Show
 					when={visible().length > 0}
 					fallback={
-						<p class="m-0 py-6 text-center text-sm text-muted-foreground">
+						<DestinationEmpty>
 							{groups().length === 0
 								? "There are no channels you can forward to."
 								: "Nothing matches your search."}
-						</p>
+						</DestinationEmpty>
 					}
 				>
 					<For each={visible().map((group) => group.space.did)}>
 						{(did) => (
 							<Show when={visibleBySpace().get(did)}>
 								{(group) => (
-									<fieldset
-										aria-label={`Channels in ${group().space.name}`}
-										class="m-0 min-w-0 border-0 p-0"
+									<DestinationSpace
+										name={group().space.name}
+										iconSrc={group().space.picture}
 									>
-										<ListGroup
-											label={
-												<span class="inline-flex min-w-0 items-center gap-1.5 align-top">
-													<SpaceIcon
-														name={group().space.name}
-														src={group().space.picture}
-														size={20}
-													/>
-													<span class="truncate">{group().space.name}</span>
-												</span>
-											}
+										<For
+											each={group().channels.map((entry) => entry.target.key)}
 										>
-											<For
-												each={group().channels.map((entry) => entry.target.key)}
-											>
-												{(ref) => (
-													<Show when={entryOf(did, ref)}>
-														{(entry) => (
-															<CollapsibleGroup
-																icon={<ChatSquareDotsIcon />}
-																label={
-																	<span data-forward-channel="">
-																		{entry().target.channel.name}
-																	</span>
-																}
-																hint={
-																	entry().target.current
-																		? "Current channel"
-																		: failed().has(ref)
-																			? failedNote()
-																			: entry().target.category
-																}
-																count={
-																	entry().loaded
-																		? entry().threads.length
-																		: undefined
-																}
-																expanded={isExpanded(entry())}
-																onExpandedChange={(open) =>
-																	setGroupExpanded(entry(), open)
-																}
-																checked={
-																	!entry().target.current && selected().has(ref)
-																}
-																onSelect={() =>
-																	toggle(entry().target, !selected().has(ref))
-																}
-																disabled={entry().target.current || sending()}
-																toggleLabel={`Threads in #${entry().target.channel.name}`}
-															>
-																<ThreadRows did={did} channel={ref} />
-															</CollapsibleGroup>
-														)}
-													</Show>
-												)}
-											</For>
-										</ListGroup>
-									</fieldset>
+											{(ref) => (
+												<Show when={entryOf(did, ref)}>
+													{(entry) => (
+														<DestinationChannel
+															value={ref}
+															name={
+																<span data-forward-channel="">
+																	{entry().target.channel.name}
+																</span>
+															}
+															hint={
+																entry().target.current
+																	? "Current channel"
+																	: failed().has(ref)
+																		? failedNote()
+																		: entry().target.category
+															}
+															meta={
+																entry().loaded && entry().threads.length > 0
+																	? threadCount(entry().threads.length)
+																	: undefined
+															}
+															expanded={isExpanded(entry())}
+															onExpandedChange={(open) =>
+																setGroupExpanded(entry(), open)
+															}
+															checked={
+																!entry().target.current && selected().has(ref)
+															}
+															onCheckedChange={(checked) =>
+																toggle(entry().target, checked)
+															}
+															disabled={entry().target.current || sending()}
+															toggleLabel={`Threads in #${entry().target.channel.name}`}
+														>
+															<ThreadRows did={did} channel={ref} />
+														</DestinationChannel>
+													)}
+												</Show>
+											)}
+										</For>
+									</DestinationSpace>
 								)}
 							</Show>
 						)}
 					</For>
 				</Show>
-			</div>
-		);
-
-		const noteField = () => (
-			<TextField
-				label="Add a message"
-				placeholder="Optional"
-				value={note()}
-				onChange={setNote}
-				maxLength={2000}
-			/>
+			</DestinationList>
 		);
 
 		return (
@@ -507,13 +546,13 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 						dirty={unsent()}
 						discardDescription={DISCARD_NOTE}
 						title="Forward message"
-						description="Pick the channels or threads to share this message in."
 						closeLabel="Cancel forwarding"
-						footer={<div data-forward-actions="">{forwardButton(true)}</div>}
+						footer={footer()}
 					>
-						{previewAndSearch()}
-						{targetList()}
-						{noteField()}
+						<div data-forward-sheet="" class="flex flex-col gap-3">
+							{search(true)}
+							{targetList()}
+						</div>
 					</FullScreenSheet>
 				}
 			>
@@ -523,23 +562,13 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 					dirty={unsent()}
 					discardDescription={DISCARD_NOTE}
 				>
-					<ModalContent
-						title="Forward message"
-						description="Pick the channels or threads to share this message in."
-						closeLabel="Cancel forwarding"
-						footer={
-							<>
-								<ModalClose disabled={sending()}>Cancel</ModalClose>
-								{forwardButton(false)}
-							</>
-						}
-					>
+					<ModalContent title="Forward message" closeLabel="Cancel forwarding">
 						<div data-forward-modal="" class="flex min-h-0 flex-col gap-3">
-							{previewAndSearch()}
-							<div class="max-h-[min(360px,40dvh)] overflow-y-auto">
+							{search(false)}
+							<div class="-mx-4 max-h-[min(400px,45dvh)] overflow-y-auto border-0 border-y border-solid border-border px-2 py-2">
 								{targetList()}
 							</div>
-							{noteField()}
+							{footer()}
 						</div>
 					</ModalContent>
 				</Modal>

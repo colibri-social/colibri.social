@@ -1,8 +1,10 @@
 import { isTimestampStyle, type TimestampStyle } from "@colibri-social/lib";
 import { AltArrowRightIcon } from "@solar-icons/solid/bold/alt-arrow-right";
+import { ChatRoundLineIcon } from "@solar-icons/solid/bold/chat-round-line";
 import { CheckIcon } from "@solar-icons/solid/bold/check";
 import { CopyIcon } from "@solar-icons/solid/bold/copy";
 import { LockKeyholeMinimalisticIcon } from "@solar-icons/solid/bold/lock-keyhole-minimalistic";
+import { SmileCircleIcon } from "@solar-icons/solid/bold/smile-circle";
 import {
 	createMemo,
 	createResource,
@@ -28,7 +30,12 @@ import {
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { MentionChip, mentionChipClass, timeChipClass } from "../Badge/Badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
-import type { RichTextResolvers } from "./context";
+import type { RichTextLinkTarget, RichTextResolvers } from "./context";
+
+type PackLinkTarget = Extract<RichTextLinkTarget, { kind: "pack" }>;
+
+export const PACK_CHIP_FALLBACK_LABEL = "Emoji pack";
+export const MESSAGE_CHIP_LABEL = "Message";
 
 export const LINK_CLASS =
 	"font-medium text-primary-highlight underline-offset-2 decoration-1 outline-none hover:underline focus-visible:underline focus-ring rounded-[2px]";
@@ -218,9 +225,14 @@ export const ChannelChip = (props: {
 	text: string;
 	ctx: RichTextResolvers;
 	thread?: { thread: string; href: string };
+	message?: { rkey: string; href: string };
 }) => {
 	const resolved = createMemo(() => props.ctx.channel?.(props.channel));
-	const facetType = () => (props.thread ? "thread" : "channel");
+	const facetType = () => {
+		if (props.message) return "message";
+		return props.thread ? "thread" : "channel";
+	};
+	const targetHref = () => props.message?.href ?? props.thread?.href;
 	const threadName = () => {
 		const target = props.thread;
 		if (!target) return undefined;
@@ -235,6 +247,7 @@ export const ChannelChip = (props: {
 			data-locked=""
 			data-channel={props.channel}
 			data-thread={props.thread?.thread}
+			data-message={props.message?.rkey}
 			class={cx(
 				LOCKED_CLASS,
 				"inline border-0 font-[inherit] text-[length:inherit] leading-[inherit]",
@@ -258,6 +271,7 @@ export const ChannelChip = (props: {
 					data-loading=""
 					data-channel={props.channel}
 					data-thread={props.thread?.thread}
+					data-message={props.message?.rkey}
 					class={cx(CHIP_CLASS, "text-muted-foreground")}
 				>
 					{props.text}
@@ -277,12 +291,13 @@ export const ChannelChip = (props: {
 							data-chip=""
 							data-channel={props.channel}
 							data-thread={props.thread?.thread}
-							href={props.thread?.href ?? ready().href ?? "#"}
+							data-message={props.message?.rkey}
+							href={targetHref() ?? ready().href ?? "#"}
 							class={CHANNEL_CLASS}
 							onClick={(event) => {
-								const target = props.thread;
-								if (target) {
-									props.ctx.onNavigate?.(target.href, event);
+								const href = targetHref();
+								if (href) {
+									props.ctx.onNavigate?.(href, event);
 									return;
 								}
 								if (!ready().href) event.preventDefault();
@@ -342,6 +357,17 @@ export const ChannelChip = (props: {
 									</>
 								)}
 							</Show>
+							<Show when={props.message}>
+								<AltArrowRightIcon
+									class={CHIP_GLYPH_CLASS}
+									aria-hidden="true"
+								/>
+								<ChatRoundLineIcon
+									class={CHIP_GLYPH_CLASS}
+									aria-hidden="true"
+								/>
+								{MESSAGE_CHIP_LABEL}
+							</Show>
 						</TooltipTrigger>
 						<TooltipContent>{ready().space?.name}</TooltipContent>
 					</Tooltip>
@@ -350,6 +376,37 @@ export const ChannelChip = (props: {
 		</Switch>
 	);
 };
+
+export const PackChip = (props: {
+	target: PackLinkTarget;
+	ctx: RichTextResolvers;
+}) => (
+	<a
+		data-facet-type="pack"
+		data-chip=""
+		data-pack={`${props.target.did}/${props.target.rkey}`}
+		data-loading={props.target.name ? undefined : ""}
+		href={props.target.href}
+		draggable={false}
+		class={CHANNEL_CLASS}
+		onClick={(event) => props.ctx.onNavigate?.(props.target.href, event)}
+	>
+		<Show
+			when={props.target.cover}
+			fallback={<SmileCircleIcon class={CHIP_GLYPH_CLASS} aria-hidden="true" />}
+		>
+			{(cover) => (
+				<AnimatedImage
+					src={cover().src}
+					alt=""
+					data-pack-cover=""
+					class="mx-px inline-block size-[1.1em] -translate-y-px object-contain align-middle"
+				/>
+			)}
+		</Show>
+		{props.target.name || PACK_CHIP_FALLBACK_LABEL}
+	</a>
+);
 
 export const LinkFacet = (props: {
 	uri: string;
@@ -363,7 +420,15 @@ export const LinkFacet = (props: {
 	const target = createMemo(() =>
 		safe() && !disguised() ? props.ctx.linkTarget?.(props.uri) : undefined,
 	);
-	const href = () => props.ctx.rewriteUrl?.(props.uri) ?? props.uri;
+	const href = () => {
+		const value = target();
+		if (value?.kind === "external") return value.href;
+		return props.ctx.rewriteUrl?.(props.uri) ?? props.uri;
+	};
+	const label = () => {
+		const value = target();
+		return value?.kind === "external" ? props.uri : href();
+	};
 	const bare = () => props.label.trim() === props.uri;
 	const open = (event: MouseEvent) => {
 		const confirm = props.ctx.onExternalLink;
@@ -391,7 +456,7 @@ export const LinkFacet = (props: {
 						class={LINK_CLASS}
 						onClick={open}
 					>
-						{bare() ? href() : props.children}
+						{bare() ? label() : props.children}
 					</TooltipTrigger>
 					<TooltipContent class="break-all">{href()}</TooltipContent>
 				</Tooltip>
@@ -427,9 +492,39 @@ export const LinkFacet = (props: {
 						channel={thread().channel}
 						text={props.label}
 						ctx={props.ctx}
-						thread={{ thread: thread().thread, href: props.uri }}
+						thread={{
+							thread: thread().thread,
+							href: thread().href ?? props.uri,
+						}}
 					/>
 				)}
+			</Match>
+			<Match
+				when={(() => {
+					const value = target();
+					return value?.kind === "message" ? value : undefined;
+				})()}
+			>
+				{(message) => (
+					<ChannelChip
+						channel={message().channel}
+						text={props.label}
+						ctx={props.ctx}
+						thread={(() => {
+							const thread = message().thread;
+							return thread ? { thread, href: message().href } : undefined;
+						})()}
+						message={{ rkey: message().rkey, href: message().href }}
+					/>
+				)}
+			</Match>
+			<Match
+				when={(() => {
+					const value = target();
+					return value?.kind === "pack" ? value : undefined;
+				})()}
+			>
+				{(pack) => <PackChip target={pack()} ctx={props.ctx} />}
 			</Match>
 			<Match
 				when={(() => {

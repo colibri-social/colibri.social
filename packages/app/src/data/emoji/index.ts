@@ -31,6 +31,13 @@ export type UpdateEmojiPackInput = {
 	emojis?: string[];
 };
 
+export type EmojiBatchView = {
+	emojis: EmojiView[];
+	unreachable: Did[];
+};
+
+export const EMOJI_BATCH_LIMIT = 50;
+
 export type EmojiEvent = {
 	$type: "emojiEvent";
 	catalog: EmojiCatalogView;
@@ -64,6 +71,7 @@ export class EmojiError extends Error {
 export type EmojiSource = {
 	emojiBlobUrl: BlobLocator;
 	listEmoji: (community: Did) => Promise<EmojiCatalogView>;
+	getEmojis?: (uris: readonly string[]) => Promise<EmojiBatchView>;
 	uploadEmoji: (input: UploadEmojiInput) => Promise<EmojiView>;
 	renameEmoji: (input: {
 		community: Did;

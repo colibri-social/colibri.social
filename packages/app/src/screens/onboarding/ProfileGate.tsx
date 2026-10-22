@@ -5,6 +5,7 @@ import {
 	createSignal,
 	type JSX,
 	Match,
+	onCleanup,
 	Show,
 	Switch,
 } from "solid-js";
@@ -13,8 +14,10 @@ import type { ProfileSetup } from "../../data/source";
 import type { DataStore } from "../../data/store";
 import { usePlatform } from "../../screen/platform";
 import { WindowChrome } from "../../shell/desktop/TitleBar";
+import { GateShell } from "../../shell/gate-shell";
 import { LaunchScreen } from "../../shell/launch/LaunchScreen";
 import { StartupError } from "../../shell/launch/StartupError";
+import { setOnboardingActive } from "./onboarding-state";
 import { ProfileOnboarding } from "./ProfileOnboarding";
 
 const log = createLogger("profile-gate");
@@ -56,6 +59,9 @@ export const ProfileGate = (props: {
 		setDone(current.complete);
 	});
 
+	createEffect(() => setOnboardingActive(!done()));
+	onCleanup(() => setOnboardingActive(false));
+
 	const incomplete = (): Incomplete | undefined => {
 		if (done() || setup.state !== "ready") return undefined;
 		const current = setup();
@@ -83,12 +89,14 @@ export const ProfileGate = (props: {
 						<Show when={platform() === "desktop"}>
 							<WindowChrome />
 						</Show>
-						<ProfileOnboarding
-							store={props.store}
-							setup={current()}
-							platform={platform()}
-							onDone={finish}
-						/>
+						<GateShell platform={platform()}>
+							<ProfileOnboarding
+								store={props.store}
+								setup={current()}
+								platform={platform()}
+								onDone={finish}
+							/>
+						</GateShell>
 					</>
 				)}
 			</Match>

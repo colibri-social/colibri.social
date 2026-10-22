@@ -5,13 +5,14 @@ import {
 	normalizeWhitespace,
 	resolveListDepths,
 } from "@colibri-social/lib";
-import { createSignal, type JSX } from "solid-js";
+import { createSignal, type JSX, Show } from "solid-js";
 import { splitEmojiSegments } from "../../utils/emoji";
 import { aliasesForSlug, slugForEmoji } from "../../utils/emoji-data";
 import {
 	buildFeatureKey,
 	normalizeFacets,
 } from "../../utils/rich-text/normalize-facets";
+import { createImageRetry } from "../Emoji/Emoji";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import type {
 	RichTextCustomEmoji,
@@ -90,22 +91,42 @@ export const emojiFacetText = (
 
 const CustomEmojiGlyph = (props: { emoji: RichTextCustomEmoji }) => {
 	const [loaded, setLoaded] = createSignal(false);
+	const image = createImageRetry(() => props.emoji.src);
+	const alt = () => props.emoji.alt ?? `:${props.emoji.name}:`;
 	return (
-		<img
-			data-custom-emoji={props.emoji.name}
-			data-skeleton={loaded() ? undefined : ""}
-			src={props.emoji.src}
-			alt={props.emoji.alt ?? `:${props.emoji.name}:`}
-			draggable={false}
-			onLoad={() => setLoaded(true)}
-			onError={() => setLoaded(true)}
-			class={
-				loaded()
-					? "size-[1.375em] object-contain align-text-bottom"
-					: "size-[1.375em] rounded-[4px] object-contain align-text-bottom"
+		<Show
+			when={image.src()}
+			fallback={
+				<span
+					data-custom-emoji={props.emoji.name}
+					data-custom-emoji-failed=""
+					class="text-[0.85em] font-semibold text-muted-foreground"
+				>
+					{alt()}
+				</span>
 			}
-			style={{ display: "inline-block" }}
-		/>
+		>
+			{(src) => (
+				<img
+					data-custom-emoji={props.emoji.name}
+					data-skeleton={loaded() ? undefined : ""}
+					src={src()}
+					alt={alt()}
+					draggable={false}
+					onLoad={() => setLoaded(true)}
+					onError={() => {
+						setLoaded(false);
+						image.fail();
+					}}
+					class={
+						loaded()
+							? "size-[1.375em] object-contain align-text-bottom"
+							: "size-[1.375em] rounded-[4px] object-contain align-text-bottom"
+					}
+					style={{ display: "inline-block" }}
+				/>
+			)}
+		</Show>
 	);
 };
 

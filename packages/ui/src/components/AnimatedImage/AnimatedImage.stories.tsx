@@ -8,6 +8,7 @@ import { Avatar } from "../Avatar/Avatar";
 import { Lightbox } from "../Lightbox/Lightbox";
 import { MemberRow } from "../Members/MemberRow";
 import { MessageRow } from "../Message/MessageRow";
+import { StatusText } from "../StatusField/StatusText";
 import { AnimatedImage } from "./AnimatedImage";
 import { bouncingDotGif } from "./fixtures";
 
@@ -521,6 +522,47 @@ export const MemberRowHost: Story = {
 		if (!row || !name) throw new Error("Missing member row");
 		await expect(row).toHaveAttribute("data-media-play-host");
 		await hoverCycle(canvasElement, name);
+	},
+};
+
+export const MemberRowStatusEmojiOnDemand: Story = {
+	render: () => (
+		<div class="w-72">
+			<MemberRow
+				name="Lou Escher"
+				presence="online"
+				status={
+					<StatusText
+						text="Out bouncing"
+						customEmoji={{
+							id: "at://did:plc:lou/blue.moji.collection.item/bounce",
+							name: "bounce",
+							src: bouncingDotBlobUrl,
+						}}
+					/>
+				}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const status = await waitFor(() => {
+			const line =
+				canvasElement.querySelector<HTMLElement>("[data-status-line]");
+			if (!line) throw new Error("Missing status line");
+			return line;
+		});
+		const name = canvasElement.querySelector<HTMLElement>("[data-member-name]");
+		if (!name) throw new Error("Missing member name");
+		const expectStatus = (state: string) =>
+			waitFor(() => expect(mediaState(status)).toBe(state), { timeout: 3000 });
+		await expectStatus("paused");
+		await expect(
+			status.querySelector("img[data-emoji='custom']"),
+		).toHaveAttribute("data-animated-image", "hidden");
+		await userEvent.hover(name);
+		await expectStatus("playing");
+		await userEvent.unhover(name);
+		await expectStatus("paused");
 	},
 };
 

@@ -163,9 +163,11 @@ describe("load errors", () => {
 		const feed = store.channel(general.space);
 		await until(() => !!feed.loadError());
 		expect(feed.ready()).toBe(false);
-		feed.reload();
+		const retried = feed.reload();
+		expect(feed.loadError()?.code).toBe("NetworkFailed");
+		await retried;
 		expect(feed.loadError()).toBeUndefined();
-		await until(() => feed.ready());
+		expect(feed.ready()).toBe(true);
 		expect(feed.messages().length).toBeGreaterThan(0);
 	});
 });

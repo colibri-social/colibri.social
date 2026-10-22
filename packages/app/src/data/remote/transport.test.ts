@@ -1,5 +1,5 @@
 import { ColibriError, colibri } from "@colibri-social/lib";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createFakeSession, json, xrpcError } from "./fake-session";
 import { createTransport, encodeParams } from "./transport";
 
@@ -134,6 +134,50 @@ describe("createTransport", () => {
 		expect(failure?.code).toBe("Forbidden");
 		expect(failure?.serverMessage).toBe("not allowed");
 		expect(fake.callsTo(colibri.community.listBans.main.nsid)).toHaveLength(1);
+	});
+
+	it("reports a missing permission with the method that hit it", async () => {
+		const fake = createFakeSession();
+		const onScopesRejected = vi.fn<(method: string) => void>();
+		const transport = createTransport({
+			session: fake.session,
+			appViewDid: APPVIEW,
+			onScopesRejected,
+		});
+		const method = colibri.emoji.getCatalog.main;
+		fake.on(method.nsid, xrpcError(403, "ScopeMissingError", "missing"));
+
+		const failure = await transport
+			.query(method, { params: { community: "did:plc:space" } })
+			.then(
+				() => undefined,
+				(error: unknown) => error as ColibriError,
+			);
+
+		expect(failure?.code).toBe("ScopesMissing");
+		expect(onScopesRejected).toHaveBeenCalledExactlyOnceWith(method.nsid);
+	});
+
+	it("reports nothing for other failures", async () => {
+		const fake = createFakeSession();
+		const onScopesRejected = vi.fn<(method: string) => void>();
+		const transport = createTransport({
+			session: fake.session,
+			appViewDid: APPVIEW,
+			onScopesRejected,
+		});
+		fake.on(
+			colibri.community.listBans.main.nsid,
+			xrpcError(403, "Forbidden", "not allowed"),
+		);
+
+		await transport
+			.query(colibri.community.listBans.main, {
+				params: { community: "did:plc:space" },
+			})
+			.catch(() => undefined);
+
+		expect(onScopesRejected).not.toHaveBeenCalled();
 	});
 
 	it("sends raw bodies with their encoding", async () => {

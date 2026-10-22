@@ -1,9 +1,18 @@
+import { clientOrigin } from "@colibri-social/lib";
 import { DEVICE_KEYS } from "../data/device-prefs";
 import { readStoredJSON, writeStoredJSON } from "../data/persist";
 import { deliverLinkOutcome, readLinkOutcome } from "../data/supporter-link";
-import { parsePath, type Route } from "../shell/layers";
+import {
+	type MessageTarget,
+	messagePath,
+	parsePath,
+	type Route,
+} from "../shell/layers";
 
 export const PENDING_LINK_TTL_MS = 24 * 60 * 60 * 1000;
+
+export const messageLinkUrl = (target: MessageTarget) =>
+	`${clientOrigin()}${messagePath(target)}`;
 
 const APP_HOSTS = new Set([
 	"colibri.social",
@@ -53,13 +62,18 @@ const schemePath = (url: URL) => {
 		const channel = segment(rest[2]);
 		if (!community?.startsWith("did:") || !channelType || !channel)
 			return undefined;
-		return `/app/c/${community}/${channelType}/${channel}`;
+		const scoped = rest.slice(3).map(segment);
+		if (scoped.some((part) => part === undefined)) return undefined;
+		return ["", "app", "c", community, channelType, channel, ...scoped].join(
+			"/",
+		);
 	}
 	return undefined;
 };
 
 const webPath = (url: URL) => {
-	if (!APP_HOSTS.has(url.hostname)) return undefined;
+	if (!APP_HOSTS.has(url.hostname) && url.origin !== clientOrigin())
+		return undefined;
 	if (url.pathname.startsWith("/invite/")) return `/app${url.pathname}`;
 	if (url.pathname.startsWith("/emoji/")) return `/app${url.pathname}`;
 	if (url.pathname.startsWith("/app/")) return url.pathname;

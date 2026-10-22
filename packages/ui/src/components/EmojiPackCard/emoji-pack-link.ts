@@ -1,4 +1,6 @@
-export const EMOJI_PACK_SHARE_ORIGIN = "https://spaces.colibri.social";
+import { CLIENT_ORIGIN, clientOrigin } from "@colibri-social/lib";
+
+export const EMOJI_PACK_SHARE_ORIGIN = CLIENT_ORIGIN;
 
 export const EMOJI_PACK_SHARE_ORIGINS: readonly string[] = [
 	EMOJI_PACK_SHARE_ORIGIN,
@@ -16,7 +18,7 @@ const RKEY = /^[a-zA-Z0-9._:~-]{1,512}$/;
 
 export const emojiPackShareUrl = (
 	target: EmojiPackShareTarget,
-	origin = EMOJI_PACK_SHARE_ORIGIN,
+	origin = clientOrigin(),
 ) => `${origin}/emoji/${target.did}/${encodeURIComponent(target.rkey)}`;
 
 export const parseEmojiPackShareUrl = (

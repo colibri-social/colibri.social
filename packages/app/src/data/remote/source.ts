@@ -101,7 +101,7 @@ export type RemoteSourceOptions = {
 	live: RemoteLive;
 	controls?: Partial<ControlsPreferences>;
 	cachedViewer?: ProfileView;
-	onScopesRejected?: () => void;
+	onScopesRejected?: (method?: string) => void;
 };
 
 export const DEFAULT_REMOTE_CONTROLS: ControlsPreferences = {
@@ -129,6 +129,7 @@ export const createRemoteSource = async (
 	const transport = createTransport({
 		session: options.session,
 		appViewDid: options.appViewDid,
+		onScopesRejected: options.onScopesRejected,
 	});
 	const records = createRecords(transport);
 	const index = createMessageIndex();

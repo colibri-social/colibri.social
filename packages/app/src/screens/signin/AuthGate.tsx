@@ -3,8 +3,10 @@ import { createEffect, type JSX, Match, onMount, Show, Switch } from "solid-js";
 import type { Auth } from "../../auth/auth";
 import type { AccountSuggestion } from "../../auth/identity";
 import { WindowChrome } from "../../shell/desktop/TitleBar";
+import { GateShell } from "../../shell/gate-shell";
 import { LaunchScreen } from "../../shell/launch/LaunchScreen";
 import { StartupError } from "../../shell/launch/StartupError";
+import { ScopeNotice } from "./ScopeNotice";
 import { ReapproveScreen, SignInFlow, SigningInScreen } from "./SignIn";
 
 export type AuthGateProps = {
@@ -43,13 +45,15 @@ export const AuthGate = (props: AuthGateProps) => {
 			</Show>
 			<Switch
 				fallback={
-					<SignInFlow
-						auth={props.auth}
-						platform={props.platform}
-						search={props.search}
-						signupPds={props.signupPds}
-						checkSignup={props.checkSignup}
-					/>
+					<GateShell platform={props.platform}>
+						<SignInFlow
+							auth={props.auth}
+							platform={props.platform}
+							search={props.search}
+							signupPds={props.signupPds}
+							checkSignup={props.checkSignup}
+						/>
+					</GateShell>
 				}
 			>
 				<Match when={props.auth.status() === "loading"}>
@@ -63,7 +67,9 @@ export const AuthGate = (props: AuthGateProps) => {
 					)}
 				</Match>
 				<Match when={props.auth.status() === "completing"}>
-					<SigningInScreen platform={props.platform} />
+					<GateShell platform={props.platform}>
+						<SigningInScreen platform={props.platform} />
+					</GateShell>
 				</Match>
 				<Match
 					when={
@@ -71,10 +77,13 @@ export const AuthGate = (props: AuthGateProps) => {
 						props.auth.missingScopes().length > 0
 					}
 				>
-					<ReapproveScreen auth={props.auth} platform={props.platform} />
+					<GateShell platform={props.platform}>
+						<ReapproveScreen auth={props.auth} platform={props.platform} />
+					</GateShell>
 				</Match>
 				<Match when={props.auth.status() === "signedIn"}>
 					{props.children}
+					<ScopeNotice auth={props.auth} platform={props.platform} />
 				</Match>
 			</Switch>
 		</>

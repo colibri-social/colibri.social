@@ -7,11 +7,15 @@ import { ErrorReport, type ErrorReportAccount } from "./ErrorReport";
 import { ErrorState } from "./ErrorState";
 import { NotFound } from "./NotFound";
 
-type Args = { onRetry: () => void; onBack: () => void };
+type Args = {
+	onRetry: () => void;
+	onBack: () => void;
+	onFeedback: () => void;
+};
 
 const meta: Meta<Args> = {
 	title: "Surfaces/Error state",
-	args: { onRetry: fn(), onBack: fn() },
+	args: { onRetry: fn(), onBack: fn(), onFeedback: fn() },
 	parameters: { viewport: { defaultViewport: "iphone" } },
 };
 
@@ -40,6 +44,56 @@ export const LoadFailed: Story = {
 		await expectNoLayoutIssues(canvasElement.firstElementChild as HTMLElement);
 		await userEvent.click(canvas.getByRole("button", { name: "Try again" }));
 		await expect(args.onRetry).toHaveBeenCalledOnce();
+	},
+};
+
+export const WithFeedback: Story = {
+	render: (args) => (
+		<div class="flex h-[640px] w-full max-w-[402px] flex-col bg-background">
+			<ErrorState
+				title="This channel didn't load"
+				description="Check your connection and try again."
+				code="NetworkFailed"
+				onRetry={args.onRetry}
+				onFeedback={args.onFeedback}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement, args }) => {
+		const canvas = within(canvasElement);
+		await expectNoLayoutIssues(canvasElement.firstElementChild as HTMLElement);
+		const retry = canvas.getByRole("button", { name: "Try again" });
+		const feedback = canvas.getByRole("button", { name: "Send feedback" });
+		await expect(feedback.getBoundingClientRect().top).toBeGreaterThan(
+			retry.getBoundingClientRect().bottom,
+		);
+		await userEvent.click(feedback);
+		await expect(args.onFeedback).toHaveBeenCalledOnce();
+		await expect(args.onRetry).not.toHaveBeenCalled();
+	},
+};
+
+export const CrashWithReportAndFeedback: Story = {
+	render: (args) => (
+		<div class="flex h-[874px] w-full max-w-[402px] flex-col bg-background">
+			<ErrorState
+				title="Something went wrong"
+				description="Colibri hit a problem it couldn't recover from. Try again to reload."
+				code="Unexpected"
+				onRetry={args.onRetry}
+				onFeedback={args.onFeedback}
+				report={<ErrorReport reference={REFERENCE} account="included" />}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expectNoLayoutIssues(canvasElement.firstElementChild as HTMLElement);
+		const report = canvas.getByRole("region", { name: "Error report" });
+		const feedback = canvas.getByRole("button", { name: "Send feedback" });
+		await expect(feedback.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+			report.getBoundingClientRect().bottom,
+		);
 	},
 };
 

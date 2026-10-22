@@ -103,6 +103,42 @@ describe("routeFromLink", () => {
 	});
 });
 
+describe("message links", () => {
+	const chat = "/app/c/did:plc:hq/social.colibri.beta.channel.text/general";
+
+	it("returns the message for web and scheme links", () => {
+		for (const link of [
+			`https://colibri.social${chat}/m/3kmsg`,
+			"social.colibri:/channel/did:plc:hq/social.colibri.beta.channel.text/general/m/3kmsg",
+		]) {
+			expect(routeFromLink(link)?.layers).toEqual([
+				{
+					kind: "chat",
+					space: "did:plc:hq",
+					channel: "general",
+					channelType: "social.colibri.beta.channel.text",
+					message: "3kmsg",
+				},
+			]);
+		}
+	});
+
+	it("returns the thread and message for thread message links", () => {
+		const route = routeFromLink(
+			"social.colibri:/channel/did:plc:hq/social.colibri.beta.channel.text/general/t/3kthread/m/3kmsg",
+		);
+		expect(route?.layers.at(-1)).toMatchObject({
+			kind: "thread",
+			thread: "3kthread",
+			message: "3kmsg",
+		});
+	});
+
+	it("rejects message links with a missing record key", () => {
+		expect(routeFromLink(`https://colibri.social${chat}/m`)).toBe(undefined);
+	});
+});
+
 describe("app link delivery", () => {
 	beforeEach(() => vi.stubGlobal("localStorage", memoryStorage()));
 	afterEach(() => vi.unstubAllGlobals());

@@ -7,6 +7,7 @@ import { ForwardIcon } from "@solar-icons/solid/bold/forward";
 import { GalleryDownloadIcon } from "@solar-icons/solid/bold/gallery-download";
 import { HeartIcon } from "@solar-icons/solid/bold/heart";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
+import { LinkRoundIcon } from "@solar-icons/solid/bold/link-round";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { RefreshIcon } from "@solar-icons/solid/bold/refresh";
 import { ReplyIcon } from "@solar-icons/solid/bold/reply";
@@ -126,6 +127,7 @@ export type MessageActionsDrawerProps = {
 	onOpenThread?: () => void;
 	onSelect?: () => void;
 	onCopyText?: () => void;
+	onCopyMessageLink?: () => void;
 	image?: MessageMenuImage;
 	gif?: MessageMenuGif;
 	onLinkPreviews?: () => void;
@@ -218,6 +220,7 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 	const hasUtility = () =>
 		!!(
 			props.onCopyText ||
+			props.onCopyMessageLink ||
 			props.gif ||
 			props.onLinkPreviews ||
 			props.onViewReactions
@@ -350,6 +353,13 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 									icon={<CopyIcon />}
 									label="Copy text"
 									onClick={run(props.onCopyText)}
+								/>
+							</Show>
+							<Show when={props.onCopyMessageLink}>
+								<ActionRow
+									icon={<LinkRoundIcon />}
+									label="Copy message link"
+									onClick={run(props.onCopyMessageLink)}
 								/>
 							</Show>
 							<Show when={props.gif}>

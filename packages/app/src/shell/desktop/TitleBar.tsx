@@ -1,16 +1,24 @@
-import { IconButton, WindowBar, WindowControls } from "@colibri-social/ui";
+import {
+	FEEDBACK_URL,
+	IconButton,
+	WindowBar,
+	WindowControls,
+} from "@colibri-social/ui";
 import { AltArrowLeftIcon } from "@solar-icons/solid/linear/alt-arrow-left";
 import { AltArrowRightIcon } from "@solar-icons/solid/linear/alt-arrow-right";
+import { LikeIcon } from "@solar-icons/solid/linear/like";
 import {
 	batch,
 	createEffect,
 	createSignal,
+	type JSX,
 	on,
 	onCleanup,
 	onMount,
 	Show,
 } from "solid-js";
 import { useData } from "../../data/store";
+import { openExternalUrl } from "../../native/open-external";
 import { useDesktopShell } from "./context";
 import { ResizeEdges } from "./ResizeEdges";
 import { createSnapLayouts } from "./snap-layouts";
@@ -77,10 +85,28 @@ const NavButtons = () => {
 	);
 };
 
+const FeedbackButton = () => (
+	<div
+		data-tauri-drag-region="false"
+		data-title-bar-feedback=""
+		class="flex h-full shrink-0 items-center px-2"
+	>
+		<IconButton
+			variant="ghost"
+			size="sm"
+			label="Send feedback"
+			tooltipPlacement="bottom"
+			icon={<LikeIcon />}
+			onClick={() => openExternalUrl(FEEDBACK_URL)}
+		/>
+	</div>
+);
+
 export const WindowChrome = (props: {
 	mode?: ChromeMode;
 	title?: string;
 	iconSrc?: string;
+	trailing?: JSX.Element;
 }) => {
 	const mode = () => props.mode ?? resolveChromeMode();
 	const { maximized, fullscreen, layout } = createWindowState(mode);
@@ -142,7 +168,10 @@ export const WindowChrome = (props: {
 					</>
 				}
 				controls={
-					<Show when={showControls() && !controlsOnLeft()}>{controls()}</Show>
+					<>
+						{props.trailing}
+						<Show when={showControls() && !controlsOnLeft()}>{controls()}</Show>
+					</>
 				}
 				class={`${
 					BAR_HEIGHT[mode()] === 36
@@ -186,6 +215,7 @@ export const TitleBar = (props: { mode?: ChromeMode }) => {
 			mode={props.mode}
 			title={space()?.name}
 			iconSrc={space()?.picture}
+			trailing={<FeedbackButton />}
 		/>
 	);
 };

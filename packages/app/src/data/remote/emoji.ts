@@ -10,6 +10,7 @@ import {
 	bestImage,
 	collectionOfUri,
 	DEFAULT_EMOJI_PROVIDER,
+	type EmojiBatchView,
 	type EmojiCatalogView,
 	EmojiError,
 	type EmojiFollowState,
@@ -621,6 +622,22 @@ export const createRemoteEmoji = (input: {
 		},
 		listEmoji: (owner) =>
 			call(colibri.emoji.getCatalog.main.nsid, () => fetchCatalog(owner)),
+		getEmojis: (uris) =>
+			call(
+				colibri.emoji.getEmojis.main.nsid,
+				async (): Promise<EmojiBatchView> => {
+					const result = await transport.query(colibri.emoji.getEmojis.main, {
+						params: { uris },
+					});
+					return {
+						emojis: result.emojis.flatMap((emoji) => {
+							const view = emojiFromWire(emoji, locate);
+							return view ? [view] : [];
+						}),
+						unreachable: (result.unreachable ?? []) as Did[],
+					};
+				},
+			),
 		uploadEmoji: (upload) =>
 			call(colibri.emoji.upload.main.nsid, () =>
 				upload.community === viewer

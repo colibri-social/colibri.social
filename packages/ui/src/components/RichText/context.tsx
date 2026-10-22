@@ -35,10 +35,32 @@ export type RichTextChannel =
 	| { state: "loading" }
 	| { state: "locked" };
 
+export type RichTextPackCover = {
+	src: string;
+	alt?: string;
+};
+
 export type RichTextLinkTarget =
 	| { kind: "channel"; channel: string }
-	| { kind: "thread"; channel: string; thread: string }
-	| { kind: "internal"; href: string };
+	| { kind: "thread"; channel: string; thread: string; href?: string }
+	| {
+			kind: "message";
+			space: string;
+			channel: string;
+			thread?: string;
+			rkey: string;
+			href: string;
+	  }
+	| {
+			kind: "pack";
+			did: string;
+			rkey: string;
+			href: string;
+			name?: string;
+			cover?: RichTextPackCover;
+	  }
+	| { kind: "internal"; href: string }
+	| { kind: "external"; href: string };
 
 export type RichTextExternalLink = {
 	label: string;

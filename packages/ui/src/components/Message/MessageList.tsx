@@ -603,6 +603,7 @@ export const MessageList = <T extends GroupableMessage>(
 		awaitingUnread = false;
 		openAtTop = false;
 		if (pendingJump && model().indexOf.has(pendingJump.key)) return;
+		if (untrack(jumpKey) !== undefined) return;
 		const unread = model().firstUnread;
 		if (unread !== undefined) {
 			pendingJump = { key: unread, options: OPEN_AT_UNREAD };

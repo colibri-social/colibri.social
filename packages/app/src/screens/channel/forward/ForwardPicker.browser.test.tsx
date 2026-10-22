@@ -1,6 +1,7 @@
 import { toastState } from "@colibri-social/ui";
 import { render } from "solid-js/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { expectNoLayoutIssues } from "../../../../../ui/src/foundations/layout-test";
 import { DataContext, type DataStore } from "../../../data/store";
 import type {
 	ChannelView,
@@ -136,6 +137,7 @@ const mount = (
 		channel: ref("did:plc:hq", "general"),
 	},
 	cached: readonly SpaceRef[] = [],
+	original?: MessageView,
 ): Mounted => {
 	const retry = vi.fn();
 	const threadLists: SpaceRef[] = [];
@@ -160,6 +162,10 @@ const mount = (
 		cachedThreads: (channel: SpaceRef) =>
 			cached.includes(channel) ? threads[channel] : undefined,
 		forward: forwardMessage,
+		peekMessage: (channel: SpaceRef, rkey: string) =>
+			original && channel === from.channel && rkey === "3abc"
+				? original
+				: undefined,
 	} as unknown as DataStore;
 	const picker = createForwardPicker(options);
 	dispose = render(
@@ -194,17 +200,12 @@ const refFor = (name: string) =>
 		.find((entry) => entry.name === name)?.space;
 
 const checkboxFor = (name: string) =>
-	[
-		...dialog().querySelectorAll<HTMLElement>(
-			"[data-collapsible-group-select][aria-pressed]",
-		),
-	].find(
-		(element) =>
-			element.querySelector("[data-forward-channel]")?.textContent === name,
-	);
+	[...dialog().querySelectorAll<HTMLElement>("[data-forward-channel]")]
+		.find((element) => element.textContent === name)
+		?.closest("[data-destination-main]")
+		?.querySelector<HTMLInputElement>("input[type=checkbox]") ?? undefined;
 
-const isChecked = (name: string) =>
-	checkboxFor(name)?.getAttribute("aria-pressed") === "true";
+const isChecked = (name: string) => checkboxFor(name)?.checked === true;
 
 const threadRefFor = (name: string) =>
 	Object.values(threads)
@@ -236,7 +237,7 @@ const expandThreads = async (name: string) => {
 };
 
 const groupOf = (name: string) =>
-	checkboxFor(name)?.closest<HTMLElement>("[data-collapsible-group]");
+	checkboxFor(name)?.closest<HTMLElement>("[data-destination-channel]");
 
 const forwardButton = () =>
 	dialog()
@@ -279,7 +280,7 @@ describe("forward picker", () => {
 			"showcase",
 		]);
 		expect(dialog().textContent).toContain("Current channel");
-		expect((checkboxFor("general") as HTMLButtonElement).disabled).toBe(true);
+		expect(checkboxFor("general")?.disabled).toBe(true);
 	});
 
 	it("lists open threads you can post in under their channel, newest first", async () => {
@@ -369,8 +370,8 @@ describe("forward picker", () => {
 		expect(
 			threadCheckbox("Release prep")?.closest("div")?.textContent,
 		).toContain("Current thread");
-		expect((checkboxFor("design") as HTMLButtonElement).disabled).toBe(false);
-		expect((checkboxFor("general") as HTMLButtonElement).disabled).toBe(false);
+		expect(checkboxFor("design")?.disabled).toBe(false);
+		expect(checkboxFor("general")?.disabled).toBe(false);
 	});
 
 	it("forwards into a thread and opens it from the toast", async () => {
@@ -442,7 +443,7 @@ describe("forward picker", () => {
 		expect(forwardButton().disabled).toBe(true);
 		await select("showcase");
 		const note = [...dialog().querySelectorAll<HTMLInputElement>("input")].find(
-			(input) => input.placeholder === "Optional",
+			(input) => input.placeholder === "Add a message",
 		) as HTMLInputElement;
 		type(note, "  look at this  ");
 		await frames();
@@ -604,6 +605,78 @@ describe("forward picker", () => {
 		);
 	});
 
+	it("previews the message with its author and attachments", async () => {
+		const original = {
+			rkey: "3abc",
+			author: {
+				did: "did:plc:ada",
+				handle: "ada.test",
+				displayName: "Ada Lovelace",
+			},
+			createdAt: hoursAgo(1),
+			text: "Here are the new icon sketches for the release",
+			attachments: [
+				{
+					url: "https://cdn.test/sketch.png",
+					mimeType: "image/png",
+					alt: "Icon sketch",
+				},
+				{ url: "https://cdn.test/notes.pdf", mimeType: "application/pdf" },
+			],
+		} as unknown as MessageView;
+		mount(vi.fn(), {}, { channel: ref("did:plc:hq", "general") }, [], original);
+		await until(() => !!dialog());
+		const preview = dialog().querySelector(
+			"[data-forward-preview]",
+		) as HTMLElement;
+		expect(
+			preview.querySelector("[data-forward-preview-author]")?.textContent,
+		).toBe("Ada Lovelace");
+		expect(
+			preview.querySelector("[data-forward-preview-text]")?.textContent,
+		).toBe("Here are the new icon sketches for the release");
+		expect(
+			preview.querySelector("[data-forward-preview-summary]")?.textContent,
+		).toBe("1 image · 1 file");
+		expect(
+			preview.querySelector<HTMLImageElement>(
+				"[data-forward-preview-thumbnail] img",
+			)?.alt,
+		).toBe("Icon sketch");
+		expect(preview.closest("[data-full-screen-sheet-footer]")).not.toBeNull();
+	});
+
+	it("renders the previewed message with its formatting", async () => {
+		const original = {
+			rkey: "3abc",
+			author: { did: "did:plc:ada", handle: "ada.test" },
+			createdAt: hoursAgo(1),
+			text: "Ship it today",
+			facets: [
+				{
+					index: { byteStart: 0, byteEnd: 4 },
+					features: [{ $type: "social.colibri.beta.richtext.facet#bold" }],
+				},
+			],
+			attachments: [],
+		} as unknown as MessageView;
+		mount(vi.fn(), {}, { channel: ref("did:plc:hq", "general") }, [], original);
+		await until(() => !!dialog());
+		const text = dialog().querySelector("[data-forward-preview-text]");
+		expect(text?.querySelector('[data-facet-type="bold"]')?.textContent).toBe(
+			"Ship",
+		);
+		expect(text?.textContent).toBe("Ship it today");
+	});
+
+	it("falls back to the preview text when the message isn't loaded", async () => {
+		mount(vi.fn());
+		await until(() => !!dialog());
+		expect(
+			dialog().querySelector("[data-forward-preview-text]")?.textContent,
+		).toBe("Heads up: the beta API moved");
+	});
+
 	it("keeps buttons and long names inside the drawer", async () => {
 		mount(vi.fn());
 		await until(() => !!dialog());
@@ -623,5 +696,7 @@ describe("forward picker", () => {
 		) as HTMLElement;
 		expect(actions.scrollWidth).toBeLessThanOrEqual(actions.clientWidth + 1);
 		expect(rowFor("general")).toBeTruthy();
+		await expandThreads("design");
+		await expectNoLayoutIssues(dialog());
 	});
 });

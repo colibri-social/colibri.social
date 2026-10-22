@@ -22,9 +22,11 @@ export type SessionHealth = {
 	dead: Accessor<boolean>;
 	deadCode: Accessor<ColibriErrorCode | undefined>;
 	scopesRejected: Accessor<boolean>;
+	rejectedMethods: Accessor<ReadonlySet<string>>;
 	noteAuthFailure: (code: ColibriErrorCode) => void;
 	noteAuthSuccess: () => void;
-	noteScopesRejected: () => void;
+	noteScopesRejected: (method?: string) => void;
+	clearScopeRejections: () => void;
 	noteSessionDeleted: (cause: unknown) => void;
 	markDead: (code: ColibriErrorCode) => void;
 	observe: (url: string, pending: Promise<Response>) => Promise<Response>;
@@ -45,12 +47,22 @@ const dpopCode = async (res: Response): Promise<string | undefined> => {
 	}
 };
 
+export const UNATTRIBUTED_REJECTION = "";
+
+export type SessionHealthOptions = {
+	onScopesRejected?: (method: string) => void;
+};
+
 export const createSessionHealth = (
 	now: () => number = Date.now,
+	options: SessionHealthOptions = {},
 ): SessionHealth => {
 	const [dead, setDead] = createSignal(false);
 	const [deadCode, setDeadCode] = createSignal<ColibriErrorCode>();
-	const [scopesRejected, setScopesRejected] = createSignal(false);
+	const [rejectedMethods, setRejectedMethods] = createSignal<
+		ReadonlySet<string>
+	>(new Set());
+	const scopesRejected = () => rejectedMethods().size > 0;
 	let suspended = false;
 	let failures = 0;
 	let windowStartedAt = 0;
@@ -90,13 +102,20 @@ export const createSessionHealth = (
 		dead,
 		deadCode,
 		scopesRejected,
+		rejectedMethods,
 		noteAuthFailure,
 		noteAuthSuccess,
-		noteScopesRejected: () => {
-			if (suspended || scopesRejected()) return;
-			setScopesRejected(true);
-			log.warn("a call was rejected for missing access");
+		noteScopesRejected: (method) => {
+			if (suspended) return;
+			const current = rejectedMethods();
+			const key = method ?? UNATTRIBUTED_REJECTION;
+			if (current.has(key)) return;
+			if (key === UNATTRIBUTED_REJECTION && current.size > 0) return;
+			setRejectedMethods(new Set([...current, key]));
+			log.warn("a call was rejected for missing access", { method: key });
+			options.onScopesRejected?.(key);
 		},
+		clearScopeRejections: () => setRejectedMethods(new Set<string>()),
 		noteSessionDeleted: (cause) => {
 			const code = classifyThrown(cause).code;
 			markDead(needsReauthentication(code) ? code : "InvalidToken");
@@ -124,7 +143,7 @@ export const createSessionHealth = (
 			failures = 0;
 			setDead(false);
 			setDeadCode(undefined);
-			setScopesRejected(false);
+			setRejectedMethods(new Set<string>());
 		},
 		suspend: () => {
 			suspended = true;

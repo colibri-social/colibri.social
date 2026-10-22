@@ -213,6 +213,49 @@ describe("desktop title bar", () => {
 		).toBe("false");
 	});
 
+	it("puts a feedback button at the right end on macOS that opens the feedback form", async () => {
+		const invoke = fakeShell(MAC);
+		await mount();
+		await expect.poll(bar).not.toBeNull();
+		const element = bar() as HTMLElement;
+		const feedback = element.querySelector<HTMLElement>(
+			"[data-window-bar-trailing] [data-title-bar-feedback] button",
+		);
+		expect(feedback?.getAttribute("aria-label")).toBe("Send feedback");
+		const barBox = element.getBoundingClientRect();
+		const box = feedback?.getBoundingClientRect();
+		expect(barBox.right - (box?.right ?? 0)).toBeLessThanOrEqual(16);
+		expect(box?.top ?? -1).toBeGreaterThanOrEqual(barBox.top);
+		expect(box?.bottom ?? Infinity).toBeLessThanOrEqual(barBox.bottom);
+		await userEvent.click(page.getByRole("button", { name: "Send feedback" }));
+		await expect
+			.poll(
+				() =>
+					invoke.mock.calls.find(
+						([command]) => command === "plugin:opener|open_url",
+					)?.[1],
+			)
+			.toMatchObject({ url: expect.stringContaining("userinput.app") });
+	});
+
+	it("places the feedback button left of the Windows window controls", async () => {
+		fakeShell(WINDOWS);
+		await mount();
+		await expect.poll(bar).not.toBeNull();
+		const element = bar() as HTMLElement;
+		const feedback = element.querySelector<HTMLElement>(
+			"[data-title-bar-feedback]",
+		);
+		const controls = element.querySelector<HTMLElement>(
+			"[data-window-controls]",
+		);
+		expect(feedback).not.toBeNull();
+		expect(controls).not.toBeNull();
+		expect(
+			feedback?.getBoundingClientRect().right ?? Infinity,
+		).toBeLessThanOrEqual(controls?.getBoundingClientRect().left ?? 0);
+	});
+
 	it("puts the controls on the left when the Linux desktop does", async () => {
 		fakeShell(LINUX, {
 			maximized: false,
@@ -230,6 +273,11 @@ describe("desktop title bar", () => {
 			bar()?.querySelectorAll<HTMLElement>("[data-control]") ?? [],
 		).map((button) => button.dataset.control);
 		expect(order).toEqual(["close", "minimize", "maximize"]);
+		expect(
+			bar()?.querySelector(
+				"[data-window-bar-trailing] [data-title-bar-feedback]",
+			),
+		).not.toBeNull();
 	});
 
 	it("resizes the frameless Linux window from its edges until it is maximized", async () => {

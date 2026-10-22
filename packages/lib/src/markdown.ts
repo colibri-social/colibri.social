@@ -798,6 +798,30 @@ export const isSingleLineGap = (
 	return breaks === 1;
 };
 
+const AUTOLINK_URI_RE = /^(https?|at):\/\/\S+$/i;
+const AUTOLINK_TRAILING_RE = /[.,;:!?'"\u2018\u2019\u201c\u201d\])}]$/;
+
+const isAutolinkable = (
+	text: string,
+	start: number,
+	end: number,
+	uri: string,
+): boolean => {
+	const label = text.slice(start, end);
+	if (label.trim() !== uri) return false;
+	if (!AUTOLINK_URI_RE.test(uri) || AUTOLINK_TRAILING_RE.test(uri)) {
+		return false;
+	}
+	const uriStart = start + label.indexOf(uri);
+	const uriEnd = uriStart + uri.length;
+	const before = uriStart === 0 ? "" : text[uriStart - 1];
+	const after = uriEnd >= text.length ? "" : text[uriEnd];
+	return (
+		(before === "" || /[\s(]/.test(before)) &&
+		(after === "" || /\s/.test(after))
+	);
+};
+
 /**
  * The inverse of {@link parseMarkdown}: rebuilds raw markdown source from stored
  * clean text + facets, re-injecting the literal syntax markers so the editor can
@@ -856,6 +880,10 @@ export const facetsToSource = (
 				addMarker(opensAt, start, inline);
 				addMarker(closesAt, end, inline);
 			} else if (kind === "link") {
+				if (
+					isAutolinkable(text, start, end, "uri" in feature ? feature.uri : "")
+				)
+					continue;
 				addMarker(opensAt, start, "[");
 				addMarker(closesAt, end, `](${"uri" in feature ? feature.uri : ""})`);
 			} else if (kind === "codeblock") {

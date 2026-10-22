@@ -36,7 +36,7 @@ type ChannelModel = Conversation & {
 	voice: () => boolean;
 };
 
-type LoadFailure = { error: ColibriError; retry: () => void };
+type LoadFailure = { error: ColibriError; retry: () => Promise<unknown> };
 
 const channelIcon = (m: ChannelModel) =>
 	m.voice() ? <VolumeSmallIcon /> : undefined;
@@ -167,10 +167,8 @@ export const channel = defineContract({
 			if (space && channelsError) {
 				return {
 					error: channelsError,
-					retry: () => {
-						space.channels.retry();
-						space.categories.retry();
-					},
+					retry: () =>
+						Promise.all([space.channels.retry(), space.categories.retry()]),
 				};
 			}
 			const feed = conversation.feed();

@@ -54,6 +54,16 @@ const THREADS: Record<string, string> = {
 	"spring-tuning": "Spring tuning",
 };
 
+const PACK_COVER = `data:image/svg+xml,${encodeURIComponent(
+	'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#e8a33d"/></svg>',
+)}`;
+
+const PACKS: Record<string, { name?: string; cover?: { src: string } }> = {
+	owls: { name: "Night owls", cover: { src: PACK_COVER } },
+	plain: { name: "Plain pack" },
+	loading: {},
+};
+
 const onLinkOpen = fn((_href: string, event: MouseEvent) =>
 	event.preventDefault(),
 ).mockName("onLinkOpen");
@@ -88,6 +98,33 @@ const resolvers: RichTextResolvers = {
 	onChannelOpen,
 	onLockedChannel,
 	linkTarget: (uri) => {
+		const message = uri.match(
+			/^https:\/\/colibri\.social\/c\/(\w+)(?:\/t\/([\w-]+))?\/m\/(\w+)$/,
+		);
+		if (message) {
+			const [, channel, thread, rkey] = message;
+			return {
+				kind: "message",
+				space: "did:plc:space",
+				channel,
+				rkey,
+				href: uri,
+				...(thread ? { thread } : {}),
+			};
+		}
+		const pack = uri.match(/^https:\/\/colibri\.social\/emoji\/(\w+)$/);
+		if (pack) {
+			return {
+				kind: "pack",
+				did: "did:plc:lou",
+				rkey: pack[1],
+				href: `/app/emoji/did:plc:lou/${pack[1]}`,
+				...PACKS[pack[1]],
+			};
+		}
+		if (uri.startsWith("at://")) {
+			return { kind: "external", href: `https://pdsls.dev/${uri}` };
+		}
 		const invite = uri.match(/^https:\/\/colibri\.social\/invite\/(\w+)$/);
 		if (invite) return { kind: "internal", href: `/app/invite/${invite[1]}` };
 		const thread = uri.match(
@@ -446,6 +483,130 @@ export const ThreadLinks: Story = {
 			expect.anything(),
 		);
 		await expect(onChannelOpen).not.toHaveBeenCalled();
+	},
+};
+
+const MESSAGE_LINKS = build([
+	"See ",
+	mark("this", f.link("https://colibri.social/c/general/m/3kmsg")),
+	"\n",
+	mark(
+		"that",
+		f.link("https://colibri.social/c/general/t/spring-tuning/m/3kreply"),
+	),
+	"\n",
+	mark("hidden", f.link("https://colibri.social/c/secret/m/3kmsg")),
+	"\n",
+	mark("waiting", f.link("https://colibri.social/c/pending/m/3kmsg")),
+]);
+
+export const MessageLinks: Story = {
+	render: () => <Frame value={MESSAGE_LINKS} platform="desktop" />,
+	play: async ({ canvasElement }) => {
+		onNavigate.mockClear();
+		onChannelOpen.mockClear();
+		const chips = () =>
+			Array.from(
+				canvasElement.querySelectorAll<HTMLElement>(
+					"[data-facet-type='message']",
+				),
+			);
+		await expect(chips()).toHaveLength(4);
+		const [plain, threaded, hidden, waiting] = chips();
+		await expect(plain).toHaveTextContent("#general");
+		await expect(plain).toHaveTextContent("Message");
+		await expect(plain).toHaveAttribute("data-message", "3kmsg");
+		await expect(plain.querySelector("[data-icon='thread']")).toBeNull();
+		await expect(threaded).toHaveTextContent("Spring tuning");
+		await expect(threaded).toHaveTextContent("Message");
+		await expect(threaded.querySelector("[data-icon='thread']")).not.toBeNull();
+		await expect(threaded).toHaveAttribute(
+			"href",
+			"https://colibri.social/c/general/t/spring-tuning/m/3kreply",
+		);
+		await expect(hidden).toHaveAttribute("data-locked");
+		await expect(waiting).toHaveAttribute("data-loading");
+		await userEvent.click(plain);
+		await expect(onNavigate).toHaveBeenCalledWith(
+			"https://colibri.social/c/general/m/3kmsg",
+			expect.anything(),
+		);
+		await expect(onChannelOpen).not.toHaveBeenCalled();
+	},
+};
+
+const PACK_LINKS = build([
+	"Grab ",
+	mark(
+		"https://colibri.social/emoji/owls",
+		f.link("https://colibri.social/emoji/owls"),
+	),
+	", ",
+	mark(
+		"https://colibri.social/emoji/plain",
+		f.link("https://colibri.social/emoji/plain"),
+	),
+	" and ",
+	mark(
+		"https://colibri.social/emoji/loading",
+		f.link("https://colibri.social/emoji/loading"),
+	),
+	".",
+]);
+
+export const PackLinks: Story = {
+	render: () => <Frame value={PACK_LINKS} platform="desktop" />,
+	play: async ({ canvasElement }) => {
+		onNavigate.mockClear();
+		const chips = Array.from(
+			canvasElement.querySelectorAll<HTMLElement>("[data-facet-type='pack']"),
+		);
+		await expect(chips).toHaveLength(3);
+		const [owls, plain, loading] = chips;
+		await expect(owls).toHaveTextContent("Night owls");
+		await expect(owls.querySelector("[data-pack-cover]")).not.toBeNull();
+		await expect(owls).not.toHaveAttribute("data-loading");
+		await expect(plain).toHaveTextContent("Plain pack");
+		await expect(plain.querySelector("[data-pack-cover]")).toBeNull();
+		await expect(plain.querySelector("svg")).not.toBeNull();
+		await expect(loading).toHaveTextContent("Emoji pack");
+		await expect(loading).toHaveAttribute("data-loading");
+		await userEvent.click(owls);
+		await expect(onNavigate).toHaveBeenCalledWith(
+			"/app/emoji/did:plc:lou/owls",
+			expect.anything(),
+		);
+	},
+};
+
+const AT_URI = "at://did:plc:abc/app.bsky.feed.post/3kpost";
+
+const AT_URI_LINKS = build([
+	"Record ",
+	mark(AT_URI, f.link(AT_URI)),
+	"\n",
+	mark("the post", f.link(AT_URI)),
+]);
+
+export const AtUriLinks: Story = {
+	render: () => <Frame value={AT_URI_LINKS} />,
+	play: async ({ canvasElement }) => {
+		onLinkOpen.mockClear();
+		const canvas = within(canvasElement);
+		const bare = canvas.getByRole("link", { name: AT_URI });
+		await expect(bare).toHaveAttribute("href", `https://pdsls.dev/${AT_URI}`);
+		await expect(bare).toHaveAttribute("target", "_blank");
+		await expect(
+			canvas.getByRole("link", { name: "the post" }),
+		).toHaveAttribute("href", `https://pdsls.dev/${AT_URI}`);
+		await expect(
+			canvasElement.querySelector("[data-facet-type='unsafe-link']"),
+		).toBeNull();
+		await userEvent.click(bare);
+		await expect(onLinkOpen).toHaveBeenCalledWith(
+			`https://pdsls.dev/${AT_URI}`,
+			expect.anything(),
+		);
 	},
 };
 

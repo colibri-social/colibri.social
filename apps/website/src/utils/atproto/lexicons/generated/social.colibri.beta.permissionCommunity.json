@@ -148,6 +148,7 @@
 						"social.colibri.beta.role.delete",
 						"social.colibri.beta.role.putBadgeImage",
 						"social.colibri.beta.emoji.getCatalog",
+						"social.colibri.beta.emoji.getEmojis",
 						"social.colibri.beta.emoji.upload",
 						"social.colibri.beta.emoji.rename",
 						"social.colibri.beta.emoji.delete",

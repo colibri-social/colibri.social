@@ -1,9 +1,33 @@
 import type { OAuthSession } from "@atproto/oauth-client-browser";
-import { buildScopes } from "@colibri-social/lib";
+import {
+	buildScopes,
+	EMOJI_COLLECTIONS,
+	PERMISSION_SET_RESOURCES,
+	WILDCARD_RPC,
+} from "@colibri-social/lib";
 import { appViewDid } from "./appview";
 import type { AuthOptions, LoadOAuthClient, OAuthClientLike } from "./auth";
 
 export const FULL_SCOPE = buildScopes(appViewDid()).join(" ");
+
+export const expandedScope = (
+	options: { omitSets?: string[]; omitMethods?: string[] } = {},
+) => {
+	const audience = `${appViewDid()}%23colibri_appview`;
+	const omitted = new Set(options.omitMethods ?? []);
+	return [
+		"atproto",
+		"blob:*/*",
+		...WILDCARD_RPC.map((lxm) => `rpc:${lxm}?aud=*`),
+		...EMOJI_COLLECTIONS.map((collection) => `repo:${collection}`),
+		...Object.entries(PERMISSION_SET_RESOURCES)
+			.filter(([nsid]) => !options.omitSets?.includes(nsid))
+			.map(([, resources]) => {
+				const kept = resources.filter((resource) => !omitted.has(resource));
+				return `rpc?${kept.map((lxm) => `lxm=${lxm}`).join("&")}&aud=${audience}`;
+			}),
+	].join(" ");
+};
 
 export const fakeSession = (did: string, scope = FULL_SCOPE): OAuthSession =>
 	({

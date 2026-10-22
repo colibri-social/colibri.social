@@ -1,6 +1,15 @@
-import { createSignal, type JSX, Show } from "solid-js";
+import {
+	batch,
+	createEffect,
+	createSignal,
+	type JSX,
+	on,
+	onCleanup,
+	Show,
+} from "solid-js";
 import { cx } from "../../utils/cx";
 import { EMOJI_GLYPH_EM, isJumboEmojiText } from "../../utils/emoji";
+import { isStaticSource } from "../../utils/playback";
 import {
 	AnimatedImage,
 	type AnimatedImagePlayback,
@@ -8,6 +17,86 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 
 export type EmojiSize = "inline" | "jumbo" | number;
+
+export const EMOJI_IMAGE_RETRY_DELAYS_MS = [1_000, 4_000, 15_000, 60_000];
+
+const [imageWake, setImageWake] = createSignal(0);
+let wakeInstalled = false;
+
+const installImageWake = () => {
+	if (wakeInstalled || typeof window === "undefined") return;
+	wakeInstalled = true;
+	const wake = () => setImageWake((count) => count + 1);
+	window.addEventListener("online", wake);
+	window.addEventListener("focus", wake);
+};
+
+export const emojiRetrySrc = (src: string, attempt: number) => {
+	if (attempt === 0 || typeof location === "undefined") return src;
+	try {
+		const url = new URL(src, location.href);
+		if (url.protocol !== "http:" && url.protocol !== "https:") return src;
+		url.searchParams.set("retry", String(attempt));
+		return url.toString();
+	} catch {
+		return src;
+	}
+};
+
+export const createImageRetry = (src: () => string | undefined) => {
+	installImageWake();
+	const [attempt, setAttempt] = createSignal(0);
+	const [failed, setFailed] = createSignal(false);
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const stop = () => {
+		clearTimeout(timer);
+		timer = undefined;
+	};
+	const retry = () => {
+		stop();
+		if (!failed()) return;
+		batch(() => {
+			setFailed(false);
+			setAttempt((count) => count + 1);
+		});
+	};
+	createEffect(
+		on(
+			src,
+			() => {
+				stop();
+				batch(() => {
+					setFailed(false);
+					setAttempt(0);
+				});
+			},
+			{ defer: true },
+		),
+	);
+	createEffect(on(imageWake, retry, { defer: true }));
+	onCleanup(stop);
+	return {
+		failed,
+		retry,
+		src: () => {
+			const current = src();
+			return current && !failed()
+				? emojiRetrySrc(current, attempt())
+				: undefined;
+		},
+		fail: () => {
+			stop();
+			setFailed(true);
+			const delay = EMOJI_IMAGE_RETRY_DELAYS_MS[attempt()];
+			if (delay !== undefined) timer = setTimeout(retry, delay);
+		},
+	};
+};
+
+const demandAnimated = (
+	playback: AnimatedImagePlayback | undefined,
+	src: string | undefined,
+) => (playback === "demand" ? !isStaticSource(src) : undefined);
 
 export const JUMBO_FONT_SCALE = 2;
 
@@ -40,15 +129,16 @@ export type EmojiProps = {
 	name?: string;
 	size?: EmojiSize;
 	playback?: AnimatedImagePlayback;
+	play?: boolean;
 	tooltip?: boolean;
 	class?: string;
 };
 
 export const Emoji = (props: EmojiProps) => {
-	const [failedSrc, setFailedSrc] = createSignal<string>();
+	const image = createImageRetry(() => props.src);
 	const size = () => props.size ?? "inline";
 	const shortcode = () => `:${props.name ?? "emoji"}:`;
-	const showImage = () => !!props.src && failedSrc() !== props.src;
+	const showImage = () => !!image.src();
 
 	return (
 		<Show
@@ -75,13 +165,15 @@ export const Emoji = (props: EmojiProps) => {
 				>
 					<AnimatedImage
 						data-emoji="custom"
-						src={props.src}
+						src={image.src()}
 						alt={shortcode()}
+						animated={demandAnimated(props.playback, props.src)}
 						playback={props.playback}
+						play={props.play}
 						draggable={false}
 						loading="lazy"
 						decoding="async"
-						onError={() => setFailedSrc(props.src)}
+						onError={image.fail}
 						style={imageSizeStyle(size())}
 						class={cx(frameClass, "object-contain", props.class)}
 					/>
@@ -105,24 +197,25 @@ export type CustomEmojiImageProps = {
 type CustomEmojiImageState = "loading" | "loaded" | "unavailable";
 
 export const CustomEmojiImage = (props: CustomEmojiImageProps) => {
+	const image = createImageRetry(() => props.src);
 	const [loadedSrc, setLoadedSrc] = createSignal<string>();
-	const [failedSrc, setFailedSrc] = createSignal<string>();
 	const [pendingSrc, setPendingSrc] = createSignal<string>();
-	const usable = () => !!props.src && failedSrc() !== props.src;
 	const state = (): CustomEmojiImageState => {
-		if (usable()) return loadedSrc() === props.src ? "loaded" : "loading";
+		const shown = image.src();
+		if (shown) return loadedSrc() === shown ? "loaded" : "loading";
 		if (props.src && pendingSrc() === props.src) return "loading";
 		return props.src || props.unavailable ? "unavailable" : "loading";
 	};
-	const retried = new Set<string>();
-	const fail = async (src: string) => {
-		setFailedSrc(src);
-		if (retried.has(src) || !props.onError) return;
-		retried.add(src);
+	const asked = new Set<string>();
+	const fail = async () => {
+		const src = props.src;
+		image.fail();
+		if (!src || asked.has(src) || !props.onError) return;
+		asked.add(src);
 		setPendingSrc(src);
 		const recovered = await props.onError(src);
 		if (pendingSrc() === src) setPendingSrc(undefined);
-		if (recovered && failedSrc() === src) setFailedSrc(undefined);
+		if (recovered && props.src === src) image.retry();
 	};
 
 	return (
@@ -144,16 +237,17 @@ export const CustomEmojiImage = (props: CustomEmojiImageProps) => {
 				height: `${props.size}px`,
 			}}
 		>
-			<Show when={usable() && props.src} keyed>
+			<Show when={image.src()} keyed>
 				{(src) => (
 					<AnimatedImage
 						src={src}
 						alt=""
+						animated={demandAnimated(props.playback, props.src)}
 						playback={props.playback}
 						draggable={false}
 						decoding="async"
 						onLoad={() => setLoadedSrc(src)}
-						onError={() => void fail(src)}
+						onError={() => void fail()}
 						class={cx(
 							"block size-full object-contain",
 							loadedSrc() !== src && "opacity-0",

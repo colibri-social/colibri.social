@@ -1,22 +1,25 @@
 import {
 	Button,
-	CollapsibleGroup,
+	DestinationAction,
+	DestinationChannel,
+	DestinationEmpty,
+	DestinationList,
+	DestinationNote,
+	DestinationSpace,
+	DestinationThread,
+	DestinationThreadSkeleton,
 	Drawer,
 	DrawerContent,
-	ListGroup,
 	MessageSelectionBar,
 	Modal,
 	ModalContent,
-	NavRow,
 	SearchField,
 	TextField,
 	toast,
 } from "@colibri-social/ui";
 import { AddCircleIcon } from "@solar-icons/solid/bold/add-circle";
-import { ArrowLeftIcon } from "@solar-icons/solid/bold/arrow-left";
-import { ChatRoundDotsIcon } from "@solar-icons/solid/bold/chat-round-dots";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
-import { HashtagIcon } from "@solar-icons/solid/bold/hashtag";
+import { UndoLeftRoundIcon } from "@solar-icons/solid/bold/undo-left-round";
 import {
 	type Accessor,
 	createEffect,
@@ -510,6 +513,9 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 			? "A thread was started from one of these messages, so they can only move to a channel."
 			: "Threads were started from some of these messages, so they can only move to a channel.";
 
+	const threadCount = (total: number) =>
+		`${total} ${total === 1 ? "thread" : "threads"}`;
+
 	const GroupRows = (props: { group: Group }) => (
 		<>
 			<Show
@@ -518,78 +524,89 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 					(!searching() || matches(props.group.channel.name))
 				}
 			>
-				<NavRow
-					class="pl-9"
+				<DestinationAction
 					icon={<AddCircleIcon />}
 					label={`New thread in #${props.group.channel.name}`}
-					chevron={false}
 					onClick={() => choose({ kind: "new", channel: props.group.channel })}
 				/>
 			</Show>
 			<For each={props.group.threads}>
 				{(thread) => (
-					<NavRow
-						class="pl-9"
-						icon={<ChatRoundDotsIcon />}
-						label={thread.name}
-						value={formatAge(thread.lastActivityAt)}
-						chevron={false}
-						onClick={() => choose({ kind: "thread", thread })}
+					<DestinationThread
+						name={thread.name}
+						meta={formatAge(thread.lastActivityAt)}
+						onSelect={() => choose({ kind: "thread", thread })}
 					/>
 				)}
 			</For>
 			<Show when={props.group.failed}>
-				<NavRow
-					class="pl-9"
+				<DestinationAction
+					tone="muted"
 					icon={<DangerTriangleIcon />}
 					label="Couldn't load threads. Try again"
-					chevron={false}
 					onClick={() => data.threadsOf(props.group.channel.space).retry()}
 				/>
 			</Show>
-			<Show
-				when={
-					!props.group.failed &&
-					props.group.threads.length === 0 &&
-					!offerNewThread()
-				}
-			>
-				<p class="m-0 py-2.5 pr-3 pl-9 text-sm text-muted-foreground">
-					{props.group.loading ? "Loading threads" : "No threads yet"}
-				</p>
+			<Show when={!props.group.failed && props.group.threads.length === 0}>
+				<Show
+					when={props.group.loading}
+					fallback={
+						<Show when={!offerNewThread()}>
+							<DestinationNote>No threads yet</DestinationNote>
+						</Show>
+					}
+				>
+					<DestinationThreadSkeleton />
+				</Show>
 			</Show>
 		</>
 	);
 
 	const destinations = () => (
-		<>
+		<DestinationList mode="single" platform={desktop() ? "desktop" : "mobile"}>
 			<Show when={origin()}>
 				{(entry) => (
-					<ListGroup>
-						<NavRow
-							icon={<ArrowLeftIcon />}
-							label={`Back to ${nameOf(entry())}`}
-							onClick={() => choose(entry())}
-						/>
-					</ListGroup>
+					<DestinationAction
+						icon={<UndoLeftRoundIcon />}
+						label={`Back to ${nameOf(entry())}`}
+						onClick={() => choose(entry())}
+					/>
 				)}
 			</Show>
 			<Show when={!threadsMove()}>
-				<p data-move-anchored="" class="m-0 px-1 text-sm text-muted-foreground">
+				<p
+					data-move-anchored=""
+					class="m-0 px-2 text-sm leading-prose text-pretty text-muted-foreground"
+				>
 					{anchoredNote()}
 				</p>
 			</Show>
-			<Show when={visibleGroups().length > 0}>
-				<ListGroup>
+			<Show
+				when={visibleGroups().length > 0}
+				fallback={
+					<DestinationEmpty>
+						{searching()
+							? "Nothing matches your search."
+							: "There are no channels you can move these messages to."}
+					</DestinationEmpty>
+				}
+			>
+				<DestinationSpace
+					name={options.community()?.name ?? "This Space"}
+					iconSrc={options.community()?.picture}
+				>
 					<For each={visibleGroups().map((group) => group.channel.space)}>
 						{(ref) => (
 							<Show when={groupFor(ref)}>
 								{(group) => (
-									<CollapsibleGroup
-										icon={<HashtagIcon />}
-										label={group().channel.name}
-										hint={group().current ? "this channel" : undefined}
-										count={group().threads.length}
+									<DestinationChannel
+										name={group().channel.name}
+										hint={group().current ? "Current channel" : undefined}
+										meta={
+											group().threads.length > 0
+												? threadCount(group().threads.length)
+												: undefined
+										}
 										expanded={isExpanded(group())}
 										onExpandedChange={(open) => setGroupExpanded(group(), open)}
 										onSelect={
@@ -604,19 +621,14 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 										toggleLabel={`Threads in #${group().channel.name}`}
 									>
 										<GroupRows group={group()} />
-									</CollapsibleGroup>
+									</DestinationChannel>
 								)}
 							</Show>
 						)}
 					</For>
-				</ListGroup>
+				</DestinationSpace>
 			</Show>
-			<Show when={searching() && visibleGroups().length === 0}>
-				<p class="m-0 py-4 text-center text-sm text-muted-foreground">
-					Nothing matches your search.
-				</p>
-			</Show>
-		</>
+		</DestinationList>
 	);
 
 	const search = () => (
@@ -635,7 +647,7 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 					<ModalContent title={moveTitle()}>
 						<div data-move-picker="" class="flex min-h-0 flex-col gap-3">
 							{search()}
-							<div class="flex max-h-[min(420px,50dvh)] flex-col gap-4 overflow-y-auto">
+							<div class="-mx-4 max-h-[min(420px,50dvh)] overflow-y-auto border-0 border-t border-solid border-border px-2 pt-2">
 								{destinations()}
 							</div>
 						</div>

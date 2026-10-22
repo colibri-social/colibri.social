@@ -120,7 +120,8 @@ export const createSignedInSession = (
 						live,
 						cachedViewer:
 							snapshot?.viewer?.did === did ? snapshot.viewer : undefined,
-						onScopesRejected: () => auth.health.noteScopesRejected(),
+						onScopesRejected: (method) =>
+							auth.health.noteScopesRejected(method),
 					}).then((source) => ({ source, warm: !!snapshot })),
 				);
 			withDeadline(

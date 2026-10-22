@@ -1,5 +1,6 @@
 import type { ColibriRichTextFacet } from "@colibri-social/lib";
 import { describe, expect, it } from "vitest";
+import { buildClipboardHtml, readClipboardFacets } from "./clipboard-facets";
 import {
 	facetsToProseMirror,
 	flattenLegacyEmoji,
@@ -199,5 +200,88 @@ describe("custom emoji", () => {
 			text: "Go 🚀",
 			facets: [],
 		});
+	});
+});
+
+describe("pasted links", () => {
+	const bytes = (value: string) => new TextEncoder().encode(value).length;
+	const linkFacet = (
+		text: string,
+		label: string,
+		uri: string,
+	): ColibriRichTextFacet => {
+		const start = bytes(text.slice(0, text.indexOf(label)));
+		return {
+			index: { byteStart: start, byteEnd: start + bytes(label) },
+			features: [
+				{
+					$type: "social.colibri.beta.richtext.facet#link",
+					uri: uri as `${string}:${string}`,
+				},
+			],
+		};
+	};
+	const textOf = (doc: ReturnType<typeof facetsToProseMirror>) =>
+		inline(doc)
+			.map((node) => node.text ?? "")
+			.join("");
+
+	it("inserts a bare url as plain text", () => {
+		const uri = "https://colibri.social/docs";
+		const text = `read ${uri} first`;
+		const doc = facetsToProseMirror(text, [linkFacet(text, uri, uri)]);
+		expect(textOf(doc)).toBe(text);
+	});
+
+	it("inserts a bare url as plain text when its label has stray spaces", () => {
+		const uri = "https://colibri.social/docs";
+		const text = `read  ${uri} first`;
+		const doc = facetsToProseMirror(text, [linkFacet(text, ` ${uri}`, uri)]);
+		expect(textOf(doc)).toBe(text);
+	});
+
+	it("autolinks the pasted url again on send", () => {
+		const uri = "https://colibri.social/docs";
+		const text = `read ${uri} first`;
+		const { facets } = roundTrip(text, [linkFacet(text, uri, uri)]);
+		expect(facets).toEqual([
+			expect.objectContaining({
+				index: expect.objectContaining({
+					byteStart: 5,
+					byteEnd: 5 + bytes(uri),
+				}),
+				features: [
+					expect.objectContaining({
+						$type: "social.colibri.beta.richtext.facet#link",
+						uri,
+					}),
+				],
+			}),
+		]);
+	});
+
+	it("keeps markdown source for a labelled link", () => {
+		const uri = "https://colibri.social/docs";
+		const text = "read the docs first";
+		const doc = facetsToProseMirror(text, [linkFacet(text, "the docs", uri)]);
+		expect(textOf(doc)).toBe(`read [the docs](${uri}) first`);
+	});
+
+	it("keeps markdown source when the url runs into other text", () => {
+		const uri = "https://colibri.social/docs";
+		const text = `read${uri}`;
+		const doc = facetsToProseMirror(text, [linkFacet(text, uri, uri)]);
+		expect(textOf(doc)).toBe(`read[${uri}](${uri})`);
+	});
+
+	it("pastes a copied message link as plain text", () => {
+		const uri = "at://did:plc:abc123/app.bsky.feed.post/3kabc";
+		const text = `see ${uri}`;
+		const payload = readClipboardFacets(
+			buildClipboardHtml(text, [linkFacet(text, uri, uri)]),
+		);
+		if (!payload) throw new Error("clipboard payload missing");
+		const doc = facetsToProseMirror(payload.text, payload.facets);
+		expect(textOf(doc)).toBe(text);
 	});
 });

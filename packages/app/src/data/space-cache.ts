@@ -13,7 +13,7 @@ import {
 	WINDOW_WRITE_MAX_INTERVAL_MS,
 } from "@colibri-social/lib";
 import type { ChannelSummary } from "./channel-summary";
-import type { EmojiCatalogView, EmojiLibraryView } from "./emoji";
+import type { EmojiCatalogView, EmojiLibraryView, EmojiView } from "./emoji";
 import { prepareNamespace, SPACES_STORE, sharedStore } from "./message-cache";
 import type {
 	CategoryView,
@@ -47,6 +47,7 @@ export type SpaceEntry = {
 export type EmojiSnapshot = {
 	library?: EmojiLibraryView;
 	catalogs?: Record<string, EmojiCatalogView>;
+	emojis?: Record<string, EmojiView>;
 };
 
 export type SpaceSnapshot = {
@@ -65,6 +66,8 @@ export type SpacePatch = Partial<
 export const PRESENCE_LIMIT = 2_000;
 
 export const EMOJI_CATALOG_LIMIT = 40;
+
+export const EMOJI_SIGHTING_LIMIT = 500;
 
 const lastEntries = <T>(record: Record<string, T>, limit: number) =>
 	Object.fromEntries(Object.entries(record).slice(-limit));
@@ -285,6 +288,10 @@ export const createSpaceCache = (options: {
 					catalogs: lastEntries(
 						withLatest(current.emoji?.catalogs, emoji.catalogs ?? {}),
 						EMOJI_CATALOG_LIMIT,
+					),
+					emojis: lastEntries(
+						withLatest(current.emoji?.emojis, emoji.emojis ?? {}),
+						EMOJI_SIGHTING_LIMIT,
 					),
 				}),
 			};

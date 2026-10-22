@@ -8,6 +8,7 @@ import { GalleryDownloadIcon } from "@solar-icons/solid/bold/gallery-download";
 import { HeartIcon } from "@solar-icons/solid/bold/heart";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
 import { LinkMinimalisticIcon } from "@solar-icons/solid/bold/link-minimalistic";
+import { LinkRoundIcon } from "@solar-icons/solid/bold/link-round";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { RefreshIcon } from "@solar-icons/solid/bold/refresh";
 import { ReplyIcon } from "@solar-icons/solid/bold/reply";
@@ -67,6 +68,7 @@ export type MessageMenuActions = DeveloperMenuActions & {
 	onOpenThread?: () => void;
 	onSelect?: () => void;
 	onCopyText?: () => void;
+	onCopyMessageLink?: () => void;
 	gif?: MessageMenuGif;
 	onLinkPreviews?: () => void;
 	onViewReactions?: () => void;
@@ -91,6 +93,7 @@ export const MessageMenuItems = (props: MessageMenuActions) => {
 	const hasUtility = () =>
 		!!(
 			props.onCopyText ||
+			props.onCopyMessageLink ||
 			props.gif ||
 			props.onLinkPreviews ||
 			props.onViewReactions ||
@@ -197,6 +200,13 @@ export const MessageMenuItems = (props: MessageMenuActions) => {
 					icon={<CopyIcon />}
 					label="Copy text"
 					onSelect={props.onCopyText}
+				/>
+			</Show>
+			<Show when={props.onCopyMessageLink}>
+				<MenuItem
+					icon={<LinkRoundIcon />}
+					label="Copy message link"
+					onSelect={props.onCopyMessageLink}
 				/>
 			</Show>
 			<Show when={props.gif}>

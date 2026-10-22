@@ -1,4 +1,8 @@
-import { classifyThrown, createLogger } from "@colibri-social/lib";
+import {
+	type ColibriError,
+	classifyThrown,
+	createLogger,
+} from "@colibri-social/lib";
 import type {
 	CustomEmojiSuggestion,
 	EmojiPack,
@@ -10,11 +14,15 @@ import {
 	createMemo,
 	createRoot,
 	createSignal,
+	getOwner,
+	onCleanup,
+	type Setter,
 	untrack,
 } from "solid-js";
 import {
 	allowsEmojiUri,
 	attachEmojiFacets,
+	EMOJI_BATCH_LIMIT,
 	type EmojiCatalogView,
 	type EmojiFollowView,
 	type EmojiLibraryView,
@@ -42,6 +50,7 @@ export type EmojiLoad<T> = {
 	value: Accessor<T | undefined>;
 	loading: Accessor<boolean>;
 	error: Accessor<unknown>;
+	failures: Accessor<number>;
 	refresh: () => Promise<void>;
 	set: (next: T) => void;
 };
@@ -52,15 +61,21 @@ export type EmojiAvailability = "loading" | "unavailable";
 
 export type EmojiLibrary = EmojiLoad<EmojiLibraryView>;
 
+type LoadHooks = {
+	onChange?: () => void;
+	onSettle?: (failed: boolean, refresh: () => Promise<void>) => void;
+};
+
 const createLoad = <T>(
 	fetch: () => Promise<T>,
 	seed?: T,
-	onChange?: () => void,
+	hooks: LoadHooks = {},
 ): EmojiLoad<T> =>
 	createRoot(() => {
 		const [value, setValue] = createSignal<T | undefined>(seed);
 		const [loading, setLoading] = createSignal(true);
 		const [error, setError] = createSignal<unknown>();
+		const [failures, setFailures] = createSignal(0);
 		let generation = 0;
 		const refresh = async () => {
 			const current = ++generation;
@@ -71,10 +86,17 @@ const createLoad = <T>(
 				batch(() => {
 					setValue(() => next);
 					setError(undefined);
+					setFailures(0);
 				});
-				onChange?.();
+				hooks.onChange?.();
+				hooks.onSettle?.(false, refresh);
 			} catch (failure) {
-				if (current === generation) setError(() => failure);
+				if (current !== generation) return;
+				batch(() => {
+					setError(() => failure);
+					setFailures((count) => count + 1);
+				});
+				hooks.onSettle?.(true, refresh);
 			} finally {
 				if (current === generation) setLoading(false);
 			}
@@ -84,21 +106,92 @@ const createLoad = <T>(
 			value,
 			loading,
 			error,
+			failures,
 			refresh,
 			set: (next) => {
 				generation++;
 				batch(() => {
 					setValue(() => next);
+					setError(undefined);
+					setFailures(0);
 					setLoading(false);
 				});
-				onChange?.();
+				hooks.onChange?.();
+				hooks.onSettle?.(false, refresh);
 			},
 		};
 	});
 
+export const EMOJI_RETRY_DELAYS_MS = [2_000, 5_000, 15_000, 30_000, 60_000];
+
+export const EMOJI_WAKE_SPACING_MS = 5_000;
+
+type RetryEntry = {
+	attempt: number;
+	timer?: ReturnType<typeof setTimeout>;
+	run: () => void;
+};
+
+const createRetries = (now: () => number = Date.now) => {
+	const entries = new Map<string, RetryEntry>();
+	let lastWake = Number.NEGATIVE_INFINITY;
+	const fire = (entry: RetryEntry) => {
+		clearTimeout(entry.timer);
+		entry.timer = undefined;
+		entry.run();
+	};
+	return {
+		schedule: (key: string, run: () => void) => {
+			const entry = entries.get(key) ?? { attempt: 0, run };
+			entry.run = run;
+			clearTimeout(entry.timer);
+			const delay = EMOJI_RETRY_DELAYS_MS[entry.attempt];
+			entry.attempt += 1;
+			entry.timer =
+				delay === undefined ? undefined : setTimeout(() => fire(entry), delay);
+			entries.set(key, entry);
+		},
+		settle: (key: string) => {
+			const entry = entries.get(key);
+			if (!entry) return;
+			clearTimeout(entry.timer);
+			entries.delete(key);
+		},
+		wake: () => {
+			const at = now();
+			if (at - lastWake < EMOJI_WAKE_SPACING_MS) return;
+			lastWake = at;
+			for (const entry of [...entries.values()]) fire(entry);
+		},
+		dispose: () => {
+			for (const entry of entries.values()) clearTimeout(entry.timer);
+			entries.clear();
+		},
+	};
+};
+
+const GET_EMOJIS_METHOD = "emoji.getEmojis";
+
+const batchRejected = (error: ColibriError) =>
+	error.status === 501 ||
+	error.status === 404 ||
+	error.context.unknownCode === "MethodNotImplemented" ||
+	error.code === "ScopesMissing" ||
+	error.code === "Forbidden";
+
+type Sighting =
+	| { kind: "pending" }
+	| { kind: "found"; emoji: EmojiView }
+	| { kind: "missing" }
+	| { kind: "failed"; failures: number }
+	| { kind: "catalog" };
+
+export const EMOJI_SEED_LIMIT = 500;
+
 export type EmojiSeed = {
 	library?: EmojiLibraryView;
 	catalogs?: Readonly<Record<string, EmojiCatalogView>>;
+	emojis?: Readonly<Record<string, EmojiView>>;
 };
 
 export const pickerPacks = (
@@ -224,6 +317,28 @@ export const createEmojiStore = (
 ) => {
 	const catalogs = new Map<Did, EmojiCatalog>();
 	let libraryLoad: EmojiLibrary | undefined;
+	const sightings = new Map<string, [Accessor<Sighting>, Setter<Sighting>]>();
+	const retries = createRetries();
+
+	if (typeof window !== "undefined") {
+		window.addEventListener("online", retries.wake);
+		window.addEventListener("focus", retries.wake);
+		if (getOwner())
+			onCleanup(() => {
+				window.removeEventListener("online", retries.wake);
+				window.removeEventListener("focus", retries.wake);
+				retries.dispose();
+			});
+	}
+
+	const foundEmoji = () => {
+		const found: Record<string, EmojiView> = {};
+		for (const [uri, [read]] of sightings) {
+			const seen = untrack(read);
+			if (seen.kind === "found") found[uri] = seen.emoji;
+		}
+		return Object.fromEntries(Object.entries(found).slice(-EMOJI_SEED_LIMIT));
+	};
 
 	const loaded = (): EmojiSeed => {
 		const views: Record<string, EmojiCatalogView> = {};
@@ -234,10 +349,31 @@ export const createEmojiStore = (
 		return {
 			library: libraryLoad && untrack(libraryLoad.value),
 			catalogs: views,
+			emojis: foundEmoji(),
 		};
 	};
 
 	const offer = () => cache.offer?.(loaded());
+
+	const retrying =
+		(key: string, method: string) =>
+		(failed: boolean, refresh: () => Promise<void>) => {
+			if (!failed) {
+				retries.settle(key);
+				return;
+			}
+			retries.schedule(key, () => {
+				void refresh().then(() => {
+					const load =
+						key === "library" ? libraryLoad : catalogs.get(key as Did);
+					const failure = load && untrack(load.error);
+					if (failure)
+						log.warn("emoji retry failed", {
+							code: classifyThrown(failure, { method }).code,
+						});
+				});
+			});
+		};
 
 	const catalog = (community: Did) => {
 		const existing = catalogs.get(community);
@@ -245,7 +381,7 @@ export const createEmojiStore = (
 		const created = createLoad(
 			() => source.listEmoji(community),
 			cache.seed?.catalogs?.[community],
-			offer,
+			{ onChange: offer, onSettle: retrying(community, "emoji.getCatalog") },
 		);
 		catalogs.set(community, created);
 		return created;
@@ -255,9 +391,112 @@ export const createEmojiStore = (
 		libraryLoad ??= createLoad(
 			() => source.getEmojiLibrary(),
 			cache.seed?.library,
-			offer,
+			{ onChange: offer, onSettle: retrying("library", "emoji.getLibrary") },
 		);
 		return libraryLoad;
+	};
+
+	let batchUnsupported = !source.getEmojis;
+	let nextFlush: { uris: Set<string>; done: Promise<void> } | undefined;
+
+	const setSighting = (uri: string, next: Sighting) =>
+		sightings.get(uri)?.[1](next);
+
+	const sightingOf = (uri: string) => sightings.get(uri)?.[0];
+
+	const retryKey = (uri: string) => `emoji ${uri}`;
+
+	const toCatalog = (uris: readonly string[]) =>
+		batch(() => {
+			for (const uri of uris) {
+				retries.settle(retryKey(uri));
+				setSighting(uri, { kind: "catalog" });
+			}
+		});
+
+	const markFailed = (uri: string) => {
+		const current = sightingOf(uri);
+		const seen = current && untrack(current);
+		if (seen?.kind === "found") return;
+		setSighting(uri, {
+			kind: "failed",
+			failures: seen?.kind === "failed" ? seen.failures + 1 : 1,
+		});
+		retries.schedule(retryKey(uri), () => void enqueue(uri));
+	};
+
+	const requestBatch = async (uris: readonly string[]) => {
+		const getEmojis = source.getEmojis;
+		if (!getEmojis || batchUnsupported) {
+			toCatalog(uris);
+			return;
+		}
+		try {
+			const result = await getEmojis(uris);
+			const found = new Map(result.emojis.map((emoji) => [emoji.id, emoji]));
+			const unreachable = new Set<string>(result.unreachable);
+			batch(() => {
+				for (const uri of uris) {
+					const emoji = found.get(uri);
+					if (emoji) {
+						retries.settle(retryKey(uri));
+						setSighting(uri, { kind: "found", emoji });
+					} else if (unreachable.has(repoOfUri(uri) ?? "")) {
+						markFailed(uri);
+					} else {
+						retries.settle(retryKey(uri));
+						setSighting(uri, { kind: "missing" });
+					}
+				}
+			});
+			if (found.size > 0) offer();
+		} catch (thrown) {
+			const failure = classifyThrown(thrown, { method: GET_EMOJIS_METHOD });
+			log.warn("emoji batch failed", { code: failure.code });
+			if (batchRejected(failure)) batchUnsupported = true;
+			if (batchUnsupported || !failure.retryable) {
+				toCatalog(uris);
+				return;
+			}
+			batch(() => {
+				for (const uri of uris) markFailed(uri);
+			});
+		}
+	};
+
+	const enqueue = (uri: string): Promise<void> => {
+		if (!nextFlush) {
+			const uris = new Set<string>();
+			const done = new Promise<void>((resolve) =>
+				queueMicrotask(() => {
+					nextFlush = undefined;
+					const list = [...uris];
+					const work: Promise<void>[] = [];
+					for (let at = 0; at < list.length; at += EMOJI_BATCH_LIMIT)
+						work.push(requestBatch(list.slice(at, at + EMOJI_BATCH_LIMIT)));
+					void Promise.all(work).then(() => resolve());
+				}),
+			);
+			nextFlush = { uris, done };
+		}
+		nextFlush.uris.add(uri);
+		return nextFlush.done;
+	};
+
+	const sighting = (uri: string, owner: Did): Accessor<Sighting> => {
+		const existing = sightingOf(uri);
+		if (existing) return existing;
+		const seeded = cache.seed?.emojis?.[uri];
+		const first: Sighting =
+			batchUnsupported || catalogs.has(owner)
+				? { kind: "catalog" }
+				: seeded
+					? { kind: "found", emoji: seeded }
+					: { kind: "pending" };
+		const created = createSignal<Sighting>(first);
+		sightings.set(uri, created);
+		if (first.kind !== "catalog") void enqueue(uri);
+		return created[0];
 	};
 
 	const patchLibrary = (
@@ -275,6 +514,15 @@ export const createEmojiStore = (
 		}
 		if (event.$type !== "emojiEvent") return;
 		catalogs.get(event.catalog.community)?.set(event.catalog);
+		batch(() => {
+			for (const [uri, [read, write]] of sightings) {
+				if (repoOfUri(uri) !== event.catalog.community) continue;
+				const kind = untrack(read).kind;
+				if (kind !== "found" && kind !== "missing") continue;
+				const emoji = emojiIn(event.catalog.emojis, uri);
+				write(emoji ? { kind: "found", emoji } : { kind: "missing" });
+			}
+		});
 		if (event.catalog.community === viewer())
 			patchLibrary((current) => ({ ...current, own: event.catalog }));
 	});
@@ -400,9 +648,15 @@ export const createEmojiStore = (
 		const owner = repoOfUri(uri);
 		const created = createRoot(() =>
 			createMemo(
-				() =>
-					loadedEmoji(uri, owner) ??
-					(owner ? emojiIn(catalog(owner).value()?.emojis, uri) : undefined),
+				() => {
+					const known = loadedEmoji(uri, owner);
+					if (known || !owner) return known;
+					const seen = sighting(uri, owner)();
+					if (seen.kind === "found") return seen.emoji;
+					if (seen.kind === "catalog")
+						return emojiIn(catalog(owner).value()?.emojis, uri);
+					return undefined;
+				},
 				undefined,
 				{ equals: sameEmoji },
 			),
@@ -418,9 +672,12 @@ export const createEmojiStore = (
 		return owner ? catalog(owner) : undefined;
 	};
 
-	const imageRefreshes = new Map<string, Promise<boolean>>();
+	const imageRefreshes = new Map<
+		string,
+		{ work: Promise<boolean>; settledAt?: number }
+	>();
 
-	const reloadImage = async (uri: string, load: EmojiCatalog) => {
+	const reloadCatalog = async (uri: string, load: EmojiCatalog) => {
 		await load.refresh();
 		const failure = untrack(load.error);
 		if (failure) {
@@ -432,44 +689,40 @@ export const createEmojiStore = (
 		return untrack(emojiByUri(uri)) !== undefined;
 	};
 
+	const reloadImage = async (uri: string) => {
+		const seen = sightingOf(uri);
+		const kind = seen && untrack(seen).kind;
+		if (kind && kind !== "catalog" && !batchUnsupported) {
+			await enqueue(uri);
+			const after = sightingOf(uri);
+			if (after && untrack(after).kind !== "catalog")
+				return untrack(emojiByUri(uri)) !== undefined;
+		}
+		const load = ownerCatalog(uri);
+		return load ? reloadCatalog(uri, load) : false;
+	};
+
 	const refreshImage = (uri: string, src: string): Promise<boolean> => {
 		const existing = imageRefreshes.get(src);
-		if (existing) return existing;
-		const load = ownerCatalog(uri);
-		if (!load) return Promise.resolve(false);
-		const work = reloadImage(uri, load).finally(() =>
-			imageRefreshes.set(src, Promise.resolve(false)),
-		);
-		imageRefreshes.set(src, work);
-		return work;
+		if (
+			existing &&
+			(existing.settledAt === undefined ||
+				Date.now() - existing.settledAt < EMOJI_WAKE_SPACING_MS)
+		)
+			return existing.work;
+		const entry: { work: Promise<boolean>; settledAt?: number } = {
+			work: reloadImage(uri).finally(() => {
+				entry.settledAt = Date.now();
+			}),
+		};
+		imageRefreshes.set(src, entry);
+		return entry.work;
 	};
 
-	const catalogRetries = new Set<Did>();
-	const scheduledRetries = new Set<Did>();
-
-	const retryCatalog = (owner: Did, load: EmojiCatalog) => {
-		catalogRetries.add(owner);
-		scheduledRetries.add(owner);
-		queueMicrotask(() => {
-			const work = load.refresh();
-			scheduledRetries.delete(owner);
-			void work.then(() => {
-				const failure = untrack(load.error);
-				if (!failure) return;
-				log.warn("emoji catalog retry failed", {
-					code: classifyThrown(failure, { method: "emoji.getCatalog" }).code,
-				});
-			});
-		});
-	};
-
-	const settle = (owner: Did, load: EmojiCatalog): EmojiAvailability => {
+	const settle = (load: EmojiCatalog): EmojiAvailability => {
 		if (load.loading() || libraryLoad?.loading()) return "loading";
-		if (scheduledRetries.has(owner)) return "loading";
 		if (load.error() === undefined) return "unavailable";
-		if (catalogRetries.has(owner)) return "unavailable";
-		retryCatalog(owner, load);
-		return "loading";
+		return load.failures() > 1 ? "unavailable" : "loading";
 	};
 
 	const availability = (
@@ -479,7 +732,15 @@ export const createEmojiStore = (
 		if (!emojiRegistry.forUri(uri) || !allows(community, uri))
 			return "unavailable";
 		const owner = repoOfUri(uri);
-		return owner ? settle(owner, catalog(owner)) : "unavailable";
+		if (!owner) return "unavailable";
+		if (loadedEmoji(uri, owner)) return "unavailable";
+		const seen = sighting(uri, owner)();
+		if (seen.kind === "catalog") return settle(catalog(owner));
+		if (libraryLoad?.loading()) return "loading";
+		if (seen.kind === "pending") return "loading";
+		if (seen.kind === "failed")
+			return seen.failures > 1 ? "unavailable" : "loading";
+		return "unavailable";
 	};
 
 	const availabilityByName = (
@@ -487,7 +748,7 @@ export const createEmojiStore = (
 	): EmojiAvailability => {
 		if (!community) return libraryLoad?.loading() ? "loading" : "unavailable";
 		if (policy(community) === "none") return "unavailable";
-		return settle(community, catalog(community));
+		return settle(catalog(community));
 	};
 
 	const search = (community: Did | undefined, query: string, limit: number) => {
@@ -569,9 +830,7 @@ export const createEmojiStore = (
 				src: emoji.image,
 				alt: emojiRegistry.altText(emoji),
 			};
-		if (!emojiRegistry.forUri(target.uri) || !allows(community, target.uri))
-			return undefined;
-		return ownerCatalog(target.uri)?.loading()
+		return availability(community, target.uri) === "loading"
 			? { id: target.uri, name: "", src: "", pending: true }
 			: undefined;
 	};

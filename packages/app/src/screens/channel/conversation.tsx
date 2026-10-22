@@ -6,8 +6,10 @@ import {
 	ComposerBar,
 	ConfirmDialog,
 	GifLoopContext,
+	isInsideNestedLayer,
 	MessageList,
 	type MessageListHandle,
+	NESTED_LAYER_ATTR,
 	ReplyBar,
 	type RichEditorHandle,
 	type RichEditorSources,
@@ -65,9 +67,11 @@ import type {
 	ThreadView,
 } from "../../data/types";
 import { appVisible } from "../../data/visibility";
+import { messageLinkUrl } from "../../native/deep-links";
 import { usePlatform } from "../../screen/platform";
 import { useOptionalDesktopShell } from "../../shell/desktop/context";
 import { isCovered } from "../../shell/desktop/desktop-route";
+import { pendingMessageJump, takeMessageJump } from "../../shell/message-jump";
 import { useStack } from "../../shell/stack";
 import { uiPresence } from "../members/member-adapter";
 import { useMemberMenu } from "../members/member-menu";
@@ -115,6 +119,9 @@ export type ConversationOptions = {
 const JUMP_FRAMES = 12;
 
 export const DELETED_PING_COPY = "The message that pinged you was deleted.";
+export const MISSING_LINKED_MESSAGE_COPY =
+	"That message isn't here anymore. It may have been deleted.";
+const FOCUS_FRAMES = 30;
 export const CLOSED_THREAD_COPY =
 	"This thread is closed. Sending a message reopens it.";
 export const LOCKED_THREAD_COPY =
@@ -432,16 +439,22 @@ export const createConversation = (options: ConversationOptions) => {
 			requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
 		);
 
-	const jumpWhenLoaded = async (rkey: string) => {
+	const jumpWhenLoaded = async (rkey: string, via?: "link") => {
 		setJumping((count) => count + 1);
 		try {
-			await jumpTo(rkey);
+			await jumpTo(rkey, via);
 		} finally {
 			setJumping((count) => count - 1);
 		}
 	};
 
-	const jumpTo = async (rkey: string) => {
+	const missingLinkedMessage = () => {
+		feed()?.jumpToLatest();
+		requestAnimationFrame(() => list?.scrollToBottom({ smooth: false }));
+		toast.info(MISSING_LINKED_MESSAGE_COPY);
+	};
+
+	const jumpTo = async (rkey: string, via?: "link") => {
 		await nextFrame();
 		if (list?.jumpTo(keyFor(rkey))) return;
 		const current = feed();
@@ -459,7 +472,8 @@ export const createConversation = (options: ConversationOptions) => {
 			return;
 		}
 		if (!found) {
-			setDeletedPing(true);
+			if (via === "link") missingLinkedMessage();
+			else setDeletedPing(true);
 			return;
 		}
 		for (let attempt = 0; attempt < JUMP_FRAMES; attempt++) {
@@ -473,9 +487,62 @@ export const createConversation = (options: ConversationOptions) => {
 		const ref = options.target();
 		const request = data.jumps.pending();
 		if (!ref || !revealed() || request?.channel !== ref) return;
+		const via = request.via;
 		const rkey = data.jumps.take(ref);
-		if (rkey && !list?.jumpTo(keyFor(rkey))) void jumpWhenLoaded(rkey);
+		if (rkey && !list?.jumpTo(keyFor(rkey))) void jumpWhenLoaded(rkey, via);
 	});
+
+	const threadSlug = () => {
+		const ref = options.target();
+		return options.thread && ref ? skeyOf(ref) : undefined;
+	};
+
+	createEffect(() => {
+		const ref = options.target();
+		if (!ref || !pendingMessageJump()) return;
+		const thread = threadSlug();
+		const rkey = takeMessageJump({
+			space: options.space,
+			channel: options.channel,
+			...(thread ? { thread } : {}),
+		});
+		if (rkey)
+			untrack(() => data.jumps.request({ channel: ref, rkey, via: "link" }));
+	});
+
+	const focusMoved = (before: Element | null) => {
+		const now = document.activeElement;
+		return now !== before && !!now && now !== document.body;
+	};
+
+	const overlayOpen = () =>
+		isInsideNestedLayer(document.activeElement) ||
+		!!document.querySelector(`[${NESTED_LAYER_ATTR}][data-expanded]`);
+
+	const focusWhenReady = (frames: number, before: Element | null) => {
+		if (frames <= 0 || !isActive() || modalOpen() || !writable()) return;
+		if (focusMoved(before) || overlayOpen()) return;
+		const element = editor?.element();
+		if (element?.isConnected) {
+			if (!element.contains(document.activeElement)) editor?.focus();
+			return;
+		}
+		requestAnimationFrame(() => focusWhenReady(frames - 1, before));
+	};
+
+	createEffect(
+		on(
+			() => [desktop() && isActive(), options.target()] as const,
+			([active, ref]) => {
+				if (!active || !ref) return;
+				const before = document.activeElement;
+				const frame = requestAnimationFrame(() =>
+					focusWhenReady(FOCUS_FRAMES, before),
+				);
+				onCleanup(() => cancelAnimationFrame(frame));
+			},
+		),
+	);
 
 	const canStartThread = () => {
 		const ref = options.target();
@@ -924,6 +991,20 @@ export const createConversation = (options: ConversationOptions) => {
 						reactionEmojiRef(message, emoji),
 					);
 			}),
+		messageLink: (message) => {
+			const thread = threadSlug();
+			const channelType = view()?.type;
+			if (!message.rkey || message.state !== "sent" || !options.target()) {
+				return undefined;
+			}
+			return messageLinkUrl({
+				space: options.space,
+				channel: options.channel,
+				...(channelType ? { channelType } : {}),
+				...(thread ? { thread } : {}),
+				rkey: message.rkey,
+			});
+		},
 		onForward: (message) => {
 			const current = feed();
 			if (!message.rkey || !current) return;

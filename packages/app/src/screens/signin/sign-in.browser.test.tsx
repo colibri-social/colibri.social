@@ -10,12 +10,14 @@ import {
 	type LoadOAuthClient,
 } from "../../auth/auth";
 import {
+	expandedScope,
 	type FakeClientState,
 	fakeClient,
 	fakeSession,
 	memoryStorage,
 } from "../../auth/testing";
 import { Providers } from "../../providers";
+import { setOnboardingActive } from "../onboarding/onboarding-state";
 import { AuthGate } from "./AuthGate";
 
 const DID = "did:plc:alice";
@@ -280,6 +282,95 @@ describe("sign-in", () => {
 		await expect
 			.poll(() => fake.calls.find((call) => call.method === "signIn")?.input)
 			.toBe(DID);
+	});
+
+	it("shows a notice over the app when an approved set gained a method", async () => {
+		const scope = expandedScope({
+			omitMethods: ["social.colibri.beta.emoji.getCatalog"],
+		});
+		const { fake } = await mount(
+			{ stored: fakeSession(DID, scope) },
+			{
+				storage: memoryStorage({ sub: DID }),
+				pdsHost: async () => undefined,
+				resumeEnvironment: null,
+			},
+		);
+		await expect.element(page.getByTestId("signed-in")).toBeVisible();
+		expect(screenOf()).toBeUndefined();
+		const notice = page.getByRole("status").filter({
+			hasText: "Colibri needs one more permission for custom emoji.",
+		});
+		await expect.element(notice).toBeVisible();
+		const slot = document.querySelector("[data-permission-notice-slot]");
+		expect(slot?.hasAttribute("inert")).toBe(false);
+		stubResolve(DID);
+		await userEvent.click(page.getByRole("button", { name: "Review" }));
+		await expect
+			.poll(() => fake.calls.find((call) => call.method === "signIn")?.input)
+			.toBe(DID);
+	});
+
+	it("keeps the notice hidden while onboarding runs", async () => {
+		const scope = expandedScope({
+			omitMethods: ["social.colibri.beta.emoji.getCatalog"],
+		});
+		setOnboardingActive(true);
+		try {
+			await mount(
+				{ stored: fakeSession(DID, scope) },
+				{
+					storage: memoryStorage({ sub: DID }),
+					resumeEnvironment: null,
+				},
+			);
+			await expect.element(page.getByTestId("signed-in")).toBeVisible();
+			const slot = () =>
+				document.querySelector("[data-permission-notice-slot]");
+			await expect.poll(() => slot()?.hasAttribute("inert")).toBe(true);
+			setOnboardingActive(false);
+			await expect.poll(() => slot()?.hasAttribute("inert")).toBe(false);
+		} finally {
+			setOnboardingActive(false);
+		}
+	});
+
+	it("hides the notice for the session once dismissed", async () => {
+		const scope = expandedScope({
+			omitMethods: ["social.colibri.beta.emoji.getCatalog"],
+		});
+		await mount(
+			{ stored: fakeSession(DID, scope) },
+			{
+				storage: memoryStorage({ sub: DID }),
+				resumeEnvironment: null,
+			},
+		);
+		await userEvent.click(page.getByRole("button", { name: "Dismiss" }));
+		await expect
+			.poll(() =>
+				document
+					.querySelector("[data-permission-notice-slot]")
+					?.hasAttribute("inert"),
+			)
+			.toBe(true);
+		await expect.element(page.getByTestId("signed-in")).toBeVisible();
+	});
+
+	it("keeps the full-screen approval when a whole set is missing", async () => {
+		const scope = expandedScope({
+			omitSets: ["social.colibri.beta.permissionMessaging"],
+		});
+		await mount(
+			{ stored: fakeSession(DID, scope) },
+			{
+				storage: memoryStorage({ sub: DID }),
+				resumeEnvironment: null,
+			},
+		);
+		await expect.poll(screenOf).toBe("reapprove");
+		expect(document.querySelector("[data-testid='signed-in']")).toBeNull();
+		expect(document.querySelector("[data-permission-notice]")).toBeNull();
 	});
 
 	it("waits for the browser where the native sheet isn't available", async () => {

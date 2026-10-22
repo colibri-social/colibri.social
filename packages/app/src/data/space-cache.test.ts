@@ -4,6 +4,7 @@ import {
 	SPACE_SNAPSHOT_TTL_MS,
 } from "@colibri-social/lib";
 import { describe, expect, it } from "vitest";
+import type { EmojiView } from "./emoji";
 import { createSpaceCache } from "./space-cache";
 import type {
 	ChannelView,
@@ -127,6 +128,26 @@ describe("space cache", () => {
 			kv,
 		}).load();
 		expect(snapshot).toBeUndefined();
+	});
+
+	it("keeps batch-resolved emoji and merges later sightings", async () => {
+		const kv = memoryKv();
+		const cache = await fill(kv);
+		const emoji = (name: string) =>
+			({
+				id: `at://did:plc:a/social.colibri.beta.emoji/${name}`,
+				name,
+			}) as unknown as EmojiView;
+		cache.offerEmoji({ emojis: { [emoji("owl").id]: emoji("owl") } });
+		cache.offerEmoji({ emojis: { [emoji("fox").id]: emoji("fox") } });
+		await cache.flush();
+		const snapshot = await createSpaceCache({
+			namespace: "app:did:plc:viewer",
+			kv,
+		}).load();
+		expect(
+			Object.values(snapshot?.emoji?.emojis ?? {}).map((entry) => entry.name),
+		).toEqual(["owl", "fox"]);
 	});
 
 	it("works without device storage", async () => {

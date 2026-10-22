@@ -418,6 +418,17 @@ export const MessageItem = (props: MessageItemProps) => {
 		else toast.error("Couldn't copy text");
 	};
 
+	const copyMessageLinkAction = () => {
+		if (!sent() || legacy()) return undefined;
+		const link = chat.messageLink?.(message());
+		if (!link) return undefined;
+		return async () => {
+			const copied = await copyText(link);
+			if (copied) toast.success("Message link copied");
+			else toast.error("Couldn't copy the message link");
+		};
+	};
+
 	const forwardMessage = () => {
 		if (chat.onForward) chat.onForward(message());
 		else toast.info("Forwarding isn't available yet");
@@ -781,6 +792,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			onOpenThread={openThreadAction()}
 			onSelect={selectAction()}
 			onCopyText={message().text ? copy : undefined}
+			onCopyMessageLink={copyMessageLinkAction()}
 			image={imageActions()}
 			gif={gifAction()}
 			onLinkPreviews={linkPreviewsAction()}
@@ -1034,6 +1046,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			onOpenThread={openThreadAction()}
 			onSelect={selectAction()}
 			onCopyText={message().text ? copy : undefined}
+			onCopyMessageLink={copyMessageLinkAction()}
 			gif={gifAction()}
 			onLinkPreviews={linkPreviewsAction()}
 			onViewReactions={viewReactionsAction()}
@@ -1155,6 +1168,7 @@ export const MessageItem = (props: MessageItemProps) => {
 					onOpenThread={openThreadAction()}
 					onSelect={selectAction()}
 					onCopyText={message().text ? copy : undefined}
+					onCopyMessageLink={copyMessageLinkAction()}
 					image={imageActions()}
 					gif={gifAction()}
 					onLinkPreviews={linkPreviewsAction()}

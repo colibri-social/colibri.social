@@ -13,8 +13,15 @@ import {
 import {
 	buildScopes,
 	EMOJI_COLLECTIONS,
+	getMissingScopeMethods,
 	getMissingScopeSets,
+	isRequestedScopeResource,
 	PERMISSION_SET_LABELS,
+	PERMISSION_SET_RESOURCES,
+	type PermissionSetResources,
+	permissionSetOf,
+	permissionSetResources,
+	scopeFeatureLabel,
 	scopeSetLabel,
 	scopes,
 	WILDCARD_RPC,
@@ -158,7 +165,7 @@ describe("getMissingScopeSets", () => {
 
 	it("does not confuse the two badge-linking scopes", () => {
 		const missing = getMissingScopeSets(
-			"social.colibri.labeler.linkExternalAccount?aud=*",
+			"rpc:social.colibri.labeler.linkExternalAccount?aud=*",
 		);
 		expect(missing).not.toContain("social.colibri.labeler.linkExternalAccount");
 		expect(missing).toContain("social.colibri.labeler.unlinkExternalAccount");
@@ -231,5 +238,193 @@ describe("getMissingScopeSets against an expanded grant", () => {
 			].join(" ");
 			expect(getMissingScopeSets(withoutOne)).toEqual([nsid]);
 		}
+	});
+});
+
+const COMMUNITY = "social.colibri.beta.permissionCommunity";
+const ACCOUNT = "social.colibri.beta.permissionAccount";
+const GET_EMOJIS = "social.colibri.beta.emoji.getEmojis";
+const ADDED_LATER = "social.colibri.beta.emoji.listRecent";
+
+const referenceExpansion = (nsid: string, aud: string): string[] => {
+	const doc = PERMISSION_SET_DOCUMENTS.find(([id]) => id === nsid)?.[1];
+	const audience = aud.replace("#", "%23");
+	return (doc?.defs.main.permissions ?? []).flatMap((entry) => {
+		if (entry.resource === "rpc") {
+			const lxm = entry.lxm ?? [];
+			if (lxm.length === 1) return [`rpc:${lxm[0]}?aud=${audience}`];
+			return [`rpc?${lxm.map((m) => `lxm=${m}`).join("&")}&aud=${audience}`];
+		}
+		if (entry.resource === "repo") {
+			const collections = entry.collection ?? [];
+			if (collections.length === 1) return [`repo:${collections[0]}`];
+			return [`repo?${collections.map((c) => `collection=${c}`).join("&")}`];
+		}
+		return [];
+	});
+};
+
+const standaloneGrant = [
+	"atproto",
+	"blob:*/*",
+	...WILDCARD_RPC.map((lxm) => `rpc:${lxm}?aud=*`),
+	...EMOJI_COLLECTIONS.map((collection) => `repo:${collection}`),
+];
+
+const referenceGrant = (sets: readonly string[]) =>
+	[
+		...standaloneGrant,
+		...sets.flatMap((nsid) =>
+			referenceExpansion(nsid, `${APPVIEW}#colibri_appview`),
+		),
+	].join(" ");
+
+const ALL_SETS = Object.keys(PERMISSION_SET_RESOURCES);
+
+describe("PERMISSION_SET_RESOURCES", () => {
+	it("lists every rpc method and repo collection of each bundled set", () => {
+		for (const [nsid, doc] of PERMISSION_SET_DOCUMENTS) {
+			const expected = new Set(
+				(doc.defs.main.permissions ?? []).flatMap((entry) => [
+					...(entry.resource === "rpc" ? (entry.lxm ?? []) : []),
+					...(entry.resource === "repo" ? (entry.collection ?? []) : []),
+				]),
+			);
+			expect(new Set(PERMISSION_SET_RESOURCES[nsid])).toEqual(expected);
+		}
+	});
+
+	it("skips wildcards and resources that are neither rpc nor repo", () => {
+		expect(
+			permissionSetResources({
+				permissions: [
+					{ resource: "rpc", options: { lxm: ["*", "a.b.c"] } },
+					{ resource: "blob", options: { accept: ["image/*"] } },
+					{ resource: "space", options: { spaceType: "a.b.space" } },
+					{ resource: "repo", options: { collection: ["a.b.record"] } },
+				],
+			}),
+		).toEqual(["a.b.c", "a.b.record"]);
+	});
+});
+
+describe("getMissingScopeMethods", () => {
+	it("reports nothing for a reference-expanded grant of every set", () => {
+		const grant = referenceGrant(ALL_SETS);
+		expect(getMissingScopeSets(grant)).toEqual([]);
+		expect(getMissingScopeMethods(grant)).toEqual([]);
+	});
+
+	it("bundles the batched emoji lookup in the community set", () => {
+		expect(PERMISSION_SET_RESOURCES[COMMUNITY]).toContain(GET_EMOJIS);
+	});
+
+	it("reports a method added to an approved set after the grant", () => {
+		const grant = referenceGrant(ALL_SETS);
+		const grown: PermissionSetResources = {
+			...PERMISSION_SET_RESOURCES,
+			[COMMUNITY]: [
+				...(PERMISSION_SET_RESOURCES[COMMUNITY] ?? []),
+				ADDED_LATER,
+			],
+		};
+		expect(getMissingScopeSets(grant, grown)).toEqual([]);
+		expect(getMissingScopeMethods(grant, grown)).toEqual([ADDED_LATER]);
+	});
+
+	it("matches whole method names, never prefixes", () => {
+		const sets: PermissionSetResources = {
+			[COMMUNITY]: [
+				"social.colibri.beta.emoji.getEmoji",
+				"social.colibri.beta.emoji.getEmojis",
+			],
+		};
+		const grant = `rpc:social.colibri.beta.emoji.getEmojis?aud=${APPVIEW}`;
+		expect(getMissingScopeMethods(grant, sets)).toEqual([
+			"social.colibri.beta.emoji.getEmoji",
+		]);
+	});
+
+	it("reads one method per rpc scope as well as grouped lxm params", () => {
+		const sets: PermissionSetResources = {
+			[COMMUNITY]: ["a.b.one", "a.b.two", "a.b.three"],
+		};
+		const grant = `rpc:a.b.one?aud=${APPVIEW} rpc?lxm=a.b.two&lxm=a.b.three&aud=${APPVIEW}`;
+		expect(getMissingScopeMethods(grant, sets)).toEqual([]);
+	});
+
+	it("checks repo collections from a set", () => {
+		const sets: PermissionSetResources = {
+			[ACCOUNT]: ["a.b.getProfile", "a.b.profile", "a.b.settings"],
+		};
+		const grant =
+			"rpc:a.b.getProfile?aud=did:web:x repo?collection=a.b.profile&action=create";
+		expect(getMissingScopeMethods(grant, sets)).toEqual(["a.b.settings"]);
+	});
+
+	it("treats an rpc wildcard as covering every method", () => {
+		const sets: PermissionSetResources = {
+			[COMMUNITY]: ["a.b.one", "a.b.two"],
+		};
+		expect(getMissingScopeMethods(`rpc:*?aud=${APPVIEW}`, sets)).toEqual([]);
+	});
+
+	it("trusts an unexpanded include for its whole set", () => {
+		const full = buildScopes(APPVIEW).join(" ");
+		const grown: PermissionSetResources = {
+			...PERMISSION_SET_RESOURCES,
+			[COMMUNITY]: [
+				...(PERMISSION_SET_RESOURCES[COMMUNITY] ?? []),
+				ADDED_LATER,
+			],
+		};
+		expect(getMissingScopeMethods(full, grown)).toEqual([]);
+	});
+
+	it("leaves a set missing entirely to the set-level check", () => {
+		const grant = referenceGrant(ALL_SETS.filter((nsid) => nsid !== COMMUNITY));
+		expect(getMissingScopeSets(grant)).toEqual([COMMUNITY]);
+		expect(getMissingScopeMethods(grant)).toEqual([]);
+	});
+
+	it("does not count a method shared with a standalone scope as the set", () => {
+		const grant = referenceGrant(ALL_SETS.filter((nsid) => nsid !== COMMUNITY));
+		expect(grant).toContain("rpc:social.colibri.beta.voice.moderate?aud=*");
+		expect(getMissingScopeSets(grant)).toContain(COMMUNITY);
+	});
+
+	it("reports nothing without a grant", () => {
+		expect(getMissingScopeMethods(undefined)).toEqual([]);
+		expect(getMissingScopeMethods("")).toEqual([]);
+	});
+});
+
+describe("scope resource lookups", () => {
+	it("finds the set a method belongs to", () => {
+		expect(permissionSetOf("social.colibri.beta.community.create")).toBe(
+			COMMUNITY,
+		);
+		expect(permissionSetOf("com.atproto.repo.createRecord")).toBeUndefined();
+	});
+
+	it("knows which resources Colibri asks for", () => {
+		expect(
+			isRequestedScopeResource("social.colibri.beta.community.create"),
+		).toBe(true);
+		expect(isRequestedScopeResource(EMOJI_COLLECTIONS[0])).toBe(true);
+		expect(isRequestedScopeResource("com.atproto.repo.createRecord")).toBe(
+			false,
+		);
+	});
+
+	it("names the feature a method belongs to", () => {
+		expect(scopeFeatureLabel(GET_EMOJIS)).toBe("Custom emoji");
+		expect(
+			scopeFeatureLabel("social.colibri.beta.voice.subscribeSignals"),
+		).toBe("Voice channels");
+		expect(scopeFeatureLabel("social.colibri.beta.community.create")).toBe(
+			"Communities & channels",
+		);
+		expect(scopeFeatureLabel("com.atproto.repo.createRecord")).toBeUndefined();
 	});
 });

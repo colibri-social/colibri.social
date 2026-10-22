@@ -1,4 +1,5 @@
 import type { social } from "@colibri-social/lexicons";
+import { clientOrigin } from "@colibri-social/lib";
 import type { CommunityView, Did, MemberView } from "./types";
 
 export type InvitationView = social.colibri.beta.community.defs.InvitationView;
@@ -65,5 +66,5 @@ export type AccessSource = {
 	}) => Promise<JoinResult>;
 };
 
-export const inviteUrl = (code: string, origin = location.origin) =>
+export const inviteUrl = (code: string, origin = clientOrigin()) =>
 	`${origin}/invite/${encodeURIComponent(code)}`;

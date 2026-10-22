@@ -1,12 +1,18 @@
 import type { ColibriError } from "@colibri-social/lib";
-import { ErrorState, NavHeader, NotFound } from "@colibri-social/ui";
+import {
+	ErrorState,
+	FEEDBACK_URL,
+	NavHeader,
+	NotFound,
+} from "@colibri-social/ui";
 import type { JSX } from "solid-js";
 import { describeError } from "../data/error-copy";
+import { openExternalUrl } from "../native/open-external";
 import { useStack } from "./stack";
 
 export const LoadErrorState = (props: {
 	error: ColibriError;
-	onRetry: () => void;
+	onRetry: () => unknown;
 	title?: string;
 	variant?: "screen" | "inline";
 	actions?: JSX.Element;
@@ -21,6 +27,7 @@ export const LoadErrorState = (props: {
 			code={props.error.code}
 			onRetry={props.error.retryable ? props.onRetry : undefined}
 			actions={props.actions}
+			onFeedback={() => openExternalUrl(FEEDBACK_URL)}
 			class={props.class}
 		/>
 	);

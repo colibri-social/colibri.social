@@ -8,7 +8,6 @@ import {
 	type RichTextCustomEmoji,
 	type RichTextExternalLink,
 	type RichTextForeignFeature,
-	type RichTextLinkTarget,
 	RichTextProvider,
 	type RichTextResolvers,
 	RoleMention,
@@ -28,22 +27,29 @@ import type { ForwardTarget } from "../../../data/adapters/forward";
 import type { ReactionEmoji } from "../../../data/adapters/reactions";
 import type { StatusEmojiLookup } from "../../../data/adapters/status";
 import { blueskyUrlRewriter } from "../../../data/bluesky-client";
+import { sharedPackIn } from "../../../data/emoji/shared-pack";
 import { roleIdentity } from "../../../data/roles";
 import type { ControlsPreferences } from "../../../data/source";
 import { useData } from "../../../data/store";
 import type {
 	ChannelView,
 	CommunityView,
+	Did,
 	GifView,
 	MemberView,
 	Presence,
 	RoleView,
 	ThreadView,
 } from "../../../data/types";
-import { openAppLink, routeFromLink } from "../../../native/deep-links";
+import { openAppLink } from "../../../native/deep-links";
 import { toListMember } from "../../members/member-adapter";
 import type { MessageSelection } from "../selection/selection";
 import { highlightCode } from "./code-highlight";
+import {
+	type LinkTargetContext,
+	linkTargetFor,
+	type PackSummary,
+} from "./link-targets";
 import type { LoadBlueskyPost } from "./MessageAttachments";
 import type { ChatMessage } from "./types";
 
@@ -133,6 +139,7 @@ export type ChatContextValue = {
 	) => JSX.Element;
 	onOpenChannel?: (skey: string) => void;
 	onForward?: (message: ChatMessage) => void;
+	messageLink?: (message: ChatMessage) => string | undefined;
 	selection?: MessageSelection;
 	overlays?: () => JSX.Element;
 };
@@ -154,17 +161,6 @@ export const useChat = () => {
 	return value;
 };
 
-const threadLink = (
-	chat: ChatContextValue,
-	uri: string,
-): RichTextLinkTarget | undefined => {
-	const route = routeFromLink(uri);
-	const layer = route?.layers.findLast((entry) => entry.kind === "thread");
-	if (layer?.kind !== "thread") return undefined;
-	if (layer.space !== chat.community().did) return undefined;
-	return { kind: "thread", channel: layer.channel, thread: layer.thread };
-};
-
 const sharesName = (chat: ChatContextValue, channel: ChannelView) => {
 	for (const other of chat.channels().values()) {
 		if (other.space !== channel.space && other.name === channel.name) {
@@ -177,6 +173,7 @@ const sharesName = (chat: ChatContextValue, channel: ChannelView) => {
 export const createChatRichTextResolvers = (
 	chat: ChatContextValue,
 	statusEmoji?: StatusEmojiLookup,
+	pack?: LinkTargetContext["pack"],
 ): RichTextResolvers => {
 	const desktopMenu = () =>
 		chat.platform?.() === "desktop" ? chat.memberContextMenu : undefined;
@@ -259,8 +256,13 @@ export const createChatRichTextResolvers = (
 			chat.onOpenChannel(skey);
 		},
 		linkTarget: (uri) =>
-			threadLink(chat, uri) ??
-			(routeFromLink(uri) ? { kind: "internal", href: uri } : undefined),
+			linkTargetFor(uri, {
+				get space() {
+					return chat.community().did;
+				},
+				threadChannel: chat.threadChannel,
+				pack,
+			}),
 		onNavigate: (href, event) => {
 			event.preventDefault();
 			if (openAppLink(href)) return;
@@ -283,7 +285,20 @@ export const createChatRichTextResolvers = (
 export const ChatRichTextProvider = (props: ParentProps) => {
 	const chat = useChat();
 	const data = useData();
-	const resolvers = createChatRichTextResolvers(chat, data.emoji);
+	const packSummary: LinkTargetContext["pack"] = (target) => {
+		const did = target.did as Did;
+		const shared = sharedPackIn(data.emoji.catalog(did).value(), {
+			did,
+			rkey: target.rkey,
+		});
+		if (!shared) return undefined;
+		const cover = shared.emojis[0];
+		const summary: PackSummary = { name: shared.pack.name };
+		if (cover)
+			summary.cover = { src: cover.image, alt: cover.alt ?? cover.name };
+		return summary;
+	};
+	const resolvers = createChatRichTextResolvers(chat, data.emoji, packSummary);
 	resolvers.rewriteUrl = blueskyUrlRewriter(data.preferences);
 	return (
 		<NameColorProvider

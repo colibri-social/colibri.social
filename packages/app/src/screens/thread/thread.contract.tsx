@@ -35,6 +35,8 @@ type ThreadModel = {
 	unavailable: () => string | undefined;
 	parent: () => ChannelView | undefined;
 	thread: () => ThreadView | undefined;
+	replyTo: () => unknown;
+	editing: () => unknown;
 };
 
 const SplitThreadHeader = (props: { m: ThreadModel }) => {
@@ -135,16 +137,33 @@ const FullThreadHeader = (props: { m: ThreadModel }) => {
 		const parent = m.parent();
 		return parent && isVoiceChannel(parent) ? <VolumeSmallIcon /> : undefined;
 	};
+	let idleComposerEscape = false;
+	const onKeyDownCapture = (event: KeyboardEvent) => {
+		if (event.key !== "Escape") return;
+		const target = event.target;
+		idleComposerEscape =
+			!event.defaultPrevented &&
+			target instanceof Element &&
+			!!target.closest("[data-composer]") &&
+			!document.querySelector(blockingOverlay) &&
+			!m.replyTo() &&
+			!m.editing();
+	};
 	const onKeyDown = (event: KeyboardEvent) => {
-		if (event.key !== "Escape" || event.defaultPrevented) return;
+		if (event.key !== "Escape") return;
+		if (event.defaultPrevented && !idleComposerEscape) return;
 		if (document.querySelector(blockingOverlay)) return;
 		const index = threadIndex();
 		if (index < 0 || index !== m.stack.mounted().length - 1) return;
 		event.preventDefault();
 		backToChannel();
 	};
+	window.addEventListener("keydown", onKeyDownCapture, true);
 	window.addEventListener("keydown", onKeyDown);
-	onCleanup(() => window.removeEventListener("keydown", onKeyDown));
+	onCleanup(() => {
+		window.removeEventListener("keydown", onKeyDownCapture, true);
+		window.removeEventListener("keydown", onKeyDown);
+	});
 	return (
 		<ChannelHeader
 			platform="desktop"
@@ -209,10 +228,8 @@ export const thread = defineContract({
 			if (space && channelsError) {
 				return {
 					error: channelsError,
-					retry: () => {
-						space.channels.retry();
-						space.categories.retry();
-					},
+					retry: () =>
+						Promise.all([space.channels.retry(), space.categories.retry()]),
 				};
 			}
 			const ref = parent()?.space;
