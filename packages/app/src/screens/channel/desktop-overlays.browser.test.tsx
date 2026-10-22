@@ -69,7 +69,7 @@ it("forwards a message from a small modal", async () => {
 	expect(dialog).toBeTruthy();
 	expect(dialog.getBoundingClientRect().width).toBeLessThanOrEqual(362);
 	const search = dialog.querySelector<HTMLInputElement>(
-		"input[aria-label='Search channels']",
+		"input[aria-label='Search channels and threads']",
 	) as HTMLInputElement;
 	await userEvent.type(search, "general");
 	const label = () =>

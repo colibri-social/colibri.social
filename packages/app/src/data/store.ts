@@ -2383,6 +2383,15 @@ export const createDataStore = (
 			};
 
 			outboxListeners.set(ref, (event) => {
+				if (
+					event.entry.op.t === "forward" &&
+					event.type === "sent" &&
+					event.message &&
+					untrack(ready)
+				) {
+					upsert(event.message);
+					return;
+				}
 				if (event.entry.op.t !== "send") return;
 				const nonce = outboxNonce(event.entry.seq);
 				if (event.type === "landedAfterDiscard") {
@@ -3223,6 +3232,8 @@ export const createDataStore = (
 			jumps,
 			threads: threadActions,
 			threadsOf,
+			cachedThreads: (ref: SpaceRef): readonly ThreadView[] | undefined =>
+				threadLoads.get(ref)?.peek?.(),
 			threadMembersOf,
 			channels: channelActions,
 			categories: categoryActions,

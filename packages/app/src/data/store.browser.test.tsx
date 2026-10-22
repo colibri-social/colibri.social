@@ -148,6 +148,59 @@ describe("thread lists", () => {
 	});
 });
 
+describe("forwarding", () => {
+	it("forwards into a thread and shows the copy in the thread's feed", async () => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const withoutEcho: DataSource = {
+			...base,
+			subscribe: (listener) =>
+				base.subscribe((event) => {
+					if (
+						event.$type === "messageEvent" &&
+						event.message?.text === "for the thread"
+					)
+						return;
+					listener(event);
+				}),
+		};
+		const { store, hq, channel } = await setup({ source: withoutEcho });
+		const space = store.space(hq);
+		const dev = space.channelBySlug("dev");
+		if (!dev) throw new Error("dev missing");
+		const devFeed = store.channel(dev.space);
+		await until(() => !!devFeed.threads.value());
+		const spring = devFeed.threads
+			.value()
+			?.find((thread) => thread.name === "Spring tuning");
+		if (!spring) throw new Error("thread missing");
+		const threadFeed = store.channel(spring.space);
+		await until(() => threadFeed.ready());
+		const original = channel.messages().at(-1);
+		if (!original?.rkey || !channel.channel) throw new Error("message missing");
+		await store.forward({
+			from: channel.channel,
+			rkey: original.rkey,
+			to: spring.space,
+			text: "for the thread",
+		});
+		await until(() =>
+			threadFeed
+				.messages()
+				.some((message) => message.text === "for the thread"),
+		);
+		const copy = threadFeed
+			.messages()
+			.find((message) => message.text === "for the thread");
+		expect(copy?.channel).toBe(spring.space);
+		expect(copy?.forward?.source.rkey).toBe(original.rkey);
+		expect(
+			channel.messages().some((message) => message.text === "for the thread"),
+		).toBe(false);
+		store.dispose();
+	});
+});
+
 describe("thread auto-follow", () => {
 	const DAY = 24 * 60 * 60 * 1000;
 	const critiqueOf = async (store: ReturnType<typeof createDataStore>) => {

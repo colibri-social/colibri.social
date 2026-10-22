@@ -6,7 +6,7 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { CollapsibleGroup } from "./CollapsibleGroup";
-import { ListGroup, NavRow } from "./List";
+import { CheckboxRow, ListGroup, NavRow } from "./List";
 
 const meta = {
 	title: "Navigation/Collapsible group",
@@ -120,5 +120,82 @@ export const ChannelsWithThreads: Story = {
 		await userEvent.click(general as HTMLElement);
 		await expect(canvas.queryByText("Release prep")).toBeNull();
 		await expect(onSelect).toHaveBeenCalledTimes(1);
+	},
+};
+
+export const Selectable: Story = {
+	render: () => {
+		const [open, setOpen] = createSignal(true);
+		const [picked, setPicked] = createSignal<ReadonlySet<string>>(new Set());
+		const pick = (key: string, checked: boolean) =>
+			setPicked((current) => {
+				const next = new Set(current);
+				if (checked) next.add(key);
+				else next.delete(key);
+				return next;
+			});
+		const group = GROUPS[1] as (typeof GROUPS)[number];
+		return (
+			<div data-testid="selectable" class="w-full max-w-sm">
+				<ListGroup>
+					<CollapsibleGroup
+						icon={<HashtagIcon />}
+						label={group.name}
+						count={group.threads.length}
+						expanded={open()}
+						onExpandedChange={setOpen}
+						checked={picked().has(group.name)}
+						onSelect={() => pick(group.name, !picked().has(group.name))}
+						toggleLabel={`Threads in #${group.name}`}
+					>
+						<For each={group.threads}>
+							{(thread) => (
+								<CheckboxRow
+									class="min-w-0 gap-2 pl-9"
+									value={thread.name}
+									leading={
+										<span
+											aria-hidden="true"
+											class="flex size-6 items-center justify-center [&>svg]:size-6"
+										>
+											<ChatRoundDotsIcon />
+										</span>
+									}
+									label={
+										<span class="block min-w-0 truncate">{thread.name}</span>
+									}
+									description={thread.age}
+									checked={picked().has(thread.name)}
+									onChange={(checked) => pick(thread.name, checked)}
+								/>
+							)}
+						</For>
+					</CollapsibleGroup>
+				</ListGroup>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const root = canvas.getByTestId("selectable");
+		const channel = canvas.getByRole("button", {
+			name: "design-system-and-component-library-discussions",
+		});
+		await expect(channel).toHaveAttribute("aria-pressed", "false");
+		await userEvent.click(channel);
+		await expect(channel).toHaveAttribute("aria-pressed", "true");
+		await expect(canvas.getByText("Tokens")).toBeVisible();
+		await userEvent.click(canvas.getByText("Tokens"));
+		await expect(
+			canvas.getByRole("checkbox", { name: /Tokens/ }),
+		).toBeChecked();
+		await expectNoLayoutIssues(root);
+		await userEvent.click(
+			canvas.getByRole("button", {
+				name: "Threads in #design-system-and-component-library-discussions",
+			}),
+		);
+		await expect(canvas.queryByText("Tokens")).toBeNull();
+		await expect(channel).toHaveAttribute("aria-pressed", "true");
 	},
 };

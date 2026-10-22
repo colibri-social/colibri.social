@@ -8,6 +8,47 @@ const rowHighlight = "ripple hover:bg-secondary-highlight";
 
 const rowFocus = "outline-none focus-ring-inset";
 
+const CHECK_PATH = "M6.4 12.8L9.6 16L17.6 8";
+const CHECK_LENGTH = 16;
+
+const CheckMark = (props: { checked: boolean }) => (
+	<span
+		aria-hidden="true"
+		data-collapsible-group-check=""
+		data-checked={props.checked ? "" : undefined}
+		class={cx(
+			"flex size-6 shrink-0 items-center justify-center rounded-checkbox border text-primary-foreground",
+			"transition-[background-color,border-color,box-shadow] duration-[calc(var(--duration-color)*var(--motion-scale))]",
+			props.checked
+				? "border-transparent bg-primary shadow-[inset_0_0_0_1px_var(--border)]"
+				: "border-control-border bg-secondary",
+		)}
+	>
+		<svg
+			aria-hidden="true"
+			viewBox="0 0 24 24"
+			class="size-6 drop-shadow-[0_0_2px_rgb(0_0_0/0.25)]"
+			fill="none"
+		>
+			<path
+				d={CHECK_PATH}
+				stroke="currentColor"
+				stroke-width="1.75"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				stroke-dasharray={`${CHECK_LENGTH}px`}
+				class="transition-[stroke-dashoffset] ease-(--ease-out-quick) reduced-motion:transition-none motion-reduce:transition-none"
+				style={{
+					"stroke-dashoffset": props.checked ? "0px" : `${CHECK_LENGTH}px`,
+					"transition-duration": props.checked
+						? "calc(150ms * var(--motion-scale))"
+						: "calc(90ms * var(--motion-scale))",
+				}}
+			/>
+		</svg>
+	</span>
+);
+
 const nestedDividers =
 	"[&>*]:border-border [&>:not([hidden])~:not([hidden])]:border-t";
 
@@ -19,6 +60,7 @@ export type CollapsibleGroupProps = {
 	expanded: boolean;
 	onExpandedChange: (expanded: boolean) => void;
 	onSelect?: () => void;
+	checked?: boolean;
 	toggleLabel?: string;
 	disabled?: boolean;
 	class?: string;
@@ -33,6 +75,7 @@ export const CollapsibleGroup = (props: CollapsibleGroupProps) => {
 	const panel = createUniqueId();
 	const toggle = () => props.onExpandedChange(!props.expanded);
 	const select = () => (props.onSelect ? props.onSelect() : toggle());
+	const checkable = () => !!props.onSelect && props.checked !== undefined;
 
 	return (
 		<div
@@ -45,6 +88,7 @@ export const CollapsibleGroup = (props: CollapsibleGroupProps) => {
 					ref={ripple}
 					type="button"
 					data-collapsible-group-select=""
+					aria-pressed={checkable() ? !!props.checked : undefined}
 					aria-expanded={props.onSelect ? undefined : props.expanded}
 					aria-controls={props.onSelect ? undefined : panel}
 					disabled={props.disabled}
@@ -75,6 +119,9 @@ export const CollapsibleGroup = (props: CollapsibleGroupProps) => {
 						>
 							{props.count}
 						</span>
+					</Show>
+					<Show when={checkable()}>
+						<CheckMark checked={!!props.checked} />
 					</Show>
 				</button>
 				<button

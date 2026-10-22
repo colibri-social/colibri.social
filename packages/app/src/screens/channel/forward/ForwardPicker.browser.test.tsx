@@ -1,3 +1,4 @@
+import { toastState } from "@colibri-social/ui";
 import { render } from "solid-js/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataContext, type DataStore } from "../../../data/store";
@@ -6,6 +7,7 @@ import type {
 	CommunityView,
 	MessageView,
 	SpaceRef,
+	ThreadView,
 } from "../../../data/types";
 import {
 	createForwardPicker,
@@ -15,6 +17,7 @@ import { type ForwardTarget, forwardChannelList } from "./forward-targets";
 
 const TEXT = "social.colibri.beta.channel.text";
 const VOICE = "social.colibri.beta.channel.voice";
+const THREAD = "social.colibri.beta.channel.thread";
 
 const ref = (did: string, skey: string, type = TEXT) =>
 	`at://${did}/space/${type}/${skey}` as SpaceRef;
@@ -54,6 +57,50 @@ const channels: Record<string, ChannelView[]> = {
 	"did:plc:owls": [channel("did:plc:owls", "showcase", "showcase")],
 };
 
+const hoursAgo = (hours: number) =>
+	new Date(Date.now() - hours * 3_600_000).toISOString();
+
+const thread = (
+	channelSkey: string,
+	skey: string,
+	name: string,
+	extra: { hours?: number; canPost?: boolean; closed?: boolean } = {},
+) =>
+	({
+		space: ref("did:plc:hq", skey, THREAD),
+		channel: ref("did:plc:hq", channelSkey),
+		name,
+		lastActivityAt: hoursAgo(extra.hours ?? 1),
+		...(extra.closed ? { closedAt: hoursAgo(0) } : {}),
+		viewer: { canPost: extra.canPost ?? true },
+	}) as unknown as ThreadView;
+
+const threads: Record<string, ThreadView[]> = {
+	[ref("did:plc:hq", "general")]: [
+		thread("general", "launch", "Launch checklist", { hours: 2 }),
+	],
+	[ref("did:plc:hq", "design")]: [
+		thread("design", "icons", "Icon review", { hours: 30 }),
+		thread("design", "old", "Old plans", { closed: true }),
+		thread("design", "release", "Release prep", { hours: 3 }),
+		thread("design", "locked", "Locked notes", { canPost: false }),
+	],
+};
+
+const SHOWCASE = ref("did:plc:owls", "showcase");
+
+threads[SHOWCASE] = [
+	{
+		space: ref("did:plc:owls", "sketch", THREAD),
+		channel: SHOWCASE,
+		name: "Sketch swap",
+		lastActivityAt: hoursAgo(5),
+		viewer: { canPost: true },
+	} as unknown as ThreadView,
+];
+
+const BROKEN = ref("did:plc:hq", "long");
+
 let dispose: (() => void) | undefined;
 let host: HTMLDivElement | undefined;
 
@@ -80,10 +127,18 @@ const until = async (check: () => boolean, timeout = 3000) => {
 	}
 };
 
+type Mounted = { retry: ReturnType<typeof vi.fn>; threadLists: SpaceRef[] };
+
 const mount = (
 	forwardMessage: (input: unknown) => Promise<MessageView>,
 	options: ForwardPickerOptions = {},
-) => {
+	from: { channel: SpaceRef; parent?: SpaceRef } = {
+		channel: ref("did:plc:hq", "general"),
+	},
+	cached: readonly SpaceRef[] = [],
+): Mounted => {
+	const retry = vi.fn();
+	const threadLists: SpaceRef[] = [];
 	host = document.createElement("div");
 	document.body.append(host);
 	const store = {
@@ -92,6 +147,18 @@ const mount = (
 			channels: { value: () => channels[space.did], loading: () => false },
 			categories: { value: () => [], loading: () => false },
 		}),
+		threadsOf: (channel: SpaceRef) => {
+			if (!threadLists.includes(channel)) threadLists.push(channel);
+			const broken = channel === BROKEN;
+			return {
+				value: () => (broken ? undefined : (threads[channel] ?? [])),
+				loading: () => false,
+				error: () => (broken ? new Error("offline") : undefined),
+				retry,
+			};
+		},
+		cachedThreads: (channel: SpaceRef) =>
+			cached.includes(channel) ? threads[channel] : undefined,
 		forward: forwardMessage,
 	} as unknown as DataStore;
 	const picker = createForwardPicker(options);
@@ -104,10 +171,11 @@ const mount = (
 		host,
 	);
 	picker.open({
-		channel: ref("did:plc:hq", "general"),
+		...from,
 		rkey: "3abc",
 		preview: "Heads up: the beta API moved",
 	});
+	return { retry, threadLists };
 };
 
 const dialog = () =>
@@ -126,14 +194,49 @@ const refFor = (name: string) =>
 		.find((entry) => entry.name === name)?.space;
 
 const checkboxFor = (name: string) =>
+	[
+		...dialog().querySelectorAll<HTMLElement>(
+			"[data-collapsible-group-select][aria-pressed]",
+		),
+	].find(
+		(element) =>
+			element.querySelector("[data-forward-channel]")?.textContent === name,
+	);
+
+const isChecked = (name: string) =>
+	checkboxFor(name)?.getAttribute("aria-pressed") === "true";
+
+const threadRefFor = (name: string) =>
+	Object.values(threads)
+		.flat()
+		.find((entry) => entry.name === name)?.space;
+
+const threadCheckbox = (name: string) =>
 	dialog().querySelector<HTMLInputElement>(
-		`input[type=checkbox][value="${refFor(name)}"]`,
+		`input[type=checkbox][value="${threadRefFor(name)}"]`,
 	) ?? undefined;
 
 const channelNames = () =>
 	[...dialog().querySelectorAll("[data-forward-channel]")].map(
 		(element) => element.textContent,
 	);
+
+const threadNames = () =>
+	[...dialog().querySelectorAll("[data-forward-thread]")].map(
+		(element) => element.textContent,
+	);
+
+const expandThreads = async (name: string) => {
+	const toggle = dialog().querySelector<HTMLButtonElement>(
+		`button[aria-label="Threads in #${name}"]`,
+	);
+	if (!toggle) throw new Error(`No thread toggle for ${name}`);
+	toggle.click();
+	await frames();
+};
+
+const groupOf = (name: string) =>
+	checkboxFor(name)?.closest<HTMLElement>("[data-collapsible-group]");
 
 const forwardButton = () =>
 	dialog()
@@ -147,6 +250,13 @@ const type = (input: HTMLInputElement, value: string) => {
 
 const select = async (name: string) => {
 	const input = checkboxFor(name);
+	if (!input) throw new Error(`No checkbox for ${name}`);
+	input.click();
+	await frames();
+};
+
+const selectThread = async (name: string) => {
+	const input = threadCheckbox(name);
 	if (!input) throw new Error(`No checkbox for ${name}`);
 	input.click();
 	await frames();
@@ -169,14 +279,149 @@ describe("forward picker", () => {
 			"showcase",
 		]);
 		expect(dialog().textContent).toContain("Current channel");
-		expect(checkboxFor("general")?.disabled).toBe(true);
+		expect((checkboxFor("general") as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it("lists open threads you can post in under their channel, newest first", async () => {
+		mount(vi.fn());
+		await until(() => !!dialog());
+		await frames(6);
+		expect(threadNames()).toEqual(["Launch checklist"]);
+		expect(threadCheckbox("Launch checklist")?.disabled).toBe(false);
+		await expandThreads("design");
+		expect(threadNames()).toEqual([
+			"Launch checklist",
+			"Release prep",
+			"Icon review",
+		]);
+		const release = threadCheckbox("Release prep")?.closest("div");
+		expect(release?.textContent).toContain("3h");
+	});
+
+	it("loads thread lists for opened channels and searches only the current Space", async () => {
+		const mounted = mount(vi.fn());
+		await until(() => !!dialog());
+		await frames(6);
+		expect(mounted.threadLists).toEqual([ref("did:plc:hq", "general")]);
+		const search = dialog().querySelector<HTMLInputElement>(
+			'input[aria-label="Search channels and threads"]',
+		) as HTMLInputElement;
+		type(search, "sketch");
+		await frames();
+		expect(mounted.threadLists).toContain(ref("did:plc:hq", "design"));
+		expect(mounted.threadLists).not.toContain(SHOWCASE);
+		expect(threadNames()).toEqual([]);
+		type(search, "");
+		await frames();
+		await expandThreads("showcase");
+		expect(mounted.threadLists).toContain(SHOWCASE);
+		expect(threadNames()).toContain("Sketch swap");
+	});
+
+	it("searches thread lists already loaded in other Spaces", async () => {
+		const mounted = mount(
+			vi.fn(),
+			{},
+			{ channel: ref("did:plc:hq", "general") },
+			[SHOWCASE],
+		);
+		await until(() => !!dialog());
+		const search = dialog().querySelector<HTMLInputElement>(
+			'input[aria-label="Search channels and threads"]',
+		) as HTMLInputElement;
+		type(search, "sketch");
+		await frames();
+		expect(channelNames()).toEqual(["showcase"]);
+		expect(threadNames()).toEqual(["Sketch swap"]);
+		expect(mounted.threadLists).not.toContain(SHOWCASE);
+	});
+
+	it("matches thread names and opens their channel", async () => {
+		mount(vi.fn());
+		await until(() => !!dialog());
+		const search = dialog().querySelector<HTMLInputElement>(
+			'input[aria-label="Search channels and threads"]',
+		) as HTMLInputElement;
+		type(search, "release");
+		await frames();
+		expect(channelNames()).toEqual(["design"]);
+		expect(threadNames()).toEqual(["Release prep"]);
+		expect(groupOf("design")?.hasAttribute("data-expanded")).toBe(true);
+		type(search, "locked");
+		await frames();
+		expect(channelNames()).toEqual([]);
+		expect(dialog().textContent).toContain("Nothing matches your search.");
+	});
+
+	it("marks the current thread and keeps its channel selectable", async () => {
+		mount(
+			vi.fn(),
+			{},
+			{
+				channel: threadRefFor("Release prep") as SpaceRef,
+				parent: ref("did:plc:hq", "design"),
+			},
+		);
+		await until(() => !!dialog());
+		await frames(6);
+		expect(groupOf("design")?.hasAttribute("data-expanded")).toBe(true);
+		expect(threadCheckbox("Release prep")?.disabled).toBe(true);
+		expect(
+			threadCheckbox("Release prep")?.closest("div")?.textContent,
+		).toContain("Current thread");
+		expect((checkboxFor("design") as HTMLButtonElement).disabled).toBe(false);
+		expect((checkboxFor("general") as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it("forwards into a thread and opens it from the toast", async () => {
+		const forwardMessage = vi.fn(async () => ({}) as MessageView);
+		const onOpen = vi.fn();
+		mount(forwardMessage, { onOpen });
+		await until(() => !!dialog());
+		await expandThreads("design");
+		await selectThread("Release prep");
+		expect(forwardButton().textContent?.trim()).toBe("Forward to 1 thread");
+		await select("showcase");
+		expect(forwardButton().textContent?.trim()).toBe("Forward to 2 places");
+		await select("showcase");
+		forwardButton().click();
+		await until(() => !dialog());
+		expect(forwardMessage).toHaveBeenCalledWith({
+			from: ref("did:plc:hq", "general"),
+			rkey: "3abc",
+			to: threadRefFor("Release prep"),
+		});
+		const sent = toastState.toasts
+			.filter((entry) => entry.title === "Forwarded to Release prep")
+			.at(-1);
+		expect(sent?.action?.label).toBe("View");
+		sent?.action?.onClick?.(new MouseEvent("click"));
+		expect(onOpen).toHaveBeenCalledWith({
+			space: "did:plc:hq",
+			channel: "design",
+			channelType: TEXT,
+			thread: "release",
+		});
+	});
+
+	it("offers a retry when a thread list fails to load", async () => {
+		const mounted = mount(vi.fn());
+		await until(() => !!dialog());
+		await expandThreads(LONG_NAME);
+		const row = [...dialog().querySelectorAll("button")].find(
+			(button) => button.textContent === "Couldn't load threads. Try again",
+		);
+		expect(row).toBeTruthy();
+		mounted.retry.mockClear();
+		row?.click();
+		expect(mounted.retry).toHaveBeenCalledTimes(1);
 	});
 
 	it("filters across Spaces", async () => {
 		mount(vi.fn());
 		await until(() => !!dialog());
 		const search = dialog().querySelector<HTMLInputElement>(
-			'input[aria-label="Search channels"], input[type=search]',
+			'input[aria-label="Search channels and threads"], input[type=search]',
 		) as HTMLInputElement;
 		type(search, "show");
 		await frames();
@@ -191,8 +436,8 @@ describe("forward picker", () => {
 
 	it("forwards with the right refs and note", async () => {
 		const forwardMessage = vi.fn(async () => ({}) as MessageView);
-		const onOpenChannel = vi.fn();
-		mount(forwardMessage, { onOpenChannel });
+		const onOpen = vi.fn();
+		mount(forwardMessage, { onOpen });
 		await until(() => !!dialog());
 		expect(forwardButton().disabled).toBe(true);
 		await select("showcase");
@@ -224,8 +469,8 @@ describe("forward picker", () => {
 		expect(forwardButton().textContent?.trim()).toBe("Forward to 2 channels");
 		await select("showcase");
 		expect(forwardButton().textContent?.trim()).toBe("Forward to 1 channel");
-		expect(checkboxFor("design")?.checked).toBe(true);
-		expect(checkboxFor("showcase")?.checked).toBe(false);
+		expect(isChecked("design")).toBe(true);
+		expect(isChecked("showcase")).toBe(false);
 	});
 
 	it("sends one forward per checked channel", async () => {
@@ -269,9 +514,9 @@ describe("forward picker", () => {
 		await until(() => forwardMessage.mock.calls.length === 3);
 		await until(() => !forwardButton().disabled);
 		expect(dialog()).not.toBeNull();
-		expect(checkboxFor("design")?.checked).toBe(true);
-		expect(checkboxFor("showcase")?.checked).toBe(false);
-		expect(checkboxFor(LONG_NAME)?.checked).toBe(false);
+		expect(isChecked("design")).toBe(true);
+		expect(isChecked("showcase")).toBe(false);
+		expect(isChecked(LONG_NAME)).toBe(false);
 		expect(forwardButton().textContent?.trim()).toBe("Forward to 1 channel");
 		const failedRows = [
 			...dialog().querySelectorAll<HTMLElement>("[data-forward-failed]"),

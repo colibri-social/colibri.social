@@ -34,6 +34,7 @@ import {
 } from "solid-js";
 import { authorForDid, displayNameOf } from "../../data/adapters/authors";
 import { fromComposerValue, toTextValue } from "../../data/adapters/facets";
+import type { ForwardTarget as ForwardPlace } from "../../data/adapters/forward";
 import { reactionFor, reactionShortcode } from "../../data/adapters/reactions";
 import { describeError } from "../../data/error-copy";
 import { channelSlug, skeyOf, spaceKey } from "../../data/ids";
@@ -185,12 +186,37 @@ export const createConversation = (options: ConversationOptions) => {
 		},
 	});
 	const reactionPicker = createReactionPicker({ packs: emojiPacks });
-	const forwardPicker = createForwardPicker({
-		onOpenChannel: (space, channel, channelType) => {
-			if (space !== options.space) stack.setRoot({ tab: "spaces", space });
-			stack.replaceTop({ kind: "chat", space, channel, channelType });
-		},
-	});
+	const openForwardPlace = (target: ForwardPlace) => {
+		const chat = {
+			kind: "chat" as const,
+			space: target.space,
+			channel: target.channel,
+			channelType: target.channelType,
+		};
+		if (target.space !== options.space) {
+			stack.setRoot({ tab: "spaces", space: target.space });
+		}
+		const top = stack.top();
+		if (target.thread) {
+			if (
+				top?.kind === "thread" &&
+				top.space === target.space &&
+				top.thread === target.thread
+			)
+				return;
+			if (top?.kind === "thread") stack.pop();
+			const base = stack.top();
+			const onParent =
+				base?.kind === "chat" &&
+				base.space === target.space &&
+				base.channel === target.channel;
+			if (!onParent) stack.replaceTop(chat);
+			stack.push({ ...chat, kind: "thread", thread: target.thread });
+			return;
+		}
+		stack.replaceTop(chat);
+	};
+	const forwardPicker = createForwardPicker({ onOpen: openForwardPlace });
 	const community = createMemo(() => data.spaceByKey(options.space));
 	const space = createMemo(() => {
 		const current = community();
@@ -892,6 +918,7 @@ export const createConversation = (options: ConversationOptions) => {
 			if (!message.rkey || !current) return;
 			forwardPicker.open({
 				channel: current.channel,
+				parent: view()?.space,
 				rkey: message.rkey,
 				preview: message.text || "Attachment",
 			});

@@ -753,6 +753,28 @@ describe("createRemoteSource", () => {
 		expect(view.forward?.sourceCommunity).toBe(COMMUNITY);
 	});
 
+	it("forwards a message into a thread space", async () => {
+		const { fake, source } = await setup((fake) =>
+			fake.on("com.atproto.space.createRecord", json({ uri: "x", cid: "c" })),
+		);
+		await withMessages(source, fake, [message("6", OTHER, "original")]);
+
+		const view = await source.forwardMessage({
+			from: CHANNEL,
+			rkey: "6",
+			to: THREAD,
+			forwardRkey: "3fwd",
+		});
+
+		const body = only(fake.callsTo("com.atproto.space.createRecord"))
+			.body as Record<string, any>;
+		expect(body.space).toBe(THREAD);
+		expect(body.rkey).toBe("3fwd");
+		expect(body.record.forward.source.space).toBe(CHANNEL);
+		expect(view.channel).toBe(THREAD);
+		expect(view.rkey).toBe("3fwd");
+	});
+
 	const DEV =
 		`at://${COMMUNITY}/space/social.colibri.beta.channel.text/dev` as SpaceRef;
 	const readSetup = (
