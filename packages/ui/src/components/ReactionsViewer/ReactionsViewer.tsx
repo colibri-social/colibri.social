@@ -1,9 +1,9 @@
 import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { createMemo, For, type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
-import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Avatar } from "../Avatar/Avatar";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
+import { CustomEmojiImage } from "../Emoji/Emoji";
 import { IconButton } from "../IconButton/IconButton";
 import { Modal, ModalContent } from "../Modal/Modal";
 import { AvatarSkeleton, SkeletonText } from "../Skeleton/Skeleton";
@@ -23,6 +23,8 @@ export type ReactionGroup = {
 	emoji: string;
 	src?: string;
 	name?: string;
+	custom?: boolean;
+	unavailable?: boolean;
 	count: number;
 	reactors: Reactor[];
 	loading?: boolean;
@@ -38,28 +40,43 @@ export type ReactionsViewerProps = {
 	onActiveChange?: (emoji: string) => void;
 	onRemove?: (emoji: string) => void;
 	onOpenProfile?: (reactor: Reactor) => void;
+	onEmojiError?: (emoji: string, src: string) => Promise<boolean> | undefined;
 	platform?: ReactionsViewerPlatform;
 };
 
 const MAX_SKELETON_ROWS = 6;
 
-const ReactionGlyph = (props: { reaction: ReactionGroup; class?: string }) => (
+const SHORTCODE = /^:([^:\s]+):$/;
+
+const isCustomReaction = (reaction: ReactionGroup) =>
+	!!reaction.src || !!reaction.custom;
+
+const ReactionGlyph = (props: {
+	reaction: ReactionGroup;
+	onEmojiError?: (emoji: string, src: string) => Promise<boolean> | undefined;
+	class?: string;
+}) => (
 	<Show
-		when={props.reaction.src}
+		when={isCustomReaction(props.reaction)}
 		fallback={
 			<span aria-hidden="true" class={cx("leading-none", props.class)}>
 				{props.reaction.emoji}
 			</span>
 		}
 	>
-		{(src) => (
-			<AnimatedImage
-				src={src()}
-				alt=""
-				draggable={false}
-				class={cx("object-contain", props.class)}
+		<span aria-hidden="true" class={cx("flex", props.class)}>
+			<CustomEmojiImage
+				src={props.reaction.src}
+				name={
+					props.reaction.name ??
+					SHORTCODE.exec(props.reaction.emoji)?.[1] ??
+					props.reaction.emoji
+				}
+				size={20}
+				unavailable={props.reaction.unavailable}
+				onError={(src) => props.onEmojiError?.(props.reaction.emoji, src)}
 			/>
-		)}
+		</span>
 	</Show>
 );
 
@@ -241,9 +258,10 @@ export const ReactionsViewer = (props: ReactionsViewerProps) => {
 						<TabsTrigger value={reaction.emoji} aria-label={tabLabel(reaction)}>
 							<ReactionGlyph
 								reaction={reaction}
+								onEmojiError={props.onEmojiError}
 								class={cx(
 									"flex items-center justify-center",
-									reaction.src ? "size-5" : "text-lg",
+									isCustomReaction(reaction) ? "size-5" : "text-lg",
 								)}
 							/>
 							<span class="tabular-nums">{reaction.count}</span>

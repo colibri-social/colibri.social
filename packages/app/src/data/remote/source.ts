@@ -47,6 +47,7 @@ import type {
 	ProfileView,
 	RoleView,
 	SpaceRef,
+	ThreadView,
 } from "../types";
 import { fetchBlueskyPost } from "./bluesky";
 import { createDeletion } from "./deletion";
@@ -73,6 +74,9 @@ type ProfileRecordValue = Record<string, unknown> & { syncBluesky?: unknown };
 
 const textOf = (value: unknown) =>
 	typeof value === "string" && value.trim() ? value : undefined;
+
+const THREAD_PAGE_SIZE = 100;
+const THREAD_PAGES = 5;
 
 export type RemoteLive = {
 	subscribe: (listener: (event: LiveEvent) => void) => () => void;
@@ -642,11 +646,22 @@ export const createRemoteSource = async (
 					code: "ChannelNotFound",
 					method: colibri.thread.listThreads.main.nsid,
 				});
-			return (
-				await transport.query(colibri.thread.listThreads.main, {
-					params: { community, channel },
-				})
-			).threads;
+			const threads: ThreadView[] = [];
+			let cursor: string | undefined;
+			for (let page = 0; page < THREAD_PAGES; page++) {
+				const result = await transport.query(colibri.thread.listThreads.main, {
+					params: {
+						community,
+						channel,
+						limit: THREAD_PAGE_SIZE,
+						...(cursor ? { cursor } : {}),
+					},
+				});
+				threads.push(...result.threads);
+				cursor = result.cursor;
+				if (!cursor) break;
+			}
+			return threads;
 		},
 		getThread: async (thread) =>
 			(

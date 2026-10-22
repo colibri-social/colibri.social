@@ -90,13 +90,13 @@ it("opens the menu for the message under the pointer after a scroll without a po
 	await closeMenu();
 });
 
-it("prevents the native menu on empty app surfaces", async () => {
+it("keeps the native menu on empty app surfaces on the web", async () => {
 	await mount();
 	const shell = document.querySelector<HTMLElement>("[data-shell-main]");
 	if (!shell) throw new Error("no shell");
 	const box = shell.getBoundingClientRect();
 	const event = contextMenu(document.body, box.left + 2, box.bottom - 2);
-	expect(event.defaultPrevented).toBe(true);
+	expect(event.defaultPrevented).toBe(false);
 });
 
 it("keeps the native menu in the composer", async () => {

@@ -117,6 +117,7 @@ export const Search: StoryObj<typeof SearchField> = {
 	play: async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
 		const input = canvas.getByRole("searchbox");
+		await expect(input).toHaveAttribute("autocomplete", "off");
 		await userEvent.type(input, "birds");
 		await expect(input).toHaveValue("birds");
 		await userEvent.keyboard("{Escape}");

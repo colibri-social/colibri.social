@@ -867,6 +867,41 @@ describe("reactions", () => {
 		});
 	});
 
+	it("flags custom reactions the sheet cannot resolve", () => {
+		const custom = [
+			{ emoji: ":owl:", count: 1, reactors: [] },
+			{ emoji: ":gone:", count: 1, reactors: [] },
+			{ emoji: "🐦", count: 1, reactors: [] },
+		] as unknown as ReactionView[];
+		const groups = toReactionGroups(
+			custom,
+			members,
+			"did:plc:viewer",
+			(reaction) =>
+				reaction.emoji === ":owl:"
+					? { name: "owl", src: "owl.png" }
+					: undefined,
+			(reaction) => reaction.emoji === ":gone:",
+		);
+		expect(
+			groups.map(({ emoji, src, custom, unavailable }) => ({
+				emoji,
+				src,
+				custom,
+				unavailable,
+			})),
+		).toEqual([
+			{ emoji: ":owl:", src: "owl.png", custom: true, unavailable: undefined },
+			{ emoji: ":gone:", src: undefined, custom: true, unavailable: true },
+			{
+				emoji: "🐦",
+				src: undefined,
+				custom: undefined,
+				unavailable: undefined,
+			},
+		]);
+	});
+
 	it("toggles optimistically", () => {
 		const removed = toggleReaction(views, "🐦", "did:plc:viewer", false);
 		expect(removed[0]).toMatchObject({ count: 1, viewerReacted: false });

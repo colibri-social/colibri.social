@@ -3,8 +3,8 @@ import type { NotificationView, SpaceRef, ThreadView } from "../../data/types";
 import {
 	belongsInSidebar,
 	capKeepingPinned,
-	SIDEBAR_ACTIVITY_WINDOW_MS,
-	SIDEBAR_OPENED_WINDOW_MS,
+	repliedThreads,
+	SIDEBAR_STALE_MS,
 	SIDEBAR_THREAD_LIMIT,
 	unseenThreadPings,
 } from "./sidebar-threads";
@@ -33,9 +33,16 @@ describe("sidebar threads", () => {
 		}) as ThreadView;
 
 	const DAY = 24 * 60 * 60 * 1000;
+	const VIEWER = "did:plc:viewer";
 	const at = (
 		overrides: Partial<Parameters<typeof belongsInSidebar>[1]> = {},
-	) => ({ mentions: 0, unread: false, now: NOW, ...overrides });
+	) => ({
+		mentions: 0,
+		repliedTo: false,
+		viewer: VIEWER,
+		now: NOW,
+		...overrides,
+	});
 	const closedAt = new Date(NOW).toISOString() as ThreadView["closedAt"];
 
 	it("keeps followed threads and drops closed ones", () => {
@@ -47,52 +54,72 @@ describe("sidebar threads", () => {
 		expect(belongsInSidebar(closed, at())).toBe(false);
 	});
 
-	it("keeps the thread that is open right now even when unfollowed or closed", () => {
+	it("keeps the thread that is open right now even when unfollowed, closed or stale", () => {
 		const open = threadAt("open", DAY);
 		expect(belongsInSidebar(open, at())).toBe(false);
 		expect(belongsInSidebar(open, at({ activeThread: "open" }))).toBe(true);
 		const closed = withViewer(open, {}, { closedAt });
 		expect(belongsInSidebar(closed, at({ activeThread: "open" }))).toBe(true);
+		const stale = threadAt("open", SIDEBAR_STALE_MS + DAY);
+		expect(belongsInSidebar(stale, at({ activeThread: "open" }))).toBe(true);
 	});
 
-	it("keeps an unfollowed thread that is unread", () => {
-		const unread = threadAt("unread", DAY);
-		expect(belongsInSidebar(unread, at({ unread: true }))).toBe(true);
-		const closed = withViewer(unread, {}, { closedAt });
-		expect(belongsInSidebar(closed, at({ unread: true }))).toBe(false);
-	});
-
-	it("keeps an unfollowed thread active within the last 6 hours", () => {
-		expect(
-			belongsInSidebar(threadAt("recent", SIDEBAR_ACTIVITY_WINDOW_MS), at()),
-		).toBe(true);
-		expect(
-			belongsInSidebar(threadAt("stale", SIDEBAR_ACTIVITY_WINDOW_MS + 1), at()),
-		).toBe(false);
-		const closed = withViewer(threadAt("recent", 0), {}, { closedAt });
-		expect(belongsInSidebar(closed, at())).toBe(false);
-	});
-
-	it("keeps an unfollowed thread opened within the last 24 hours", () => {
-		const old = threadAt("old", 2 * DAY);
-		expect(
-			belongsInSidebar(old, at({ openedAt: NOW - SIDEBAR_OPENED_WINDOW_MS })),
-		).toBe(true);
+	it("drops threads inactive for 3 days or more", () => {
+		const followed = (ago: number) =>
+			withViewer(threadAt("followed", ago), { following: true });
+		expect(belongsInSidebar(followed(SIDEBAR_STALE_MS - 1), at())).toBe(true);
+		expect(belongsInSidebar(followed(SIDEBAR_STALE_MS), at())).toBe(false);
 		expect(
 			belongsInSidebar(
-				old,
-				at({ openedAt: NOW - SIDEBAR_OPENED_WINDOW_MS - 1 }),
+				threadAt("pinged", SIDEBAR_STALE_MS),
+				at({ mentions: 3 }),
 			),
 		).toBe(false);
-		const closed = withViewer(old, {}, { closedAt });
-		expect(belongsInSidebar(closed, at({ openedAt: NOW }))).toBe(false);
 	});
 
-	it("keeps an unfollowed thread that pings you", () => {
+	it("leaves out unfollowed threads that are only unread or recently active", () => {
+		const busy = withViewer(threadAt("busy", 0), {
+			hasUnread: true,
+			unreadMentions: 0,
+		});
+		expect(belongsInSidebar(busy, at())).toBe(false);
+	});
+
+	it("keeps an unfollowed thread that mentions you", () => {
 		const mentioned = threadAt("mentioned", DAY);
 		expect(belongsInSidebar(mentioned, at({ mentions: 1 }))).toBe(true);
 		const closed = withViewer(mentioned, {}, { closedAt });
-		expect(belongsInSidebar(closed, at({ mentions: 2 }))).toBe(true);
+		expect(belongsInSidebar(closed, at({ mentions: 2 }))).toBe(false);
+	});
+
+	it("keeps an unfollowed thread where someone replied to you", () => {
+		const replied = threadAt("replied", DAY);
+		expect(belongsInSidebar(replied, at({ repliedTo: true }))).toBe(true);
+		const closed = withViewer(replied, {}, { closedAt });
+		expect(belongsInSidebar(closed, at({ repliedTo: true }))).toBe(false);
+	});
+
+	it("keeps an unfollowed thread opened from your message", () => {
+		const anchor = {
+			space:
+				"at://did:plc:space/space/social.colibri.beta.channel.text/general",
+			did: VIEWER,
+			rkey: "3kanchor",
+		};
+		const fromRef = withViewer(threadAt("mine", DAY), {}, {
+			anchor,
+		} as Partial<ThreadView>);
+		expect(belongsInSidebar(fromRef, at())).toBe(true);
+		expect(belongsInSidebar(fromRef, at({ viewer: "did:plc:other" }))).toBe(
+			false,
+		);
+		const fromMessage = withViewer(threadAt("mine", DAY), {}, {
+			anchor: { ...anchor, did: "did:plc:other" },
+			anchorMessage: { author: { did: VIEWER } },
+		} as unknown as Partial<ThreadView>);
+		expect(belongsInSidebar(fromMessage, at())).toBe(true);
+		const scratch = threadAt("scratch", DAY);
+		expect(belongsInSidebar(scratch, at())).toBe(false);
 	});
 
 	it("keeps a pinned thread past the row limit in the last slot", () => {
@@ -132,5 +159,22 @@ describe("sidebar threads", () => {
 			entry("seen", "mention", new Date(NOW).toISOString()),
 		]);
 		expect(pings.map((view) => view.id)).toEqual(["mention", "reply"]);
+	});
+
+	it("collects threads with replies to you, seen or not", () => {
+		const thread = threadAt("busy", 0).space;
+		const other = threadAt("other", 0).space;
+		const replied = repliedThreads([
+			{ id: "a", kind: "reply", thread } as NotificationView,
+			{
+				id: "b",
+				kind: "reply",
+				thread,
+				seenAt: new Date(NOW).toISOString(),
+			} as NotificationView,
+			{ id: "c", kind: "mention", thread: other } as NotificationView,
+			{ id: "d", kind: "reply" } as NotificationView,
+		]);
+		expect([...replied]).toEqual([thread]);
 	});
 });

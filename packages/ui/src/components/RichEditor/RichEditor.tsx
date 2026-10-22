@@ -621,6 +621,8 @@ export const RichEditor = (props: RichEditorProps) => {
 					"aria-multiline": "true",
 					"aria-autocomplete": "list",
 					spellcheck: String(webSpellcheck()),
+					autocomplete: "off",
+					autocorrect: "off",
 					class: "outline-none",
 				},
 				clipboardTextSerializer: (slice) => fragmentToMarkdown(slice.content),

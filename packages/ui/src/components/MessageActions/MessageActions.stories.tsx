@@ -9,6 +9,7 @@ import {
 	MessageContextMenu,
 	MessageMenuItems,
 } from "../ContextMenu/MessageMenu";
+import { CustomEmojiImage } from "../Emoji/Emoji";
 import { MessageActionsDrawer } from "./MessageActionsDrawer";
 import { MessageGestures } from "./MessageGestures";
 import { MessageToolbar } from "./MessageToolbar";
@@ -170,6 +171,190 @@ export const ReactionTooltip: Story = {
 			"Lou, Ana, and Ben reacted with :bird:",
 		);
 		await userEvent.unhover(chip);
+	},
+};
+
+const reactionEmojiImage = (color: string) =>
+	`data:image/svg+xml,${encodeURIComponent(
+		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="${color}"/></svg>`,
+	)}`;
+
+const brokenReactionRefresh = fn();
+
+export const CustomReactionPlaceholder: Story = {
+	render: () => {
+		const [panda, setPanda] = createSignal("/expired-sadpanda.png");
+		const sources: Record<string, () => string | undefined> = {
+			":blobcat:": () => reactionEmojiImage("#9c66ff"),
+			":sadpanda:": panda,
+			":pending:": () => undefined,
+		};
+		return (
+			<div class="min-h-screen bg-background p-4">
+				<ReactionBar
+					reactions={[
+						{ emoji: ":blobcat:", label: "blobcat", count: 4 },
+						{
+							emoji: ":sadpanda:",
+							label: "sadpanda",
+							count: 12,
+							reactors: ["Lou", "Ana"],
+						},
+						{ emoji: ":pending:", label: "pending", count: 1, mine: true },
+					]}
+					onToggle={() => {}}
+					renderEmoji={(emoji) => (
+						<CustomEmojiImage
+							src={sources[emoji]?.()}
+							name={emoji.slice(1, -1)}
+							size={16}
+							onError={async (src) => {
+								brokenReactionRefresh(src);
+								setPanda(reactionEmojiImage("#2c2c2c"));
+								return true;
+							}}
+						/>
+					)}
+				/>
+			</div>
+		);
+	},
+	parameters: iphone,
+	play: async ({ canvasElement }) => {
+		brokenReactionRefresh.mockClear();
+		const canvas = within(canvasElement);
+		await expect(canvasElement.textContent).not.toContain(":sadpanda:");
+		await expect(canvasElement.textContent).not.toContain(":pending:");
+		const pending = canvasElement.querySelector<HTMLElement>(
+			'[data-reaction=":pending:"] [data-custom-emoji-image]',
+		);
+		await expect(pending).toHaveAttribute("data-custom-emoji-pending");
+		await expect(pending).toHaveAttribute("data-skeleton");
+		await expect(pending).toHaveAttribute("aria-label", ":pending:");
+		const box = pending?.getBoundingClientRect();
+		await expect(Math.round(box?.width ?? 0)).toBe(16);
+		await expect(Math.round(box?.height ?? 0)).toBe(16);
+		await expectNoLayoutIssues(canvasElement);
+		await waitFor(() =>
+			expect(brokenReactionRefresh).toHaveBeenCalledWith(
+				"/expired-sadpanda.png",
+			),
+		);
+		await expect(brokenReactionRefresh).toHaveBeenCalledTimes(1);
+		const panda = canvas.getByRole("button", { name: "sadpanda 12" });
+		await waitFor(() =>
+			expect(
+				panda.querySelector("[data-custom-emoji-image]"),
+			).not.toHaveAttribute("data-custom-emoji-pending"),
+		);
+		await expect(panda.querySelector("img")?.getAttribute("src")).toBe(
+			reactionEmojiImage("#2c2c2c"),
+		);
+		await waitFor(() =>
+			expect(
+				canvasElement.querySelector(
+					'[data-reaction=":blobcat:"] [data-custom-emoji-image]',
+				),
+			).not.toHaveAttribute("data-skeleton"),
+		);
+		const count = panda.querySelectorAll(":scope > [aria-hidden]")[1];
+		const emojiBox = panda
+			.querySelector("[data-custom-emoji-image]")
+			?.getBoundingClientRect();
+		const countBox = count?.getBoundingClientRect();
+		await expect((emojiBox?.right ?? 0) <= (countBox?.left ?? 0)).toBe(true);
+		await expectNoLayoutIssues(canvasElement);
+		document.body.dispatchEvent(
+			new PointerEvent("pointermove", { bubbles: true, pointerType: "mouse" }),
+		);
+		await userEvent.hover(panda);
+		const tooltip = await screen.findByRole("tooltip", {}, { timeout: 2000 });
+		await expect(tooltip).toHaveTextContent(
+			"Lou, Ana, and 10 others reacted with :sadpanda:",
+		);
+		await userEvent.unhover(panda);
+	},
+};
+
+const deletedReactionRefresh = fn();
+
+export const CustomReactionUnavailable: Story = {
+	render: () => {
+		let settle: ((recovered: boolean) => void) | undefined;
+		const sources: Record<string, string | undefined> = {
+			":deleted:": "/deleted-emoji.png",
+			":removed:": undefined,
+		};
+		return (
+			<div class="min-h-screen bg-background p-4">
+				<ReactionBar
+					reactions={[
+						{ emoji: ":deleted:", label: "deleted", count: 3 },
+						{ emoji: ":removed:", label: "removed", count: 128, mine: true },
+					]}
+					onToggle={() => {}}
+					renderEmoji={(emoji) => (
+						<CustomEmojiImage
+							src={sources[emoji]}
+							name={emoji.slice(1, -1)}
+							size={16}
+							unavailable={emoji === ":removed:"}
+							onError={(src) => {
+								deletedReactionRefresh(src);
+								return new Promise<boolean>((resolve) => {
+									settle = resolve;
+								});
+							}}
+						/>
+					)}
+				/>
+				<button type="button" onClick={() => settle?.(false)}>
+					Finish refetch
+				</button>
+			</div>
+		);
+	},
+	parameters: iphone,
+	play: async ({ canvasElement }) => {
+		deletedReactionRefresh.mockClear();
+		const canvas = within(canvasElement);
+		const glyph = (emoji: string) =>
+			canvasElement.querySelector<HTMLElement>(
+				`[data-reaction="${emoji}"] [data-custom-emoji-image]`,
+			);
+		const removed = glyph(":removed:");
+		await expect(removed).toHaveAttribute("data-custom-emoji-unavailable");
+		await expect(removed).not.toHaveAttribute("data-skeleton");
+		await expect(removed).toHaveAttribute("aria-label", ":removed:");
+		await waitFor(() =>
+			expect(deletedReactionRefresh).toHaveBeenCalledWith("/deleted-emoji.png"),
+		);
+		await expect(glyph(":deleted:")).toHaveAttribute("data-skeleton");
+		await expect(glyph(":deleted:")).not.toHaveAttribute(
+			"data-custom-emoji-unavailable",
+		);
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Finish refetch" }),
+		);
+		await waitFor(() =>
+			expect(glyph(":deleted:")).toHaveAttribute(
+				"data-custom-emoji-unavailable",
+			),
+		);
+		await expect(glyph(":deleted:")).not.toHaveAttribute("data-skeleton");
+		await expect(glyph(":deleted:")?.querySelector("img")).toBeNull();
+		await expect(deletedReactionRefresh).toHaveBeenCalledTimes(1);
+		for (const emoji of [":deleted:", ":removed:"]) {
+			const box = glyph(emoji)?.getBoundingClientRect();
+			await expect(Math.round(box?.width ?? 0)).toBe(16);
+			await expect(Math.round(box?.height ?? 0)).toBe(16);
+			await expect(
+				getComputedStyle(glyph(emoji) as HTMLElement).animationName,
+			).toBe("none");
+		}
+		await expect(canvasElement.textContent).not.toContain(":deleted:");
+		await expect(canvasElement.textContent).not.toContain(":removed:");
+		await expectNoLayoutIssues(canvasElement);
 	},
 };
 

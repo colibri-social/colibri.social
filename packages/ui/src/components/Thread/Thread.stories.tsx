@@ -252,6 +252,72 @@ export const ReadAndUnread: Story = {
 	},
 };
 
+const partyEmoji = {
+	name: "party",
+	src: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#ffd857"/></svg>')}`,
+};
+
+export const LastMessagePreview: Story = {
+	render: () => (
+		<ThreadsPage>
+			<ThreadRow
+				name="Launch party"
+				messageCount={12}
+				age="3m"
+				unread
+				lastMessage={{
+					...lou,
+					text: "see you there :party:",
+					parts: ["see you there ", partyEmoji],
+				}}
+				onOpen={onOpen}
+			/>
+			<ThreadRow
+				name="Bird photos"
+				messageCount={4}
+				age="1h"
+				lastMessage={{ ...robin, text: "Sent an image", attachment: "image" }}
+				onOpen={onOpen}
+			/>
+			<ThreadCard
+				name="Release notes"
+				messageCount={2}
+				age="2d"
+				lastMessage={{ ...kris, text: "Sent a file", attachment: "file" }}
+				onOpen={onOpen}
+			/>
+		</ThreadsPage>
+	),
+	play: async ({ canvasElement }) => {
+		const rows = Array.from(
+			canvasElement.querySelectorAll<HTMLElement>("[data-thread]"),
+		);
+		const [emoji, image, file] = rows;
+		const emojiImage = emoji?.querySelector<HTMLImageElement>(
+			"[data-thread-last-emoji]",
+		);
+		await expect(emojiImage).toHaveAttribute("alt", ":party:");
+		await expect(
+			emoji?.querySelector("[data-thread-last-text]")?.textContent,
+		).toBe("see you there ");
+		await expect(emoji?.querySelector("[data-thread-last-attachment]")).toBe(
+			null,
+		);
+		await expect(
+			image?.querySelector("[data-thread-last-attachment]"),
+		).toHaveAttribute("aria-label", "Image attachment");
+		await expect(
+			file?.querySelector("[data-thread-last-attachment]"),
+		).toHaveAttribute("aria-label", "File attachment");
+		for (const row of rows) {
+			const last = row.querySelector<HTMLElement>("[data-thread-last]");
+			const bounds = last?.getBoundingClientRect();
+			const card = row.getBoundingClientRect();
+			await expect(bounds?.right ?? 0).toBeLessThanOrEqual(card.right);
+		}
+	},
+};
+
 export const Skeletons: Story = {
 	render: () => (
 		<ThreadsPage>

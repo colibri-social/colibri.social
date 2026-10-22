@@ -26,7 +26,7 @@ import SpacesScreen from "../../screens/spaces/spaces.screen";
 import VoiceScreen from "../../screens/voice/voice.screen";
 import { AppLinkHost } from "../AppLinkHost";
 import { lastViewedSpace } from "../cold-start";
-import { type Layer, sameLayer } from "../layers";
+import { type Layer, sameLayer, type ThreadLayer } from "../layers";
 import { LoadErrorState, NotFoundScreen } from "../load-error";
 import { NotificationHost } from "../NotificationHost";
 import { StackContext } from "../stack";
@@ -122,6 +122,20 @@ export const DesktopShell = () => {
 		saveThreadWidth();
 	});
 
+	const rememberedThreadLayers = (space: string, chat: string): Layer[] => {
+		const remembered = data.rememberedThread(space);
+		if (!remembered || remembered.chat !== chat) return [];
+		const layer: ThreadLayer = {
+			kind: "thread",
+			space,
+			channel: remembered.channel,
+			thread: remembered.thread,
+			channelType: remembered.channelType,
+		};
+		if (remembered.presentation) layer.presentation = remembered.presentation;
+		return [layer];
+	};
+
 	createEffect(() => {
 		const current = route();
 		if (current.chat || current.notFound || stack.restingAtBase()) return;
@@ -140,13 +154,17 @@ export const DesktopShell = () => {
 			channels.find((channel) => channelSlug(channel) === last) ??
 			channels.find((channel) => channel.type === TEXT_CHANNEL);
 		if (!target) return;
+		const chatLayer: Layer = {
+			kind: "chat",
+			space: spaceKey(community),
+			channel: channelSlug(target),
+			channelType: target.type,
+		};
 		untrack(() =>
-			stack.openBase({
-				kind: "chat",
-				space: spaceKey(community),
-				channel: channelSlug(target),
-				channelType: target.type,
-			}),
+			stack.openBase(
+				chatLayer,
+				rememberedThreadLayers(spaceKey(community), chatLayer.channel),
+			),
 		);
 	});
 
@@ -163,6 +181,27 @@ export const DesktopShell = () => {
 	const currentPane = createMemo(() => route().pane, undefined, {
 		equals: sameValue,
 	});
+
+	createEffect(() => {
+		const current = chat();
+		if (!current) return;
+		const pane = currentPane();
+		const open =
+			pane?.kind === "thread" && pane.space === current.space
+				? pane
+				: undefined;
+		data.rememberThread(
+			current.space,
+			open && {
+				chat: current.channel,
+				channel: open.channel,
+				thread: open.thread,
+				channelType: open.channelType,
+				presentation: open.presentation,
+			},
+		);
+	});
+
 	const threadsOverlay = createMemo(() => route().overlay, undefined, {
 		equals: sameValue,
 	});

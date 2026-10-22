@@ -38,6 +38,7 @@ import { trailScripts } from "./script-trail";
 import type { ScriptContext, ScriptEntry } from "./script-types";
 import { createRandom } from "./seed";
 import { SPACES, type SpaceSeed } from "./spaces";
+import { mockThreadLastMessage } from "./thread-last-message";
 import { mockThreadRights } from "./thread-rights";
 
 const MINUTE = 60_000;
@@ -560,6 +561,7 @@ export const createWorld = (now: number) => {
 				createdAt: anchor.createdAt,
 				lastActivityAt: last?.createdAt ?? anchor.createdAt,
 				messageCount: messages.length,
+				...mockThreadLastMessage(last),
 				participants,
 				viewer: {
 					canRead: true,

@@ -7,6 +7,7 @@ export type StatusEmojiProps = {
 	emoji?: string;
 	customEmoji?: CustomEmoji;
 	size?: number | "inline";
+	tooltip?: boolean;
 	class?: string;
 };
 
@@ -26,6 +27,8 @@ export const StatusEmoji = (props: StatusEmojiProps) => (
 				src={custom().src}
 				name={custom().name}
 				size={props.size}
+				playback="demand"
+				tooltip={props.tooltip}
 				class={props.class}
 			/>
 		)}

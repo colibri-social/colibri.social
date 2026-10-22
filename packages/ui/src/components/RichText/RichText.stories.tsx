@@ -829,6 +829,19 @@ export const CustomEmoji: Story = {
 		await expect(jumbo.querySelectorAll("img[data-custom-emoji]").length).toBe(
 			2,
 		);
+		await expect(images[0]).not.toHaveAttribute("title");
+		const trigger = images[0].closest<HTMLElement>(
+			"[data-custom-emoji-tooltip]",
+		);
+		await expect(trigger).not.toBeNull();
+		if (!trigger) return;
+		await userEvent.hover(trigger);
+		const tip = await screen.findByRole("tooltip", {}, { timeout: 2000 });
+		await expect(tip).toHaveTextContent(":party_parrot:");
+		await userEvent.unhover(trigger);
+		await waitFor(() =>
+			expect(screen.queryByRole("tooltip")).not.toBeInTheDocument(),
+		);
 	},
 };
 

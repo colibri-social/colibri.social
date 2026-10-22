@@ -1,7 +1,11 @@
 import { createSignal, type JSX, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { EMOJI_GLYPH_EM, isJumboEmojiText } from "../../utils/emoji";
-import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
+import {
+	AnimatedImage,
+	type AnimatedImagePlayback,
+} from "../AnimatedImage/AnimatedImage";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 
 export type EmojiSize = "inline" | "jumbo" | number;
 
@@ -35,6 +39,8 @@ export type EmojiProps = {
 	src?: string;
 	name?: string;
 	size?: EmojiSize;
+	playback?: AnimatedImagePlayback;
+	tooltip?: boolean;
 	class?: string;
 };
 
@@ -61,19 +67,101 @@ export const Emoji = (props: EmojiProps) => {
 				</span>
 			}
 		>
-			<AnimatedImage
-				data-emoji="custom"
-				src={props.src}
-				alt={shortcode()}
-				title={shortcode()}
-				draggable={false}
-				loading="lazy"
-				decoding="async"
-				onError={() => setFailedSrc(props.src)}
-				style={imageSizeStyle(size())}
-				class={cx(frameClass, "object-contain", props.class)}
-			/>
+			<Tooltip disabled={props.tooltip === false}>
+				<TooltipTrigger
+					as="span"
+					data-emoji-tooltip=""
+					class="inline-flex shrink-0 align-middle leading-none"
+				>
+					<AnimatedImage
+						data-emoji="custom"
+						src={props.src}
+						alt={shortcode()}
+						playback={props.playback}
+						draggable={false}
+						loading="lazy"
+						decoding="async"
+						onError={() => setFailedSrc(props.src)}
+						style={imageSizeStyle(size())}
+						class={cx(frameClass, "object-contain", props.class)}
+					/>
+				</TooltipTrigger>
+				<TooltipContent>{shortcode()}</TooltipContent>
+			</Tooltip>
 		</Show>
+	);
+};
+
+export type CustomEmojiImageProps = {
+	src?: string;
+	name: string;
+	size: number;
+	unavailable?: boolean;
+	playback?: AnimatedImagePlayback;
+	onError?: (src: string) => Promise<boolean> | undefined;
+	class?: string;
+};
+
+type CustomEmojiImageState = "loading" | "loaded" | "unavailable";
+
+export const CustomEmojiImage = (props: CustomEmojiImageProps) => {
+	const [loadedSrc, setLoadedSrc] = createSignal<string>();
+	const [failedSrc, setFailedSrc] = createSignal<string>();
+	const [pendingSrc, setPendingSrc] = createSignal<string>();
+	const usable = () => !!props.src && failedSrc() !== props.src;
+	const state = (): CustomEmojiImageState => {
+		if (usable()) return loadedSrc() === props.src ? "loaded" : "loading";
+		if (props.src && pendingSrc() === props.src) return "loading";
+		return props.src || props.unavailable ? "unavailable" : "loading";
+	};
+	const retried = new Set<string>();
+	const fail = async (src: string) => {
+		setFailedSrc(src);
+		if (retried.has(src) || !props.onError) return;
+		retried.add(src);
+		setPendingSrc(src);
+		const recovered = await props.onError(src);
+		if (pendingSrc() === src) setPendingSrc(undefined);
+		if (recovered && failedSrc() === src) setFailedSrc(undefined);
+	};
+
+	return (
+		<span
+			role="img"
+			aria-label={`:${props.name}:`}
+			data-custom-emoji-image={props.name}
+			data-custom-emoji-pending={state() === "loading" ? "" : undefined}
+			data-custom-emoji-unavailable={state() === "unavailable" ? "" : undefined}
+			data-skeleton={state() === "loading" ? "" : undefined}
+			class={cx(
+				"shrink-0 overflow-hidden rounded-[4px]",
+				state() === "unavailable" && "bg-[var(--skeleton-base)]",
+				props.class,
+			)}
+			style={{
+				display: "inline-block",
+				width: `${props.size}px`,
+				height: `${props.size}px`,
+			}}
+		>
+			<Show when={usable() && props.src} keyed>
+				{(src) => (
+					<AnimatedImage
+						src={src}
+						alt=""
+						playback={props.playback}
+						draggable={false}
+						decoding="async"
+						onLoad={() => setLoadedSrc(src)}
+						onError={() => void fail(src)}
+						class={cx(
+							"block size-full object-contain",
+							loadedSrc() !== src && "opacity-0",
+						)}
+					/>
+				)}
+			</Show>
+		</span>
 	);
 };
 

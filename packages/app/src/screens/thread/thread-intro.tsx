@@ -13,6 +13,10 @@ import {
 	Show,
 	untrack,
 } from "solid-js";
+import {
+	createMediaLinkRefresher,
+	MediaLinkContext,
+} from "../../data/media-link";
 import { useData } from "../../data/store";
 import type { MessageView, ThreadView } from "../../data/types";
 import {
@@ -27,6 +31,7 @@ import {
 	type MessageParent,
 	toChatMessage,
 } from "../channel/message/types";
+import { createAnchorLinkRefresher } from "./anchor-links";
 
 export const ANCHOR_KEY_PREFIX = "anchor:";
 
@@ -60,9 +65,11 @@ export const ThreadIntro = (props: { thread: ThreadView }) => {
 			: undefined;
 	});
 	const [fetched, setFetched] = createSignal<StoredAnchor>();
+	const [refreshed, setRefreshed] = createSignal<StoredAnchor>();
 	createEffect(
 		on(anchorKey, (key) => {
 			setFetched(undefined);
+			setRefreshed(undefined);
 			if (!key) return;
 			let current = true;
 			onCleanup(() => {
@@ -92,10 +99,32 @@ export const ThreadIntro = (props: { thread: ThreadView }) => {
 					)
 			: undefined;
 		if (live) return live;
-		const stored = (props.thread.anchorMessage ?? fetched()) as
+		const stored = (refreshed() ?? props.thread.anchorMessage ?? fetched()) as
 			| MessageParent
 			| undefined;
 		return isVisibleParent(stored) ? stored : undefined;
+	});
+	const liveFeed = () => {
+		const anchor = props.thread.anchor;
+		if (!anchor) return undefined;
+		const feed = data.channel(anchor.space);
+		const held = untrack(feed.messages).some(
+			(message) =>
+				message.rkey === anchor.rkey && message.author.did === anchor.did,
+		);
+		return held ? feed : undefined;
+	};
+	const liveLinks = createMediaLinkRefresher({
+		feed: liveFeed,
+		listMessages: (params) => data.source.listMessages(params),
+	});
+	const links = createAnchorLinkRefresher({
+		live: () => (liveFeed() ? liveLinks : undefined),
+		reload: async () => {
+			const full = await data.source.getThread(props.thread.space);
+			if (full.anchorMessage) setRefreshed(() => full.anchorMessage);
+		},
+		current: () => untrack(anchorView),
 	});
 	const entry = createMemo<MessageListEntry<ChatMessage> | undefined>(() => {
 		const view = anchorView();
@@ -122,9 +151,11 @@ export const ThreadIntro = (props: { thread: ThreadView }) => {
 		>
 			{(current) => (
 				<div data-thread-anchor="" class="flex flex-col pt-2 pb-1">
-					<ChatContextProvider value={chat}>
-						<MessageItem entry={current} />
-					</ChatContextProvider>
+					<MediaLinkContext.Provider value={links}>
+						<ChatContextProvider value={chat}>
+							<MessageItem entry={current} />
+						</ChatContextProvider>
+					</MediaLinkContext.Provider>
 					<ThreadStartDivider class="mt-2" />
 				</div>
 			)}

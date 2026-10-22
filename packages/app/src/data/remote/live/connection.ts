@@ -89,6 +89,14 @@ export const TOKEN_TTL_S = 60;
 
 const OPEN = 1;
 
+const VIEW_CHANNEL = "social.colibri.beta.sync.defs#viewChannel";
+
+const isViewChannel = (frame: ClientFrame): boolean =>
+	(frame as { $type?: string }).$type === VIEW_CHANNEL;
+
+const viewsChannel = (frame: ClientFrame): boolean =>
+	typeof (frame as { channel?: unknown }).channel === "string";
+
 const isRejection = (code: number): boolean =>
 	code === 1008 || (code >= 4400 && code <= 4499);
 
@@ -158,6 +166,7 @@ export const createLiveConnection = (
 	let lastFrameAt = Date.now();
 	let generation = 0;
 	let connectStartedAt: number | null = null;
+	let viewing: ClientFrame | null = null;
 
 	const backoffMs = (n: number): number => {
 		const capped = Math.min(RECONNECT_BASE_MS * 2 ** n, RECONNECT_MAX_MS);
@@ -181,6 +190,7 @@ export const createLiveConnection = (
 	};
 
 	const sendFrame = (frame: ClientFrame): boolean => {
+		if (isViewChannel(frame)) viewing = viewsChannel(frame) ? frame : null;
 		if (ws?.readyState !== OPEN) return false;
 		ws.send(encodeFrame(frame));
 		return true;
@@ -225,10 +235,14 @@ export const createLiveConnection = (
 		subscriptions += 1;
 		setEpoch(subscriptions);
 		const wanted = ledger.wanted();
-		if (wanted.communities.size === 0 && wanted.channels.size === 0) return;
-		sendFrame(
-			subscribeFrame(subscriptionTargets(wanted.communities, wanted.channels)),
-		);
+		if (wanted.communities.size > 0 || wanted.channels.size > 0) {
+			sendFrame(
+				subscribeFrame(
+					subscriptionTargets(wanted.communities, wanted.channels),
+				),
+			);
+		}
+		if (viewing) sendFrame(viewing);
 	};
 
 	const dispatch = (event: LiveEvent) => {
@@ -322,11 +336,7 @@ export const createLiveConnection = (
 			stopHeartbeat();
 			heartbeat = setInterval(() => {
 				if (closed || ws !== socket) return;
-				if (socket.readyState !== OPEN) {
-					forceReconnect();
-					return;
-				}
-				socket.send(encodeFrame(heartbeatFrame()));
+				probeLiveness();
 			}, HEARTBEAT_MS);
 			resubscribeAll();
 		});

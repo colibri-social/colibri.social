@@ -163,7 +163,8 @@ export const createDesktopStack = (
 		commit(desktopRoute({ tab: "spaces", space: next.space }, []));
 	};
 
-	const openBase = (chat: Layer) => apply([chat, ...layers()]);
+	const openBase = (chat: Layer, above: Layer[] = []) =>
+		apply([chat, ...above, ...layers()]);
 
 	const setPopGuard = (guard: PopGuard) => {
 		popGuard = guard;

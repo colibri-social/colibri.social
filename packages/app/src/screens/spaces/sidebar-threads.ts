@@ -4,8 +4,7 @@ import type { DataStore, SpaceData } from "../../data/store";
 import type { NotificationView, SpaceRef, ThreadView } from "../../data/types";
 
 export const SIDEBAR_THREAD_LIMIT = 5;
-export const SIDEBAR_ACTIVITY_WINDOW_MS = 6 * 60 * 60 * 1000;
-export const SIDEBAR_OPENED_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const SIDEBAR_STALE_MS = 3 * 24 * 60 * 60 * 1000;
 
 const newestFirst = (a: ThreadView, b: ThreadView) => {
 	if (a.lastActivityAt === b.lastActivityAt) return a.space < b.space ? -1 : 1;
@@ -14,32 +13,34 @@ const newestFirst = (a: ThreadView, b: ThreadView) => {
 
 export type SidebarThreadContext = {
 	mentions: number;
-	unread: boolean;
+	repliedTo: boolean;
+	viewer?: string;
 	now: number;
 	activeThread?: string;
-	openedAt?: number;
 };
 
-const isRecentlyActive = (thread: ThreadView, now: number) => {
+const isStale = (thread: ThreadView, now: number) => {
 	const at = Date.parse(thread.lastActivityAt);
-	return !Number.isNaN(at) && now - at <= SIDEBAR_ACTIVITY_WINDOW_MS;
+	return !Number.isNaN(at) && now - at >= SIDEBAR_STALE_MS;
 };
 
-const wasRecentlyOpened = (openedAt: number | undefined, now: number) =>
-	openedAt !== undefined && now - openedAt <= SIDEBAR_OPENED_WINDOW_MS;
+const anchorAuthorOf = (thread: ThreadView): string | undefined => {
+	const message = thread.anchorMessage;
+	if (message && "author" in message) return message.author.did;
+	return thread.anchor?.did;
+};
 
 export const belongsInSidebar = (
 	thread: ThreadView,
 	context: SidebarThreadContext,
 ) => {
 	if (context.activeThread === skeyOf(thread.space)) return true;
-	if (context.mentions > 0) return true;
-	if (thread.closedAt) return false;
+	if (thread.closedAt || isStale(thread, context.now)) return false;
 	return (
 		!!thread.viewer.following ||
-		context.unread ||
-		wasRecentlyOpened(context.openedAt, context.now) ||
-		isRecentlyActive(thread, context.now)
+		context.mentions > 0 ||
+		context.repliedTo ||
+		(!!context.viewer && anchorAuthorOf(thread) === context.viewer)
 	);
 };
 
@@ -63,6 +64,15 @@ export const unseenThreadPings = (
 		(entry) => !entry.seenAt && entry.thread && isPingNotification(entry),
 	);
 
+export const repliedThreads = (
+	notifications: readonly NotificationView[],
+): Set<string> =>
+	new Set(
+		notifications.flatMap((entry) =>
+			entry.kind === "reply" && entry.thread ? [entry.thread] : [],
+		),
+	);
+
 export const sidebarThreads = (data: DataStore, channel: SpaceRef) =>
 	(data.threadsOf(channel).value() ?? []).map(
 		(thread) => data.threads.find(thread.space) ?? thread,
@@ -81,7 +91,9 @@ export const sidebarThreadsFor = (
 	activeThread?: string,
 	now: number = Date.now(),
 ): SidebarThreadState[] => {
-	const unseen = unseenThreadPings(data.notifications.items());
+	const notifications = data.notifications.items();
+	const unseen = unseenThreadPings(notifications);
+	const replied = repliedThreads(notifications);
 	const listed = sidebarThreads(data, channel)
 		.map((thread) => {
 			const live = space?.unread(skeyOf(thread.space));
@@ -97,10 +109,10 @@ export const sidebarThreadsFor = (
 		.filter((state) =>
 			belongsInSidebar(state.thread, {
 				mentions: state.mentions,
-				unread: state.unread,
+				repliedTo: replied.has(state.thread.space),
+				viewer: data.viewer.did,
 				now,
 				activeThread,
-				openedAt: data.threads.openedAt(state.thread.space),
 			}),
 		)
 		.sort((a, b) => newestFirst(a.thread, b.thread));

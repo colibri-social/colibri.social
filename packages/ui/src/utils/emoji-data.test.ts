@@ -61,6 +61,36 @@ describe("searchEmojis", () => {
 		expect(searchEmojis("+1", 10)[0]?.name).toBe("+1");
 	});
 
+	it("ranks the waving hand first for wav and labels it wave", () => {
+		const results = searchEmojis("wav", 10);
+		expect(results[0]?.emoji).toBe("👋");
+		expect(results[0]?.name).toBe("wave");
+		expect(results.findIndex((r) => r.emoji === "〰️")).toBeGreaterThan(0);
+	});
+
+	it("ranks thumbs up first for thu", () => {
+		const results = searchEmojis("thu", 10);
+		expect(results[0]?.emoji).toBe("👍");
+		expect(results[0]?.name).toBe("thumbs_up");
+		expect(results.findIndex((r) => r.emoji === "👎")).toBeGreaterThan(0);
+	});
+
+	it("ranks the red heart first for hea and labels it heart", () => {
+		const results = searchEmojis("hea", 10);
+		expect(results[0]?.emoji).toBe("❤️");
+		expect(results[0]?.name).toBe("heart");
+	});
+
+	it("ranks short shortcodes first for smi", () => {
+		const results = searchEmojis("smi", 10);
+		expect(results.slice(0, 3).map((r) => r.emoji)).toEqual(["😏", "😄", "😃"]);
+	});
+
+	it("breaks label length ties within a tier by frequency", () => {
+		const results = searchEmojis("fi", 10);
+		expect(results[0]?.emoji).toBe("🔥");
+	});
+
 	it("falls back to fuzzy matching for typos", () => {
 		expect(searchEmojis("thmubs", 10).some((r) => r.emoji === "👍")).toBe(true);
 		expect(searchEmojis("rocekt", 10).some((r) => r.emoji === "🚀")).toBe(true);

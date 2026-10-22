@@ -41,6 +41,7 @@ import {
 	createMediaLinkRefresher,
 	MediaLinkContext,
 } from "../../data/media-link";
+import { keepUnchanged } from "../../data/merge";
 import {
 	createComposerDraft,
 	editDraftKey,
@@ -96,6 +97,7 @@ import {
 	pendingChatMessage,
 	toChatMessage,
 } from "./message/types";
+import { createPendingMediaUrls } from "./pending-media";
 import { createMessageSelection } from "./selection/selection";
 import { indexThreadAnchors, threadAnchorKey } from "./thread-anchors";
 
@@ -475,6 +477,9 @@ export const createConversation = (options: ConversationOptions) => {
 	};
 
 	const cache = new WeakMap<MessageView, ChatMessage>();
+	let settled = new Map<string, MessageView>();
+	const pendingMedia = createPendingMediaUrls();
+	onCleanup(pendingMedia.dispose);
 	const items = createMemo<ChatMessage[]>(() => {
 		const current = feed();
 		if (!current || !revealed()) return [];
@@ -484,6 +489,8 @@ export const createConversation = (options: ConversationOptions) => {
 			canModerate() &&
 			!(communityDid && data.preferences.hidesModerated(communityDid));
 		const viewerDid = data.viewer.did;
+		const previous = settled;
+		const next = new Map<string, MessageView>();
 		const sent = current
 			.messages()
 			.filter(
@@ -492,7 +499,10 @@ export const createConversation = (options: ConversationOptions) => {
 					message.author.did === viewerDid ||
 					!isHiddenMessage(message),
 			)
-			.map((message) => {
+			.map((incoming) => {
+				const known = previous.get(incoming.rkey);
+				const message = known ? keepUnchanged(known, incoming) : incoming;
+				next.set(message.rkey, message);
 				const thread = threads.get(
 					threadAnchorKey(message.author.did, message.rkey),
 				);
@@ -504,15 +514,23 @@ export const createConversation = (options: ConversationOptions) => {
 					cached.key === (key ?? message.rkey)
 				)
 					return cached;
-				const next = toChatMessage(message, { key, thread });
-				cache.set(message, next);
-				return next;
+				const chat = toChatMessage(message, { key, thread });
+				cache.set(message, chat);
+				return chat;
 			});
+		settled = next;
 		const viewer = data.viewer.did;
 		const landed = new Set(current.messages().map((message) => message.rkey));
 		const waiting = current
 			.pending()
 			.filter((entry) => !landed.has(entry.rkey));
+		pendingMedia.keep(
+			new Set(
+				waiting.flatMap((entry) =>
+					(entry.uploads ?? []).map((upload) => upload.file),
+				),
+			),
+		);
 		const pending = waiting.map((entry) => {
 			const parent = entry.parent
 				? current.messages().find((message) => message.rkey === entry.parent)
@@ -527,7 +545,7 @@ export const createConversation = (options: ConversationOptions) => {
 				attachments: [
 					...(entry.attachments ?? []),
 					...(entry.uploads ?? []).map((upload) => ({
-						url: (upload.previewSrc ?? "") as AttachmentView["url"],
+						url: pendingMedia.urlFor(upload) as AttachmentView["url"],
 						mimeType: upload.file.type || "application/octet-stream",
 						name: upload.file.name,
 						size: upload.file.size,
@@ -545,6 +563,25 @@ export const createConversation = (options: ConversationOptions) => {
 	});
 
 	const directory = () => ({ members: memberMap(), roles: roleMap() });
+	const bridgedNames = createMemo(() => {
+		const names = new Map<string, string>();
+		for (const message of feed()?.messages() ?? []) {
+			const bridge = message.author.bridge;
+			if (bridge && message.author.displayName) {
+				names.set(
+					`${bridge.registration} ${bridge.remoteId}`,
+					message.author.displayName,
+				);
+			}
+			for (const reaction of message.reactions) {
+				for (const reactor of reaction.bridgedReactors ?? []) {
+					const key = `${reactor.registration} ${reactor.remoteId}`;
+					if (!names.has(key)) names.set(key, reactor.name);
+				}
+			}
+		}
+		return names;
+	});
 	const nameOf = (did: string) => {
 		const member = memberMap().get(did);
 		return member
@@ -697,11 +734,22 @@ export const createConversation = (options: ConversationOptions) => {
 				? { id: emoji.id, name: emoji.name, src: emoji.image, alt: emoji.alt }
 				: undefined;
 		},
+		refreshCustomEmoji: (uri, src) => data.emoji.refreshImage(uri, src),
+		customEmojiUnavailable: (reaction) => {
+			const uri = reaction.customEmoji?.uri;
+			const current = community()?.did;
+			const state = uri
+				? data.emoji.availability(current, uri)
+				: data.emoji.availabilityByName(current);
+			return state === "unavailable";
+		},
 		onCustomEmojiOpen: (emoji, anchor) => emojiDrawer.open(emoji, anchor),
 		customEmojiFeature: (feature) =>
 			data.emoji.mention(community()?.did, feature),
 		community: () => community() as NonNullable<ReturnType<typeof community>>,
 		members: memberMap,
+		bridgedName: (registration, remoteId) =>
+			bridgedNames().get(`${registration} ${remoteId}`),
 		roles: roleMap,
 		channels: channelMap,
 		communities: () =>

@@ -80,7 +80,11 @@ describe("createMediaLinkRefresher", () => {
 		const listMessages = vi.fn(async () =>
 			page([message("a", [fresh]), message("z", [])]),
 		);
-		const links = createMediaLinkRefresher({ feed: () => feed, listMessages });
+		const links = createMediaLinkRefresher({
+			feed: () => feed,
+			listMessages,
+			now: () => 150_000,
+		});
 
 		await expect(links.refresh(stale)).resolves.toBe(true);
 		expect(listMessages).toHaveBeenCalledWith(
@@ -90,6 +94,45 @@ describe("createMediaLinkRefresher", () => {
 		expect(messages()[0]?.attachments[0]?.url).toBe(fresh);
 
 		await expect(links.refresh(fresh)).resolves.toBe(false);
+		expect(listMessages).toHaveBeenCalledTimes(1);
+	});
+
+	it("refreshes again once the refreshed link expires too", async () => {
+		let clock = 150_000;
+		const stale = signed("one", 100);
+		const fresh = signed("one", 200);
+		const newest = signed("one", 300);
+		const { feed, messages } = feedOf([message("a", [stale])]);
+		const listMessages = vi
+			.fn<() => Promise<MessagePage>>()
+			.mockImplementationOnce(async () => page([message("a", [fresh])]))
+			.mockImplementation(async () => page([message("a", [newest])]));
+		const links = createMediaLinkRefresher({
+			feed: () => feed,
+			listMessages,
+			now: () => clock,
+		});
+
+		await expect(links.refresh(stale)).resolves.toBe(true);
+		await expect(links.refresh(fresh)).resolves.toBe(false);
+		clock = 250_000;
+		await expect(links.refresh(fresh)).resolves.toBe(true);
+		expect(messages()[0]?.attachments[0]?.url).toBe(newest);
+		expect(listMessages).toHaveBeenCalledTimes(2);
+		await expect(links.refresh(newest)).resolves.toBe(false);
+	});
+
+	it("does not refetch a link that already came back from a refresh and still fails", async () => {
+		const link = signed("one", 100);
+		const { feed } = feedOf([message("a", [link])]);
+		const listMessages = vi.fn(async () => page([message("a", [link])]));
+		const links = createMediaLinkRefresher({
+			feed: () => feed,
+			listMessages,
+			now: () => 500_000,
+		});
+		await expect(links.refresh(link)).resolves.toBe(false);
+		await expect(links.refresh(link)).resolves.toBe(false);
 		expect(listMessages).toHaveBeenCalledTimes(1);
 	});
 

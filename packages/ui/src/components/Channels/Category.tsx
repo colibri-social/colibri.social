@@ -130,11 +130,11 @@ export const ChannelCategory = (props: ChannelCategoryProps) => {
 					inert={collapsed() || undefined}
 					data-category-rows=""
 					class={cx(
-						"flex min-h-0 flex-col",
+						"flex min-h-0 min-w-0 flex-col",
 						props.density === "compact" ? "gap-0" : "gap-2",
 						props.instant && !collapsed()
 							? "overflow-visible"
-							: "overflow-hidden",
+							: "overflow-x-visible overflow-y-clip",
 						collapsed()
 							? cx(
 									"invisible",

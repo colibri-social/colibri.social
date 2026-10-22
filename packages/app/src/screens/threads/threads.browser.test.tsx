@@ -171,6 +171,23 @@ describe("thread list", () => {
 		await until(() => location.pathname === DEV_THREADS);
 	});
 
+	it("shows each thread's latest message on its row", async () => {
+		const { root } = await mount(DEV_THREADS);
+		await until(() => !!threadRow(root, "Spring tuning"));
+		const row = threadRow(root, "Spring tuning") as HTMLElement;
+		const last = () => row.querySelector<HTMLElement>("[data-thread-last]");
+		await until(() => !!last());
+		expect(last()?.querySelector("[data-thread-last-text]")?.textContent).toBe(
+			"Fair. Keeping it fixed.",
+		);
+		expect(
+			last()?.querySelector("[data-author-name]")?.textContent?.trim(),
+		).not.toBe("");
+		expect(last()?.querySelector("[data-author-name]")?.textContent).not.toBe(
+			"Someone",
+		);
+	});
+
 	it("renames a thread in place from a hold on its row", async () => {
 		const { store, root } = await mount(DEV_THREADS);
 		const drawer = await openListMenu(root, "Spring tuning");

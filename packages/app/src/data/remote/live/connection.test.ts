@@ -193,8 +193,66 @@ describe("createLiveConnection", () => {
 		await flush();
 		latest().open();
 
-		await vi.advanceTimersByTimeAsync(HEARTBEAT_MS * 3);
+		for (let beat = 0; beat < 3; beat++) {
+			await vi.advanceTimersByTimeAsync(HEARTBEAT_MS);
+			latest().receive({ $type: "social.colibri.beta.sync.defs#ack" });
+		}
 		expect(latest().frames("heartbeat")).toHaveLength(3);
+		expect(sockets).toHaveLength(1);
+		expect(live.status()).toBe("open");
+		live.close();
+	});
+
+	it("reconnects when a heartbeat goes unanswered while the app stays in view", async () => {
+		const live = start();
+		await flush();
+		latest().open();
+
+		await vi.advanceTimersByTimeAsync(HEARTBEAT_MS);
+		expect(latest().frames("heartbeat")).toHaveLength(1);
+		await vi.advanceTimersByTimeAsync(PROBE_TIMEOUT_MS);
+		expect(live.status()).toBe("reconnecting");
+		expect(sockets).toHaveLength(2);
+		live.close();
+	});
+
+	it("tells a new socket which channel is in view", async () => {
+		const live = start();
+		await flush();
+		latest().open();
+		live.send({
+			$type: "social.colibri.beta.sync.defs#viewChannel",
+			channel: GENERAL,
+		} as never);
+
+		latest().drop();
+		await vi.advanceTimersByTimeAsync(1_000);
+		latest().open();
+		expect(latest().frames("viewChannel")).toEqual([
+			{ $type: "social.colibri.beta.sync.defs#viewChannel", channel: GENERAL },
+		]);
+
+		live.send({ $type: "social.colibri.beta.sync.defs#viewChannel" } as never);
+		latest().drop();
+		await vi.advanceTimersByTimeAsync(2_000);
+		latest().open();
+		expect(latest().frames("viewChannel")).toEqual([]);
+		live.close();
+	});
+
+	it("remembers the channel in view even when the socket is down", async () => {
+		const live = start();
+		await flush();
+		expect(
+			live.send({
+				$type: "social.colibri.beta.sync.defs#viewChannel",
+				channel: GENERAL,
+			} as never),
+		).toBe(false);
+		latest().open();
+		expect(latest().frames("viewChannel")).toEqual([
+			{ $type: "social.colibri.beta.sync.defs#viewChannel", channel: GENERAL },
+		]);
 		live.close();
 	});
 

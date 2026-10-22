@@ -319,3 +319,117 @@ describe("emoji follows", () => {
 		).toEqual(["mine"]);
 	});
 });
+
+describe("emoji image refresh", () => {
+	const kek = emoji(SPACE, "kek");
+	const refreshed = { ...kek, image: "kek-fresh.png" };
+
+	it("refetches the owner catalog once per failed image link", async () => {
+		const { store, source } = setup({
+			own: catalogOf(VIEWER, []),
+			follows: [],
+		});
+		await warmUp(store);
+		const listEmoji = vi.mocked(source.listEmoji);
+		const before = listEmoji.mock.calls.length;
+		listEmoji.mockResolvedValueOnce(catalogOf(SPACE, [refreshed]));
+
+		const [first, second] = await Promise.all([
+			store.refreshImage(kek.id, kek.image),
+			store.refreshImage(kek.id, kek.image),
+		]);
+		expect([first, second]).toEqual([true, true]);
+		expect(listEmoji.mock.calls.length - before).toBe(1);
+		expect(listEmoji).toHaveBeenLastCalledWith(SPACE);
+		expect(store.lookup(kek.id)?.image).toBe("kek-fresh.png");
+
+		await expect(store.refreshImage(kek.id, kek.image)).resolves.toBe(false);
+		expect(listEmoji.mock.calls.length - before).toBe(1);
+	});
+
+	it("gives up when the catalog refetch fails", async () => {
+		const { store, source } = setup({
+			own: catalogOf(VIEWER, []),
+			follows: [],
+		});
+		await warmUp(store);
+		const listEmoji = vi.mocked(source.listEmoji);
+		listEmoji.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+		await expect(store.refreshImage(kek.id, kek.image)).resolves.toBe(false);
+		expect(store.lookup(kek.id)?.image).toBe("kek.png");
+		await expect(store.refreshImage(kek.id, kek.image)).resolves.toBe(false);
+	});
+});
+
+describe("emoji availability", () => {
+	const kek = emoji(SPACE, "kek");
+	const ghost = emoji(SPACE, "ghost");
+
+	it("marks an emoji unavailable once its catalog loads without it", async () => {
+		const { store } = setup({ own: catalogOf(VIEWER, []), follows: [] });
+		expect(store.availability(SPACE, ghost.id)).toBe("loading");
+		await warmUp(store);
+		expect(store.availability(SPACE, ghost.id)).toBe("unavailable");
+	});
+
+	it("marks an emoji outside the Space's emoji policy unavailable", async () => {
+		const { store } = setup(
+			{ own: catalogOf(VIEWER, []), follows: [] },
+			"none",
+		);
+		expect(store.availability(SPACE, kek.id)).toBe("unavailable");
+		expect(store.availabilityByName(SPACE)).toBe("unavailable");
+	});
+
+	it("marks an emoji unavailable after an image refetch drops it", async () => {
+		const { store, source } = setup({
+			own: catalogOf(VIEWER, []),
+			follows: [],
+		});
+		await warmUp(store);
+		vi.mocked(source.listEmoji).mockResolvedValueOnce(catalogOf(SPACE, []));
+		await expect(store.refreshImage(kek.id, kek.image)).resolves.toBe(false);
+		expect(store.lookup(kek.id)).toBeUndefined();
+		expect(store.availability(SPACE, kek.id)).toBe("unavailable");
+	});
+
+	it("retries a failed catalog once per owner and recovers", async () => {
+		const { store, source } = setup({
+			own: catalogOf(VIEWER, []),
+			follows: [],
+		});
+		const listEmoji = vi.mocked(source.listEmoji);
+		listEmoji.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+		store.catalog(SPACE);
+		await flush();
+		expect(store.catalog(SPACE).error()).toBeDefined();
+		const before = listEmoji.mock.calls.length;
+		expect(store.availability(SPACE, kek.id)).toBe("loading");
+		expect(store.availabilityByName(SPACE)).toBe("loading");
+		await flush();
+		await flush();
+		expect(listEmoji.mock.calls.length - before).toBe(1);
+		expect(store.lookup(kek.id)?.image).toBe("kek.png");
+	});
+
+	it("falls back to unavailable when the catalog retry fails too", async () => {
+		const { store, source } = setup({
+			own: catalogOf(VIEWER, []),
+			follows: [],
+		});
+		const listEmoji = vi.mocked(source.listEmoji);
+		listEmoji.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+		listEmoji.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+		store.catalog(SPACE);
+		await flush();
+		const before = listEmoji.mock.calls.length;
+		expect(store.availability(SPACE, kek.id)).toBe("loading");
+		await flush();
+		await flush();
+		expect(store.availability(SPACE, kek.id)).toBe("unavailable");
+		expect(store.availability(SPACE, ghost.id)).toBe("unavailable");
+		await flush();
+		expect(listEmoji.mock.calls.length - before).toBe(1);
+	});
+});

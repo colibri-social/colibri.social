@@ -11,7 +11,7 @@ import { bridgePlatformName, displayNameOf } from "./authors";
 
 type Members = ReadonlyMap<string, MemberView>;
 
-export type CustomReactionEmoji = { name: string; src: string };
+export type CustomReactionEmoji = { id?: string; name: string; src: string };
 
 export type ReactionEmoji = {
 	emoji: string;
@@ -86,6 +86,7 @@ export const toReactionGroups = (
 	members: Members,
 	viewer: string,
 	resolve?: ResolveReactionEmoji,
+	unavailable?: (reaction: ReactionEmoji) => boolean,
 ): ReactionGroup[] =>
 	reactions
 		.filter((reaction) => reaction.count > 0)
@@ -112,6 +113,8 @@ export const toReactionGroups = (
 				emoji: reaction.emoji,
 				src: custom?.src,
 				name: custom?.name,
+				custom: reactionShortcode(reaction.emoji) !== undefined || undefined,
+				unavailable: (!custom && unavailable?.(reaction)) || undefined,
 				count: reaction.count,
 				reactors: [...local, ...bridged],
 			};

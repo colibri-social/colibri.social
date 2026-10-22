@@ -787,6 +787,9 @@ export const PlaceholderInEmptyEditor: Story = {
 		const editor = within(canvasElement).getByRole("textbox", {
 			name: LONG_PLACEHOLDER,
 		});
+		await expect(editor).toHaveAttribute("autocomplete", "off");
+		await expect(editor).toHaveAttribute("autocorrect", "off");
+		await expect(editor).toHaveAttribute("spellcheck", "true");
 		const paragraph = await waitFor(() => {
 			const found = editor.querySelector<HTMLElement>("p.is-editor-empty");
 			if (!found) throw new Error("empty paragraph missing");

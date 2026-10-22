@@ -468,14 +468,23 @@ export const MentionFacet = (props: {
 			when={member()}
 			keyed
 			fallback={
-				<MentionChip
-					kind="unknown"
-					data-facet-type="mention"
-					data-chip=""
-					data-did={props.did}
+				<Show
+					when={!props.ctx.plainUnresolvedMentions}
+					fallback={
+						<span data-facet-type="mention" data-did={props.did}>
+							{props.text}
+						</span>
+					}
 				>
-					{props.text}
-				</MentionChip>
+					<MentionChip
+						kind="unknown"
+						data-facet-type="mention"
+						data-chip=""
+						data-did={props.did}
+					>
+						{props.text}
+					</MentionChip>
+				</Show>
 			}
 		>
 			{(resolved) => {
@@ -542,15 +551,50 @@ export const RoleFacet = (props: {
 
 export const BridgedMentionFacet = (props: {
 	platform: string;
+	registration?: string;
+	remoteId?: string;
 	text: string;
 	ctx: RichTextResolvers;
-}) => (
-	<MentionChip
-		kind="bridged"
-		platform={props.ctx.bridgePlatformName?.(props.platform) ?? props.platform}
-		data-facet-type="bridgedMention"
-		data-chip=""
-	>
-		{props.text}
-	</MentionChip>
-);
+}) => {
+	const resolves = () =>
+		!!props.ctx.bridgedMember && props.remoteId !== undefined;
+	const name = createMemo(() =>
+		resolves()
+			? props.ctx.bridgedMember?.({
+					registration: props.registration,
+					platform: props.platform,
+					remoteId: props.remoteId,
+				})?.name
+			: props.text,
+	);
+	const label = () => {
+		const value = name();
+		if (!value || !resolves()) return value;
+		return value.startsWith("@") ? value : `@${value}`;
+	};
+
+	return (
+		<Show
+			when={label()}
+			fallback={
+				<span data-facet-type="bridgedMention" data-remote-id={props.remoteId}>
+					{props.text}
+				</span>
+			}
+		>
+			{(text) => (
+				<MentionChip
+					kind="bridged"
+					platform={
+						props.ctx.bridgePlatformName?.(props.platform) ?? props.platform
+					}
+					data-facet-type="bridgedMention"
+					data-chip=""
+					data-remote-id={props.remoteId}
+				>
+					{text()}
+				</MentionChip>
+			)}
+		</Show>
+	);
+};

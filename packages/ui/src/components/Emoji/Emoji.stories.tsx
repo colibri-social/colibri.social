@@ -1,5 +1,5 @@
 import { For } from "solid-js";
-import { expect, waitFor } from "storybook/test";
+import { expect, screen, userEvent, waitFor } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import {
 	EMOJI_FONT_FAMILY,
@@ -101,9 +101,19 @@ export const Gallery: Story = {
 				canvasElement.querySelector('[data-emoji="custom-fallback"]'),
 			).toHaveTextContent(":gone:"),
 		);
-		await expect(
-			canvasElement.querySelector('img[data-emoji="custom"]'),
-		).toHaveAttribute("alt", ":blobcat:");
+		const custom = canvasElement.querySelector('img[data-emoji="custom"]');
+		await expect(custom).toHaveAttribute("alt", ":blobcat:");
+		await expect(custom).not.toHaveAttribute("title");
+		const trigger = custom?.closest<HTMLElement>("[data-emoji-tooltip]");
+		await expect(trigger).not.toBeNull();
+		if (!trigger) return;
+		await userEvent.hover(trigger);
+		const tip = await screen.findByRole("tooltip", {}, { timeout: 2000 });
+		await expect(tip).toHaveTextContent(":blobcat:");
+		await userEvent.unhover(trigger);
+		await waitFor(() =>
+			expect(screen.queryByRole("tooltip")).not.toBeInTheDocument(),
+		);
 	},
 };
 

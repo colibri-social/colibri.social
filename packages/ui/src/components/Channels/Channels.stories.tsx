@@ -1349,7 +1349,32 @@ const checkNestedThreads = async (canvasElement: HTMLElement) => {
 		"read",
 		"read",
 	]);
-	await expect(rows[0]?.querySelector("[data-thread-unread]")).not.toBeNull();
+	await expect(
+		rows.map((row) => !!row.querySelector(":scope > [data-unread-pill]")),
+	).toEqual([true, false, false, false]);
+	const pill = rows[0]?.querySelector(
+		":scope > [data-unread-pill]",
+	) as HTMLElement;
+	const pillBox = pill.getBoundingClientRect();
+	const firstButton = rows[0]?.querySelector(
+		":scope > a, :scope > button",
+	) as HTMLElement;
+	const buttonBox = firstButton.getBoundingClientRect();
+	await expect(pillBox.right).toBeLessThanOrEqual(buttonBox.left + 0.5);
+	await expect(
+		Math.abs(
+			pillBox.top + pillBox.height / 2 - (buttonBox.top + buttonBox.height / 2),
+		),
+	).toBeLessThanOrEqual(0.5);
+	const threadLine = canvasElement.querySelector(
+		"[data-channel-threads]",
+	) as HTMLElement;
+	await expect(pillBox.left).toBeGreaterThanOrEqual(
+		threadLine.getBoundingClientRect().left + 0.5,
+	);
+	await expect(getComputedStyle(pill).backgroundColor).toBe(
+		"rgb(255, 255, 255)",
+	);
 	await expect(
 		rows[1]?.querySelector("[data-thread-mentions]"),
 	).toHaveTextContent("2");
@@ -1391,6 +1416,106 @@ const checkNestedThreads = async (canvasElement: HTMLElement) => {
 	).not.toHaveAttribute("data-active");
 };
 
+const UnreadPillRows = (props: { platform: "mobile" | "desktop" }) => (
+	<ChannelCategory name="Hangout">
+		<ChannelRow
+			name="general"
+			platform={props.platform}
+			unread
+			preview={{ author: "Lou", text: "Who is coming on Saturday?" }}
+		/>
+		<ChannelRow name="photos" platform={props.platform} unread mentions={3} />
+		<ChannelRow name="quiet" platform={props.platform} unread muted />
+		<ChannelRow name="design" platform={props.platform} unread active />
+		<ChannelRow name="random" platform={props.platform} />
+		<ChannelRow
+			name="compact"
+			platform={props.platform}
+			density="compact"
+			unread
+		/>
+	</ChannelCategory>
+);
+
+const checkUnreadPills = async (canvasElement: HTMLElement) => {
+	const rows = Array.from(
+		canvasElement.querySelectorAll<HTMLElement>("[data-channel-row]"),
+	);
+	const pillOf = (row: HTMLElement) =>
+		row.querySelector<HTMLElement>(":scope > [data-unread-pill]");
+	await expect(rows.map((row) => !!pillOf(row))).toEqual([
+		true,
+		false,
+		false,
+		true,
+		false,
+		true,
+	]);
+	const section = canvasElement.querySelector("[data-category]") as HTMLElement;
+	const sectionLeft = section.getBoundingClientRect().left;
+	for (const index of [0, 3, 5]) {
+		const row = rows[index] as HTMLElement;
+		const pill = pillOf(row) as HTMLElement;
+		const pillBox = pill.getBoundingClientRect();
+		const button = row.querySelector(
+			":scope > a, :scope > button",
+		) as HTMLElement;
+		const name = row.querySelector("[data-channel-name]") as HTMLElement;
+		const nameBox = name.getBoundingClientRect();
+		await expect(Math.round(pillBox.width)).toBe(4);
+		await expect(Math.round(pillBox.height)).toBe(8);
+		await expect(Math.abs(pillBox.left - sectionLeft)).toBeLessThanOrEqual(0.5);
+		await expect(pillBox.right).toBeLessThanOrEqual(
+			button.getBoundingClientRect().left + 0.5,
+		);
+		await expect(
+			Math.abs(
+				pillBox.top + pillBox.height / 2 - (nameBox.top + nameBox.height / 2),
+			),
+		).toBeLessThanOrEqual(0.5);
+		await expect(getComputedStyle(pill).backgroundColor).toBe(
+			"rgb(255, 255, 255)",
+		);
+	}
+	const general = rows[0] as HTMLElement;
+	const generalButton = general.querySelector(
+		":scope > a, :scope > button",
+	) as HTMLElement;
+	await userEvent.hover(generalButton);
+	const hovered = (pillOf(general) as HTMLElement).getBoundingClientRect();
+	await expect(hovered.right).toBeLessThanOrEqual(
+		generalButton.getBoundingClientRect().left + 0.5,
+	);
+	await expect(getComputedStyle(pillOf(general) as HTMLElement).opacity).toBe(
+		"1",
+	);
+	await userEvent.unhover(generalButton);
+	await expectNoLayoutIssues(section);
+};
+
+export const UnreadPillMobile: Story = {
+	render: () => (
+		<Panel class="px-0">
+			<UnreadPillRows platform="mobile" />
+		</Panel>
+	),
+	play: async ({ canvasElement }) => {
+		await checkUnreadPills(canvasElement);
+	},
+};
+
+export const UnreadPillDesktop: Story = {
+	parameters: desktop,
+	render: () => (
+		<div class="w-72 bg-background py-2 text-foreground">
+			<UnreadPillRows platform="desktop" />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await checkUnreadPills(canvasElement);
+	},
+};
+
 export const NestedThreadsMobile: Story = {
 	render: () => (
 		<Panel class="px-0">
@@ -1400,9 +1525,12 @@ export const NestedThreadsMobile: Story = {
 	play: async ({ canvasElement }) => {
 		await checkNestedThreads(canvasElement);
 		const row = canvasElement.querySelector(
-			"[data-channel-thread] > *",
+			"[data-channel-thread] > :is(a, button)",
 		) as HTMLElement;
 		await expect(Math.round(row.getBoundingClientRect().height)).toBe(40);
+		await expectNoLayoutIssues(
+			canvasElement.querySelector("[data-category]") as HTMLElement,
+		);
 	},
 };
 
@@ -1416,9 +1544,12 @@ export const NestedThreadsDesktop: Story = {
 	play: async ({ canvasElement }) => {
 		await checkNestedThreads(canvasElement);
 		const row = canvasElement.querySelector(
-			"[data-channel-thread] > *",
+			"[data-channel-thread] > :is(a, button)",
 		) as HTMLElement;
 		await expect(Math.round(row.getBoundingClientRect().height)).toBe(32);
+		await expectNoLayoutIssues(
+			canvasElement.querySelector("[data-category]") as HTMLElement,
+		);
 	},
 };
 

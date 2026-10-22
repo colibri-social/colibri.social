@@ -231,3 +231,34 @@ it("closes a message menu on a press on the same message without acting on it", 
 	expect(document.querySelector("[data-shell-thread]")).toBeNull();
 	expect(document.querySelector("[data-thread-full]")).toBeNull();
 });
+
+it("hides a message toolbar while the threads overlay covers its message", async () => {
+	await mount();
+	const article = await send("Toolbar under the overlay");
+	const layer = () =>
+		article.querySelector<HTMLElement>("[data-message-toolbar]");
+	window.dispatchEvent(
+		new PointerEvent("pointermove", { clientX: 1, clientY: 1 }),
+	);
+	article.dispatchEvent(new PointerEvent("pointerenter"));
+	await until(() => !!layer()?.matches(":popover-open"));
+	expect(layer()?.hasAttribute("data-overlay-hidden")).toBe(false);
+	viewLabel("Threads").click();
+	await until(() => !!document.querySelector("[data-threads-overlay]"));
+	await until(() => !!layer()?.hasAttribute("data-overlay-hidden"));
+	expect(layer()?.matches(":popover-open")).toBe(true);
+	expect(getComputedStyle(layer() as HTMLElement).opacity).toBe("0");
+	expect(getComputedStyle(layer() as HTMLElement).pointerEvents).toBe("none");
+	viewLabel("Chat").click();
+	await until(() => !document.querySelector("[data-threads-overlay]"));
+	await until(() => !layer()?.hasAttribute("data-overlay-hidden"));
+});
+
+it("shows the thread's latest message on its card in the chat", async () => {
+	await mount();
+	const card = await springCard();
+	expect(
+		card.querySelector("[data-thread-last] [data-thread-last-text]")
+			?.textContent,
+	).toBe("Fair. Keeping it fixed.");
+});

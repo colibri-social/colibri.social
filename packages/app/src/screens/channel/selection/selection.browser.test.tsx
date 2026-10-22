@@ -1,5 +1,6 @@
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 import { expectNoLayoutIssues } from "../../../../../ui/src/foundations/layout-test";
 import { skeyOf } from "../../../data/ids";
 import { createMockSource, setLatency } from "../../../data/mock/source";
@@ -232,6 +233,121 @@ describe("moving messages", () => {
 		expect(
 			root.querySelectorAll('[data-pane-index="2"] [data-moved-from]').length,
 		).toBe(2);
+	});
+
+	const openPicker = async (root: HTMLElement, first: MessageView) => {
+		await startSelection(root, first);
+		buttonNamed("Move to")?.click();
+		await until(() => !!document.querySelector("[data-move-picker]"));
+		const picker = document.querySelector<HTMLElement>(
+			"[data-move-picker]",
+		) as HTMLElement;
+		await wait(350);
+		return picker;
+	};
+
+	const groupNamed = (picker: HTMLElement, name: string) =>
+		Array.from(
+			picker.querySelectorAll<HTMLElement>("[data-collapsible-group]"),
+		).find(
+			(group) =>
+				group
+					.querySelector("[data-collapsible-group-select]")
+					?.textContent?.trim()
+					.startsWith(name) ?? false,
+		);
+
+	it("groups threads under their channel with the current channel open first", async () => {
+		const { root, targets } = await setup();
+		const picker = await openPicker(root, targets[0] as MessageView);
+
+		const groups = picker.querySelectorAll<HTMLElement>(
+			"[data-collapsible-group]",
+		);
+		const dev = groupNamed(picker, "dev");
+		expect(groups[0]).toBe(dev);
+		expect(dev?.hasAttribute("data-expanded")).toBe(true);
+		expect(dev?.textContent).toContain("this channel");
+		expect(buttonNamed(/Spring tuning/, dev)).toBeDefined();
+		expect(buttonNamed("New thread in #dev", dev)).toBeDefined();
+
+		const general = groupNamed(picker, "general");
+		expect(general?.hasAttribute("data-expanded")).toBe(false);
+		expect(buttonNamed("New thread in #general", general)).toBeUndefined();
+		general
+			?.querySelector<HTMLElement>("[data-collapsible-group-toggle]")
+			?.click();
+		await until(() => !!buttonNamed("New thread in #general", general));
+
+		const drawer = picker.closest<HTMLElement>('[role="dialog"]');
+		if (!drawer) throw new Error("drawer missing");
+		await expectNoLayoutIssues(drawer);
+	});
+
+	it("searches threads and channels from the mobile drawer", async () => {
+		const { root, targets } = await setup();
+		const picker = await openPicker(root, targets[0] as MessageView);
+		const search = picker.querySelector<HTMLInputElement>(
+			'input[aria-label="Search destinations"]',
+		);
+		if (!search) throw new Error("search missing");
+		search.focus();
+		await userEvent.type(search, "spring");
+		await until(
+			() =>
+				picker.querySelectorAll("[data-collapsible-group]").length === 1 &&
+				!!buttonNamed(/Spring tuning/, picker),
+		);
+		expect(groupNamed(picker, "dev")).toBeDefined();
+
+		await userEvent.clear(search);
+		await userEvent.type(search, "zzz-nothing");
+		await until(
+			() => !!picker.textContent?.includes("Nothing matches your search."),
+		);
+	});
+
+	it("starts a new thread in the channel it was picked under", async () => {
+		const { source, store, root, targets } = await setup();
+		const picker = await openPicker(root, targets[0] as MessageView);
+		const general = groupNamed(picker, "general");
+		general
+			?.querySelector<HTMLElement>("[data-collapsible-group-toggle]")
+			?.click();
+		await until(() => !!buttonNamed("New thread in #general", general));
+		buttonNamed("New thread in #general", general)?.click();
+		await until(() => !!document.querySelector('input[maxlength="128"]'));
+		const name = document.querySelector<HTMLInputElement>(
+			'input[maxlength="128"]',
+		) as HTMLInputElement;
+		name.value = "Moved here";
+		name.dispatchEvent(new InputEvent("input", { bubbles: true }));
+		await until(() => {
+			const move = buttonNamed("Move");
+			return !!move && !move.hasAttribute("disabled");
+		});
+		buttonNamed("Move")?.click();
+		await until(() => !buttonNamed("Cancel selection"));
+
+		const hq = store.communities.value()?.find((entry) => entry.did === HQ);
+		const channel = hq ? store.space(hq).channelBySlug("general") : undefined;
+		if (!channel) throw new Error("general missing");
+		const threads = await source.listThreads(channel.space);
+		expect(threads.some((thread) => thread.name === "Moved here")).toBe(true);
+	});
+
+	it("explains why threads are missing when a selected message started one", async () => {
+		const { store, feed, root, spring } = await setup();
+		await until(() => !!feed.threads.value());
+		const anchor = (spring.anchor as { rkey?: string } | undefined)?.rkey;
+		const message = feed.messages().find((entry) => entry.rkey === anchor);
+		if (!message) throw new Error("anchor message missing");
+		expect(store).toBeDefined();
+		const picker = await openPicker(root, message);
+		expect(picker.querySelector("[data-move-anchored]")?.textContent).toContain(
+			"can only move to a channel",
+		);
+		expect(buttonNamed(/Spring tuning/, picker)).toBeUndefined();
 	});
 
 	it("exits selection on back without leaving the chat", async () => {

@@ -22,6 +22,15 @@ export const mediaLinkTarget = (url: string): string => {
 	return parsed.toString();
 };
 
+const expiresAt = (url: string): number | undefined => {
+	try {
+		const value = Number(new URL(url).searchParams.get("exp"));
+		return Number.isFinite(value) && value > 0 ? value * 1000 : undefined;
+	} catch {
+		return undefined;
+	}
+};
+
 const mediaLinksOf = (message: MessageView) => [
 	...(message.attachments ?? []),
 	...(message.forward?.attachments ?? []),
@@ -65,8 +74,17 @@ export const createMediaLinkRefresher = (options: {
 	feed: () => MediaLinkFeed | undefined;
 	listMessages: (params: ListMessagesParams) => Promise<MessagePage>;
 	timeoutMs?: number;
+	now?: () => number;
 }): MediaLinkRefresher => {
-	const tried = new Set<string>();
+	const now = options.now ?? Date.now;
+	const tried = new Map<string, string>();
+	const exhausted = (target: string, url: string) => {
+		const last = tried.get(target);
+		if (last === undefined) return false;
+		if (last === url) return true;
+		const expiry = expiresAt(url);
+		return expiry === undefined || expiry > now();
+	};
 	const inflight = new Map<string, Promise<void>>();
 
 	const reload = (feed: MediaLinkFeed, rkey: string) => {
@@ -106,10 +124,10 @@ export const createMediaLinkRefresher = (options: {
 			const feed = options.feed();
 			if (!feed) return false;
 			const target = mediaLinkTarget(url);
-			if (tried.has(target)) return false;
+			if (exhausted(target, url)) return false;
 			const holder = findMediaHolder(untrack(feed.messages), url);
 			if (!holder) return false;
-			tried.add(target);
+			tried.set(target, url);
 			await reload(feed, holder.rkey);
 			const updated = untrack(feed.messages).find(
 				(message) => message.rkey === holder.rkey,

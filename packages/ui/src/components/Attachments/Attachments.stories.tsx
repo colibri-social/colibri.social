@@ -1709,3 +1709,66 @@ export const LinkEmbedImageFallback: Story = {
 		await expectNoLayoutIssues(canvas.getByTestId("embed-images"));
 	},
 };
+
+const wideBanner = fixtureImage(4, 1500, 500);
+
+export const LinkEmbedImageFitsRatio: Story = {
+	render: () => (
+		<Screen>
+			<div data-testid="embed-ratios" class="flex flex-col gap-3 px-4">
+				<LinkEmbed
+					url="https://colibri.social/blog/banner"
+					siteName="Colibri"
+					title="Known size banner"
+					imageStyle="large"
+					image={{ src: wideBanner.src, width: 1500, height: 500 }}
+					onOpenImage={() => undefined}
+				/>
+				<LinkEmbed
+					url="https://colibri.social/blog/unsized"
+					siteName="Colibri"
+					title="Unsized banner"
+					imageStyle="large"
+					image={{ src: wideBanner.src }}
+				/>
+				<LinkEmbed
+					url="https://colibri.social/blog/tall"
+					siteName="Colibri"
+					title="Tall poster"
+					imageStyle="large"
+					image={fixtureImage(2, 600, 1200)}
+					onOpenImage={() => undefined}
+				/>
+			</div>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const frameOf = (title: string) => {
+			const embed = canvas
+				.getByText(title)
+				.closest("[data-link-embed]") as HTMLElement;
+			return (embed.querySelector("[data-media-tile]") ??
+				embed.querySelector("img")) as HTMLElement;
+		};
+		const ratioOf = (element: HTMLElement) => {
+			const box = element.getBoundingClientRect();
+			return box.width / box.height;
+		};
+		await expect(ratioOf(frameOf("Known size banner"))).toBeCloseTo(3, 1);
+		await waitFor(() =>
+			expect(ratioOf(frameOf("Unsized banner"))).toBeCloseTo(3, 1),
+		);
+		const tall = frameOf("Tall poster").getBoundingClientRect();
+		await expect(tall.height).toBeLessThanOrEqual(320.5);
+		const tallEmbed = canvas
+			.getByText("Tall poster")
+			.closest("[data-link-embed]") as HTMLElement;
+		await expect(tallEmbed.getBoundingClientRect().width).toBeCloseTo(240, 0);
+		const wideEmbed = canvas
+			.getByText("Known size banner")
+			.closest("[data-link-embed]") as HTMLElement;
+		await expect(wideEmbed.getBoundingClientRect().width).toBeGreaterThan(240);
+		await expectNoLayoutIssues(canvas.getByTestId("embed-ratios"));
+	},
+};

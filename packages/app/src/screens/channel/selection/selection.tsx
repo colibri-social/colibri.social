@@ -1,5 +1,6 @@
 import {
 	Button,
+	CollapsibleGroup,
 	Drawer,
 	DrawerContent,
 	ListGroup,
@@ -14,6 +15,7 @@ import {
 import { AddCircleIcon } from "@solar-icons/solid/bold/add-circle";
 import { ArrowLeftIcon } from "@solar-icons/solid/bold/arrow-left";
 import { ChatRoundDotsIcon } from "@solar-icons/solid/bold/chat-round-dots";
+import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { HashtagIcon } from "@solar-icons/solid/bold/hashtag";
 import {
 	type Accessor,
@@ -25,6 +27,7 @@ import {
 	onCleanup,
 	Show,
 } from "solid-js";
+import { formatAge } from "../../../data/adapters/time";
 import { channelSlug, skeyOf } from "../../../data/ids";
 import type { ChannelData, DataStore, SpaceData } from "../../../data/store";
 import type {
@@ -57,7 +60,14 @@ export const isThreadRef = (ref: string) => ref.includes(THREAD_MARKER);
 type Destination =
 	| { kind: "thread"; thread: ThreadView }
 	| { kind: "channel"; channel: ChannelView }
-	| { kind: "new" };
+	| { kind: "new"; channel: ChannelView };
+
+const byActivity = (a: ThreadView, b: ThreadView) =>
+	a.lastActivityAt === b.lastActivityAt
+		? a.name.localeCompare(b.name)
+		: a.lastActivityAt < b.lastActivityAt
+			? 1
+			: -1;
 
 export type MessageSelectionOptions = {
 	data: DataStore;
@@ -80,9 +90,11 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 	const [confirmOpen, setConfirmOpen] = createSignal(false);
 	const [newName, setNewName] = createSignal("");
 	const [busy, setBusy] = createSignal(false);
-	const [threads, setThreads] = createSignal<readonly ThreadView[]>([]);
+	const [created, setCreated] = createSignal<readonly ThreadView[]>([]);
 	const [query, setQuery] = createSignal("");
+	const [expanded, setExpanded] = createSignal<ReadonlySet<string>>(new Set());
 	const desktop = () => options.desktop?.() ?? false;
+	const searching = () => query().trim().length > 0;
 	const matches = (name: string) =>
 		name.toLowerCase().includes(query().trim().toLowerCase());
 
@@ -200,17 +212,20 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 	const channelByRef = (ref: string) =>
 		channels().find((entry) => entry.space === ref);
 
+	const threadsIn = (channel: ChannelView): readonly ThreadView[] => {
+		const listed = data.threadsOf(channel.space).value() ?? [];
+		const extra = created().filter(
+			(thread) =>
+				thread.channel === channel.space &&
+				!listed.some((entry) => entry.space === thread.space),
+		);
+		return extra.length > 0 ? [...listed, ...extra] : listed;
+	};
+
+	const threads = () => channels().flatMap(threadsIn);
+
 	const threadByRef = (ref: string) =>
 		threads().find((entry) => entry.space === ref);
-
-	const loadThreads = async () => {
-		const lists = await Promise.all(
-			channels().map((entry) =>
-				data.source.listThreads(entry.space).catch(() => [] as ThreadView[]),
-			),
-		);
-		setThreads(lists.flat());
-	};
 
 	const anchored = createMemo(() =>
 		selected()
@@ -218,7 +233,7 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 			.filter((thread): thread is ThreadView => !!thread),
 	);
 
-	const sourceChannel = () => options.parent()?.space;
+	const homeChannel = () => options.parent()?.space;
 
 	const origin = createMemo((): Destination | undefined => {
 		const current = here();
@@ -244,29 +259,71 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 		return new Set(list.filter(Boolean) as string[]);
 	};
 
-	const channelName = (ref: string) => channelByRef(ref)?.name ?? "";
+	const threadsMove = () => anchored().length === 0;
 
-	const threadDestinations = createMemo(() => {
-		if (anchored().length > 0) return [];
+	const offerNewThread = () => canCreateThread() && threadsMove();
+
+	type Group = {
+		channel: ChannelView;
+		current: boolean;
+		enterable: boolean;
+		threads: readonly ThreadView[];
+		failed: boolean;
+		loading: boolean;
+	};
+
+	const groups = createMemo((): Group[] => {
 		const blocked = holds();
-		return threads()
-			.filter((thread) => thread.viewer.canPost && !blocked.has(thread.space))
-			.sort((a, b) => {
-				const byChannel = channelName(a.channel).localeCompare(
-					channelName(b.channel),
-				);
-				return byChannel !== 0 ? byChannel : a.name.localeCompare(b.name);
+		const home = homeChannel();
+		const list = channels()
+			.filter((channel) => channel.viewer.canPost !== false)
+			.map((channel): Group => {
+				const load = data.threadsOf(channel.space);
+				return {
+					channel,
+					current: channel.space === home,
+					enterable: !blocked.has(channel.space),
+					threads: threadsMove()
+						? threadsIn(channel)
+								.filter(
+									(thread) =>
+										thread.viewer.canPost &&
+										!thread.closedAt &&
+										!blocked.has(thread.space),
+								)
+								.slice()
+								.sort(byActivity)
+						: [],
+					failed: threadsMove() && !!load.error(),
+					loading: threadsMove() && load.loading() && !load.value(),
+				};
 			});
+		const current = list.filter((group) => group.current);
+		const others = list.filter((group) => !group.current);
+		return [...current, ...others];
 	});
 
-	const channelDestinations = createMemo(() => {
-		const blocked = holds();
-		return channels().filter(
-			(entry) => entry.viewer.canPost !== false && !blocked.has(entry.space),
-		);
+	const visibleGroups = createMemo(() => {
+		if (!searching()) return groups();
+		return groups()
+			.map((group) => {
+				const named = matches(group.channel.name);
+				const threads = group.threads.filter((thread) => matches(thread.name));
+				return { ...group, named, threads };
+			})
+			.filter((group) => group.named || group.threads.length > 0);
 	});
 
-	const offerNewThread = () => canCreateThread() && anchored().length === 0;
+	const isExpanded = (group: Group) =>
+		searching() || expanded().has(group.channel.space);
+
+	const setGroupExpanded = (group: Group, open: boolean) =>
+		setExpanded((current) => {
+			const next = new Set(current);
+			if (open) next.add(group.channel.space);
+			else next.delete(group.channel.space);
+			return next;
+		});
 
 	const placeRef = (destination: Destination) =>
 		destination.kind === "thread"
@@ -278,7 +335,7 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 	const nameOf = (destination: Destination) => {
 		if (destination.kind === "thread") return destination.thread.name;
 		if (destination.kind === "channel") return `#${destination.channel.name}`;
-		return newName().trim() || "a new thread";
+		return newName().trim() || `a new thread in #${destination.channel.name}`;
 	};
 
 	const audienceOfRef = (ref: string | undefined): Audience => {
@@ -295,7 +352,7 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 		audienceChange(
 			audienceOfRef(here()),
 			destination.kind === "new"
-				? audienceOfRef(sourceChannel())
+				? audienceOfRef(destination.channel.space)
 				: audienceOfRef(placeRef(destination)),
 		);
 
@@ -337,16 +394,15 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 	const resolve = async (destination: Destination) => {
 		if (destination.kind !== "new") return placeRef(destination) as SpaceRef;
 		const name = newName().trim();
-		const channel = sourceChannel();
 		const community = options.community();
-		if (!name || !channel || !community) return undefined;
-		const created = await data.source.createThread({
+		if (!name || !community) return undefined;
+		const thread = await data.source.createThread({
 			community: community.did,
-			channel,
+			channel: destination.channel.space,
 			name,
 		});
-		setThreads((current) => [...current, created]);
-		return created.space;
+		setCreated((current) => [...current, thread]);
+		return thread.space;
 	};
 
 	const run = async (destination: Destination) => {
@@ -406,7 +462,12 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 			toast.error(describeMoveBlock(block));
 			return;
 		}
-		void loadThreads();
+		for (const channel of channels()) {
+			const load = data.threadsOf(channel.space);
+			if (load.error()) load.retry();
+		}
+		const home = homeChannel();
+		setExpanded(new Set(home ? [home] : []));
 		setQuery("");
 		setPickerOpen(true);
 	};
@@ -427,15 +488,6 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 		return { name, open: () => openPlace(ref) };
 	};
 
-	createEffect(() => {
-		const current = here();
-		if (!current || !options.isActive()) return;
-		const foreign = (options.feed()?.messages() ?? []).some(
-			(message) => message.channel !== current && isThreadRef(message.channel),
-		);
-		if (foreign && threads().length === 0) void loadThreads();
-	});
-
 	const count = () => selected().length;
 	const moveTitle = () =>
 		count() === 1 ? "Move this message" : `Move ${count()} messages`;
@@ -450,72 +502,130 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 		/>
 	);
 
-	const destinationLabel = (thread: ThreadView) => (
-		<span class="flex min-w-0 items-center gap-1">
-			<span class="shrink-0 text-muted-foreground">
-				{`#${channelName(thread.channel)}`}
-			</span>
-			<span aria-hidden="true" class="shrink-0 text-muted-foreground">
-				/
-			</span>
-			<span class="min-w-0 truncate">{thread.name}</span>
-		</span>
-	);
+	const groupFor = (ref: string) =>
+		visibleGroups().find((group) => group.channel.space === ref);
 
-	const visibleThreads = () =>
-		threadDestinations().filter((thread) => matches(thread.name));
-	const visibleChannels = () =>
-		channelDestinations().filter((channel) => matches(channel.name));
+	const anchoredNote = () =>
+		anchored().length === 1
+			? "A thread was started from one of these messages, so they can only move to a channel."
+			: "Threads were started from some of these messages, so they can only move to a channel.";
+
+	const GroupRows = (props: { group: Group }) => (
+		<>
+			<Show
+				when={
+					offerNewThread() &&
+					(!searching() || matches(props.group.channel.name))
+				}
+			>
+				<NavRow
+					class="pl-9"
+					icon={<AddCircleIcon />}
+					label={`New thread in #${props.group.channel.name}`}
+					chevron={false}
+					onClick={() => choose({ kind: "new", channel: props.group.channel })}
+				/>
+			</Show>
+			<For each={props.group.threads}>
+				{(thread) => (
+					<NavRow
+						class="pl-9"
+						icon={<ChatRoundDotsIcon />}
+						label={thread.name}
+						value={formatAge(thread.lastActivityAt)}
+						chevron={false}
+						onClick={() => choose({ kind: "thread", thread })}
+					/>
+				)}
+			</For>
+			<Show when={props.group.failed}>
+				<NavRow
+					class="pl-9"
+					icon={<DangerTriangleIcon />}
+					label="Couldn't load threads. Try again"
+					chevron={false}
+					onClick={() => data.threadsOf(props.group.channel.space).retry()}
+				/>
+			</Show>
+			<Show
+				when={
+					!props.group.failed &&
+					props.group.threads.length === 0 &&
+					!offerNewThread()
+				}
+			>
+				<p class="m-0 py-2.5 pr-3 pl-9 text-sm text-muted-foreground">
+					{props.group.loading ? "Loading threads" : "No threads yet"}
+				</p>
+			</Show>
+		</>
+	);
 
 	const destinations = () => (
 		<>
-			<Show when={offerNewThread() || origin()}>
-				<ListGroup>
-					<Show when={offerNewThread()}>
+			<Show when={origin()}>
+				{(entry) => (
+					<ListGroup>
 						<NavRow
-							icon={<AddCircleIcon />}
-							label="New thread"
-							onClick={() => choose({ kind: "new" })}
+							icon={<ArrowLeftIcon />}
+							label={`Back to ${nameOf(entry())}`}
+							onClick={() => choose(entry())}
 						/>
-					</Show>
-					<Show when={origin()}>
-						{(entry) => (
-							<NavRow
-								icon={<ArrowLeftIcon />}
-								label={`Back to ${nameOf(entry())}`}
-								onClick={() => choose(entry())}
-							/>
-						)}
-					</Show>
-				</ListGroup>
+					</ListGroup>
+				)}
 			</Show>
-			<Show when={visibleThreads().length > 0}>
-				<ListGroup label="Threads">
-					<For each={visibleThreads()}>
-						{(thread) => (
-							<NavRow
-								icon={<ChatRoundDotsIcon />}
-								label={destinationLabel(thread)}
-								onClick={() => choose({ kind: "thread", thread })}
-							/>
+			<Show when={!threadsMove()}>
+				<p data-move-anchored="" class="m-0 px-1 text-sm text-muted-foreground">
+					{anchoredNote()}
+				</p>
+			</Show>
+			<Show when={visibleGroups().length > 0}>
+				<ListGroup>
+					<For each={visibleGroups().map((group) => group.channel.space)}>
+						{(ref) => (
+							<Show when={groupFor(ref)}>
+								{(group) => (
+									<CollapsibleGroup
+										icon={<HashtagIcon />}
+										label={group().channel.name}
+										hint={group().current ? "this channel" : undefined}
+										count={group().threads.length}
+										expanded={isExpanded(group())}
+										onExpandedChange={(open) => setGroupExpanded(group(), open)}
+										onSelect={
+											group().enterable
+												? () =>
+														choose({
+															kind: "channel",
+															channel: group().channel,
+														})
+												: undefined
+										}
+										toggleLabel={`Threads in #${group().channel.name}`}
+									>
+										<GroupRows group={group()} />
+									</CollapsibleGroup>
+								)}
+							</Show>
 						)}
 					</For>
 				</ListGroup>
 			</Show>
-			<Show when={visibleChannels().length > 0}>
-				<ListGroup label="Channels">
-					<For each={visibleChannels()}>
-						{(channel) => (
-							<NavRow
-								icon={<HashtagIcon />}
-								label={channel.name}
-								onClick={() => choose({ kind: "channel", channel })}
-							/>
-						)}
-					</For>
-				</ListGroup>
+			<Show when={searching() && visibleGroups().length === 0}>
+				<p class="m-0 py-4 text-center text-sm text-muted-foreground">
+					Nothing matches your search.
+				</p>
 			</Show>
 		</>
+	);
+
+	const search = () => (
+		<SearchField
+			aria-label="Search destinations"
+			placeholder="Search threads and channels"
+			value={query()}
+			onChange={setQuery}
+		/>
 	);
 
 	const Sheets = () => (
@@ -524,25 +634,9 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 				<Modal open={pickerOpen()} onOpenChange={setPickerOpen}>
 					<ModalContent title={moveTitle()}>
 						<div data-move-picker="" class="flex min-h-0 flex-col gap-3">
-							<SearchField
-								aria-label="Search destinations"
-								placeholder="Search threads and channels"
-								value={query()}
-								onChange={setQuery}
-							/>
+							{search()}
 							<div class="flex max-h-[min(420px,50dvh)] flex-col gap-4 overflow-y-auto">
 								{destinations()}
-								<Show
-									when={
-										query().trim() &&
-										visibleThreads().length === 0 &&
-										visibleChannels().length === 0
-									}
-								>
-									<p class="m-0 py-4 text-center text-sm text-muted-foreground">
-										Nothing matches your search.
-									</p>
-								</Show>
 							</div>
 						</div>
 					</ModalContent>
@@ -561,7 +655,10 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 						</span>
 					}
 				>
-					{destinations()}
+					<div data-move-picker="" class="flex flex-col gap-4">
+						{search()}
+						{destinations()}
+					</div>
 				</DrawerContent>
 			</Drawer>
 			<Modal

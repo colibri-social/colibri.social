@@ -147,6 +147,23 @@ const overlayOutside = (host: HTMLElement) => {
 	return false;
 };
 
+const COVER_SAMPLES = [0.25, 0.5, 0.75];
+
+const coveredInPage = (row: HTMLElement, layer: HTMLElement | undefined) => {
+	const rect = row.getBoundingClientRect();
+	const top = Math.max(rect.top, 0);
+	const bottom = Math.min(rect.bottom, window.innerHeight);
+	const left = Math.max(rect.left, 0);
+	const right = Math.min(rect.right, window.innerWidth);
+	if (bottom <= top || right <= left) return false;
+	const y = (top + bottom) / 2;
+	return COVER_SAMPLES.every((share) => {
+		const stack = document.elementsFromPoint(left + (right - left) * share, y);
+		const topmost = stack.find((element) => !layer?.contains(element));
+		return !!topmost && !row.contains(topmost);
+	});
+};
+
 const clipTopOf = (clippers: HTMLElement[]) => {
 	let top = Number.NEGATIVE_INFINITY;
 	for (const clipper of clippers)
@@ -394,10 +411,23 @@ export const MessageRow = (props: MessageRowProps) => {
 			return;
 		}
 		const host = bodyChildOf(row);
-		const check = () => setOverlayOpen(overlayOutside(host));
+		const check = () =>
+			setOverlayOpen(
+				overlayOutside(host) || coveredInPage(row, toolbarLayer()),
+			);
 		check();
+		let frame: number | undefined;
+		const recheck = () => {
+			if (frame !== undefined) return;
+			frame = requestAnimationFrame(() => {
+				frame = undefined;
+				if (row.isConnected) check();
+			});
+		};
 		const observer = new MutationObserver((records) => {
 			if (records.some((record) => !host.contains(record.target))) check();
+			else if (records.some((record) => !row.contains(record.target)))
+				recheck();
 		});
 		observer.observe(document.body, {
 			childList: true,
@@ -405,7 +435,10 @@ export const MessageRow = (props: MessageRowProps) => {
 			attributes: true,
 			attributeFilter: ["open", "role"],
 		});
-		onCleanup(() => observer.disconnect());
+		onCleanup(() => {
+			observer.disconnect();
+			if (frame !== undefined) cancelAnimationFrame(frame);
+		});
 	});
 
 	createEffect(() => {

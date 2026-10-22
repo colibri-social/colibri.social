@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { storyImages } from "../Banner/story-images";
 import { Button } from "../Button/Button";
 import { type Reaction, ReactionBar } from "../MessageActions/ReactionBar";
@@ -128,6 +129,112 @@ export const Mobile: Story = {
 		await expect(remove.getBoundingClientRect().width).toBeGreaterThanOrEqual(
 			40,
 		);
+	},
+};
+
+const brokenEmojiRefresh = fn();
+
+const CustomEmojiHarness = () => {
+	const [open, setOpen] = createSignal(false);
+	const [owl, setOwl] = createSignal("/expired-owl.png");
+	const reactor = (id: string) => [{ id, name: id, handle: `${id}.test` }];
+	return (
+		<>
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Show reactions
+			</Button>
+			<ReactionsViewer
+				platform="mobile"
+				open={open()}
+				onOpenChange={setOpen}
+				reactions={[
+					{
+						emoji: ":owl:",
+						name: "owl",
+						src: owl(),
+						custom: true,
+						count: 1,
+						reactors: reactor("ana"),
+					},
+					{
+						emoji: ":deleted:",
+						name: "deleted",
+						src: "/deleted-emoji.png",
+						custom: true,
+						count: 1,
+						reactors: reactor("ben"),
+					},
+					{
+						emoji: ":loading:",
+						custom: true,
+						count: 1,
+						reactors: reactor("cam"),
+					},
+					{
+						emoji: ":removed:",
+						custom: true,
+						unavailable: true,
+						count: 1,
+						reactors: reactor("dee"),
+					},
+				]}
+				onEmojiError={async (emoji, src) => {
+					brokenEmojiRefresh(emoji, src);
+					if (emoji !== ":owl:") return false;
+					setOwl(storyImages.tealIcon());
+					return true;
+				}}
+			/>
+		</>
+	);
+};
+
+export const CustomEmojiPlaceholders: Story = {
+	parameters: iphone,
+	render: () => <CustomEmojiHarness />,
+	play: async ({ canvasElement }) => {
+		brokenEmojiRefresh.mockClear();
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Show reactions" }),
+		);
+		const dialog = await screen.findByRole("dialog", { name: "Reactions" });
+		const tabs = within(dialog).getByRole("tablist", { name: "Reactions" });
+		const glyph = (name: string) =>
+			tabs.querySelector<HTMLElement>(`[data-custom-emoji-image="${name}"]`);
+		await waitFor(() =>
+			expect(brokenEmojiRefresh).toHaveBeenCalledWith(
+				":deleted:",
+				"/deleted-emoji.png",
+			),
+		);
+		await waitFor(() =>
+			expect(glyph("deleted")).toHaveAttribute("data-custom-emoji-unavailable"),
+		);
+		await waitFor(() =>
+			expect(glyph("owl")).not.toHaveAttribute("data-custom-emoji-pending"),
+		);
+		await expect(
+			glyph("owl")?.querySelector("img")?.getAttribute("src"),
+		).not.toBe("/expired-owl.png");
+		await expect(brokenEmojiRefresh).toHaveBeenCalledWith(
+			":owl:",
+			"/expired-owl.png",
+		);
+		await expect(glyph("loading")).toHaveAttribute("data-skeleton");
+		await expect(glyph("removed")).toHaveAttribute(
+			"data-custom-emoji-unavailable",
+		);
+		await expect(glyph("removed")).not.toHaveAttribute("data-skeleton");
+		for (const name of ["owl", "deleted", "loading", "removed"]) {
+			const box = glyph(name)?.getBoundingClientRect();
+			await expect(Math.round(box?.width ?? 0)).toBe(20);
+			await expect(Math.round(box?.height ?? 0)).toBe(20);
+		}
+		await expect(tabs.textContent).not.toMatch(/:\w+:/);
+		await expect(
+			within(dialog).getByRole("tab", { name: ":deleted:, 1 reaction" }),
+		).toBeVisible();
+		await expectNoLayoutIssues(dialog);
 	},
 };
 

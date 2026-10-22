@@ -206,6 +206,12 @@ fn init_sentry() -> Option<sentry::ClientInitGuard> {
     )))
 }
 
+#[cfg(all(desktop, feature = "updater"))]
+fn updater_disabled() -> bool {
+    std::env::var("COLIBRI_DISABLE_UPDATER").is_ok_and(|value| value == "1")
+        || std::env::args().any(|arg| arg == "--no-update-check")
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
@@ -263,8 +269,10 @@ pub fn run() {
 
         #[cfg(feature = "updater")]
         {
+            if !updater_disabled() {
+                builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+            }
             builder = builder
-                .plugin(tauri_plugin_updater::Builder::new().build())
                 .plugin(tauri_plugin_process::init())
                 .plugin(tauri_plugin_fs::init());
         }

@@ -255,6 +255,7 @@ export const SearchField = (props: SearchFieldProps) => {
 
 	return (
 		<TextField
+			autocomplete="off"
 			{...rest}
 			type="search"
 			value={value()}

@@ -6,6 +6,7 @@ import {
 	SegmentedControl,
 	StatusScreen,
 	ThreadIcon,
+	type ThreadLastMessage,
 	ThreadRow,
 	ThreadRowSkeleton,
 } from "@colibri-social/ui";
@@ -28,6 +29,7 @@ import { defineContract, slot } from "../../screen/define";
 import { useStack } from "../../shell/stack";
 import { ConversationUnavailable } from "../channel/conversation";
 import { createThreadMenu } from "./thread-menu";
+import { threadPreview } from "./thread-preview";
 
 export type ThreadsArgs = {
 	space: string;
@@ -57,6 +59,7 @@ export const newestActivityFirst = (threads: readonly ThreadView[]) =>
 
 type ThreadListModel = {
 	now: () => Date;
+	preview: (thread: ThreadView) => ThreadLastMessage | undefined;
 	open: (thread: ThreadView, presentation?: "full") => void;
 	menu: ReturnType<typeof createThreadMenu>;
 };
@@ -77,6 +80,7 @@ const ThreadList = (props: {
 								name={thread.name}
 								messageCount={thread.messageCount}
 								age={formatAge(thread.lastActivityAt, props.m.now())}
+								lastMessage={props.m.preview(thread)}
 								unread={thread.viewer.hasUnread}
 								mentions={thread.viewer.unreadMentions}
 								private={thread.private}
@@ -90,6 +94,7 @@ const ThreadList = (props: {
 								name={thread.name}
 								messageCount={thread.messageCount}
 								age={formatAge(thread.lastActivityAt, props.m.now())}
+								lastMessage={props.m.preview(thread)}
 								unread={thread.viewer.hasUnread}
 								mentions={thread.viewer.unreadMentions}
 								private={thread.private}
@@ -172,6 +177,13 @@ export const threads = defineContract({
 			channel: args.channel,
 			channelType: args.channelType,
 		});
+		const preview = (thread: ThreadView) =>
+			threadPreview(thread, {
+				viewer: data.viewer,
+				member: (did) => space()?.memberByDid(did),
+				live: (entry) => data.lastMessage(entry.space),
+				emoji: (feature) => data.emoji.mention(community()?.did, feature),
+			});
 		return {
 			args,
 			stack,
@@ -191,6 +203,7 @@ export const threads = defineContract({
 			open,
 			startThread,
 			menu,
+			preview,
 		};
 	},
 	slots: {

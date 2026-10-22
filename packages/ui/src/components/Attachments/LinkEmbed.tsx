@@ -1,6 +1,13 @@
 import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { GalleryIcon } from "@solar-icons/solid/bold/gallery";
-import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
+import {
+	createEffect,
+	createSignal,
+	type JSX,
+	on,
+	onCleanup,
+	Show,
+} from "solid-js";
 import { cx } from "../../utils/cx";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Avatar } from "../Avatar/Avatar";
@@ -180,10 +187,25 @@ const createEmbedImageRetry = (src: () => string) => {
 	};
 };
 
-const EmbedImagePlaceholder = (props: { class: string }) => (
+export const LINK_EMBED_DEFAULT_RATIO = 1.91;
+export const LINK_EMBED_MAX_WIDTH = 416;
+export const LINK_EMBED_MIN_WIDTH = 240;
+export const LINK_EMBED_IMAGE_MAX_HEIGHT = 320;
+const LINK_EMBED_CHROME_WIDTH = 30;
+
+const knownRatio = (image: LinkEmbedImage) =>
+	image.width && image.height && image.width > 0 && image.height > 0
+		? image.width / image.height
+		: undefined;
+
+const EmbedImagePlaceholder = (props: {
+	class: string;
+	style?: JSX.CSSProperties;
+}) => (
 	<span
 		data-embed-image-broken=""
 		aria-hidden="true"
+		style={props.style}
 		class={cx(
 			"flex shrink-0 items-center justify-center bg-muted text-muted-foreground [&>svg]:size-6",
 			props.class,
@@ -202,19 +224,68 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 		domainOf(props.url);
 	const media = () => props.media ?? [];
 	const image = () => (media().length > 0 ? undefined : props.image);
+	const [naturalRatio, setNaturalRatio] = createSignal<number>();
+	createEffect(
+		on(
+			() => image()?.src,
+			() => setNaturalRatio(undefined),
+			{ defer: true },
+		),
+	);
+	const largeRatio = () => {
+		const current = image();
+		if (!current || style() !== "large") return undefined;
+		return knownRatio(current) ?? naturalRatio();
+	};
+	const embedStyle = (): JSX.CSSProperties | undefined => {
+		const ratio = largeRatio();
+		if (!ratio) return undefined;
+		const fitted =
+			LINK_EMBED_IMAGE_MAX_HEIGHT * ratio + LINK_EMBED_CHROME_WIDTH;
+		const width = Math.min(
+			LINK_EMBED_MAX_WIDTH,
+			Math.max(LINK_EMBED_MIN_WIDTH, Math.round(fitted)),
+		);
+		return width < LINK_EMBED_MAX_WIDTH
+			? { "max-width": `${width}px` }
+			: undefined;
+	};
 
 	const Image = (imageProps: {
 		image: LinkEmbedImage;
 		class: string;
 		fit: "cover" | "contain";
+		fitFrame?: boolean;
 	}) => {
 		const retry = createEmbedImageRetry(() => imageProps.image.src);
 		const fitClass = () =>
 			imageProps.fit === "contain" ? "object-contain" : "object-cover";
+		const frameStyle = (): JSX.CSSProperties | undefined =>
+			imageProps.fitFrame
+				? {
+						"aspect-ratio": String(
+							knownRatio(imageProps.image) ??
+								naturalRatio() ??
+								LINK_EMBED_DEFAULT_RATIO,
+						),
+					}
+				: undefined;
+		const measure = (event: Event) => {
+			if (!imageProps.fitFrame) return;
+			const element = event.currentTarget;
+			if (!(element instanceof HTMLImageElement)) return;
+			if (element.naturalWidth > 0 && element.naturalHeight > 0)
+				setNaturalRatio(element.naturalWidth / element.naturalHeight);
+		};
 		return (
 			<Show
 				when={!retry.broken()}
-				fallback={<EmbedImagePlaceholder class={imageProps.class} />}
+				fallback={
+					<EmbedImagePlaceholder
+						class={imageProps.class}
+						style={frameStyle()}
+					/>
+				}
 			>
 				<Show
 					when={props.onOpenImage}
@@ -223,7 +294,9 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 							<AnimatedImage
 								src={retry.src()}
 								alt=""
+								onLoad={measure}
 								onError={retry.fail}
+								style={frameStyle()}
 								class={cx(imageProps.class, fitClass())}
 							/>
 						</span>
@@ -236,6 +309,7 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 						data-image-src={imageProps.image.src}
 						aria-label={`Open image from ${label()}`}
 						onClick={() => props.onOpenImage?.()}
+						style={frameStyle()}
 						class={cx(
 							"relative z-10 block shrink-0 cursor-zoom-in overflow-hidden border-0 bg-transparent p-0 outline-none focus-ring",
 							imageProps.class,
@@ -244,6 +318,7 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 						<AnimatedImage
 							src={retry.src()}
 							alt=""
+							onLoad={measure}
 							onError={retry.fail}
 							class={cx("block size-full", fitClass())}
 						/>
@@ -254,7 +329,11 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 	};
 
 	return (
-		<div data-link-embed="" class={cx(frameClass, "group/embed", props.class)}>
+		<div
+			data-link-embed=""
+			style={embedStyle()}
+			class={cx(frameClass, "group/embed", props.class)}
+		>
 			<EmbedAccentBar color={props.accent} />
 			<Show when={props.onRemove}>
 				<IconButton
@@ -354,7 +433,8 @@ export const LinkEmbed = (props: LinkEmbedProps) => {
 					<Image
 						image={image()}
 						fit="contain"
-						class="aspect-[1.91] w-full rounded-[2px] bg-muted"
+						fitFrame
+						class="max-h-80 w-full rounded-[2px] bg-muted"
 					/>
 				)}
 			</Show>

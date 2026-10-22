@@ -182,6 +182,7 @@ export const StatusField = (props: StatusFieldProps) => {
 							emoji={draft().emoji}
 							customEmoji={draft().customEmoji}
 							size={20}
+							tooltip={false}
 						/>
 					</span>
 				</Show>

@@ -1,5 +1,6 @@
 import {
 	ConfirmDialog,
+	CustomEmojiImage,
 	copyMessageToClipboard,
 	copyText,
 	Emoji,
@@ -25,10 +26,12 @@ import {
 	ReactionsViewer,
 	type RichText,
 	type RichTextCustomEmoji,
+	RichTextProvider,
 	RichTextRenderer,
 	SwipeToReply,
 	ThreadCard,
 	toast,
+	useRichText,
 	useShiftHeld,
 } from "@colibri-social/ui";
 import {
@@ -69,7 +72,9 @@ import {
 } from "../../../data/adapters/forward";
 import {
 	customReactionResolver,
+	type ReactionEmoji,
 	reactionFor,
+	reactionShortcode,
 	toReactionGroups,
 	toReactions,
 } from "../../../data/adapters/reactions";
@@ -77,8 +82,10 @@ import { formatAge } from "../../../data/adapters/time";
 import { blueskyClientOf } from "../../../data/bluesky-client";
 import { useData } from "../../../data/store";
 import type { ProfileView } from "../../../data/types";
+import { routeFromLink } from "../../../native/deep-links";
 import { openExternalUrl } from "../../../native/open-external";
 import { PrimaryBadge } from "../../profile/user-badges";
+import { threadPreview } from "../../threads/thread-preview";
 import { mediaSession } from "../composer/media/session";
 import { whenOverlaysClosed } from "../forward/overlay-wait";
 import { type EmbedEditor, useChat } from "./chat-context";
@@ -243,7 +250,7 @@ export const MessageItem = (props: MessageItemProps) => {
 	const embeds = createMemo(() =>
 		embedsOn()
 			? visibleEmbeds(unspoileredEmbeds(), suppression()).filter(
-					(embed) => !cardUrls().has(embed.uri),
+					(embed) => !cardUrls().has(embed.uri) && !routeFromLink(embed.uri),
 				)
 			: [],
 	);
@@ -322,20 +329,29 @@ export const MessageItem = (props: MessageItemProps) => {
 		chat.customEmoji,
 		chat.customEmojiByUri,
 	);
+	const reactionOf = (emoji: string): ReactionEmoji =>
+		reactionFor(view()?.reactions, emoji) ?? { emoji };
+	const refreshReactionEmoji = (emoji: string, src: string) => {
+		const reaction = reactionOf(emoji);
+		const uri = resolveReactionEmoji(reaction)?.id ?? reaction.customEmoji?.uri;
+		return uri ? chat.refreshCustomEmoji?.(uri, src) : undefined;
+	};
+	const reactionUnavailable = (reaction: ReactionEmoji) =>
+		!!reactionShortcode(reaction.emoji) &&
+		!resolveReactionEmoji(reaction) &&
+		!!chat.customEmojiUnavailable?.(reaction);
 	const reactionEmojiAt = (size: number) => (emoji: string) => {
-		const custom = resolveReactionEmoji(
-			reactionFor(view()?.reactions, emoji) ?? { emoji },
-		);
-		return custom ? (
-			<img
-				src={custom.src}
-				alt=""
-				draggable={false}
-				class="object-contain"
-				style={{ width: `${size}px`, height: `${size}px` }}
+		const custom = () => resolveReactionEmoji(reactionOf(emoji));
+		const shortcode = reactionShortcode(emoji);
+		if (!shortcode) return <Emoji emoji={emoji} size={size} />;
+		return (
+			<CustomEmojiImage
+				src={custom()?.src}
+				name={custom()?.name ?? shortcode}
+				size={size}
+				unavailable={reactionUnavailable(reactionOf(emoji))}
+				onError={(src) => refreshReactionEmoji(emoji, src)}
 			/>
-		) : (
-			<Emoji emoji={emoji} size={size} />
 		);
 	};
 	const renderReactionEmoji = reactionEmojiAt(16);
@@ -423,10 +439,20 @@ export const MessageItem = (props: MessageItemProps) => {
 		return value ? selection()?.movedFrom(value) : undefined;
 	};
 
+	const richText = useRichText();
+	const bridgedRichText = { ...richText, plainUnresolvedMentions: true };
+
 	const body = () => (
 		<>
 			<Show when={text().text.length > 0 && !loneMediaLink()}>
-				<RichTextRenderer value={text()} platform={platform()} />
+				<Show
+					when={bridged()}
+					fallback={<RichTextRenderer value={text()} platform={platform()} />}
+				>
+					<RichTextProvider value={bridgedRichText}>
+						<RichTextRenderer value={text()} platform={platform()} />
+					</RichTextProvider>
+				</Show>
 			</Show>
 			<Show when={forward()}>
 				{(value) => (
@@ -807,11 +833,24 @@ export const MessageItem = (props: MessageItemProps) => {
 			/>
 		) : undefined;
 
+	const threadLastMessage = () => {
+		const value = thread();
+		return value
+			? threadPreview(value, {
+					viewer: data.viewer,
+					member: (did) => chat.members().get(did),
+					live: (entry) => data.lastMessage(entry.space),
+					emoji: (feature) => data.emoji.mention(chat.community().did, feature),
+				})
+			: undefined;
+	};
+
 	const threadCard = () => (
 		<ThreadCard
 			name={thread()?.name ?? ""}
 			messageCount={thread()?.messageCount ?? 0}
 			age={formatAge(thread()?.lastActivityAt ?? "", now())}
+			lastMessage={threadLastMessage()}
 			unread={thread()?.viewer.hasUnread}
 			mentions={thread()?.viewer.unreadMentions}
 			private={thread()?.private}
@@ -1134,7 +1173,9 @@ export const MessageItem = (props: MessageItemProps) => {
 						chat.members(),
 						chat.viewer(),
 						resolveReactionEmoji,
+						reactionUnavailable,
 					)}
+					onEmojiError={refreshReactionEmoji}
 					active={reactorsEmoji()}
 					onActiveChange={setReactorsEmoji}
 					onRemove={(emoji) => react(emoji, false)}

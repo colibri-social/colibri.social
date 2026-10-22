@@ -52,6 +52,7 @@ import {
 import { asDatetime, messageUri, tidFor } from "./refs";
 import { createRoleOps } from "./roles";
 import { createRandom } from "./seed";
+import { mockThreadLastMessage } from "./thread-last-message";
 import { mockThreadRights } from "./thread-rights";
 import { mockUpload } from "./uploads";
 import { seedVoice } from "./voice";
@@ -262,6 +263,7 @@ export const createMockSource = (
 			...thread.view,
 			messageCount: thread.messages.length,
 			lastActivityAt: last?.createdAt ?? thread.view.lastActivityAt,
+			...mockThreadLastMessage(last),
 		} as ThreadView;
 	};
 

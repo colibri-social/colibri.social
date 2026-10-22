@@ -1009,6 +1009,26 @@ describe("createRemoteSource", () => {
 		expect(call.params.get("channel")).toBe(CHANNEL);
 	});
 
+	it("lists every page of a channel's threads", async () => {
+		const SECOND = `${THREAD}-2`;
+		const { fake, source } = await setup((fake) =>
+			fake.on(
+				colibri.thread.listThreads.main.nsid,
+				json({ threads: [{ space: THREAD }], cursor: "page-2" }),
+				json({ threads: [{ space: SECOND }] }),
+			),
+		);
+
+		expect(await source.listThreads(CHANNEL)).toEqual([
+			{ space: THREAD },
+			{ space: SECOND },
+		]);
+		const calls = fake.callsTo(colibri.thread.listThreads.main.nsid);
+		expect(calls).toHaveLength(2);
+		expect(calls[0]?.params.get("limit")).toBe("100");
+		expect(calls[1]?.params.get("cursor")).toBe("page-2");
+	});
+
 	it("follows and leaves a thread with its follow record", async () => {
 		const { fake, source } = await setup((fake) => {
 			fake.on("com.atproto.space.putRecord", json({ uri: "x", cid: "c" }));

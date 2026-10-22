@@ -95,6 +95,7 @@ export * from "./components/Invite/invite-links";
 export * from "./components/Invite/invite-settings";
 export * from "./components/Lightbox/Lightbox";
 export * from "./components/LinkWarning/LinkWarning";
+export * from "./components/List/CollapsibleGroup";
 export * from "./components/List/List";
 export * from "./components/List/settings-search";
 export * from "./components/LoadingScreen/LoadingScreen";

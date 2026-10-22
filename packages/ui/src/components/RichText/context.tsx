@@ -72,6 +72,12 @@ export type RichTextForeignFeature = { $type?: string } & Record<
 	unknown
 >;
 
+export type RichTextBridgedPerson = {
+	registration?: string;
+	platform: string;
+	remoteId?: string;
+};
+
 export type RichTextResolvers = {
 	platform?: RichTextPlatform;
 	member?: (did: string) => RichTextMember | undefined;
@@ -88,6 +94,8 @@ export type RichTextResolvers = {
 	onExternalLink?: (href: string, link: RichTextExternalLink) => void;
 	onNavigate?: (href: string, event: MouseEvent) => void;
 	bridgePlatformName?: (platform: string) => string;
+	bridgedMember?: (person: RichTextBridgedPerson) => RichTextMember | undefined;
+	plainUnresolvedMentions?: boolean;
 	highlight?: RichTextHighlighter;
 	emojiInfo?: boolean;
 	customEmoji?: (name: string) => RichTextCustomEmoji | undefined;

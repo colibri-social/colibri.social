@@ -143,6 +143,23 @@ const RowActionButton = (props: {
 	</button>
 );
 
+const UnreadPill = (props: { class?: string }) => (
+	<span
+		data-unread-pill=""
+		aria-hidden="true"
+		class={cx(
+			"pointer-events-none absolute -left-2 h-2 w-1 rounded-r-full bg-foreground",
+			props.class,
+		)}
+	/>
+);
+
+const showsUnreadPill = (props: {
+	unread?: boolean;
+	mentions?: number;
+	muted?: boolean;
+}) => !!props.unread && !props.mentions && !props.muted;
+
 const SettingsButton = (props: { label: string; onClick: () => void }) => (
 	<RowActionButton
 		label={props.label}
@@ -174,6 +191,9 @@ export const ChannelRow = (props: ChannelRowProps) => {
 				props.class,
 			)}
 		>
+			<Show when={showsUnreadPill(props)}>
+				<UnreadPill class={compact() ? "top-1/2 -translate-y-1/2" : "top-3"} />
+			</Show>
 			<Dynamic
 				component={props.href ? "a" : "button"}
 				ref={bindGestures(props, ripple)}
@@ -343,6 +363,9 @@ export const ChannelThreadRow = (props: ChannelThreadRowProps) => {
 			data-muted={props.muted || undefined}
 			class={cx("relative flex w-full min-w-0", props.class)}
 		>
+			<Show when={showsUnreadPill(props)}>
+				<UnreadPill class="top-1/2 -translate-y-1/2" />
+			</Show>
 			<Dynamic
 				component={props.href ? "a" : "button"}
 				ref={bindGestures(props, ripple)}
@@ -401,11 +424,6 @@ export const ChannelThreadRow = (props: ChannelThreadRowProps) => {
 					<span class="sr-only">{`, ${pluralMentions(mentions())}`}</span>
 				</Show>
 				<Show when={!mentions() && props.unread}>
-					<span
-						data-thread-unread=""
-						aria-hidden="true"
-						class="size-1.5 shrink-0 rounded-full bg-foreground"
-					/>
 					<span class="sr-only">, unread</span>
 				</Show>
 			</Dynamic>

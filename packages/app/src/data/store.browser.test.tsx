@@ -3,7 +3,7 @@ import { setAppActive } from "@colibri-social/ui";
 import { createEffect, createRoot } from "solid-js";
 import { describe, expect, it } from "vitest";
 import { sidebarThreadsFor } from "../screens/spaces/sidebar-threads";
-import { channelSlug, isVoiceChannel } from "./ids";
+import { channelSlug, isVoiceChannel, skeyOf } from "./ids";
 import { createMockSource, setLatency } from "./mock/source";
 import { createOutboxQueue } from "./outbox/queue";
 import type { DataSource, LiveEvent } from "./source";
@@ -233,22 +233,18 @@ describe("thread auto-follow", () => {
 		store.dispose();
 	});
 
-	it("keeps an opened thread in the sidebar for a day", async () => {
-		let clock = Date.now();
+	it("drops an opened thread from the sidebar once you leave it", async () => {
+		const clock = Date.now();
 		const { store } = await setup({ store: { now: () => clock } });
 		const { space, critique, hands } = await critiqueOf(store);
-		store.setViewing(hands.space);
-		store.setViewing(undefined);
-		const rows = (now: number) =>
-			sidebarThreadsFor(store, space, critique.space, undefined, now).map(
+		const rows = (active?: string) =>
+			sidebarThreadsFor(store, space, critique.space, active, clock).map(
 				(state) => state.thread.space,
 			);
-		expect(rows(clock + DAY)).toContain(hands.space);
-		expect(rows(clock + DAY + 1)).not.toContain(hands.space);
-		clock += DAY;
 		store.setViewing(hands.space);
+		expect(rows(skeyOf(hands.space))).toContain(hands.space);
 		store.setViewing(undefined);
-		expect(rows(clock + DAY)).toContain(hands.space);
+		expect(rows()).not.toContain(hands.space);
 		store.dispose();
 	});
 });

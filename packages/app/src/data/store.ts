@@ -148,6 +148,14 @@ type MutableLoad<T> = Load<T> & {
 
 export type UnreadState = { hasUnread: boolean; mentions: number };
 
+export type RememberedThread = {
+	chat: string;
+	channel: string;
+	thread: string;
+	channelType?: string;
+	presentation?: "full";
+};
+
 export type PendingMessage = {
 	nonce: string;
 	rkey: string;
@@ -743,6 +751,12 @@ export const createDataStore = (
 			lastChannels.put(space, channel);
 			setLastSpace(space);
 			writeStored(DEVICE_KEYS.lastChannel(space), channel);
+		};
+		const rememberedThreads = new Map<string, RememberedThread>();
+		const rememberedThread = (space: string) => rememberedThreads.get(space);
+		const rememberThread = (space: string, thread?: RememberedThread) => {
+			if (thread) rememberedThreads.set(space, thread);
+			else rememberedThreads.delete(space);
 		};
 		const typingListeners = new Map<SpaceRef, (did: Did) => void>();
 		const typingStops = new Map<SpaceRef, (did: Did) => void>();
@@ -2231,6 +2245,17 @@ export const createDataStore = (
 				else setMessages(place);
 			};
 
+			const beforeWindow = (message: MessageView) => {
+				const list = untrack(messages);
+				const oldest = list[0]?.rkey;
+				return (
+					!!untrack(cursor) &&
+					!!oldest &&
+					message.rkey < oldest &&
+					!list.some((entry) => entry.rkey === message.rkey)
+				);
+			};
+
 			const replaceSummary = (rkey: string, summary: ChannelSummary) => {
 				if (lastMessages[ref]?.rkey === rkey) summaries.put(ref, summary);
 			};
@@ -2411,6 +2436,7 @@ export const createDataStore = (
 						editLatest(drop);
 						return true;
 					}
+					if (event.message && beforeWindow(event.message)) return true;
 					if (event.message) upsert(event.message);
 					return true;
 				}
@@ -3248,6 +3274,8 @@ export const createDataStore = (
 			bootReady,
 			lastMessage: (ref: SpaceRef) => lastMessages[ref],
 			setLastChannel,
+			rememberedThread,
+			rememberThread,
 			isMuted: (ref: SpaceRef) =>
 				source.preferences.isMuted(muteSubjectOf(ref)),
 			setMuted: (ref: SpaceRef, muted: boolean) => {

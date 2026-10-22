@@ -88,10 +88,7 @@ export const emojiFacetText = (
 	return out + decoder.decode(bytes.subarray(last));
 };
 
-const CustomEmojiGlyph = (props: {
-	emoji: RichTextCustomEmoji;
-	title?: string;
-}) => {
+const CustomEmojiGlyph = (props: { emoji: RichTextCustomEmoji }) => {
 	const [loaded, setLoaded] = createSignal(false);
 	return (
 		<img
@@ -99,7 +96,6 @@ const CustomEmojiGlyph = (props: {
 			data-skeleton={loaded() ? undefined : ""}
 			src={props.emoji.src}
 			alt={props.emoji.alt ?? `:${props.emoji.name}:`}
-			title={props.title}
 			draggable={false}
 			onLoad={() => setLoaded(true)}
 			onError={() => setLoaded(true)}
@@ -128,10 +124,16 @@ const customEmojiImage = (
 	emoji: RichTextCustomEmoji,
 	ctx: RichTextResolvers,
 ): JSX.Element => {
-	const image = (title?: string) => (
-		<CustomEmojiGlyph emoji={emoji} title={title} />
-	);
-	if (!ctx.onCustomEmojiOpen) return image(`:${emoji.name}:`);
+	const label = `:${emoji.name}:`;
+	if (!ctx.onCustomEmojiOpen)
+		return (
+			<Tooltip>
+				<TooltipTrigger as="span" data-custom-emoji-tooltip="">
+					<CustomEmojiGlyph emoji={emoji} />
+				</TooltipTrigger>
+				<TooltipContent>{label}</TooltipContent>
+			</Tooltip>
+		);
 	return (
 		<Tooltip>
 			<TooltipTrigger
@@ -143,12 +145,12 @@ const customEmojiImage = (
 				data-custom-emoji-name={emoji.name}
 				data-custom-emoji-src={emoji.src}
 				data-custom-emoji-alt={emoji.alt}
-				aria-label={`:${emoji.name}:`}
+				aria-label={label}
 				class="cursor-pointer rounded-[4px] outline-none focus-ring"
 			>
-				{image()}
+				<CustomEmojiGlyph emoji={emoji} />
 			</TooltipTrigger>
-			<TooltipContent>{`:${emoji.name}:`}</TooltipContent>
+			<TooltipContent>{label}</TooltipContent>
 		</Tooltip>
 	);
 };
@@ -383,6 +385,8 @@ const renderAnchor = (
 			return (
 				<BridgedMentionFacet
 					platform={stringField(feature, "platform")}
+					registration={stringField(feature, "registration")}
+					remoteId={stringField(feature, "remoteId")}
 					text={segment}
 					ctx={ctx}
 				/>

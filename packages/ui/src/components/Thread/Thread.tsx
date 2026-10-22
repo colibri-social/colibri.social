@@ -1,3 +1,5 @@
+import { FileIcon } from "@solar-icons/solid/bold/file";
+import { GalleryMinimalisticIcon } from "@solar-icons/solid/bold/gallery-minimalistic";
 import { LockKeyholeMinimalisticIcon } from "@solar-icons/solid/bold/lock-keyhole-minimalistic";
 import { For, type JSX, Match, Show, Switch } from "solid-js";
 import { ThreadIcon } from "../../icons/custom";
@@ -12,6 +14,10 @@ import { isStaticSource } from "../../utils/playback";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { CountBadge } from "../Badge/Badge";
 import { Card, type CardTone } from "../Card/Card";
+import type {
+	ChannelAttachment,
+	ChannelPreviewEmoji,
+} from "../Channels/ChannelRow";
 import { TableText } from "../Table/TableText";
 
 export type ThreadPerson = {
@@ -49,6 +55,8 @@ const PersonName = (props: { person?: ThreadPerson; muted?: boolean }) => {
 
 export type ThreadLastMessage = ThreadPerson & {
 	text: string;
+	parts?: (string | ChannelPreviewEmoji)[];
+	attachment?: ChannelAttachment;
 };
 
 type ThreadSize = "compact" | "regular";
@@ -289,13 +297,51 @@ const ThreadSummary = (props: ThreadSummaryProps & { size: ThreadSize }) => {
 								<TinyAvatar {...message()} size={size().avatar} />
 								<PersonName person={message()} muted={read()} />
 								<span
+									data-thread-last-text=""
 									class={cx(
 										"min-w-0 flex-1 truncate",
 										read() ? "text-muted-foreground" : "text-foreground",
 									)}
 								>
-									{message().text}
+									<Show when={message().parts} fallback={message().text}>
+										{(parts) => (
+											<For each={parts()}>
+												{(part) =>
+													typeof part === "string" ? (
+														part
+													) : (
+														<img
+															data-thread-last-emoji=""
+															src={part.src}
+															alt={part.alt ?? `:${part.name}:`}
+															title={`:${part.name}:`}
+															draggable={false}
+															class="inline-block size-[1.25em] align-[-0.25em] object-contain"
+														/>
+													)
+												}
+											</For>
+										)}
+									</Show>
 								</span>
+								<Show when={message().attachment}>
+									{(kind) => (
+										<span
+											role="img"
+											data-thread-last-attachment={kind()}
+											aria-label={
+												kind() === "image"
+													? "Image attachment"
+													: "File attachment"
+											}
+											class="flex size-4 shrink-0 text-muted-foreground [&>svg]:size-4"
+										>
+											<Show when={kind() === "image"} fallback={<FileIcon />}>
+												<GalleryMinimalisticIcon />
+											</Show>
+										</span>
+									)}
+								</Show>
 							</span>
 						)}
 					</Match>

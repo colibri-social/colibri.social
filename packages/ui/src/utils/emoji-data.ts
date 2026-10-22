@@ -2,6 +2,7 @@ import type { EmojiItem } from "@tiptap/extension-emoji";
 import keywordData from "emojilib";
 import MiniSearch from "minisearch";
 import byEmoji from "unicode-emoji-json/data-by-emoji.json";
+import { emojiFrequencyRank, UNRANKED_EMOJI } from "./emoji-frequency";
 import type { EmojiUsage } from "./emoji-usage";
 import { foldText } from "./fold-text";
 
@@ -291,7 +292,9 @@ const NO_MATCH = 7;
 type EmojiSearchEntry = {
 	emoji: string;
 	slug: string;
+	frequency: number;
 	shortcodes: string[];
+	labels: string[];
 	words: string[];
 	keywords: string[];
 	keywordWords: string[];
@@ -318,10 +321,18 @@ const EMOJI_SEARCH_INDEX: EmojiSearchEntry[] = Object.entries(
 		for (const word of tokenize(keyword)) keywordWords.add(word);
 	}
 
+	const slug = foldText(meta.slug);
+	const joinedSlug = slug.replaceAll("_", "");
+	const labels = shortcodes.filter(
+		(shortcode) => shortcode === slug || shortcode !== joinedSlug,
+	);
+
 	return {
 		emoji: char,
 		slug: meta.slug,
+		frequency: emojiFrequencyRank(char),
 		shortcodes,
+		labels,
 		words: [...words],
 		keywords,
 		keywordWords: [...keywordWords],
@@ -386,7 +397,12 @@ function labelFor(entry: EmojiSearchEntry, joined: string): string {
 	for (const shortcode of entry.shortcodes) {
 		if (shortcode === joined) return shortcode;
 	}
-	return entry.slug;
+	let label: string | undefined;
+	for (const shortcode of entry.labels) {
+		if (!shortcode.startsWith(joined)) continue;
+		if (!label || shortcode.length < label.length) label = shortcode;
+	}
+	return label ?? entry.slug;
 }
 
 const MIN_FUZZY_LENGTH = 4;
@@ -450,6 +466,7 @@ export function searchEmojis(
 	const scored: {
 		score: number;
 		used: number;
+		frequency: number;
 		length: number;
 		index: number;
 		item: EmojiSuggestion;
@@ -464,6 +481,7 @@ export function searchEmojis(
 		scored.push({
 			score,
 			used: -(usage?.[entry.emoji]?.count ?? 0),
+			frequency: score <= TIER_WORD_PREFIX ? entry.frequency : UNRANKED_EMOJI,
 			length: label.length,
 			index: i,
 			item: { name: label, emoji: entry.emoji },
@@ -476,6 +494,7 @@ export function searchEmojis(
 				a.score - b.score ||
 				a.used - b.used ||
 				a.length - b.length ||
+				a.frequency - b.frequency ||
 				a.index - b.index,
 		)
 		.slice(0, limit)

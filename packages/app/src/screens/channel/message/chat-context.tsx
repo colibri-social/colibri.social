@@ -25,6 +25,7 @@ import {
 	displayNameOf,
 } from "../../../data/adapters/authors";
 import type { ForwardTarget } from "../../../data/adapters/forward";
+import type { ReactionEmoji } from "../../../data/adapters/reactions";
 import type { StatusEmojiLookup } from "../../../data/adapters/status";
 import { blueskyUrlRewriter } from "../../../data/bluesky-client";
 import { roleIdentity } from "../../../data/roles";
@@ -62,6 +63,8 @@ export type ChatContextValue = {
 	editSources?: RichEditorSources;
 	customEmoji?: (name: string) => RichTextCustomEmoji | undefined;
 	customEmojiByUri?: (uri: string) => RichTextCustomEmoji | undefined;
+	refreshCustomEmoji?: (uri: string, src: string) => Promise<boolean>;
+	customEmojiUnavailable?: (reaction: ReactionEmoji) => boolean;
 	customEmojiFeature?: (
 		feature: RichTextForeignFeature,
 	) => RichTextCustomEmoji | undefined;
@@ -73,6 +76,7 @@ export type ChatContextValue = {
 	community: Accessor<CommunityView>;
 	communities?: Accessor<ReadonlyMap<string, CommunityView>>;
 	members: Accessor<ReadonlyMap<string, MemberView>>;
+	bridgedName?: (registration: string, remoteId: string) => string | undefined;
 	roles: Accessor<ReadonlyMap<string, RoleView>>;
 	channels: Accessor<ReadonlyMap<string, ChannelView>>;
 	categoryName?: (rkey: string) => string | undefined;
@@ -263,6 +267,11 @@ export const createChatRichTextResolvers = (
 			chat.onExternalLink?.(href, { label: href, disguised: false });
 		},
 		bridgePlatformName,
+		bridgedMember: ({ registration, remoteId }) => {
+			if (!registration || !remoteId) return undefined;
+			const name = chat.bridgedName?.(registration, remoteId);
+			return name ? { did: `${registration} ${remoteId}`, name } : undefined;
+		},
 		highlight: highlightCode,
 		onExternalLink: chat.onExternalLink,
 		customEmoji: chat.customEmoji,

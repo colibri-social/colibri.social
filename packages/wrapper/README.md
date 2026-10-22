@@ -18,6 +18,10 @@ Run the app from this package. Tauri starts the frontend for you.
 
 The frontend scripts run through `scripts/frontend.mjs`, which passes the version from `src-tauri/tauri.conf.json` to the app as `VITE_APP_VERSION`.
 
+## Runtime flags
+
+- `COLIBRI_DISABLE_UPDATER=1` or `--no-update-check`: starts a desktop build without the updater plugin. The app skips update checks and the settings page hides the update section. Use for builds whose updates come from somewhere else, like a package manager.
+
 ## Build flags
 
 - `DISABLE_SENTRY`: when set, excludes Sentry entirely from the frontend bundle and, via `scripts/tauri.mjs` (`--no-default-features`), from the Rust binary. Use for no-track distributions like F-Droid.

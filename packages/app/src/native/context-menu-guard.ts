@@ -3,6 +3,9 @@ const redispatched = new WeakSet<Event>();
 const NATIVE_MENU_TARGETS =
 	'input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]';
 
+const isTauri = () =>
+	typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
 const insideNativeTarget = (element: Element | null) =>
 	!!element?.closest(NATIVE_MENU_TARGETS);
 
@@ -63,10 +66,11 @@ export const installContextMenuGuard = (root: Document = document) => {
 		if (keepsNativeMenu(event, hit)) return;
 		event.preventDefault();
 	};
+	const suppressing = isTauri();
 	root.addEventListener("contextmenu", retarget, { capture: true });
-	root.addEventListener("contextmenu", suppress);
+	if (suppressing) root.addEventListener("contextmenu", suppress);
 	return () => {
 		root.removeEventListener("contextmenu", retarget, { capture: true });
-		root.removeEventListener("contextmenu", suppress);
+		if (suppressing) root.removeEventListener("contextmenu", suppress);
 	};
 };

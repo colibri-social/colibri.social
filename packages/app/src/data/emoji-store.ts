@@ -1,3 +1,4 @@
+import { classifyThrown, createLogger } from "@colibri-social/lib";
 import type {
 	CustomEmojiSuggestion,
 	EmojiPack,
@@ -35,6 +36,8 @@ import {
 import type { DataSource } from "./source";
 import type { CommunityView, CustomEmojiPolicy, Did, Facet } from "./types";
 
+const log = createLogger("emoji-store");
+
 export type EmojiLoad<T> = {
 	value: Accessor<T | undefined>;
 	loading: Accessor<boolean>;
@@ -44,6 +47,8 @@ export type EmojiLoad<T> = {
 };
 
 export type EmojiCatalog = EmojiLoad<EmojiCatalogView>;
+
+export type EmojiAvailability = "loading" | "unavailable";
 
 export type EmojiLibrary = EmojiLoad<EmojiLibraryView>;
 
@@ -413,6 +418,78 @@ export const createEmojiStore = (
 		return owner ? catalog(owner) : undefined;
 	};
 
+	const imageRefreshes = new Map<string, Promise<boolean>>();
+
+	const reloadImage = async (uri: string, load: EmojiCatalog) => {
+		await load.refresh();
+		const failure = untrack(load.error);
+		if (failure) {
+			log.warn("emoji image refresh failed", {
+				code: classifyThrown(failure, { method: "emoji.getCatalog" }).code,
+			});
+			return false;
+		}
+		return untrack(emojiByUri(uri)) !== undefined;
+	};
+
+	const refreshImage = (uri: string, src: string): Promise<boolean> => {
+		const existing = imageRefreshes.get(src);
+		if (existing) return existing;
+		const load = ownerCatalog(uri);
+		if (!load) return Promise.resolve(false);
+		const work = reloadImage(uri, load).finally(() =>
+			imageRefreshes.set(src, Promise.resolve(false)),
+		);
+		imageRefreshes.set(src, work);
+		return work;
+	};
+
+	const catalogRetries = new Set<Did>();
+	const scheduledRetries = new Set<Did>();
+
+	const retryCatalog = (owner: Did, load: EmojiCatalog) => {
+		catalogRetries.add(owner);
+		scheduledRetries.add(owner);
+		queueMicrotask(() => {
+			const work = load.refresh();
+			scheduledRetries.delete(owner);
+			void work.then(() => {
+				const failure = untrack(load.error);
+				if (!failure) return;
+				log.warn("emoji catalog retry failed", {
+					code: classifyThrown(failure, { method: "emoji.getCatalog" }).code,
+				});
+			});
+		});
+	};
+
+	const settle = (owner: Did, load: EmojiCatalog): EmojiAvailability => {
+		if (load.loading() || libraryLoad?.loading()) return "loading";
+		if (scheduledRetries.has(owner)) return "loading";
+		if (load.error() === undefined) return "unavailable";
+		if (catalogRetries.has(owner)) return "unavailable";
+		retryCatalog(owner, load);
+		return "loading";
+	};
+
+	const availability = (
+		community: Did | undefined,
+		uri: string,
+	): EmojiAvailability => {
+		if (!emojiRegistry.forUri(uri) || !allows(community, uri))
+			return "unavailable";
+		const owner = repoOfUri(uri);
+		return owner ? settle(owner, catalog(owner)) : "unavailable";
+	};
+
+	const availabilityByName = (
+		community: Did | undefined,
+	): EmojiAvailability => {
+		if (!community) return libraryLoad?.loading() ? "loading" : "unavailable";
+		if (policy(community) === "none") return "unavailable";
+		return settle(community, catalog(community));
+	};
+
 	const search = (community: Did | undefined, query: string, limit: number) => {
 		const needle = query.toLowerCase();
 		return available(community)
@@ -565,6 +642,9 @@ export const createEmojiStore = (
 		mention,
 		reactionShortcode,
 		resolve,
+		refreshImage,
+		availability,
+		availabilityByName,
 		suggestion,
 		withFacets,
 		upload: async (input: {
