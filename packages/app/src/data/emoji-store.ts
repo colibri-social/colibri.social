@@ -126,6 +126,8 @@ export const EMOJI_RETRY_DELAYS_MS = [2_000, 5_000, 15_000, 30_000, 60_000];
 
 export const EMOJI_WAKE_SPACING_MS = 5_000;
 
+export const EMOJI_MISS_RETRIES = 3;
+
 type RetryEntry = {
 	attempt: number;
 	timer?: ReturnType<typeof setTimeout>;
@@ -425,6 +427,31 @@ export const createEmojiStore = (
 		retries.schedule(retryKey(uri), () => void enqueue(uri));
 	};
 
+	const misses = new Map<string, number>();
+	const brokenImages = new Set<string>();
+	const missKey = (uri: string) => `emoji miss ${uri}`;
+
+	const markMissing = (uri: string) => {
+		retries.settle(retryKey(uri));
+		const current = sightingOf(uri);
+		if (current && (untrack(current).kind !== "found" || brokenImages.has(uri)))
+			setSighting(uri, { kind: "missing" });
+		const count = (misses.get(uri) ?? 0) + 1;
+		misses.set(uri, count);
+		if (count > EMOJI_MISS_RETRIES) {
+			retries.settle(missKey(uri));
+			return;
+		}
+		retries.schedule(missKey(uri), () => void enqueue(uri));
+	};
+
+	const markFound = (uri: string, emoji: EmojiView) => {
+		retries.settle(retryKey(uri));
+		retries.settle(missKey(uri));
+		misses.delete(uri);
+		setSighting(uri, { kind: "found", emoji });
+	};
+
 	const requestBatch = async (uris: readonly string[]) => {
 		const getEmojis = source.getEmojis;
 		if (!getEmojis || batchUnsupported) {
@@ -438,15 +465,9 @@ export const createEmojiStore = (
 			batch(() => {
 				for (const uri of uris) {
 					const emoji = found.get(uri);
-					if (emoji) {
-						retries.settle(retryKey(uri));
-						setSighting(uri, { kind: "found", emoji });
-					} else if (unreachable.has(repoOfUri(uri) ?? "")) {
-						markFailed(uri);
-					} else {
-						retries.settle(retryKey(uri));
-						setSighting(uri, { kind: "missing" });
-					}
+					if (emoji) markFound(uri, emoji);
+					else if (unreachable.has(repoOfUri(uri) ?? "")) markFailed(uri);
+					else markMissing(uri);
 				}
 			});
 			if (found.size > 0) offer();
@@ -693,7 +714,8 @@ export const createEmojiStore = (
 		const seen = sightingOf(uri);
 		const kind = seen && untrack(seen).kind;
 		if (kind && kind !== "catalog" && !batchUnsupported) {
-			await enqueue(uri);
+			brokenImages.add(uri);
+			await enqueue(uri).finally(() => brokenImages.delete(uri));
 			const after = sightingOf(uri);
 			if (after && untrack(after).kind !== "catalog")
 				return untrack(emojiByUri(uri)) !== undefined;

@@ -8,7 +8,11 @@ import {
 import { MediaGrid, type MediaItem } from "../Attachments/MediaGrid";
 import { fixtureImage } from "../Attachments/story-fixtures";
 import { Button } from "../Button/Button";
-import { MessageList, type MessageListHandle } from "./MessageList";
+import {
+	MessageList,
+	type MessageListHandle,
+	OLDER_PREFETCH_VIEWPORTS,
+} from "./MessageList";
 import { MessageRow } from "./MessageRow";
 import {
 	createListMessage,
@@ -685,6 +689,41 @@ export const KeyboardInset: Story = {
 				1,
 			);
 		});
+	},
+};
+
+export const PrefetchesOlderTwoScreensAhead: Story = {
+	name: "Prefetches older messages two screens ahead",
+	render: () => {
+		const [requests, setRequests] = createSignal(0);
+		return (
+			<div
+				class="flex h-[600px] min-h-0 flex-col bg-background text-foreground"
+				data-requests={requests()}
+			>
+				<MessageList
+					label="Prefetch"
+					messages={createListMessages(200, { images: false })}
+					getKey={(message: ListFixtureMessage) => message.id}
+					hasOlder
+					onLoadOlder={() => setRequests((count) => count + 1)}
+				>
+					{(entry) => <FixtureRow entry={entry} platform="desktop" />}
+				</MessageList>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		await settled(canvasElement);
+		const root = canvasElement.querySelector("[data-requests]") as HTMLElement;
+		const scroller = scrollerOf(canvasElement);
+		const feed = canvasElement.querySelector("[role='feed']") as HTMLElement;
+		const reach = scroller.clientHeight * OLDER_PREFETCH_VIEWPORTS;
+		await scrollTo(scroller, feed.offsetTop + reach + 120);
+		await frames(4);
+		await expect(root.dataset.requests).toBe("0");
+		await scrollTo(scroller, feed.offsetTop + reach - 120);
+		await waitFor(() => expect(root.dataset.requests).toBe("1"));
 	},
 };
 

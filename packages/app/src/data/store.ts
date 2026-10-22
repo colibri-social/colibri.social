@@ -89,6 +89,7 @@ import type {
 	Facet,
 	MemberView,
 	MessageView,
+	NotificationView,
 	Presence,
 	ProfileView,
 	ReactionEmojiRef,
@@ -1906,8 +1907,11 @@ export const createDataStore = (
 				const stored = window?.messages ?? [];
 				const storedNewest = stored.at(-1)?.rkey;
 				const overlaps = !!storedNewest && storedNewest >= first.rkey;
+				const target = jumps.peek(ref);
+				const targetInTail =
+					!!target && latest.some((message) => message.rkey === target);
 				const held: FeedGap | undefined =
-					storedNewest && !overlaps && !continuous
+					storedNewest && !overlaps && !continuous && !targetInTail
 						? { after: storedNewest, latest, cursor: tail.cursor }
 						: undefined;
 				const list = overlaps
@@ -1923,7 +1927,7 @@ export const createDataStore = (
 						? stored.slice()
 						: latest.slice();
 				const after = overlaps || held ? undefined : tail.after;
-				if (!covers(list, after)) return undefined;
+				if (!targetInTail && !covers(list, after)) return undefined;
 				tails.take(ref);
 				summaryAnchors.delete(ref);
 				batch(() => {
@@ -2971,6 +2975,23 @@ export const createDataStore = (
 			);
 		};
 
+		const feedNotifiedMessage = (view: NotificationView) => {
+			const message = view.message;
+			if (!message) return;
+			const ref = (view.thread ?? view.channel) as SpaceRef;
+			const known = (list: readonly MessageView[] | undefined) =>
+				!!list?.some((entry) => entry.rkey === message.rkey);
+			if (known(untrack(() => channels.get(ref)?.messages()))) return;
+			if (known(tails.peek(ref)?.messages)) return;
+			const event = {
+				$type: "messageEvent",
+				event: "create",
+				channel: ref,
+				message,
+			} as const;
+			if (!messageListeners.get(ref)?.(event)) feedTail(event);
+		};
+
 		source.subscribe((event) => {
 			switch (event.$type) {
 				case "messageEvent": {
@@ -3027,6 +3048,7 @@ export const createDataStore = (
 					if (event.channel) markThreadSeen(event.channel);
 					return;
 				case "notificationEvent":
+					feedNotifiedMessage(event.notification);
 					return;
 			}
 		});

@@ -12,6 +12,7 @@ import {
 } from "./emoji";
 import {
 	createEmojiStore,
+	EMOJI_MISS_RETRIES,
 	EMOJI_RETRY_DELAYS_MS,
 	type EmojiSeed,
 } from "./emoji-store";
@@ -299,7 +300,7 @@ describe("emoji first sight", () => {
 		}
 	});
 
-	it("shows cached emoji at once and revalidates them", async () => {
+	it("shows cached emoji at once and keeps them through a miss", async () => {
 		const { store, source } = setupBatch(
 			async () => ({ emojis: [], unreachable: [] }),
 			{ emojis: { [badger.id]: badger } },
@@ -308,6 +309,58 @@ describe("emoji first sight", () => {
 		expect(resolved()?.name).toBe("badger");
 		await flush();
 		expect(source.getEmojis).toHaveBeenCalledWith([badger.id]);
+		expect(resolved()?.name).toBe("badger");
+	});
+
+	it("asks again for an emoji the AppView hasn't indexed yet", async () => {
+		vi.useFakeTimers();
+		try {
+			let indexed = false;
+			const { store } = setupBatch(async () => ({
+				emojis: indexed ? [badger] : [],
+				unreachable: [],
+			}));
+			const resolved = store.emojiByUri(badger.id);
+			await vi.advanceTimersByTimeAsync(0);
+			expect(resolved()).toBeUndefined();
+			expect(store.availability(SPACE, badger.id)).toBe("unavailable");
+			indexed = true;
+			await vi.advanceTimersByTimeAsync(EMOJI_RETRY_DELAYS_MS[0] ?? 0);
+			expect(resolved()?.name).toBe("badger");
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("stops asking about a missing emoji after a few tries", async () => {
+		vi.useFakeTimers();
+		try {
+			const { store, batchSpy } = setupBatch(async () => ({
+				emojis: [],
+				unreachable: [],
+			}));
+			store.emojiByUri(gone.id);
+			await vi.advanceTimersByTimeAsync(0);
+			for (const delay of EMOJI_RETRY_DELAYS_MS)
+				await vi.advanceTimersByTimeAsync(delay);
+			expect(batchSpy).toHaveBeenCalledTimes(EMOJI_MISS_RETRIES + 1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("drops a cached emoji whose image broke and that the AppView no longer has", async () => {
+		const { store } = setupBatch(
+			async () => ({ emojis: [], unreachable: [] }),
+			{
+				emojis: { [badger.id]: badger },
+			},
+		);
+		const resolved = store.emojiByUri(badger.id);
+		await flush();
+		await expect(store.refreshImage(badger.id, badger.image)).resolves.toBe(
+			false,
+		);
 		expect(resolved()).toBeUndefined();
 	});
 

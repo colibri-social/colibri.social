@@ -80,6 +80,8 @@ const notification = (
 			rkey: `m${counter}`,
 			text: `Hello number ${counter}`,
 			attachments: [],
+			reactions: [],
+			labels: [],
 			channel,
 			author: { did: "did:plc:toastauthor", handle: "ada.test" },
 			createdAt: now,

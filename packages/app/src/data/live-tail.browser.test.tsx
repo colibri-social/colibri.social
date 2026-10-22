@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { describe, expect, it } from "vitest";
 import { channelSlug, isVoiceChannel } from "./ids";
+import type { CachedWindow, MessageCache } from "./message-cache";
 import { createMockSource, setLatency } from "./mock/source";
 import type { DataSource, LiveEvent } from "./source";
 import { createDataStore } from "./store";
@@ -16,7 +17,26 @@ const until = async (check: () => boolean, timeout = 8000) => {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const setup = async () => {
+const memoryCache = (): MessageCache => {
+	const windows = new Map<SpaceRef, CachedWindow>();
+	return {
+		recall: (space) => windows.get(space),
+		read: async (space) => windows.get(space),
+		offer: (space, messages, options) => {
+			windows.set(space, { messages: [...messages], ...options });
+		},
+		forget: (space) => {
+			windows.delete(space);
+		},
+		forgetCommunity: () => {},
+		flush: async () => {},
+		clear: async () => {
+			windows.clear();
+		},
+	};
+};
+
+const setup = async (options: { cache?: MessageCache } = {}) => {
 	setLatency(0);
 	const base = createMockSource({ live: false });
 	const listeners = new Set<(event: LiveEvent) => void>();
@@ -24,6 +44,7 @@ const setup = async () => {
 		[];
 	let painted = () => false;
 	let down = false;
+	let stalled: Promise<void> | undefined;
 	let unreadLoads = 0;
 	const source: DataSource = {
 		...base,
@@ -38,12 +59,13 @@ const setup = async () => {
 				stop();
 			};
 		},
-		listMessages: (params) => {
+		listMessages: async (params) => {
 			requests.push({
 				method: "listMessages",
 				channel: params.channel,
 				painted: painted(),
 			});
+			if (stalled) await stalled;
 			return base.listMessages(params);
 		},
 		listUnreadStatus: (community) => {
@@ -55,7 +77,10 @@ const setup = async () => {
 		},
 	};
 	const [epoch, setEpoch] = createSignal<number | undefined>(1);
-	const store = createDataStore(source, { live: { epoch } });
+	const store = createDataStore(source, {
+		live: { epoch },
+		...(options.cache ? { cache: options.cache } : {}),
+	});
 	await until(() => !!store.communities.value());
 	const hq = store.communities
 		.value()
@@ -89,6 +114,16 @@ const setup = async () => {
 		},
 		setDown: (next: boolean) => {
 			down = next;
+		},
+		stallNetwork: () => {
+			let release: () => void = () => {};
+			stalled = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			return () => {
+				stalled = undefined;
+				release();
+			};
 		},
 	};
 };
@@ -189,6 +224,67 @@ describe("live tail opens", () => {
 		const keys = rkeysOf(feed.messages());
 		expect(keys).toContain(missed.rkey);
 		expect(keys.at(-1)).toBe(arrived.rkey);
+		store.dispose();
+	});
+
+	it("shows a tapped notification's message from the tail while the network is slow", async () => {
+		const cache = memoryCache();
+		const { base, store, text, say, setEpoch, stallNetwork } = await setup({
+			cache,
+		});
+		const target = text.find((channel) => channelSlug(channel) === "general");
+		if (!target) throw new Error("general missing");
+		const ref = target.space as SpaceRef;
+		const page = await base.listMessages({ channel: ref, limit: 20 });
+		cache.offer(
+			ref,
+			[...page.items].sort((a, b) => a.rkey.localeCompare(b.rkey)),
+			{ cursor: page.cursor, hasMore: !!page.cursor },
+		);
+		setEpoch(undefined);
+		setEpoch(2);
+		const pinged = say(ref, "The message that pinged you");
+		const release = stallNetwork();
+		store.jumps.request({ channel: ref, rkey: pinged.rkey });
+		const feed = store.channel(ref);
+		await until(() => feed.ready());
+		expect(rkeysOf(feed.messages())).toContain(pinged.rkey);
+		release();
+		await until(() => feed.confirmed());
+		expect(rkeysOf(feed.messages())).toContain(pinged.rkey);
+		store.dispose();
+	});
+
+	it("puts a notified message into a channel whose message event never arrived", async () => {
+		const { base, store, hq, text, say, setDown, stallNetwork } = await setup();
+		const target = text.find((channel) => channelSlug(channel) === "general");
+		if (!target) throw new Error("general missing");
+		const ref = target.space as SpaceRef;
+		await base.markRead(ref);
+		await store.catchUp();
+		await until(() => !!store.lastMessage(ref));
+		await wait(50);
+		setDown(true);
+		const pinged = say(ref, "Only the notification made it");
+		setDown(false);
+		base.emit({
+			$type: "notificationEvent",
+			notification: {
+				id: "notification-1",
+				kind: "message",
+				author: pinged.author,
+				channel: ref,
+				community: hq.did,
+				message: pinged,
+				indexedAt: pinged.createdAt,
+			},
+		} as LiveEvent);
+		const release = stallNetwork();
+		store.jumps.request({ channel: ref, rkey: pinged.rkey });
+		const feed = store.channel(ref);
+		await until(() => feed.ready());
+		expect(rkeysOf(feed.messages())).toContain(pinged.rkey);
+		release();
 		store.dispose();
 	});
 

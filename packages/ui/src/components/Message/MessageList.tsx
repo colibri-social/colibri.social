@@ -65,6 +65,7 @@ const SCROLL_KEYS = new Set([
 ]);
 export const JUMP_BUTTON_SHOW_PX = 200;
 export const PREFETCH_MIN_PX = 400;
+export const OLDER_PREFETCH_VIEWPORTS = 2;
 export const SKELETON_ROWS = 12;
 const INITIAL_TAIL = 40;
 const JUMP_WINDOW = 20;
@@ -393,12 +394,16 @@ export const MessageList = <T extends GroupableMessage>(
 		const element = scroller();
 		if (!element || untrack(settling)) return;
 		const prefetch = Math.max(PREFETCH_MIN_PX, element.clientHeight);
+		const olderPrefetch = Math.max(
+			PREFETCH_MIN_PX,
+			element.clientHeight * OLDER_PREFETCH_VIEWPORTS,
+		);
 		const aboveFirst = element.scrollTop - untrack(startMargin);
 		if (
 			props.hasOlder &&
 			!props.loadingOlder &&
 			!olderRequested &&
-			aboveFirst < prefetch
+			aboveFirst < olderPrefetch
 		) {
 			olderRequested = true;
 			props.onLoadOlder?.();
