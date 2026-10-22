@@ -143,7 +143,7 @@ export const FileAttachment = (props: FileAttachmentProps) => {
 			class={cx(
 				embedSurface,
 				cardClass,
-				"items-center no-underline",
+				"items-center no-underline select-none",
 				interactive() && cx(pressSurface, "hover:bg-popover"),
 				!props.spoiler && props.class,
 			)}

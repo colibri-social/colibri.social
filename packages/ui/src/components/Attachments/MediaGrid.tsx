@@ -366,7 +366,7 @@ export const MediaTile = (props: MediaTileProps) => {
 				props.item.kind === "video" ? undefined : props.item.name
 			}
 			class={cx(
-				"group/tile relative min-h-0 min-w-0 overflow-hidden bg-muted",
+				"group/tile relative min-h-0 min-w-0 overflow-hidden bg-muted select-none",
 				props.class,
 			)}
 			style={props.style}

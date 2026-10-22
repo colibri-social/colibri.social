@@ -497,6 +497,103 @@ const sheetSettled = (sheet: HTMLElement) =>
 		);
 	});
 
+export const TextSelection: Story = {
+	render: () => (
+		<div class="flex min-h-dvh flex-col bg-background py-2 text-foreground">
+			<MessageRow
+				author={{ name: "Lou" }}
+				timestamp={at(9, 40)}
+				now={NOW}
+				locale="en-GB"
+				attachments={<div class="h-24 w-40 rounded-control bg-secondary" />}
+				reactions={<span>Reaction</span>}
+				toolbar={<span>Toolbar</span>}
+				thread={<span>Thread card</span>}
+				data-testid="selection-desktop"
+			/>
+			<MessageRow
+				author={{ name: "Username" }}
+				badge={<TeamBadge />}
+				timestamp={at(9, 41)}
+				now={NOW}
+				locale="en-GB"
+				reply={{
+					author: { name: "Quoted" },
+					text: "Quoted reply text",
+					onClick: () => {},
+				}}
+				data-testid="selection-next"
+			>
+				Next message
+			</MessageRow>
+			<MessageRow
+				author={{ name: "Lou" }}
+				timestamp={at(9, 42)}
+				now={NOW}
+				locale="en-GB"
+				platform="mobile"
+				data-testid="selection-mobile"
+			>
+				On a phone
+			</MessageRow>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const userSelect = (element: Element | null | undefined) =>
+			element ? getComputedStyle(element).userSelect : undefined;
+		const desktop = canvasElement.querySelector(
+			'[data-testid="selection-desktop"]',
+		);
+		const next = canvasElement.querySelector('[data-testid="selection-next"]');
+		const mobileRow = canvasElement.querySelector(
+			'[data-testid="selection-mobile"]',
+		);
+		await expect(
+			userSelect(desktop?.querySelector("[data-message-header]")),
+		).toBe("text");
+		await expect(
+			userSelect(desktop?.querySelector("[data-message-attachments]")),
+		).toBe("text");
+		await expect(
+			userSelect(desktop?.querySelector("[data-message-reactions]")),
+		).toBe("none");
+		await expect(
+			userSelect(desktop?.querySelector("[data-message-toolbar]")),
+		).toBe("none");
+		await expect(
+			userSelect(desktop?.querySelector(":scope > div > span")),
+		).toBe("none");
+		await expect(
+			userSelect(mobileRow?.querySelector("[data-message-header]")),
+		).toBe("none");
+		const attachments = desktop?.querySelector("[data-message-attachments]");
+		const nextContent = next?.querySelector("[data-message-content]");
+		if (!attachments || !nextContent) throw new Error("rows missing");
+		const range = document.createRange();
+		range.setStart(attachments, 0);
+		range.setEnd(nextContent, nextContent.childNodes.length);
+		const selection = window.getSelection();
+		selection?.removeAllRanges();
+		selection?.addRange(range);
+		const copied = selection?.toString() ?? "";
+		selection?.removeAllRanges();
+		await expect(copied).toContain("Username");
+		await expect(copied).toContain("Next message");
+		await expect(copied).not.toContain("Reaction");
+		await expect(copied).not.toContain("Toolbar");
+		await expect(copied).not.toContain("Quoted");
+		await expect(copied).not.toContain("Thread card");
+		await expect(userSelect(next?.querySelector("[data-message-time]"))).toBe(
+			"none",
+		);
+		await expect(copied).not.toContain(
+			next
+				?.querySelector("[data-message-header] > div > :nth-child(2)")
+				?.textContent?.trim() || "missing badge",
+		);
+	},
+};
+
 const onMobileRetry = fn();
 const onMobileDelete = fn();
 

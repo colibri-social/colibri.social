@@ -25,7 +25,7 @@ const sourceLabel = (source: ForwardSource) =>
 	source.space ? `#${source.channel} in ${source.space}` : `#${source.channel}`;
 
 const chipClass =
-	"inline-flex w-fit max-w-full items-center gap-1 rounded-control-xs bg-muted px-1.5 py-0.5 text-xs text-muted-foreground [&>svg]:size-3.5 [&>svg]:shrink-0";
+	"inline-flex w-fit max-w-full items-center gap-1 rounded-control-xs bg-muted px-1.5 py-0.5 text-xs text-muted-foreground select-none [&>svg]:size-3.5 [&>svg]:shrink-0";
 
 const interactiveChipClass = cx(
 	chipClass,

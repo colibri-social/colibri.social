@@ -42,7 +42,7 @@ export const HiddenMessage = (props: HiddenMessageProps) => {
 				<div
 					data-hidden-message=""
 					class={cx(
-						"flex w-full max-w-[480px] items-center gap-2.5 rounded-control border border-dashed border-border px-3 py-2",
+						"flex w-full max-w-[480px] items-center gap-2.5 rounded-control border border-dashed border-border px-3 py-2 select-none",
 						props.class,
 					)}
 				>
@@ -61,7 +61,7 @@ export const HiddenMessage = (props: HiddenMessageProps) => {
 				class={cx("flex flex-col gap-1.5", props.class)}
 			>
 				{props.children}
-				<span class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+				<span class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground select-none">
 					{HIDDEN_REASON_TEXT[props.reason]}
 					<TextAction icon={<EyeClosedIcon />} onClick={() => setShown(false)}>
 						Hide again

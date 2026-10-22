@@ -191,7 +191,7 @@ const ReplyLine = (props: { reply: MessageReply }) => {
 	return (
 		<div
 			data-message-reply=""
-			class="relative flex h-4 items-center pl-[calc(40px+var(--chat-avatar-gap,12px))]"
+			class="relative flex h-4 items-center pl-[calc(40px+var(--chat-avatar-gap,12px))] select-none"
 		>
 			<span
 				aria-hidden="true"
@@ -516,6 +516,7 @@ export const MessageRow = (props: MessageRowProps) => {
 			src={local.author.avatarSrc}
 			color={local.author.color}
 			size="md"
+			class="select-none"
 		/>
 	);
 
@@ -590,6 +591,7 @@ export const MessageRow = (props: MessageRowProps) => {
 								? "hover:bg-popover"
 								: "hover:bg-popover-highlight",
 					failed() && mobile() && "cursor-pointer",
+					!mobile() && "select-text",
 					listItem && "focus-ring-inset",
 					local.class,
 				)}
@@ -612,7 +614,7 @@ export const MessageRow = (props: MessageRowProps) => {
 							<span
 								data-continuation-time=""
 								class={cx(
-									"flex h-(--leading-message) w-10 shrink-0 items-center justify-center text-[11px] leading-none whitespace-nowrap text-muted-foreground tabular-nums",
+									"flex h-(--leading-message) w-10 shrink-0 items-center justify-center text-[11px] leading-none whitespace-nowrap text-muted-foreground tabular-nums select-none",
 									local.showTime
 										? "opacity-100"
 										: "opacity-0 group-hover/message:opacity-100 [@media(hover:hover)]:group-data-keyboard-focus/message:opacity-100",
@@ -633,7 +635,7 @@ export const MessageRow = (props: MessageRowProps) => {
 										data-member-menu={local.onAuthorMenu ? "" : undefined}
 										aria-label={`${local.author.name}'s profile`}
 										onClick={(event) => local.onAuthorClick?.(event)}
-										class="size-10 shrink-0 cursor-pointer self-start rounded-full outline-none focus-ring"
+										class="size-10 shrink-0 cursor-pointer self-start rounded-full outline-none select-none focus-ring"
 									>
 										<AuthorAvatar />
 									</button>,
@@ -648,7 +650,7 @@ export const MessageRow = (props: MessageRowProps) => {
 								data-message-header=""
 								class="flex h-4 min-w-0 items-center gap-2"
 							>
-								<div class="flex min-w-0 items-center gap-1.5">
+								<div class="flex min-w-0 items-center gap-1.5 [&>:not(:first-child)]:select-none">
 									<Show
 										when={authorInteractive()}
 										fallback={
@@ -675,7 +677,7 @@ export const MessageRow = (props: MessageRowProps) => {
 													onClick={(event) => local.onAuthorClick?.(event)}
 													data-author-name=""
 													class={cx(
-														"max-w-full cursor-pointer truncate rounded-control-xs text-sm leading-4 font-semibold decoration-1 underline-offset-2 outline-none hover:underline focus-ring",
+														"max-w-full cursor-pointer truncate text-sm leading-4 font-semibold decoration-1 underline-offset-2 outline-none hover:underline focus-visible:rounded-control-xs focus-ring",
 														nameTone(),
 													)}
 													style={
@@ -706,7 +708,7 @@ export const MessageRow = (props: MessageRowProps) => {
 								<span
 									data-message-time=""
 									class={cx(
-										"flex shrink-0 items-center gap-1.5 text-[11px] leading-4 whitespace-nowrap tabular-nums",
+										"flex shrink-0 items-center gap-1.5 text-[11px] leading-4 whitespace-nowrap tabular-nums select-none",
 										failed() ? "text-destructive" : "text-muted-foreground",
 									)}
 								>
@@ -765,7 +767,7 @@ export const MessageRow = (props: MessageRowProps) => {
 								fallback={
 									<p
 										data-message-failed=""
-										class="flex flex-wrap items-center gap-x-2 text-xs leading-4 text-destructive"
+										class="flex flex-wrap items-center gap-x-2 text-xs leading-4 text-destructive select-none"
 									>
 										<span>Failed to send.</span>
 										<Show when={local.onRetry}>
@@ -805,12 +807,12 @@ export const MessageRow = (props: MessageRowProps) => {
 							</Show>
 						</Show>
 						<Show when={reactions.has()}>
-							<div data-message-reactions="" class="mt-1">
+							<div data-message-reactions="" class="mt-1 select-none">
 								{reactions()}
 							</div>
 						</Show>
 						<Show when={thread.has()}>
-							<div data-message-thread="" class="mt-1">
+							<div data-message-thread="" class="mt-1 select-none">
 								{thread()}
 							</div>
 						</Show>
@@ -826,7 +828,7 @@ export const MessageRow = (props: MessageRowProps) => {
 						onPointerEnter={() => setPointerOnToolbar(true)}
 						onPointerLeave={() => setPointerOnToolbar(false)}
 						class={cx(
-							"m-0 block overflow-visible border-0 bg-transparent p-0 pb-px text-foreground",
+							"m-0 block overflow-visible border-0 bg-transparent p-0 pb-px text-foreground select-none",
 							inTopLayer()
 								? "inset-auto -translate-y-3/4"
 								: "absolute inset-auto top-px right-3 z-10 -translate-y-3/4",
