@@ -241,6 +241,11 @@ export const MobileShell = () => {
 				<Match when={layer.kind === "createSpace"}>
 					<AppScreen name="create-space" args={{}} />
 				</Match>
+				<Match when={layer.kind === "legacySpace" && layer}>
+					{(legacy) => (
+						<AppScreen name="legacy-space" args={{ did: legacy().did }} />
+					)}
+				</Match>
 				<Match when={layer.kind === "discover"}>
 					<AppScreen name="discover" args={{}} />
 				</Match>

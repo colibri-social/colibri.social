@@ -138,6 +138,7 @@ export const ThreadIntro = (props: { thread: ThreadView }) => {
 			key: message.key,
 			position: 0,
 			unreadStart: false,
+			seamEnd: false,
 			continuation: false,
 			hasContinuation: false,
 			newDay: false,

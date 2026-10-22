@@ -42,6 +42,7 @@ import type {
 	CommunityView,
 	Did,
 	GifView,
+	LegacyCommunityView,
 	MemberView,
 	MessageView,
 	ProfileView,
@@ -385,6 +386,18 @@ export const createRemoteSource = async (
 					params: { community },
 				})
 			).community as CommunityView,
+		listLegacyCommunities: async () =>
+			(
+				await transport.query(colibri.community.listMigratable.main, {
+					params: { includeUnadministered: true },
+				})
+			).communities as LegacyCommunityView[],
+		migrateLegacyCommunity: async (community) =>
+			(
+				await transport.procedure(colibri.community.migrate.main, {
+					body: { community },
+				})
+			).community as LegacyCommunityView,
 		createCommunity: async (input) =>
 			(
 				await transport.procedure(colibri.community.create.main, {

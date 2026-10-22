@@ -277,13 +277,13 @@ export const spaceProfile = defineContract({
 			<div data-space-profile-images="" class="relative">
 				<ProfileImagePicker
 					maxBytes={PROFILE_BANNER_MAX_BYTES}
-					crop="banner"
+					crop="spaceBanner"
 					platform={usePlatform()()}
 					onFile={m.pickBanner}
 					onError={m.setImageError}
 				>
 					{(open) => (
-						<div class="relative aspect-[3/1] w-full overflow-hidden bg-secondary">
+						<div class="relative aspect-[2/1] w-full overflow-hidden bg-secondary">
 							<button
 								type="button"
 								aria-label={m.banner.src() ? "Change banner" : "Add banner"}

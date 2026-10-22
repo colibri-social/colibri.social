@@ -825,7 +825,7 @@
 		},
 		"communityProgressEvent": {
 			"type": "object",
-			"description": "Progress while a community is being created, which takes several PDS round-trips.",
+			"description": "Progress while a community is being created or migrated, which takes several PDS round-trips.",
 			"required": [
 				"step",
 				"completed",
@@ -841,6 +841,15 @@
 						"writingProfile",
 						"creatingOwnerRole",
 						"creatingStarterChannels",
+						"readingLegacyRepo",
+						"writingSettings",
+						"migratingRoles",
+						"migratingMembers",
+						"migratingBans",
+						"migratingChannels",
+						"migratingCategories",
+						"mirroringMessages",
+						"retiringLegacyCommunity",
 						"done",
 						"failed"
 					]

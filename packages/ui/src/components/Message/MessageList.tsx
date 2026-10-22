@@ -36,6 +36,7 @@ import { JumpCard, type JumpCardMode } from "./JumpCard";
 import { type ChatPlatform, chatLayoutVars } from "./layout";
 import { JUMP_FADE_MS, JUMP_HIGHLIGHT_MS } from "./MessageRow";
 import { MessageRowSkeleton } from "./MessageSkeletons";
+import { MigrationDivider } from "./MigrationDivider";
 import {
 	MessageListItemContext,
 	type MessageListItemState,
@@ -97,6 +98,8 @@ export type MessageListProps<T extends GroupableMessage> = {
 	platform?: ChatPlatform;
 	unreadAfter?: string;
 	unreadLabel?: string;
+	seamAfter?: string;
+	seamLabel?: string;
 	isOwnMessage?: (message: T) => boolean;
 	getAuthorName?: (message: T) => string;
 	now?: TimeInput;
@@ -255,6 +258,8 @@ export const MessageList = <T extends GroupableMessage>(
 			props.messages,
 			props.getKey,
 			props.unreadAfter,
+			undefined,
+			props.seamAfter,
 		);
 		const nextKeys = entries.map((entry) => entry.key);
 		const change = classifyChange(keys, nextKeys);
@@ -974,6 +979,11 @@ export const MessageList = <T extends GroupableMessage>(
 					/>
 				</Show>
 				{props.children(row.entry)}
+				<Show when={row.entry().seamEnd && props.seamLabel}>
+					{(label) => (
+						<MigrationDivider label={label()} class="mt-(--chat-group-gap)" />
+					)}
+				</Show>
 			</MessageListItemContext.Provider>
 		);
 	};

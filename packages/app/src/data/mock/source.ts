@@ -21,6 +21,7 @@ import type {
 	CommunityView,
 	Did,
 	Facet,
+	LegacyCommunityView,
 	MemberView,
 	MessageView,
 	NotificationView,
@@ -43,6 +44,7 @@ import {
 import { createMockEmoji } from "./emoji";
 import { searchGifs } from "./gifs";
 import { latencyScale, setLatencyScale, withLatency } from "./latency";
+import { createMockLegacy } from "./legacy";
 import { startLive } from "./live";
 import {
 	contextFor,
@@ -82,6 +84,7 @@ export type MockSourceOptions = {
 	live?: boolean;
 	preferences?: Partial<Preferences>;
 	preferencesSnapshotKey?: string;
+	legacyCommunities?: readonly LegacyCommunityView[];
 };
 
 const MOCK_CONTROLS: ControlsPreferences = {
@@ -138,6 +141,12 @@ export const createMockSource = (
 	};
 
 	const access = createMockAccess({ world, now, emit });
+	const legacy = createMockLegacy({
+		world,
+		now,
+		emit,
+		seed: options.legacyCommunities,
+	});
 	const emoji = createMockEmoji({ world, now, emit });
 
 	const spaceOf = (community: Did) => {
@@ -624,6 +633,8 @@ export const createMockSource = (
 				return record.view;
 			}),
 		getCommunity: (community) => withLatency(() => spaceOf(community).view),
+		listLegacyCommunities: () => legacy.list(),
+		migrateLegacyCommunity: (community) => legacy.migrate(community),
 		listDiscoverable: () =>
 			withLatency(() =>
 				world.spaces

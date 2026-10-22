@@ -195,11 +195,12 @@ export const createCommunityRecord = (
 		name: string;
 		description?: string;
 		requiresApprovalToJoin?: boolean;
+		did?: Did;
 	},
 	now: number,
 ): SpaceRecord => {
 	const clock = world.nextClock();
-	const did = randomDid(now + clock);
+	const did = input.did ?? randomDid(now + clock);
 	const key = `created-${clock}`;
 	const textCategory = tidFor(now, world.nextClock());
 	const voiceCategory = tidFor(now, world.nextClock());

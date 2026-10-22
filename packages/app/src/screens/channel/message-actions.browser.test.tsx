@@ -242,6 +242,28 @@ describe("message menu extras", () => {
 		expect(dialogWith("Debug information")).toBeUndefined();
 	});
 
+	it("leaves developer mode and replies off for a message from before the move to Spaces", async () => {
+		const { store, source } = await mount();
+		store.setControls({ developerMode: true });
+		const article = await findArticle("Signals docs");
+		const view = source.world.spaces
+			.flatMap((space) => space.channels)
+			.flatMap((channel) => channel.messages ?? [])
+			.find((message) => message.text.includes("Signals docs"));
+		if (!view) throw new Error("Missing the Signals docs message");
+		source.emit({
+			$type: "messageEvent",
+			event: "update",
+			channel: view.channel,
+			message: { ...view, legacy: true },
+		});
+		await wait(100);
+		await openMenu(article, "Copy text");
+		expect(menuItem("Developer mode")).toBeUndefined();
+		expect(menuItem("Reply")).toBeUndefined();
+		await closeMenu();
+	});
+
 	it("saves and removes a GIF", async () => {
 		const { source } = await mount(HQ_PATH("general"));
 		await findArticle("gif time");

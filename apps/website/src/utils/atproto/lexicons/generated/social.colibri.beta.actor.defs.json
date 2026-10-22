@@ -512,6 +512,16 @@
 						"description": "An experiment id."
 					},
 					"description": "The experiments the user turned on."
+				},
+				"dismissedLegacyCommunities": {
+					"type": "array",
+					"maxLength": 256,
+					"items": {
+						"type": "string",
+						"format": "did",
+						"description": "A legacy community DID."
+					},
+					"description": "Legacy communities that cannot move onto spaces and that the user removed from their sidebar."
 				}
 			}
 		},

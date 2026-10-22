@@ -157,6 +157,7 @@ export const MessageItem = (props: MessageItemProps) => {
 	const message = () => props.entry().message;
 	const view = () => message().view;
 	const sent = () => message().state === "sent";
+	const legacy = () => !!view()?.legacy;
 	const anchor = () => !!message().anchor;
 	const own = () => message().author === chat.viewer();
 	const directory = createMemo<AuthorDirectory>(() => ({
@@ -390,7 +391,7 @@ export const MessageItem = (props: MessageItemProps) => {
 		return undefined;
 	};
 
-	const frozen = () => !!chat.locked?.() || !sent();
+	const frozen = () => !!chat.locked?.() || !sent() || legacy();
 	const writableOwn = () => own() && !anchor() && !frozen();
 
 	const react = (emoji: string, add: boolean) => {
@@ -433,7 +434,7 @@ export const MessageItem = (props: MessageItemProps) => {
 
 	const selection = () => chat.selection;
 	const selecting = () => selection()?.active() ?? false;
-	const selectable = () => sent() && !!message().rkey;
+	const selectable = () => sent() && !!message().rkey && !legacy();
 	const movedFrom = () => {
 		const value = view();
 		return value ? selection()?.movedFrom(value) : undefined;
@@ -510,7 +511,10 @@ export const MessageItem = (props: MessageItemProps) => {
 					const value = thread();
 					if (value) chat.onOpenThread(value.space);
 				}
-			: chat.onStartThread && message().state === "sent" && message().rkey
+			: chat.onStartThread &&
+					message().state === "sent" &&
+					message().rkey &&
+					!legacy()
 				? () => chat.onStartThread?.(message())
 				: undefined;
 	const selectAction = () =>
@@ -540,12 +544,14 @@ export const MessageItem = (props: MessageItemProps) => {
 					void whenOverlaysClosed().then(() => setConfirmingDelete(true));
 				}
 			: undefined;
-	const forwardAction = () => (sent() ? forwardMessage : undefined);
+	const forwardAction = () =>
+		sent() && !legacy() ? forwardMessage : undefined;
 	const retryAction = () =>
 		message().state === "failed" ? () => chat.onRetry(message()) : undefined;
 	const removeAction = () =>
 		sent() ? confirmDeleteAction() : () => chat.onDelete(message());
-	const canReply = () => sent() && !anchor() && chat.canPost?.() !== false;
+	const canReply = () =>
+		sent() && !anchor() && !legacy() && chat.canPost?.() !== false;
 	const replyAction = () =>
 		canReply() ? () => chat.onReply(message()) : undefined;
 	const canModerate = () => sent() && !!chat.canModerate?.() && !anchor();
@@ -737,7 +743,7 @@ export const MessageItem = (props: MessageItemProps) => {
 
 	const developer = () => {
 		const uri = view()?.uri;
-		if (!uri || !chat.developerMode?.()) return undefined;
+		if (!uri || legacy() || !chat.developerMode?.()) return undefined;
 		return {
 			atUri: uri,
 			pdslsHref: pdslsHrefFor(uri),

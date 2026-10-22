@@ -194,7 +194,7 @@ export const SpacePreview = (props: SpacePreviewProps) => {
 						src={props.space.bannerSrc}
 						tintFrom={props.space.iconSrc}
 						color={props.space.bannerColor}
-						class="aspect-[4/1]"
+						ratio="space"
 					/>
 				</Show>
 				<div class="flex flex-col gap-4 px-4 pb-5">

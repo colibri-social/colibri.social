@@ -7,9 +7,14 @@ export type VoiceState = social.colibri.beta.actor.defs.VoiceState;
 
 export const CUSTOM_EMOJI_POLICIES = ["all", "local", "none"] as const;
 export type CustomEmojiPolicy = (typeof CUSTOM_EMOJI_POLICIES)[number];
+export type MigrationInfo = social.colibri.beta.community.defs.MigrationInfo;
 export type CommunityView = social.colibri.beta.community.defs.CommunityView & {
 	customEmoji?: CustomEmojiPolicy | (string & {});
 };
+export type MigrationProgressView =
+	social.colibri.beta.community.defs.MigrationProgress;
+export type LegacyCommunityView =
+	social.colibri.beta.community.defs.LegacyCommunityView;
 export type CategoryPermissions = {
 	ownerOnly?: boolean;
 	allowedRoles?: string[];

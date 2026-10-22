@@ -15,6 +15,7 @@ const adminModules = import.meta.glob<ScreenModule<AdminArgs>>(
 
 const appModules = import.meta.glob<ScreenModule<Record<string, string>>>([
 	"../screens/create-space/*.screen.ts",
+	"../screens/legacy-space/*.screen.ts",
 	"../screens/discover/*.screen.ts",
 	"../screens/join/*.screen.ts",
 	"../screens/pack/*.screen.ts",
@@ -52,7 +53,12 @@ export const AdminScreen = (props: {
 	return <Dynamic component={screen() ?? Pending} args={props.args} />;
 };
 
-export type AppScreenName = "create-space" | "discover" | "join" | "pack";
+export type AppScreenName =
+	| "create-space"
+	| "legacy-space"
+	| "discover"
+	| "join"
+	| "pack";
 
 export const AppScreen = (props: {
 	name: AppScreenName;

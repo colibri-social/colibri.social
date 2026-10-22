@@ -37,6 +37,7 @@ import { DEVICE_KEYS, deviceString } from "./device-prefs";
 import { createEmojiStore } from "./emoji-store";
 import { channelSlug, isVoiceChannel, skeyOf, spaceKey } from "./ids";
 import { createJumpRequests } from "./jump";
+import { createLegacyCommunities } from "./legacy-communities";
 import { createLiveTails, reactIn, TAIL_PER_CHANNEL } from "./live-tail";
 import { keepUnchanged } from "./merge";
 import type { MessageCache } from "./message-cache";
@@ -3212,7 +3213,13 @@ export const createDataStore = (
 		});
 
 		const accessStore = createAccessStore({ source, memberLoads });
+		const legacy = createLegacyCommunities({
+			source,
+			onMigrated: () => communities.refresh(),
+		});
+		onCleanup(legacy.dispose);
 		const store = {
+			legacy,
 			access: {
 				...accessStore,
 				join: async (community: Did, invitation?: string) => {

@@ -22,6 +22,7 @@ import type {
 	Did,
 	Facet,
 	GifView,
+	LegacyCommunityView,
 	MemberView,
 	MessageView,
 	NotificationView,
@@ -176,7 +177,15 @@ export type LiveEvent =
 			community: Did;
 			cursors: { channel: string; cursor: string }[];
 	  }
-	| { $type: "preferencesEvent"; preferences: Preferences };
+	| { $type: "preferencesEvent"; preferences: Preferences }
+	| {
+			$type: "communityProgressEvent";
+			step: string;
+			completed: number;
+			total: number;
+			community?: Did;
+			message?: string;
+	  };
 
 export type ControlsPreferences = {
 	showMessagePreviews: boolean;
@@ -464,6 +473,8 @@ export type DataSource = AccessSource &
 		createCommunity: (input: CreateCommunityInput) => Promise<CommunityView>;
 		getCommunity: (community: Did) => Promise<CommunityView>;
 		listDiscoverable: () => Promise<CommunityView[]>;
+		listLegacyCommunities: () => Promise<LegacyCommunityView[]>;
+		migrateLegacyCommunity: (community: Did) => Promise<LegacyCommunityView>;
 		listBridges: (community: Did) => Promise<BridgeRegistrationView[]>;
 		listBridgeRooms: (input: BridgeTarget) => Promise<BridgeRemoteRoom[]>;
 		getBridgePairing: (code: string) => Promise<BridgePairingView>;

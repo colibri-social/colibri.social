@@ -366,6 +366,19 @@ export const toLiveEvents = (
 		];
 	}
 
+	if (frameIs(frame, "communityProgressEvent")) {
+		return [
+			{
+				$type: "communityProgressEvent",
+				step: frame.step,
+				completed: frame.completed,
+				total: frame.total,
+				...(frame.community ? { community: asDid(frame.community) } : {}),
+				...(frame.message ? { message: frame.message } : {}),
+			},
+		];
+	}
+
 	if (frameIs(frame, "invitationEvent")) {
 		return [
 			{

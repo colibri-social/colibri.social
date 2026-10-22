@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "query",
-			"description": "Lists the repo-backed communities the requesting user belongs to that have not been migrated onto spaces yet, so a client can offer them as a choice rather than asking for a handle. The AppView reads this live from the user's own public repo and each candidate's public repo, because nothing about an unmigrated community is indexed. Only a community that holds its own DID is listed: an older community that lived in its owner's repo cannot be migrated.",
+			"description": "Lists the repo-backed communities the requesting user belongs to that have not finished moving onto spaces. The AppView reads this live from the user's own public repo and each candidate's public repo. A community that cannot move, such as one inside its owner's repo or one whose repo did not respond, is listed in state blocked with a reason.",
 			"parameters": {
 				"type": "params",
 				"required": [],
@@ -12,7 +12,7 @@
 					"includeUnadministered": {
 						"type": "boolean",
 						"default": false,
-						"description": "Whether to include communities the user belongs to but cannot migrate. They come back with viewerIsAdmin false."
+						"description": "Whether to include communities the user belongs to but does not administer. They come back with viewerIsAdmin false."
 					}
 				}
 			},
@@ -32,15 +32,6 @@
 								"description": "An unmigrated legacy community."
 							},
 							"description": "Unmigrated legacy communities, in the user's preferred sidebar order where the legacy repo recorded one. This is not paginated: a user's community list is small and every entry costs a live read."
-						},
-						"unreadable": {
-							"type": "array",
-							"items": {
-								"type": "string",
-								"format": "did",
-								"description": "A community DID whose repo could not be read."
-							},
-							"description": "Communities named by the user's repo whose own repo could not be read, so the client can say so instead of silently dropping them."
 						}
 					}
 				}

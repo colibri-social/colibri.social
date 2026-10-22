@@ -73,6 +73,11 @@
 					"type": "integer",
 					"description": "How many of those messages were moved in from somewhere else."
 				},
+				"lastMessage": {
+					"type": "ref",
+					"ref": "social.colibri.beta.channel.defs#channelSummary",
+					"description": "The latest message in the thread the requesting user may see, reduced to what a thread list preview shows. Its channel is the thread's space. Absent when the thread holds no message the user may see."
+				},
 				"participants": {
 					"type": "array",
 					"items": {

@@ -75,6 +75,7 @@ export type AdminLayer = {
 };
 
 export type CreateSpaceLayer = { kind: "createSpace" };
+export type LegacySpaceLayer = { kind: "legacySpace"; did: string };
 export type DiscoverLayer = { kind: "discover" };
 export type JoinLayer = { kind: "join"; code: string };
 export type PackLayer = { kind: "pack"; did: string; rkey: string };
@@ -83,6 +84,7 @@ export type NotFoundLayer = { kind: "notFound"; path: string };
 
 export type AppLayer =
 	| CreateSpaceLayer
+	| LegacySpaceLayer
 	| DiscoverLayer
 	| JoinLayer
 	| PackLayer
@@ -129,6 +131,7 @@ export const isChannelLayer = (
 
 const OVERLAY_KINDS: readonly Layer["kind"][] = [
 	"createSpace",
+	"legacySpace",
 	"discover",
 	"join",
 	"pack",
@@ -143,6 +146,7 @@ export const isSheetLayer = (layer: Layer | undefined) =>
 
 export const PROFILE_EDIT_PATH = "/app/profile/edit";
 export const CREATE_SPACE_PATH = "/app/new";
+export const LEGACY_SPACE_PATH = "/app/legacy";
 export const DISCOVER_PATH = "/app/discover";
 export const SETTINGS_PATH = "/app/settings";
 export const INBOX_PATH = "/app/inbox";
@@ -197,6 +201,8 @@ export const layerPath = (layer: Layer) => {
 	}
 	if (layer.kind === "inbox") return INBOX_PATH;
 	if (layer.kind === "createSpace") return CREATE_SPACE_PATH;
+	if (layer.kind === "legacySpace")
+		return `${LEGACY_SPACE_PATH}/${segment(layer.did)}`;
 	if (layer.kind === "discover") return DISCOVER_PATH;
 	if (layer.kind === "join") return `/app/invite/${segment(layer.code)}`;
 	if (layer.kind === "pack") return packPath(layer);
@@ -279,6 +285,12 @@ const parseKnownPath = (parts: readonly string[]): Route | undefined => {
 	}
 	if (head === "new" && length === 2) {
 		return { root: { tab: "spaces" }, layers: [{ kind: "createSpace" }] };
+	}
+	if (head === "legacy" && space && length === 3) {
+		return {
+			root: { tab: "spaces" },
+			layers: [{ kind: "legacySpace", did: space }],
+		};
 	}
 	if (DISCOVERY_ENABLED && head === "discover" && length === 2) {
 		return { root: { tab: "spaces" }, layers: [{ kind: "discover" }] };

@@ -30,6 +30,7 @@ export type AppViewErrorCode =
 	| "NotFetchable"
 	| "NotFound"
 	| "NotInVoice"
+	| "NotMigratable"
 	| "PdsUnavailable"
 	| "PushNotConfigured"
 	| "RateLimited"
@@ -150,6 +151,7 @@ const APPVIEW_CODES = new Set<string>([
 	"NotFetchable",
 	"NotFound",
 	"NotInVoice",
+	"NotMigratable",
 	"PdsUnavailable",
 	"PushNotConfigured",
 	"RateLimited",

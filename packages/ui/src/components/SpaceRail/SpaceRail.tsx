@@ -1,5 +1,7 @@
 import { AddIcon } from "@solar-icons/solid/bold/add";
 import { CompassIcon } from "@solar-icons/solid/bold/compass";
+import { LockKeyholeMinimalisticIcon } from "@solar-icons/solid/bold/lock-keyhole-minimalistic";
+import { RefreshIcon } from "@solar-icons/solid/bold/refresh";
 import {
 	type Accessor,
 	createContext,
@@ -557,6 +559,7 @@ export type SpaceRailItemProps = {
 	active?: boolean;
 	unread?: boolean;
 	mentions?: number;
+	locked?: "waiting" | "moving";
 	onSelect?: () => void;
 	onMenu?: (event: Event) => void;
 	class?: string;
@@ -569,6 +572,8 @@ export const railPillHeight = (state: {
 
 const itemLabel = (props: SpaceRailItemProps) => {
 	const parts = [props.name];
+	if (props.locked === "moving") parts.push("moving to Spaces");
+	else if (props.locked) parts.push("not on Spaces yet");
 	if (props.mentions && props.mentions > 0)
 		parts.push(
 			`${props.mentions} ${props.mentions === 1 ? "mention" : "mentions"}`,
@@ -681,7 +686,10 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 					>
 						<span
 							data-rail-icon=""
-							class="relative block size-full overflow-hidden rounded-control"
+							class={cx(
+								"relative block size-full overflow-hidden rounded-control",
+								props.locked && "opacity-60",
+							)}
 						>
 							<SpaceIcon
 								name={props.name}
@@ -698,6 +706,22 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 							/>
 						</span>
 						<span class="sr-only">{itemLabel(props)}</span>
+						<Show when={props.locked}>
+							{(locked) => (
+								<span
+									aria-hidden="true"
+									data-rail-locked={locked()}
+									class="absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground shadow-[0_0_0_3px_var(--background)] [&_svg]:size-3"
+								>
+									<Show
+										when={locked() === "moving"}
+										fallback={<LockKeyholeMinimalisticIcon />}
+									>
+										<RefreshIcon />
+									</Show>
+								</span>
+							)}
+						</Show>
 						<Show when={props.mentions && props.mentions > 0}>
 							<CountBadge
 								aria-hidden="true"

@@ -1,4 +1,5 @@
 import type { ControlsPreferences } from "../source";
+import type { Did } from "../types";
 import {
 	BLUESKY_CLIENTS,
 	type BlueskyClient,
@@ -33,6 +34,7 @@ export type ResolvedClient = {
 		showOwnCamera: boolean;
 	};
 	experiments: string[];
+	dismissedLegacyCommunities: Did[];
 };
 
 const oneOf = <T extends string>(
@@ -90,6 +92,7 @@ export const resolveClient = (
 		showOwnCamera: client.voiceView?.showOwnCamera ?? true,
 	},
 	experiments: [...(client.experiments ?? [])],
+	dismissedLegacyCommunities: [...(client.dismissedLegacyCommunities ?? [])],
 });
 
 export const controlsOf = (client: ResolvedClient): ControlsPreferences => ({

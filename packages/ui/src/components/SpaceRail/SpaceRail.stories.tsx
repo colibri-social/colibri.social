@@ -213,6 +213,71 @@ export const States: Story = {
 	},
 };
 
+const onLockedSelect = fn();
+
+const LockedRail = (props: { platform?: SpaceRailPlatform }) => (
+	<div class="flex h-dvh bg-background">
+		<SpaceRail platform={props.platform}>
+			<SpaceRailItem
+				name="Colibri Social Flock"
+				iconSrc={storyImages.violetIcon()}
+				active
+			/>
+			<SpaceRailItem
+				name="Night Owls"
+				iconSrc={storyImages.tealIcon()}
+				locked="waiting"
+				onSelect={() => onLockedSelect("owls")}
+			/>
+			<SpaceRailItem
+				name="Finch Club"
+				locked="moving"
+				onSelect={() => onLockedSelect("finches")}
+			/>
+		</SpaceRail>
+		<div class={`${spaceRailMobilePanelClass} min-w-0 flex-1`} />
+	</div>
+);
+
+const expectLockBadges = async (canvasElement: HTMLElement) => {
+	const canvas = within(canvasElement);
+	const waiting = canvas.getByRole("button", {
+		name: "Night Owls, not on Spaces yet",
+	});
+	const moving = canvas.getByRole("button", {
+		name: "Finch Club, moving to Spaces",
+	});
+	for (const [button, state] of [
+		[waiting, "waiting"],
+		[moving, "moving"],
+	] as const) {
+		const badge = button.querySelector(`[data-rail-locked="${state}"]`);
+		await expect(badge).not.toBeNull();
+		const icon = rectOf(button.querySelector("[data-rail-icon]"));
+		const mark = rectOf(badge);
+		near(mark.right, icon.right + 4);
+		near(mark.bottom, icon.bottom + 4);
+		const dimmed = button.querySelector("[data-rail-icon]") as HTMLElement;
+		await expect(getComputedStyle(dimmed).opacity).toBe("0.6");
+	}
+	const active = canvas.getByRole("button", { name: "Colibri Social Flock" });
+	await expect(active.querySelector("[data-rail-locked]")).toBeNull();
+	onLockedSelect.mockClear();
+	await userEvent.click(waiting);
+	await expect(onLockedSelect).toHaveBeenCalledWith("owls");
+};
+
+export const LockedSpaces: Story = {
+	render: () => <LockedRail />,
+	play: async ({ canvasElement }) => expectLockBadges(canvasElement),
+};
+
+export const LockedSpacesDesktop: Story = {
+	parameters: { viewport: { defaultViewport: "desktop" } },
+	render: () => <LockedRail platform="desktop" />,
+	play: async ({ canvasElement }) => expectLockBadges(canvasElement),
+};
+
 const measureFigma = async (
 	canvasElement: HTMLElement,
 	platform: SpaceRailPlatform,

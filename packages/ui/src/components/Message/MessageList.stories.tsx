@@ -804,6 +804,59 @@ export const Dividers: Story = {
 	},
 };
 
+const SEAM_LABEL =
+	"Moved to Spaces by @lou.colibri.social on 20 October 2026. Messages above are read-only.";
+
+export const MigrationSeam: Story = {
+	render: () => (
+		<div class="flex h-dvh flex-col bg-background text-foreground">
+			<MessageList
+				label="Messages in general"
+				messages={dividerMessages}
+				getKey={(message) => message.id}
+				seamAfter="d"
+				seamLabel={SEAM_LABEL}
+				now={DIVIDER_NOW}
+				locale="en-GB"
+			>
+				{(entry) => (
+					<MessageRow
+						author={{ name: entry().message.name }}
+						timestamp={entry().message.timestamp}
+						now={DIVIDER_NOW}
+						locale="en-GB"
+						continuation={entry().continuation}
+					>
+						{entry().message.text}
+					</MessageRow>
+				)}
+			</MessageList>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await settled(canvasElement);
+		const seams = canvasElement.querySelectorAll("[data-migration-divider]");
+		await expect(seams).toHaveLength(1);
+		const seam = seams[0] as HTMLElement;
+		await expect(seam).toHaveTextContent(SEAM_LABEL);
+		const item = seam.closest("[data-message-list-item]") as HTMLElement;
+		await expect(item.querySelector("article")).toHaveAttribute(
+			"data-message-key",
+			"d",
+		);
+		const after = canvasElement.querySelector(
+			"[data-message-key='e']",
+		) as HTMLElement;
+		await expect(after).not.toHaveAttribute("data-continuation");
+		const label = seam.querySelector("span:not([aria-hidden])") as HTMLElement;
+		const row = seam.getBoundingClientRect();
+		const text = label.getBoundingClientRect();
+		await expect(text.left).toBeGreaterThanOrEqual(row.left);
+		await expect(text.right).toBeLessThanOrEqual(row.right);
+		await expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1);
+	},
+};
+
 type StableRowMessage = {
 	id: string;
 	author: string;

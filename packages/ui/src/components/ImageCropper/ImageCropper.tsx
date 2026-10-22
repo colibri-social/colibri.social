@@ -53,6 +53,7 @@ const FRAME_INSET = 16;
 const CROP_SUBJECT: Record<ImageCropShape, string> = {
 	avatar: "Picture",
 	banner: "Banner",
+	spaceBanner: "Banner",
 	emoji: "Emoji",
 };
 const SETTLE_MS = 220;

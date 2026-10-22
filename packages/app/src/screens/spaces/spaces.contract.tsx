@@ -536,6 +536,8 @@ export const spaces = defineContract({
 			missing,
 			inviteDrawer,
 			openCreateSpace: () => stack.push({ kind: "createSpace" }),
+			legacyCommunities: () => data.legacy.list(),
+			openLegacy: (did: string) => stack.push({ kind: "legacySpace", did }),
 			openDiscover: DISCOVERY_ENABLED
 				? () => stack.push({ kind: "discover" })
 				: undefined,
@@ -655,6 +657,16 @@ export const spaces = defineContract({
 								</Show>
 							);
 						}}
+					</For>
+					<For each={m.legacyCommunities()}>
+						{(legacy) => (
+							<SpaceRailItem
+								name={legacy.name}
+								iconSrc={legacy.picture}
+								locked={legacy.state === "migrating" ? "moving" : "waiting"}
+								onSelect={() => m.openLegacy(legacy.did)}
+							/>
+						)}
 					</For>
 					<m.leaveSpace.Dialog />
 					<m.inviteDrawer.Overlay />

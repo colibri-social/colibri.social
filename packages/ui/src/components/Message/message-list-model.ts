@@ -10,6 +10,7 @@ export type MessageListEntry<T extends GroupableMessage> = GroupedMessage<T> & {
 	key: string;
 	position: number;
 	unreadStart: boolean;
+	seamEnd: boolean;
 };
 
 export const buildMessageEntries = <T extends GroupableMessage>(
@@ -17,6 +18,7 @@ export const buildMessageEntries = <T extends GroupableMessage>(
 	getKey: (message: T) => string,
 	unreadAfter?: string,
 	options?: GroupMessagesOptions,
+	seamAfter?: string,
 ): MessageListEntry<T>[] => {
 	const grouped = groupMessages(messages, options);
 	let unreadIndex = -1;
@@ -27,13 +29,24 @@ export const buildMessageEntries = <T extends GroupableMessage>(
 		if (lastRead !== -1 && lastRead < messages.length - 1)
 			unreadIndex = lastRead + 1;
 	}
+	const seamIndex =
+		seamAfter === undefined
+			? -1
+			: messages.findIndex((message) => getKey(message) === seamAfter);
 	return grouped.map((entry, index) => ({
 		...entry,
 		key: getKey(entry.message),
 		position: index + 1,
 		unreadStart: index === unreadIndex,
-		continuation: entry.continuation && index !== unreadIndex,
-		hasContinuation: entry.hasContinuation && index + 1 !== unreadIndex,
+		seamEnd: index === seamIndex,
+		continuation:
+			entry.continuation &&
+			index !== unreadIndex &&
+			(seamIndex === -1 || index !== seamIndex + 1),
+		hasContinuation:
+			entry.hasContinuation &&
+			index + 1 !== unreadIndex &&
+			(seamIndex === -1 || index !== seamIndex),
 	}));
 };
 
@@ -62,6 +75,7 @@ export const createEntryCell = <T extends GroupableMessage>(
 		field("newDay"),
 		field("last"),
 		field("unreadStart"),
+		field("seamEnd"),
 	];
 	return {
 		entry,

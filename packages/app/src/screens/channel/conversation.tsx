@@ -98,6 +98,7 @@ import {
 	pendingChatMessage,
 	toChatMessage,
 } from "./message/types";
+import { lastLegacyKey, migrationSeamLabel } from "./migration-seam";
 import { createPendingMediaUrls } from "./pending-media";
 import { createMessageSelection } from "./selection/selection";
 import { indexThreadAnchors, threadAnchorKey } from "./thread-anchors";
@@ -615,6 +616,16 @@ export const createConversation = (options: ConversationOptions) => {
 			: did === data.viewer.did
 				? displayNameOf(data.viewer)
 				: "Someone";
+	};
+
+	const seamAfter = createMemo(() =>
+		community()?.migration ? lastLegacyKey(items()) : undefined,
+	);
+	const seamLabel = () => {
+		const migration = community()?.migration;
+		if (!migration) return undefined;
+		const handle = memberMap().get(migration.by)?.actor.handle;
+		return migrationSeamLabel(migration, handle);
 	};
 
 	const keyFor = (rkey: string) => data.nonceFor(rkey) ?? rkey;
@@ -1158,6 +1169,8 @@ export const createConversation = (options: ConversationOptions) => {
 		writable,
 		feed,
 		items,
+		seamAfter,
+		seamLabel,
 		unavailable,
 		links,
 		attachments,
@@ -1229,6 +1242,8 @@ export const ConversationMessages = (props: {
 								const rkey = m.feed()?.unreadAfter();
 								return rkey ? (m.data.nonceFor(rkey) ?? rkey) : undefined;
 							})()}
+							seamAfter={m.seamAfter()}
+							seamLabel={m.seamLabel()}
 							isOwnMessage={(message) => message.author === m.data.viewer.did}
 							getAuthorName={(message) => m.nameOf(message.author)}
 							locale="en-GB"

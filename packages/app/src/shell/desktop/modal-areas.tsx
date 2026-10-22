@@ -26,6 +26,7 @@ type Area =
 	| "settings"
 	| "inbox"
 	| "createSpace"
+	| "legacySpace"
 	| "discover"
 	| "join"
 	| "pack";
@@ -39,6 +40,7 @@ const areas: Record<Area, (props: ModalAreaProps) => JSX.Element> = {
 	settings: lazy(() => import("../../screens/settings/desktop/settings-modal")),
 	inbox: lazy(() => import("../../screens/inbox/desktop-modal")),
 	createSpace: lazy(() => import("../../screens/create-space/desktop-modal")),
+	legacySpace: lazy(() => import("../../screens/legacy-space/desktop-modal")),
 	discover: lazy(() => import("../../screens/discover/desktop-modal")),
 	join: lazy(() => import("../../screens/join/desktop-modal")),
 	pack: lazy(() => import("../../screens/pack/desktop-modal")),
@@ -66,6 +68,7 @@ export const areaOf = (layer: Layer | undefined): Area | undefined => {
 	if (layer.kind === "settings") return "settings";
 	if (layer.kind === "inbox") return "inbox";
 	if (layer.kind === "createSpace") return "createSpace";
+	if (layer.kind === "legacySpace") return "legacySpace";
 	if (layer.kind === "discover") return "discover";
 	if (layer.kind === "join") return "join";
 	if (layer.kind === "pack") return "pack";

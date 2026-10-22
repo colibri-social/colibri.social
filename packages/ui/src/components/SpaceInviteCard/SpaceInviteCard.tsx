@@ -74,7 +74,7 @@ const ReadyInvite = (
 			src={props.space.bannerSrc}
 			tintFrom={props.space.iconSrc}
 			color={props.space.bannerColor}
-			class="aspect-[3/1]"
+			ratio="space"
 		/>
 		<div class="flex flex-col gap-3 px-4 pb-4">
 			<SpaceIcon
@@ -173,7 +173,7 @@ export const SpaceInviteCardSkeleton = (props: { class?: string }) => (
 		data-invite-card-skeleton=""
 		class={cx(surfaceClass, props.class)}
 	>
-		<Skeleton class="block aspect-[3/1] w-full rounded-none" />
+		<Skeleton class="block aspect-[2/1] w-full rounded-none" />
 		<div class="flex flex-col gap-3 px-4 pb-4">
 			<Skeleton
 				width={64}

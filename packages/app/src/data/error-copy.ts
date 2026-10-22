@@ -123,6 +123,10 @@ export const APP_ERROR_COPY: ErrorCopyCatalog = {
 		description: "The link still works if you open it.",
 	},
 	NotInVoice: { title: "They've already left the call" },
+	NotMigratable: {
+		title: "This can't move to Spaces",
+		description: "It was made with an early version of Colibri.",
+	},
 	NotJoined: {
 		title: "You're not in that call",
 		description: "Join the voice channel and try again.",

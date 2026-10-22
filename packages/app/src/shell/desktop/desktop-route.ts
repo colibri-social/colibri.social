@@ -29,6 +29,7 @@ const MODAL_KINDS: readonly Layer["kind"][] = [
 	"inbox",
 	"editProfile",
 	"createSpace",
+	"legacySpace",
 	"discover",
 	"join",
 	"pack",

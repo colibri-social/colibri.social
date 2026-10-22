@@ -85,6 +85,31 @@ describe("buildMessageEntries", () => {
 		).toBe(false);
 	});
 
+	it("closes the group at the migration seam", () => {
+		const entries = buildMessageEntries(
+			[message("a", "lou", 0), message("b", "lou", 1), message("c", "lou", 2)],
+			key,
+			undefined,
+			undefined,
+			"b",
+		);
+		expect(entries.map((entry) => entry.seamEnd)).toEqual([false, true, false]);
+		expect(entries[1]?.hasContinuation).toBe(false);
+		expect(entries[2]?.continuation).toBe(false);
+		expect(entries[1]?.continuation).toBe(true);
+	});
+
+	it("marks the seam after the last message when nothing came after the move", () => {
+		const entries = buildMessageEntries(
+			[message("a", "lou", 0), message("b", "lou", 1)],
+			key,
+			undefined,
+			undefined,
+			"b",
+		);
+		expect(entries.at(-1)?.seamEnd).toBe(true);
+	});
+
 	it("marks day boundaries", () => {
 		const entries = buildMessageEntries(
 			[message("a", "lou", 0, 6), message("b", "lou", 1, 7)],

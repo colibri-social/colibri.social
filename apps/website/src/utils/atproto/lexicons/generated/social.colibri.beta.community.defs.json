@@ -83,6 +83,11 @@
 					"format": "at-uri",
 					"description": "The repo-backed community this one replaces, if any."
 				},
+				"migration": {
+					"type": "ref",
+					"ref": "#migrationInfo",
+					"description": "When and by whom this community moved from its repo-backed predecessor. Set on migrated communities."
+				},
 				"memberCount": {
 					"type": "integer",
 					"description": "Number of admitted members."
@@ -725,6 +730,105 @@
 				"viewerIsAdmin": {
 					"type": "boolean",
 					"description": "Whether the requesting user may migrate this community. Only an administrator of the legacy community can."
+				},
+				"picture": {
+					"type": "string",
+					"format": "uri",
+					"description": "URL of the legacy community's icon, served by this AppView's blob proxy."
+				},
+				"owner": {
+					"type": "ref",
+					"ref": "#legacyOwner",
+					"description": "The member who owns the legacy community, for members to ask about the move."
+				},
+				"state": {
+					"type": "string",
+					"knownValues": [
+						"migratable",
+						"migrating",
+						"blocked"
+					],
+					"description": "Where the community stands. migratable waits for an administrator, migrating is moving now, blocked cannot move. Absent means migratable."
+				},
+				"blockedReason": {
+					"type": "string",
+					"knownValues": [
+						"ownerRepo",
+						"unreadable",
+						"noAdmin"
+					],
+					"description": "Why a blocked community cannot move. ownerRepo lives inside its owner's repo, unreadable has a repo that did not respond, noAdmin has nobody left who may migrate it."
+				},
+				"progress": {
+					"type": "ref",
+					"ref": "#migrationProgress",
+					"description": "How far a running migration has come. Set while state is migrating."
+				}
+			}
+		},
+		"legacyOwner": {
+			"type": "object",
+			"description": "The owner of a legacy community.",
+			"required": [
+				"did"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "The owner's DID."
+				},
+				"handle": {
+					"type": "string",
+					"format": "handle",
+					"description": "The owner's handle, when it resolves."
+				}
+			}
+		},
+		"migrationProgress": {
+			"type": "object",
+			"description": "How far a migration has come.",
+			"required": [
+				"step",
+				"completed",
+				"total"
+			],
+			"properties": {
+				"step": {
+					"type": "string",
+					"description": "The step running now. Same values as social.colibri.beta.sync.defs#communityProgressEvent."
+				},
+				"completed": {
+					"type": "integer",
+					"description": "Steps finished."
+				},
+				"total": {
+					"type": "integer",
+					"description": "Steps in total."
+				},
+				"failed": {
+					"type": "boolean",
+					"description": "Whether the last attempt failed. Starting the migration again resumes it from the last finished step."
+				}
+			}
+		},
+		"migrationInfo": {
+			"type": "object",
+			"description": "When and by whom a community moved onto spaces.",
+			"required": [
+				"at",
+				"by"
+			],
+			"properties": {
+				"at": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the migration finished."
+				},
+				"by": {
+					"type": "string",
+					"format": "did",
+					"description": "The administrator who started it."
 				}
 			}
 		}

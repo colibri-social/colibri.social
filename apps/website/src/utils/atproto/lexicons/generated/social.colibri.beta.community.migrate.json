@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "procedure",
-			"description": "Migrates a repo-backed community onto spaces. Structure is recreated in new spaces and stamped with migratedFrom. Message history stays in the legacy public repos and is served alongside, because messages live in their authors' repos and only their authors can move them.",
+			"description": "Starts moving a repo-backed community onto spaces and returns once the move is queued. Structure, roles, members and bans are recreated in spaces stamped with migratedFrom. Message history of current members is copied from their public repos and served alongside as read-only legacy messages. The move runs in the background and reports progress through social.colibri.beta.sync.defs#communityProgressEvent. Calling it again while it runs returns the current state, and calling it after a failed attempt resumes from the last finished step.",
 			"input": {
 				"encoding": "application/json",
 				"schema": {
@@ -31,8 +31,8 @@
 					"properties": {
 						"community": {
 							"type": "ref",
-							"ref": "social.colibri.beta.community.defs#communityView",
-							"description": "The newly created, space-backed community."
+							"ref": "social.colibri.beta.community.defs#legacyCommunityView",
+							"description": "The legacy community, in state migrating with its progress."
 						}
 					}
 				}
@@ -53,6 +53,10 @@
 				{
 					"name": "AlreadyExists",
 					"description": "This legacy community has already been migrated."
+				},
+				{
+					"name": "NotMigratable",
+					"description": "The community cannot move onto spaces, for example because it lives inside its owner's repo."
 				},
 				{
 					"name": "CredentialsUnavailable",

@@ -121,6 +121,10 @@ const CATALOG: ErrorCopyCatalog = {
 	NotInVoice: {
 		title: "They've left the call.",
 	},
+	NotMigratable: {
+		title: "This community can't move to Spaces.",
+		description: "It was made with an early version of Colibri.",
+	},
 	NotJoined: {
 		title: "You're not in that call.",
 		description: "Join the channel and try again.",

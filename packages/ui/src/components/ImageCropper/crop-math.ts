@@ -1,4 +1,4 @@
-export type ImageCropShape = "avatar" | "banner" | "emoji";
+export type ImageCropShape = "avatar" | "banner" | "spaceBanner" | "emoji";
 
 export type Size = { width: number; height: number };
 
@@ -9,12 +9,14 @@ export type CropRect = { x: number; y: number; width: number; height: number };
 export const CROP_ASPECT: Record<ImageCropShape, number> = {
 	avatar: 1,
 	banner: 3,
+	spaceBanner: 2,
 	emoji: 1,
 };
 
 export const CROP_OUTPUT: Record<ImageCropShape, Size> = {
 	avatar: { width: 512, height: 512 },
 	banner: { width: 1500, height: 500 },
+	spaceBanner: { width: 1500, height: 750 },
 	emoji: { width: 128, height: 128 },
 };
 
@@ -133,6 +135,7 @@ const EXTENSIONS: Record<string, string> = {
 export const CROP_FALLBACK_TYPE: Record<ImageCropShape, string> = {
 	avatar: "image/jpeg",
 	banner: "image/jpeg",
+	spaceBanner: "image/jpeg",
 	emoji: "image/png",
 };
 
