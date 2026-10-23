@@ -10,6 +10,13 @@ export type BlobRef = {
 
 export type StoredRecord = { uri: string; cid?: string; value: unknown };
 
+export type SpaceListedRecord = {
+	collection: string;
+	rkey: string;
+	cid?: string;
+	value?: unknown;
+};
+
 type SpaceTarget = {
 	space: string;
 	collection: string;
@@ -70,12 +77,12 @@ export const createRecords = (transport: Transport) => {
 		findInSpace: async (
 			target: { space: string; collection: string; repo?: string },
 			match: (value: Record<string, unknown>) => boolean,
-		): Promise<StoredRecord | undefined> => {
+		): Promise<SpaceListedRecord | undefined> => {
 			let cursor: string | undefined;
 			for (let page = 0; page < RECORD_SCAN_LIMIT; page++) {
 				const result = await transport.pdsQuery<{
 					cursor?: string;
-					records: StoredRecord[];
+					records: SpaceListedRecord[];
 				}>("com.atproto.space.listRecords", {
 					params: {
 						space: target.space,
@@ -98,13 +105,13 @@ export const createRecords = (transport: Transport) => {
 			space: string;
 			collection: string;
 			repo?: string;
-		}): Promise<StoredRecord[]> => {
-			const found: StoredRecord[] = [];
+		}): Promise<SpaceListedRecord[]> => {
+			const found: SpaceListedRecord[] = [];
 			let cursor: string | undefined;
 			for (let page = 0; page < RECORD_SCAN_LIMIT; page++) {
 				const result = await transport.pdsQuery<{
 					cursor?: string;
-					records: StoredRecord[];
+					records: SpaceListedRecord[];
 				}>("com.atproto.space.listRecords", {
 					params: {
 						space: target.space,

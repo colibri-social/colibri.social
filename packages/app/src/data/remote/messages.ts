@@ -419,7 +419,7 @@ export const createMessageWrites = (deps: {
 						);
 					},
 				);
-				rkey = found?.uri.split("/").at(-1);
+				rkey = found?.rkey;
 			}
 			if (!rkey) {
 				log.warn("reaction record missing", { method: "reaction.delete" });

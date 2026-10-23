@@ -76,8 +76,6 @@ export const createPreferencesSpace = (transport: Transport) => {
 
 export type PreferencesSpace = ReturnType<typeof createPreferencesSpace>;
 
-const rkeyOf = (uri: string) => uri.slice(uri.lastIndexOf("/") + 1);
-
 export const createRemotePreferenceBackend = (input: {
 	transport: Transport;
 	records: Records;
@@ -172,7 +170,7 @@ export const createRemotePreferenceBackend = (input: {
 					const mute = decodeMute(
 						(record.value ?? {}) as Parameters<typeof decodeMute>[0],
 					);
-					return mute ? [{ rkey: rkeyOf(record.uri), mute }] : [];
+					return mute ? [{ rkey: record.rkey, mute }] : [];
 				});
 			} catch (error) {
 				if (isMissingSpace(error)) return [];

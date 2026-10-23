@@ -44,8 +44,6 @@ const hostOf = (description: ServerDescription): DeletionHost => ({
 	contactEmail: description.contact?.email || undefined,
 });
 
-const rkeyOf = (uri: string) => uri.slice(uri.lastIndexOf("/") + 1);
-
 export const createDeletion = (input: {
 	transport: Transport;
 	records: Records;
@@ -88,7 +86,7 @@ export const createDeletion = (input: {
 					collection,
 				});
 				for (const record of listed)
-					found.push({ collection, rkey: rkeyOf(record.uri) });
+					found.push({ collection, rkey: record.rkey });
 			} catch (error) {
 				if (error instanceof ColibriError && MISSING.has(error.code)) continue;
 				throw error;

@@ -27,11 +27,11 @@ const setup = (options: { failDelete?: string } = {}) => {
 	} as unknown as Transport;
 	const listInSpace = vi.fn(async ({ collection }: { collection: string }) => {
 		if (collection === PERSONAL_COLLECTIONS[0])
-			return [{ uri: `${SPACE}/${collection}/self`, value: {} }];
+			return [{ collection, rkey: "self", cid: "bafyself", value: {} }];
 		if (collection === PERSONAL_COLLECTIONS[3])
 			return [
-				{ uri: `${SPACE}/${collection}/a`, value: {} },
-				{ uri: `${SPACE}/${collection}/b`, value: {} },
+				{ collection, rkey: "a", cid: "bafya", value: {} },
+				{ collection, rkey: "b", cid: "bafyb", value: {} },
 			];
 		throw new ColibriError({ code: "NotFound" });
 	});

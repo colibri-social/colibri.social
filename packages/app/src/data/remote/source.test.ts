@@ -607,7 +607,9 @@ describe("createRemoteSource", () => {
 				json({
 					records: [
 						{
-							uri: `${CHANNEL}/${VIEWER}/social.colibri.beta.reaction/old`,
+							collection: "social.colibri.beta.reaction",
+							rkey: "old",
+							cid: "bafyold",
 							value: { emoji: "🔥", target: { did: OTHER, rkey: "7" } },
 						},
 					],
@@ -1393,6 +1395,66 @@ describe("createRemoteSource", () => {
 		expect(source.preferences.leftAt(THREAD)).toBe(
 			Date.parse("2026-10-23T10:00:00.000Z"),
 		);
+	});
+
+	it("unmutes a Space through the rkey of its listed mute record", async () => {
+		const muted = {
+			subject: {
+				$type: "social.colibri.beta.actor.defs#mutedActor",
+				did: COMMUNITY,
+			},
+			createdAt: "2026-10-20T10:00:00.000Z",
+		};
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				colibri.actor.getPreferences.main.nsid,
+				json({
+					preferences: {
+						notificationLevel: "all",
+						communityOrder: [],
+						mutes: [muted],
+						gifFavorites: [],
+					},
+				}),
+			);
+			fake.on(
+				"com.atproto.space.listRecords",
+				json({
+					records: [
+						{
+							collection: "social.colibri.beta.actor.mute",
+							rkey: "3mutespace",
+							cid: "bafymute",
+							value: muted,
+						},
+					],
+				}),
+			);
+			fake.on("com.atproto.space.deleteRecord", json({}));
+			fake.on(
+				colibri.actor.putMutes.main.nsid,
+				json({
+					preferences: {
+						notificationLevel: "all",
+						communityOrder: [],
+						mutes: [],
+						gifFavorites: [],
+					},
+				}),
+			);
+		});
+		const space = { kind: "actor", did: COMMUNITY } as const;
+		expect(source.preferences.isMuted(space)).toBe(true);
+
+		expect(await source.preferences.setMuted(space, false)).toBe(true);
+
+		expect(
+			(only(fake.callsTo("com.atproto.space.deleteRecord")).body as any).rkey,
+		).toBe("3mutespace");
+		const body = fake.callsTo(colibri.actor.putMutes.main.nsid).at(-1)
+			?.body as any;
+		expect(body.mutes).toEqual([]);
+		expect(source.preferences.isMuted(space)).toBe(false);
 	});
 
 	it("writes the settings record, then pushes GIF favorites", async () => {
