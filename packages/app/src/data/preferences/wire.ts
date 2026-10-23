@@ -7,6 +7,7 @@ import {
 	DEFAULT_COMPOSER,
 	DEFAULT_PREFERENCES,
 	type EmojiUse,
+	type LeftThread,
 	type Mute,
 	type MuteSubject,
 	type MuteWire,
@@ -173,6 +174,23 @@ const decodeSpaceModeration = (
 	return options;
 };
 
+const isDatetime = (value: unknown): value is Datetime =>
+	typeof value === "string" && !Number.isNaN(Date.parse(value));
+
+export const decodeLeftThreads = (entries: unknown): LeftThread[] => {
+	if (!Array.isArray(entries)) return [];
+	return entries.flatMap((entry: { thread?: unknown; leftAt?: unknown }) =>
+		entry && typeof entry.thread === "string" && isDatetime(entry.leftAt)
+			? [{ thread: entry.thread as SpaceRef, leftAt: entry.leftAt }]
+			: [],
+	);
+};
+
+export const encodeLeftThread = (entry: LeftThread) => ({
+	thread: entry.thread,
+	leftAt: entry.leftAt,
+});
+
 export const fromWire = (wire: Partial<PreferencesWire>): Preferences => ({
 	notificationLevel: asLevel(wire.notificationLevel),
 	communityOrder: [...(wire.communityOrder ?? [])] as Did[],
@@ -182,6 +200,7 @@ export const fromWire = (wire: Partial<PreferencesWire>): Preferences => ({
 		const mute = decodeMute(entry);
 		return mute ? [mute] : [];
 	}),
+	leftThreads: decodeLeftThreads(wire.leftThreads),
 	spaceLevels: decodeSpaceLevels(wire.spaceNotifications),
 	spaceModeration: decodeSpaceModeration(wire.spaceModerations),
 	client: decodeClient(wire.clientPreferences),

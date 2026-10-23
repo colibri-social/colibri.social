@@ -23,7 +23,7 @@ describe("transfer error copy", () => {
 		).toEqual({
 			title: TRANSFER_COPY.failed,
 			description:
-				"An owner has to reconnect the Space before this works again.",
+				"The owner has to sign in again before new messages and changes can be saved.",
 		});
 		expect(transferErrorCopy(new Error("boom")).description).toBe(
 			"Give it another try. If it keeps happening, restart Colibri.",

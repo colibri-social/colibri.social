@@ -138,6 +138,78 @@ describe("create a Space", () => {
 		expect(store.communities.value()?.length).toBe(before);
 	});
 
+	const useOwnAccount = async (view: HTMLElement, account: string) => {
+		buttonNamed(view, "Change who hosts this Space")?.click();
+		await until(() =>
+			(document.body.textContent ?? "").includes("Use an account I own"),
+		);
+		await until(
+			() => !!document.querySelector("input[type='radio'][value='own']"),
+		);
+		document
+			.querySelector<HTMLInputElement>("input[type='radio'][value='own']")
+			?.click();
+		await until(() => !!fieldLabelled(view, "Account"));
+		await wait(400);
+		typeInto(fieldLabelled(view, "Account"), account);
+	};
+
+	it("creates a Space on an account the viewer owns", async () => {
+		const opened: string[] = [];
+		const open = window.open;
+		window.open = ((url?: string | URL) => {
+			opened.push(String(url));
+			return null;
+		}) as typeof window.open;
+		try {
+			const { root, store } = await mount("/app/new");
+			await until(() => !!screen(root));
+			const view = screen(root) as HTMLElement;
+			typeInto(fieldLabelled(view, "Space name"), "Night Owls");
+			await useOwnAccount(view, "nightowls.example.com");
+			buttonNamed(view, "Sign in and create")?.click();
+			await until(() =>
+				(root.textContent ?? "").includes("Waiting for you to sign in"),
+			);
+			expect(opened).toContain("about:blank");
+			await until(() => location.pathname.startsWith("/app/c/did:plc:"), 8000);
+			const did = location.pathname.split("/")[3] ?? "";
+			expect(store.spaceByKey(did)?.name).toBe("Night Owls");
+		} finally {
+			window.open = open;
+		}
+	});
+
+	it("explains a sign-in as the wrong account", async () => {
+		const open = window.open;
+		window.open = (() => null) as typeof window.open;
+		try {
+			const { root } = await mount("/app/new");
+			await until(() => !!screen(root));
+			const view = screen(root) as HTMLElement;
+			typeInto(fieldLabelled(view, "Space name"), "Night Owls");
+			await useOwnAccount(view, "wrong.example.com");
+			buttonNamed(view, "Sign in and create")?.click();
+			await until(
+				() =>
+					(root.textContent ?? "").includes(
+						"You signed in as a different account",
+					),
+				8000,
+			);
+			expect(root.textContent).toContain("alex.example.com");
+			buttonNamed(root, "Back")?.click();
+			await until(
+				() => !!fieldLabelled(screen(root) as HTMLElement, "Account"),
+			);
+			expect(
+				fieldLabelled(screen(root) as HTMLElement, "Space name").value,
+			).toBe("Night Owls");
+		} finally {
+			window.open = open;
+		}
+	});
+
 	it("closes back to the Space list", async () => {
 		const { root } = await mount("/app");
 		await until(() => !!buttonNamed(root, "Create a Space"));

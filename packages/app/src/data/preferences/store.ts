@@ -2,7 +2,7 @@ import { classifyThrown, createLogger, nextTid } from "@colibri-social/lib";
 import { createSignal } from "solid-js";
 import { readStoredJSON, writeStoredJSON } from "../persist";
 import type { ControlsPreferences } from "../source";
-import type { Datetime, Did, GifView } from "../types";
+import type { Datetime, Did, GifView, SpaceRef } from "../types";
 import {
 	clientChangeOf,
 	controlsOf,
@@ -14,6 +14,7 @@ import {
 	type ClientPreferences,
 	type ComposerState,
 	DEFAULT_PREFERENCES,
+	type LeftThread,
 	type Mute,
 	type MuteSubject,
 	type NotificationLevel,
@@ -220,6 +221,37 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 		});
 	};
 
+	let indexedLeft: readonly LeftThread[] | undefined;
+	let leftTimes = new Map<string, number>();
+	const leftIndex = () => {
+		const list = preferences().leftThreads;
+		if (list !== indexedLeft) {
+			indexedLeft = list;
+			leftTimes = new Map(
+				list.map((entry) => [entry.thread, Date.parse(entry.leftAt)]),
+			);
+		}
+		return leftTimes;
+	};
+	const leftAt = (thread: SpaceRef): number | undefined =>
+		leftIndex().get(thread);
+
+	const setLeft = (thread: SpaceRef, left: boolean) => {
+		if (!left && leftAt(thread) === undefined) return queue.then(() => true);
+		const rest = preferences().leftThreads.filter(
+			(entry) => entry.thread !== thread,
+		);
+		commit({
+			...preferences(),
+			leftThreads: left
+				? [...rest, { thread, leftAt: new Date().toISOString() as Datetime }]
+				: rest,
+		});
+		return enqueue("left threads", () =>
+			backend.putLeftThreads(preferences().leftThreads),
+		);
+	};
+
 	const setSpaceLevel = (
 		community: Did,
 		level: NotificationLevel | undefined,
@@ -317,6 +349,8 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 			update(change, "imported settings"),
 		isMuted,
 		setMuted,
+		leftAt,
+		setLeft,
 		adopt,
 		refresh,
 		settled: async () => {

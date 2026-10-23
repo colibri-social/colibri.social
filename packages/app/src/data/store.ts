@@ -1349,13 +1349,21 @@ export const createDataStore = (
 				),
 			follow: async (thread: ThreadView, follow: boolean) => {
 				if (follow) addThreadMember(thread.space, viewer.did);
-				await patchThread(
-					thread,
-					{ ...thread, viewer: { ...thread.viewer, following: follow } },
-					() => source.followThread({ thread: thread.space, follow }),
-				);
+				const wasLeft = source.preferences.leftAt(thread.space) !== undefined;
+				void source.preferences.setLeft(thread.space, !follow);
+				try {
+					await patchThread(
+						thread,
+						{ ...thread, viewer: { ...thread.viewer, following: follow } },
+						() => source.followThread({ thread: thread.space, follow }),
+					);
+				} catch (error) {
+					void source.preferences.setLeft(thread.space, wasLeft);
+					throw error;
+				}
 				void threadMemberLoads.get(thread.space)?.refresh();
 			},
+			leftAt: (ref: SpaceRef) => source.preferences.leftAt(ref),
 			markRead: (thread: ThreadView) => {
 				const ids = notifications
 					.items()
@@ -1422,6 +1430,7 @@ export const createDataStore = (
 		};
 		outbox.subscribe((event) => {
 			if (event.type !== "sent" || event.entry.op.t !== "send") return;
+			void source.preferences.setLeft(event.entry.op.channel, false);
 			autoFollow(event.entry.op.channel, false);
 		});
 		source.subscribe((event) => {
@@ -1429,6 +1438,7 @@ export const createDataStore = (
 			const view = event.notification;
 			if (!view.thread || !isPingNotification(view)) return;
 			if (view.author?.did === viewer.did) return;
+			void source.preferences.setLeft(view.thread, false);
 			autoFollow(view.thread, true);
 		});
 
@@ -2323,6 +2333,26 @@ export const createDataStore = (
 				return true;
 			};
 
+			const rekeyPending = (nonce: string, from: string, to: string) => {
+				const moved = untrack(pending).find((entry) => entry.nonce === nonce);
+				if (sentNonces.get(from) === nonce) sentNonces.delete(from);
+				sentNonces.set(to, nonce);
+				batch(() => {
+					setPending((list) =>
+						list.map((entry) => {
+							if (entry.nonce === nonce) return { ...entry, rkey: to };
+							if (entry.parent === from) return { ...entry, parent: to };
+							return entry;
+						}),
+					);
+					if (moved)
+						replaceSummary(
+							from,
+							summarizePending({ ...moved, rkey: to }, viewer.did),
+						);
+				});
+			};
+
 			const patchPending = (
 				nonce: string,
 				change: (entry: PendingMessage) => PendingMessage,
@@ -2434,8 +2464,15 @@ export const createDataStore = (
 				}
 				if (event.entry.op.t !== "send") return;
 				const nonce = outboxNonce(event.entry.seq);
+				if (event.type === "rekeyed") {
+					rekeyPending(nonce, event.from, event.entry.op.rkey);
+					return;
+				}
 				if (event.type === "landedAfterDiscard") {
-					retract(event.entry.op.rkey);
+					const landed = event.message?.rkey ?? event.entry.op.rkey;
+					if (!discardedSends.has(landed))
+						discardedSends.set(landed, "waiting");
+					retract(landed);
 					return;
 				}
 				if (event.type === "progress") {

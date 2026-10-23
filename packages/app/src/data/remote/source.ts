@@ -17,6 +17,7 @@ import type { InvitationPreview, JoinResult } from "../access";
 import { createActivitySourceDetector } from "../activity-source";
 import { createNetworkLabeler } from "../badges/labeler";
 import { summarizeChannel } from "../channel-summary";
+import { type HostingView, toHostAuthorization } from "../hosting";
 import { createPreferencesGrant } from "../preferences/grant";
 import { importLegacyPreferences } from "../preferences/legacy";
 import {
@@ -399,6 +400,29 @@ export const createRemoteSource = async (
 					body: { community },
 				})
 			).community as LegacyCommunityView,
+		authorizeCommunityHost: async (input) => {
+			const result = await transport.procedure(
+				colibri.community.authorizeHost.main,
+				{ body: input },
+			);
+			return { authorizeUrl: result.authorizeUrl, request: result.request };
+		},
+		getCommunityHostAuthorization: async (request) =>
+			toHostAuthorization(
+				await transport.query(colibri.community.getHostAuthorization.main, {
+					params: { request },
+				}),
+			),
+		getCommunityHosting: async (community) =>
+			(
+				await transport.query(colibri.community.getHosting.main, {
+					params: { community },
+				})
+			).hosting as HostingView,
+		handOverCommunityHost: async (input) =>
+			await transport.procedure(colibri.community.handOverHost.main, {
+				body: input,
+			}),
 		createCommunity: async (input) =>
 			(
 				await transport.procedure(colibri.community.create.main, {

@@ -289,6 +289,7 @@ export type ImageContextMenuProps = MessageMenuImage & {
 export const ImageContextMenu = (props: ImageContextMenuProps) => (
 	<ContextMenu
 		disabled={props.disabled || !hasImageActions(props)}
+		clickThrough
 		onOpenChange={props.onOpenChange}
 		class={props.class}
 		aria-label="Image options"
@@ -304,6 +305,7 @@ export const ImageContextMenu = (props: ImageContextMenuProps) => (
 export const MessageContextMenu = (props: MessageContextMenuProps) => (
 	<ContextMenu
 		disabled={props.disabled}
+		clickThrough
 		onOpenChange={props.onOpenChange}
 		class={props.class}
 		aria-label="Message options"

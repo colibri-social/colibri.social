@@ -23,6 +23,7 @@ import { Spinner } from "../Spinner/Spinner";
 import { formatClock } from "./format";
 import { claimPlayback, onPlaybackHandoff, releasePlayback } from "./handoff";
 import { Scrubber } from "./Scrubber";
+import { Video } from "./Video";
 import { mediaSourceKey, sameMediaSource, VideoSource } from "./VideoSource";
 
 export type VideoPlayerHandle = {
@@ -392,7 +393,7 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 				data-video-surface=""
 				class={cx("absolute inset-0", interactive() && "cursor-pointer")}
 			>
-				<video
+				<Video
 					ref={video}
 					poster={props.poster}
 					muted={props.muted}
@@ -430,7 +431,7 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 						mimeType={props.mimeType}
 						onError={fail}
 					/>
-				</video>
+				</Video>
 			</div>
 			<Show when={!playing() && !failed() && !waiting()}>
 				<span

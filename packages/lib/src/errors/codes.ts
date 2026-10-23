@@ -15,6 +15,8 @@ export type AppViewErrorCode =
 	| "DestinationForbidden"
 	| "Forbidden"
 	| "GifsNotConfigured"
+	| "HandOverUnavailable"
+	| "HostSignInUnavailable"
 	| "IdentityMismatch"
 	| "ImageTooLarge"
 	| "InsufficientPermissions"
@@ -34,6 +36,7 @@ export type AppViewErrorCode =
 	| "PdsUnavailable"
 	| "PushNotConfigured"
 	| "RateLimited"
+	| "RequestNotFound"
 	| "RoleHierarchy"
 	| "RoleNotFound"
 	| "RoleProtected"
@@ -136,6 +139,8 @@ const APPVIEW_CODES = new Set<string>([
 	"DestinationForbidden",
 	"Forbidden",
 	"GifsNotConfigured",
+	"HandOverUnavailable",
+	"HostSignInUnavailable",
 	"IdentityMismatch",
 	"ImageTooLarge",
 	"InsufficientPermissions",
@@ -155,6 +160,7 @@ const APPVIEW_CODES = new Set<string>([
 	"PdsUnavailable",
 	"PushNotConfigured",
 	"RateLimited",
+	"RequestNotFound",
 	"RoleHierarchy",
 	"RoleNotFound",
 	"RoleProtected",

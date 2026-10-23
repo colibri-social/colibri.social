@@ -18,6 +18,7 @@ import {
 	decodeMute,
 	encodeChange,
 	encodeComposer,
+	encodeLeftThread,
 	encodeMute,
 	fromWire,
 } from "./wire";
@@ -187,6 +188,12 @@ export const createRemotePreferenceBackend = (input: {
 		putMutes: async (mutes) => {
 			const result = await transport.procedure(colibri.actor.putMutes.main, {
 				body: { mutes: mutes.map(encodeMute) },
+			});
+			return fromWire(result.preferences);
+		},
+		putLeftThreads: async (leftThreads) => {
+			const result = await transport.procedure(colibri.actor.putMutes.main, {
+				body: { leftThreads: leftThreads.map(encodeLeftThread) },
 			});
 			return fromWire(result.preferences);
 		},

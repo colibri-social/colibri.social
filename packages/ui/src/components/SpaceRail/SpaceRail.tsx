@@ -560,6 +560,7 @@ export type SpaceRailItemProps = {
 	unread?: boolean;
 	mentions?: number;
 	locked?: "waiting" | "moving";
+	attention?: boolean;
 	onSelect?: () => void;
 	onMenu?: (event: Event) => void;
 	class?: string;
@@ -574,6 +575,7 @@ const itemLabel = (props: SpaceRailItemProps) => {
 	const parts = [props.name];
 	if (props.locked === "moving") parts.push("moving to Spaces");
 	else if (props.locked) parts.push("not on Spaces yet");
+	if (props.attention) parts.push("needs your attention");
 	if (props.mentions && props.mentions > 0)
 		parts.push(
 			`${props.mentions} ${props.mentions === 1 ? "mention" : "mentions"}`,
@@ -722,7 +724,18 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 								</span>
 							)}
 						</Show>
-						<Show when={props.mentions && props.mentions > 0}>
+						<Show when={props.attention && !props.locked}>
+							<span
+								aria-hidden="true"
+								data-rail-attention=""
+								class="absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full bg-warning font-extrabold text-[11px] text-background leading-none shadow-[0_0_0_3px_var(--background)]"
+							>
+								!
+							</span>
+						</Show>
+						<Show
+							when={!props.attention && props.mentions && props.mentions > 0}
+						>
 							<CountBadge
 								aria-hidden="true"
 								data-rail-mentions=""

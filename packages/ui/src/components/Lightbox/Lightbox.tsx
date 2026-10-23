@@ -35,6 +35,7 @@ import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import type { MediaItem } from "../Attachments/MediaGrid";
 import { ImageContextMenu } from "../ContextMenu/MessageMenu";
 import { IconButton, iconButtonVariants } from "../IconButton/IconButton";
+import { Video } from "../Media/Video";
 import { VideoPlayer } from "../Media/VideoPlayer";
 import { VideoSource } from "../Media/VideoSource";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
@@ -1088,7 +1089,7 @@ export const Lightbox = (props: LightboxProps) => {
 														<Show
 															when={entry()?.poster}
 															fallback={
-																<video
+																<Video
 																	data-lightbox-media=""
 																	aria-label={
 																		entry()?.alt ?? entry()?.name ?? "Video"
@@ -1103,7 +1104,7 @@ export const Lightbox = (props: LightboxProps) => {
 																		src={entry()?.src ?? ""}
 																		mimeType={entry()?.mimeType}
 																	/>
-																</video>
+																</Video>
 															}
 														>
 															{(poster) => (

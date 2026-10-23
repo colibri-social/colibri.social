@@ -82,9 +82,18 @@ export const APP_ERROR_COPY: ErrorCopyCatalog = {
 	},
 	CredentialsUnavailable: {
 		title: "This Space needs its owner",
-		description: "An owner has to reconnect the Space before this works again.",
+		description:
+			"The owner has to sign in again before new messages and changes can be saved.",
 	},
 	GifsNotConfigured: FEATURE_UNAVAILABLE("GIF search"),
+	HandOverUnavailable: {
+		title: "Colibri can't hand over this account",
+		description: "It may have moved already. Check Hosting in Space settings.",
+	},
+	HostSignInUnavailable: {
+		title: "Using your own account isn't available here",
+		description: "Let Colibri host the Space instead.",
+	},
 	IdentityMismatch: {
 		title: "That's a different account",
 		description: "Sign in with the account you want to use for this Space.",
@@ -181,6 +190,10 @@ export const APP_ERROR_COPY: ErrorCopyCatalog = {
 	RateLimited: {
 		title: "Slow down a little",
 		description: "Wait a few seconds, then try again.",
+	},
+	RequestNotFound: {
+		title: "That sign-in expired",
+		description: "Start again and sign in within a few minutes.",
 	},
 	PdsUnavailable: {
 		title: "Changes can't be saved right now",

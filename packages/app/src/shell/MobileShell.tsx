@@ -28,6 +28,7 @@ import { AppLinkHost } from "./AppLinkHost";
 import { CallPillHost } from "./CallPillHost";
 import { restoreLastViewed } from "./cold-start";
 import { installFlingGuard } from "./fling-guard";
+import { HostReturnHost } from "./HostReturnHost";
 import { installKeyboardInset } from "./keyboard-inset";
 import { LayerStack } from "./LayerStack";
 import type { Layer, Tab } from "./layers";
@@ -281,6 +282,7 @@ export const MobileShell = () => {
 					<CallPillHost />
 					<NotificationHost stack={stack} />
 					<AppLinkHost stack={stack} />
+					<HostReturnHost />
 					<WriteFailureToasts />
 					<DiscardChangesDialog guard={stack.leaveGuard} />
 				</MemberMenuProvider>

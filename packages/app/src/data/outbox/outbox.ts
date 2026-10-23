@@ -3,7 +3,9 @@ import {
 	classifyThrown,
 	createLogger,
 	isOffline,
+	nextTid,
 	retryability,
+	tidMillis,
 } from "@colibri-social/lib";
 import { createSignal } from "solid-js";
 import type { DataSource } from "../source";
@@ -26,6 +28,7 @@ export const OUTBOX_RETRY_BASE_MS = 2_000;
 export const OUTBOX_RETRY_MAX_MS = 60_000;
 export const OUTBOX_MAX_QUEUED_BYTES = 256 * 1024 * 1024;
 export const OUTBOX_BLOB_REF_TTL_MS = 10 * 60 * 1000;
+export const OUTBOX_SEND_KEY_MAX_AGE_MS = 23 * 60 * 60 * 1000;
 const UPLOAD_CONCURRENCY = 3;
 
 type SendOp = Extract<OutboxOp, { t: "send" }>;
@@ -75,6 +78,39 @@ const targets = (op: OutboxOp, channel: SpaceRef, rkey: string) =>
 		op.t === "react") &&
 	op.channel === channel &&
 	op.rkey === rkey;
+
+const staleKey = (rkey: string, at: number) => {
+	const minted = tidMillis(rkey);
+	return minted !== undefined && at - minted > OUTBOX_SEND_KEY_MAX_AGE_MS;
+};
+
+const withMovedKey = (
+	op: OutboxOp,
+	channel: SpaceRef,
+	from: string,
+	to: string,
+): OutboxOp => {
+	switch (op.t) {
+		case "send":
+			if (op.channel !== channel) return op;
+			if (op.rkey !== from && op.parent !== from) return op;
+			return {
+				...op,
+				...(op.rkey === from ? { rkey: to } : {}),
+				...(op.parent === from ? { parent: to } : {}),
+			};
+		case "edit":
+		case "delete":
+		case "react":
+			return op.channel === channel && op.rkey === from
+				? { ...op, rkey: to }
+				: op;
+		case "forward":
+			return op.from === channel && op.rkey === from ? { ...op, rkey: to } : op;
+		case "deleteThread":
+			return op;
+	}
+};
 
 const bytesOf = (op: OutboxOp) =>
 	op.t === "send"
@@ -344,7 +380,34 @@ export const createOutbox = (options: OutboxOptions) => {
 		}
 	};
 
-	const attempt = async (entry: OutboxEntry): Promise<"done" | "wait"> => {
+	const withFreshKey = async (entry: OutboxEntry): Promise<OutboxEntry> => {
+		const op = entry.op;
+		if (op.t !== "send" || !staleKey(op.rkey, now())) return entry;
+		const from = op.rkey;
+		const to = nextTid();
+		const before = entries();
+		const after = before.map((item) => {
+			const moved = withMovedKey(item.op, op.channel, from, to);
+			return moved === item.op ? item : { ...item, op: moved };
+		});
+		setEntries(after);
+		const current = find(entry.seq) ?? {
+			...entry,
+			op: { ...op, rkey: to },
+		};
+		log.info("gave a message queued more than 23 hours ago a fresh key");
+		emit({ type: "rekeyed", entry: current, from });
+		await Promise.all(
+			after
+				.filter((item, index) => item !== before[index])
+				.map((item) => queue.put(item).catch(() => undefined)),
+		);
+		return current;
+	};
+
+	const attempt = async (head: OutboxEntry): Promise<"done" | "wait"> => {
+		const entry = await withFreshKey(head);
+		if (abandoned.delete(entry.seq)) return "done";
 		try {
 			const message = await perform(entry);
 			if (abandoned.delete(entry.seq))

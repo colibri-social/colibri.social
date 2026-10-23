@@ -63,6 +63,8 @@ export const ADMIN_PAGES = [
 	"bridge-new",
 	"bridge-connect",
 	"bridge-code",
+	"hosting",
+	"hosting-move",
 ] as const;
 
 export type AdminPage = (typeof ADMIN_PAGES)[number];
@@ -100,6 +102,7 @@ const ADMIN_PARENT: Partial<Record<AdminPage, AdminPage>> = {
 	"bridge-new": "bridges",
 	"bridge-connect": "bridge-new",
 	"bridge-code": "bridge-new",
+	"hosting-move": "hosting",
 };
 
 const STANDALONE_ADMIN: readonly AdminPage[] = ["channel", "category"];

@@ -6,7 +6,7 @@ import { Logout2Icon } from "@solar-icons/solid/bold/logout-2";
 import { SettingsIcon } from "@solar-icons/solid/bold/settings";
 import { SortVerticalIcon } from "@solar-icons/solid/bold/sort-vertical";
 import { UserPlusRoundedIcon } from "@solar-icons/solid/bold/user-plus-rounded";
-import { Show } from "solid-js";
+import { type JSX, Show } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { ActionTile, ActionTiles } from "../Channels/ChannelListHeader";
 import { markReadIcon } from "../ContextMenu/menu-entries";
@@ -31,6 +31,7 @@ export type SpaceDrawerProps = SpaceContextMenuActions & {
 	ownerHandle?: string;
 	description?: string;
 	developer?: DeveloperModeCardProps;
+	notice?: (close: () => void) => JSX.Element;
 };
 
 export const SpaceDrawer = (props: SpaceDrawerProps) => {
@@ -79,6 +80,9 @@ export const SpaceDrawer = (props: SpaceDrawerProps) => {
 					/>
 				}
 			>
+				<Show when={props.notice}>
+					{(notice) => notice()(() => props.onOpenChange(false))}
+				</Show>
 				<Show when={hasTiles()}>
 					<ActionTiles>
 						<Show when={props.onInvite}>

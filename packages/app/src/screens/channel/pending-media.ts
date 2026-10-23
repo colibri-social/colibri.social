@@ -4,6 +4,17 @@ export const PENDING_MEDIA_RELEASE_MS = 10_000;
 
 const playsInline = (file: File) => file.type.startsWith("video/");
 
+const stillPlaying = (url: string) => {
+	if (typeof document === "undefined") return false;
+	for (const video of document.querySelectorAll("video")) {
+		if (video.currentSrc.startsWith(url)) return true;
+		if (video.getAttribute("src")?.startsWith(url)) return true;
+		for (const source of video.querySelectorAll("source"))
+			if (source.getAttribute("src")?.startsWith(url)) return true;
+	}
+	return false;
+};
+
 export const createPendingMediaUrls = () => {
 	const urls = new Map<File, string>();
 
@@ -21,6 +32,10 @@ export const createPendingMediaUrls = () => {
 	const release = (url: string) => {
 		const timer = setTimeout(() => {
 			releasing.delete(timer);
+			if (stillPlaying(url)) {
+				release(url);
+				return;
+			}
 			URL.revokeObjectURL(url);
 		}, PENDING_MEDIA_RELEASE_MS);
 		releasing.set(timer, url);

@@ -58,9 +58,8 @@ const CATALOG: ErrorCopyCatalog = {
 		description: "Check the identifier and password and try again.",
 	},
 	CredentialsUnavailable: {
-		title: "This community needs reconnecting.",
-		description:
-			"An owner has to give Colibri its credentials again before this will work.",
+		title: "This Space needs its owner to sign in again.",
+		description: "New messages and changes can't be saved until they do.",
 	},
 	DestinationForbidden: {
 		title: "They can't join that channel.",
@@ -69,6 +68,14 @@ const CATALOG: ErrorCopyCatalog = {
 	GifsNotConfigured: {
 		title: "GIFs aren't available here.",
 		description: "This AppView has no GIF provider set up.",
+	},
+	HandOverUnavailable: {
+		title: "Colibri can't hand over this account.",
+		description: "It may already live on another server. Check Hosting.",
+	},
+	HostSignInUnavailable: {
+		title: "Signing in as another account isn't available here.",
+		description: "Let Colibri host the Space instead.",
 	},
 	IdentityMismatch: {
 		title: "Those credentials belong to a different account.",
@@ -195,6 +202,10 @@ const CATALOG: ErrorCopyCatalog = {
 	RateLimited: {
 		title: "You're going a bit fast.",
 		description: "Wait a moment and try again.",
+	},
+	RequestNotFound: {
+		title: "That sign-in has expired.",
+		description: "Start again from the Space.",
 	},
 	PdsUnavailable: {
 		title: "Your data server isn't reachable.",

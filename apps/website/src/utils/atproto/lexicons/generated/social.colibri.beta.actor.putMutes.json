@@ -4,21 +4,26 @@
 	"defs": {
 		"main": {
 			"type": "procedure",
-			"description": "Pushes the requesting user's mute list to the AppView, so it takes effect immediately instead of waiting for a sync notification. The client writes the underlying records to its own personal space first, then calls this. This replaces the AppView's whole copy of the user's mute list.",
+			"description": "Pushes the requesting user's mute list and list of left threads to the AppView, so they take effect immediately instead of waiting for a sync notification. The client writes the underlying mute records to its own personal space first, then calls this. Each list the request carries replaces the AppView's whole copy of that list.",
 			"input": {
 				"encoding": "application/json",
 				"schema": {
 					"type": "object",
-					"required": [
-						"mutes"
-					],
 					"properties": {
 						"mutes": {
 							"type": "array",
-							"description": "The complete, replacement mute list.",
+							"description": "The complete, replacement mute list. Leave it out to keep the mute list as it is.",
 							"items": {
 								"type": "ref",
 								"ref": "social.colibri.beta.actor.defs#mute"
+							}
+						},
+						"leftThreads": {
+							"type": "array",
+							"description": "The complete, replacement list of left threads. Leave it out to keep the list as it is. An entry for a thread where someone pinged the user after its leftAt is dropped, since that ping brought the user back.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.actor.defs#leftThread"
 							}
 						}
 					}

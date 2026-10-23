@@ -1,0 +1,105 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.authorizeHost",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Starts a sign-in as a community host account. The requesting user opens the returned URL, signs in as that account on its own server and allows the AppView to act for it. The AppView then adopts the account as a new community, or reconnects an existing community after its sign-in lapsed or its account moved. Poll getHostAuthorization with the returned request to learn the outcome.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"identifier",
+						"intent"
+					],
+					"properties": {
+						"identifier": {
+							"type": "string",
+							"description": "The handle or DID of the account to sign in as."
+						},
+						"intent": {
+							"type": "string",
+							"knownValues": [
+								"adopt",
+								"reconnect"
+							],
+							"description": "adopt turns the account into a new community. reconnect restores the AppView's access to an existing community."
+						},
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community to reconnect. Required when intent is reconnect."
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 32,
+							"description": "The new community's name. Required when intent is adopt."
+						},
+						"description": {
+							"type": "string",
+							"maxLength": 256,
+							"description": "The new community's description."
+						},
+						"requiresApprovalToJoin": {
+							"type": "boolean",
+							"description": "Whether joining the new community produces an application a moderator must approve. Defaults to false."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"authorizeUrl",
+						"request"
+					],
+					"properties": {
+						"authorizeUrl": {
+							"type": "string",
+							"format": "uri",
+							"description": "The sign-in page to open in a browser."
+						},
+						"request": {
+							"type": "string",
+							"description": "An opaque identifier for this sign-in, used with getHostAuthorization."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks permission for this community."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at that identifier."
+				},
+				{
+					"name": "AlreadyExists",
+					"description": "That account already hosts a community on this AppView."
+				},
+				{
+					"name": "HostSignInUnavailable",
+					"description": "This AppView has no host sign-in configured."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS or third-party call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

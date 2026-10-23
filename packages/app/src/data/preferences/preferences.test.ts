@@ -243,6 +243,66 @@ describe("createPreferenceStore", () => {
 	});
 });
 
+describe("left threads", () => {
+	it("marks a thread as left and pushes the whole list", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const putLeftThreads = vi.spyOn(memory.backend, "putLeftThreads");
+		const store = create(memory.backend);
+
+		const before = Date.now();
+		const saving = store.setLeft(THREAD, true);
+		expect(store.leftAt(THREAD)).toBeGreaterThanOrEqual(before);
+		expect(store.leftAt(CHANNEL)).toBeUndefined();
+		await saving;
+
+		expect(putLeftThreads).toHaveBeenCalledOnce();
+		expect(memory.state().leftThreads.map((entry) => entry.thread)).toEqual([
+			THREAD,
+		]);
+	});
+
+	it("clears the mark and skips the push when the thread was never left", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const putLeftThreads = vi.spyOn(memory.backend, "putLeftThreads");
+		const store = create(memory.backend);
+
+		await store.setLeft(THREAD, false);
+		expect(putLeftThreads).not.toHaveBeenCalled();
+
+		await store.setLeft(THREAD, true);
+		await store.setLeft(THREAD, false);
+		expect(store.leftAt(THREAD)).toBeUndefined();
+		expect(memory.state().leftThreads).toEqual([]);
+		expect(putLeftThreads).toHaveBeenCalledTimes(2);
+	});
+
+	it("reloads the server state after a refused push", async () => {
+		const store = create({
+			...createMemoryPreferenceBackend().backend,
+			putLeftThreads: async () => {
+				throw new ColibriError({ code: "Unexpected" });
+			},
+		});
+
+		await store.setLeft(THREAD, true);
+		expect(store.leftAt(THREAD)).toBeUndefined();
+	});
+
+	it("reads left threads from the wire and drops malformed entries", () => {
+		const leftAt = "2026-10-20T10:00:00.000Z";
+		const malformed = {
+			leftThreads: [
+				{ thread: THREAD, leftAt },
+				{ thread: CHANNEL, leftAt: "yesterday" },
+				{ leftAt },
+			],
+		};
+		const decoded = fromWire(malformed as Parameters<typeof fromWire>[0]);
+		expect(decoded.leftThreads).toEqual([{ thread: THREAD, leftAt }]);
+		expect(fromWire({}).leftThreads).toEqual([]);
+	});
+});
+
 describe("client preferences", () => {
 	it("resolves defaults and maps controls onto the synced record", async () => {
 		const memory = createMemoryPreferenceBackend();

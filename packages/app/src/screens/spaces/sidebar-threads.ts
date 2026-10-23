@@ -17,6 +17,7 @@ export type SidebarThreadContext = {
 	viewer?: string;
 	now: number;
 	activeThread?: string;
+	left?: boolean;
 };
 
 const isStale = (thread: ThreadView, now: number) => {
@@ -35,6 +36,7 @@ export const belongsInSidebar = (
 	context: SidebarThreadContext,
 ) => {
 	if (context.activeThread === skeyOf(thread.space)) return true;
+	if (context.left && !thread.viewer.following) return false;
 	if (thread.closedAt || isStale(thread, context.now)) return false;
 	return (
 		!!thread.viewer.following ||
@@ -73,6 +75,18 @@ export const repliedThreads = (
 		),
 	);
 
+export const threadPingsAfter = (
+	notifications: readonly NotificationView[],
+	thread: SpaceRef,
+	after: number,
+): NotificationView[] =>
+	notifications.filter(
+		(entry) =>
+			entry.thread === thread &&
+			isPingNotification(entry) &&
+			Date.parse(entry.indexedAt) > after,
+	);
+
 export const sidebarThreads = (data: DataStore, channel: SpaceRef) =>
 	(data.threadsOf(channel).value() ?? []).map(
 		(thread) => data.threads.find(thread.space) ?? thread,
@@ -95,26 +109,36 @@ export const sidebarThreadsFor = (
 	const unseen = unseenThreadPings(notifications);
 	const replied = repliedThreads(notifications);
 	const listed = sidebarThreads(data, channel)
-		.map((thread) => {
+		.flatMap((thread) => {
 			const live = space?.unread(skeyOf(thread.space));
-			const pings = unseen.filter(
-				(entry) => entry.thread === thread.space,
-			).length;
-			return {
+			const leftAt = data.threads.leftAt(thread.space);
+			const sinceLeft =
+				leftAt === undefined
+					? undefined
+					: threadPingsAfter(notifications, thread.space, leftAt);
+			const mentions = sinceLeft
+				? sinceLeft.filter((entry) => !entry.seenAt).length
+				: Math.max(
+						thread.viewer.unreadMentions ?? 0,
+						unseen.filter((entry) => entry.thread === thread.space).length,
+					);
+			const state = {
 				thread,
 				unread: thread.viewer.hasUnread || !!live?.hasUnread,
-				mentions: Math.max(thread.viewer.unreadMentions ?? 0, pings),
+				mentions,
 			};
-		})
-		.filter((state) =>
-			belongsInSidebar(state.thread, {
-				mentions: state.mentions,
-				repliedTo: replied.has(state.thread.space),
+			const keep = belongsInSidebar(thread, {
+				mentions,
+				repliedTo: sinceLeft
+					? sinceLeft.some((entry) => entry.kind === "reply")
+					: replied.has(thread.space),
 				viewer: data.viewer.did,
 				now,
 				activeThread,
-			}),
-		)
+				left: sinceLeft !== undefined && sinceLeft.length === 0,
+			});
+			return keep ? [state] : [];
+		})
 		.sort((a, b) => newestFirst(a.thread, b.thread));
 	return capKeepingPinned(listed, activeThread);
 };

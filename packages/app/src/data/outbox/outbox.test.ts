@@ -1,4 +1,8 @@
-import { ColibriError, createMemoryKvStore } from "@colibri-social/lib";
+import {
+	ColibriError,
+	createMemoryKvStore,
+	tidMillis,
+} from "@colibri-social/lib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AttachmentView, MessageView, SpaceRef } from "../types";
 import {
@@ -71,6 +75,18 @@ const send = (rkey: string, text = "hi", files: File[] = []): OutboxOp => ({
 	text,
 	files: files.map((file) => ({ file })),
 });
+
+const HOUR = 60 * 60 * 1000;
+
+const keyAt = (millis: number) => {
+	let value = (BigInt(millis * 1000) << 10n) | 7n;
+	let key = "";
+	for (let i = 0; i < 13; i++) {
+		key = "234567abcdefghijklmnopqrstuvwxyz"[Number(value & 31n)] + key;
+		value >>= 5n;
+	}
+	return key;
+};
 
 const settle = async () => {
 	for (let round = 0; round < 10; round++) await vi.advanceTimersByTimeAsync(0);
@@ -436,5 +452,124 @@ describe("outbox", () => {
 		await settle();
 		expect(calls).toEqual([]);
 		expect(events.map((event) => event.type)).toEqual(["dropped"]);
+	});
+
+	describe("stale send keys", () => {
+		const owner = "app:did:plc:me";
+		const sentKeys = (calls: string[]) =>
+			calls.flatMap((call) =>
+				call.startsWith("send:") ? [call.split(":")[1]] : [],
+			);
+
+		it("gives a send queued more than 23 hours ago a fresh key before sending it", async () => {
+			const kv = createMemoryKvStore();
+			const queue = createOutboxQueue({ owner, kv });
+			const stale = keyAt(Date.now() - 30 * HOUR);
+			let online = false;
+			const { outbox, source, calls, events } = make({
+				online: () => online,
+				queue,
+			});
+			outbox.enqueue(send(stale, "waited"));
+			outbox.enqueue({ t: "edit", channel: CHANNEL, rkey: stale, text: "x" });
+			outbox.enqueue({
+				t: "react",
+				channel: CHANNEL,
+				rkey: stale,
+				emoji: "🪺",
+				add: true,
+				author: "did:plc:me",
+			});
+			outbox.enqueue({ ...send("reply", "answer"), parent: stale } as OutboxOp);
+			await settle();
+			const stored: string[] = [];
+			vi.mocked(source.sendMessage).mockImplementationOnce(async (input) => {
+				const persisted = await queue.load();
+				stored.push(
+					...persisted.flatMap((entry) =>
+						entry.op.t === "send" ? [entry.op.rkey] : [],
+					),
+				);
+				calls.push(`send:${input.rkey}:${input.text}`);
+				return viewOf(input.rkey ?? "", input.text);
+			});
+			online = true;
+			outbox.flush();
+			await settle();
+
+			const rekeyed = events.find((event) => event.type === "rekeyed");
+			const fresh = rekeyed?.entry.op.t === "send" ? rekeyed.entry.op.rkey : "";
+			expect(rekeyed).toMatchObject({ from: stale });
+			expect(fresh).not.toBe(stale);
+			expect(Date.now() - (tidMillis(fresh) ?? 0)).toBeLessThan(HOUR);
+			expect(stored).toContain(fresh);
+			expect(stored).not.toContain(stale);
+			expect(calls).toEqual([
+				`send:${fresh}:x`,
+				`react:${fresh}:🪺:true`,
+				"send:reply:answer",
+			]);
+			expect(vi.mocked(source.sendMessage).mock.calls[1]?.[0]).toMatchObject({
+				parent: fresh,
+			});
+		});
+
+		it("keeps a key minted less than 23 hours ago", async () => {
+			const recent = keyAt(Date.now() - 22 * HOUR);
+			const { outbox, calls, events } = make();
+			outbox.enqueue(send(recent));
+			await settle();
+			expect(calls).toEqual([`send:${recent}:hi`]);
+			expect(events.some((event) => event.type === "rekeyed")).toBe(false);
+		});
+
+		it("keeps the fresh key across a restart", async () => {
+			const kv = createMemoryKvStore();
+			const stale = keyAt(Date.now() - 30 * HOUR);
+			const first = make({ queue: createOutboxQueue({ owner, kv }) });
+			vi.mocked(first.source.sendMessage).mockImplementationOnce(
+				async (input) => {
+					first.calls.push(`send:${input.rkey}:${input.text}`);
+					return new Promise<MessageView>(() => {});
+				},
+			);
+			first.outbox.enqueue(send(stale));
+			await settle();
+			const [fresh] = sentKeys(first.calls);
+			first.outbox.dispose();
+
+			const second = make({ queue: createOutboxQueue({ owner, kv }) });
+			await settle();
+			expect(fresh).not.toBe(stale);
+			expect(sentKeys(second.calls)).toEqual([fresh]);
+			expect(second.events.some((event) => event.type === "rekeyed")).toBe(
+				false,
+			);
+		});
+
+		it("reports a discarded send under its fresh key when it lands anyway", async () => {
+			const stale = keyAt(Date.now() - 30 * HOUR);
+			const { outbox, source, calls, events } = make();
+			let land: () => void = () => {};
+			vi.mocked(source.sendMessage).mockImplementationOnce(
+				(input) =>
+					new Promise<MessageView>((resolve) => {
+						calls.push(`send:${input.rkey}:${input.text}`);
+						land = () => resolve(viewOf(input.rkey ?? ""));
+					}),
+			);
+			const ticket = outbox.enqueue(send(stale));
+			await settle();
+			outbox.discard(ticket.seq);
+			land();
+			await settle();
+			const [fresh] = sentKeys(calls);
+			const landed = events.find(
+				(event) => event.type === "landedAfterDiscard",
+			);
+			expect(fresh).not.toBe(stale);
+			expect(landed?.entry.op).toMatchObject({ rkey: fresh });
+			expect(landed).toMatchObject({ message: { rkey: fresh } });
+		});
 	});
 });

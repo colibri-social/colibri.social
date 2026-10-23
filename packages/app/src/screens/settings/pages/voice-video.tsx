@@ -1,6 +1,7 @@
 import {
 	type CameraPreviewState,
 	type MicTestState,
+	Video,
 	VoiceVideoSettings,
 } from "@colibri-social/ui";
 import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
@@ -194,7 +195,7 @@ export default function VoiceVideoPage(props: { platform: Platform }) {
 			screenShare={screenShareAvailable() ? screenShareSettings() : undefined}
 			onScreenShareChange={changeScreenShareSettings}
 			cameraPreview={
-				<video
+				<Video
 					data-camera-video=""
 					class="size-full -scale-x-100 object-cover"
 					autoplay

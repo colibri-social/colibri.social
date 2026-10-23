@@ -11,6 +11,7 @@ import { HeadphonesSlashIcon, MicrophoneSlashIcon } from "../../icons/custom";
 import { cx } from "../../utils/cx";
 import { getImageTint, tintGradient } from "../../utils/image-tint";
 import { Avatar, type AvatarSize, type Presence } from "../Avatar/Avatar";
+import { Video } from "../Media/Video";
 
 export type VoiceParticipant = {
 	id: string;
@@ -170,7 +171,7 @@ export const VideoSurface = (props: VideoSurfaceProps) => {
 		if (stream) void video.play().catch(() => {});
 	});
 	return (
-		<video
+		<Video
 			{...rest}
 			ref={video}
 			autoplay

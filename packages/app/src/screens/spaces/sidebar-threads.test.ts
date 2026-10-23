@@ -6,6 +6,7 @@ import {
 	repliedThreads,
 	SIDEBAR_STALE_MS,
 	SIDEBAR_THREAD_LIMIT,
+	threadPingsAfter,
 	unseenThreadPings,
 } from "./sidebar-threads";
 
@@ -99,6 +100,40 @@ describe("sidebar threads", () => {
 		expect(belongsInSidebar(closed, at({ repliedTo: true }))).toBe(false);
 	});
 
+	it("drops a thread you left, even one that pinged you or started from your message", () => {
+		const anchor = {
+			space:
+				"at://did:plc:space/space/social.colibri.beta.channel.text/general",
+			did: VIEWER,
+			rkey: "3kanchor",
+		};
+		const left = withViewer(threadAt("left", DAY), {}, {
+			anchor,
+		} as Partial<ThreadView>);
+		expect(belongsInSidebar(left, at({ left: true }))).toBe(false);
+		expect(belongsInSidebar(left, at({ left: true, mentions: 2 }))).toBe(false);
+		expect(belongsInSidebar(left, at({ left: true, repliedTo: true }))).toBe(
+			false,
+		);
+	});
+
+	it("keeps a left thread that is open right now or followed again", () => {
+		const left = threadAt("left", DAY);
+		expect(
+			belongsInSidebar(left, at({ left: true, activeThread: "left" })),
+		).toBe(true);
+		const refollowed = withViewer(left, { following: true });
+		expect(belongsInSidebar(refollowed, at({ left: true }))).toBe(true);
+	});
+
+	it("keeps a left thread once a ping after leaving brings you back", () => {
+		const left = threadAt("left", DAY);
+		expect(belongsInSidebar(left, at({ left: false, repliedTo: true }))).toBe(
+			true,
+		);
+		expect(belongsInSidebar(left, at({ left: false, mentions: 1 }))).toBe(true);
+	});
+
 	it("keeps an unfollowed thread opened from your message", () => {
 		const anchor = {
 			space:
@@ -158,6 +193,36 @@ describe("sidebar threads", () => {
 			entry("reply", "reply"),
 			entry("seen", "mention", new Date(NOW).toISOString()),
 		]);
+		expect(pings.map((view) => view.id)).toEqual(["mention", "reply"]);
+	});
+
+	it("finds pings newer than the moment you left a thread", () => {
+		const thread = threadAt("left", 0).space;
+		const other = threadAt("other", 0).space;
+		const leftAt = NOW - 1000;
+		const entry = (
+			id: string,
+			kind: NotificationView["kind"],
+			ago: number,
+			on: SpaceRef = thread,
+		) =>
+			({
+				id,
+				kind,
+				thread: on,
+				indexedAt: new Date(NOW - ago).toISOString(),
+			}) as NotificationView;
+		const pings = threadPingsAfter(
+			[
+				entry("before", "reply", 5000),
+				entry("message", "message", 0),
+				entry("mention", "mention", 0),
+				entry("reply", "reply", 500),
+				entry("elsewhere", "mention", 0, other),
+			],
+			thread,
+			leftAt,
+		);
 		expect(pings.map((view) => view.id)).toEqual(["mention", "reply"]);
 	});
 

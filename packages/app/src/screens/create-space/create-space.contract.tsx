@@ -1,5 +1,11 @@
 import {
 	Button,
+	type HostingMode,
+	HostingPicker,
+	HostSetup,
+	type HostSetupError,
+	type HostSetupStep,
+	hostingSubmitLabel,
 	IconButton,
 	ImageCropper,
 	ImageUploadTile,
@@ -11,10 +17,17 @@ import {
 } from "@colibri-social/ui";
 import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { createSignal, onCleanup, Show } from "solid-js";
+import { isNativeShell } from "../../auth/native";
+import { describeError } from "../../data/error-copy";
+import { HostSignInError, prepareExternalTab } from "../../data/hosting";
 import { spaceKey } from "../../data/ids";
 import { COMMUNITY_NAME_MAX } from "../../data/source";
-import { IMAGES_NOT_SAVED } from "../../data/space-directory";
+import {
+	type CreateSpaceResult,
+	IMAGES_NOT_SAVED,
+} from "../../data/space-directory";
 import { useData } from "../../data/store";
+import { openExternalUrl } from "../../native/open-external";
 import { defineContract, slot } from "../../screen/define";
 import { usePlatform } from "../../screen/platform";
 import { useStack } from "../../shell/stack";
@@ -57,9 +70,19 @@ export const createSpace = defineContract({
 		const [imageError, setImageError] = createSignal<string>();
 		const [cropping, setCropping] = createSignal<File>();
 		const [cropOpen, setCropOpen] = createSignal(false);
+		const [hosting, setHosting] = createSignal<HostingMode>("colibri");
+		const [account, setAccount] = createSignal("");
+		const [accountError, setAccountError] = createSignal<string>();
+		const [setupStep, setSetupStep] = createSignal<HostSetupStep>();
+		const [setupError, setSetupError] = createSignal<HostSetupError>();
+		const [signedInAs, setSignedInAs] = createSignal<string>();
+		const [signInUrl, setSignInUrl] = createSignal<string>();
 		const picture = createPreview();
+		let waiting: AbortController | undefined;
+		onCleanup(() => waiting?.abort());
 
 		const trimmedName = () => name().trim();
+		const trimmedAccount = () => account().trim().replace(/^@/, "");
 		const nameError = () =>
 			name().length > 0 && trimmedName().length === 0
 				? "Enter a name for your Space."
@@ -68,6 +91,7 @@ export const createSpace = defineContract({
 					: undefined;
 		const canCreate = () =>
 			trimmedName().length > 0 && !nameError() && !creating();
+		const settingUp = () => !!setupStep() || !!setupError();
 
 		const pickIcon = (file: File) => {
 			setImageError(undefined);
@@ -98,7 +122,7 @@ export const createSpace = defineContract({
 				get depth() {
 					return depth();
 				},
-				blocked: creating,
+				blocked: () => creating() && !setupStep(),
 				onBlocked: () => {},
 			}),
 		);
@@ -113,23 +137,46 @@ export const createSpace = defineContract({
 		});
 
 		const close = () => {
-			if (!creating()) stack.pop();
+			if (creating() && !setupStep()) return;
+			waiting?.abort();
+			stack.pop();
 		};
 
-		const create = async () => {
-			if (!canCreate()) return;
+		const backToForm = () => {
+			waiting?.abort();
+			waiting = undefined;
+			setSetupStep(undefined);
+			setSetupError(undefined);
+			setSignedInAs(undefined);
+			setCreating(false);
+		};
+
+		const changeHosting = (mode: HostingMode) => {
+			setHosting(mode);
+			setAccountError(undefined);
+		};
+
+		const finish = (result: CreateSpaceResult) => {
+			if (result.imagesFailed) toast.info(IMAGES_NOT_SAVED);
+			toast.success(`${result.community.name} is ready`);
+			setCreating(false);
+			created = true;
+			stack.setRoot({
+				tab: "spaces",
+				space: spaceKey(result.community),
+			});
+			stack.popTo(0);
+		};
+
+		const createOnColibri = async () => {
 			setCreating(true);
 			try {
-				const result = await data.directory.create({
-					name: trimmedName(),
-					picture: picture.file(),
-				});
-				if (result.imagesFailed) toast.info(IMAGES_NOT_SAVED);
-				toast.success(`${result.community.name} is ready`);
-				setCreating(false);
-				created = true;
-				stack.setRoot({ tab: "spaces", space: spaceKey(result.community) });
-				stack.popTo(0);
+				finish(
+					await data.directory.create({
+						name: trimmedName(),
+						picture: picture.file(),
+					}),
+				);
 			} catch (error) {
 				toast.error(
 					error instanceof Error && error.message
@@ -139,6 +186,62 @@ export const createSpace = defineContract({
 			} finally {
 				setCreating(false);
 			}
+		};
+
+		const createOnOwnAccount = async () => {
+			if (!trimmedAccount()) {
+				setAccountError("Enter the account you want to use.");
+				return;
+			}
+			setAccountError(undefined);
+			const tab = prepareExternalTab(openExternalUrl, isNativeShell());
+			waiting?.abort();
+			const controller = new AbortController();
+			waiting = controller;
+			setSetupError(undefined);
+			setSignedInAs(undefined);
+			setSetupStep("signIn");
+			setCreating(true);
+			try {
+				const result = await data.directory.create({
+					name: trimmedName(),
+					picture: picture.file(),
+					host: {
+						identifier: trimmedAccount(),
+						signal: controller.signal,
+						open: (url) => {
+							setSignInUrl(url);
+							tab.go(url);
+						},
+						onSignedIn: () => setSetupStep("creating"),
+					},
+				});
+				if (controller.signal.aborted) return;
+				setSetupStep("done");
+				finish(result);
+			} catch (error) {
+				if (controller.signal.aborted) return;
+				tab.close();
+				if (error instanceof HostSignInError) {
+					setSetupStep(undefined);
+					setSetupError(error.failure);
+					setSignedInAs(error.signedInAs);
+					return;
+				}
+				backToForm();
+				toast.error(describeError(error).title);
+			} finally {
+				if (waiting === controller) setCreating(false);
+			}
+		};
+
+		const create = async () => {
+			if (!canCreate()) return;
+			if (hosting() === "own") {
+				await createOnOwnAccount();
+				return;
+			}
+			await createOnColibri();
 		};
 
 		return {
@@ -157,6 +260,30 @@ export const createSpace = defineContract({
 			applyIconCrop,
 			close,
 			create,
+			hosting,
+			changeHosting,
+			account,
+			setAccount,
+			accountError,
+			settingUp,
+			setupStep,
+			setupError,
+			signedInAs,
+			trimmedAccount,
+			reopenSignIn: () => {
+				const url = signInUrl();
+				if (url) openExternalUrl(url);
+			},
+			backToForm,
+			useColibri: () => {
+				backToForm();
+				changeHosting("colibri");
+			},
+			useAnotherAccount: () => {
+				backToForm();
+				setAccount("");
+			},
+			retry: () => void createOnOwnAccount(),
 		};
 	},
 	slots: {
@@ -168,7 +295,7 @@ export const createSpace = defineContract({
 					label="Close"
 					icon={<CloseIcon />}
 					class="[&_svg]:size-6"
-					disabled={m.creating()}
+					disabled={m.creating() && !m.settingUp()}
 					onClick={m.close}
 				/>
 			</div>
@@ -222,7 +349,30 @@ export const createSpace = defineContract({
 					error={m.nameError()}
 					disabled={m.creating()}
 				/>
+				<HostingPicker
+					mode={m.hosting()}
+					onModeChange={m.changeHosting}
+					account={m.account()}
+					onAccountChange={m.setAccount}
+					accountError={m.accountError()}
+					disabled={m.creating()}
+					platform={usePlatform()()}
+				/>
 			</div>
+		)),
+		Setup: slot((m) => (
+			<HostSetup
+				spaceName={m.name().trim()}
+				account={m.trimmedAccount()}
+				step={m.setupStep()}
+				error={m.setupError()}
+				signedInAs={m.signedInAs()}
+				onReopenSignIn={m.reopenSignIn}
+				onBack={m.backToForm}
+				onRetry={m.retry}
+				onUseColibri={m.useColibri}
+				onUseAnotherAccount={m.useAnotherAccount}
+			/>
 		)),
 		Submit: slot((m) => (
 			<Button
@@ -231,7 +381,7 @@ export const createSpace = defineContract({
 				disabled={!m.canCreate()}
 				onClick={() => void m.create()}
 			>
-				Create Space
+				{hostingSubmitLabel(m.hosting())}
 			</Button>
 		)),
 	},

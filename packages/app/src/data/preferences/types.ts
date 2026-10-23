@@ -39,6 +39,8 @@ export type MuteSubject =
 
 export type Mute = { subject: MuteSubject; createdAt: Datetime };
 
+export type LeftThread = { thread: SpaceRef; leftAt: Datetime };
+
 export const INBOX_PRESENTATIONS = ["popover", "modal"] as const;
 
 export type InboxPresentation = (typeof INBOX_PRESENTATIONS)[number];
@@ -67,6 +69,7 @@ export type Preferences = {
 	shareActivity: boolean;
 	gifFavorites: GifView[];
 	mutes: Mute[];
+	leftThreads: LeftThread[];
 	spaceLevels: Readonly<Record<string, NotificationLevel>>;
 	spaceModeration: Readonly<Record<string, boolean>>;
 	client: ClientPreferences;
@@ -109,6 +112,7 @@ export type PreferenceBackend = {
 	createMute: (rkey: string, mute: Mute) => Promise<void>;
 	deleteMute: (rkey: string) => Promise<void>;
 	putMutes: (mutes: Mute[]) => Promise<Preferences>;
+	putLeftThreads: (leftThreads: LeftThread[]) => Promise<Preferences>;
 };
 
 export const DEFAULT_COMPOSER: ComposerState = {
@@ -123,6 +127,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
 	shareActivity: false,
 	gifFavorites: [],
 	mutes: [],
+	leftThreads: [],
 	spaceLevels: {},
 	spaceModeration: {},
 	client: {},

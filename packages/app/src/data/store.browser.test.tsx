@@ -6,6 +6,7 @@ import { sidebarThreadsFor } from "../screens/spaces/sidebar-threads";
 import { channelSlug, isVoiceChannel, skeyOf } from "./ids";
 import { createMockSource, setLatency } from "./mock/source";
 import { createOutboxQueue } from "./outbox/queue";
+import type { OutboxOp } from "./outbox/types";
 import type { DataSource, LiveEvent } from "./source";
 import {
 	createDataStore,
@@ -222,7 +223,7 @@ describe("thread auto-follow", () => {
 		return { space, critique, hands };
 	};
 
-	it("follows a thread after sending in it and keeps its row once you leave", async () => {
+	it("follows a thread after sending in it and keeps its row once you stop viewing it", async () => {
 		const { store } = await setup();
 		const { space, critique, hands } = await critiqueOf(store);
 		const later = Date.now() + 2 * DAY;
@@ -286,7 +287,7 @@ describe("thread auto-follow", () => {
 		store.dispose();
 	});
 
-	it("drops an opened thread from the sidebar once you leave it", async () => {
+	it("drops an opened thread from the sidebar once you stop viewing it", async () => {
 		const clock = Date.now();
 		const { store } = await setup({ store: { now: () => clock } });
 		const { space, critique, hands } = await critiqueOf(store);
@@ -298,6 +299,96 @@ describe("thread auto-follow", () => {
 		expect(rows(skeyOf(hands.space))).toContain(hands.space);
 		store.setViewing(undefined);
 		expect(rows()).not.toContain(hands.space);
+		store.dispose();
+	});
+});
+
+describe("leaving a thread", () => {
+	const critiqueOf = async (store: ReturnType<typeof createDataStore>) => {
+		const owls = store.communities
+			.value()
+			?.find((entry) => entry.handle.startsWith("nightowls.")) as NonNullable<
+			ReturnType<typeof store.communities.value>
+		>[number];
+		const space = store.space(owls);
+		await until(() => !!space.channels.value());
+		const critique = space.channelBySlug("critique");
+		if (!critique) throw new Error("critique missing");
+		const parent = store.channel(critique.space);
+		await until(() => !!parent.threads.value());
+		const hands = parent.threads
+			.value()
+			?.find((thread) => thread.name === "Hands help");
+		if (!hands) throw new Error("thread missing");
+		return { space, critique, hands };
+	};
+
+	it("drops an unfollowed thread from the sidebar right away and brings it back on follow", async () => {
+		const { store } = await setup();
+		const { space, critique, hands } = await critiqueOf(store);
+		const rows = () =>
+			sidebarThreadsFor(store, space, critique.space).map(
+				(state) => state.thread.space,
+			);
+		await store.threads.follow(hands, true);
+		expect(rows()).toContain(hands.space);
+		expect(store.threads.leftAt(hands.space)).toBeUndefined();
+
+		const current = store.threads.find(hands.space) ?? hands;
+		const leaving = store.threads.follow(current, false);
+		expect(rows()).not.toContain(hands.space);
+		expect(store.threads.leftAt(hands.space)).toBeDefined();
+		await leaving;
+		await store.preferences.settled();
+		expect(store.threads.leftAt(hands.space)).toBeDefined();
+
+		await store.threads.follow(store.threads.find(hands.space) ?? hands, true);
+		expect(store.threads.leftAt(hands.space)).toBeUndefined();
+		expect(rows()).toContain(hands.space);
+		store.dispose();
+	});
+
+	it("takes you back into a left thread when someone pings you in it", async () => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const listeners = new Set<(event: LiveEvent) => void>();
+		const source: DataSource = {
+			...base,
+			subscribe: (listener) => {
+				listeners.add(listener);
+				const stop = base.subscribe(listener);
+				return () => {
+					listeners.delete(listener);
+					stop();
+				};
+			},
+		};
+		const { store } = await setup({ source });
+		const { space, critique, hands } = await critiqueOf(store);
+		const rows = () =>
+			sidebarThreadsFor(store, space, critique.space).map(
+				(state) => state.thread.space,
+			);
+		await store.threads.follow(hands, true);
+		await store.threads.follow(store.threads.find(hands.space) ?? hands, false);
+		expect(rows()).not.toContain(hands.space);
+
+		for (const listener of [...listeners])
+			listener({
+				$type: "notificationEvent",
+				notification: {
+					id: "back",
+					kind: "reply",
+					author: { did: "did:plc:maya", handle: "maya.test" },
+					channel: hands.channel,
+					thread: hands.space,
+					indexedAt: new Date(Date.now() + 1000).toISOString(),
+				} as never,
+			});
+
+		expect(store.threads.leftAt(hands.space)).toBeUndefined();
+		await until(() => !!store.threads.find(hands.space)?.viewer.following);
+		expect(rows()).toContain(hands.space);
 		store.dispose();
 	});
 });
@@ -1623,5 +1714,200 @@ describe("channel preview", () => {
 		store.setSimulation({ offline: true });
 		await channel.remove(latest.rkey);
 		expect(preview()?.text).toBe("keep me");
+	});
+});
+
+describe("stale queued messages", () => {
+	const HOUR = 60 * 60 * 1000;
+	const owner = "app:did:plc:me";
+	const keyAt = (millis: number) => {
+		let value = (BigInt(millis * 1000) << 10n) | 7n;
+		let key = "";
+		for (let i = 0; i < 13; i++) {
+			key = "234567abcdefghijklmnopqrstuvwxyz"[Number(value & 31n)] + key;
+			value >>= 5n;
+		}
+		return key;
+	};
+	type SendInput = Parameters<DataSource["sendMessage"]>[0];
+
+	const gatedSource = (echo: boolean) => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const listeners = new Set<(event: LiveEvent) => void>();
+		let muted = false;
+		let release: () => void = () => {};
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const sends: SendInput[] = [];
+		const deletes: string[] = [];
+		const source: DataSource = {
+			...base,
+			subscribe: (listener) => {
+				listeners.add(listener);
+				const stop = base.subscribe((event) => {
+					if (!muted) listener(event);
+				});
+				return () => {
+					listeners.delete(listener);
+					stop();
+				};
+			},
+			sendMessage: async (input) => {
+				sends.push(input);
+				await gate;
+				muted = true;
+				const view = await base.sendMessage(input).finally(() => {
+					muted = false;
+				});
+				if (echo) {
+					for (const listener of listeners)
+						listener({
+							$type: "messageEvent",
+							event: "create",
+							channel: input.channel,
+							message: view,
+						});
+					await new Promise((resolve) => setTimeout(resolve, 30));
+				}
+				return view;
+			},
+			deleteMessage: (input) => {
+				deletes.push(input.rkey);
+				return base.deleteMessage(input);
+			},
+		};
+		return { source, sends, deletes, release: () => release() };
+	};
+
+	const setupStale = async (
+		ops: (ref: SpaceRef, stale: string) => OutboxOp[],
+		echo = true,
+	) => {
+		const gated = gatedSource(echo);
+		const kv = createMemoryKvStore();
+		const queue = () => createOutboxQueue({ owner, kv });
+		const first = await setup({ source: gated.source });
+		const ref = first.channel.channel;
+		first.store.dispose();
+		const stale = keyAt(Date.now() - 30 * HOUR);
+		const seeded = queue();
+		let seq = 1;
+		for (const op of ops(ref, stale))
+			await seeded.put({ seq: seq++, op, createdAt: Date.now(), attempts: 0 });
+		let holding = true;
+		const { store, channel } = await setup({
+			source: gated.source,
+			store: { outbox: { queue: queue(), held: () => holding } },
+		});
+		await until(() => channel.pending().length === ops(ref, stale).length);
+		const start = () => {
+			holding = false;
+			store.outbox.flush();
+		};
+		return { ...gated, store, channel, ref, stale, start };
+	};
+
+	const sendOp = (
+		ref: SpaceRef,
+		rkey: string,
+		text: string,
+		parent?: string,
+	): OutboxOp => ({
+		t: "send",
+		channel: ref,
+		rkey,
+		text,
+		...(parent ? { parent } : {}),
+		files: [],
+	});
+
+	it("moves the placeholder and preview to a fresh key before it sends, and shows it once", async () => {
+		const { store, channel, ref, stale, sends, release, start } =
+			await setupStale((ref, stale) => [sendOp(ref, stale, "waited a day")]);
+		expect(channel.pending()[0]?.rkey).toBe(stale);
+		expect(store.lastMessage(ref)?.rkey).toBe(stale);
+		const states: string[] = [];
+		const stop = createRoot((dispose) => {
+			createEffect(() => {
+				const pending = channel
+					.pending()
+					.some((entry) => entry.text === "waited a day");
+				const sent = channel
+					.messages()
+					.filter((entry) => entry.text === "waited a day").length;
+				const state =
+					pending && sent
+						? "both"
+						: pending
+							? "pending"
+							: sent === 1
+								? "sent"
+								: sent > 1
+									? "duplicate"
+									: "none";
+				if (states.at(-1) !== state) states.push(state);
+			});
+			return dispose;
+		});
+		start();
+		await until(() => sends.length === 1);
+		const fresh = sends[0]?.rkey ?? "";
+		const placeholder = channel.pending()[0];
+		expect(fresh).not.toBe(stale);
+		expect(placeholder?.rkey).toBe(fresh);
+		expect(store.lastMessage(ref)?.rkey).toBe(fresh);
+		expect(store.nonceFor(fresh)).toBe(placeholder?.nonce);
+		expect(store.nonceFor(stale)).toBeUndefined();
+		release();
+		await until(() => channel.pending().length === 0);
+		await new Promise((resolve) => setTimeout(resolve, 80));
+		stop();
+		expect(states).toEqual(["pending", "sent"]);
+		expect(
+			channel
+				.messages()
+				.filter((entry) => entry.text === "waited a day")
+				.map((entry) => entry.rkey),
+		).toEqual([fresh]);
+	});
+
+	it("points a queued reply at the fresh key", async () => {
+		const { channel, stale, sends, release, start } = await setupStale(
+			(ref, stale) => [
+				sendOp(ref, stale, "question"),
+				sendOp(ref, keyAt(Date.now()), "answer", stale),
+			],
+		);
+		start();
+		await until(() => sends.length === 1);
+		const fresh = sends[0]?.rkey ?? "";
+		const reply = channel.pending().find((entry) => entry.text === "answer");
+		expect(fresh).not.toBe(stale);
+		expect(reply?.parent).toBe(fresh);
+		release();
+		await until(() => sends.length === 2 && channel.pending().length === 0);
+		expect(sends[1]?.parent).toBe(fresh);
+	});
+
+	it("takes back the fresh key when a discarded send lands anyway", async () => {
+		const { channel, stale, sends, deletes, release, start } = await setupStale(
+			(ref, stale) => [sendOp(ref, stale, "never mind")],
+			false,
+		);
+		start();
+		await until(() => sends.length === 1);
+		const fresh = sends[0]?.rkey ?? "";
+		const placeholder = channel.pending()[0];
+		if (!placeholder) throw new Error("no placeholder");
+		channel.discard(placeholder.nonce);
+		release();
+		await until(() => deletes.includes(fresh));
+		expect(fresh).not.toBe(stale);
+		expect(deletes).not.toContain(stale);
+		expect(
+			channel.messages().some((entry) => entry.text === "never mind"),
+		).toBe(false);
 	});
 });

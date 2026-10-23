@@ -1363,6 +1363,38 @@ describe("createRemoteSource", () => {
 		expect(source.viewer().presence?.voice?.channel).toBe(VOICE);
 	});
 
+	it("pushes left threads through putMutes without sending mutes", async () => {
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				colibri.actor.putMutes.main.nsid,
+				json({
+					preferences: {
+						notificationLevel: "all",
+						communityOrder: [],
+						mutes: [],
+						gifFavorites: [],
+						leftThreads: [
+							{ thread: THREAD, leftAt: "2026-10-23T10:00:00.000Z" },
+						],
+					},
+				}),
+			);
+		});
+
+		await source.preferences.setLeft(THREAD, true);
+		await source.preferences.settled();
+
+		const body = fake.callsTo(colibri.actor.putMutes.main.nsid).at(-1)
+			?.body as any;
+		expect(body.mutes).toBeUndefined();
+		expect(body.leftThreads.map((entry: any) => entry.thread)).toEqual([
+			THREAD,
+		]);
+		expect(source.preferences.leftAt(THREAD)).toBe(
+			Date.parse("2026-10-23T10:00:00.000Z"),
+		);
+	});
+
 	it("writes the settings record, then pushes GIF favorites", async () => {
 		const saved = [{ id: "gif-2", url: "https://gif.test/2.gif" }];
 		const { fake, source } = await setup((fake) => {
@@ -1408,6 +1440,7 @@ describe("createRemoteSource", () => {
 				communityOrder: [],
 				shareActivity: false,
 				mutes: [],
+				leftThreads: [],
 				spaceLevels: {},
 				spaceModeration: {},
 				client: {},

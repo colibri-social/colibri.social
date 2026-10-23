@@ -123,7 +123,11 @@ describe("message links", () => {
 			}),
 		);
 		await expect
-			.element(page.getByText(MISSING_LINKED_MESSAGE_COPY))
+			.element(
+				page
+					.getByRole("paragraph")
+					.filter({ hasText: MISSING_LINKED_MESSAGE_COPY }),
+			)
 			.toBeVisible();
 		expect(document.querySelector("[data-highlight='jumped']")).toBeNull();
 		expect(

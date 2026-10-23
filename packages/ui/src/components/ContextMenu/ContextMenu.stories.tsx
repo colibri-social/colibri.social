@@ -7,7 +7,7 @@ import { storyImages } from "../Banner/story-images";
 import { CategoryHeader } from "../Channels/Category";
 import { ChannelListHeader } from "../Channels/ChannelListHeader";
 import { ChannelRow, VoiceChannelRow } from "../Channels/ChannelRow";
-import { DropdownMenu } from "../DropdownMenu/DropdownMenu";
+import { DropdownMenu, MenuDrawer } from "../DropdownMenu/DropdownMenu";
 import { InviteTable } from "../Invite/InviteTable";
 import { FIXED_NOW, inviteFixtures } from "../Invite/invite-fixtures";
 import { MemberRow } from "../Members/MemberRow";
@@ -1266,6 +1266,7 @@ export const ClosedLockedThreadMenu: Story = {
 };
 
 const onTargetClick = fn();
+const onInnerButton = fn();
 
 export const PressTargetCloses: Story = {
 	name: "Press on the target closes",
@@ -1290,7 +1291,8 @@ export const PressTargetCloses: Story = {
 		onTargetClick.mockClear();
 		onCopy.mockClear();
 		const target = within(canvasElement).getByTestId("target");
-		await openMenu(target, "Target options");
+		const menu = await openMenu(target, "Target options");
+		await expectNoLayoutIssues(menu);
 		await userEvent.click(target);
 		await waitFor(() =>
 			expect(screen.queryByRole("menu", { name: "Target options" })).toBeNull(),
@@ -1307,31 +1309,146 @@ export const PressTargetCloses: Story = {
 	},
 };
 
-export const OneMenuAtATime: Story = {
-	name: "One menu at a time",
+export const ClickThroughWhileOpen: Story = {
+	name: "Clicks on controls go through while open",
 	render: () => (
-		<div class="flex min-h-screen flex-col gap-4 bg-background p-8">
-			<MessageContextMenu onReply={fn()} onCopyText={fn()} onDelete={fn()}>
-				<div
-					data-testid="first-message"
-					class="rounded-control px-4 py-3 text-base hover:bg-card"
-				>
-					Right-click this message first.
-				</div>
-			</MessageContextMenu>
-			<ThreadContextMenu
-				name={LONG_THREAD_NAME}
-				following={false}
-				muted={false}
-				onMarkAsRead={() => {}}
-				onCopyLink={() => {}}
+		<div class="min-h-screen bg-background p-8">
+			<ContextMenu
+				aria-label="Row options"
+				clickThrough
+				menu={<MenuItem label="Copy" onSelect={onCopy} />}
 			>
-				<button type="button" class="w-64 truncate text-left">
-					{LONG_THREAD_NAME}
-				</button>
-			</ThreadContextMenu>
+				<div
+					data-testid="row"
+					class="flex h-40 w-full flex-col items-center justify-center gap-3 rounded-surface border border-dashed border-border text-sm text-muted-foreground"
+				>
+					Right-click this row, then press the button
+					<button
+						type="button"
+						onClick={onInnerButton}
+						class="rounded-control bg-card px-3 py-1.5 text-foreground"
+					>
+						Play
+					</button>
+				</div>
+			</ContextMenu>
 		</div>
 	),
+	play: async ({ canvasElement }) => {
+		onInnerButton.mockClear();
+		onCopy.mockClear();
+		const canvas = within(canvasElement);
+		const menu = await openMenu(canvas.getByTestId("row"), "Row options");
+		await expectNoLayoutIssues(menu);
+		await userEvent.click(canvas.getByRole("button", { name: "Play" }));
+		await expect(onInnerButton).toHaveBeenCalledTimes(1);
+		await waitFor(() =>
+			expect(screen.queryByRole("menu", { name: "Row options" })).toBeNull(),
+		);
+		await userEvent.click(canvas.getByRole("button", { name: "Play" }));
+		await expect(onInnerButton).toHaveBeenCalledTimes(2);
+		await expect(onCopy).not.toHaveBeenCalled();
+	},
+};
+
+const wheelOn = (element: Element) => {
+	const event = new WheelEvent("wheel", {
+		bubbles: true,
+		cancelable: true,
+		deltaY: 120,
+	});
+	element.dispatchEvent(event);
+	return event.defaultPrevented;
+};
+
+export const ScrollLockedWhileOpen: Story = {
+	name: "Scrolling is locked while open",
+	render: () => (
+		<div class="min-h-screen bg-background p-8">
+			<div
+				data-testid="scroller"
+				class="h-64 overflow-y-auto rounded-surface border border-border"
+			>
+				<For each={Array.from({ length: 30 }, (_, index) => index + 1)}>
+					{(index) => (
+						<ContextMenu
+							aria-label={`Message ${index} options`}
+							menu={<MenuItem label="Copy" onSelect={onCopy} />}
+						>
+							<button
+								type="button"
+								data-testid={`message-${index}`}
+								class="block w-full px-4 py-3 text-left text-base text-foreground"
+							>
+								Message {index}
+							</button>
+						</ContextMenu>
+					)}
+				</For>
+			</div>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const row = canvas.getByTestId("message-2");
+		await expect(wheelOn(row)).toBe(false);
+		const menu = await openMenu(row, "Message 2 options");
+		await expectNoLayoutIssues(menu);
+		await waitFor(() => expect(wheelOn(row)).toBe(true));
+		await closeWithEscape();
+		await waitFor(() => expect(wheelOn(row)).toBe(false));
+	},
+};
+
+export const OneMenuAtATime: Story = {
+	name: "One menu at a time",
+	render: () => {
+		const [drawerOpen, setDrawerOpen] = createSignal(false);
+		return (
+			<div class="flex min-h-screen flex-col gap-4 bg-background p-8">
+				<MessageContextMenu onReply={fn()} onCopyText={fn()} onDelete={fn()}>
+					<div
+						data-testid="first-message"
+						class="rounded-control px-4 py-3 text-base hover:bg-card"
+					>
+						Right-click this message first.
+					</div>
+				</MessageContextMenu>
+				<ThreadContextMenu
+					name={LONG_THREAD_NAME}
+					following={false}
+					muted={false}
+					onMarkAsRead={() => {}}
+					onCopyLink={() => {}}
+				>
+					<button type="button" class="w-64 truncate text-left">
+						{LONG_THREAD_NAME}
+					</button>
+				</ThreadContextMenu>
+				<DropdownMenu
+					platform="desktop"
+					label="Sort options"
+					trigger="Sort"
+					triggerClass="w-fit rounded-control bg-card px-3 py-1.5"
+					items={[
+						{ kind: "item", label: "Newest first", onSelect: () => {} },
+						{ kind: "item", label: "Oldest first", onSelect: () => {} },
+					]}
+				/>
+				<MemberRow
+					name="Ada Lovelace"
+					variant="desktop"
+					onMenu={() => setDrawerOpen(true)}
+				/>
+				<MenuDrawer
+					open={drawerOpen()}
+					onOpenChange={setDrawerOpen}
+					label="Ada Lovelace options"
+					items={[{ kind: "item", label: "Mention", onSelect: () => {} }]}
+				/>
+			</div>
+		);
+	},
 	play: async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
 		const messageMenu = await openMenu(
@@ -1357,5 +1474,30 @@ export const OneMenuAtATime: Story = {
 			expect(document.querySelectorAll('[role="menu"]')).toHaveLength(1),
 		);
 		await expect(document.querySelector('[role="menu"]')).toBe(reopened);
+		await closeWithEscape();
+		await userEvent.click(canvas.getByRole("button", { name: "Sort options" }));
+		const sortMenu = await screen.findByRole("menu", { name: "Sort options" });
+		await expectNoLayoutIssues(sortMenu);
+		await openMenu(canvas.getByTestId("first-message"), "Message options");
+		await waitFor(() =>
+			expect(screen.queryByRole("menu", { name: "Sort options" })).toBeNull(),
+		);
+		rightClick(canvasElement.querySelector("[data-member-row]") as HTMLElement);
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("menu", { name: "Message options" }),
+			).toBeNull(),
+		);
+		const drawer = await screen.findByRole("dialog", {
+			name: "Ada Lovelace options",
+		});
+		await expectNoLayoutIssues(drawer);
+		await openMenu(canvas.getByTestId("first-message"), "Message options");
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Ada Lovelace options" }),
+			).toBeNull(),
+		);
+		await closeWithEscape();
 	},
 };

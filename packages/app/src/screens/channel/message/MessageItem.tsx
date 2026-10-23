@@ -592,15 +592,33 @@ export const MessageItem = (props: MessageItemProps) => {
 		text: string;
 		ranges: Range[];
 	}>();
-	const captureSelection = (row: Element) => {
+	const selectedRanges = () => {
 		const current = window.getSelection();
-		if (!current || current.isCollapsed) return undefined;
-		const ranges = Array.from({ length: current.rangeCount }, (_, index) =>
+		if (!current || current.isCollapsed) return [];
+		return Array.from({ length: current.rangeCount }, (_, index) =>
 			current.getRangeAt(index).cloneRange(),
 		);
+	};
+	const sameRanges = (left: Range[], right: Range[]) =>
+		left.length === right.length &&
+		left.every(
+			(range, index) =>
+				range.startContainer === right[index].startContainer &&
+				range.startOffset === right[index].startOffset &&
+				range.endContainer === right[index].endContainer &&
+				range.endOffset === right[index].endOffset,
+		);
+	const captureSelection = (row: Element) => {
+		const ranges = selectedRanges();
 		if (!ranges.some((range) => range.intersectsNode(row))) return undefined;
-		const text = current.toString();
+		const text = window.getSelection()?.toString() ?? "";
 		return text.trim() ? { text, ranges } : undefined;
+	};
+	const undoPressSelection = (pressed: Range[]) => {
+		const current = window.getSelection();
+		if (!current || sameRanges(selectedRanges(), pressed)) return;
+		current.removeAllRanges();
+		for (const range of pressed) current.addRange(range);
 	};
 	const restoreSelection = () => {
 		const saved = contextSelection();
@@ -619,21 +637,23 @@ export const MessageItem = (props: MessageItemProps) => {
 		};
 	};
 	let pressedSelection:
-		| { value: ReturnType<typeof captureSelection> }
+		| { value: ReturnType<typeof captureSelection>; ranges: Range[] }
 		| undefined;
 	const captureSecondaryPress = (event: MouseEvent) => {
 		const secondary =
 			event.button === 2 || (event.button === 0 && event.ctrlKey);
 		if (!secondary || !(event.currentTarget instanceof Element)) return;
-		pressedSelection = { value: captureSelection(event.currentTarget) };
+		pressedSelection = {
+			value: captureSelection(event.currentTarget),
+			ranges: selectedRanges(),
+		};
 	};
 	const captureContextLink = (event: MouseEvent) => {
-		if (event.currentTarget instanceof Element) {
-			setContextSelection(
-				pressedSelection
-					? pressedSelection.value
-					: captureSelection(event.currentTarget),
-			);
+		if (pressedSelection) {
+			undoPressSelection(pressedSelection.ranges);
+			setContextSelection(pressedSelection.value);
+		} else if (event.currentTarget instanceof Element) {
+			setContextSelection(captureSelection(event.currentTarget));
 		}
 		pressedSelection = undefined;
 		const target = event.target;

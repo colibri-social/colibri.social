@@ -19,6 +19,7 @@ import { cx } from "../../utils/cx";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { createSlot } from "../../utils/slot";
+import { claimActiveMenu, releaseActiveMenu } from "./active-menu";
 
 export const menuContentClass =
 	"z-50 flex min-w-52 max-w-72 flex-col rounded-control-lg border border-border bg-popover p-1 text-foreground shadow-overlay outline-none";
@@ -104,16 +105,29 @@ const AdoptTrigger = (props: Record<string, unknown>) => {
 	return undefined;
 };
 
-let activeMenuClose: (() => void) | undefined;
+const PASS_THROUGH_TARGETS = [
+	"a[href]",
+	"button",
+	"input",
+	"textarea",
+	"select",
+	"label",
+	"summary",
+	"video",
+	"audio",
+	"[contenteditable='true']",
+	"[role='button']",
+	"[role='link']",
+	"[role='checkbox']",
+	"[role='switch']",
+	"[role='slider']",
+	"[role='tab']",
+].join(",");
 
-const claimActiveMenu = (close: () => void) => {
-	const previous = activeMenuClose;
-	activeMenuClose = close;
-	if (previous && previous !== close) previous();
-};
-
-const releaseActiveMenu = (close: () => void) => {
-	if (activeMenuClose === close) activeMenuClose = undefined;
+const passesThrough = (trigger: HTMLElement, target: EventTarget | null) => {
+	if (!(target instanceof Element)) return false;
+	const interactive = target.closest(PASS_THROUGH_TARGETS);
+	return !!interactive && trigger.contains(interactive);
 };
 
 const OpenOnArm = (props: {
@@ -136,6 +150,7 @@ const OpenOnArm = (props: {
 export type ContextMenuProps = ParentProps<{
 	menu: JSX.Element;
 	disabled?: boolean;
+	clickThrough?: boolean;
 	onOpenChange?: (open: boolean) => void;
 	class?: string;
 	contentClass?: string;
@@ -147,6 +162,7 @@ export const ContextMenu = (props: ContextMenuProps) => {
 	const [local, rest] = splitProps(props, [
 		"menu",
 		"disabled",
+		"clickThrough",
 		"onOpenChange",
 		"class",
 		"contentClass",
@@ -178,9 +194,11 @@ export const ContextMenu = (props: ContextMenuProps) => {
 	const bindTrigger = (element: HTMLElement) => {
 		const closeOnPress = (event: PointerEvent) => {
 			if (!untrack(open) || event.button !== 0) return;
-			event.preventDefault();
-			event.stopPropagation();
-			swallowClick();
+			if (!local.clickThrough || !passesThrough(element, event.target)) {
+				event.preventDefault();
+				event.stopPropagation();
+				swallowClick();
+			}
 			const pointerType = event.pointerType;
 			setTimeout(() =>
 				document.body.dispatchEvent(
@@ -246,6 +264,7 @@ export const ContextMenu = (props: ContextMenuProps) => {
 				{(element) => (
 					<KobalteContextMenu
 						modal={false}
+						preventScroll
 						onOpenChange={change}
 						overflowPadding={overflowPadding()}
 					>

@@ -788,7 +788,7 @@ export const PlaceholderInEmptyEditor: Story = {
 			name: LONG_PLACEHOLDER,
 		});
 		await expect(editor).toHaveAttribute("autocomplete", "off");
-		await expect(editor).toHaveAttribute("autocorrect", "off");
+		await expect(editor).not.toHaveAttribute("autocorrect");
 		await expect(editor).toHaveAttribute("spellcheck", "true");
 		const paragraph = await waitFor(() => {
 			const found = editor.querySelector<HTMLElement>("p.is-editor-empty");

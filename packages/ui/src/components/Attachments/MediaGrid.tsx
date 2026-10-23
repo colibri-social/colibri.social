@@ -23,6 +23,7 @@ import {
 } from "../../utils/playback";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { UploadProgress } from "../Composer/AttachmentTray";
+import { Video } from "../Media/Video";
 import { VideoPlayer } from "../Media/VideoPlayer";
 import { sameMediaSource, VideoSource } from "../Media/VideoSource";
 import { Skeleton } from "../Skeleton/Skeleton";
@@ -148,7 +149,7 @@ const VideoFrame = (props: {
 	onLoad: () => void;
 	onError: () => void;
 }) => (
-	<video
+	<Video
 		tabindex={-1}
 		muted
 		playsinline
@@ -162,7 +163,7 @@ const VideoFrame = (props: {
 			mimeType={props.mimeType}
 			onError={props.onError}
 		/>
-	</video>
+	</Video>
 );
 
 const LoopingVideo = (props: {
@@ -216,7 +217,7 @@ const LoopingVideo = (props: {
 		setExhausted(true);
 	};
 	return (
-		<video
+		<Video
 			ref={setElement}
 			tabindex={-1}
 			muted
@@ -235,7 +236,7 @@ const LoopingVideo = (props: {
 				mimeType={props.mimeType}
 				onError={props.onError}
 			/>
-		</video>
+		</Video>
 	);
 };
 

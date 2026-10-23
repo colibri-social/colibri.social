@@ -1,6 +1,7 @@
 import { ColibriError } from "@colibri-social/lib";
 import { mentionedDids } from "../adapters/facets";
 import { summarizeMessage } from "../channel-summary";
+import type { HostingView } from "../hosting";
 import { createMemoryPreferenceBackend } from "../preferences/memory";
 import { createPreferenceStore } from "../preferences/store";
 import type { Preferences } from "../preferences/types";
@@ -43,6 +44,7 @@ import {
 } from "./communities";
 import { createMockEmoji } from "./emoji";
 import { searchGifs } from "./gifs";
+import { createMockHosting } from "./hosting";
 import { latencyScale, setLatencyScale, withLatency } from "./latency";
 import { createMockLegacy } from "./legacy";
 import { startLive } from "./live";
@@ -85,6 +87,7 @@ export type MockSourceOptions = {
 	preferences?: Partial<Preferences>;
 	preferencesSnapshotKey?: string;
 	legacyCommunities?: readonly LegacyCommunityView[];
+	hosting?: Readonly<Record<string, Partial<HostingView>>>;
 };
 
 const MOCK_CONTROLS: ControlsPreferences = {
@@ -148,6 +151,12 @@ export const createMockSource = (
 		seed: options.legacyCommunities,
 	});
 	const emoji = createMockEmoji({ world, now, emit });
+	const hosting = createMockHosting({
+		world,
+		now,
+		emit,
+		seed: options.hosting,
+	});
 
 	const spaceOf = (community: Did) => {
 		const space = world.spaces.find((entry) => entry.did === community);
@@ -442,6 +451,7 @@ export const createMockSource = (
 	const source: MockSource = {
 		...access,
 		...emoji,
+		...hosting,
 		world,
 		preferenceBackend,
 		emit,

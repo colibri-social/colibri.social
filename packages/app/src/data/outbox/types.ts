@@ -77,6 +77,7 @@ export type OutboxEvent =
 			fraction: number;
 			failed?: boolean;
 	  }
+	| { type: "rekeyed"; entry: OutboxEntry; from: string }
 	| { type: "sent"; entry: OutboxEntry; message?: MessageView }
 	| { type: "failed"; entry: OutboxEntry; code: string }
 	| { type: "dropped"; entry: OutboxEntry }

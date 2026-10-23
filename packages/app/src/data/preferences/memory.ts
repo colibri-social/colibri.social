@@ -49,6 +49,10 @@ export const createMemoryPreferenceBackend = (
 			state = { ...state, mutes: [...mutes] };
 			return state;
 		},
+		putLeftThreads: async (leftThreads) => {
+			state = { ...state, leftThreads: [...leftThreads] };
+			return state;
+		},
 	};
 	return {
 		backend,

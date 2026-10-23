@@ -82,9 +82,6 @@ import type {
 
 export type RichEditorPlatform = "mobile" | "desktop";
 
-const webSpellcheck = () =>
-	typeof navigator === "undefined" || !/Android/i.test(navigator.userAgent);
-
 export type EditorJSON = ReturnType<Editor["getJSON"]>;
 
 export type RichEditorHandle = {
@@ -620,9 +617,8 @@ export const RichEditor = (props: RichEditorProps) => {
 					role: "textbox",
 					"aria-multiline": "true",
 					"aria-autocomplete": "list",
-					spellcheck: String(webSpellcheck()),
+					spellcheck: "true",
 					autocomplete: "off",
-					autocorrect: "off",
 					class: "outline-none",
 				},
 				clipboardTextSerializer: (slice) => fragmentToMarkdown(slice.content),

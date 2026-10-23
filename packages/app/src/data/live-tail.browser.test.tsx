@@ -23,7 +23,12 @@ const memoryCache = (): MessageCache => {
 		recall: (space) => windows.get(space),
 		read: async (space) => windows.get(space),
 		offer: (space, messages, options) => {
-			windows.set(space, { messages: [...messages], ...options });
+			windows.set(space, {
+				space,
+				messages: [...messages],
+				...options,
+				ts: Date.now(),
+			});
 		},
 		forget: (space) => {
 			windows.delete(space);

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTid } from "./tid.js";
+import { nextTid, tidMillis } from "./tid.js";
 
 const S32_CHARS = "234567abcdefghijklmnopqrstuvwxyz";
 
@@ -44,5 +44,23 @@ describe("nextTid", () => {
 
 	it("stays below the rkeys the appview compares cursors against", () => {
 		expect(nextTid() < "undefined").toBe(true);
+	});
+});
+
+describe("tidMillis", () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it("reads the time a key was minted at", () => {
+		const minted = Date.parse("2026-10-20T12:00:00.000Z");
+		vi.useFakeTimers();
+		vi.setSystemTime(minted + 7_000);
+		expect(Math.floor(tidMillis(nextTid()) ?? 0)).toBe(minted + 7_000);
+	});
+
+	it("returns undefined for a key that is not a TID", () => {
+		expect(tidMillis("self")).toBeUndefined();
+		expect(tidMillis("zzzzzzzzzzzzz")).toBeUndefined();
 	});
 });

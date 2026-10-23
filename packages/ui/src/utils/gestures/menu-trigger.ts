@@ -1,4 +1,5 @@
 import { onCleanup } from "solid-js";
+import { closeActiveMenu } from "../../components/ContextMenu/active-menu";
 import { createLongPress } from "./long-press";
 
 export type MenuTriggerOptions = {
@@ -17,17 +18,22 @@ export const createMenuTrigger = (
 		lastPointerType = event.pointerType;
 	};
 
+	const openMenu = (event: Event) => {
+		closeActiveMenu();
+		options.onMenu(event);
+	};
+
 	const onContextMenu = (event: MouseEvent) => {
 		if (!isEnabled()) return;
 		if (lastPointerType && lastPointerType !== "mouse") return;
 		event.preventDefault();
 		event.stopPropagation();
-		options.onMenu(event);
+		openMenu(event);
 	};
 
 	createLongPress(element, {
 		enabled: isEnabled,
-		onLongPress: (event) => options.onMenu(event),
+		onLongPress: openMenu,
 	});
 
 	element.addEventListener("pointerdown", onPointerDown, {

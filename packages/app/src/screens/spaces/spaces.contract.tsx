@@ -16,6 +16,8 @@ import {
 	ChannelThreads,
 	copyText,
 	type DeveloperModeCardProps,
+	type SpaceAttention,
+	SpaceAttentionNotice,
 	SpaceContextMenu,
 	SpaceDrawer,
 	type SpaceMenuActions,
@@ -70,6 +72,7 @@ import {
 import { LoadErrorState } from "../../shell/load-error";
 import { useStack } from "../../shell/stack";
 import { newEntryId } from "../admin/channel/channel-target";
+import { createHostSignIn } from "../admin/hosting/host-sign-in";
 import { createInviteDrawer } from "../admin/invites/invite-drawer";
 import { createLeaveSpace } from "../admin/overview/leave-space";
 import { SPACE_PERMISSIONS } from "../admin/space-admin";
@@ -100,10 +103,18 @@ const spaceDeveloperCard = (did: string): DeveloperModeCardProps => ({
 	pdslsHref: pdslsUrl(did),
 });
 
+const attentionNotice = (attention: SpaceAttention | undefined) =>
+	attention
+		? (close: () => void) => (
+				<SpaceAttentionNotice attention={attention} onAction={close} />
+			)
+		: undefined;
+
 export const spaces = defineContract({
 	id: "spaces",
 	model: (args: SpacesArgs) => {
 		const data = useData();
+		const hostSignIn = createHostSignIn(data);
 		const stack = useStack();
 		const platform = usePlatform();
 		const desktopShell = useOptionalDesktopShell();
@@ -544,6 +555,7 @@ export const spaces = defineContract({
 			fallbackSpace: () => communities()[0],
 			haptics: useHaptics(),
 			spaceMenu,
+			hostAttention: hostSignIn.attention,
 			leaveSpace,
 			heldSpace,
 			spaceDrawerOpen,
@@ -641,6 +653,7 @@ export const spaces = defineContract({
 									active={m.railSpace() === community.did}
 									unread={totals().hasUnread}
 									mentions={totals().mentions || undefined}
+									attention={!!m.hostAttention(community)}
 									onSelect={() => m.selectSpace(community)}
 									onMenu={desktop() ? undefined : () => m.holdSpace(community)}
 								/>
@@ -689,6 +702,7 @@ export const spaces = defineContract({
 								memberCount={community().memberCount ?? 0}
 								description={community().description}
 								developer={spaceDeveloperCard(community().did)}
+								notice={attentionNotice(m.hostAttention(community()))}
 							/>
 						)}
 					</Show>
@@ -712,6 +726,7 @@ export const spaces = defineContract({
 								: undefined
 						}
 						menu={m.spaceMenu(community())}
+						attention={m.hostAttention(community())}
 					/>
 				)}
 			</Show>

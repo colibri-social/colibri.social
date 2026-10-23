@@ -18,6 +18,11 @@ import {
 } from "../ContextMenu/SpaceMenu";
 import type { DeveloperModeCardProps } from "../DeveloperMode/DeveloperModeCard";
 import { DropdownMenu } from "../DropdownMenu/DropdownMenu";
+import {
+	type SpaceAttention,
+	SpaceAttentionMark,
+	SpaceAttentionNotice,
+} from "../Hosting/SpaceAttention";
 import { SpaceDrawer, type SpaceDrawerProps } from "../Space/SpaceDrawer";
 import { MemberCountChip, OwnerChip } from "../Space/SpaceMeta";
 import type { ChannelPlatform } from "./ChannelRow";
@@ -36,6 +41,7 @@ export type ChannelListHeaderProps = {
 	description?: string;
 	developer?: DeveloperModeCardProps;
 	platform?: ChannelPlatform;
+	attention?: SpaceAttention;
 	class?: string;
 };
 
@@ -52,6 +58,7 @@ const SpaceNameContent = (props: {
 	name: string;
 	desktop: boolean;
 	overlay?: boolean;
+	attention?: boolean;
 }) => (
 	<>
 		<span
@@ -64,6 +71,9 @@ const SpaceNameContent = (props: {
 		>
 			{props.name}
 		</span>
+		<Show when={props.attention}>
+			<SpaceAttentionMark />
+		</Show>
 		<span
 			data-space-chevron=""
 			class={cx(
@@ -83,9 +93,24 @@ const SpaceNameContent = (props: {
 const mobileSpaceNameClass =
 	"ripple flex max-w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-control-xs border-0 bg-transparent p-0 text-left text-foreground outline-none focus-ring";
 
+const optionsLabel = (props: {
+	name: string;
+	label?: string;
+	attention?: SpaceAttention;
+}) =>
+	props.label ??
+	`${props.name}, Space options${props.attention ? ", needs your attention" : ""}`;
+
+const attentionNotice =
+	(attention: SpaceAttention | undefined) => (close: () => void) =>
+		attention ? (
+			<SpaceAttentionNotice attention={attention} onAction={close} />
+		) : undefined;
+
 const MobileSpaceButton = (props: {
 	name: string;
 	label?: string;
+	attention?: SpaceAttention;
 	menu?: SpaceMenuActions;
 	onClick?: () => void;
 	drawer: Omit<SpaceDrawerProps, "open" | "onOpenChange">;
@@ -100,17 +125,28 @@ const MobileSpaceButton = (props: {
 				data-space-name-button=""
 				aria-haspopup="dialog"
 				aria-expanded={props.menu ? open() : undefined}
-				aria-label={props.label ?? `${props.name}, Space options`}
+				aria-label={optionsLabel(props)}
 				onClick={() => {
 					if (props.menu) setOpen(true);
 					else props.onClick?.();
 				}}
 				class={mobileSpaceNameClass}
 			>
-				<SpaceNameContent name={props.name} desktop={false} />
+				<SpaceNameContent
+					name={props.name}
+					desktop={false}
+					attention={!!props.attention}
+				/>
 			</button>
 			<Show when={props.menu}>
-				<SpaceDrawer {...props.drawer} open={open()} onOpenChange={setOpen} />
+				<SpaceDrawer
+					{...props.drawer}
+					notice={
+						props.attention ? attentionNotice(props.attention) : undefined
+					}
+					open={open()}
+					onOpenChange={setOpen}
+				/>
 			</Show>
 		</>
 	);
@@ -131,6 +167,7 @@ const scrollParentOf = (node: HTMLElement) => {
 const DesktopSpaceRow = (props: {
 	name: string;
 	label?: string;
+	attention?: SpaceAttention;
 	menu?: SpaceMenuActions;
 	onClick?: () => void;
 	overlay: boolean;
@@ -154,20 +191,28 @@ const DesktopSpaceRow = (props: {
 				<button
 					type="button"
 					data-space-name-button=""
-					aria-label={props.label ?? `${props.name}, Space options`}
+					aria-label={optionsLabel(props)}
 					onClick={() => props.onClick?.()}
 					class={spaceNameClass}
 				>
-					<SpaceNameContent name={props.name} desktop overlay={props.overlay} />
+					<SpaceNameContent
+						name={props.name}
+						desktop
+						overlay={props.overlay}
+						attention={!!props.attention}
+					/>
 				</button>
 			}
 		>
 			{(menu) => (
 				<DropdownMenu
 					platform="desktop"
-					label={props.label ?? `${props.name}, Space options`}
+					label={optionsLabel(props)}
 					placement="bottom-start"
 					items={spaceMenuEntries(menu())}
+					notice={
+						props.attention ? attentionNotice(props.attention) : undefined
+					}
 					triggerClass={spaceNameClass}
 					triggerProps={{ "data-space-name-button": "" }}
 					trigger={
@@ -175,6 +220,7 @@ const DesktopSpaceRow = (props: {
 							name={props.name}
 							desktop
 							overlay={props.overlay}
+							attention={!!props.attention}
 						/>
 					}
 				/>
@@ -227,6 +273,7 @@ const DesktopHeader = (props: ChannelListHeaderProps) => {
 				}}
 				name={props.name}
 				label={props.openLabel}
+				attention={props.attention}
 				menu={props.menu}
 				onClick={props.onOpenSpace}
 				overlay={banner() && !scrolled()}
@@ -305,6 +352,7 @@ export const ChannelListHeader = (props: ChannelListHeaderProps) => {
 					<MobileSpaceButton
 						name={props.name}
 						label={props.openLabel}
+						attention={props.attention}
 						menu={props.menu}
 						onClick={props.onOpenSpace}
 						drawer={mergeProps(() => props.menu ?? {}, {

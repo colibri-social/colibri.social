@@ -26,6 +26,7 @@ import SpacesScreen from "../../screens/spaces/spaces.screen";
 import VoiceScreen from "../../screens/voice/voice.screen";
 import { AppLinkHost } from "../AppLinkHost";
 import { lastViewedSpace } from "../cold-start";
+import { HostReturnHost } from "../HostReturnHost";
 import { type Layer, sameLayer, type ThreadLayer } from "../layers";
 import { LoadErrorState, NotFoundScreen } from "../load-error";
 import { NotificationHost } from "../NotificationHost";
@@ -446,6 +447,7 @@ export const DesktopShell = () => {
 						<DiscardChangesDialog guard={navigator.leaveGuard} />
 						<NotificationHost stack={navigator} />
 						<AppLinkHost stack={navigator} />
+						<HostReturnHost />
 						<WriteFailureToasts />
 					</MemberMenuProvider>
 				</ProfileSheetProvider>

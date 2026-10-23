@@ -1,4 +1,5 @@
 import { batch, createRoot, createSignal } from "solid-js";
+import { HostSignInError, waitForHostAuthorization } from "./hosting";
 import type { CreateCommunityInput, DataSource } from "./source";
 import type {
 	BridgeLink,
@@ -14,6 +15,12 @@ type Updatable<T> = { update: (change: (current: T) => T) => void };
 export type CreateSpaceRequest = CreateCommunityInput & {
 	picture?: File;
 	banner?: File;
+	host?: {
+		identifier: string;
+		open: (url: string) => void;
+		onSignedIn?: () => void;
+		signal?: AbortSignal;
+	};
 };
 
 export type CreateSpaceResult = {
@@ -124,11 +131,35 @@ export const createSpaceDirectory = (
 			discoverable.update((list) => replaceCommunity(list, event.community));
 		});
 
+		const adopt = async (
+			input: CreateCommunityInput,
+			host: NonNullable<CreateSpaceRequest["host"]>,
+		): Promise<CommunityView> => {
+			const { authorizeUrl, request } = await source.authorizeCommunityHost({
+				intent: "adopt",
+				identifier: host.identifier,
+				name: input.name,
+				description: input.description,
+				requiresApprovalToJoin: input.requiresApprovalToJoin,
+			});
+			host.open(authorizeUrl);
+			const outcome = await waitForHostAuthorization(source, request, {
+				signal: host.signal,
+			});
+			if (outcome.status === "failed") {
+				throw new HostSignInError(outcome.failure, outcome.signedInAs);
+			}
+			host.onSignedIn?.();
+			return source.getCommunity(outcome.community);
+		};
+
 		const create = async (
 			request: CreateSpaceRequest,
 		): Promise<CreateSpaceResult> => {
-			const { picture, banner, ...input } = request;
-			let community = await source.createCommunity(input);
+			const { picture, banner, host, ...input } = request;
+			let community = host
+				? await adopt(input, host)
+				: await source.createCommunity(input);
 			remember(community);
 			let imagesFailed = false;
 			for (const [kind, file] of [

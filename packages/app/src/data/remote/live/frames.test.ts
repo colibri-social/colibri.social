@@ -554,6 +554,9 @@ describe("toLiveEvents", () => {
 								createdAt: "2026-10-15T10:00:00.000Z",
 							},
 						],
+						leftThreads: [
+							{ thread: THREAD, leftAt: "2026-10-16T10:00:00.000Z" },
+						],
 						gifFavorites: [gif],
 						shareActivity: true,
 						spaceNotifications: [
@@ -596,6 +599,7 @@ describe("toLiveEvents", () => {
 							createdAt: "2026-10-15T10:00:00.000Z",
 						},
 					],
+					leftThreads: [{ thread: THREAD, leftAt: "2026-10-16T10:00:00.000Z" }],
 					spaceLevels: { [COMMUNITY]: "mentionsAndReplies" },
 					spaceModeration: {},
 					client: { theme: "light", controls: { swipeLeftAction: "reply" } },

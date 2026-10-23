@@ -303,6 +303,14 @@
 					},
 					"description": "Moderation view options the user set for single communities. A community without an entry follows clientPreferences."
 				},
+				"leftThreads": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#leftThread"
+					},
+					"description": "Threads the user left. A ping in a thread after leftAt brings the user back and removes its entry."
+				},
 				"clientPreferences": {
 					"type": "ref",
 					"ref": "#clientPreferences",
@@ -379,6 +387,26 @@
 					"type": "string",
 					"format": "space-ref",
 					"description": "The muted thread's space."
+				}
+			}
+		},
+		"leftThread": {
+			"type": "object",
+			"description": "A thread the user left. The user stays out of the thread's audience until someone pings them in it, they follow it again or they post in it.",
+			"required": [
+				"thread",
+				"leftAt"
+			],
+			"properties": {
+				"thread": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The left thread's space."
+				},
+				"leftAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the user left the thread."
 				}
 			}
 		},

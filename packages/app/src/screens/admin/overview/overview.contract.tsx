@@ -17,6 +17,7 @@ import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { InfoCircleIcon } from "@solar-icons/solid/bold/info-circle";
 import { LinkRoundIcon } from "@solar-icons/solid/bold/link-round";
 import { Logout2Icon } from "@solar-icons/solid/bold/logout-2";
+import { Server2Icon } from "@solar-icons/solid/bold/server-2";
 import { ShareCircleIcon } from "@solar-icons/solid/bold/share-circle";
 import { SmileCircleIcon } from "@solar-icons/solid/bold/smile-circle";
 import { TransferHorizontalIcon } from "@solar-icons/solid/bold/transfer-horizontal";
@@ -259,6 +260,15 @@ export const overview = defineContract({
 							<SidebarNavSection label="Danger zone">
 								<Show when={m.isOwner()}>
 									<SidebarNavItem
+										label="Hosting"
+										icon={<Server2Icon />}
+										tone="destructive"
+										active={
+											p.active === "hosting" || p.active === "hosting-move"
+										}
+										onClick={() => p.onSelect?.("hosting")}
+									/>
+									<SidebarNavItem
 										label="Transfer ownership"
 										icon={<TransferHorizontalIcon />}
 										tone="destructive"
@@ -291,6 +301,13 @@ export const overview = defineContract({
 				>
 					<div data-space-settings-actions="" class="flex flex-col gap-2">
 						<Show when={m.isOwner()}>
+							<Button
+								variant="destructive-subtle"
+								block
+								onClick={() => m.open("hosting")}
+							>
+								Hosting
+							</Button>
 							<Button
 								variant="destructive-subtle"
 								block

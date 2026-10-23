@@ -18,6 +18,7 @@ import { cx } from "../../utils/cx";
 import { motionScale } from "../../utils/motion";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
+import { trackActiveMenu } from "../ContextMenu/active-menu";
 import {
 	MenuItem,
 	type MenuItemTone,
@@ -551,6 +552,7 @@ export type DropdownMenuProps = {
 	platform?: DropdownMenuPlatform;
 	items?: DropdownMenuEntry[];
 	menu?: JSX.Element;
+	notice?: (close: () => void) => JSX.Element;
 	label: string;
 	title?: JSX.Element;
 	trigger?: JSX.Element;
@@ -582,6 +584,7 @@ export const DropdownMenu = (props: DropdownMenuProps) => {
 		setInternalOpen(next);
 		props.onOpenChange?.(next);
 	};
+	if (!props.submenu) trackActiveMenu(open, () => setOpen(false));
 	const overflowPadding = usePopperOverflowPadding();
 	const mobile = () => props.platform === "mobile";
 	let content: HTMLElement | undefined;
@@ -708,6 +711,13 @@ export const DropdownMenu = (props: DropdownMenuProps) => {
 								props.contentClass,
 							)}
 						>
+							<Show when={props.notice}>
+								{(notice) => (
+									<div data-menu-notice="" class="p-1">
+										{notice()(() => setOpen(false))}
+									</div>
+								)}
+							</Show>
 							<Show
 								when={props.menu}
 								fallback={<MenuEntryGroups entries={props.items ?? []} />}
@@ -733,6 +743,11 @@ export const DropdownMenu = (props: DropdownMenuProps) => {
 			</Dynamic>
 			<Drawer open={open()} onOpenChange={setOpen}>
 				<DrawerContent title={props.title} aria-label={props.label}>
+					<Show when={props.notice}>
+						{(notice) => (
+							<div data-menu-notice="">{notice()(() => setOpen(false))}</div>
+						)}
+					</Show>
 					<MobileGroups
 						entries={props.items ?? []}
 						close={() => setOpen(false)}
@@ -751,13 +766,19 @@ export type MenuDrawerProps = {
 	items: DropdownMenuEntry[];
 };
 
-export const MenuDrawer = (props: MenuDrawerProps) => (
-	<Drawer open={props.open} onOpenChange={props.onOpenChange}>
-		<DrawerContent title={props.title} aria-label={props.label}>
-			<MobileGroups
-				entries={props.items}
-				close={() => props.onOpenChange(false)}
-			/>
-		</DrawerContent>
-	</Drawer>
-);
+export const MenuDrawer = (props: MenuDrawerProps) => {
+	trackActiveMenu(
+		() => props.open,
+		() => props.onOpenChange(false),
+	);
+	return (
+		<Drawer open={props.open} onOpenChange={props.onOpenChange}>
+			<DrawerContent title={props.title} aria-label={props.label}>
+				<MobileGroups
+					entries={props.items}
+					close={() => props.onOpenChange(false)}
+				/>
+			</DrawerContent>
+		</Drawer>
+	);
+};

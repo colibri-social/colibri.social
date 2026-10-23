@@ -1,4 +1,6 @@
 const S32_CHARS = "234567abcdefghijklmnopqrstuvwxyz";
+const TID_PATTERN =
+	/^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{12}$/;
 
 let lastMicros = 0;
 let clockId = -1;
@@ -17,4 +19,12 @@ export const nextTid = (): string => {
 		value >>= 5n;
 	}
 	return str;
+};
+
+export const tidMillis = (tid: string): number | undefined => {
+	if (!TID_PATTERN.test(tid)) return undefined;
+	let value = 0n;
+	for (const char of tid)
+		value = (value << 5n) | BigInt(S32_CHARS.indexOf(char));
+	return Number(value >> 10n) / 1000;
 };

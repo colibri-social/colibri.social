@@ -3,6 +3,7 @@ import type { ActivityProvider } from "./activity-source";
 import type { LabelerTransport } from "./badges/labeler";
 import type { ChannelSummary } from "./channel-summary";
 import type { EmojiEvent, EmojiLibraryEvent, EmojiSource } from "./emoji";
+import type { HostingSource } from "./hosting";
 import type { PreferenceStore } from "./preferences/store";
 import type { Preferences } from "./preferences/types";
 import type { SupporterLinkTransport } from "./supporter-link";
@@ -450,7 +451,8 @@ export type DeletionProgress =
 export type DeletionResult = { incomplete: boolean };
 
 export type DataSource = AccessSource &
-	EmojiSource & {
+	EmojiSource &
+	HostingSource & {
 		viewer: () => ProfileView;
 		updateCommunity: (input: UpdateCommunityInput) => Promise<CommunityView>;
 		putCommunityImage: (
