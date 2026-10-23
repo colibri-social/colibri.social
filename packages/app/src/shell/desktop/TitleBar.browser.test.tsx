@@ -232,7 +232,7 @@ describe("desktop title bar", () => {
 			.poll(
 				() =>
 					invoke.mock.calls.find(
-						([command]) => command === "plugin:opener|open_url",
+						([command]) => command === "open_external_url",
 					)?.[1],
 			)
 			.toMatchObject({ url: expect.stringContaining("userinput.app") });

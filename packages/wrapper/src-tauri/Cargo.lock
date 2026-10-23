@@ -976,6 +976,7 @@ dependencies = [
  "objc2-user-notifications",
  "objc2-video-toolbox",
  "objc2-web-kit",
+ "open",
  "openssl",
  "sentry",
  "serde",
@@ -6268,7 +6269,6 @@ dependencies = [
 [[package]]
 name = "tauri-runtime-cef"
 version = "0.1.0"
-source = "git+https://github.com/SableClient/tauri-runtime-cef?rev=b83d02a135781b8d73d8d12d70a590d5063180a1#b83d02a135781b8d73d8d12d70a590d5063180a1"
 dependencies = [
  "base64 0.22.1",
  "cef",

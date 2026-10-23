@@ -170,6 +170,7 @@ tauri = { version = "2", features = ["wry"] }
 tauri-runtime-cef = { git = "https://github.com/SableClient/tauri-runtime-cef", rev = "b83d02a135781b8d73d8d12d70a590d5063180a1" }
 gtk = "0.18"
 notify-rust = "4"
+open = "5"
 
 [target.'cfg(windows)'.dependencies]
 windows-version = "0.1"
@@ -227,3 +228,6 @@ tauri-plugin-keyboard-inset = { path = "plugins" }
 
 [patch.crates-io]
 wry = { path = "vendor/wry" }
+
+[patch."https://github.com/SableClient/tauri-runtime-cef"]
+tauri-runtime-cef = { path = "vendor/tauri-runtime-cef" }

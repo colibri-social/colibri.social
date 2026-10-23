@@ -1,0 +1,97 @@
+name: Sync from upstream feat/cef
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      upstream-branch:
+        description: 'Upstream branch to sync from'
+        required: false
+        default: 'feat/cef'
+        type: choice
+        options:
+          - feat/cef
+          - amr/cef-gtk4
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout fork (latest main)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Sparse-checkout upstream crate
+        run: |
+          BRANCH="${{ github.event.inputs.upstream-branch || 'feat/cef' }}"
+          echo "Syncing from branch: $BRANCH"
+          git clone --filter=blob:none --no-checkout --sparse --branch "$BRANCH" \
+            https://github.com/tauri-apps/tauri.git /tmp/upstream
+          cd /tmp/upstream
+          git sparse-checkout set crates/tauri-runtime-cef
+          git checkout "$BRANCH"
+
+      - name: Sync upstream files
+        run: python3 scripts/sync.py
+        env:
+          UPSTREAM_DIR: /tmp/upstream/crates/tauri-runtime-cef
+          FORK_ROOT: .
+          SYNC_REPORT: /tmp/sync-report.md
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push and create PR
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          BRANCH="sync/upstream-$(date +%Y%m%d)"
+          # Always create a fresh branch from latest main
+          git checkout main
+          git checkout -B "$BRANCH"
+          git add -A
+          git commit -m "chore: sync from tauri-apps/tauri ${{ github.event.inputs.upstream-branch || 'feat/cef' }}"
+          git push --force origin "$BRANCH"
+          UPSTREAM_BRANCH="${{ github.event.inputs.upstream-branch || 'feat/cef' }}"
+          {
+            echo "Automated sync from [tauri-apps/tauri](https://github.com/tauri-apps/tauri) \`$UPSTREAM_BRANCH\` branch."
+            echo
+            echo "If this PR has merge conflicts, the upstream changed \`runtime.rs\` or \`webview.rs\` in a way that requires manual porting of the overlay modules. Fix conflicts and merge."
+            echo
+            echo "**Before merging, read the divergence report below.** Re-applying fork patches by hand is how upstream fixes get dropped silently — the report is the only place they surface, because the copy overwrites the evidence."
+            echo
+            echo "**CEF version:** check the \`cef\` pin in Cargo.toml, bump Sable's \`src-tauri/Cargo.toml\` to match."
+            echo
+            echo "**Note:** if syncing from \`amr/cef-gtk4\`, the Cargo.toml will reference \`gtk4\` and \`winit-gtk4\`, the fork's overlay config may need updating to handle the \`gtk4\` crate name and the winit git dep."
+            echo
+            echo "---"
+            echo
+            cat /tmp/sync-report.md
+          } > /tmp/pr-body.md
+          EXISTING=$(gh pr list --head "$BRANCH" --base main --json number -q '.[0].number' 2>/dev/null || true)
+          if [ -n "$EXISTING" ]; then
+            gh pr edit "$EXISTING" --body-file /tmp/pr-body.md
+            echo "PR #$EXISTING already exists, updated branch and report"
+          else
+            gh pr create --base main --head "$BRANCH" \
+              --title "chore: sync tauri-runtime-cef from upstream $UPSTREAM_BRANCH" \
+              --body-file /tmp/pr-body.md
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

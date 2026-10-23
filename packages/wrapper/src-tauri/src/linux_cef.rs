@@ -1,7 +1,7 @@
 use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 use tauri::{AppHandle, Manager};
@@ -17,6 +17,7 @@ const MAIN_WINDOW: &str = "main";
 static APP: OnceLock<AppHandle<AppRuntime>> = OnceLock::new();
 static PENDING: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static NATIVE_WAYLAND: OnceLock<bool> = OnceLock::new();
+static INJECTED_LIBRARY_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 pub enum Launch {
     Primary,
@@ -28,6 +29,10 @@ pub fn native_wayland() -> bool {
         std::env::var_os("WAYLAND_DISPLAY").is_some()
             && std::env::var_os("COLIBRI_X11").is_none()
     })
+}
+
+pub fn injected_library_dir() -> Option<&'static Path> {
+    INJECTED_LIBRARY_DIR.get().map(PathBuf::as_path)
 }
 
 pub fn bootstrap() -> Launch {
@@ -139,6 +144,7 @@ fn expose_cef_library_dir() {
     else {
         return;
     };
+    let _ = INJECTED_LIBRARY_DIR.set(dir.clone());
     let mut paths = vec![dir];
     if let Some(existing) = std::env::var_os("LD_LIBRARY_PATH") {
         paths.extend(std::env::split_paths(&existing));

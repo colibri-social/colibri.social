@@ -11,6 +11,7 @@ mod macos_media;
 mod push;
 #[cfg(any(target_os = "android", test))]
 mod received_files;
+mod open_external;
 mod save_image;
 #[cfg(desktop)]
 mod notifications;
@@ -302,6 +303,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             web_auth::start_web_auth,
             save_image::save_image,
+            open_external::open_external_url,
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             apns::apns_register,
             #[cfg(any(target_os = "macos", target_os = "ios"))]

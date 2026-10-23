@@ -29,7 +29,7 @@ export const openExternalUrl = (url: string): void => {
 		return;
 	}
 	void import("@tauri-apps/api/core")
-		.then(({ invoke }) => invoke("plugin:opener|open_url", { url }))
+		.then(({ invoke }) => invoke("open_external_url", { url }))
 		.catch(() => undefined);
 };
 
