@@ -151,6 +151,16 @@ describe("createLiveConnection", () => {
 		live.close();
 	});
 
+	it("leaves the token expiry to the server clock", async () => {
+		vi.setSystemTime(new Date("2020-01-01T00:00:00Z"));
+		const live = start();
+		await flush();
+
+		const params = getServiceAuth.mock.calls[0]?.[0];
+		expect(params).toEqual({ aud: SERVICE, lxm: EVENTS_LXM });
+		live.close();
+	});
+
 	it("delivers decoded frames to every subscriber and isolates throwing ones", async () => {
 		const live = start();
 		await flush();

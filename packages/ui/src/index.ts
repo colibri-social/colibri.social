@@ -45,6 +45,7 @@ export * from "./components/ContextMenu/SpaceMenu";
 export * from "./components/ContextMenu/ThreadMenu";
 export * from "./components/CopyField/CopyField";
 export * from "./components/DestinationPicker/DestinationPicker";
+export * from "./components/DestinationPicker/ForwardNote";
 export * from "./components/DestinationPicker/ForwardPreview";
 export * from "./components/DeveloperMode/DeveloperModeCard";
 export * from "./components/DeveloperMode/DeveloperNavSection";

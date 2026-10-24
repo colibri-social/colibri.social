@@ -8,7 +8,7 @@ import { CloseIcon } from "@solar-icons/solid/bold/close";
 import { MaximizeSquareIcon } from "@solar-icons/solid/bold/maximize-square";
 import { MenuDotsIcon } from "@solar-icons/solid/bold/menu-dots";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
-import { createMemo, onCleanup, Show } from "solid-js";
+import { createMemo, Show } from "solid-js";
 import { isVoiceChannel, skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
 import type { ChannelView, ThreadView } from "../../data/types";
@@ -81,8 +81,6 @@ const SplitThreadHeader = (props: { m: ThreadModel }) => {
 	);
 };
 
-const blockingOverlay = '[role="dialog"], [role="menu"], [role="listbox"]';
-
 const FullThreadHeader = (props: { m: ThreadModel }) => {
 	const m = props.m;
 	const data = useData();
@@ -137,33 +135,6 @@ const FullThreadHeader = (props: { m: ThreadModel }) => {
 		const parent = m.parent();
 		return parent && isVoiceChannel(parent) ? <VolumeSmallIcon /> : undefined;
 	};
-	let idleComposerEscape = false;
-	const onKeyDownCapture = (event: KeyboardEvent) => {
-		if (event.key !== "Escape") return;
-		const target = event.target;
-		idleComposerEscape =
-			!event.defaultPrevented &&
-			target instanceof Element &&
-			!!target.closest("[data-composer]") &&
-			!document.querySelector(blockingOverlay) &&
-			!m.replyTo() &&
-			!m.editing();
-	};
-	const onKeyDown = (event: KeyboardEvent) => {
-		if (event.key !== "Escape") return;
-		if (event.defaultPrevented && !idleComposerEscape) return;
-		if (document.querySelector(blockingOverlay)) return;
-		const index = threadIndex();
-		if (index < 0 || index !== m.stack.mounted().length - 1) return;
-		event.preventDefault();
-		backToChannel();
-	};
-	window.addEventListener("keydown", onKeyDownCapture, true);
-	window.addEventListener("keydown", onKeyDown);
-	onCleanup(() => {
-		window.removeEventListener("keydown", onKeyDownCapture, true);
-		window.removeEventListener("keydown", onKeyDown);
-	});
 	return (
 		<ChannelHeader
 			platform="desktop"

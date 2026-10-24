@@ -767,7 +767,7 @@ export const EmojiPicker = (props: EmojiPickerProps) => {
 				<div
 					data-emoji-preview=""
 					aria-hidden="true"
-					class="-mx-2 -mb-2 flex h-12 shrink-0 items-center gap-3 border-t border-border px-3"
+					class="relative z-20 -mx-2 -mb-2 flex h-14 shrink-0 items-center gap-3 border-t border-border bg-popover px-3"
 				>
 					<Show when={preview()} keyed>
 						{(item) => (

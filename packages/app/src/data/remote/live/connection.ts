@@ -85,7 +85,6 @@ export const HEARTBEAT_MS = 20_000;
 export const STALE_MS = 30_000;
 export const PROBE_TIMEOUT_MS = 5_000;
 export const UNREACHABLE_AFTER = 4;
-export const TOKEN_TTL_S = 60;
 
 const OPEN = 1;
 
@@ -293,7 +292,6 @@ export const createLiveConnection = (
 			const { data } = await options.agent.com.atproto.server.getServiceAuth({
 				aud: options.serviceRef,
 				lxm: EVENTS_LXM,
-				exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_S,
 			});
 			token = data.token;
 		} catch (err) {

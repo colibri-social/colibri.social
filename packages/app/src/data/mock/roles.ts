@@ -5,6 +5,7 @@ import type {
 	DataSource,
 	LiveEvent,
 	MemberRolesInput,
+	RoleEmojiBadgeInput,
 	UpdateRoleInput,
 } from "../source";
 import type { Did, RoleView } from "../types";
@@ -14,6 +15,9 @@ import type { SpaceRecord } from "./world";
 
 const ICON_BADGE = "social.colibri.beta.community.defs#roleIconBadge";
 const IMAGE_BADGE = "social.colibri.beta.community.defs#roleImageBadgeView";
+const EMOJI_BADGE = "social.colibri.beta.community.defs#roleEmojiBadgeView";
+
+export type MockBadgeEmoji = { name: string; image: string };
 const ROLE_NAME_MAX = 32;
 const BADGE_IMAGE_MAX_BYTES = 256 * 1024;
 const BADGE_IMAGE_TYPES = [
@@ -36,8 +40,23 @@ export const createRoleOps = (options: {
 	spaceOf: (community: Did) => SpaceRecord;
 	viewerDid: Did;
 	emit: (event: LiveEvent) => void;
+	emojiOf?: (uri: string) => Promise<MockBadgeEmoji | undefined>;
 }): RoleOps => {
 	const { spaceOf, viewerDid, emit } = options;
+
+	const emojiBadgeView = async (input: RoleEmojiBadgeInput) => {
+		const uri = input.customEmoji?.uri;
+		if (!uri) {
+			if (!input.emoji) throw new Error("Pick an emoji for the badge");
+			return { $type: EMOJI_BADGE, emoji: input.emoji } as never;
+		}
+		const resolved = await options.emojiOf?.(uri);
+		return {
+			$type: EMOJI_BADGE,
+			customEmoji: { uri },
+			...(resolved ? { name: resolved.name, image: resolved.image } : {}),
+		} as never;
+	};
 
 	const viewerRank = (space: SpaceRecord) =>
 		rankOf(
@@ -177,8 +196,14 @@ export const createRoleOps = (options: {
 				announce(space, "update", roleOf(space, rkey));
 		});
 
-	const createRole = (input: CreateRoleInput) =>
-		withLatency(() => {
+	const createRole = async (input: CreateRoleInput) => {
+		if (input.badge && input.emojiBadge) {
+			throw new Error("A role has one badge");
+		}
+		const emojiBadge = input.emojiBadge
+			? await emojiBadgeView(input.emojiBadge)
+			: undefined;
+		return withLatency(() => {
 			const space = spaceOf(input.community);
 			requireManage(space);
 			const name = checkName(input.name);
@@ -202,15 +227,23 @@ export const createRoleOps = (options: {
 			if (input.badge) {
 				role.badge = { $type: ICON_BADGE, ...input.badge } as never;
 			}
+			if (emojiBadge) role.badge = emojiBadge;
 			if (input.hoisted) role.hoisted = true;
 			if (input.mentionable) role.mentionable = true;
 			replaceRole(space, role);
 			announce(space, "create", role);
 			return role;
 		});
+	};
 
-	const updateRole = (input: UpdateRoleInput) =>
-		withLatency(() => {
+	const updateRole = async (input: UpdateRoleInput) => {
+		if (input.badge && input.emojiBadge) {
+			throw new Error("A role has one badge");
+		}
+		const emojiBadge = input.emojiBadge
+			? await emojiBadgeView(input.emojiBadge)
+			: undefined;
+		return withLatency(() => {
 			const space = spaceOf(input.community);
 			requireManage(space);
 			const current = roleOf(space, input.role);
@@ -229,6 +262,8 @@ export const createRoleOps = (options: {
 			}
 			if (input.badge) {
 				next.badge = { $type: ICON_BADGE, ...input.badge } as never;
+			} else if (emojiBadge) {
+				next.badge = emojiBadge;
 			} else if (input.removeBadge) {
 				delete next.badge;
 			}
@@ -245,6 +280,7 @@ export const createRoleOps = (options: {
 			announce(space, "update", next);
 			return next;
 		});
+	};
 
 	const deleteRole = (input: { community: Did; role: string }) =>
 		withLatency(() => {

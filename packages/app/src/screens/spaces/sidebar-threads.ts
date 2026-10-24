@@ -1,3 +1,4 @@
+import { isFutureDated } from "@colibri-social/lib";
 import { skeyOf } from "../../data/ids";
 import { isPingNotification } from "../../data/notification-alerts";
 import type { DataStore, SpaceData } from "../../data/store";
@@ -6,9 +7,18 @@ import type { NotificationView, SpaceRef, ThreadView } from "../../data/types";
 export const SIDEBAR_THREAD_LIMIT = 5;
 export const SIDEBAR_STALE_MS = 3 * 24 * 60 * 60 * 1000;
 
-const newestFirst = (a: ThreadView, b: ThreadView) => {
-	if (a.lastActivityAt === b.lastActivityAt) return a.space < b.space ? -1 : 1;
-	return a.lastActivityAt < b.lastActivityAt ? 1 : -1;
+export const sortableActivity = (thread: ThreadView, now: number): string =>
+	isFutureDated({ createdAt: thread.lastActivityAt }, now)
+		? isFutureDated({ createdAt: thread.createdAt }, now)
+			? ""
+			: thread.createdAt
+		: thread.lastActivityAt;
+
+const newestFirst = (a: ThreadView, b: ThreadView, now: number) => {
+	const aAt = sortableActivity(a, now);
+	const bAt = sortableActivity(b, now);
+	if (aAt === bAt) return a.space < b.space ? -1 : 1;
+	return aAt < bAt ? 1 : -1;
 };
 
 export type SidebarThreadContext = {
@@ -139,6 +149,6 @@ export const sidebarThreadsFor = (
 			});
 			return keep ? [state] : [];
 		})
-		.sort((a, b) => newestFirst(a.thread, b.thread));
+		.sort((a, b) => newestFirst(a.thread, b.thread, now));
 	return capKeepingPinned(listed, activeThread);
 };

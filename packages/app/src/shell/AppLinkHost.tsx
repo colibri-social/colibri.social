@@ -10,6 +10,7 @@ import {
 	listenForLinkOutcomes,
 } from "../data/supporter-link";
 import { listenForAppLinks } from "../native/deep-links";
+import { listenForSettingsShortcut } from "../native/settings-shortcut";
 import {
 	parsePath,
 	type Route,
@@ -42,5 +43,6 @@ export const AppLinkHost = (props: {
 	requestLaunchJump();
 	onCleanup(listenForAppLinks(open));
 	onCleanup(listenForLinkOutcomes(settle));
+	onCleanup(listenForSettingsShortcut(props.stack));
 	return null;
 };

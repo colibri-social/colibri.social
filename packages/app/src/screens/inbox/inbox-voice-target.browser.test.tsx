@@ -8,7 +8,13 @@ const VOICE =
 const TEXT =
 	"at://did:plc:space/space/social.colibri.beta.channel.text/general" as SpaceRef;
 
-const navigator = () => ({ setRoot: vi.fn(), push: vi.fn() });
+const navigator = () => ({
+	setRoot: vi.fn(),
+	push: vi.fn(),
+	popTo: vi.fn(),
+	depth: () => 0,
+	confirmLeave: (_next: number, action: () => void) => action(),
+});
 
 describe("openNotificationTarget", () => {
 	it("opens the voice chat for a voice channel notification", () => {
@@ -18,7 +24,7 @@ describe("openNotificationTarget", () => {
 			stack,
 			() => {},
 			{ community: SPACE, channel: VOICE },
-			openVoiceChat,
+			{ setVoiceChatOpen: openVoiceChat },
 		);
 		expect(stack.push).toHaveBeenCalledWith({
 			kind: "chat",
@@ -35,7 +41,7 @@ describe("openNotificationTarget", () => {
 			navigator(),
 			() => {},
 			{ community: SPACE, channel: TEXT },
-			openVoiceChat,
+			{ setVoiceChatOpen: openVoiceChat },
 		);
 		expect(openVoiceChat).not.toHaveBeenCalled();
 	});

@@ -60,6 +60,10 @@
 					"type": "boolean",
 					"description": "Whether only role colours are shown in chat. Members' own name colours are hidden, and a member without a coloured role shows the default name colour. Absent means false."
 				},
+				"hideOwnerBadge": {
+					"type": "boolean",
+					"description": "Whether the owner badge next to the community owner's name is hidden. Absent means false."
+				},
 				"customEmoji": {
 					"type": "string",
 					"knownValues": [
@@ -363,7 +367,8 @@
 					"type": "union",
 					"refs": [
 						"#roleIconBadge",
-						"#roleImageBadgeView"
+						"#roleImageBadgeView",
+						"#roleEmojiBadgeView"
 					],
 					"description": "The role's badge, if it has one."
 				},
@@ -470,6 +475,47 @@
 					"type": "string",
 					"format": "uri",
 					"description": "URL of the badge image, served by this AppView's blob proxy."
+				}
+			}
+		},
+		"roleEmojiBadge": {
+			"type": "object",
+			"description": "A role badge drawn from an emoji. Exactly one of emoji and customEmoji is set.",
+			"properties": {
+				"emoji": {
+					"type": "string",
+					"maxLength": 64,
+					"maxGraphemes": 1,
+					"description": "A Unicode emoji."
+				},
+				"customEmoji": {
+					"type": "ref",
+					"ref": "social.colibri.beta.richtext.facet#customEmoji",
+					"description": "The record of a custom emoji."
+				}
+			}
+		},
+		"roleEmojiBadgeView": {
+			"type": "object",
+			"description": "A badge drawn from an emoji. Exactly one of emoji and customEmoji is set.",
+			"properties": {
+				"emoji": {
+					"type": "string",
+					"description": "A Unicode emoji."
+				},
+				"customEmoji": {
+					"type": "ref",
+					"ref": "social.colibri.beta.richtext.facet#customEmoji",
+					"description": "The record of a custom emoji."
+				},
+				"name": {
+					"type": "string",
+					"description": "The custom emoji's name without colons. Absent when this AppView has not indexed the emoji."
+				},
+				"image": {
+					"type": "string",
+					"format": "uri",
+					"description": "URL of the custom emoji's image, served by this AppView's blob proxy. Absent when this AppView has not indexed the emoji."
 				}
 			}
 		},

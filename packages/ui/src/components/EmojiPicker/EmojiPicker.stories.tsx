@@ -245,6 +245,37 @@ export const StickyHeaderFlush: Story = {
 	},
 };
 
+export const PreviewFooterCoversGrid: Story = {
+	render: () => (
+		<Surface>
+			<EmojiPicker onPick={onPick} packs={fixturePacks} />
+		</Surface>
+	),
+	play: async ({ canvasElement }) => {
+		const footer = canvasElement.querySelector(
+			"[data-emoji-preview]",
+		) as HTMLElement;
+		const cell = await waitFor(() => {
+			const found = canvasElement.querySelector<HTMLElement>("[data-cell]");
+			expect(found).not.toBeNull();
+			return found as HTMLElement;
+		});
+		await userEvent.hover(cell);
+		const box = footer.getBoundingClientRect();
+		for (const y of [box.top + 0.5, box.top + 4, box.bottom - 1]) {
+			const hit = document.elementFromPoint(box.left + 20, y);
+			await expect(footer.contains(hit)).toBe(true);
+		}
+		await expect(getComputedStyle(footer).backgroundColor).not.toBe(
+			"rgba(0, 0, 0, 0)",
+		);
+		const glyph = footer.firstElementChild as HTMLElement;
+		const glyphBox = glyph.getBoundingClientRect();
+		await expect(glyphBox.top - box.top).toBeGreaterThanOrEqual(8);
+		await expect(box.bottom - glyphBox.bottom).toBeGreaterThanOrEqual(8);
+	},
+};
+
 const onToneChange = fn();
 
 export const SkinTones: Story = {

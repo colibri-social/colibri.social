@@ -28,3 +28,23 @@ export const tidMillis = (tid: string): number | undefined => {
 		value = (value << 5n) | BigInt(S32_CHARS.indexOf(char));
 	return Number(value >> 10n) / 1000;
 };
+
+export const FUTURE_SLACK_MS = 15 * 60 * 1000;
+
+export type DatedRecord = {
+	rkey?: string;
+	createdAt?: string;
+};
+
+export const isFutureDated = (
+	record: DatedRecord,
+	now: number = Date.now(),
+): boolean => {
+	const latest = now + FUTURE_SLACK_MS;
+	const keyTime =
+		record.rkey === undefined ? undefined : tidMillis(record.rkey);
+	if (keyTime !== undefined && keyTime > latest) return true;
+	if (record.createdAt === undefined) return false;
+	const createdAt = Date.parse(record.createdAt);
+	return !Number.isNaN(createdAt) && createdAt > latest;
+};

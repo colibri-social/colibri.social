@@ -189,12 +189,7 @@ export const inbox = defineContract({
 			const view = mapped().byId.get(id);
 			if (!view) return;
 			markRead([id]);
-			openNotificationTarget(
-				stack,
-				data.jumps.request,
-				view,
-				shell?.setVoiceChatOpen,
-			);
+			openNotificationTarget(stack, data.jumps.request, view, shell);
 		};
 
 		const unreadIds = (match: (entry: InboxNotification) => boolean) =>

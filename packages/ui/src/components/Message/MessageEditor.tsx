@@ -1,5 +1,5 @@
 import { SmileCircleIcon } from "@solar-icons/solid/bold/smile-circle";
-import { createSignal, onMount, Show } from "solid-js";
+import { createEffect, createSignal, on, onMount, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { utf8Length } from "../../utils/text-length";
 import { Button } from "../Button/Button";
@@ -23,6 +23,7 @@ export type MessageEditing = {
 	onChange?: (value: RichText) => void;
 	allowEmpty?: boolean;
 	onEmptySubmit?: () => void;
+	focusRequest?: number;
 	maxLength?: number;
 	sources?: RichEditorSources;
 	placeholder?: string;
@@ -45,6 +46,7 @@ const sameRichText = (a: RichText, b: RichText) =>
 	a.text === b.text && JSON.stringify(a.facets) === JSON.stringify(b.facets);
 
 const RING_THRESHOLD = 0.8;
+const FOCUS_ATTEMPTS = 4;
 
 const hintButton =
 	"cursor-pointer rounded-control-xs font-semibold text-primary-highlight outline-none hover:underline focus-ring disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline";
@@ -97,12 +99,29 @@ export const MessageEditor = (props: MessageEditorProps) => {
 		props.editing.onCancel();
 	};
 
+	const focusEditor = (attempts = FOCUS_ATTEMPTS) => {
+		if (!root?.isConnected) return;
+		const element = handle()?.element();
+		if (element?.isConnected && !element.contains(document.activeElement))
+			handle()?.focus("end");
+		if (element?.contains(document.activeElement) || attempts <= 1) return;
+		requestAnimationFrame(() => focusEditor(attempts - 1));
+	};
+
 	onMount(() => {
 		queueMicrotask(() => {
-			handle()?.focus("end");
+			focusEditor();
 			root?.scrollIntoView?.({ block: "nearest" });
 		});
 	});
+
+	createEffect(
+		on(
+			() => props.editing.focusRequest,
+			() => focusEditor(),
+			{ defer: true },
+		),
+	);
 
 	return (
 		<div

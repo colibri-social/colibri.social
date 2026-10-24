@@ -67,7 +67,7 @@ it("forwards a message from a small modal", async () => {
 	await until(() => !!document.querySelector("[data-forward-modal]"));
 	const dialog = dialogNamed("Forward message") as HTMLElement;
 	expect(dialog).toBeTruthy();
-	expect(dialog.getBoundingClientRect().width).toBeLessThanOrEqual(362);
+	expect(dialog.getBoundingClientRect().width).toBeLessThanOrEqual(442);
 	const search = dialog.querySelector<HTMLInputElement>(
 		"input[aria-label='Search channels and threads']",
 	) as HTMLInputElement;
@@ -79,7 +79,7 @@ it("forwards a message from a small modal", async () => {
 	await until(() => !!label());
 	await userEvent.click(label() as HTMLElement);
 	const forward = Array.from(dialog.querySelectorAll("button")).find(
-		(button) => button.textContent?.trim() === "Forward to 1 channel",
+		(button) => button.textContent?.trim() === "Send",
 	) as HTMLButtonElement;
 	await until(() => !forward.disabled);
 	await userEvent.click(forward);
@@ -105,7 +105,7 @@ it("moves selected messages through the small destination modal with search", as
 	const picker = document
 		.querySelector("[data-move-picker]")
 		?.closest("[role='dialog']") as HTMLElement;
-	expect(picker.getBoundingClientRect().width).toBeLessThanOrEqual(362);
+	expect(picker.getBoundingClientRect().width).toBeLessThanOrEqual(442);
 	const rows = () =>
 		Array.from(picker.querySelectorAll<HTMLElement>("button")).map(
 			(button) => button.textContent?.trim() ?? "",
@@ -145,7 +145,7 @@ it("opens the thread menu on right-click in chat and in the threads list", async
 	) as HTMLElement;
 	expect(
 		form.closest("[role='dialog']")?.getBoundingClientRect().width,
-	).toBeLessThanOrEqual(362);
+	).toBeLessThanOrEqual(442);
 	const input = form.querySelector("input") as HTMLInputElement;
 	await userEvent.clear(input);
 	await userEvent.type(input, "Spring tuning notes");

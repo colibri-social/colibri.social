@@ -1,6 +1,7 @@
 import type { RoleBadgeValue } from "@colibri-social/ui";
 import type { RoleDraft, RolePatch } from "../../../data/role-store";
 import { roleBadge } from "../../../data/roles";
+import type { RoleEmojiBadgeInput } from "../../../data/source";
 import type { RoleView } from "../../../data/types";
 
 export const ROLE_NAME_MAX = 32;
@@ -29,8 +30,23 @@ export const sameBadge = (a?: RoleBadgeValue, b?: RoleBadgeValue) => {
 	if (a.kind === "image" || b.kind === "image") {
 		return a.kind === "image" && b.kind === "image" && a.url === b.url;
 	}
+	if (a.kind === "emoji" || b.kind === "emoji") {
+		return (
+			a.kind === "emoji" &&
+			b.kind === "emoji" &&
+			a.emoji === b.emoji &&
+			a.custom?.id === b.custom?.id
+		);
+	}
 	return a.name === b.name && (a.color ?? "") === (b.color ?? "");
 };
+
+const emojiBadgeInput = (
+	badge: Extract<RoleBadgeValue, { kind: "emoji" }>,
+): RoleEmojiBadgeInput =>
+	badge.custom
+		? { customEmoji: { uri: badge.custom.id } }
+		: { emoji: badge.emoji };
 
 export const samePermissions = (a: readonly string[], b: readonly string[]) =>
 	a.length === b.length && a.every((entry) => b.includes(entry));
@@ -53,6 +69,8 @@ export const rolePatch = (before: RoleForm, after: RoleForm): RolePatch => {
 	if (!sameBadge(before.badge, after.badge)) {
 		if (after.badge?.kind === "icon") {
 			patch.badge = { icon: after.badge.name, color: after.badge.color };
+		} else if (after.badge?.kind === "emoji") {
+			patch.emojiBadge = emojiBadgeInput(after.badge);
 		} else if (!after.badge) {
 			patch.removeBadge = true;
 		}
@@ -77,6 +95,9 @@ export const draftOf = (form: RoleForm): RoleDraft => {
 	if (form.color) draft.color = form.color;
 	if (form.badge?.kind === "icon") {
 		draft.badge = { icon: form.badge.name, color: form.badge.color };
+	}
+	if (form.badge?.kind === "emoji") {
+		draft.emojiBadge = emojiBadgeInput(form.badge);
 	}
 	return draft;
 };

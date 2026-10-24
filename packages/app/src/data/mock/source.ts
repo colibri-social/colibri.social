@@ -164,7 +164,16 @@ export const createMockSource = (
 		return space;
 	};
 
-	const roleOps = createRoleOps({ spaceOf, viewerDid: world.viewerDid, emit });
+	const roleOps = createRoleOps({
+		spaceOf,
+		viewerDid: world.viewerDid,
+		emit,
+		emojiOf: async (uri) => {
+			const owner = uri.slice("at://".length).split("/")[0] as Did;
+			const catalog = await emoji.listEmoji(owner).catch(() => undefined);
+			return catalog?.emojis.find((entry) => entry.id === uri);
+		},
+	});
 
 	const removeMember = (input: { community: Did; subject: Did }) => {
 		const space = spaceOf(input.community);
@@ -1395,6 +1404,7 @@ export const createMockSource = (
 						channel: input.to,
 						rkey: input.forwardRkey,
 						text: input.text ?? "",
+						...(input.facets?.length ? { facets: input.facets } : {}),
 						forward: {
 							source: {
 								space: input.from,

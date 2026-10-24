@@ -17,6 +17,7 @@ import type {
 } from "../native/notifications/index";
 import { type Push, pushActivations } from "../native/push/index";
 import { Providers } from "../providers";
+import type { Layer, Root } from "./layers";
 import { NotificationHost } from "./NotificationHost";
 
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
@@ -116,10 +117,16 @@ const mount = (
 	const store = createDataStore(source);
 	const os = fakeNotifier(options.permission);
 	const play = vi.fn();
+	const [root, setRoot] = createSignal<Root>({ tab: "inbox" });
+	const [mounted, setMounted] = createSignal<Layer[]>([]);
 	const stack = {
-		root: () => ({ tab: "inbox" as const }),
-		setRoot: vi.fn(),
+		root,
+		mounted,
+		depth: () => mounted().length,
+		setRoot: vi.fn(setRoot),
 		push: vi.fn(),
+		popTo: vi.fn((next: number) => setMounted((list) => list.slice(0, next))),
+		confirmLeave: (_next: number, action: () => void) => action(),
 	};
 	const host = document.createElement("div");
 	document.body.append(host);
@@ -153,7 +160,7 @@ const mount = (
 		(entry) => entry.view.type === "social.colibri.beta.channel.text",
 	)?.view as ChannelView | undefined;
 	if (!channel) throw new Error("HQ needs a text channel");
-	return { source, store, os, play, stack, channel };
+	return { source, store, os, play, stack, channel, setRoot, setMounted };
 };
 
 let counter = 0;
@@ -275,6 +282,59 @@ it("opens the conversation when a notification is clicked", async () => {
 	expect(stack.push).toHaveBeenCalledWith(
 		expect.objectContaining({ kind: "chat", space: HQ }),
 	);
+});
+
+it("opens a thread from a notification without stacking on the old screens", async () => {
+	const { store, os, stack, channel, setMounted } = mount();
+	await until(() => !!store.communities.value());
+	await wait(50);
+	setMounted([
+		{ kind: "chat", space: HQ, channel: "other" },
+		{ kind: "members", space: HQ, channel: "other" },
+	]);
+	const thread = `${channel.space.replace(/\/[^/]+$/, "")}/t1`;
+	os.activate({ channel: channel.space, thread, rkey: "h1" });
+	expect(stack.popTo).toHaveBeenCalledWith(0);
+	expect(stack.push).toHaveBeenCalledTimes(1);
+	expect(stack.push).toHaveBeenCalledWith(
+		expect.objectContaining({ kind: "thread", space: HQ, thread: "t1" }),
+	);
+});
+
+it("shows no toast and no ping while settings are open", async () => {
+	const { source, store, os, play, channel, setRoot, setMounted } = mount();
+	await until(() => !!store.communities.value());
+	setRoot({ tab: "settings" });
+	source.emit({
+		$type: "notificationEvent",
+		notification: notification(channel.space),
+	});
+	await wait(150);
+	expect(toasts()).toHaveLength(0);
+	expect(play).not.toHaveBeenCalled();
+	expect(os.shown).toHaveLength(0);
+	setRoot({ tab: "spaces", space: HQ });
+	setMounted([{ kind: "settings", page: "appearance" }]);
+	source.emit({
+		$type: "notificationEvent",
+		notification: notification(channel.space),
+	});
+	await wait(150);
+	expect(toasts()).toHaveLength(0);
+	expect(play).not.toHaveBeenCalled();
+});
+
+it("drops a showing toast once settings open so it can't navigate over them", async () => {
+	const { source, store, stack, channel, setMounted } = mount();
+	await until(() => !!store.communities.value());
+	source.emit({
+		$type: "notificationEvent",
+		notification: notification(channel.space),
+	});
+	await until(() => toasts().length === 1);
+	setMounted([{ kind: "settings" }]);
+	await until(() => toasts().length === 0);
+	expect(stack.push).not.toHaveBeenCalled();
 });
 
 it("marks a cold-launch activation read by channel and rkey before the inbox loads", async () => {

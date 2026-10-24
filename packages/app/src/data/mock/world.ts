@@ -418,6 +418,7 @@ export const createWorld = (now: number) => {
 			requiresApprovalToJoin: seed.requiresApproval,
 			linkEmbeds: true,
 			overrideUserNameColors: seed.overrideUserNameColors,
+			hideOwnerBadge: seed.hideOwnerBadge ?? false,
 			memberCount: members.length,
 			viewer: {
 				isMember: seed.members.includes(VIEWER_KEY),

@@ -1,12 +1,15 @@
 import { toastState } from "@colibri-social/ui";
 import { render } from "solid-js/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { userEvent } from "vitest/browser";
 import { expectNoLayoutIssues } from "../../../../../ui/src/foundations/layout-test";
 import { DataContext, type DataStore } from "../../../data/store";
 import type {
 	ChannelView,
 	CommunityView,
+	MemberView,
 	MessageView,
+	RoleView,
 	SpaceRef,
 	ThreadView,
 } from "../../../data/types";
@@ -30,12 +33,13 @@ const channel = (
 	did: string,
 	skey: string,
 	name: string,
-	extra: { type?: string; canPost?: boolean } = {},
+	extra: { type?: string; canPost?: boolean; visibleToRoles?: string[] } = {},
 ) =>
 	({
 		space: ref(did, skey, extra.type ?? TEXT),
 		type: extra.type ?? TEXT,
 		name,
+		...(extra.visibleToRoles ? { visibleToRoles: extra.visibleToRoles } : {}),
 		viewer: { canRead: true, canPost: extra.canPost ?? true },
 	}) as unknown as ChannelView;
 
@@ -48,7 +52,7 @@ const LONG_NAME =
 const channels: Record<string, ChannelView[]> = {
 	"did:plc:hq": [
 		channel("did:plc:hq", "general", "general"),
-		channel("did:plc:hq", "design", "design"),
+		channel("did:plc:hq", "design", "design", { visibleToRoles: ["core"] }),
 		channel("did:plc:hq", "lounge", "Lounge", { type: VOICE }),
 		channel("did:plc:hq", "announcements", "announcements", {
 			canPost: false,
@@ -57,6 +61,38 @@ const channels: Record<string, ChannelView[]> = {
 	],
 	"did:plc:owls": [channel("did:plc:owls", "showcase", "showcase")],
 };
+
+const member = (did: string, name: string, roles: string[] = []) =>
+	({
+		actor: { did, handle: `${name.toLowerCase()}.test`, displayName: name },
+		roles,
+	}) as unknown as MemberView;
+
+const members: Record<string, MemberView[]> = {
+	"did:plc:hq": [
+		member("did:plc:lena", "Lena", ["core"]),
+		member("did:plc:mo", "Mo"),
+	],
+	"did:plc:owls": [
+		member("did:plc:lena", "Lena"),
+		member("did:plc:sam", "Sam"),
+	],
+};
+
+const role = (rkey: string, name: string) =>
+	({ rkey, name, mentionable: true }) as unknown as RoleView;
+
+const roles: Record<string, RoleView[]> = {
+	"did:plc:hq": [role("core", "Core"), role("mods", "Moderators")],
+	"did:plc:owls": [role("artists", "Artists")],
+};
+
+const PARTY = "at://did:plc:hq/social.colibri.beta.emoji/party";
+const HOOT = "at://did:plc:owls/social.colibri.beta.emoji/hoot";
+const customEmoji = [
+	{ id: PARTY, name: "party", src: "data:image/png;base64,AA==" },
+	{ id: HOOT, name: "parrot_hoot", src: "data:image/png;base64,AA==" },
+];
 
 const hoursAgo = (hours: number) =>
 	new Date(Date.now() - hours * 3_600_000).toISOString();
@@ -148,7 +184,15 @@ const mount = (
 		space: (space: CommunityView) => ({
 			channels: { value: () => channels[space.did], loading: () => false },
 			categories: { value: () => [], loading: () => false },
+			members: { value: () => members[space.did], loading: () => false },
+			roles: { value: () => roles[space.did], loading: () => false },
 		}),
+		presenceOf: () => undefined,
+		preferences: {
+			composer: () => ({ emojiUsage: {}, skinTone: 0 }),
+			recordEmoji: vi.fn(),
+			setSkinTone: vi.fn(),
+		},
 		threadsOf: (channel: SpaceRef) => {
 			if (!threadLists.includes(channel)) threadLists.push(channel);
 			const broken = channel === BROKEN;
@@ -162,6 +206,22 @@ const mount = (
 		cachedThreads: (channel: SpaceRef) =>
 			cached.includes(channel) ? threads[channel] : undefined,
 		forward: forwardMessage,
+		emoji: {
+			withFacets: (_community: string, text: string, facets: unknown[]) => ({
+				text,
+				facets: [...facets],
+			}),
+			allows: (space: string, uri: string) =>
+				space === "did:plc:hq" || uri.startsWith(`at://${space}/`),
+			search: (_space: string, query: string) =>
+				customEmoji.filter((emoji) => emoji.name.includes(query)),
+			find: (_space: string, name: string) =>
+				customEmoji.find((emoji) => emoji.name === name),
+			resolve: () => undefined,
+			lookup: () => undefined,
+			suggestion: (emoji: unknown) => emoji,
+			packs: () => [{ id: "pack", name: "Pack", emojis: customEmoji }],
+		},
 		peekMessage: (channel: SpaceRef, rkey: string) =>
 			original && channel === from.channel && rkey === "3abc"
 				? original
@@ -262,6 +322,48 @@ const selectThread = async (name: string) => {
 	input.click();
 	await frames();
 };
+
+const noteEditor = () =>
+	dialog().querySelector<HTMLElement>(
+		"[data-forward-note] [contenteditable]",
+	) as HTMLElement;
+
+const typeNote = async (text: string) => {
+	await userEvent.click(noteEditor());
+	await userEvent.keyboard(text);
+	await frames();
+};
+
+const options = (kind: string) =>
+	[
+		...dialog().querySelectorAll<HTMLElement>(
+			`[data-suggestion-kind="${kind}"]`,
+		),
+	].map((element) => element.textContent ?? "");
+
+const suggestedNames = async (trigger: string, kind: string) => {
+	await typeNote(trigger);
+	const names = options(kind);
+	await userEvent.keyboard("{Escape}");
+	for (const _ of trigger) await userEvent.keyboard("{Backspace}");
+	await frames();
+	return names;
+};
+
+const pick = async (trigger: string, kind: string, name: string) => {
+	await typeNote(trigger);
+	const option = [
+		...dialog().querySelectorAll<HTMLElement>(
+			`[data-suggestion-kind="${kind}"]`,
+		),
+	].find((element) => element.textContent?.includes(name));
+	if (!option) throw new Error(`No ${kind} suggestion for ${name}`);
+	option.click();
+	await frames();
+};
+
+const problem = () =>
+	dialog().querySelector<HTMLElement>("[data-forward-note-problem]");
 
 const insideBox = (inner: DOMRect, outer: DOMRect) =>
 	inner.left >= outer.left - 0.5 &&
@@ -381,9 +483,9 @@ describe("forward picker", () => {
 		await until(() => !!dialog());
 		await expandThreads("design");
 		await selectThread("Release prep");
-		expect(forwardButton().textContent?.trim()).toBe("Forward to 1 thread");
+		expect(forwardButton().textContent?.trim()).toBe("Send");
 		await select("showcase");
-		expect(forwardButton().textContent?.trim()).toBe("Forward to 2 places");
+		expect(forwardButton().textContent?.trim()).toBe("Send (2)");
 		await select("showcase");
 		forwardButton().click();
 		await until(() => !dialog());
@@ -442,11 +544,7 @@ describe("forward picker", () => {
 		await until(() => !!dialog());
 		expect(forwardButton().disabled).toBe(true);
 		await select("showcase");
-		const note = [...dialog().querySelectorAll<HTMLInputElement>("input")].find(
-			(input) => input.placeholder === "Add a message",
-		) as HTMLInputElement;
-		type(note, "  look at this  ");
-		await frames();
+		await typeNote("look at this ");
 		forwardButton().click();
 		await until(() => forwardMessage.mock.calls.length === 1);
 		expect(forwardMessage).toHaveBeenCalledWith({
@@ -457,19 +555,130 @@ describe("forward picker", () => {
 		});
 	});
 
+	it("links a URL in the note like a sent message", async () => {
+		const forwardMessage = vi.fn(async () => ({}) as MessageView);
+		mount(forwardMessage);
+		await until(() => !!dialog());
+		await select("showcase");
+		await typeNote("see https://colibri.social/docs for more");
+		forwardButton().click();
+		await until(() => forwardMessage.mock.calls.length === 1);
+		const [input] = forwardMessage.mock.calls[0] as unknown as [
+			{ text: string; facets: unknown[] },
+		];
+		expect(input.text).toBe("see https://colibri.social/docs for more");
+		expect(input.facets).toEqual([
+			expect.objectContaining({
+				index: expect.objectContaining({ byteStart: 4, byteEnd: 31 }),
+				features: [
+					expect.objectContaining({
+						$type: "social.colibri.beta.richtext.facet#link",
+						uri: "https://colibri.social/docs",
+					}),
+				],
+			}),
+		]);
+	});
+
+	it("offers only people who can read every chosen destination", async () => {
+		mount(vi.fn());
+		await until(() => !!dialog());
+		await select(LONG_NAME);
+		const all = await suggestedNames("@", "member");
+		expect(all.some((name) => name.includes("Lena"))).toBe(true);
+		expect(all.some((name) => name.includes("Mo"))).toBe(true);
+		await select("showcase");
+		const shared = await suggestedNames("@", "member");
+		expect(shared.some((name) => name.includes("Lena"))).toBe(true);
+		expect(shared.some((name) => name.includes("Mo"))).toBe(false);
+		expect(shared.some((name) => name.includes("Sam"))).toBe(false);
+		await select(LONG_NAME);
+		await select("design");
+		const readers = await suggestedNames("@", "member");
+		expect(readers.some((name) => name.includes("Lena"))).toBe(true);
+		expect(readers.some((name) => name.includes("Sam"))).toBe(false);
+	});
+
+	it("blocks sending while a mention can't reach every destination", async () => {
+		const forwardMessage = vi.fn(async () => ({}) as MessageView);
+		mount(forwardMessage);
+		await until(() => !!dialog());
+		await select(LONG_NAME);
+		await pick("@Mo", "member", "Mo");
+		expect(problem()).toBeNull();
+		expect(forwardButton().disabled).toBe(false);
+		await select("showcase");
+		expect(problem()?.textContent).toBe(
+			"@Mo isn't in Night Owls Art Club. Remove the mention to forward this.",
+		);
+		expect(forwardButton().disabled).toBe(true);
+		await select("showcase");
+		expect(problem()).toBeNull();
+		expect(forwardButton().disabled).toBe(false);
+		await select("design");
+		expect(problem()?.textContent).toBe(
+			"@Mo can't see #design. Remove the mention to forward this.",
+		);
+		await userEvent.click(noteEditor());
+		await userEvent.keyboard("{ControlOrMeta>}a{/ControlOrMeta}{Backspace}");
+		await frames();
+		expect(problem()).toBeNull();
+		expect(forwardButton().disabled).toBe(false);
+	});
+
+	it("offers roles and channels only inside one Space", async () => {
+		mount(vi.fn());
+		await until(() => !!dialog());
+		await select(LONG_NAME);
+		expect(await suggestedNames("@", "role")).toEqual(["@Core", "@Moderators"]);
+		expect(await suggestedNames("#", "channel")).toContain("design");
+		await select("showcase");
+		expect(await suggestedNames("@", "role")).toEqual([]);
+		expect(await suggestedNames("#", "channel")).toEqual([]);
+		await select(LONG_NAME);
+		expect(await suggestedNames("@", "role")).toEqual(["@Artists"]);
+		expect(await suggestedNames("#", "channel")).toEqual(["showcase"]);
+	});
+
+	it("blocks a role mention once destinations span several Spaces", async () => {
+		mount(vi.fn());
+		await until(() => !!dialog());
+		await select(LONG_NAME);
+		await pick("@Mod", "role", "Moderators");
+		expect(problem()).toBeNull();
+		await select("showcase");
+		expect(problem()?.dataset.forwardNoteProblem).toBe("role");
+		expect(problem()?.textContent).toBe(
+			"@Moderators only works when you forward to one Space. Remove the mention to forward this.",
+		);
+		expect(forwardButton().disabled).toBe(true);
+	});
+
+	it("offers only custom emoji every destination's Space allows", async () => {
+		mount(vi.fn());
+		await until(() => !!dialog());
+		await select(LONG_NAME);
+		const both = await suggestedNames(":pa", "customEmoji");
+		expect(both).toHaveLength(2);
+		await select("showcase");
+		const shared = await suggestedNames(":pa", "customEmoji");
+		expect(shared).toHaveLength(1);
+		expect(shared[0]).toContain("parrot_hoot");
+	});
+
 	it("keeps checked channels in place and counts them on the button", async () => {
 		mount(vi.fn());
 		await until(() => !!dialog());
 		await frames(6);
 		const before = channelNames();
-		expect(forwardButton().textContent?.trim()).toBe("Forward");
+		expect(forwardButton().textContent?.trim()).toBe("Send");
 		await select("showcase");
-		expect(forwardButton().textContent?.trim()).toBe("Forward to 1 channel");
+		expect(forwardButton().textContent?.trim()).toBe("Send");
 		await select("design");
 		expect(channelNames()).toEqual(before);
-		expect(forwardButton().textContent?.trim()).toBe("Forward to 2 channels");
+		expect(forwardButton().textContent?.trim()).toBe("Send (2)");
 		await select("showcase");
-		expect(forwardButton().textContent?.trim()).toBe("Forward to 1 channel");
+		expect(forwardButton().textContent?.trim()).toBe("Send");
 		expect(isChecked("design")).toBe(true);
 		expect(isChecked("showcase")).toBe(false);
 	});
@@ -518,7 +727,7 @@ describe("forward picker", () => {
 		expect(isChecked("design")).toBe(true);
 		expect(isChecked("showcase")).toBe(false);
 		expect(isChecked(LONG_NAME)).toBe(false);
-		expect(forwardButton().textContent?.trim()).toBe("Forward to 1 channel");
+		expect(forwardButton().textContent?.trim()).toBe("Send");
 		const failedRows = [
 			...dialog().querySelectorAll<HTMLElement>("[data-forward-failed]"),
 		];

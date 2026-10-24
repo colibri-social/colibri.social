@@ -1,6 +1,8 @@
 import { isOffline } from "@colibri-social/lib";
 import {
 	Button,
+	CHARACTER_LIMIT,
+	cx,
 	DestinationAction,
 	DestinationChannel,
 	DestinationEmpty,
@@ -9,14 +11,18 @@ import {
 	DestinationSpace,
 	DestinationThread,
 	DestinationThreadSkeleton,
+	type EmojiPick,
+	FORWARD_NOTE_HEIGHT_CLASS,
+	ForwardNote,
 	ForwardPreview,
 	type ForwardPreviewAttachment,
 	FullScreenSheet,
 	Modal,
 	ModalContent,
+	type RichEditorHandle,
+	type RichText,
 	RichTextRenderer,
 	SearchField,
-	TextField,
 	toast,
 } from "@colibri-social/ui";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
@@ -32,13 +38,19 @@ import {
 } from "solid-js";
 import { mediaKindOf } from "../../../data/adapters/attachments";
 import { displayNameOf } from "../../../data/adapters/display-name";
-import { toTextValue } from "../../../data/adapters/facets";
+import {
+	fromComposerValue,
+	toTextValue,
+	utf8Length,
+} from "../../../data/adapters/facets";
 import type { ForwardTarget as ForwardPlace } from "../../../data/adapters/forward";
 import { formatAge } from "../../../data/adapters/time";
 import { skeyOf } from "../../../data/ids";
 import { useData } from "../../../data/store";
 import type { AttachmentView, SpaceRef } from "../../../data/types";
 import { usePlatform } from "../../../screen/platform";
+import { mediaSession } from "../composer/media/session";
+import { createNoteSources, noteProblem, noteSpaceOf } from "./forward-note";
 import {
 	type ForwardChannelGroup,
 	type ForwardGroup,
@@ -70,6 +82,8 @@ const placeOf = (target: ForwardTarget): ForwardPlace => ({
 });
 
 const DISCARD_NOTE = "Your message won't be forwarded.";
+
+const EMPTY_NOTE: RichText = { text: "", facets: [] };
 
 const threadCount = (count: number) =>
 	`${count} ${count === 1 ? "thread" : "threads"}`;
@@ -115,7 +129,10 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 			ReadonlyMap<string, ForwardTarget>
 		>(new Map());
 		const [failed, setFailed] = createSignal<ReadonlySet<string>>(new Set());
-		const [note, setNote] = createSignal("");
+		const [note, setNote] = createSignal<RichText>(EMPTY_NOTE);
+		const [emojiOpen, setEmojiOpen] = createSignal(false);
+		const session = mediaSession();
+		let editor: RichEditorHandle | undefined;
 		const [sending, setSending] = createSignal(false);
 		const [expanded, setExpanded] = createSignal<ReadonlyMap<string, boolean>>(
 			new Map(),
@@ -235,16 +252,59 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 			setFailed(new Set<string>());
 			setExpanded(new Map<string, boolean>());
 			setRequested(new Set<string>());
-			setNote("");
+			setNote(EMPTY_NOTE);
+			setEmojiOpen(false);
+			editor?.clear();
 			setSending(false);
 		};
 
-		const unsent = () => !sending() && note().trim().length > 0;
+		const unsent = () => !sending() && note().text.trim().length > 0;
 
 		const onOpenChange = (next: boolean) => {
 			if (sending()) return;
 			setOpen(next);
 			if (!next) reset();
+		};
+
+		const currentTarget = createMemo(() =>
+			groups()
+				.flatMap((group) => group.channels)
+				.flatMap((entry) => [entry.target, ...entry.threads])
+				.find((target) => target.current),
+		);
+		const noteContext = createMemo<ForwardTarget[]>(() => {
+			const chosen = targets();
+			if (chosen.length > 0) return chosen;
+			const fallback = currentTarget();
+			return fallback ? [fallback] : [];
+		});
+		const noteSources = createNoteSources(data, noteContext, fromSpace);
+		const problem = createMemo(() =>
+			noteProblem(note(), targets(), noteSpaceOf(data)),
+		);
+		const forwardable = (value: RichText) =>
+			targets().length > 0 &&
+			!sending() &&
+			!problem() &&
+			utf8Length(value.text) <= CHARACTER_LIMIT;
+
+		const insertEmoji = (pick: EmojiPick) => {
+			const host = editor?.element()?.closest('[role="dialog"]') ?? undefined;
+			void whenOverlaysClosed(host).then(() => {
+				if (pick.kind === "unicode") {
+					session.recordEmoji(pick.emoji);
+					editor?.insertText(pick.emoji);
+					return;
+				}
+				const picked = pick.emoji;
+				session.recordEmoji(picked.id);
+				const known = data.emoji.lookup(picked.id);
+				editor?.insertCustomEmoji(
+					known
+						? data.emoji.suggestion(known)
+						: { id: picked.id, name: picked.name, src: picked.src },
+				);
+			});
 		};
 
 		const announceSent = (sent: readonly ForwardTarget[]) => {
@@ -265,20 +325,28 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 			});
 		};
 
-		const forward = async () => {
+		const forward = async (value: RichText = note()) => {
 			const current = request();
 			const destinations = targets();
-			if (!current || destinations.length === 0 || sending()) return;
+			if (!current || !forwardable(value)) return false;
 			setSending(true);
-			const text = note().trim();
-			const queued = destinations.map((destination) =>
-				data.forward({
+			const comment = fromComposerValue(
+				value as Parameters<typeof fromComposerValue>[0],
+			);
+			const queued = destinations.map((destination) => {
+				const { text, facets } = data.emoji.withFacets(
+					destination.space.did,
+					comment.text,
+					comment.facets,
+				);
+				return data.forward({
 					from: current.channel,
 					rkey: current.rkey,
 					to: destination.key,
 					...(text ? { text } : {}),
-				}),
-			);
+					...(text && facets.length > 0 ? { facets } : {}),
+				});
+			});
 			if (isOffline()) {
 				setSending(false);
 				setOpen(false);
@@ -290,7 +358,7 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 							description: "Open the message and forward it again.",
 						});
 				});
-				return;
+				return true;
 			}
 			const results = await Promise.allSettled(queued);
 			setSending(false);
@@ -304,7 +372,7 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 				setOpen(false);
 				reset();
 				announceSent(sent);
-				return;
+				return true;
 			}
 			setSelected(new Map(missed.map((entry) => [entry.key, entry])));
 			setFailed(new Set(missed.map((entry) => entry.key)));
@@ -314,20 +382,21 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 						? `Forwarded to ${forwardChannelList(sent)}. The rest stay selected so you can try again.`
 						: "They stay selected so you can try again.",
 			});
+			return false;
 		};
 
 		const forwardLabel = () => {
 			const count = targets().length;
-			if (count === 0) return "Forward";
-			return `Forward to ${forwardDestinationNoun(targets())}`;
+			return count > 1 ? `Send (${count})` : "Send";
 		};
 
 		const forwardButton = () => (
 			<Button
-				disabled={targets().length === 0}
+				disabled={!sending() && !forwardable(note())}
 				loading={sending()}
-				onClick={() => void forward()}
-				class="shrink-0"
+				onMouseDown={(event) => event.preventDefault()}
+				onClick={() => (editor ? editor.submit() : void forward())}
+				class={cx(FORWARD_NOTE_HEIGHT_CLASS, desktop() ? "shrink-0" : "w-full")}
 			>
 				<span data-forward-submit="" class="tabular-nums">
 					{forwardLabel()}
@@ -365,19 +434,41 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 			</ForwardPreview>
 		);
 
+		const noteBox = () => (
+			<ForwardNote
+				platform={desktop() ? "desktop" : "mobile"}
+				sources={noteSources.sources}
+				problem={problem()}
+				disabled={sending()}
+				canSubmit={forwardable}
+				onSubmit={forward}
+				onChange={setNote}
+				ref={(handle) => {
+					editor = handle;
+				}}
+				emoji={{
+					open: emojiOpen(),
+					onOpenChange: setEmojiOpen,
+					usage: session.usage(),
+					skinTone: session.skinTone(),
+					onSkinToneChange: session.setSkinTone,
+					packs: noteSources.packs(),
+					onPick: insertEmoji,
+				}}
+			/>
+		);
+
 		const footer = () => (
 			<div data-forward-actions="" class="flex min-w-0 flex-col gap-3">
 				{previewCard()}
-				<div class="flex min-w-0 items-center gap-2">
-					<TextField
-						aria-label="Add a message"
-						placeholder="Add a message"
-						value={note()}
-						onChange={setNote}
-						maxLength={2000}
-						disabled={sending()}
-						class="min-w-0 flex-1"
-					/>
+				<div
+					class={
+						desktop()
+							? "flex min-w-0 items-end gap-2"
+							: "flex min-w-0 flex-col gap-2"
+					}
+				>
+					{noteBox()}
 					{forwardButton()}
 				</div>
 			</div>

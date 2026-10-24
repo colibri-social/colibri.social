@@ -33,6 +33,7 @@ export type SpaceSeed = {
 	banner: string;
 	requiresApproval: boolean;
 	overrideUserNameColors: boolean;
+	hideOwnerBadge?: boolean;
 	owner: string;
 	members: string[];
 	roles: RoleSeed[];

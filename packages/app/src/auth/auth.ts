@@ -32,7 +32,7 @@ import {
 	onCleanup,
 	untrack,
 } from "solid-js";
-import { type ResumeEnvironment, watchResume } from "../data/resume";
+import { type ResumeEnvironment, watchResume, watchWake } from "../data/resume";
 import { openAppLink } from "../native/deep-links";
 import { openNotificationLink } from "../native/push/activation";
 import { reportError } from "../sentry/report";
@@ -308,11 +308,13 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		});
 	};
 
+	let refreshSession: (() => Promise<unknown>) | undefined;
 	const health = createSessionHealth(Date.now, {
 		onScopesRejected: (method) => {
 			const key = scopeNoticeKey(method);
 			if (justReapproved.has(key)) pauseMethods([key]);
 		},
+		refresh: () => refreshSession?.() ?? Promise.resolve(),
 	});
 	const [base, setBase] = createSignal<AuthStatus>("loading");
 	const [agent, setAgent] = createSignal<Agent>();
@@ -360,6 +362,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 	let startup = 0;
 	let stopDeepLinks: (() => void) | undefined;
 	let stopGrantRefresh: (() => void) | undefined;
+	let stopWakeWatch: (() => void) | undefined;
 
 	const clientId = () => makeClientId({ native, location: location() });
 
@@ -378,6 +381,9 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		session.remove(SCOPE_REAPPROVAL_KEY);
 		stopGrantRefresh?.();
 		stopGrantRefresh = undefined;
+		stopWakeWatch?.();
+		stopWakeWatch = undefined;
+		refreshSession = undefined;
 		batch(() => {
 			setAgent(undefined);
 			setGrantedScope(undefined);
@@ -397,7 +403,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 			(err: unknown) => {
 				const failure = classifyThrown(err, { method: "oauth.getTokenInfo" });
 				log.warn("refreshing access failed", { code: failure.code });
-				if (failure.needsReauth) health.markDead(failure.code);
+				health.noteAuthFailure(failure.code);
 			},
 		);
 
@@ -430,6 +436,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		} catch {}
 		local.set(SUB_KEY, oauth.sub);
 		health.reset();
+		refreshSession = () => oauth.getTokenInfo(true);
 		if (fresh) settleReapproval(oauth.did, scope);
 		batch(() => {
 			setAgent(next);
@@ -449,6 +456,11 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 				}
 			},
 			afterMs: GRANT_REFRESH_AFTER_MS,
+			environment: options.resumeEnvironment,
+		});
+		stopWakeWatch?.();
+		stopWakeWatch = watchWake({
+			onWake: health.noteResume,
 			environment: options.resumeEnvironment,
 		});
 	};
@@ -793,6 +805,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		onCleanup(() => {
 			stopDeepLinks?.();
 			stopGrantRefresh?.();
+			stopWakeWatch?.();
 		});
 	}
 

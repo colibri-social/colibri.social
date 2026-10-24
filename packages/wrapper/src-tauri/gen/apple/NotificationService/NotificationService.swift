@@ -4,7 +4,7 @@ import UserNotifications
 final class NotificationService: UNNotificationServiceExtension {
 	private var contentHandler: ((UNNotificationContent) -> Void)?
 	private var original: UNNotificationContent?
-	private var task: URLSessionDataTask?
+	private var tasks: [URLSessionTask] = []
 
 	override func didReceive(
 		_ request: UNNotificationRequest,
@@ -14,28 +14,85 @@ final class NotificationService: UNNotificationServiceExtension {
 		let content = withSubtitle(request.content)
 		original = content
 
-		guard let senderName = content.userInfo["authorName"] as? String else {
-			deliver(content)
-			return
-		}
+		let senderName = content.userInfo["authorName"] as? String
 
 		let avatarURL = (content.userInfo["authorAvatarUrl"] as? String).flatMap(URL.init(string:))
-		guard let avatarURL else {
-			deliver(communicationContent(content, senderName: senderName, avatar: nil))
-			return
+		let imageURL = (content.userInfo["imageUrl"] as? String).flatMap(URL.init(string:))
+		let group = DispatchGroup()
+		var avatar: INImage?
+		var image: UNNotificationAttachment?
+
+		if let avatarURL {
+			group.enter()
+			let avatarTask = URLSession.shared.dataTask(with: avatarURL) { data, response, _ in
+				if Self.succeeded(response), let data {
+					avatar = INImage(imageData: data)
+				}
+				group.leave()
+			}
+			tasks.append(avatarTask)
 		}
 
-		task = URLSession.shared.dataTask(with: avatarURL) { [weak self] data, response, _ in
-			guard let self else { return }
-			let ok = (response as? HTTPURLResponse).map { (200..<300).contains($0.statusCode) } ?? false
-			let avatar = ok ? data.map { INImage(imageData: $0) } : nil
-			self.deliver(self.communicationContent(content, senderName: senderName, avatar: avatar))
+		if let imageURL {
+			group.enter()
+			let imageTask = URLSession.shared.downloadTask(with: imageURL) { location, response, _ in
+				if Self.succeeded(response), let location {
+					image = Self.attachment(from: location, response: response)
+				}
+				group.leave()
+			}
+			tasks.append(imageTask)
 		}
-		task?.resume()
+
+		tasks.forEach { $0.resume() }
+		group.notify(queue: .main) { [weak self] in
+			guard let self else { return }
+			let updated = senderName.map { self.communicationContent(content, senderName: $0, avatar: avatar) } ?? content
+			self.deliver(Self.withAttachment(updated, image))
+		}
+	}
+
+	private static let maxImageBytes: Int64 = 10 * 1024 * 1024
+
+	private static func succeeded(_ response: URLResponse?) -> Bool {
+		(response as? HTTPURLResponse).map { (200..<300).contains($0.statusCode) } ?? false
+	}
+
+	private static func attachment(from location: URL, response: URLResponse?) -> UNNotificationAttachment? {
+		let size = (try? location.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
+		guard size > 0, size <= maxImageBytes else { return nil }
+		let ext: String
+		switch response?.mimeType?.lowercased() {
+		case "image/png": ext = "png"
+		case "image/gif": ext = "gif"
+		case "image/heic": ext = "heic"
+		case "image/webp": ext = "webp"
+		default: ext = "jpg"
+		}
+		let destination = FileManager.default.temporaryDirectory
+			.appendingPathComponent(UUID().uuidString)
+			.appendingPathExtension(ext)
+		do {
+			try FileManager.default.moveItem(at: location, to: destination)
+			return try UNNotificationAttachment(identifier: "image", url: destination, options: nil)
+		} catch {
+			return nil
+		}
+	}
+
+	private static func withAttachment(
+		_ content: UNNotificationContent,
+		_ image: UNNotificationAttachment?
+	) -> UNNotificationContent {
+		guard let image, let mutable = content.mutableCopy() as? UNMutableNotificationContent else {
+			return content
+		}
+		mutable.attachments = [image]
+		return mutable
 	}
 
 	override func serviceExtensionTimeWillExpire() {
-		task?.cancel()
+		tasks.forEach { $0.cancel() }
 		if let original {
 			deliver(original)
 		}

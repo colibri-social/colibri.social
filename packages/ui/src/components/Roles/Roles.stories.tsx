@@ -9,8 +9,10 @@ import {
 	within,
 } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { contrastRatio } from "../../utils/name-color";
 import { storyImages } from "../Banner/story-images";
+import { fixturePacks } from "../EmojiPicker/fixtures";
 import { ListGroup, SectionLabel, ToggleRow } from "../List/List";
 import {
 	ROLE_BADGE_ICONS,
@@ -49,6 +51,34 @@ const founders: RoleIdentity = {
 	name: "Founders",
 	color: "#4ade80",
 	badge: { kind: "image", url: storyImages.tealIcon() },
+};
+
+const parrots: RoleIdentity = {
+	id: "parrots",
+	name: "Parrots",
+	color: "#4ade80",
+	badge: { kind: "emoji", emoji: "🦜" },
+};
+
+const shippers: RoleIdentity = {
+	id: "shippers",
+	name: "Shippers",
+	color: "#76c4e5",
+	badge: {
+		kind: "emoji",
+		custom: {
+			id: "ship",
+			name: "shipit",
+			src: fixturePacks[0]?.emojis[3]?.src,
+		},
+	},
+};
+
+const deletedEmoji: RoleIdentity = {
+	id: "deleted",
+	name: "Deleted emoji",
+	color: "#ff7a90",
+	badge: { kind: "emoji", custom: { id: "gone", name: "gone" } },
 };
 
 const members: RoleIdentity = {
@@ -241,6 +271,7 @@ const BadgeEditor = (props: {
 	platform?: "desktop" | "mobile";
 	initial?: RoleBadgeValue;
 	upload?: (file: File) => Promise<string>;
+	withPacks?: boolean;
 }) => {
 	const [badge, setBadge] = createSignal<RoleBadgeValue | undefined>(
 		props.initial,
@@ -254,6 +285,7 @@ const BadgeEditor = (props: {
 					onChange={setBadge}
 					platform={props.platform}
 					onUploadImage={props.upload}
+					emojiPicker={props.withPacks ? { packs: fixturePacks } : undefined}
 				/>
 			</div>
 			<output data-badge-value="">{JSON.stringify(badge() ?? null)}</output>
@@ -551,8 +583,8 @@ export const BadgeSettingMobile: Story = {
 			within(dialog).getByRole("radio", { name: "Icons" }),
 		).toBeChecked();
 		await expect(
-			within(dialog).queryByRole("radio", { name: "Emoji" }),
-		).toBeNull();
+			within(dialog).getByRole("radio", { name: "Emoji" }),
+		).toBeInTheDocument();
 		await expect(
 			within(dialog).getByRole("radio", { name: "Image" }),
 		).toBeInTheDocument();
@@ -563,5 +595,145 @@ export const BadgeSettingMobile: Story = {
 			kind: "icon",
 			name: "rocket",
 		});
+	},
+};
+
+export const EmojiBadges: Story = {
+	render: () => (
+		<div class="flex flex-col gap-4 p-8 text-foreground">
+			<For each={[parrots, shippers, deletedEmoji]}>
+				{(role) => (
+					<div
+						data-emoji-role={role.id}
+						class="flex items-center gap-3 text-sm font-semibold"
+					>
+						<RoleBadge role={role} size="sm" />
+						<RoleBadge role={role} size="md" />
+						<RoleBadge role={role} size="lg" />
+						{role.name}
+					</div>
+				)}
+			</For>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const row = (id: string) =>
+			canvasElement.querySelector<HTMLElement>(`[data-emoji-role="${id}"]`);
+		const widths = (id: string) =>
+			Array.from(
+				row(id)?.querySelectorAll("[data-role-badge-glyph]") ?? [],
+			).map((glyph) => Math.round(glyph.getBoundingClientRect().width));
+
+		await expect(widths("parrots")).toEqual([16, 20, 24]);
+		await expect(widths("shippers")).toEqual([16, 20, 24]);
+		await expect(
+			row("parrots")?.querySelector("[data-emoji='unicode']"),
+		).toHaveTextContent("🦜");
+		await expect(row("shippers")?.querySelectorAll("img").length).toBe(3);
+		await expect(widths("deleted")).toEqual([]);
+		await expect(row("deleted")?.querySelector("[data-role-badge]")).toBeNull();
+		await expect(
+			within(canvasElement).getAllByRole("button", { name: "Parrots role" }),
+		).toHaveLength(3);
+	},
+};
+
+const openEmojiTab = async (canvasElement: HTMLElement) => {
+	await userEvent.click(
+		within(canvasElement).getByRole("button", { name: /badge/i }),
+	);
+	const dialog = await screen.findByRole("dialog", { name: "Role badge" });
+	await userEvent.click(within(dialog).getByRole("radio", { name: "Emoji" }));
+	await within(dialog).findByRole("searchbox", { name: "Search emoji" });
+	return dialog;
+};
+
+const searchEmoji = async (dialog: HTMLElement, query: string) => {
+	const search = within(dialog).getByRole("searchbox", {
+		name: "Search emoji",
+	});
+	await userEvent.clear(search);
+	await userEvent.type(search, query);
+};
+
+export const BadgeSettingEmoji: Story = {
+	render: () => <BadgeEditor initial={moderators.badge} withPacks />,
+	play: async ({ canvasElement, step }) => {
+		const dialog = await openEmojiTab(canvasElement);
+		await expectNoLayoutIssues(dialog);
+
+		await step("Pick a Unicode emoji", async () => {
+			await searchEmoji(dialog, "parrot");
+			const parrot = await within(dialog).findAllByRole("button", {
+				name: "parrot",
+			});
+			await userEvent.click(parrot[0] as HTMLElement);
+			await expect(readValue(canvasElement)).toEqual({
+				kind: "emoji",
+				emoji: "🦜",
+			});
+			await expect(
+				dialog.querySelector(
+					"[data-role-badge-preview] [data-role-badge-glyph='emoji'] [data-emoji='unicode']",
+				),
+			).toHaveTextContent("🦜");
+		});
+
+		await step("Pick a custom emoji from a pack", async () => {
+			await searchEmoji(dialog, "shipit");
+			await userEvent.click(
+				await within(dialog).findByRole("button", { name: ":shipit:" }),
+			);
+			await expect(readValue(canvasElement)).toEqual({
+				kind: "emoji",
+				custom: {
+					id: "ship",
+					name: "shipit",
+					src: fixturePacks[0]?.emojis[3]?.src,
+				},
+			});
+			await expect(
+				dialog.querySelector("[data-role-badge-preview] img"),
+			).not.toBeNull();
+		});
+
+		await step("Reopening starts on the Emoji tab", async () => {
+			await userEvent.click(
+				within(dialog).getByRole("button", { name: "Done" }),
+			);
+			await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+			const row = within(canvasElement).getByRole("button", { name: /badge/i });
+			await expect(
+				row.querySelector("[data-role-badge-glyph='emoji'] img"),
+			).not.toBeNull();
+			await userEvent.click(row);
+			const reopened = await screen.findByRole("dialog", {
+				name: "Role badge",
+			});
+			await expect(
+				within(reopened).getByRole("radio", { name: "Emoji" }),
+			).toBeChecked();
+		});
+	},
+};
+
+export const BadgeSettingEmojiMobile: Story = {
+	parameters: iphone,
+	render: () => <BadgeEditor platform="mobile" withPacks />,
+	play: async ({ canvasElement }) => {
+		const dialog = await openEmojiTab(canvasElement);
+		await searchEmoji(dialog, "parrot");
+		const parrot = await within(dialog).findAllByRole("button", {
+			name: "parrot",
+		});
+		await expectNoLayoutIssues(dialog);
+		await tap(parrot[0] as HTMLElement);
+		await expect(readValue(canvasElement)).toEqual({
+			kind: "emoji",
+			emoji: "🦜",
+		});
+		await expect(
+			within(dialog).getByRole("button", { name: "Remove badge" }),
+		).toBeVisible();
 	},
 };

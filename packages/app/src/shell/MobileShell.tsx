@@ -37,6 +37,7 @@ import { NotificationHost } from "./NotificationHost";
 import { installOverlayBack } from "./overlay-back";
 import { AdminScreen, AppScreen } from "./registry";
 import { createStack } from "./stack";
+import { canSwipeForward, membersForward } from "./swipe-forward";
 import { installTapGuard } from "./tap-guard";
 import { WriteFailureToasts } from "./WriteFailureToasts";
 
@@ -84,14 +85,11 @@ export const MobileShell = () => {
 	onCleanup(installKeyboardInset({ shell: () => shell }));
 	const stack = createStack({
 		canForward: (top) =>
-			!messageSelectionActive() &&
-			(top?.kind !== "chat" || data.controls().swipeLeftAction !== "reply"),
-		forward: (top) => {
-			if (top?.kind === "chat") {
-				return { kind: "members", space: top.space, channel: top.channel };
-			}
-			return undefined;
-		},
+			canSwipeForward(top, {
+				selecting: messageSelectionActive(),
+				swipeLeftAction: data.controls().swipeLeftAction,
+			}),
+		forward: membersForward,
 	});
 
 	const selectTab = (tab: string) => {

@@ -25,6 +25,13 @@ export const embeds = {
 			height: 360,
 		},
 	},
+	springs: {
+		uri: asUri("https://developer.apple.com/documentation/swiftui/spring"),
+		title: "Spring",
+		description:
+			"A representation of a spring's motion, with duration and bounce.",
+		siteName: "Apple Developer",
+	},
 	solid: {
 		uri: asUri("https://docs.solidjs.com/concepts/signals"),
 		title: "Signals",

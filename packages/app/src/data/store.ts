@@ -3,6 +3,7 @@ import {
 	classifyThrown,
 	createLogger,
 	createLru,
+	isFutureDated,
 	isThreadSpace,
 	MEMORY_WINDOW_COUNT,
 	nextTid,
@@ -79,6 +80,7 @@ import {
 } from "./source";
 import type { SpaceCache, SpaceSnapshot } from "./space-cache";
 import { createSpaceDirectory } from "./space-directory";
+import { withoutFutureActivity } from "./thread-summary";
 import type {
 	AttachmentView,
 	CategoryPermissions,
@@ -488,7 +490,8 @@ export const createDataStore = (
 		const readKey = (community: string, slug: string) => `${community} ${slug}`;
 		const summaries = createRecordStore<ChannelSummary>();
 		const lastMessages = summaries.state;
-		const putSummary = (summary: ChannelSummary) => {
+		const putSummary = (summary: ChannelSummary, own = false) => {
+			if (!own && isFutureDated(summary)) return;
 			if (newerSummary(lastMessages[summary.channel], summary)) {
 				summaries.put(summary.channel, summary);
 			}
@@ -507,6 +510,7 @@ export const createDataStore = (
 					for (const summary of list) {
 						seen.add(summary.channel);
 						if (only && summary.channel !== only) continue;
+						if (isFutureDated(summary)) continue;
 						anchorSummary(summary, epoch);
 						if (only) summaries.put(summary.channel, summary);
 						else putSummary(summary);
@@ -1107,18 +1111,20 @@ export const createDataStore = (
 			const created = createLazyLoad(
 				() =>
 					source.listThreads(ref).then((list) =>
-						list.map((entry) =>
-							onScreen(entry.space) && entry.viewer.hasUnread
-								? {
-										...entry,
-										viewer: {
-											...entry.viewer,
-											hasUnread: false,
-											unreadMentions: 0,
-										},
-									}
-								: entry,
-						),
+						list
+							.map((entry) => withoutFutureActivity(entry))
+							.map((entry) =>
+								onScreen(entry.space) && entry.viewer.hasUnread
+									? {
+											...entry,
+											viewer: {
+												...entry.viewer,
+												hasUnread: false,
+												unreadMentions: 0,
+											},
+										}
+									: entry,
+							),
 					),
 				"thread.list",
 				snapshot?.spaces[community]?.threads?.[ref],
@@ -1163,9 +1169,9 @@ export const createDataStore = (
 			}
 			threadLoads.get(thread.channel)?.update((list) => {
 				const index = list.findIndex((entry) => entry.space === thread.space);
-				if (index < 0) return [...list, thread];
+				if (index < 0) return [...list, withoutFutureActivity(thread)];
 				const next = [...list];
-				next[index] = thread;
+				next[index] = withoutFutureActivity(thread, list[index]);
 				return next;
 			});
 		};
@@ -2428,7 +2434,7 @@ export const createDataStore = (
 				const newest = adopted.at(-1);
 				if (newest) {
 					setPending((list) => [...list, ...adopted]);
-					putSummary(summarizePending(newest, viewer.did));
+					putSummary(summarizePending(newest, viewer.did), true);
 				}
 			};
 
@@ -2700,7 +2706,7 @@ export const createDataStore = (
 					};
 					sentNonces.set(rkey, entry.nonce);
 					setPending((list) => [...list, entry]);
-					putSummary(summarizePending(entry, viewer.did));
+					putSummary(summarizePending(entry, viewer.did), true);
 					await issued.settled.catch(() => undefined);
 				},
 				retry: async (nonce) => {
@@ -2783,7 +2789,9 @@ export const createDataStore = (
 					editLatest(drop);
 					const wasLatest = lastMessages[ref]?.rkey === rkey;
 					if (wasLatest) {
-						const fallback = (untrack(gap)?.latest ?? untrack(messages)).at(-1);
+						const fallback = (
+							untrack(gap)?.latest ?? untrack(messages)
+						).findLast((message) => !isFutureDated(message));
 						if (fallback) summaries.put(ref, summarizeMessage(fallback));
 						else summaries.remove(ref);
 					}
@@ -3039,7 +3047,10 @@ export const createDataStore = (
 					}
 					if (event.event === "update" && event.message) {
 						const current = lastMessages[event.channel];
-						if (current?.rkey === event.message.rkey) {
+						if (
+							current?.rkey === event.message.rkey &&
+							!isFutureDated(event.message)
+						) {
 							summaries.put(event.channel, summarizeMessage(event.message));
 						}
 					}
@@ -3363,6 +3374,7 @@ export const createDataStore = (
 					rkey: input.rkey,
 					to: input.to,
 					...(input.text !== undefined ? { text: input.text } : {}),
+					...(input.facets?.length ? { facets: input.facets } : {}),
 					forwardRkey: nextTid(),
 					...(message ? { message } : {}),
 				});

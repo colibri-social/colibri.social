@@ -2,6 +2,8 @@ use tauri::Manager;
 
 #[cfg(target_os = "android")]
 mod android_jni;
+#[cfg(target_os = "macos")]
+mod app_menu;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod apns;
 #[cfg(target_os = "linux")]
@@ -277,6 +279,13 @@ pub fn run() {
                 .plugin(tauri_plugin_process::init())
                 .plugin(tauri_plugin_fs::init());
         }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .menu(app_menu::build)
+            .on_menu_event(app_menu::handle);
     }
 
     #[cfg(mobile)]

@@ -371,6 +371,7 @@ export const createOutbox = (options: OutboxOptions) => {
 					rkey: op.rkey,
 					to: op.to,
 					...(op.text !== undefined ? { text: op.text } : {}),
+					...(op.facets?.length ? { facets: op.facets } : {}),
 					forwardRkey: op.forwardRkey,
 					...(op.message ? { message: op.message } : {}),
 				});

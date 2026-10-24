@@ -40,9 +40,14 @@
 							"ref": "social.colibri.beta.community.defs#roleIconBadge",
 							"description": "An icon badge. Image badges are set with social.colibri.beta.role.putBadgeImage. Takes precedence over removeBadge."
 						},
+						"emojiBadge": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#roleEmojiBadge",
+							"description": "An emoji badge. Cannot be combined with badge. Takes precedence over removeBadge."
+						},
 						"removeBadge": {
 							"type": "boolean",
-							"description": "Removes the role's badge, whichever kind it is. Ignored when badge is also given."
+							"description": "Removes the role's badge, whichever kind it is. Ignored when badge or emojiBadge is also given."
 						},
 						"permissions": {
 							"type": "array",

@@ -757,8 +757,8 @@ export const LinksWithConfirmation: Story = {
 		});
 		await expect(drawer).toHaveTextContent("different address");
 		await expect(
-			drawer.querySelector("[data-link-warning-host]"),
-		).toHaveTextContent("evil.example");
+			drawer.querySelector("[data-link-warning-url]"),
+		).toHaveTextContent("https://evil.example/login");
 		await userEvent.click(
 			within(drawer).getByRole("button", { name: "Cancel" }),
 		);

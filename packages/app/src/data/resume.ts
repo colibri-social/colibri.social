@@ -3,6 +3,8 @@ import type { LiveStatus } from "./remote/live";
 
 export const RESUME_AFTER_MS = 5_000;
 export const CATCH_UP_CONCURRENCY = 2;
+export const CLOCK_TICK_MS = 5_000;
+export const CLOCK_JUMP_MS = 15_000;
 
 type Listenable = Pick<EventTarget, "addEventListener" | "removeEventListener">;
 
@@ -11,6 +13,7 @@ export type ResumeEnvironment = {
 	window: Listenable;
 	visible: () => boolean;
 	now: () => number;
+	every?: (ms: number, tick: () => void) => () => void;
 };
 
 const browserResumeEnvironment = (): ResumeEnvironment | null => {
@@ -22,6 +25,10 @@ const browserResumeEnvironment = (): ResumeEnvironment | null => {
 		window,
 		visible: () => document.visibilityState === "visible",
 		now: () => Date.now(),
+		every: (ms, tick) => {
+			const timer = setInterval(tick, ms);
+			return () => clearInterval(timer);
+		},
 	};
 };
 
@@ -68,6 +75,32 @@ export const watchResume = (options: {
 		environment.document.removeEventListener("resume", wake);
 		environment.window.removeEventListener("pagehide", suspend);
 		environment.window.removeEventListener("pageshow", wake);
+	};
+};
+
+export const watchWake = (options: {
+	onWake: () => void;
+	environment?: ResumeEnvironment | null;
+}): (() => void) => {
+	const environment =
+		options.environment === undefined
+			? browserResumeEnvironment()
+			: options.environment;
+	if (!environment) return () => {};
+	const stopResume = watchResume({
+		onResume: options.onWake,
+		environment,
+	});
+	let lastTickAt = environment.now();
+	const stopTicking = environment.every?.(CLOCK_TICK_MS, () => {
+		const at = environment.now();
+		const gap = at - lastTickAt;
+		lastTickAt = at;
+		if (gap > CLOCK_TICK_MS + CLOCK_JUMP_MS) options.onWake();
+	});
+	return () => {
+		stopResume();
+		stopTicking?.();
 	};
 };
 

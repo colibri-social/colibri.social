@@ -122,7 +122,7 @@ export const members = defineContract({
 				toListMember(member, {
 					roleByKey: current.roleByKey,
 					presence: data.presenceOf(member.actor.did),
-					ownerRole: ownerRole(),
+					ownerRole: community()?.hideOwnerBadge ? undefined : ownerRole(),
 					emoji: data.emoji,
 				}),
 			);

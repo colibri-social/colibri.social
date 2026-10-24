@@ -529,8 +529,10 @@ export const createMessageWrites = (deps: {
 			const rkey = input.forwardRkey ?? nextTid();
 			const createdAt = new Date().toISOString();
 			const text = input.text ?? "";
+			const facets = input.facets?.length ? input.facets : undefined;
 			const record = buildMessageRecord({
 				text,
+				facets: facets as never,
 				createdAt,
 				forward: {
 					source: snapshot.source,
@@ -548,6 +550,7 @@ export const createMessageWrites = (deps: {
 				channel: input.to,
 				rkey,
 				text,
+				facets,
 				createdAt,
 				forward: {
 					source: snapshot.source,

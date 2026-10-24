@@ -6,6 +6,7 @@ import {
 	repliedThreads,
 	SIDEBAR_STALE_MS,
 	SIDEBAR_THREAD_LIMIT,
+	sortableActivity,
 	threadPingsAfter,
 	unseenThreadPings,
 } from "./sidebar-threads";
@@ -241,5 +242,27 @@ describe("sidebar threads", () => {
 			{ id: "d", kind: "reply" } as NotificationView,
 		]);
 		expect([...replied]).toEqual([thread]);
+	});
+});
+
+describe("sidebar thread order", () => {
+	const MINUTE = 60 * 1000;
+
+	it("sorts a thread whose activity is dated past the cutoff by its creation", () => {
+		const created = new Date(NOW - 60 * MINUTE).toISOString();
+		const ahead = {
+			...threadAt("ahead", -20 * MINUTE),
+			createdAt: created,
+		} as ThreadView;
+		const recent = threadAt("recent", 5 * MINUTE);
+		expect(sortableActivity(ahead, NOW)).toBe(created);
+		expect(sortableActivity(recent, NOW)).toBe(recent.lastActivityAt);
+	});
+
+	it("keeps activity within the 15 minute slack", () => {
+		const slightlyAhead = threadAt("slightly", -10 * MINUTE);
+		expect(sortableActivity(slightlyAhead, NOW)).toBe(
+			slightlyAhead.lastActivityAt,
+		);
 	});
 });

@@ -500,7 +500,7 @@ export const EmojiUploadModal = (props: EmojiUploadModalProps) => {
 		>
 			<ModalContent
 				title="Upload emoji"
-				class="md:w-[400px]"
+				class="md:w-[440px]"
 				footer={
 					<>
 						<Show when={step() !== "image"}>

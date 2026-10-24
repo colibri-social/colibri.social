@@ -10,6 +10,7 @@ import {
 	RoleColorDot,
 	type RoleIdentity,
 	RoleMark,
+	shownRoleBadge,
 } from "./RoleBadge";
 
 const roleRowClass = cx(
@@ -60,7 +61,7 @@ export const RoleRow = (props: RoleRowProps) => {
 			class={cx(roleRowClass, props.class)}
 		>
 			<Show
-				when={props.role.badge}
+				when={shownRoleBadge(props.role.badge)}
 				fallback={<RoleColorDot color={props.role.color} />}
 			>
 				{(badge) => (
@@ -137,7 +138,7 @@ export const RoleBadgeSettingRow = (props: RoleBadgeSettingRowProps) => {
 				{label()}
 			</span>
 			<Show
-				when={props.badge}
+				when={shownRoleBadge(props.badge)}
 				fallback={
 					<span class="shrink-0 text-xs font-semibold text-muted-foreground">
 						None

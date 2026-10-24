@@ -155,11 +155,17 @@ export const createConversation = (options: ConversationOptions) => {
 	const links = createLinkOpener();
 	const attachments = createAttachmentDraft();
 	let editor: RichEditorHandle | undefined;
+	let editorFocusRun = 0;
 	const keepEditorFocus = (frames = 12) => {
-		const element = editor?.element();
-		if (!element || frames <= 0) return;
-		if (!element.contains(document.activeElement)) editor?.focus();
-		requestAnimationFrame(() => keepEditorFocus(frames - 1));
+		const run = ++editorFocusRun;
+		const step = (left: number) => {
+			if (run !== editorFocusRun || editing()) return;
+			const element = editor?.element();
+			if (!element || left <= 0) return;
+			if (!element.contains(document.activeElement)) editor?.focus();
+			requestAnimationFrame(() => step(left - 1));
+		};
+		step(frames);
 	};
 	const emojiPacks = () => data.emoji.packs(community()?.did);
 	const emojiDrawer = createCustomEmojiDrawer({
@@ -253,7 +259,14 @@ export const createConversation = (options: ConversationOptions) => {
 		if (ref) onCleanup(data.holdChannel(ref));
 	});
 	const [replyTo, setReplyTo] = createSignal<ChatMessage>();
-	const [editing, setEditing] = createSignal<ChatMessage>();
+	const [editing, setEditingTarget] = createSignal<ChatMessage>();
+	const [editFocusRequest, setEditFocusRequest] = createSignal(0);
+	const setEditing = (message: ChatMessage | undefined) => {
+		if (message) editorFocusRun++;
+		if (message && editing()?.key === message.key)
+			setEditFocusRequest((count) => count + 1);
+		setEditingTarget(message);
+	};
 	const muted = () => {
 		const ref = options.target();
 		return ref ? data.isMuted(ref) : false;
@@ -656,7 +669,12 @@ export const createConversation = (options: ConversationOptions) => {
 		return [...sent, ...pending];
 	});
 
-	const directory = () => ({ members: memberMap(), roles: roleMap() });
+	const hideOwnerBadge = createMemo(() => community()?.hideOwnerBadge ?? false);
+	const directory = () => ({
+		members: memberMap(),
+		roles: roleMap(),
+		hideOwnerBadge: hideOwnerBadge(),
+	});
 	const bridgedNames = createMemo(() => {
 		const names = new Map<string, string>();
 		for (const message of feed()?.messages() ?? []) {
@@ -800,6 +818,7 @@ export const createConversation = (options: ConversationOptions) => {
 		viewer: () => data.viewer.did,
 		platform,
 		editingKey: () => editing()?.key,
+		editFocusRequest,
 		replyingKey: () => replyTo()?.key,
 		editDraft: () => {
 			const key = inlineEditKey();

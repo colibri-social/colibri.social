@@ -28,6 +28,7 @@ export type LinkPreviewsDialogProps = {
 	platform: "mobile" | "desktop";
 	uris: readonly string[];
 	hidden: readonly string[];
+	staged?: readonly string[];
 	lockedBy: (uri: string) => "author" | "moderator" | undefined;
 	enabled: boolean;
 	moderator: boolean;
@@ -43,7 +44,7 @@ export const LinkPreviewsDialog = (props: LinkPreviewsDialogProps) => {
 			() => props.open,
 			(open) => {
 				if (!open) return;
-				setStaged([...props.hidden]);
+				setStaged([...(props.staged ?? props.hidden)]);
 				setSaving(false);
 			},
 		),

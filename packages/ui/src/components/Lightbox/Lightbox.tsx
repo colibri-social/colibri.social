@@ -35,6 +35,7 @@ import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import type { MediaItem } from "../Attachments/MediaGrid";
 import { ImageContextMenu } from "../ContextMenu/MessageMenu";
 import { IconButton, iconButtonVariants } from "../IconButton/IconButton";
+import { holdLightboxCover } from "../Media/media-cover";
 import { Video } from "../Media/Video";
 import { VideoPlayer } from "../Media/VideoPlayer";
 import { VideoSource } from "../Media/VideoSource";
@@ -217,6 +218,10 @@ export const Lightbox = (props: LightboxProps) => {
 	const mounted = () => phase() !== "closed";
 	const zoomed = () => zoom() > 1.01;
 	const isVideo = (target?: MediaItem) => target?.kind === "video";
+
+	createEffect(() => {
+		if (mounted()) onCleanup(holdLightboxCover());
+	});
 
 	createEffect(
 		on(

@@ -18,8 +18,11 @@ type Story = StoryObj<Args>;
 const URL_VALUE =
 	"https://trails.example.org/routes/2026/autumn-ridge-loop?ref=colibri&utm_source=chat";
 
+const MIXED_CASE_URL = "https://SharedComputer.Network";
+
 const Demo = (props: {
 	platform: LinkWarningPlatform;
+	url?: string;
 	disguised?: boolean;
 	onConfirm: Args["onConfirm"];
 }) => {
@@ -32,7 +35,7 @@ const Demo = (props: {
 			<LinkWarning
 				open={open()}
 				onOpenChange={setOpen}
-				url={URL_VALUE}
+				url={props.url ?? URL_VALUE}
 				disguised={props.disguised}
 				platform={props.platform}
 				onConfirm={props.onConfirm}
@@ -59,11 +62,8 @@ export const Desktop: Story = {
 	play: async ({ canvasElement, args }) => {
 		const dialog = await openWarning(canvasElement);
 		await expect(
-			dialog.querySelector("[data-link-warning-host]"),
-		).toHaveTextContent("trails.example.org");
-		await expect(
-			dialog.querySelector("[data-link-warning-url]"),
-		).toHaveTextContent(URL_VALUE);
+			dialog.querySelector("[data-link-warning-url]")?.textContent,
+		).toBe(URL_VALUE);
 		await userEvent.click(
 			within(dialog).getByRole("checkbox", {
 				name: "Always trust trails.example.org",
@@ -119,5 +119,22 @@ export const Disguised: Story = {
 	play: async ({ canvasElement }) => {
 		const dialog = await openWarning(canvasElement);
 		await expect(dialog).toHaveTextContent("different address");
+	},
+};
+
+export const MixedCaseUrl: Story = {
+	render: (args) => (
+		<Demo platform="desktop" url={MIXED_CASE_URL} onConfirm={args.onConfirm} />
+	),
+	play: async ({ canvasElement }) => {
+		const dialog = await openWarning(canvasElement);
+		const url = dialog.querySelector("[data-link-warning-url]") as HTMLElement;
+		await expect(url.textContent).toBe(MIXED_CASE_URL);
+		await expect(url.children).toHaveLength(0);
+		await expect(
+			within(dialog).getByRole("checkbox", {
+				name: "Always trust sharedcomputer.network",
+			}),
+		).toBeVisible();
 	},
 };

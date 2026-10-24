@@ -1,3 +1,4 @@
+import { nextTid } from "@colibri-social/lib";
 import { createSignal } from "solid-js";
 import { describe, expect, it } from "vitest";
 import { channelSlug, isVoiceChannel } from "./ids";
@@ -114,6 +115,9 @@ const setup = async (options: { cache?: MessageCache } = {}) => {
 		requests,
 		requestsFor,
 		setEpoch,
+		emit: (event: LiveEvent) => {
+			for (const listener of listeners) listener(event);
+		},
 		watchPaint: (check: () => boolean) => {
 			painted = check;
 		},
@@ -135,6 +139,32 @@ const setup = async (options: { cache?: MessageCache } = {}) => {
 
 const rkeysOf = (list: readonly MessageView[]) =>
 	list.map((message) => message.rkey);
+
+describe("channel previews", () => {
+	it("ignores a live message dated more than 15 minutes ahead", async () => {
+		const { store, text, say, emit } = await setup();
+		const target = text.find((channel) => channelSlug(channel) === "general");
+		if (!target) throw new Error("general missing");
+		const ref = target.space as SpaceRef;
+		const arrived = say(ref, "On time");
+		await until(() => store.lastMessage(ref)?.rkey === arrived.rkey);
+		const ahead = Date.now() + 20 * 60 * 1000;
+		emit({
+			$type: "messageEvent",
+			event: "create",
+			channel: ref,
+			message: {
+				...arrived,
+				rkey: nextTid(),
+				text: "From the future",
+				createdAt: new Date(ahead).toISOString() as MessageView["createdAt"],
+			},
+		} as LiveEvent);
+		await wait(50);
+		expect(store.lastMessage(ref)?.rkey).toBe(arrived.rkey);
+		store.dispose();
+	});
+});
 
 describe("live tail opens", () => {
 	it("paints a never-opened channel from the tail with zero requests", async () => {

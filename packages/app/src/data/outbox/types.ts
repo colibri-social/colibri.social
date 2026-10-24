@@ -52,6 +52,7 @@ export type OutboxOp =
 			rkey: string;
 			to: SpaceRef;
 			text?: string;
+			facets?: Facet[];
 			forwardRkey: string;
 			message?: MessageView;
 	  }

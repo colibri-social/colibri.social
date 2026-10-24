@@ -160,9 +160,13 @@ export const MessageItem = (props: MessageItemProps) => {
 	const legacy = () => !!view()?.legacy;
 	const anchor = () => !!message().anchor;
 	const own = () => message().author === chat.viewer();
+	const hideOwnerBadge = createMemo(
+		() => chat.community().hideOwnerBadge ?? false,
+	);
 	const directory = createMemo<AuthorDirectory>(() => ({
 		members: chat.members(),
 		roles: chat.roles(),
+		hideOwnerBadge: hideOwnerBadge(),
 	}));
 
 	const profile = createMemo(
@@ -838,6 +842,7 @@ export const MessageItem = (props: MessageItemProps) => {
 					onSave: (value: RichText) => chat.onSaveEdit?.(value),
 					onCancel: () => chat.onCancelEdit?.(),
 					onEmptySubmit: () => confirmDeleteAction()?.(),
+					focusRequest: chat.editFocusRequest?.(),
 				}
 			: undefined;
 
@@ -1130,7 +1135,8 @@ export const MessageItem = (props: MessageItemProps) => {
 					onOpenChange={setPreviewsOpen}
 					platform={platform()}
 					uris={embedUris()}
-					hidden={previewSeed()}
+					hidden={hiddenByMe()}
+					staged={previewSeed()}
 					lockedBy={embedLockedBy}
 					enabled={embedsOn()}
 					moderator={embedEditor() === "moderator"}

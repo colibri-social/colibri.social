@@ -167,11 +167,14 @@ export const InviteEmbed = (props: {
 			}
 			setViewerOverride("member");
 			toast.success(JOIN_COPY.joined(community.name));
+			props.onOpenSpace?.(community);
 		} catch (error) {
 			if (error instanceof AccessError) {
 				if (error.code === "Banned") return void setBanned(true);
-				if (error.code === "AlreadyMember")
-					return void setViewerOverride("member");
+				if (error.code === "AlreadyMember") {
+					setViewerOverride("member");
+					return void props.onOpenSpace?.(community);
+				}
 				if (error.code === "InvitationNotFound") {
 					forget(props.code);
 					return void setAttempt((value) => value + 1);

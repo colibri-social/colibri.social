@@ -23,36 +23,14 @@ export const linkWarningHost = (url: string) => {
 	}
 };
 
-const splitUrl = (url: string) => {
-	try {
-		const parsed = new URL(url);
-		const start = url.indexOf(parsed.host);
-		if (start < 0) return { before: "", host: parsed.host, after: url };
-		return {
-			before: url.slice(0, start),
-			host: parsed.host,
-			after: url.slice(start + parsed.host.length),
-		};
-	} catch {
-		return { before: "", host: "", after: url };
-	}
-};
-
-const UrlPreview = (props: { url: string }) => {
-	const parts = () => splitUrl(props.url);
-	return (
-		<p
-			data-link-warning-url=""
-			class="m-0 rounded-control border border-border bg-secondary px-3 py-2.5 text-sm break-all text-muted-foreground select-text"
-		>
-			{parts().before}
-			<span data-link-warning-host="" class="font-semibold text-foreground">
-				{parts().host}
-			</span>
-			{parts().after}
-		</p>
-	);
-};
+const UrlPreview = (props: { url: string }) => (
+	<p
+		data-link-warning-url=""
+		class="m-0 rounded-control border border-border bg-secondary px-3 py-2.5 text-sm break-all text-foreground select-text"
+	>
+		{props.url}
+	</p>
+);
 
 export const LinkWarning = (props: LinkWarningProps) => {
 	const [trust, setTrust] = createSignal(false);

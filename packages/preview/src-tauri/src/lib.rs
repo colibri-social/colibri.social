@@ -1,4 +1,6 @@
 #[cfg(target_os = "macos")]
+mod app_menu;
+#[cfg(target_os = "macos")]
 mod macos_media;
 mod native_error;
 mod save_image;
@@ -49,6 +51,13 @@ pub fn run() {
                     .build(),
             )
             .plugin(tauri_plugin_dialog::init());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .menu(app_menu::build)
+            .on_menu_event(app_menu::handle);
     }
 
     #[cfg(target_os = "android")]

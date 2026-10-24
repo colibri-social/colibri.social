@@ -81,6 +81,7 @@ export type ForwardInput = {
 	rkey: string;
 	to: SpaceRef;
 	text?: string;
+	facets?: Facet[];
 	forwardRkey?: string;
 	message?: MessageView;
 };
@@ -239,12 +240,18 @@ export type MemberRolesInput = {
 
 export type RoleIconBadgeInput = { icon: string; color?: string };
 
+export type RoleEmojiBadgeInput = {
+	emoji?: string;
+	customEmoji?: { uri: string; cid?: string };
+};
+
 export type CreateRoleInput = {
 	community: Did;
 	name: string;
 	permissions: string[];
 	color?: string;
 	badge?: RoleIconBadgeInput;
+	emojiBadge?: RoleEmojiBadgeInput;
 	position?: number;
 	hoisted?: boolean;
 	mentionable?: boolean;
@@ -256,6 +263,7 @@ export type UpdateRoleInput = {
 	name?: string;
 	color?: string;
 	badge?: RoleIconBadgeInput;
+	emojiBadge?: RoleEmojiBadgeInput;
 	removeBadge?: boolean;
 	permissions?: string[];
 	position?: number;
@@ -382,6 +390,7 @@ export type UpdateCommunityInput = {
 	requiresApprovalToJoin?: boolean;
 	linkEmbeds?: boolean;
 	overrideUserNameColors?: boolean;
+	hideOwnerBadge?: boolean;
 	customEmoji?: CustomEmojiPolicy;
 };
 

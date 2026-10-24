@@ -8,6 +8,7 @@ export { displayNameOf };
 export type AuthorDirectory = {
 	members: ReadonlyMap<string, MemberView>;
 	roles: ReadonlyMap<string, RoleView>;
+	hideOwnerBadge?: boolean;
 };
 
 export const memberRoles = (
@@ -39,7 +40,7 @@ export const toMessageAuthor = (
 		seed: profile.did,
 		nameColor: actor.theme?.accentColor,
 		role: roleIdentityFor(memberRoles(member, directory.roles)),
-		owner: isOwnerMember(member, directory.roles),
+		owner: !directory.hideOwnerBadge && isOwnerMember(member, directory.roles),
 	};
 };
 

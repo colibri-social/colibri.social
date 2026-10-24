@@ -122,6 +122,9 @@ it("opens threads from the overlay in the full view, and in the pane with Shift"
 	await until(() => !!document.querySelector("[data-thread-full]"));
 	expect(document.querySelector("[data-threads-overlay]")).toBeNull();
 	await userEvent.keyboard("{Escape}");
+	await wait(300);
+	expect(document.querySelector("[data-thread-full]")).not.toBeNull();
+	await userEvent.click(viewLabel("Chat"));
 	await until(() => !document.querySelector("[data-thread-full]"));
 	expect(location.pathname).toBe(DEV_PATH);
 	shiftClick(await openOverlay());

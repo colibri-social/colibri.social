@@ -256,6 +256,71 @@ export const LockedRolesWithCounts: Story = {
 	},
 };
 
+const emojiRoles: SpaceRole[] = [
+	{
+		id: "parrots",
+		name: "Parrots",
+		color: "#4ade80",
+		badge: { kind: "emoji", emoji: "🦜" },
+		memberCount: 4,
+	},
+	{
+		id: "shippers",
+		name: "Shippers",
+		color: "#76c4e5",
+		badge: {
+			kind: "emoji",
+			custom: { id: "ship", name: "shipit", src: storyImages.tealIcon() },
+		},
+		memberCount: 2,
+	},
+	{
+		id: "gone",
+		name: "Deleted emoji",
+		color: "#ff7a90",
+		badge: { kind: "emoji", custom: { id: "gone", name: "gone" } },
+		memberCount: 1,
+	},
+];
+
+const EmojiRolesHarness = () => (
+	<div class="flex min-h-dvh flex-col gap-4 bg-popover p-4 text-foreground">
+		<SpaceRoleList roles={emojiRoles} onOpen={fn()} onReorder={onReorder} />
+	</div>
+);
+
+const expectEmojiRoleMarks = async (canvasElement: HTMLElement) => {
+	const rows = Array.from(
+		canvasElement.querySelectorAll<HTMLElement>("[data-role-row]"),
+	);
+	await expect(rows).toHaveLength(3);
+	const glyph = (row: HTMLElement | undefined) =>
+		row?.querySelector<HTMLElement>("[data-role-badge-glyph='emoji']");
+	await expect(
+		glyph(rows[0])?.querySelector("[data-emoji='unicode']"),
+	).toHaveTextContent("🦜");
+	await expect(glyph(rows[1])?.querySelector("img")).not.toBeNull();
+	await expect(glyph(rows[2])).toBeNull();
+	await expect(rows[2]?.querySelector("[data-role-color-dot]")).not.toBeNull();
+	for (const row of rows.slice(0, 2)) {
+		const box = glyph(row)?.getBoundingClientRect();
+		await expect(Math.round(box?.width ?? 0)).toBe(16);
+		await expect(Math.round(box?.height ?? 0)).toBe(16);
+	}
+	await expectNoLayoutIssues(canvasElement);
+};
+
+export const EmojiBadgeRoles: Story = {
+	render: () => <EmojiRolesHarness />,
+	play: async ({ canvasElement }) => expectEmojiRoleMarks(canvasElement),
+};
+
+export const EmojiBadgeRolesDesktop: Story = {
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => <EmojiRolesHarness />,
+	play: async ({ canvasElement }) => expectEmojiRoleMarks(canvasElement),
+};
+
 export const RoleListLoading: Story = {
 	render: () => (
 		<div class="flex min-h-dvh flex-col gap-4 bg-popover p-4 text-foreground">

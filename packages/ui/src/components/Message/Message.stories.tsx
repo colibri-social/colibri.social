@@ -27,6 +27,7 @@ import { MessageMenuItems } from "../ContextMenu/MessageMenu";
 import { EmojiPickerPopover } from "../EmojiPicker/EmojiPickerPopover";
 import { IconButton } from "../IconButton/IconButton";
 import { InboxGroupCard } from "../Inbox/InboxGroupCard";
+import { Lightbox } from "../Lightbox/Lightbox";
 import { MessageToolbar } from "../MessageActions/MessageToolbar";
 import { ConfirmDialog } from "../Modal/ConfirmDialog";
 import type { RichText } from "../RichEditor/types";
@@ -1693,6 +1694,154 @@ export const DesktopToolbarHidesWhileTyping: Story = {
 		pointer("pointermove", rect.left + 60);
 		await waitFor(() => expect(layer.matches(":popover-open")).toBe(true));
 		input.blur();
+	},
+};
+
+const COVER_IMAGE = `data:image/svg+xml,${encodeURIComponent(
+	'<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><rect width="1200" height="800" fill="#4a7a9c"/></svg>',
+)}`;
+
+const setFullscreenElement = (
+	element: Element | null,
+	event: "fullscreenchange" | "webkitfullscreenchange",
+) => {
+	Object.defineProperty(document, "fullscreenElement", {
+		configurable: true,
+		get: () => element,
+	});
+	document.dispatchEvent(new Event(event));
+};
+
+const clearFullscreenElement = (
+	event: "fullscreenchange" | "webkitfullscreenchange",
+) => {
+	Reflect.deleteProperty(document, "fullscreenElement");
+	document.dispatchEvent(new Event(event));
+};
+
+const toolbarShown = (layer: HTMLElement) =>
+	layer.matches(":popover-open") && getComputedStyle(layer).display !== "none";
+
+export const DesktopToolbarUnderMedia: Story = {
+	render: () => {
+		const [lightbox, setLightbox] = createSignal(false);
+		return (
+			<div
+				data-testid="media-frame"
+				class="flex min-h-dvh flex-col gap-6 bg-background px-4 py-16 text-foreground"
+			>
+				<MessageRow
+					author={{ name: "Lou" }}
+					timestamp={at(9, 4)}
+					now={NOW}
+					locale="en-GB"
+					toolbar={<ToolbarPlaceholder />}
+					data-testid="media-hover-row"
+				>
+					A hovered toolbar steps aside for a lightbox or fullscreen video
+				</MessageRow>
+				<MessageRow
+					author={{ name: "Lis" }}
+					timestamp={at(9, 5)}
+					now={NOW}
+					locale="en-GB"
+					toolbar={<ToolbarPlaceholder />}
+					toolbarOpen
+					data-testid="media-held-row"
+				>
+					A held toolbar steps aside too
+				</MessageRow>
+				<Button
+					variant="secondary"
+					class="self-start"
+					onClick={() => setLightbox(true)}
+				>
+					Open the image
+				</Button>
+				<Lightbox
+					items={[
+						{
+							src: COVER_IMAGE,
+							width: 1200,
+							height: 800,
+							kind: "image",
+							name: "lake.png",
+							alt: "A flat blue picture.",
+						},
+					]}
+					open={lightbox()}
+					onOpenChange={setLightbox}
+				/>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const hovered = canvasElement.querySelector<HTMLElement>(
+			'[data-testid="media-hover-row"]',
+		);
+		const held = canvasElement.querySelector<HTMLElement>(
+			'[data-testid="media-held-row"]',
+		);
+		const frame = canvasElement.querySelector<HTMLElement>(
+			'[data-testid="media-frame"]',
+		);
+		if (!hovered || !held || !frame) throw new Error("Missing rows");
+		let nudge = 0;
+		const hover = () => {
+			const rect = hovered.getBoundingClientRect();
+			nudge += 1;
+			hovered.dispatchEvent(
+				new PointerEvent("pointermove", {
+					bubbles: true,
+					pointerType: "mouse",
+					clientX: rect.left + 40 + nudge,
+					clientY: rect.top + 10,
+				}),
+			);
+			hovered.dispatchEvent(new PointerEvent("pointerenter"));
+		};
+		hover();
+		const hoverLayer = toolbarParts(hovered).layer;
+		const heldLayer = toolbarParts(held).layer;
+		await waitFor(() => expect(toolbarShown(hoverLayer)).toBe(true));
+		await expect(getComputedStyle(heldLayer).display).not.toBe("none");
+		await expectNoLayoutIssues(frame);
+
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Open the image" }),
+		);
+		const dialog = await screen.findByRole("dialog", { name: /image/i });
+		await waitFor(() => expect(dialog).toHaveAttribute("data-phase", "open"));
+		await waitFor(() =>
+			expect(hoverLayer.matches(":popover-open")).toBe(false),
+		);
+		await expect(hoverLayer).toHaveAttribute("data-media-hidden");
+		await expect(getComputedStyle(heldLayer).display).toBe("none");
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(document.querySelector("[data-lightbox]")).toBeNull(),
+		);
+		hover();
+		await waitFor(() => expect(toolbarShown(hoverLayer)).toBe(true));
+		await expect(getComputedStyle(heldLayer).display).not.toBe("none");
+
+		const video = document.createElement("video");
+		frame.append(video);
+		for (const event of [
+			"fullscreenchange",
+			"webkitfullscreenchange",
+		] as const) {
+			setFullscreenElement(video, event);
+			await waitFor(() =>
+				expect(hoverLayer.matches(":popover-open")).toBe(false),
+			);
+			await expect(getComputedStyle(heldLayer).display).toBe("none");
+			clearFullscreenElement(event);
+			hover();
+			await waitFor(() => expect(toolbarShown(hoverLayer)).toBe(true));
+			await expect(getComputedStyle(heldLayer).display).not.toBe("none");
+		}
+		video.remove();
 	},
 };
 

@@ -10,12 +10,37 @@ export { isDefaultRole };
 
 const ICON_BADGE = "social.colibri.beta.community.defs#roleIconBadge";
 const IMAGE_BADGE = "social.colibri.beta.community.defs#roleImageBadgeView";
+const EMOJI_BADGE = "social.colibri.beta.community.defs#roleEmojiBadgeView";
+
+type WireRoleBadge = {
+	$type?: string;
+	icon?: string;
+	color?: string;
+	image?: string;
+	emoji?: string;
+	customEmoji?: { uri?: string };
+	name?: string;
+};
+
+const emojiBadge = (badge: WireRoleBadge): RoleBadgeValue | undefined => {
+	const uri = badge.customEmoji?.uri;
+	if (uri) {
+		return badge.image
+			? {
+					kind: "emoji",
+					custom: { id: uri, name: badge.name ?? "", src: badge.image },
+				}
+			: undefined;
+	}
+	return badge.emoji ? { kind: "emoji", emoji: badge.emoji } : undefined;
+};
 
 export const roleBadge = (role: RoleView): RoleBadgeValue | undefined => {
-	const badge = role.badge as
-		| { $type?: string; icon?: string; color?: string; image?: string }
-		| undefined;
+	const badge = role.badge as WireRoleBadge | undefined;
 	if (!badge) return undefined;
+	if (badge.$type === EMOJI_BADGE || badge.emoji || badge.customEmoji) {
+		return emojiBadge(badge);
+	}
 	if (badge.$type === IMAGE_BADGE || badge.image) {
 		return badge.image ? { kind: "image", url: badge.image } : undefined;
 	}

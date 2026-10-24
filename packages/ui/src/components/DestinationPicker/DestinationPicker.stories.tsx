@@ -5,10 +5,13 @@ import { createSignal, For, Show } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
+import { cx } from "../../utils/cx";
 import { storyImages } from "../Banner/story-images";
 import { Button } from "../Button/Button";
+import { fixturePacks, fixtureUsage } from "../EmojiPicker/fixtures";
 import { Modal, ModalContent } from "../Modal/Modal";
-import { SearchField, TextField } from "../TextField/TextField";
+import type { RichEditorSources } from "../RichEditor/types";
+import { SearchField } from "../TextField/TextField";
 import {
 	DestinationAction,
 	DestinationChannel,
@@ -20,6 +23,7 @@ import {
 	DestinationThread,
 	DestinationThreadSkeleton,
 } from "./DestinationPicker";
+import { FORWARD_NOTE_HEIGHT_CLASS, ForwardNote } from "./ForwardNote";
 import { ForwardPreview, summarizeForwardAttachments } from "./ForwardPreview";
 
 const meta = {
@@ -215,10 +219,33 @@ export const Move: Story = {
 const MESSAGE_TEXT =
 	"Here are the new icon sketches for the release. I tried a rounder stroke on the thread glyph and a tighter grid for the channel icon, so let me know which direction you prefer before Friday.";
 
-const ForwardDemo = (props: { platform: DestinationPlatform }) => {
+const noteSources: RichEditorSources = {
+	searchMembers: (query, limit) =>
+		[
+			{
+				did: "did:plc:ada",
+				name: "Ada Lovelace",
+				handle: "ada.colibri.social",
+			},
+			{
+				did: "did:plc:grace",
+				name: "Grace Hopper",
+				handle: "grace.bsky.social",
+			},
+		]
+			.filter((member) =>
+				member.name.toLowerCase().startsWith(query.toLowerCase()),
+			)
+			.slice(0, limit),
+};
+
+const ForwardDemo = (props: {
+	platform: DestinationPlatform;
+	problem?: { kind: string; hint: string };
+}) => {
 	const expanded = createExpanded(["dev"]);
 	const [picked, setPicked] = createSignal<ReadonlySet<string>>(new Set());
-	const [note, setNote] = createSignal("");
+	const [emojiOpen, setEmojiOpen] = createSignal(false);
 	const pick = (id: string, checked: boolean) =>
 		setPicked((current) => {
 			const next = new Set(current);
@@ -230,10 +257,7 @@ const ForwardDemo = (props: { platform: DestinationPlatform }) => {
 		{ name: "Colibri HQ", channels: HQ.slice(0, 2) },
 		{ name: "Night Owls Art Club", channels: OWLS },
 	];
-	const label = () =>
-		picked().size === 0
-			? "Forward"
-			: `Forward to ${picked().size} ${picked().size === 1 ? "place" : "places"}`;
+	const label = () => (picked().size > 1 ? `Send (${picked().size})` : "Send");
 
 	return (
 		<div class="flex min-w-0 flex-col gap-3">
@@ -302,15 +326,32 @@ const ForwardDemo = (props: { platform: DestinationPlatform }) => {
 				>
 					{MESSAGE_TEXT}
 				</ForwardPreview>
-				<div class="flex min-w-0 items-center gap-2">
-					<TextField
-						aria-label="Add a message"
-						placeholder="Add a message"
-						value={note()}
-						onChange={setNote}
-						class="min-w-0 flex-1"
+				<div
+					class={
+						props.platform === "desktop"
+							? "flex min-w-0 items-end gap-2"
+							: "flex min-w-0 flex-col gap-2"
+					}
+				>
+					<ForwardNote
+						platform={props.platform}
+						sources={noteSources}
+						problem={props.problem}
+						emoji={{
+							open: emojiOpen(),
+							onOpenChange: setEmojiOpen,
+							usage: fixtureUsage(),
+							packs: fixturePacks,
+							onPick: () => setEmojiOpen(false),
+						}}
 					/>
-					<Button disabled={picked().size === 0} class="shrink-0">
+					<Button
+						disabled={picked().size === 0 || Boolean(props.problem)}
+						class={cx(
+							FORWARD_NOTE_HEIGHT_CLASS,
+							props.platform === "desktop" ? "shrink-0" : "w-full",
+						)}
+					>
 						<span data-forward-submit="" class="tabular-nums">
 							{label()}
 						</span>
@@ -344,7 +385,7 @@ export const Forward: Story = {
 		).toBeChecked();
 		await expect(checkOf(root, "Spring tuning")).toHaveClass("bg-primary");
 		await userEvent.click(canvas.getByText("showcase"));
-		await expect(canvas.getByText("Forward to 2 places")).toBeVisible();
+		await expect(canvas.getByText("Send (2)")).toBeVisible();
 
 		const channelCheck = checkOf(root, "showcase")?.getBoundingClientRect();
 		const threadCheck = checkOf(root, "Spring tuning")?.getBoundingClientRect();
@@ -388,7 +429,88 @@ export const ForwardModal: Story = {
 				).toBe(40),
 			{ timeout: 3000 },
 		);
+		const send = within(dialog).getByRole("button", { name: "Send" });
+		const note = dialog.querySelector("[data-forward-note]") as HTMLElement;
+		await waitFor(() =>
+			expect(
+				Math.abs(
+					note.getBoundingClientRect().height -
+						send.getBoundingClientRect().height,
+				),
+			).toBeLessThan(0.5),
+		);
+		await expect(
+			Math.abs(
+				note.getBoundingClientRect().bottom -
+					send.getBoundingClientRect().bottom,
+			),
+		).toBeLessThan(0.5);
 		await expectNoLayoutIssues(dialog);
+	},
+};
+
+export const ForwardNoteEditor: Story = {
+	parameters: { viewport: { defaultViewport: "desktop" } },
+	render: () => (
+		<Modal defaultOpen>
+			<ModalContent
+				title="Forward message"
+				closeLabel="Cancel forwarding"
+				class="md:w-[440px]"
+			>
+				<ForwardDemo platform="desktop" />
+			</ModalContent>
+		</Modal>
+	),
+	play: async () => {
+		const dialog = await screen.findByRole("dialog", {
+			name: "Forward message",
+		});
+		const editor = await within(dialog).findByRole("textbox", {
+			name: "Add a message",
+		});
+		await userEvent.click(editor);
+		await userEvent.keyboard("**Look** at this @gr");
+		const list = await screen.findByRole("listbox", { name: "Suggestions" });
+		await expect(within(list).getAllByText("Grace Hopper")[0]).toBeVisible();
+		await userEvent.keyboard("{Enter}");
+		await waitFor(() =>
+			expect(
+				editor.querySelector("[data-mention-type='member']"),
+			).toHaveTextContent("@Grace Hopper"),
+		);
+		await expect(editor.querySelector(".font-bold")).toHaveTextContent("Look");
+		await expect(
+			within(dialog).getByRole("button", { name: "Add an emoji" }),
+		).toBeVisible();
+		await expectNoLayoutIssues(dialog);
+	},
+};
+
+export const ForwardNoteProblem: Story = {
+	render: () => (
+		<div data-testid="forward" class="min-h-dvh bg-popover p-4 text-foreground">
+			<ForwardDemo
+				platform="mobile"
+				problem={{
+					kind: "member",
+					hint: "@Mo isn't in Night Owls Art Club. Remove the mention to forward this.",
+				}}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const root = canvas.getByTestId("forward");
+		await userEvent.click(canvas.getByText("showcase"));
+		await expect(canvas.getByRole("status")).toHaveTextContent(
+			"@Mo isn't in Night Owls Art Club.",
+		);
+		await expect(root.querySelector("[data-forward-note]")).toHaveAttribute(
+			"data-invalid",
+		);
+		await expect(canvas.getByRole("button", { name: "Send" })).toBeDisabled();
+		await expectNoLayoutIssues(root);
 	},
 };
 

@@ -106,6 +106,17 @@ const content = (root: HTMLElement) =>
 const nameField = (root: HTMLElement) =>
 	activeScreen(root).querySelector<HTMLInputElement>('input[type="text"]');
 
+const crownToggle = (root: HTMLElement) =>
+	Array.from(
+		activeScreen(root).querySelectorAll<HTMLInputElement>(
+			"[data-list-toggle-row] input",
+		),
+	).find((input) =>
+		input
+			.closest("[data-list-toggle-row]")
+			?.textContent?.includes("Show owner crown"),
+	);
+
 const colorToggle = (root: HTMLElement) =>
 	Array.from(
 		activeScreen(root).querySelectorAll<HTMLInputElement>(
@@ -172,6 +183,16 @@ describe("roles", () => {
 		toggle.click();
 		await until(() => !!store.spaceByKey(HQ)?.overrideUserNameColors);
 		expect(colorToggle(root)?.checked).toBe(true);
+	});
+
+	it("hides the owner crown for the Space", async () => {
+		const { root, store } = await mount(`/app/c/${HQ}/manage/roles`);
+		await until(() => !!crownToggle(root));
+		const toggle = crownToggle(root) as HTMLInputElement;
+		expect(toggle.checked).toBe(true);
+		toggle.click();
+		await until(() => !!store.spaceByKey(HQ)?.hideOwnerBadge);
+		expect(crownToggle(root)?.checked).toBe(false);
 	});
 
 	it("creates a role and lands on it", async () => {
@@ -248,6 +269,110 @@ describe("roles", () => {
 		buttonNamed(activeScreen(root), "Back to roles")?.click();
 		await until(() => location.pathname.endsWith("/manage/roles"));
 		await until(() => !!rowNamed(root, "QA crew"));
+	});
+
+	it("sets a Unicode and a custom emoji badge in the role editor", async () => {
+		const { root, store } = await mount(`/app/c/${HQ}/manage/role/testers`);
+		await until(() => nameField(root)?.value === "Testers");
+		const bar = () =>
+			activeScreen(root).querySelector<HTMLElement>(
+				"[data-unsaved-changes-bar]",
+			);
+		const badgeRow = () =>
+			activeScreen(root).querySelector<HTMLElement>(
+				"[data-role-badge-setting]",
+			);
+		const pickerDialog = () => dialogNamed("Role badge");
+		const openEmojiTab = async () => {
+			badgeRow()?.click();
+			await until(() => !!pickerDialog());
+			const tab = Array.from(
+				pickerDialog()?.querySelectorAll<HTMLElement>(
+					"[data-segmented-control] label",
+				) ?? [],
+			).find((label) => label.textContent?.trim() === "Emoji");
+			tab?.click();
+			await until(
+				() =>
+					!!pickerDialog()?.querySelector<HTMLInputElement>(
+						'input[aria-label="Search emoji"]',
+					),
+			);
+			return pickerDialog() as HTMLElement;
+		};
+		const search = (dialog: HTMLElement, query: string) =>
+			type(
+				dialog.querySelector<HTMLInputElement>(
+					'input[aria-label="Search emoji"]',
+				) as HTMLInputElement,
+				query,
+			);
+		const closePicker = async (dialog: HTMLElement) => {
+			buttonNamed(dialog, "Done")?.click();
+			await until(() => !pickerDialog());
+		};
+		const badgeOf = () =>
+			hqSpace(store).roleByKey("testers")?.badge as
+				| Record<string, unknown>
+				| undefined;
+
+		const unicode = await openEmojiTab();
+		search(unicode, "parrot");
+		await until(() => !!buttonNamed(unicode, "parrot"));
+		buttonNamed(unicode, "parrot")?.click();
+		await until(
+			() =>
+				!!unicode.querySelector(
+					"[data-role-badge-preview] [data-role-badge-glyph='emoji']",
+				),
+		);
+		await closePicker(unicode);
+		await until(() => bar()?.dataset.visible !== undefined);
+		expect(
+			badgeRow()?.querySelector("[data-role-badge-glyph='emoji']"),
+		).not.toBeNull();
+		buttonNamed(bar() as HTMLElement, "Save")?.click();
+		await until(() => badgeOf()?.emoji === "🦜");
+		expect(badgeOf()?.$type).toBe(
+			"social.colibri.beta.community.defs#roleEmojiBadgeView",
+		);
+		await until(() => bar()?.dataset.visible === undefined);
+
+		const custom = await openEmojiTab();
+		search(custom, "lgtm");
+		await until(() => !!buttonNamed(custom, ":lgtm:"));
+		buttonNamed(custom, ":lgtm:")?.click();
+		await until(
+			() =>
+				!!custom.querySelector(
+					"[data-role-badge-preview] [data-role-badge-glyph='emoji'] img",
+				),
+		);
+		expect(
+			custom.querySelector("[data-role-badge-preview] [data-emoji='unicode']"),
+		).toBeNull();
+		await closePicker(custom);
+		await until(() => bar()?.dataset.visible !== undefined);
+		buttonNamed(bar() as HTMLElement, "Save")?.click();
+		await until(() => !!(badgeOf()?.customEmoji as { uri?: string })?.uri);
+		const saved = badgeOf() as {
+			customEmoji: { uri: string };
+			name?: string;
+			image?: string;
+		};
+		expect(saved.customEmoji.uri).toMatch(/^at:\/\//);
+		expect(saved.name).toBe("lgtm");
+		expect(saved.image).toBeTruthy();
+		await until(() => bar()?.dataset.visible === undefined);
+
+		buttonNamed(activeScreen(root), "Back to roles")?.click();
+		await until(() => location.pathname.endsWith("/manage/roles"));
+		await until(
+			() =>
+				!!rowNamed(root, "Testers")?.querySelector(
+					"[data-role-badge-glyph='emoji'] img",
+				),
+		);
 	});
 
 	it("edits permissions on their own page and shows developer details", async () => {

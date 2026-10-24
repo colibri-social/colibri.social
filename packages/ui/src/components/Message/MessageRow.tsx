@@ -32,6 +32,7 @@ import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Avatar } from "../Avatar/Avatar";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { DestructiveRow, ListGroup } from "../List/List";
+import { mediaCoversPage } from "../Media/media-cover";
 import { OwnerBadge } from "../Roles/OwnerBadge";
 import { RoleBadge, type RoleIdentity } from "../Roles/RoleBadge";
 import { chatLayoutVars } from "./layout";
@@ -443,7 +444,8 @@ export const MessageRow = (props: MessageRowProps) => {
 
 	createEffect(() => {
 		const layer = toolbarLayer();
-		if (!layer || !showToolbar() || !toolbarActive()) return;
+		if (!layer || !showToolbar() || !toolbarActive() || mediaCoversPage())
+			return;
 		const row = root;
 		if (!row || !layer.isConnected) return;
 		const topLayer = inTopLayer();
@@ -824,6 +826,7 @@ export const MessageRow = (props: MessageRowProps) => {
 						data-message-toolbar=""
 						popover={supportsTopLayer ? "manual" : undefined}
 						data-overlay-hidden={overlayHides() || undefined}
+						data-media-hidden={mediaCoversPage() || undefined}
 						data-toolbar-layer={inTopLayer() ? "top" : "row"}
 						onPointerEnter={() => setPointerOnToolbar(true)}
 						onPointerLeave={() => setPointerOnToolbar(false)}
@@ -832,7 +835,7 @@ export const MessageRow = (props: MessageRowProps) => {
 							inTopLayer()
 								? "inset-auto -translate-y-3/4"
 								: "absolute inset-auto top-px right-3 z-10 -translate-y-3/4",
-							!toolbarActive() && "hidden",
+							(!toolbarActive() || mediaCoversPage()) && "hidden",
 							overlayHides() && "pointer-events-none opacity-0",
 							toolbarHeld()
 								? "visible"

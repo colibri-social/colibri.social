@@ -10,6 +10,7 @@ import {
 	mount,
 	rightClick,
 	send,
+	springCard,
 	TEXT,
 	until,
 	wait,
@@ -102,9 +103,9 @@ describe("message link actions", () => {
 		await waitDialogsClosed();
 		await userEvent.click((await openMenu(link, "Open link")) as HTMLElement);
 		await until(() => !!document.querySelector("[data-link-warning]"));
-		expect(
-			document.querySelector("[data-link-warning-host]")?.textContent,
-		).toContain("docs.solidjs.com");
+		expect(document.querySelector("[data-link-warning-url]")?.textContent).toBe(
+			SOLID,
+		);
 		await userEvent.keyboard("{Escape}");
 		await waitDialogsClosed();
 		const body = article.querySelector<HTMLElement>(
@@ -215,6 +216,29 @@ describe("link previews", () => {
 		);
 		await until(() => !article().querySelector("[data-link-embed]"));
 		expect(document.querySelector("[data-link-previews]")).toBeNull();
+	});
+	it("hides a preview in a thread from the close button and saves", async () => {
+		await mount();
+		const card = await springCard();
+		(
+			(card.matches("button") ? card : card.querySelector("button")) ?? card
+		).click();
+		const pane = () =>
+			document.querySelector("[data-shell-thread]") as HTMLElement;
+		const article = () =>
+			articleWithText(pane() ?? document.body, "Native apps keep");
+		await until(() => !!article()?.querySelector("[data-link-embed]"));
+		await userEvent.click(
+			buttonIn(article() as HTMLElement, "Remove link preview") as HTMLElement,
+		);
+		await until(() => !!document.querySelector("[data-link-previews]"));
+		const dialog = dialogWith("Link previews") as HTMLElement;
+		const save = buttonIn(dialog, "Save") as HTMLButtonElement;
+		await until(() => !save.disabled);
+		await userEvent.click(save);
+		await until(
+			() => !!article() && !article()?.querySelector("[data-link-embed]"),
+		);
 	});
 });
 

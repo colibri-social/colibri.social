@@ -48,6 +48,11 @@ export const Small: Story = {
 			within(canvasElement).getByRole("button", { name: "Open modal" }),
 		);
 		const dialog = await screen.findByRole("dialog", { name: "Modal title" });
+		if (window.innerWidth >= 768) {
+			await waitFor(() =>
+				expect(dialog.getBoundingClientRect().width).toBe(440),
+			);
+		}
 		await userEvent.click(
 			within(dialog).getByRole("button", { name: "Close" }),
 		);

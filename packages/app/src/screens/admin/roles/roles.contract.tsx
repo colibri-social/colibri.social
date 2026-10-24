@@ -1,3 +1,4 @@
+import { classifyThrown, createLogger } from "@colibri-social/lib";
 import {
 	ListGroup,
 	SpaceRoleList,
@@ -16,6 +17,8 @@ import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { AdminNavHeader } from "../desktop/page-header";
 import { spaceRoleOf, useRoleAccess } from "./role-access";
+
+const log = createLogger("admin-roles");
 
 export const adminRoles = defineContract({
 	id: "adminRoles",
@@ -56,6 +59,27 @@ export const adminRoles = defineContract({
 				setOverridePending(undefined);
 			}
 		};
+		const [crownPending, setCrownPending] = createSignal<boolean>();
+		const showOwnerCrown = () =>
+			crownPending() ?? !access.community()?.hideOwnerBadge;
+		const setShowOwnerCrown = async (on: boolean) => {
+			const community = access.community();
+			if (!community) return;
+			setCrownPending(on);
+			try {
+				await access.data.community.update({
+					community: community.did,
+					hideOwnerBadge: !on,
+				});
+			} catch (error) {
+				log.warn("updating the owner crown setting failed", {
+					code: classifyThrown(error, { method: "updateCommunity" }).code,
+				});
+				toast.error("Couldn't update the owner crown");
+			} finally {
+				setCrownPending(undefined);
+			}
+		};
 		const reorder = async (ids: string[]) => {
 			try {
 				await access.space()?.reorderRoles(ids);
@@ -72,6 +96,8 @@ export const adminRoles = defineContract({
 			canManageSpace,
 			overrideColors,
 			setOverrideColors,
+			showOwnerCrown,
+			setShowOwnerCrown,
 			open,
 			create: () => open(NEW_ENTRY),
 			reorder,
@@ -104,6 +130,13 @@ export const adminRoles = defineContract({
 						description="Always shows a white color for online users without a role"
 						checked={m.overrideColors()}
 						onChange={(on) => void m.setOverrideColors(on)}
+						disabled={!m.canManageSpace()}
+					/>
+					<ToggleRow
+						title="Show owner crown"
+						description="Shows a crown next to the Space owner's name"
+						checked={m.showOwnerCrown()}
+						onChange={(on) => void m.setShowOwnerCrown(on)}
 						disabled={!m.canManageSpace()}
 					/>
 				</ListGroup>

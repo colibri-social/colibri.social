@@ -42,7 +42,10 @@ import {
 	pushActivations,
 } from "../native/push/index";
 import type { MarkReadTarget } from "../native/push/mark-read";
-import { openNotificationTarget } from "../screens/inbox/inbox-adapter";
+import {
+	type NotificationStack,
+	openNotificationTarget,
+} from "../screens/inbox/inbox-adapter";
 import { useOptionalDesktopShell } from "./desktop/context";
 import { NotificationPrompt } from "./NotificationPrompt";
 import type { Navigator } from "./stack";
@@ -54,7 +57,7 @@ const communityOfRef = (ref: string) =>
 	ref.slice("at://".length, ref.indexOf("/space/"));
 
 export const NotificationHost = (props: {
-	stack: Pick<Navigator, "root" | "setRoot" | "push">;
+	stack: NotificationStack & Pick<Navigator, "root" | "mounted">;
 	notifier?: () => Promise<OsNotifier>;
 	device?: DeviceNotifications;
 	play?: (sound: NotificationSound) => void;
@@ -75,6 +78,13 @@ export const NotificationHost = (props: {
 
 	onCleanup(device.watch());
 
+	const settingsOpen = () =>
+		props.stack.root().tab === "settings" ||
+		props.stack
+			.mounted()
+			.slice(0, props.stack.depth())
+			.some((layer) => layer.kind === "settings");
+
 	const content = (view: NotificationView) => {
 		const described = describeNotification(data, view);
 		const root = props.stack.root();
@@ -86,13 +96,9 @@ export const NotificationHost = (props: {
 	};
 
 	const open = (view: NotificationView) => {
+		if (settingsOpen()) return;
 		void data.notifications.markRead([view.id]).catch(() => {});
-		openNotificationTarget(
-			props.stack,
-			data.jumps.request,
-			view,
-			desktop?.setVoiceChatOpen,
-		);
+		openNotificationTarget(props.stack, data.jumps.request, view, desktop);
 	};
 
 	const showToast = (view: NotificationView) => {
@@ -193,7 +199,7 @@ export const NotificationHost = (props: {
 				...(activation.thread ? { thread: activation.thread as SpaceRef } : {}),
 				...(activation.rkey ? { message: { rkey: activation.rkey } } : {}),
 			},
-			desktop?.setVoiceChatOpen,
+			desktop,
 		);
 	};
 
@@ -247,6 +253,7 @@ export const NotificationHost = (props: {
 			});
 			if (!alert) return;
 			if (visible) {
+				if (settingsOpen()) return;
 				play("ping");
 				showToast(view);
 				return;
@@ -264,6 +271,10 @@ export const NotificationHost = (props: {
 	createEffect(() => {
 		const viewing = data.viewing();
 		if (viewing && appVisible()) dismissOs(viewing);
+	});
+
+	createEffect(() => {
+		if (settingsOpen()) toast.dismiss(MESSAGE_TOAST_ID);
 	});
 
 	createEffect(() => {

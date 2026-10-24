@@ -10,6 +10,7 @@ export type CustomEmojiPolicy = (typeof CUSTOM_EMOJI_POLICIES)[number];
 export type MigrationInfo = social.colibri.beta.community.defs.MigrationInfo;
 export type CommunityView = social.colibri.beta.community.defs.CommunityView & {
 	customEmoji?: CustomEmojiPolicy | (string & {});
+	hideOwnerBadge?: boolean;
 };
 export type MigrationProgressView =
 	social.colibri.beta.community.defs.MigrationProgress;

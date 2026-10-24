@@ -44,6 +44,11 @@
 							"ref": "social.colibri.beta.community.defs#roleIconBadge",
 							"description": "An icon badge. Image badges are set with social.colibri.beta.role.putBadgeImage."
 						},
+						"emojiBadge": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#roleEmojiBadge",
+							"description": "An emoji badge. Cannot be combined with badge."
+						},
 						"position": {
 							"type": "integer",
 							"description": "Hierarchy position. Higher outranks lower."

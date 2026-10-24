@@ -16,6 +16,7 @@ import {
 	type SpaceRef,
 	VOICE_CHANNEL,
 } from "../../data/types";
+import type { DesktopShell } from "../../shell/desktop/context";
 import type { Navigator } from "../../shell/stack";
 
 const encoder = new TextEncoder();
@@ -154,11 +155,16 @@ export const inboxTarget = (view: NotificationTargetView): InboxTarget => {
 	return target;
 };
 
+export type NotificationStack = Pick<
+	Navigator,
+	"setRoot" | "push" | "popTo" | "depth" | "confirmLeave"
+>;
+
 export const openNotificationTarget = (
-	stack: Pick<Navigator, "setRoot" | "push">,
+	stack: NotificationStack,
 	requestJump: (request: JumpRequest) => void,
 	view: NotificationTargetView,
-	openVoiceChat?: (open: boolean) => void,
+	desktop?: Pick<DesktopShell, "setVoiceChatOpen">,
 ) => {
 	const target = inboxTarget(view);
 	const chat = {
@@ -167,13 +173,27 @@ export const openNotificationTarget = (
 		channel: target.channel,
 		channelType: target.channelType,
 	};
-	if (target.rkey) {
-		requestJump({ channel: target.jumpChannel, rkey: target.rkey });
+	const thread = target.thread
+		? { ...chat, kind: "thread" as const, thread: target.thread }
+		: undefined;
+	const jump = () => {
+		if (target.rkey) {
+			requestJump({ channel: target.jumpChannel, rkey: target.rkey });
+		}
+	};
+	if (desktop) {
+		jump();
+		stack.setRoot({ tab: "spaces", space: target.space });
+		stack.push(chat);
+		if (thread) stack.push(thread);
+		if (target.channelType === VOICE_CHANNEL) desktop.setVoiceChatOpen(true);
+		return;
 	}
-	stack.setRoot({ tab: "spaces", space: target.space });
-	stack.push(chat);
-	if (target.thread) {
-		stack.push({ ...chat, kind: "thread", thread: target.thread });
-	}
-	if (target.channelType === VOICE_CHANNEL) openVoiceChat?.(true);
+	stack.confirmLeave(0, () => {
+		stack.popTo(0);
+		if (stack.depth() > 0) return;
+		jump();
+		stack.setRoot({ tab: "spaces", space: target.space });
+		stack.push(thread ?? chat);
+	});
 };

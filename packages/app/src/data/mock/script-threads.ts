@@ -1,3 +1,4 @@
+import { embeds } from "./embeds";
 import { photo } from "./media";
 import { fx, mark, rich } from "./rich";
 import type { ScriptContext, ScriptEntry } from "./script-types";
@@ -114,8 +115,15 @@ export const threadSeeds = (c: ScriptContext): ThreadSeed[] => [
 			},
 			{
 				by: "lou",
-				text: "Native apps keep the duration constant, I'd rather match that",
+				text: rich(
+					"Native apps keep the duration constant, I'd rather match that ",
+					mark(
+						"https://developer.apple.com/documentation/swiftui/spring",
+						fx.link("https://developer.apple.com/documentation/swiftui/spring"),
+					),
+				),
 				gap: 15,
+				embeds: [embeds.springs],
 			},
 			{
 				by: "kris",

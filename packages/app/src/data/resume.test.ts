@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+	CLOCK_JUMP_MS,
+	CLOCK_TICK_MS,
 	createCatchUpQueue,
 	type ResumeEnvironment,
 	watchResume,
+	watchWake,
 } from "./resume";
 
 const fakeEnvironment = () => {
@@ -10,11 +13,18 @@ const fakeEnvironment = () => {
 	const window = new EventTarget();
 	let visible = true;
 	let now = 0;
+	let tick: (() => void) | undefined;
 	const environment: ResumeEnvironment = {
 		document,
 		window,
 		visible: () => visible,
 		now: () => now,
+		every: (_ms, listener) => {
+			tick = listener;
+			return () => {
+				tick = undefined;
+			};
+		},
 	};
 	return {
 		environment,
@@ -31,6 +41,7 @@ const fakeEnvironment = () => {
 		advance: (ms: number) => {
 			now += ms;
 		},
+		tick: () => tick?.(),
 	};
 };
 
@@ -102,6 +113,45 @@ describe("watchResume", () => {
 		fake.advance(60_000);
 		fake.show();
 		expect(resumed).toBe(0);
+	});
+});
+
+describe("watchWake", () => {
+	it("wakes when the clock jumps past a missed tick, as after a sleep with the window open", () => {
+		const fake = fakeEnvironment();
+		let woke = 0;
+		const stop = watchWake({
+			environment: fake.environment,
+			onWake: () => {
+				woke += 1;
+			},
+		});
+		fake.advance(CLOCK_TICK_MS);
+		fake.tick();
+		expect(woke).toBe(0);
+		fake.advance(CLOCK_TICK_MS + CLOCK_JUMP_MS + 1);
+		fake.tick();
+		expect(woke).toBe(1);
+		stop();
+		fake.advance(60_000);
+		fake.tick();
+		expect(woke).toBe(1);
+	});
+
+	it("wakes after a long hidden stretch", () => {
+		const fake = fakeEnvironment();
+		let woke = 0;
+		const stop = watchWake({
+			environment: fake.environment,
+			onWake: () => {
+				woke += 1;
+			},
+		});
+		fake.hide();
+		fake.advance(10_000);
+		fake.show();
+		expect(woke).toBe(1);
+		stop();
 	});
 });
 

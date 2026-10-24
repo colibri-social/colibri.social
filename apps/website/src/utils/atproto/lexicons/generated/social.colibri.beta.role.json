@@ -29,7 +29,8 @@
 						"type": "union",
 						"refs": [
 							"#iconBadge",
-							"#imageBadge"
+							"#imageBadge",
+							"#emojiBadge"
 						],
 						"description": "A small badge shown next to the names of members holding this role."
 					},
@@ -141,6 +142,23 @@
 					],
 					"maxSize": 262144,
 					"description": "A square image, shown at about 16 pixels."
+				}
+			}
+		},
+		"emojiBadge": {
+			"type": "object",
+			"description": "A badge drawn from an emoji. Exactly one of emoji and customEmoji is set.",
+			"properties": {
+				"emoji": {
+					"type": "string",
+					"maxLength": 64,
+					"maxGraphemes": 1,
+					"description": "A Unicode emoji."
+				},
+				"customEmoji": {
+					"type": "ref",
+					"ref": "social.colibri.beta.richtext.facet#customEmoji",
+					"description": "The record of a custom emoji."
 				}
 			}
 		}

@@ -6,6 +6,7 @@ import {
 	NavRow,
 	NavRowSkeleton,
 	ROLE_COLOR_PRESETS,
+	type RoleBadgeEmojiPickerOptions,
 	RoleBadgeSetting,
 	StatusScreen,
 	TextField,
@@ -36,6 +37,7 @@ import { NEW_ENTRY } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { useUnsavedChanges } from "../../../shell/unsaved-changes";
+import { createMediaSession } from "../../channel/composer/media/session";
 import { uiPresence } from "../../members/member-adapter";
 import { usePrimaryBadgeOf } from "../../profile/user-badges";
 import { createUnsavedForm, UnsavedBar } from "../../settings/unsaved-form";
@@ -313,6 +315,20 @@ export const adminRole = defineContract({
 				: undefined;
 		};
 
+		const emojiSession = createMediaSession(access.data.preferences);
+		const emojiPicker: RoleBadgeEmojiPickerOptions = {
+			get packs() {
+				return access.data.emoji.packs(access.community()?.did);
+			},
+			get usage() {
+				return emojiSession.usage();
+			},
+			get skinTone() {
+				return emojiSession.skinTone();
+			},
+			onSkinToneChange: emojiSession.setSkinTone,
+		};
+
 		const onUploadImage = async (file: File) => {
 			const url = URL.createObjectURL(file);
 			pendingImages.set(url, file);
@@ -344,6 +360,7 @@ export const adminRole = defineContract({
 			addHolders: (ids: string[]) => setHolding(ids, true),
 			removeHolder: (id: string) => setHolding([id], false),
 			onUploadImage,
+			emojiPicker,
 			openPermissions: () =>
 				openRolePage(
 					stack,
@@ -501,8 +518,9 @@ export const adminRole = defineContract({
 							color: m.form.color,
 						}}
 						value={m.form.badge}
-						onChange={(badge) => m.setForm("badge", badge)}
+						onChange={(badge) => m.setForm({ badge })}
 						onUploadImage={m.onUploadImage}
+						emojiPicker={m.emojiPicker}
 						disabled={!m.editable() || m.saving()}
 					/>
 					<Show when={!m.isNew && m.role()}>

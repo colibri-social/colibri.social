@@ -266,12 +266,17 @@ describe("createAuth", () => {
 		expect(auth.status()).toBe("signedIn");
 	});
 
-	it("needs three soft failures inside a minute to expire", async () => {
+	it("refreshes first and then needs three soft failures inside a minute to expire", async () => {
 		const { auth } = setup(
 			{ stored: fakeSession(DID) },
-			{ storage: memoryStorage({ sub: DID }) },
+			{ storage: memoryStorage({ sub: DID }), resumeEnvironment: null },
 		);
 		await auth.init();
+		auth.onAuthFailure("AuthRequired");
+		auth.onAuthFailure("AuthRequired");
+		auth.onAuthFailure("AuthRequired");
+		expect(auth.status()).toBe("signedIn");
+		await new Promise((resolve) => setTimeout(resolve, 0));
 		auth.onAuthFailure("AuthRequired");
 		auth.onAuthFailure("AuthRequired");
 		expect(auth.status()).toBe("signedIn");

@@ -57,6 +57,7 @@ export type ChatContextValue = {
 	viewer: Accessor<string>;
 	platform?: Accessor<ChatPlatform>;
 	editingKey?: Accessor<string | undefined>;
+	editFocusRequest?: Accessor<number>;
 	replyingKey?: Accessor<string | undefined>;
 	editDraft?: () => RichText | undefined;
 	onEditChange?: (value: RichText) => void;

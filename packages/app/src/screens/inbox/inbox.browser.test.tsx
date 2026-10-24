@@ -219,7 +219,7 @@ describe("inbox tab", () => {
 		await until(() => location.pathname === `/app/c/${target.community}`);
 	});
 
-	it("opens a thread notification on top of its channel", async () => {
+	it("opens a thread notification straight over the channel list", async () => {
 		const { store, host: root } = await mount();
 		const target = store.notifications
 			.items()
@@ -234,8 +234,7 @@ describe("inbox tab", () => {
 		await until(() => location.pathname.endsWith(`/t/${thread}`));
 		await wait(400);
 		history.back();
-		const channel = target.channel.slice(target.channel.lastIndexOf("/") + 1);
-		await until(() => location.pathname.endsWith(`/${channel}`));
+		await until(() => location.pathname === `/app/c/${target.community}`);
 	});
 
 	it("clears every rail pill after marking everything read", async () => {

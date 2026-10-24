@@ -75,7 +75,7 @@ it("reads invite codes from app links only", () => {
 	expect(inviteCodeOf("https://colibri.social/about")).toBeUndefined();
 });
 
-it("joins from the card and opens the Space", async () => {
+it("joins from the card and opens the Space right away", async () => {
 	const join = vi.fn(async () => ({ status: "joined" }));
 	const onOpenSpace = vi.fn();
 	const { root } = mount(
@@ -89,19 +89,36 @@ it("joins from the card and opens the Space", async () => {
 		),
 	);
 	await until(() => !!root.querySelector('[data-invite-state="ready"]'));
-	const button = [...root.querySelectorAll("button")].find(
-		(entry) => entry.textContent === "Join this Space",
+	[...root.querySelectorAll("button")]
+		.find((entry) => entry.textContent === "Join this Space")
+		?.click();
+	await until(() => onOpenSpace.mock.calls.length === 1);
+	expect(join).toHaveBeenCalledWith("did:plc:flock", "join-1");
+	expect(onOpenSpace).toHaveBeenCalledWith(
+		expect.objectContaining({ did: "did:plc:flock" }),
 	);
-	button?.click();
-	await until(() =>
-		[...root.querySelectorAll("button")].some(
-			(entry) => entry.textContent === "Open Space",
+});
+
+it("opens the Space when the viewer already joined it elsewhere", async () => {
+	const join = vi.fn(async () => {
+		throw new AccessError("AlreadyMember");
+	});
+	const onOpenSpace = vi.fn();
+	const { root } = mount(
+		{ resolveInvitation: async () => preview(), join },
+		() => (
+			<InviteEmbed
+				url="https://colibri.social/invite/already-1"
+				code="already-1"
+				onOpenSpace={onOpenSpace}
+			/>
 		),
 	);
-	expect(join).toHaveBeenCalledWith("did:plc:flock", "join-1");
+	await until(() => !!root.querySelector('[data-invite-state="ready"]'));
 	[...root.querySelectorAll("button")]
-		.find((entry) => entry.textContent === "Open Space")
+		.find((entry) => entry.textContent === "Join this Space")
 		?.click();
+	await until(() => onOpenSpace.mock.calls.length === 1);
 	expect(onOpenSpace).toHaveBeenCalledWith(
 		expect.objectContaining({ did: "did:plc:flock" }),
 	);

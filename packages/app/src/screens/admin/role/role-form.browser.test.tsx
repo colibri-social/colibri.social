@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RoleView } from "../../../data/types";
 import {
 	deleteDescription,
+	draftOf,
 	formOf,
 	roleNameError,
 	rolePatch,
@@ -41,6 +42,68 @@ describe("role form", () => {
 				badge: { kind: "icon", name: "crown", color: "#ffc861" },
 			}),
 		).toEqual({ badge: { icon: "crown", color: "#ffc861" } });
+	});
+
+	it("maps emoji badges both ways", () => {
+		const uri =
+			"at://did:plc:colibrihqspace2a4b6c8d/blue.moji.collection.item/lgtm";
+		const unicode = formOf({
+			rkey: "parrots",
+			name: "Parrots",
+			position: 2,
+			permissions: [],
+			badge: {
+				$type: "social.colibri.beta.community.defs#roleEmojiBadgeView",
+				emoji: "🦜",
+			},
+		} as unknown as RoleView);
+		expect(unicode.badge).toEqual({ kind: "emoji", emoji: "🦜" });
+		expect(rolePatch(unicode, { ...unicode })).toEqual({});
+		expect(
+			rolePatch(unicode, {
+				...unicode,
+				badge: {
+					kind: "emoji",
+					custom: {
+						id: uri,
+						name: "lgtm",
+						src: "https://example.com/lgtm.png",
+					},
+				},
+			}),
+		).toEqual({ emojiBadge: { customEmoji: { uri } } });
+		expect(
+			draftOf({ ...unicode, badge: { kind: "emoji", emoji: "🎉" } }).emojiBadge,
+		).toEqual({ emoji: "🎉" });
+
+		const resolved = formOf({
+			rkey: "lgtm",
+			name: "LGTM",
+			position: 2,
+			permissions: [],
+			badge: {
+				$type: "social.colibri.beta.community.defs#roleEmojiBadgeView",
+				customEmoji: { uri },
+				name: "lgtm",
+				image: "https://example.com/lgtm.png",
+			},
+		} as unknown as RoleView);
+		expect(resolved.badge).toEqual({
+			kind: "emoji",
+			custom: { id: uri, name: "lgtm", src: "https://example.com/lgtm.png" },
+		});
+
+		const unresolved = formOf({
+			rkey: "gone",
+			name: "Gone",
+			position: 2,
+			permissions: [],
+			badge: {
+				$type: "social.colibri.beta.community.defs#roleEmojiBadgeView",
+				customEmoji: { uri },
+			},
+		} as unknown as RoleView);
+		expect(unresolved.badge).toBeUndefined();
 	});
 
 	it("validates names and words the delete prompt", () => {

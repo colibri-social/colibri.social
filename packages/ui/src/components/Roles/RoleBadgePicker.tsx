@@ -26,6 +26,11 @@ import {
 	normalizeHex,
 } from "../ColorPicker/ColorPicker";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
+import {
+	type EmojiPick,
+	EmojiPicker,
+	type EmojiPickerProps,
+} from "../EmojiPicker/EmojiPicker";
 import { Modal, ModalContent } from "../Modal/Modal";
 import {
 	describeImageLimits,
@@ -46,7 +51,7 @@ export const ROLE_BADGE_IMAGE_ACCEPT =
 	"image/png,image/jpeg,image/webp,image/gif";
 export const ROLE_BADGE_IMAGE_MAX_BYTES = 256 * 1024;
 
-export type RoleBadgePickerTab = "icons" | "image";
+export type RoleBadgePickerTab = "icons" | "image" | "emoji";
 
 export type RoleBadgePickerPlatform = "desktop" | "mobile";
 
@@ -58,11 +63,29 @@ export type RoleBadgePickerPanelProps = {
 	onUploadImage?: (file: File) => Promise<string>;
 	imageMaxBytes?: number;
 	colorPresets?: string[];
+	emojiPicker?: RoleBadgeEmojiPickerOptions;
 	class?: string;
 };
 
+export type RoleBadgeEmojiPickerOptions = Omit<
+	EmojiPickerProps,
+	"onPick" | "platform" | "autofocus" | "class"
+>;
+
 const tabFor = (value: RoleBadgeValue | undefined): RoleBadgePickerTab =>
-	value?.kind === "image" ? "image" : "icons";
+	value?.kind === "image" || value?.kind === "emoji" ? value.kind : "icons";
+
+const emojiBadgeOf = (pick: EmojiPick): RoleBadgeValue =>
+	pick.kind === "unicode"
+		? { kind: "emoji", emoji: pick.emoji }
+		: {
+				kind: "emoji",
+				custom: {
+					id: pick.emoji.id,
+					name: pick.emoji.name,
+					src: pick.emoji.src,
+				},
+			};
 
 const sameColor = (a: string | undefined, b: string | undefined) =>
 	(a && normalizeHex(a)) === (b && normalizeHex(b));
@@ -430,6 +453,7 @@ export const RoleBadgePickerPanel = (props: RoleBadgePickerPanelProps) => {
 	const tabs = () => [
 		{ value: "icons", label: "Icons" },
 		...(props.onUploadImage ? [{ value: "image", label: "Image" }] : []),
+		{ value: "emoji", label: "Emoji" },
 	];
 
 	return (
@@ -492,6 +516,17 @@ export const RoleBadgePickerPanel = (props: RoleBadgePickerPanelProps) => {
 						/>
 					</div>
 				</Match>
+				<Match when={tab() === "emoji"}>
+					<EmojiPicker
+						{...props.emojiPicker}
+						platform={platform()}
+						searchPlaceholder={
+							props.emojiPicker?.searchPlaceholder ?? "Search emoji"
+						}
+						onPick={(pick) => props.onChange(emojiBadgeOf(pick))}
+						class={platform() === "desktop" ? "h-80" : "h-[min(45dvh,360px)]"}
+					/>
+				</Match>
 				<Match when={tab() === "image"}>
 					<BadgeImageUpload
 						value={props.value?.kind === "image" ? props.value : undefined}
@@ -538,7 +573,7 @@ export const RoleBadgePicker = (props: RoleBadgePickerProps) => {
 				<Modal open={props.open} onOpenChange={props.onOpenChange}>
 					<ModalContent
 						title="Role badge"
-						class="md:w-[400px]"
+						class="md:w-[440px]"
 						footer={footer()}
 					>
 						<RoleBadgePickerPanel {...props} platform="desktop" />

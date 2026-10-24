@@ -223,7 +223,7 @@ export const ModalContent = (props: ModalContentProps) => {
 					{...rest}
 					{...guards}
 					ref={heightTransition}
-					class={cx(surface, "w-full gap-4 p-4 md:w-[360px]", local.class)}
+					class={cx(surface, "w-full gap-4 p-4 md:w-[440px]", local.class)}
 				>
 					<div class="flex min-h-6 items-start justify-between gap-3">
 						<Dialog.Title class="pt-px text-xl leading-tight font-semibold text-balance">
