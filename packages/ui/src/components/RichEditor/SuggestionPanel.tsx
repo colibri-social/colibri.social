@@ -12,6 +12,7 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
+import { ThreadIcon } from "../../icons/custom";
 import { cx } from "../../utils/cx";
 import { Avatar } from "../Avatar/Avatar";
 import type { SuggestionItem, SuggestionTrigger } from "./suggestions";
@@ -105,15 +106,17 @@ const SuggestionRow = (props: { item: SuggestionItem }): JSX.Element => (
 						aria-hidden="true"
 						class="flex size-6 shrink-0 items-center justify-center text-muted-foreground [&>svg]:size-5"
 					>
-						<Show
-							when={channel().kind === "voice"}
-							fallback={<ChatSquareDotsIcon />}
-						>
-							<VolumeLoudIcon />
-						</Show>
+						<Switch fallback={<ChatSquareDotsIcon />}>
+							<Match when={channel().kind === "voice"}>
+								<VolumeLoudIcon />
+							</Match>
+							<Match when={channel().kind === "thread"}>
+								<ThreadIcon />
+							</Match>
+						</Switch>
 					</span>
 					<span class="flex min-w-0 flex-1 items-center gap-1 text-sm">
-						<Show when={channel().categoryLabel}>
+						<Show when={channel().parentName ?? channel().categoryLabel}>
 							{(category) => (
 								<>
 									<span class="truncate text-muted-foreground">

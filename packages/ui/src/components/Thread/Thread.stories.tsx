@@ -1,6 +1,7 @@
 import { For, type JSX } from "solid-js";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { inlineBoxAgainstCaps } from "../../foundations/layout-test";
 import { NavHeader } from "../Header/NavHeader";
 import {
 	NewMessagesDivider,
@@ -315,6 +316,55 @@ export const LastMessagePreview: Story = {
 			const card = row.getBoundingClientRect();
 			await expect(bounds?.right ?? 0).toBeLessThanOrEqual(card.right);
 		}
+	},
+};
+
+export const PendingPreviewEmoji: Story = {
+	render: () => (
+		<ThreadsPage>
+			<ThreadRow
+				name="Launch party"
+				messageCount={12}
+				age="3m"
+				lastMessage={{
+					...lou,
+					text: "see you there",
+					parts: ["see you there ", { name: "", src: "", pending: true }],
+				}}
+				onOpen={onOpen}
+			/>
+			<ThreadRow
+				name="After party"
+				messageCount={3}
+				age="5m"
+				lastMessage={{
+					...robin,
+					text: "on my way :party:",
+					parts: ["on my way ", partyEmoji],
+				}}
+				onOpen={onOpen}
+			/>
+		</ThreadsPage>
+	),
+	play: async ({ canvasElement }) => {
+		const [pending, loaded] = Array.from(
+			canvasElement.querySelectorAll<HTMLElement>("[data-thread]"),
+		);
+		const skeleton = pending?.querySelector<HTMLElement>(
+			"[data-thread-last-emoji]",
+		);
+		await expect(skeleton).toHaveAttribute("data-custom-emoji-pending");
+		await expect(skeleton).toHaveAttribute("data-skeleton");
+		await expect(skeleton?.tagName).toBe("SPAN");
+		await expect(pending?.querySelector("img")).toBeNull();
+		const fit = inlineBoxAgainstCaps(skeleton as HTMLElement);
+		await expect(Math.abs(fit.centerOffset)).toBeLessThanOrEqual(1);
+		await expect(fit.heightRatio).toBeLessThanOrEqual(1.5);
+		const image = loaded?.querySelector<HTMLImageElement>(
+			"[data-thread-last-emoji]",
+		);
+		await expect(image).toHaveAttribute("alt", ":party:");
+		await waitFor(() => expect(image).not.toHaveAttribute("data-skeleton"));
 	},
 };
 

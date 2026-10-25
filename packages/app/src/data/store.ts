@@ -125,6 +125,21 @@ const sameRoleSet = (
 
 const log = createLogger("store");
 
+const inOrder = <T>(
+	items: readonly T[],
+	order: readonly string[],
+	keyOf: (item: T) => string,
+) => {
+	const rank = new Map(order.map((key, index) => [key, index]));
+	return items
+		.map((item, index) => ({
+			item,
+			rank: rank.get(keyOf(item)) ?? order.length + index,
+		}))
+		.sort((a, b) => a.rank - b.rank)
+		.map((entry) => entry.item);
+};
+
 export type ProfileDraft = {
 	displayName: string;
 	description: string;
@@ -1600,6 +1615,32 @@ export const createDataStore = (
 				patchChannel(communityOfRef(view.space), view);
 				return view;
 			},
+			reorder: async (community: Did, category: string, channels: string[]) => {
+				const load = categoryLoads.get(community);
+				const previous = (load?.value() ?? [])
+					.find((entry) => entry.rkey === category)
+					?.channels.map((entry) => skeyOf(entry.space));
+				const sortChannels = (order: readonly string[]) =>
+					load?.update((list) =>
+						list.map((entry) =>
+							entry.rkey === category
+								? {
+										...entry,
+										channels: inOrder(entry.channels, order, (channel) =>
+											skeyOf(channel.space),
+										),
+									}
+								: entry,
+						),
+					);
+				sortChannels(channels);
+				try {
+					await source.reorderChannels({ community, category, channels });
+				} catch (error) {
+					if (previous) sortChannels(previous);
+					throw error;
+				}
+			},
 		};
 
 		const categoryActions = {
@@ -1637,6 +1678,19 @@ export const createDataStore = (
 			remove: async (community: Did, category: CategoryView) => {
 				await source.deleteCategory({ community, category: category.rkey });
 				withCategory(community, category, "delete");
+			},
+			reorder: async (community: Did, categories: string[]) => {
+				const load = categoryLoads.get(community);
+				const previous = (load?.value() ?? []).map((entry) => entry.rkey);
+				const sortCategories = (order: readonly string[]) =>
+					load?.update((list) => inOrder(list, order, (entry) => entry.rkey));
+				sortCategories(categories);
+				try {
+					await source.reorderCategories({ community, categories });
+				} catch (error) {
+					sortCategories(previous);
+					throw error;
+				}
 			},
 		};
 
@@ -3062,6 +3116,23 @@ export const createDataStore = (
 						}
 					}
 					if (!messageListeners.get(event.channel)?.(event)) feedTail(event);
+					return;
+				}
+				case "messagesMovedEvent": {
+					const current = lastMessages[event.space];
+					if (current && event.rkeys.includes(current.rkey)) {
+						void loadSummaries(communityOfRef(event.space), event.space);
+					}
+					for (const rkey of event.rkeys) {
+						const detached = {
+							$type: "messageEvent",
+							event: "delete",
+							channel: event.space,
+							rkey,
+						} as const;
+						if (!messageListeners.get(event.space)?.(detached))
+							feedTail(detached);
+					}
 					return;
 				}
 				case "reactionEvent":

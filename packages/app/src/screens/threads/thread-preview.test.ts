@@ -171,6 +171,24 @@ describe("threadPreview", () => {
 		]);
 	});
 
+	it("keeps a loading custom emoji as a pending part", () => {
+		const preview = threadPreview(
+			thread(
+				served({
+					text: "hi :owl:",
+					facets: [emojiFacet(3, 8, OWL)],
+				}),
+			),
+			sources({
+				emoji: () => ({ name: "", src: "", pending: true }),
+			}),
+		);
+		expect(preview?.parts).toEqual([
+			"hi ",
+			{ name: "", src: "", pending: true },
+		]);
+	});
+
 	it("carries the attachment kind", () => {
 		expect(
 			threadPreview(

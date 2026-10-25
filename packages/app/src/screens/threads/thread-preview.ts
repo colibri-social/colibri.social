@@ -13,7 +13,12 @@ import type {
 	ThreadView,
 } from "../../data/types";
 
-type PreviewEmoji = { name: string; src: string; alt?: string };
+type PreviewEmoji = {
+	name: string;
+	src: string;
+	alt?: string;
+	pending?: boolean;
+};
 
 export type ThreadPreviewSources = {
 	viewer: Pick<ProfileView, "did" | "displayName" | "handle" | "avatar">;
@@ -25,13 +30,15 @@ export type ThreadPreviewSources = {
 const previewEmoji = (
 	emoji: PreviewEmoji | undefined,
 ): ChannelPreviewEmoji | undefined =>
-	emoji?.src
-		? {
-				name: emoji.name,
-				src: emoji.src,
-				...(emoji.alt ? { alt: emoji.alt } : {}),
-			}
-		: undefined;
+	emoji?.pending
+		? { name: emoji.name, src: "", pending: true }
+		: emoji?.src
+			? {
+					name: emoji.name,
+					src: emoji.src,
+					...(emoji.alt ? { alt: emoji.alt } : {}),
+				}
+			: undefined;
 
 export const threadPreview = (
 	thread: ThreadView,

@@ -285,3 +285,71 @@ describe("pasted links", () => {
 		expect(textOf(doc)).toBe(text);
 	});
 });
+
+describe("thread mentions", () => {
+	const thread =
+		"at://did:plc:space/space/social.colibri.beta.channel.thread/3kthread";
+	const text = "see #release-notes today";
+	const start = new TextEncoder().encode("see ").length;
+	const facets: ColibriRichTextFacet[] = [
+		{
+			index: {
+				byteStart: start,
+				byteEnd: start + new TextEncoder().encode("#release-notes").length,
+			},
+			features: [
+				{
+					$type: "social.colibri.beta.richtext.facet#link",
+					uri: thread as `${string}:${string}`,
+				},
+			],
+		},
+	];
+	const resolvers = {
+		resolveThreadLink: (uri: string) =>
+			uri === thread
+				? { label: "release-notes", category: "general" }
+				: undefined,
+	};
+
+	it("maps a thread link back to a thread chip", () => {
+		const doc = facetsToProseMirror(text, facets, resolvers);
+		expect(inline(doc)).toContainEqual(
+			expect.objectContaining({
+				type: "mention",
+				attrs: expect.objectContaining({
+					type: "channel",
+					label: "release-notes",
+					category: "general",
+					uri: thread,
+				}),
+			}),
+		);
+	});
+
+	it("round-trips a thread chip as a link facet with the thread uri", () => {
+		const doc = facetsToProseMirror(text, facets, resolvers);
+		expect(proseMirrorToFacets(doc as never)).toEqual({
+			text,
+			facets: [
+				expect.objectContaining({
+					index: expect.objectContaining({
+						byteStart: facets[0].index.byteStart,
+						byteEnd: facets[0].index.byteEnd,
+					}),
+					features: [
+						{ $type: "social.colibri.beta.richtext.facet#link", uri: thread },
+					],
+				}),
+			],
+		});
+	});
+
+	it("keeps an unknown thread link as a markdown link", () => {
+		const doc = facetsToProseMirror(text, facets);
+		expect(inline(doc).some((node) => node.type === "mention")).toBe(false);
+		expect(roundTrip(text, facets).facets[0].features).toEqual([
+			{ $type: "social.colibri.beta.richtext.facet#link", uri: thread },
+		]);
+	});
+});

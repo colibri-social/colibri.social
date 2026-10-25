@@ -73,6 +73,8 @@ export type ChannelListProps<T> = {
 	channelName: (channel: T) => string;
 	renderChannel: (channel: T, state: ChannelListItemState) => JSX.Element;
 	canReorder?: boolean;
+	canReorderCategories?: boolean;
+	lockUncategorized?: boolean;
 	reorderMode?: boolean;
 	onReorderModeChange?: (reorderMode: boolean) => void;
 	onReorder?: (change: ChannelReorder) => unknown;
@@ -357,6 +359,11 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 	);
 
 	const canReorder = () => !!props.canReorder;
+	const categoriesMovable = () =>
+		canReorder() && props.canReorderCategories !== false;
+	const locked = () => !!props.lockUncategorized;
+	const canDragKind = (kind: DragKind) =>
+		kind === "category" ? categoriesMovable() : canReorder();
 	const reorderMode = () => canReorder() && !!props.reorderMode;
 
 	const baseCollapsed = (id: string) =>
@@ -477,8 +484,15 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 		geometry.categories.forEach((category, index) => {
 			if (probe >= category.mid) found = index;
 		});
-		if (found < 0)
-			return { categoryId: null, index: below(geometry.uncategorized, probe) };
+		if (found < 0) {
+			if (!locked())
+				return {
+					categoryId: null,
+					index: below(geometry.uncategorized, probe),
+				};
+			const home = findChannel(active.origin, active.id);
+			return home?.categoryId === null ? home : undefined;
+		}
 		const category = geometry.categories[found];
 		return {
 			categoryId: category.id,
@@ -992,13 +1006,20 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 				: props.onCategoryLongPress &&
 					((pressEvent: PointerEvent) =>
 						props.onCategoryLongPress?.(id, pressEvent));
-		if (!canReorder() && !longPress) return;
+		const canDrag = canDragKind(kind);
+		if (!canDrag && !longPress) return;
 		if (session && !session.settling) return;
+		const pointerId = event.pointerId;
 		let active: Session | undefined;
+		const release = () => {
+			document.removeEventListener("gotpointercapture", onCapture, true);
+			document.removeEventListener("pointerup", onEnd, true);
+			document.removeEventListener("pointercancel", onEnd, true);
+		};
 		const press = startReorderPress({
 			event,
 			element,
-			canDrag: canReorder(),
+			canDrag,
 			immediate,
 			onHold: longPress,
 			onLift: (point, pointerType) => {
@@ -1012,6 +1033,7 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 				if (active && session === active) movePointerDrag(active, point);
 			},
 			onRelease: (moved) => {
+				release();
 				if (!active || session !== active) return;
 				if (!moved && !immediate && longPress) {
 					cancelDrag(active, true);
@@ -1027,11 +1049,25 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 				settleAndEnd(active, drop(active));
 			},
 			onCancel: () => {
+				release();
 				if (!active || session !== active) return;
 				cancelDrag(active);
 				settleAndEnd(active);
 			},
 		});
+		const onCapture = (capture: PointerEvent) => {
+			if (capture.pointerId !== pointerId) return;
+			if (capture.target instanceof Node && element.contains(capture.target))
+				return;
+			release();
+			press.cancel();
+		};
+		const onEnd = (end: PointerEvent) => {
+			if (end.pointerId === pointerId) queueMicrotask(release);
+		};
+		document.addEventListener("gotpointercapture", onCapture, true);
+		document.addEventListener("pointerup", onEnd, true);
+		document.addEventListener("pointercancel", onEnd, true);
 	};
 
 	const refocus = (key: string) => {
@@ -1151,13 +1187,20 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 				move(
 					index >= 0 && index < current.categories.length ? index : undefined,
 				);
-			} else move(stepChannel(current, id, delta));
+			} else move(stepChannel(current, id, delta, locked()));
 		} else if (event.key === "Home" || event.key === "End") {
 			if (kind === "category") {
 				const index = event.key === "Home" ? 0 : current.categories.length - 1;
 				move(index === findCategory(current, id) ? undefined : index);
 			} else
-				move(edgeChannel(current, id, event.key === "Home" ? "start" : "end"));
+				move(
+					edgeChannel(
+						current,
+						id,
+						event.key === "Home" ? "start" : "end",
+						locked(),
+					),
+				);
 		} else if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
 			keyboardDrop(active);
@@ -1201,7 +1244,7 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 		id: string,
 		delta: number,
 	): ChannelSlot | number | undefined => {
-		if (kind === "channel") return stepChannel(current, id, delta);
+		if (kind === "channel") return stepChannel(current, id, delta, locked());
 		const index = findCategory(current, id) + delta;
 		return index >= 0 && index < current.categories.length ? index : undefined;
 	};
@@ -1268,7 +1311,9 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 			)?.channels[0];
 		if (first !== undefined) return keyFor("channel", first);
 		const category = current.categories[0];
-		return category ? keyFor("header", category.id) : undefined;
+		return category && categoriesMovable()
+			? keyFor("header", category.id)
+			: undefined;
 	};
 
 	const restoreRowFocus = () => {
@@ -1508,28 +1553,11 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 		const id = nodeProps.id;
 		const category = () => categoriesById().get(id);
 		const channels = () => channelsIn(layout(), id);
-		let wrapper: HTMLDivElement | undefined;
-		const bindHeader = (element: HTMLDivElement) => {
-			wrapper = element;
-			queueMicrotask(() => {
-				const header = wrapper?.querySelector<HTMLElement>(
-					"[data-category-header]",
-				);
-				if (!header) return;
-				nodes.set(keyFor("header", id), header);
-			});
-			onCleanup(() => {
-				const header = nodes.get(keyFor("header", id));
-				if (header && wrapper?.contains(header))
-					nodes.delete(keyFor("header", id));
-			});
-		};
 		const channelDrag = () => drag()?.kind === "channel";
 		return (
 			<Show when={category()}>
 				{(current) => (
 					<div
-						ref={bindHeader}
 						data-list-category={id}
 						data-drop-target={dropTarget() === id || undefined}
 						data-lifted={keyboardLifted("category", id) || undefined}
@@ -1555,6 +1583,7 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 							name={current().name}
 							collapsed={isCollapsed(id)}
 							onCollapsedChange={(collapsed) => setCollapsed(id, collapsed)}
+							headerRef={register(nodes, keyFor("header", id))}
 							instant={!!drag()}
 							density={props.density}
 							onCreateChannel={
@@ -1573,7 +1602,7 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 									: undefined
 							}
 							headerTrailing={
-								<Show when={reorderMode()}>
+								<Show when={reorderMode() && categoriesMovable()}>
 									<StepButtons kind="category" id={id} label={current().name} />
 									<Handle kind="category" id={id} label={current().name} />
 								</Show>
@@ -1663,7 +1692,11 @@ export const ChannelList = <T,>(props: ChannelListProps<T>) => {
 				</div>
 			</Show>
 			<Show
-				when={layout().uncategorized.length > 0 || drag()?.kind === "channel"}
+				when={
+					layout().uncategorized.length > 0 ||
+					(drag()?.kind === "channel" &&
+						(!locked() || propsLayout().uncategorized.length > 0))
+				}
 			>
 				<div
 					data-list-uncategorized=""

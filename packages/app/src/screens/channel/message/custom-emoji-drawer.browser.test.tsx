@@ -7,7 +7,7 @@ import {
 	DataContext,
 	type DataStore,
 } from "../../../data/store";
-import type { Did } from "../../../data/types";
+import type { Did, ProfileView } from "../../../data/types";
 import { Providers } from "../../../providers";
 import { createCustomEmojiDrawer } from "./custom-emoji-drawer";
 
@@ -67,6 +67,60 @@ it("shows the emoji owner's handle", async () => {
 	expect(
 		document.querySelector("[data-custom-emoji-handle]")?.textContent,
 	).toBe(`@${space?.handle}`);
+});
+
+it("hides an invalid owner handle and retries it on the next open", async () => {
+	setLatency(0);
+	const owner = "did:plc:invalidhandleowner" as Did;
+	const source = createMockSource({ live: false });
+	const profile = source.getProfile;
+	const handles = ["handle.invalid", "owner.test"];
+	let calls = 0;
+	source.getProfile = async (actor) => {
+		if (actor !== owner) return profile(actor);
+		const handle = handles[Math.min(calls, handles.length - 1)];
+		calls += 1;
+		return { did: owner, handle, displayName: "Owner" } as ProfileView;
+	};
+	const data = createDataStore(source);
+	store = data;
+	await until(() => !!data.communities.value()?.length);
+	let open: ReturnType<typeof createCustomEmojiDrawer>["open"] | undefined;
+	const host = document.createElement("div");
+	document.body.append(host);
+	dispose = render(
+		() => (
+			<DataContext.Provider value={data}>
+				<Providers>
+					{(() => {
+						const drawer = createCustomEmojiDrawer({
+							data,
+							community: () => HQ,
+						});
+						open = drawer.open;
+						return <drawer.Overlay />;
+					})()}
+				</Providers>
+			</DataContext.Provider>
+		),
+		host,
+	);
+	const emoji = {
+		id: `at://${owner}/blue.moji.collection.item/owl`,
+		name: "owl",
+		src: "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+	};
+	open?.(emoji);
+	await until(() => !!document.querySelector("[data-custom-emoji-drawer]"));
+	await until(() => calls === 1);
+	await new Promise((resolve) => setTimeout(resolve, 50));
+	expect(document.querySelector("[data-custom-emoji-handle]")).toBeNull();
+	open?.(emoji);
+	await until(() => !!document.querySelector("[data-custom-emoji-handle]"));
+	expect(calls).toBe(2);
+	expect(
+		document.querySelector("[data-custom-emoji-handle]")?.textContent,
+	).toBe("@owner.test");
 });
 
 it("names your own packed emoji after its pack", async () => {

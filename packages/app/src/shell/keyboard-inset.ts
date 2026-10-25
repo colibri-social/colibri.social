@@ -122,6 +122,7 @@ type Motion = {
 export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 	const root = options.root ?? document.documentElement;
 	let current = 0;
+	let keyboard = 0;
 	let lifted: { element: HTMLElement; inset: number } | undefined;
 	let queued: number | undefined;
 	let frame = 0;
@@ -215,6 +216,7 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 	};
 
 	const commit = (target: Target, inset: number) => {
+		keyboard = inset;
 		if (target.kind === "shell") {
 			if (inset !== current) applyShell(inset);
 			return;
@@ -292,6 +294,7 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 			const target = focusedTarget();
 			const next = clampInset(detail.inset);
 			const from = committedFor(target);
+			keyboard = next;
 			if (next === from) return;
 			cancelQueued();
 			endMotion();
@@ -334,6 +337,26 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 		place(motion.movers, offset, motion.target.kind);
 	};
 
+	const onFocus = (event: FocusEvent) => {
+		const focused = event.target;
+		if (motion || keyboard <= 0) return;
+		if (!(focused instanceof HTMLElement) || !focused.matches(EDITABLE)) return;
+		const element = focused.closest<HTMLElement>(
+			`[${KEYBOARD_LIFT_ATTRIBUTE}]`,
+		);
+		if (element) {
+			if (lifted?.element === element && lifted.inset === keyboard) return;
+			commit({ kind: "lift", element }, keyboard);
+			return;
+		}
+		if (focused.closest(TOP_LAYER)) return;
+		if (lifted) {
+			lifted.element.style.removeProperty(KEYBOARD_LIFT_VAR);
+			lifted = undefined;
+		}
+		commit({ kind: "shell" }, keyboard);
+	};
+
 	const viewport = window.visualViewport;
 	const onViewport = () => {
 		if (native || !viewport || viewport.scale > ZOOMED_SCALE) return;
@@ -345,10 +368,12 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 	window.addEventListener(KEYBOARD_INSET_EVENT, onInset);
 	window.addEventListener(KEYBOARD_PROGRESS_EVENT, onProgress);
 	viewport?.addEventListener("resize", onViewport);
+	document.addEventListener("focusin", onFocus);
 
 	return () => {
 		window.removeEventListener(KEYBOARD_INSET_EVENT, onInset);
 		window.removeEventListener(KEYBOARD_PROGRESS_EVENT, onProgress);
+		document.removeEventListener("focusin", onFocus);
 		endMotion();
 		viewport?.removeEventListener("resize", onViewport);
 		if (frame) cancelAnimationFrame(frame);

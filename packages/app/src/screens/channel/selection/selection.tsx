@@ -248,7 +248,10 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 		if (!ref) return undefined;
 		const thread = threadByRef(ref);
 		if (thread) {
-			return thread.viewer.canPost ? { kind: "thread", thread } : undefined;
+			const parent = channelByRef(thread.channel);
+			return thread.viewer.canPost && parent?.viewer.canPost !== false
+				? { kind: "thread", thread }
+				: undefined;
 		}
 		const channel = channelByRef(ref);
 		return channel && channel.viewer.canPost !== false

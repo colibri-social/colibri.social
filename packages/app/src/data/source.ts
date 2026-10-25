@@ -103,6 +103,7 @@ export type LiveEvent =
 			message?: MessageView;
 			rkey?: string;
 	  }
+	| { $type: "messagesMovedEvent"; space: SpaceRef; rkeys: string[] }
 	| {
 			$type: "reactionEvent";
 			event: "create" | "delete";
@@ -527,6 +528,13 @@ export type DataSource = AccessSource &
 			input: CategoryTarget & { name?: string } & CategoryPermissions,
 		) => Promise<CategoryView>;
 		deleteCategory: (input: CategoryTarget) => Promise<void>;
+		reorderChannels: (
+			input: CategoryTarget & { channels: string[] },
+		) => Promise<void>;
+		reorderCategories: (input: {
+			community: Did;
+			categories: string[];
+		}) => Promise<void>;
 		listUnreadStatus: (community: Did) => Promise<UnreadStatus[]>;
 		sendMessage: (input: SendMessageInput) => Promise<MessageView>;
 		editMessage: (input: {

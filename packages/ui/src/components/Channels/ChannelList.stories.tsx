@@ -168,6 +168,9 @@ const Playground = (props: {
 	withMenu?: boolean;
 	previews?: boolean;
 	moveParticipants?: boolean;
+	wrapHeaders?: boolean;
+	lockUncategorized?: boolean;
+	canReorderCategories?: boolean;
 }) => {
 	const [space, setSpace] = createSignal(initialSpace());
 	const [mode, setMode] = createSignal(!!props.reorderMode);
@@ -286,6 +289,17 @@ const Playground = (props: {
 					channelName={(entry) => entry.name}
 					density={density}
 					canReorder={props.canReorder ?? true}
+					canReorderCategories={props.canReorderCategories}
+					lockUncategorized={props.lockUncategorized}
+					wrapCategoryHeader={
+						props.wrapHeaders
+							? (categoryId, header) => (
+									<div data-header-wrap={categoryId} class="contents">
+										{header}
+									</div>
+								)
+							: undefined
+					}
 					reorderMode={mode()}
 					onReorderModeChange={setMode}
 					onReorder={onReorder}
@@ -709,6 +723,166 @@ export const DesktopCategoryDrag: Story = {
 				.querySelector('[data-list-category="events"] [data-category]')
 				?.hasAttribute("data-collapsed"),
 		).toBe(true);
+	},
+};
+
+export const WrappedHeadersReorderMode: Story = {
+	parameters: desktop,
+	render: (args) => (
+		<Playground args={args} platform="desktop" wrapHeaders lockUncategorized />
+	),
+	play: async ({ canvasElement, args }) => {
+		const canvas = within(canvasElement);
+		const header = (id: string) =>
+			canvasElement.querySelector(
+				`[data-list-category="${id}"] [data-category-header]`,
+			) as HTMLElement;
+		await expect(
+			canvasElement.querySelector('[data-header-wrap="hangout"]'),
+		).not.toBeNull();
+		await canvas.getByRole("button", { name: "Reorder channels" }).click();
+		const photosHandle = await canvas.findByRole("button", {
+			name: "Reorder Photos",
+		});
+		await expect(canvasElement.querySelector("[data-header-wrap]")).toBeNull();
+		await settledRows(canvasElement);
+
+		const call = nodeOf(canvasElement, "call");
+		const into = { x: centerOf(photosHandle).x, y: centerOf(call).y - 14 };
+		const channelDrag = await mouseDrag(photosHandle, into, {
+			release: false,
+		});
+		await waitFor(() =>
+			expect(orderIn(canvasElement, "voice")).toEqual([
+				"lounge",
+				"photos",
+				"call",
+			]),
+		);
+		pointer(photosHandle, "pointerup", into, channelDrag);
+		await settled(canvasElement);
+		await expect(args.onReorder).toHaveBeenCalledTimes(1);
+		await expect(lastChange(args)).toMatchObject({
+			type: "channel",
+			id: "photos",
+			from: { categoryId: "hangout", index: 1 },
+			to: { categoryId: "voice", index: 1 },
+		});
+		await expect(orderIn(canvasElement, "hangout")).toEqual([
+			"general",
+			"files",
+		]);
+
+		const generalHandle = canvas.getByRole("button", {
+			name: "Reorder General",
+		});
+		const rules = nodeOf(canvasElement, "rules");
+		const up = { x: centerOf(generalHandle).x, y: centerOf(rules).y - 2 };
+		await mouseDrag(generalHandle, up);
+		await settled(canvasElement);
+		await expect(orderIn(canvasElement, null)).toEqual(["rules"]);
+		await expect(orderIn(canvasElement, "hangout")[0]).toBe("general");
+		await expect(args.onReorder).toHaveBeenCalledTimes(1);
+
+		const filesHandle = canvas.getByRole("button", {
+			name: "Reorder File sharing",
+		});
+		const general = nodeOf(canvasElement, "general");
+		const top = { x: centerOf(filesHandle).x, y: centerOf(general).y - 14 };
+		const withinDrag = await mouseDrag(filesHandle, top, { release: false });
+		await waitFor(() =>
+			expect(orderIn(canvasElement, "hangout")).toEqual(["files", "general"]),
+		);
+		pointer(filesHandle, "pointerup", top, withinDrag);
+		await settled(canvasElement);
+		await expect(args.onReorder).toHaveBeenCalledTimes(2);
+		await expect(lastChange(args)).toMatchObject({
+			type: "channel",
+			id: "files",
+			from: { categoryId: "hangout", index: 1 },
+			to: { categoryId: "hangout", index: 0 },
+		});
+		await expect(orderIn(canvasElement, "hangout")).toEqual([
+			"files",
+			"general",
+		]);
+
+		const archiveHandle = canvas.getByRole("button", {
+			name: "Reorder Archive",
+		});
+		const above = {
+			x: centerOf(archiveHandle).x,
+			y: header("hangout").getBoundingClientRect().top - 4,
+		};
+		const categoryDrag = await mouseDrag(archiveHandle, above, {
+			release: false,
+		});
+		await waitFor(() =>
+			expect(categoryOrder(canvasElement)).toEqual([
+				"archive",
+				"hangout",
+				"voice",
+				"events",
+				"regions",
+			]),
+		);
+		pointer(archiveHandle, "pointerup", above, categoryDrag);
+		await settled(canvasElement);
+		await expect(args.onReorder).toHaveBeenCalledTimes(3);
+		await expect(lastChange(args)).toMatchObject({
+			type: "category",
+			id: "archive",
+			from: 2,
+			to: 0,
+		});
+		await expect(categoryOrder(canvasElement)).toEqual([
+			"archive",
+			"hangout",
+			"voice",
+			"events",
+			"regions",
+		]);
+	},
+};
+
+export const CategoriesLocked: Story = {
+	parameters: desktop,
+	render: (args) => (
+		<Playground
+			args={args}
+			platform="desktop"
+			reorderMode
+			lockUncategorized
+			canReorderCategories={false}
+		/>
+	),
+	play: async ({ canvasElement, args }) => {
+		const canvas = within(canvasElement);
+		await expect(
+			canvas.queryByRole("button", { name: "Reorder Hangout" }),
+		).toBeNull();
+		await expect(
+			canvas.queryByRole("button", { name: "Move Rules up" }),
+		).toHaveAttribute("aria-disabled", "true");
+		await expect(
+			canvas.queryByRole("button", { name: "Move General up" }),
+		).toHaveAttribute("aria-disabled", "true");
+		const hangout = canvasElement.querySelector(
+			'[data-list-category="hangout"] [data-category-header]',
+		) as HTMLElement;
+		const start = centerOf(hangout);
+		await mouseDrag(hangout, { x: start.x, y: start.y + 160 });
+		await expect(document.querySelector("[data-reorder-overlay]")).toBeNull();
+		await canvas.getByRole("button", { name: "Move Rules down" }).click();
+		await waitFor(() =>
+			expect(orderIn(canvasElement, "hangout")[0]).toBe("rules"),
+		);
+		await expect(lastChange(args)).toMatchObject({
+			type: "channel",
+			id: "rules",
+			from: { categoryId: null, index: 0 },
+			to: { categoryId: "hangout", index: 0 },
+		});
 	},
 };
 

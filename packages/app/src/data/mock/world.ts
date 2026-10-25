@@ -571,6 +571,7 @@ export const createWorld = (now: number) => {
 						didOf(VIEWER_KEY),
 						!!space.view.viewer.isOwner ||
 							!!space.view.viewer.permissions?.includes("thread.manage"),
+						channel.view.viewer.canPost !== false,
 					),
 					following: !!thread.following,
 					muted: false,

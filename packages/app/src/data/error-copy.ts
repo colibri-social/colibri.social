@@ -391,3 +391,9 @@ export const SPACE_ORDER_NOT_SAVED: ErrorCopy = {
 	description:
 		"Your Spaces are back in their old order. Check your internet connection and try again.",
 };
+
+export const CHANNEL_ORDER_NOT_SAVED: ErrorCopy = {
+	title: "Your new channel order wasn't saved",
+	description:
+		"Your channels are back where they were. Check your internet connection and try again.",
+};

@@ -91,6 +91,17 @@ export const toLiveEvents = (
 ): LiveEvent[] => {
 	if (frameIs(frame, "messageEvent")) return messageEvents(frame);
 
+	if (frameIs(frame, "labelEvent")) {
+		if (frame.val !== "moved" || frame.event !== "create") return [];
+		return [
+			{
+				$type: "messagesMovedEvent",
+				space: asSpace(frame.space),
+				rkeys: [frame.subject.rkey],
+			},
+		];
+	}
+
 	if (frameIs(frame, "reactionEvent")) {
 		const event = known(frame.event, TOGGLE);
 		if (!event) return [];

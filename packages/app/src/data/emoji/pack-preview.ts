@@ -32,10 +32,15 @@ const settledFor = (data: DataStore) => {
 	return cache;
 };
 
+const INVALID_HANDLE = "handle.invalid";
+
+const resolvedHandle = (handle: string | undefined) =>
+	handle && handle !== INVALID_HANDLE ? handle : "";
+
 const ownerFromProfile = (profile: ProfileView): EmojiPackCardOwner => ({
 	did: profile.did,
 	name: displayNameOf(profile),
-	handle: profile.handle,
+	handle: resolvedHandle(profile.handle),
 	avatarSrc: profile.avatar,
 });
 
@@ -51,7 +56,7 @@ const fetchOwner = async (
 			return {
 				did,
 				name: community.name,
-				handle: community.handle ?? "",
+				handle: resolvedHandle(community.handle),
 				avatarSrc: community.picture,
 			};
 		} catch {
@@ -72,7 +77,8 @@ export const loadOwner = (data: DataStore, did: Did) => {
 	const cached = cache.get(did);
 	if (cached) return cached;
 	const request = fetchOwner(data, did).then((owner) => {
-		settledFor(data).set(did, owner);
+		if (owner.handle) settledFor(data).set(did, owner);
+		else owners.get(data)?.delete(did);
 		return owner;
 	});
 	cache.set(did, request);
@@ -122,7 +128,7 @@ export const knownOwner = (
 		? {
 				did,
 				name: community.name,
-				handle: community.handle ?? "",
+				handle: resolvedHandle(community.handle),
 				avatarSrc: community.picture,
 			}
 		: undefined;

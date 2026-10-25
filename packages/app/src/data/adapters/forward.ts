@@ -1,3 +1,4 @@
+import { isThreadSpace } from "@colibri-social/lib";
 import type { ForwardSource } from "@colibri-social/ui";
 import { skeyOf, spaceKey } from "../ids";
 import type { ChannelView, CommunityView, ForwardView } from "../types";
@@ -50,6 +51,7 @@ const targetOf = (
 			};
 		}
 	}
+	if (isThreadSpace(space)) return undefined;
 	return {
 		space: key,
 		channel: skeyOf(space),

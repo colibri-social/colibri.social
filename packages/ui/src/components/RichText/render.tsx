@@ -5,7 +5,8 @@ import {
 	normalizeWhitespace,
 	resolveListDepths,
 } from "@colibri-social/lib";
-import { createSignal, type JSX, Show } from "solid-js";
+import { createSignal, type JSX, Show, splitProps } from "solid-js";
+import { cx } from "../../utils/cx";
 import { splitEmojiSegments } from "../../utils/emoji";
 import { aliasesForSlug, slugForEmoji } from "../../utils/emoji-data";
 import {
@@ -89,16 +90,27 @@ export const emojiFacetText = (
 	return out + decoder.decode(bytes.subarray(last));
 };
 
-const CustomEmojiGlyph = (props: { emoji: RichTextCustomEmoji }) => {
+type CustomEmojiAttributes = {
+	title?: string;
+	[attribute: `data-${string}`]: string | undefined;
+};
+
+const GLYPH_SIZE = "size-[1.375em] object-contain align-text-bottom";
+
+export const CustomEmojiGlyph = (
+	props: { emoji: RichTextCustomEmoji; class?: string } & CustomEmojiAttributes,
+) => {
+	const [local, attributes] = splitProps(props, ["emoji", "class"]);
 	const [loaded, setLoaded] = createSignal(false);
-	const image = createImageRetry(() => props.emoji.src);
-	const alt = () => props.emoji.alt ?? `:${props.emoji.name}:`;
+	const image = createImageRetry(() => local.emoji.src);
+	const alt = () => local.emoji.alt ?? `:${local.emoji.name}:`;
 	return (
 		<Show
 			when={image.src()}
 			fallback={
 				<span
-					data-custom-emoji={props.emoji.name}
+					{...attributes}
+					data-custom-emoji={local.emoji.name}
 					data-custom-emoji-failed=""
 					class="text-[0.85em] font-semibold text-muted-foreground"
 				>
@@ -108,7 +120,8 @@ const CustomEmojiGlyph = (props: { emoji: RichTextCustomEmoji }) => {
 		>
 			{(src) => (
 				<img
-					data-custom-emoji={props.emoji.name}
+					{...attributes}
+					data-custom-emoji={local.emoji.name}
 					data-skeleton={loaded() ? undefined : ""}
 					src={src()}
 					alt={alt()}
@@ -118,11 +131,7 @@ const CustomEmojiGlyph = (props: { emoji: RichTextCustomEmoji }) => {
 						setLoaded(false);
 						image.fail();
 					}}
-					class={
-						loaded()
-							? "size-[1.375em] object-contain align-text-bottom"
-							: "size-[1.375em] rounded-[4px] object-contain align-text-bottom"
-					}
+					class={cx(local.class ?? GLYPH_SIZE, !loaded() && "rounded-[4px]")}
 					style={{ display: "inline-block" }}
 				/>
 			)}
@@ -130,13 +139,18 @@ const CustomEmojiGlyph = (props: { emoji: RichTextCustomEmoji }) => {
 	);
 };
 
-const customEmojiSkeleton = (label: string): JSX.Element => (
+export const customEmojiSkeleton = (
+	label: string,
+	size = "size-[1.375em] align-text-bottom",
+	attributes: CustomEmojiAttributes = {},
+): JSX.Element => (
 	<span
+		{...attributes}
 		role="img"
 		aria-label={label}
 		data-custom-emoji-pending=""
 		data-skeleton=""
-		class="size-[1.375em] rounded-[4px] align-text-bottom"
+		class={cx("rounded-[4px]", size)}
 		style={{ display: "inline-block" }}
 	/>
 );

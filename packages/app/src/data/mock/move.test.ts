@@ -39,8 +39,10 @@ describe("mock message moves", () => {
 			.filter((message) => message.rkey !== anchor)
 			.slice(0, 2);
 		const events: string[] = [];
+		const detached: string[] = [];
 		mock.subscribe((event) => {
 			if (event.$type === "messageEvent") events.push(event.event);
+			if (event.$type === "messagesMovedEvent") detached.push(...event.rkeys);
 		});
 		const result = await mock.moveMessages({
 			source: dev.space,
@@ -54,7 +56,8 @@ describe("mock message moves", () => {
 		expect([...ascending].sort()).toEqual(ascending);
 		const left = (await list(dev.space)).map((message) => message.rkey);
 		for (const message of picked) expect(left).not.toContain(message.rkey);
-		expect(events.filter((entry) => entry === "delete")).toHaveLength(2);
+		expect(events.filter((entry) => entry === "create")).toHaveLength(2);
+		expect([...detached].sort()).toEqual(picked.map((m) => m.rkey).sort());
 
 		await mock.moveMessages({
 			source: spring.space,

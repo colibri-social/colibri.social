@@ -238,7 +238,8 @@ export const createConversation = (options: ConversationOptions) => {
 	});
 	const view = createMemo(() => space()?.channelBySlug(options.channel));
 	const writable = () =>
-		(options.thread?.() ?? view())?.viewer.canPost !== false;
+		view()?.viewer.canPost !== false &&
+		options.thread?.()?.viewer.canPost !== false;
 	const unavailable = createMemo<"space" | "channel" | "thread" | undefined>(
 		() => {
 			if (data.communities.loading()) return undefined;
@@ -814,6 +815,12 @@ export const createConversation = (options: ConversationOptions) => {
 		return (cid ? { uri, cid } : { uri }) as ReactionEmojiRef;
 	};
 
+	const threadBySpace = (space: string) =>
+		data.threads.find(space as SpaceRef) ??
+		feed()
+			?.threads.value()
+			?.find((thread) => thread.space === space);
+
 	const chat: ChatContextValue = {
 		viewer: () => data.viewer.did,
 		platform,
@@ -881,14 +888,8 @@ export const createConversation = (options: ConversationOptions) => {
 			),
 		presenceOf: (did) => data.presenceOf(did as Did),
 		membersLoaded: () => !!space()?.members.value(),
-		threadName: (space) =>
-			feed()
-				?.threads.value()
-				?.find((thread) => thread.space === space)?.name,
-		threadChannel: (space) =>
-			feed()
-				?.threads.value()
-				?.find((thread) => thread.space === space)?.channel,
+		threadName: (space) => threadBySpace(space)?.name,
+		threadChannel: (space) => threadBySpace(space)?.channel,
 		threadNameIn: (channel, thread) => {
 			const parent = channelMap().get(channel);
 			if (!parent) return undefined;
@@ -1142,18 +1143,44 @@ export const createConversation = (options: ConversationOptions) => {
 			[...roleMap().values()]
 				.filter(isMentionableRole)
 				.map((role) => ({ id: role.rkey, name: role.name, color: role.color })),
-		channels: () =>
-			[...channelMap().entries()].map(([skey, entry]) => ({
+		channels: () => {
+			const entries = [...channelMap().entries()];
+			const channels = entries.map(([skey, entry]) => ({
 				id: skey,
 				name: entry.name,
 				kind:
 					entry.type === "social.colibri.beta.channel.voice"
 						? ("voice" as const)
 						: ("text" as const),
-			})),
+			}));
+			const threads = entries
+				.filter(([, entry]) => entry.viewer.canRead !== false)
+				.flatMap(([, entry]) =>
+					(data.threadsOf(entry.space).value() ?? [])
+						.filter(
+							(thread) => !thread.closedAt && thread.viewer.canRead !== false,
+						)
+						.map((thread) => ({
+							id: thread.space,
+							name: thread.name,
+							kind: "thread" as const,
+							parentName: entry.name,
+							uri: thread.space,
+						})),
+				);
+			return [...channels, ...threads];
+		},
 		resolveChannel: (id) => {
 			const entry = channelMap().get(id);
 			return entry ? { label: entry.name } : undefined;
+		},
+		resolveThreadLink: (uri) => {
+			const thread = threadBySpace(uri);
+			if (!thread || thread.community !== community()?.did) return undefined;
+			const parent = space()
+				?.channels.value()
+				?.find((entry) => entry.space === thread.channel);
+			return { label: thread.name, category: parent?.name };
 		},
 		timeShortcut: true,
 	};

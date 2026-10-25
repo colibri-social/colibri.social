@@ -21,6 +21,7 @@ export const createCustomEmojiDrawer = (options: {
 	const { data } = options;
 	const [target, setTarget] = createSignal<RichTextCustomEmoji>();
 	const [open, setOpen] = createSignal(false);
+	const [opens, setOpens] = createSignal(0);
 	const [anchor, setAnchor] = createSignal<HTMLElement>();
 	const platform = usePlatform();
 
@@ -63,6 +64,7 @@ export const createCustomEmojiDrawer = (options: {
 		return source ? repoOfUri(source) || undefined : undefined;
 	});
 	const fetchedOwner = createFetchedOwner(data, () => {
+		opens();
 		const did = ownerDid();
 		return did && !knownOwner(data, did) ? did : undefined;
 	});
@@ -128,6 +130,7 @@ export const createCustomEmojiDrawer = (options: {
 			setAnchor(element);
 			setTarget(emoji);
 			setOpen(true);
+			setOpens((count) => count + 1);
 			void data.emoji.library();
 			if (emoji.id) void data.emoji.ownerCatalog(emoji.id);
 		},

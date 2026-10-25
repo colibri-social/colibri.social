@@ -1,7 +1,9 @@
+import { KEYBOARD_LIFT_ATTRIBUTE, KEYBOARD_LIFT_VAR } from "@colibri-social/ui";
 import { afterEach, expect, it } from "vitest";
 import {
 	installKeyboardInset,
 	KEYBOARD_INSET_VAR,
+	SHELL_INSET_VAR,
 	springSamples,
 } from "./keyboard-inset";
 
@@ -74,6 +76,31 @@ it("applies an iOS spring once and animates the shell with Web Animations", asyn
 	expect(String(keyframes.at(-1)?.height)).toMatch(/^calc\(100dvh - 300px\)$/);
 	await frame();
 	expect(inset()).toBe("300px");
+});
+
+it("lifts a drawer focused while the keyboard stays open and clears it on focus back to the shell", async () => {
+	const target = install();
+	const composer = document.createElement("textarea");
+	target.append(composer);
+	composer.focus({ preventScroll: true });
+	dispatch(300);
+	await frame();
+	const drawer = document.createElement("div");
+	drawer.setAttribute(KEYBOARD_LIFT_ATTRIBUTE, "");
+	const search = document.createElement("input");
+	drawer.append(search);
+	document.body.append(drawer);
+	search.focus({ preventScroll: true });
+	expect(drawer.style.getPropertyValue(KEYBOARD_LIFT_VAR)).toBe("300px");
+	expect(document.documentElement.style.getPropertyValue(SHELL_INSET_VAR)).toBe(
+		"300px",
+	);
+	composer.focus({ preventScroll: true });
+	expect(drawer.style.getPropertyValue(KEYBOARD_LIFT_VAR)).toBe("");
+	expect(document.documentElement.style.getPropertyValue(SHELL_INSET_VAR)).toBe(
+		"300px",
+	);
+	drawer.remove();
 });
 
 it("clamps reported insets and removes the variable on teardown", async () => {

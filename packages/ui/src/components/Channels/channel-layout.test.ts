@@ -131,6 +131,30 @@ describe("stepChannel", () => {
 	});
 });
 
+describe("stepChannel with a locked uncategorized group", () => {
+	const looseLayout: ChannelLayout = {
+		uncategorized: ["rules", "faq"],
+		categories: layout.categories,
+	};
+
+	it("moves an uncategorized channel into the first category", () => {
+		expect(stepChannel(looseLayout, "rules", 1, true)).toEqual({
+			categoryId: "text",
+			index: 0,
+		});
+		expect(stepChannel(looseLayout, "faq", 1, true)).toEqual({
+			categoryId: "text",
+			index: 0,
+		});
+	});
+
+	it("never moves a channel into or within the uncategorized group", () => {
+		expect(stepChannel(looseLayout, "faq", -1, true)).toBeUndefined();
+		expect(stepChannel(looseLayout, "general", -1, true)).toBeUndefined();
+		expect(edgeChannel(looseLayout, "faq", "start", true)).toBeUndefined();
+	});
+});
+
 describe("edgeChannel", () => {
 	it("jumps to the ends of the current category", () => {
 		expect(edgeChannel(layout, "photos", "start")).toEqual({

@@ -2,6 +2,7 @@ import { ColibriError } from "@colibri-social/lib";
 import { mentionedDids } from "../adapters/facets";
 import { summarizeMessage } from "../channel-summary";
 import type { HostingView } from "../hosting";
+import { skeyOf } from "../ids";
 import { createMemoryPreferenceBackend } from "../preferences/memory";
 import { createPreferenceStore } from "../preferences/store";
 import type { Preferences } from "../preferences/types";
@@ -248,6 +249,7 @@ export const createMockSource = (
 				record.view,
 				world.viewerDid,
 				allowedIn(space, "thread.manage"),
+				channelRecord(record.view.channel)?.view.viewer.canPost !== false,
 			);
 			if (!rights[right]) throw new Error("Not allowed to manage this thread");
 			return { space, record };
@@ -844,16 +846,15 @@ export const createMockSource = (
 					touchThread(ref);
 					emit({ $type: "threadEvent", event: "update", thread: record.view });
 				}
+				emit({
+					$type: "messagesMovedEvent",
+					space: input.source,
+					rkeys: [...rkeys],
+				});
 				for (const message of moved) {
 					emit({
 						$type: "messageEvent",
-						event: "delete",
-						channel: input.source,
-						rkey: message.rkey,
-					});
-					emit({
-						$type: "messageEvent",
-						event: "update",
+						event: "create",
 						channel: input.destination,
 						message,
 					});
@@ -922,6 +923,7 @@ export const createMockSource = (
 							{ createdBy: world.viewerDid },
 							world.viewerDid,
 							allowedIn(space, "thread.manage"),
+							channel.view.viewer.canPost !== false,
 						),
 						following: true,
 						muted: false,
@@ -968,6 +970,7 @@ export const createMockSource = (
 						view,
 						world.viewerDid,
 						allowedIn(space, "thread.manage"),
+						channelRecord(view.channel)?.view.viewer.canPost !== false,
 					),
 				};
 				record.view = view;
@@ -1183,6 +1186,54 @@ export const createMockSource = (
 					community: space.did,
 					rkey: input.category,
 				});
+				emit({ $type: "layoutInvalidatedEvent", community: space.did });
+			}),
+		reorderChannels: (input) =>
+			withLatency(() => {
+				const space = spaceOf(input.community);
+				if (!allowedIn(space, "channel.update")) {
+					throw new Error("Not allowed to update channels");
+				}
+				if (!space.categories.some((entry) => entry.rkey === input.category))
+					throw new Error("Unknown category");
+				const members = space.channels.filter(
+					(record) => record.view.category === input.category,
+				);
+				const byKey = new Map(
+					members.map((record) => [skeyOf(record.view.space), record]),
+				);
+				const ordered = input.channels.map((key) => byKey.get(key));
+				if (
+					ordered.length !== members.length ||
+					new Set(input.channels).size !== members.length ||
+					ordered.some((record) => !record)
+				)
+					throw new Error("Channels don't match the category");
+				let next = 0;
+				space.channels = space.channels.map((record) =>
+					record.view.category === input.category
+						? (ordered[next++] ?? record)
+						: record,
+				);
+				emit({ $type: "layoutInvalidatedEvent", community: space.did });
+			}),
+		reorderCategories: (input) =>
+			withLatency(() => {
+				const space = spaceOf(input.community);
+				if (!allowedIn(space, "category.update")) {
+					throw new Error("Not allowed to update categories");
+				}
+				const byKey = new Map(
+					space.categories.map((entry) => [entry.rkey, entry]),
+				);
+				const ordered = input.categories.map((rkey) => byKey.get(rkey));
+				if (
+					ordered.length !== space.categories.length ||
+					new Set(input.categories).size !== space.categories.length ||
+					ordered.some((entry) => !entry)
+				)
+					throw new Error("Categories don't match the Space");
+				space.categories = ordered.filter((entry) => entry !== undefined);
 				emit({ $type: "layoutInvalidatedEvent", community: space.did });
 			}),
 		listUnreadStatus: (community) => withLatency(() => unreadFor(community)),

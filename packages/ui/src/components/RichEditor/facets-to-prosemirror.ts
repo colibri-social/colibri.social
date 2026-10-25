@@ -28,6 +28,7 @@ export type FacetResolvers = Pick<
 	| "resolveMember"
 	| "resolveRole"
 	| "resolveChannel"
+	| "resolveThreadLink"
 	| "matchChannelUrl"
 	| "resolveCustomEmoji"
 >;
@@ -41,6 +42,45 @@ export const channelChipAttrs = (channelId: string, chip: ChannelChip) => ({
 	category: chip.category ?? null,
 	type: "channel" as const,
 });
+
+const LINK_FEATURE = "social.colibri.beta.richtext.facet#link";
+type ThreadLink = { uri: string; chip: ChannelChip };
+
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+const withThreadLinks = (
+	text: string,
+	facets: Array<ColibriRichTextFacet>,
+	resolvers: FacetResolvers,
+): Array<ColibriRichTextFacet> => {
+	const resolve = resolvers.resolveThreadLink;
+	if (!resolve) return facets;
+	const bytes = textEncoder.encode(text);
+	return facets.map((facet) => {
+		if (facet.features.length !== 1) return facet;
+		const [feature] = facet.features;
+		if (feature.$type !== LINK_FEATURE) return facet;
+		const label = textDecoder.decode(
+			bytes.slice(facet.index.byteStart, facet.index.byteEnd),
+		);
+		if (!label.startsWith("#")) return facet;
+		const { uri } = feature as { uri: string };
+		const chip = resolve(uri);
+		if (!chip) return facet;
+		const threadLink: ThreadLink = { uri, chip };
+		return {
+			...facet,
+			features: [
+				{
+					$type: "social.colibri.beta.richtext.facet#channel",
+					channel: uri,
+					threadLink,
+				} as Feature,
+			],
+		};
+	});
+};
 
 export const facetsToProseMirror = (
 	text: string,
@@ -68,7 +108,10 @@ const buildParagraph = (
 		content: [],
 		attrs: undefined,
 	};
-	const { source, atoms } = facetsToSource(text, facets);
+	const { source, atoms } = facetsToSource(
+		text,
+		withThreadLinks(text, facets, resolvers),
+	);
 	const sorted = [...atoms].sort((a, b) => a.start - b.start);
 
 	let cursor = 0;
@@ -97,6 +140,16 @@ const atomNode = (
 ): MentionType | undefined => {
 	switch (feature.$type) {
 		case "social.colibri.beta.richtext.facet#channel": {
+			const { threadLink } = feature as { threadLink?: ThreadLink };
+			if (threadLink) {
+				return {
+					type: "mention",
+					attrs: {
+						...channelChipAttrs(threadLink.uri, threadLink.chip),
+						uri: threadLink.uri,
+					},
+				};
+			}
 			const { channel } = feature as ColibriRichTextChannel;
 			const chip = resolvers.resolveChannel?.(channel);
 			if (!chip && resolvers.matchChannelUrl?.(sourceText)) return undefined;

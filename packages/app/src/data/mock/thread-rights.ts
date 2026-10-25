@@ -4,10 +4,11 @@ export const mockThreadRights = (
 	view: Pick<ThreadView, "createdBy" | "locked">,
 	viewer: Did,
 	manages: boolean,
+	channelCanPost: boolean,
 ) => {
 	const opener = view.createdBy === viewer;
 	return {
-		canPost: !view.locked || manages,
+		canPost: channelCanPost && (!view.locked || manages),
 		canManage: manages,
 		canEdit: manages || opener,
 		canClose: manages || (opener && !view.locked),

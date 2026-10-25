@@ -1063,6 +1063,34 @@ describe("forward", () => {
 		});
 	});
 
+	it("has no target for a thread whose parent channel is unknown", () => {
+		const thread = {
+			...base,
+			source: {
+				...base.source,
+				space: "at://did:plc:here/space/social.colibri.beta.channel.thread/t1",
+			},
+			sourceName: "Spring tuning",
+		} as unknown as ForwardView;
+		const display = toForwardDisplay(thread, context);
+		expect(display.source).toEqual({ channel: "Spring tuning" });
+		expect(display.target).toBeUndefined();
+		expect(
+			toForwardDisplay(
+				{
+					...thread,
+					source: {
+						...base.source,
+						space:
+							"at://did:plc:other/space/social.colibri.beta.channel.thread/t2",
+					},
+					sourceCommunity: "did:plc:other",
+				} as unknown as ForwardView,
+				context,
+			).target,
+		).toBeUndefined();
+	});
+
 	it("targets a channel in another Space you belong to", () => {
 		const display = toForwardDisplay(
 			{

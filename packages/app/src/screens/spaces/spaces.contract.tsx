@@ -1,4 +1,9 @@
-import { ColibriError, clientOrigin } from "@colibri-social/lib";
+import {
+	ColibriError,
+	classifyThrown,
+	clientOrigin,
+	createLogger,
+} from "@colibri-social/lib";
 import {
 	afterSpaceRailMotion,
 	Button,
@@ -11,6 +16,7 @@ import {
 	ChannelListHeader,
 	type ChannelListItemState,
 	type ChannelPlatform,
+	type ChannelReorder,
 	ChannelRow,
 	ChannelThreadRow,
 	ChannelThreads,
@@ -43,7 +49,11 @@ import {
 } from "solid-js";
 import { displayNameOf } from "../../data/adapters/authors";
 import { summaryParts } from "../../data/channel-summary";
-import { SPACE_ORDER_NOT_SAVED } from "../../data/error-copy";
+import {
+	CHANNEL_ORDER_NOT_SAVED,
+	copyForCode,
+	SPACE_ORDER_NOT_SAVED,
+} from "../../data/error-copy";
 import { channelSlug, isVoiceChannel, skeyOf, spaceKey } from "../../data/ids";
 import { mutedTotals, spaceNotificationPrefs } from "../../data/notifications";
 import { type SpaceData, useData } from "../../data/store";
@@ -89,6 +99,8 @@ import NotificationSettingsScreen from "./notification-settings/notification-set
 import { sidebarThreadsFor } from "./sidebar-threads";
 
 export type SpacesArgs = { slug?: string };
+
+const log = createLogger("spaces");
 
 const comingSoon = (label: string) => () =>
 	toast.info(`${label} arrives in a later round`);
@@ -315,6 +327,51 @@ export const spaces = defineContract({
 		const sidebarThreads = (channel: ChannelView) =>
 			sidebarThreadsFor(data, space(), channel.space, activeThread(channel));
 		const [reorderMode, setReorderMode] = createSignal(false);
+		const persistReorder = async (did: Did, change: ChannelReorder) => {
+			if (change.type === "category") {
+				await data.categories.reorder(
+					did,
+					change.layout.categories.map((category) => category.id),
+				);
+				return;
+			}
+			const target = change.to.categoryId;
+			if (target === null)
+				throw new ColibriError({
+					code: "InvalidRequest",
+					message: "channels can't move outside a category",
+				});
+			if (change.from.categoryId !== target)
+				await data.channels.update({
+					channel: change.id as SpaceRef,
+					category: target,
+				});
+			const order =
+				change.layout.categories.find((category) => category.id === target)
+					?.channels ?? [];
+			await data.channels.reorder(did, target, order.map(skeyOf));
+		};
+		const saveReorder = async (change: ChannelReorder) => {
+			const current = community();
+			if (!current) return;
+			try {
+				await persistReorder(current.did, change);
+			} catch (thrown) {
+				const error = classifyThrown(thrown, {
+					method:
+						change.type === "category"
+							? "community.reorderCategories"
+							: "channel.reorder",
+				});
+				log.warn("saving the channel order failed", { code: error.code });
+				const copy =
+					error.code === "Forbidden"
+						? copyForCode("Forbidden")
+						: CHANNEL_ORDER_NOT_SAVED;
+				toast.error(copy.title, { description: copy.description });
+				throw error;
+			}
+		};
 		const [held, setHeld] = createSignal<ChannelView>();
 		const [drawerOpen, setDrawerOpen] = createSignal(false);
 		const canIn = (target: CommunityView | undefined, permission: string) => {
@@ -584,6 +641,7 @@ export const spaces = defineContract({
 			markChannelRead,
 			duplicateChannel,
 			setReorderMode,
+			saveReorder,
 			communities,
 			community,
 			space,
@@ -1043,6 +1101,9 @@ export const spaces = defineContract({
 						reorderMode={m.reorderMode()}
 						onReorderModeChange={m.setReorderMode}
 						canReorder={m.reorderMode()}
+						canReorderCategories={m.can("category.update")}
+						lockUncategorized
+						onReorder={m.saveReorder}
 						onChannelLongPress={
 							desktop() ? undefined : (channel) => m.holdChannel(channel)
 						}

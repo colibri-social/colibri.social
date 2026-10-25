@@ -15,6 +15,7 @@ export type CategoryHeaderProps = {
 	controls?: string;
 	trailing?: JSX.Element;
 	class?: string;
+	ref?: (element: HTMLDivElement) => void;
 };
 
 const headerAction =
@@ -24,6 +25,7 @@ export const CategoryHeader = (props: CategoryHeaderProps) => {
 	const ripple = createRipple();
 	return (
 		<div
+			ref={(element) => props.ref?.(element)}
 			data-category-header=""
 			class={cx("group/category flex w-full items-center gap-1", props.class)}
 		>
@@ -66,8 +68,9 @@ export const CategoryHeader = (props: CategoryHeaderProps) => {
 
 export type ChannelCategoryProps = Omit<
 	CategoryHeaderProps,
-	"collapsed" | "onToggle" | "controls"
+	"collapsed" | "onToggle" | "controls" | "ref"
 > & {
+	headerRef?: (element: HTMLDivElement) => void;
 	collapsed?: boolean;
 	defaultCollapsed?: boolean;
 	onCollapsedChange?: (collapsed: boolean) => void;
@@ -108,6 +111,7 @@ export const ChannelCategory = (props: ChannelCategoryProps) => {
 						onOpenSettings={props.onOpenSettings}
 						controls={listId}
 						trailing={props.headerTrailing}
+						ref={(element) => props.headerRef?.(element)}
 					/>
 				);
 				return (

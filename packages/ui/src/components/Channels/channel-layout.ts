@@ -102,9 +102,14 @@ export const stepChannel = (
 	layout: ChannelLayout,
 	id: string,
 	delta: number,
+	lockUncategorized = false,
 ): ChannelSlot | undefined => {
 	const current = findChannel(layout, id);
 	if (!current) return undefined;
+	if (lockUncategorized && current.categoryId === null) {
+		const first = layout.categories[0];
+		return delta > 0 && first ? { categoryId: first.id, index: 0 } : undefined;
+	}
 	const groups: (string | null)[] = [
 		null,
 		...layout.categories.map((category) => category.id),
@@ -116,6 +121,7 @@ export const stepChannel = (
 		return { categoryId: current.categoryId, index };
 	const neighbour = groups[group + Math.sign(delta)];
 	if (neighbour === undefined) return undefined;
+	if (lockUncategorized && neighbour === null) return undefined;
 	return {
 		categoryId: neighbour,
 		index: delta > 0 ? 0 : channelsIn(layout, neighbour).length,
@@ -126,9 +132,11 @@ export const edgeChannel = (
 	layout: ChannelLayout,
 	id: string,
 	edge: "start" | "end",
+	lockUncategorized = false,
 ): ChannelSlot | undefined => {
 	const current = findChannel(layout, id);
 	if (!current) return undefined;
+	if (lockUncategorized && current.categoryId === null) return undefined;
 	const last = channelsIn(layout, current.categoryId).length - 1;
 	const index = edge === "start" ? 0 : last;
 	return index === current.index

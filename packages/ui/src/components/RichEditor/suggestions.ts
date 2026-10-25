@@ -97,7 +97,8 @@ export const suggestionAttrs = (
 			return {
 				id: item.channel.id,
 				label: item.channel.name,
-				category: item.channel.categoryLabel ?? null,
+				category: item.channel.parentName ?? item.channel.categoryLabel ?? null,
+				uri: item.channel.uri ?? null,
 				type: "channel",
 			};
 		case "customEmoji":

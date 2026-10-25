@@ -590,6 +590,7 @@ export const RichEditor = (props: RichEditorProps) => {
 							avatar: { default: null },
 							community: { default: null },
 							category: { default: null },
+							uri: { default: null },
 							color: { default: null },
 							type: { default: "member" },
 							datetime: { default: null },

@@ -1911,3 +1911,41 @@ describe("stale queued messages", () => {
 		).toBe(false);
 	});
 });
+
+describe("moved messages", () => {
+	it("detaches messages a move label takes out of the open feed", async () => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const listeners = new Set<(event: LiveEvent) => void>();
+		const source: DataSource = {
+			...base,
+			subscribe: (listener) => {
+				listeners.add(listener);
+				const stop = base.subscribe(listener);
+				return () => {
+					listeners.delete(listener);
+					stop();
+				};
+			},
+		};
+		const { store, channel, hq } = await setup({ source });
+		const general = store.space(hq).channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const [first, second] = channel.messages();
+		if (!first || !second) throw new Error("messages missing");
+		const before = channel.messages().length;
+
+		for (const listener of listeners) {
+			listener({
+				$type: "messagesMovedEvent",
+				space: general.space,
+				rkeys: [first.rkey, second.rkey],
+			});
+		}
+
+		const left = channel.messages().map((entry) => entry.rkey);
+		expect(left).not.toContain(first.rkey);
+		expect(left).not.toContain(second.rkey);
+		expect(left).toHaveLength(before - 2);
+	});
+});

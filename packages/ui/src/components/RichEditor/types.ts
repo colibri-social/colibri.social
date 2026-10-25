@@ -30,13 +30,15 @@ export type RoleSuggestion = {
 	color?: string;
 };
 
-export type ChannelKind = "text" | "voice";
+export type ChannelKind = "text" | "voice" | "thread";
 
 export type ChannelSuggestion = {
 	id: string;
 	name: string;
 	kind?: ChannelKind;
 	categoryLabel?: string;
+	parentName?: string;
+	uri?: string;
 };
 
 export type ChannelChip = {
@@ -86,6 +88,7 @@ export type RichEditorSources = {
 	resolveMember?: (did: string) => MemberSuggestion | undefined;
 	resolveRole?: (id: string) => RoleSuggestion | undefined;
 	resolveChannel?: (id: string) => ChannelChip | undefined;
+	resolveThreadLink?: (uri: string) => ChannelChip | undefined;
 	matchChannelUrl?: (text: string) => ChannelUrlMatch | null;
 	emojiUsage?: () => Record<string, EmojiUsageEntry>;
 	searchCustomEmoji?: (query: string, limit: number) => CustomEmojiSuggestion[];

@@ -188,3 +188,25 @@ export const expectClearOfWindowChrome = async (
 ) => {
 	await expect(windowChromeIssues(container, chromeTop)).toEqual([]);
 };
+
+export const inlineBoxAgainstCaps = (box: HTMLElement) => {
+	const line = box.parentElement;
+	if (!line) throw new Error("The inline box has no parent line");
+	const marker = document.createElement("span");
+	marker.style.display = "inline-block";
+	box.before(marker);
+	const baseline = marker.getBoundingClientRect().bottom;
+	marker.remove();
+	const context = document.createElement("canvas").getContext("2d");
+	if (!context) throw new Error("No canvas context to measure the font");
+	context.font = getComputedStyle(line).font;
+	const cap = context.measureText("H").actualBoundingBoxAscent;
+	const style = getComputedStyle(box);
+	const rect = box.getBoundingClientRect();
+	const top = rect.top + Number.parseFloat(style.paddingTop);
+	const bottom = rect.bottom - Number.parseFloat(style.paddingBottom);
+	return {
+		centerOffset: (top + bottom) / 2 - (baseline - cap / 2),
+		heightRatio: (bottom - top) / cap,
+	};
+};

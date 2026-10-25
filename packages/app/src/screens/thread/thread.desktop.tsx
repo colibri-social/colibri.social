@@ -23,7 +23,7 @@ export default thread.view({
 						<AttachmentDropzone
 							scope="zone"
 							channelName={m.options.label()}
-							disabled={m.selection.active()}
+							disabled={!m.writable() || m.selection.active()}
 							onFiles={(files) => m.attachments.addFiles(files)}
 							footer={<s.Composer platform="desktop" />}
 						>

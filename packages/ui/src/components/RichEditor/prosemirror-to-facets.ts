@@ -36,6 +36,8 @@ export type MentionType = {
 				avatar: string | null;
 				handle: null;
 				community?: string | null;
+				category?: string | null;
+				uri?: string | null;
 				type: "channel";
 		  }
 		| {
@@ -136,10 +138,15 @@ const docToSource = (
 						start,
 						end: source.length,
 						features: [
-							{
-								$type: "social.colibri.beta.richtext.facet#channel",
-								channel: mention.attrs.id,
-							},
+							mention.attrs.uri
+								? ({
+										$type: "social.colibri.beta.richtext.facet#link",
+										uri: mention.attrs.uri,
+									} as ColibriRichTextFeature)
+								: {
+										$type: "social.colibri.beta.richtext.facet#channel",
+										channel: mention.attrs.id,
+									},
 						],
 					});
 				} else if (mention.attrs.type === "bridged") {

@@ -18,6 +18,7 @@ import type {
 	ChannelAttachment,
 	ChannelPreviewEmoji,
 } from "../Channels/ChannelRow";
+import { CustomEmojiGlyph, customEmojiSkeleton } from "../RichText/render";
 import { TableText } from "../Table/TableText";
 
 export type ThreadPerson = {
@@ -309,14 +310,18 @@ const ThreadSummary = (props: ThreadSummaryProps & { size: ThreadSize }) => {
 												{(part) =>
 													typeof part === "string" ? (
 														part
+													) : part.pending ? (
+														customEmojiSkeleton(
+															part.name ? `:${part.name}:` : "Custom emoji",
+															"size-[1.25em] rounded-[calc(4px+0.125em)] bg-clip-content p-[0.125em] align-[-0.25em]",
+															{ "data-thread-last-emoji": "" },
+														)
 													) : (
-														<img
+														<CustomEmojiGlyph
 															data-thread-last-emoji=""
-															src={part.src}
-															alt={part.alt ?? `:${part.name}:`}
+															emoji={part}
 															title={`:${part.name}:`}
-															draggable={false}
-															class="inline-block size-[1.25em] align-[-0.25em] object-contain"
+															class="size-[1.25em] align-[-0.25em] object-contain"
 														/>
 													)
 												}

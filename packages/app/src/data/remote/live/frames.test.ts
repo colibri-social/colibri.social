@@ -67,6 +67,49 @@ describe("toLiveEvents", () => {
 		).toEqual([]);
 	});
 
+	it("maps a moved label to the record keys that left the space", () => {
+		const subject = {
+			did: ALICE,
+			collection: "social.colibri.beta.message",
+			rkey: "3kmoved",
+		};
+		expect(
+			toLiveEvents(
+				frame("labelEvent", {
+					event: "create",
+					space: GENERAL,
+					subject,
+					val: "moved",
+					src: COMMUNITY,
+				}),
+			),
+		).toEqual([
+			{ $type: "messagesMovedEvent", space: GENERAL, rkeys: ["3kmoved"] },
+		]);
+		expect(
+			toLiveEvents(
+				frame("labelEvent", {
+					event: "negate",
+					space: GENERAL,
+					subject,
+					val: "moved",
+					src: COMMUNITY,
+				}),
+			),
+		).toEqual([]);
+		expect(
+			toLiveEvents(
+				frame("labelEvent", {
+					event: "create",
+					space: GENERAL,
+					subject,
+					val: "hidden",
+					src: COMMUNITY,
+				}),
+			),
+		).toEqual([]);
+	});
+
 	it("maps reactions to the target record key", () => {
 		expect(
 			toLiveEvents(

@@ -22,12 +22,18 @@ import { KeyedFor } from "../../utils/keyed";
 import { createRipple } from "../../utils/ripple";
 import { Avatar } from "../Avatar/Avatar";
 import { Badge, CountBadge } from "../Badge/Badge";
+import { CustomEmojiGlyph, customEmojiSkeleton } from "../RichText/render";
 import { SkeletonCircle, SkeletonText } from "../Skeleton/Skeleton";
 import type { VoiceParticipant } from "../Voice/shared";
 
 export type ChannelPlatform = "mobile" | "desktop";
 
-export type ChannelPreviewEmoji = { name: string; src: string; alt?: string };
+export type ChannelPreviewEmoji = {
+	name: string;
+	src: string;
+	alt?: string;
+	pending?: boolean;
+};
 
 export type ChannelPreview = {
 	author: string;
@@ -281,14 +287,18 @@ export const ChannelRow = (props: ChannelRowProps) => {
 											{(part) =>
 												typeof part === "string" ? (
 													part
+												) : part.pending ? (
+													customEmojiSkeleton(
+														part.name ? `:${part.name}:` : "Custom emoji",
+														"size-4 rounded-[6px] bg-clip-content p-0.5 align-[-0.1875rem]",
+														{ "data-channel-preview-emoji": "" },
+													)
 												) : (
-													<img
+													<CustomEmojiGlyph
 														data-channel-preview-emoji=""
-														src={part.src}
-														alt={part.alt ?? `:${part.name}:`}
+														emoji={part}
 														title={`:${part.name}:`}
-														draggable={false}
-														class="inline-block size-4 align-[-0.1875rem] object-contain"
+														class="size-4 align-[-0.1875rem] object-contain"
 													/>
 												)
 											}

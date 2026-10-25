@@ -3,7 +3,10 @@ import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
 import { createSignal, For, type JSX } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
-import { expectNoLayoutIssues } from "../../foundations/layout-test";
+import {
+	expectNoLayoutIssues,
+	inlineBoxAgainstCaps,
+} from "../../foundations/layout-test";
 import { AnimatedSettingsIcon } from "../../icons/animated/icons";
 import {
 	AnimatedProfileIcon,
@@ -2238,5 +2241,36 @@ export const DesktopVoiceRowActions: Story = {
 		await expect(openVoiceChat).toHaveBeenCalledTimes(1);
 		await expect(openVoiceRow).not.toHaveBeenCalled();
 		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
+export const PendingPreviewEmoji: Story = {
+	render: () => (
+		<Panel>
+			<ChannelRow
+				name="General"
+				unread
+				preview={{
+					author: "Lou",
+					text: "It'll be fine",
+					parts: ["It'll be fine ", { name: "", src: "", pending: true }],
+				}}
+			/>
+		</Panel>
+	),
+	play: async ({ canvasElement }) => {
+		const skeleton = canvasElement.querySelector<HTMLElement>(
+			"[data-channel-preview-emoji]",
+		);
+		await expect(skeleton).toHaveAttribute("data-custom-emoji-pending");
+		await expect(skeleton).toHaveAttribute("data-skeleton");
+		await expect(skeleton?.tagName).toBe("SPAN");
+		await expect(skeleton?.getBoundingClientRect().height).toBe(16);
+		const fit = inlineBoxAgainstCaps(skeleton as HTMLElement);
+		await expect(Math.abs(fit.centerOffset)).toBeLessThanOrEqual(1);
+		await expect(fit.heightRatio).toBeLessThanOrEqual(1.5);
+		await expect(
+			canvasElement.querySelector("[data-channel-preview] img"),
+		).toBeNull();
 	},
 };

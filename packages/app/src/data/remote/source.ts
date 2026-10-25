@@ -543,6 +543,14 @@ export const createRemoteSource = async (
 		deleteCategory: async (input) => {
 			await transport.procedure(colibri.category.delete.main, { body: input });
 		},
+		reorderChannels: async (input) => {
+			await transport.procedure(colibri.channel.reorder.main, { body: input });
+		},
+		reorderCategories: async (input) => {
+			await transport.procedure(colibri.community.reorderCategories.main, {
+				body: input,
+			});
+		},
 
 		listRoles: async (community) =>
 			(
