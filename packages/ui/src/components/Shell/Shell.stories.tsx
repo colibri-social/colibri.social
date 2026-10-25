@@ -665,13 +665,21 @@ export const ChromelessCorner: Story = {
 				getComputedStyle(content).borderTopLeftRadius,
 			];
 		};
+		const topBorders = () =>
+			["[data-shell-sidebar]", "[data-shell-content]"].map(
+				(selector) =>
+					getComputedStyle(canvasElement.querySelector(selector) as Element)
+						.borderTopWidth,
+			);
 		await expect(corner()).toEqual(["0px", "0px"]);
+		await expect(topBorders()).toEqual(["0px", "0px"]);
 		await userEvent.click(
 			within(canvasElement).getByRole("button", {
 				name: "Toggle native window",
 			}),
 		);
 		await waitFor(() => expect(corner()).toEqual(["16px", "15px"]));
+		await expect(topBorders()).toEqual(["1px", "1px"]);
 	},
 };
 

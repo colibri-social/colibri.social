@@ -56,6 +56,8 @@ const squareSystemFrameCorner =
 
 const flushSystemFrameTop = "[[data-window-frame=system]_&]:border-t-0";
 
+const flushChromelessTop = "[[data-chrome=none]_&]:border-t-0";
+
 export const AppShell = (props: AppShellProps) => {
 	const windowBar = createSlot(() => props.windowBar);
 	const dock = createSlot(() => props.dock);
@@ -137,6 +139,7 @@ export const AppShell = (props: AppShellProps) => {
 								squareChromelessCorner,
 								squareSystemFrameCorner,
 								flushSystemFrameTop,
+								flushChromelessTop,
 							)}
 						>
 							<div
@@ -177,6 +180,7 @@ export const AppShell = (props: AppShellProps) => {
 					class={cx(
 						"flex h-full min-w-(--min-chat-width,360px) flex-1 flex-col border-t border-l border-muted bg-card",
 						flushSystemFrameTop,
+						flushChromelessTop,
 					)}
 				>
 					<Show when={header.has()}>
