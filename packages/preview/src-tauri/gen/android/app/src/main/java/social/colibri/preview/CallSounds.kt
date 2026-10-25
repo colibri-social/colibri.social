@@ -28,7 +28,7 @@ object CallSounds {
   )
 
   private fun file(context: Context, name: String) =
-    File(File(context.cacheDir, "sounds").apply { mkdirs() }, "${name.filter { it.isLetterOrDigit() || it == '-' || it == '_' }}.mp3")
+    File(File(context.cacheDir, "sounds").apply { mkdirs() }, "${name.filter { it.isLetterOrDigit() || it == '-' || it == '_' }}.wav")
 
   fun has(context: Context, name: String) = file(context, name).exists()
 

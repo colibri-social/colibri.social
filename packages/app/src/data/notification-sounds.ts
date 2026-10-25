@@ -1,4 +1,4 @@
-import pingUrl from "../../../assets/files/sounds/ping.mp3";
+import pingUrl from "../../../assets/files/sounds/ping.wav";
 import { createSoundPlayer } from "./voice-sounds";
 
 export const NOTIFICATION_SOUNDS = { ping: pingUrl } as const;

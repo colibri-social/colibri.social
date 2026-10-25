@@ -11,17 +11,17 @@ import { createLogger } from "../utils/logger";
 const log = createLogger("sounds");
 
 const SOUND_URLS = {
-	mute: "/sounds/mute.mp3",
-	unmute: "/sounds/unmute.mp3",
-	deafen: "/sounds/deafen.mp3",
-	undeafen: "/sounds/undeafen.mp3",
-	screenShared: "/sounds/screen-shared.mp3",
-	screenUnshared: "/sounds/screen-unshared.mp3",
-	camOn: "/sounds/cam-on.mp3",
-	camOff: "/sounds/cam-off.mp3",
-	join: "/sounds/join.mp3",
-	leave: "/sounds/leave.mp3",
-	ping: "/sounds/ping.mp3",
+	mute: "/sounds/mute.wav",
+	unmute: "/sounds/unmute.wav",
+	deafen: "/sounds/deafen.wav",
+	undeafen: "/sounds/undeafen.wav",
+	screenShared: "/sounds/screen-shared.wav",
+	screenUnshared: "/sounds/screen-unshared.wav",
+	camOn: "/sounds/cam-on.wav",
+	camOff: "/sounds/cam-off.wav",
+	join: "/sounds/join.wav",
+	leave: "/sounds/leave.wav",
+	ping: "/sounds/ping.wav",
 } as const;
 
 type SoundByteID = keyof typeof SOUND_URLS;

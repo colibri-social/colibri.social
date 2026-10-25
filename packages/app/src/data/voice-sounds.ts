@@ -1,13 +1,13 @@
-import camOffUrl from "../../../assets/files/sounds/cam-off.mp3";
-import camOnUrl from "../../../assets/files/sounds/cam-on.mp3";
-import deafenUrl from "../../../assets/files/sounds/deafen.mp3";
-import joinUrl from "../../../assets/files/sounds/join.mp3";
-import leaveUrl from "../../../assets/files/sounds/leave.mp3";
-import muteUrl from "../../../assets/files/sounds/mute.mp3";
-import screenSharedUrl from "../../../assets/files/sounds/screen-shared.mp3";
-import screenUnsharedUrl from "../../../assets/files/sounds/screen-unshared.mp3";
-import undeafenUrl from "../../../assets/files/sounds/undeafen.mp3";
-import unmuteUrl from "../../../assets/files/sounds/unmute.mp3";
+import camOffUrl from "../../../assets/files/sounds/cam-off.wav";
+import camOnUrl from "../../../assets/files/sounds/cam-on.wav";
+import deafenUrl from "../../../assets/files/sounds/deafen.wav";
+import joinUrl from "../../../assets/files/sounds/join.wav";
+import leaveUrl from "../../../assets/files/sounds/leave.wav";
+import muteUrl from "../../../assets/files/sounds/mute.wav";
+import screenSharedUrl from "../../../assets/files/sounds/screen-shared.wav";
+import screenUnsharedUrl from "../../../assets/files/sounds/screen-unshared.wav";
+import undeafenUrl from "../../../assets/files/sounds/undeafen.wav";
+import unmuteUrl from "../../../assets/files/sounds/unmute.wav";
 
 export const VOICE_SOUNDS = {
 	join: joinUrl,
