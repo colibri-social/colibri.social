@@ -108,6 +108,7 @@ const STALE_OPEN_MS = 15_000;
 const CATCH_UP_PAGES = 4;
 const CATCH_UP_SPACING_MS = 1_000;
 const TYPING_MS = 6000;
+const OWN_REACTION_ECHO_MS = 15_000;
 const INVALIDATION_DELAY_MS = 50;
 
 type Invalidation = { layout: boolean; roles: boolean; community: boolean };
@@ -805,6 +806,55 @@ export const createDataStore = (
 				listener({ kind, code });
 		};
 		const reactionKeys = new Map<string, string>();
+		const reactionKeyOf = (ref: SpaceRef, rkey: string, emoji: string) =>
+			`${ref}\n${rkey}\n${emoji}`;
+		const ownReactionOps = new Map<
+			string,
+			{ ops: number; timer?: ReturnType<typeof setTimeout> }
+		>();
+		const beginOwnReaction = (key: string) => {
+			const current = ownReactionOps.get(key) ?? { ops: 0 };
+			if (current.timer) clearTimeout(current.timer);
+			ownReactionOps.set(key, { ops: current.ops + 1 });
+		};
+		const endOwnReaction = (key: string) => {
+			const current = ownReactionOps.get(key);
+			if (!current) return;
+			const ops = current.ops - 1;
+			if (ops > 0) {
+				ownReactionOps.set(key, { ops });
+				return;
+			}
+			const timer = setTimeout(() => {
+				if (ownReactionOps.get(key)?.timer === timer)
+					ownReactionOps.delete(key);
+			}, OWN_REACTION_ECHO_MS);
+			ownReactionOps.set(key, { ops: 0, timer });
+		};
+		const keepOwnReactions = (
+			ref: SpaceRef,
+			existing: MessageView,
+			incoming: MessageView,
+		): MessageView => {
+			if (ownReactionOps.size === 0) return incoming;
+			const prefix = reactionKeyOf(ref, incoming.rkey, "");
+			const held = new Set<string>();
+			for (const key of ownReactionOps.keys())
+				if (key.startsWith(prefix)) held.add(key.slice(prefix.length));
+			if (held.size === 0) return incoming;
+			const reactions = incoming.reactions.filter(
+				(reaction) => !held.has(reaction.emoji),
+			);
+			for (const reaction of existing.reactions) {
+				if (!held.has(reaction.emoji)) continue;
+				const at = reactions.findIndex(
+					(entry) => entry.emoji.localeCompare(reaction.emoji) > 0,
+				);
+				if (at < 0) reactions.push(reaction);
+				else reactions.splice(at, 0, reaction);
+			}
+			return { ...incoming, reactions };
+		};
 		const messageListeners = new Map<SpaceRef, (event: LiveEvent) => boolean>();
 		const notifications = createNotificationStore(source, (views, seen) => {
 			const counts = new Map<SpaceRef, number>();
@@ -2347,7 +2397,7 @@ export const createDataStore = (
 					const index = list.findIndex((entry) => entry.rkey === message.rkey);
 					if (index === -1) return insertSorted(list, [message]);
 					const next = list.slice();
-					next[index] = message;
+					next[index] = keepOwnReactions(ref, list[index] ?? message, message);
 					return next;
 				};
 				const after = untrack(gap)?.after;
@@ -2884,10 +2934,12 @@ export const createDataStore = (
 					)?.author.did;
 					if (!author) return;
 					applyReaction(rkey, emoji, viewer.did, add, customEmoji);
-					const key = `${ref}\n${rkey}\n${emoji}`;
-					const reaction = add ? nextTid() : reactionKeys.get(key);
+					const key = reactionKeyOf(ref, rkey, emoji);
+					const previous = reactionKeys.get(key);
+					const reaction = add ? nextTid() : previous;
 					if (add && reaction) reactionKeys.set(key, reaction);
 					else reactionKeys.delete(key);
+					beginOwnReaction(key);
 					const issued = outbox.enqueue({
 						t: "react",
 						channel: ref,
@@ -2898,10 +2950,18 @@ export const createDataStore = (
 						author,
 						...(reaction ? { reaction } : {}),
 					});
-					void issued.settled.catch((thrown: unknown) => {
-						applyReaction(rkey, emoji, viewer.did, !add);
-						reportWriteFailure("react", thrown);
-					});
+					issued.settled.then(
+						() => endOwnReaction(key),
+						(thrown: unknown) => {
+							endOwnReaction(key);
+							applyReaction(rkey, emoji, viewer.did, !add, customEmoji);
+							if (reactionKeys.get(key) === (add ? reaction : undefined)) {
+								if (previous) reactionKeys.set(key, previous);
+								else reactionKeys.delete(key);
+							}
+							reportWriteFailure("react", thrown);
+						},
+					);
 				},
 				markRead: () => {
 					const current = unread[community]?.[skeyOf(ref)];
@@ -3136,6 +3196,13 @@ export const createDataStore = (
 					return;
 				}
 				case "reactionEvent":
+					if (
+						event.actor === viewer.did &&
+						ownReactionOps.has(
+							reactionKeyOf(event.channel, event.target, event.emoji),
+						)
+					)
+						return;
 					if (!messageListeners.get(event.channel)?.(event))
 						tails.react(event.channel, {
 							rkey: event.target,
@@ -3492,6 +3559,9 @@ export const createDataStore = (
 			catchUp,
 			pauseCatchUp: backfill.cancel,
 			dispose: () => {
+				for (const { timer } of ownReactionOps.values())
+					if (timer) clearTimeout(timer);
+				ownReactionOps.clear();
 				tails.clear();
 				summaryAnchors.clear();
 				outbox.dispose();

@@ -1618,6 +1618,101 @@ describe("outbox", () => {
 	});
 });
 
+describe("own reactions", () => {
+	const reactionSetup = async () => {
+		const source = createMockSource({ live: false });
+		const context = await setup({ source });
+		const general = context.store.space(context.hq).channelBySlug("general");
+		const target = context.channel.messages().at(-1);
+		if (!target || !general) throw new Error("no messages");
+		const sent: { add: boolean; reaction?: string }[] = [];
+		const owl = () =>
+			context.channel
+				.messages()
+				.find((message) => message.rkey === target.rkey)
+				?.reactions.find((reaction) => reaction.emoji === "🦉");
+		const echo = (add: boolean) =>
+			source.emit({
+				$type: "reactionEvent",
+				event: add ? "create" : "delete",
+				channel: general.space,
+				target: target.rkey,
+				emoji: "🦉",
+				actor: context.store.viewer.did,
+			});
+		return { ...context, source, general, target, sent, owl, echo };
+	};
+
+	it("keeps the count steady while its own echoes arrive late", async () => {
+		const { channel, target, owl, echo, source, store } = await reactionSetup();
+		source.react = async () => {};
+		const counts: number[] = [];
+		const stop = createRoot((dispose) => {
+			createEffect(() => counts.push(owl()?.count ?? 0));
+			return dispose;
+		});
+		await channel.react(target.rkey, "🦉", true);
+		await until(() => store.outbox.pendingCount() === 0);
+		await channel.react(target.rkey, "🦉", false);
+		await until(() => store.outbox.pendingCount() === 0);
+		await channel.react(target.rkey, "🦉", true);
+		await until(() => store.outbox.pendingCount() === 0);
+		const settled = counts.length;
+		echo(true);
+		echo(false);
+		echo(true);
+		stop();
+		expect(counts.slice(settled)).toEqual([]);
+		expect(owl()).toMatchObject({ count: 1, viewerReacted: true });
+	});
+
+	it("keeps an optimistic reaction when a stale copy of the message arrives", async () => {
+		const { channel, target, owl, source, general, store } =
+			await reactionSetup();
+		source.react = async () => {};
+		await channel.react(target.rkey, "🦉", true);
+		await until(() => store.outbox.pendingCount() === 0);
+		source.emit({
+			$type: "messageEvent",
+			event: "update",
+			channel: general.space,
+			message: { ...target, text: "edited elsewhere" },
+		});
+		expect(
+			channel.messages().find((message) => message.rkey === target.rkey)?.text,
+		).toBe("edited elsewhere");
+		expect(owl()).toMatchObject({ count: 1, viewerReacted: true });
+	});
+
+	it("restores the emoji record and record key when a removal fails", async () => {
+		const { store, channel, target, owl, source, sent } = await reactionSetup();
+		const customEmoji = {
+			uri: "at://did:plc:a/social.colibri.beta.emoji/owl",
+		} as const;
+		let reject = false;
+		source.react = async (input) => {
+			sent.push({
+				add: input.add,
+				...(input.reaction ? { reaction: input.reaction } : {}),
+			});
+			if (reject) throw new Error("rejected");
+		};
+		const failures: WriteFailure[] = [];
+		store.onWriteFailed((failure) => failures.push(failure));
+		await channel.react(target.rkey, "🦉", true, customEmoji as never);
+		await until(() => store.outbox.pendingCount() === 0);
+		reject = true;
+		await channel.react(target.rkey, "🦉", false, customEmoji as never);
+		await until(() => failures.length === 1);
+		expect(owl()).toMatchObject({ viewerReacted: true, customEmoji });
+		reject = false;
+		await channel.react(target.rkey, "🦉", false, customEmoji as never);
+		await until(() => store.outbox.pendingCount() === 0);
+		expect(sent[2]?.reaction).toBe(sent[0]?.reaction);
+		expect(sent[0]?.reaction).toBeDefined();
+	});
+});
+
 describe("ownership transfer", () => {
 	it("refreshes the Space so the previous owner loses owner access", async () => {
 		const source = createMockSource({ live: false });

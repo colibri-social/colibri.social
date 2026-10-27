@@ -57,6 +57,11 @@ export const reactionFor = (
 ): ReactionView | undefined =>
 	reactions?.find((reaction) => reaction.emoji === emoji);
 
+export const pickedReactionAdds = (
+	reactions: readonly ReactionView[] | undefined,
+	emoji: string,
+) => !reactionFor(reactions, emoji)?.viewerReacted;
+
 const reactorDids = (reaction: ReactionView) =>
 	(reaction.reactors ?? []).map((value) => String(value));
 
@@ -119,36 +124,3 @@ export const toReactionGroups = (
 				reactors: [...local, ...bridged],
 			};
 		});
-
-export const toggleReaction = (
-	reactions: readonly ReactionView[],
-	emoji: string,
-	viewer: string,
-	add: boolean,
-): ReactionView[] => {
-	const existing = reactions.find((reaction) => reaction.emoji === emoji);
-	if (!existing) {
-		if (!add) return [...reactions];
-		return [
-			...reactions,
-			{
-				emoji,
-				count: 1,
-				reactors: [viewer as ReactionView["reactors"][number]],
-				viewerReacted: true,
-			},
-		];
-	}
-	if (!!existing.viewerReacted === add) return [...reactions];
-	const reactors = add
-		? [...existing.reactors, viewer as ReactionView["reactors"][number]]
-		: existing.reactors.filter((did) => String(did) !== viewer);
-	const count = Math.max(0, existing.count + (add ? 1 : -1));
-	return reactions
-		.map((reaction) =>
-			reaction === existing
-				? { ...reaction, count, reactors, viewerReacted: add }
-				: reaction,
-		)
-		.filter((reaction) => reaction.count > 0);
-};

@@ -72,6 +72,8 @@ export type VoiceConnectionMonitor = {
 	stopScreen?: () => void;
 	applyScreenQuality?: (quality: ScreenShareQuality) => void;
 	screenSharing?: () => boolean;
+	micAvailable?: () => boolean;
+	onMicAvailable?: (listener: (available: boolean) => void) => () => void;
 	onScreenShare?: (listener: (sharing: boolean) => void) => () => void;
 	speakers?: () => ReadonlySet<string>;
 	videos?: () => readonly VoiceVideo[];

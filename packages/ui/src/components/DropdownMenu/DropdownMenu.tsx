@@ -226,7 +226,7 @@ const DesktopEntry = (props: { entry: GroupedEntry }) => (
 			{(entry) => (
 				<MenuSlider
 					entry={entry() as DropdownMenuSliderEntry}
-					class="w-56 max-w-full px-2 py-1.5"
+					class="w-full min-w-56 px-2 py-1.5"
 				/>
 			)}
 		</Match>

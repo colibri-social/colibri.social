@@ -2,7 +2,6 @@ import { ScreenShareIcon } from "@solar-icons/solid/bold/screen-share";
 import {
 	createMemo,
 	createSignal,
-	Index,
 	type JSX,
 	onCleanup,
 	onMount,
@@ -326,19 +325,12 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 	const columns = () => voiceGridColumns(props.tiles.length, props.portrait);
 	const ratio = () => (props.portrait ? 1 : 16 / 9);
 
-	const rows = createMemo(() => {
-		const cols = columns();
-		const list: VoiceTileData[][] = [];
-		for (let index = 0; index < props.tiles.length; index += cols) {
-			list.push(props.tiles.slice(index, index + cols));
-		}
-		return list;
-	});
+	const rowCount = () => Math.ceil(props.tiles.length / (columns() || 1));
 
 	const tileSize = createMemo(() => {
 		const { w, h } = size();
 		const cols = columns();
-		const count = rows().length;
+		const count = rowCount();
 		if (!w || !h || !cols || !count) return null;
 		const availableW = w - gap() * (cols - 1);
 		const availableH = h - gap() * (count - 1);
@@ -375,6 +367,19 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 	const wrap = (tile: () => VoiceTileData, element: JSX.Element) =>
 		props.tileMenu ? props.tileMenu(tile(), element) : element;
 
+	const trackWidth = () => {
+		const tile = tileSize();
+		return tile ? `${(Math.floor(tile.w) - gap()) / 2}px` : "auto";
+	};
+
+	const gridColumn = (index: number) => {
+		const cols = columns();
+		const rowStart = index - (index % cols);
+		const inRow = Math.min(cols, props.tiles.length - rowStart);
+		const start = cols - inRow + 2 * (index - rowStart) + 1;
+		return `${start} / span 2`;
+	};
+
 	const px = (value: number | undefined) =>
 		value === undefined ? undefined : `${Math.floor(value)}px`;
 
@@ -393,33 +398,33 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 			<Show
 				when={focused()}
 				fallback={
-					<Index each={rows()}>
-						{(row) => (
-							<div
-								data-voice-row=""
-								class="flex w-full justify-center"
-								style={{ gap: `${gap()}px` }}
-							>
-								<KeyedFor each={row()} by={voiceTileKey}>
-									{(tile) =>
-										wrap(
-											tile,
-											<VoiceTile
-												tile={tile()}
-												portrait={props.portrait}
-												onSelect={toggle(tile)}
-												onMenu={menuFor(tile)}
-												style={{
-													width: px(tileSize()?.w),
-													height: px(tileSize()?.h),
-												}}
-											/>,
-										)
-									}
-								</KeyedFor>
-							</div>
-						)}
-					</Index>
+					<div
+						data-voice-tiles=""
+						class="grid content-center justify-center"
+						style={{
+							gap: `${gap()}px`,
+							"grid-template-columns": `repeat(${columns() * 2}, ${trackWidth()})`,
+						}}
+					>
+						<KeyedFor each={props.tiles} by={voiceTileKey}>
+							{(tile, index) =>
+								wrap(
+									tile,
+									<VoiceTile
+										tile={tile()}
+										portrait={props.portrait}
+										onSelect={toggle(tile)}
+										onMenu={menuFor(tile)}
+										style={{
+											width: px(tileSize()?.w),
+											height: px(tileSize()?.h),
+											"grid-column": gridColumn(index()),
+										}}
+									/>,
+								)
+							}
+						</KeyedFor>
+					</div>
 				}
 			>
 				{(tile) => (

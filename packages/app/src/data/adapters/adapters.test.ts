@@ -48,7 +48,7 @@ import {
 import { toForwardDisplay } from "./forward";
 import {
 	customReactionResolver,
-	toggleReaction,
+	pickedReactionAdds,
 	toReactionGroups,
 	toReactions,
 } from "./reactions";
@@ -612,6 +612,60 @@ describe("inline media embeds", () => {
 		).toMatchObject({ kind: "video", src: "https://appview.test/video" });
 	});
 
+	it("shows a link the server reports as an image inline whatever its URL ends in", () => {
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://eusv.net/Z3IHTWsCwrBqzZcL",
+					image: { url: proxied },
+					media: [
+						{
+							kind: "image",
+							url: proxied,
+							mimeType: "image/png",
+							width: 640,
+							height: 480,
+						},
+					],
+				}),
+			),
+		).toEqual({ src: proxied, kind: "image", width: 640, height: 480 });
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://mail.ehis.gay/api/share/EPszVlbbHi1bXMEJKyaLh2fz/og.png",
+					image: { url: proxied },
+					media: [{ kind: "image", url: proxied, mimeType: "image/svg+xml" }],
+				}),
+			),
+		).toEqual({
+			src: proxied,
+			kind: "image",
+			width: undefined,
+			height: undefined,
+		});
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://media.test/share",
+					media: [{ kind: "image", url: proxied, mimeType: "image/gif" }],
+				}),
+			),
+		).toMatchObject({ kind: "gif" });
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://eusv.net/Z3IHTWsCwrBqzZcL",
+					title: "A gallery",
+					media: [
+						{ kind: "image", url: proxied },
+						{ kind: "image", url: proxied },
+					],
+				}),
+			),
+		).toBeUndefined();
+	});
+
 	it("leaves ordinary pages and imageless GIF links as cards", () => {
 		expect(
 			inlineMediaOf(
@@ -856,6 +910,13 @@ describe("reactions", () => {
 		]);
 	});
 
+	it("removes a reaction the viewer picks again and adds any other", () => {
+		expect(pickedReactionAdds(views, "🐦")).toBe(false);
+		expect(pickedReactionAdds(views, "🌿")).toBe(true);
+		expect(pickedReactionAdds(views, "🔥")).toBe(true);
+		expect(pickedReactionAdds(undefined, "🔥")).toBe(true);
+	});
+
 	it("builds viewer groups including bridged reactors", () => {
 		const groups = toReactionGroups(views, members, "did:plc:viewer");
 		expect(groups[0]?.reactors.find((reactor) => reactor.mine)?.id).toBe(
@@ -900,31 +961,6 @@ describe("reactions", () => {
 				unavailable: undefined,
 			},
 		]);
-	});
-
-	it("toggles optimistically", () => {
-		const removed = toggleReaction(views, "🐦", "did:plc:viewer", false);
-		expect(removed[0]).toMatchObject({ count: 1, viewerReacted: false });
-		const added = toggleReaction(views, "🔥", "did:plc:viewer", true);
-		expect(added.at(-1)).toMatchObject({
-			emoji: "🔥",
-			count: 1,
-			viewerReacted: true,
-		});
-		const gone = toggleReaction(
-			[
-				{
-					emoji: "x",
-					count: 1,
-					reactors: ["did:plc:viewer"],
-					viewerReacted: true,
-				},
-			] as unknown as ReactionView[],
-			"x",
-			"did:plc:viewer",
-			false,
-		);
-		expect(gone).toEqual([]);
 	});
 
 	it("resolves a custom reaction by its emoji record before its name", () => {

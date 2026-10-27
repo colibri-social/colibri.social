@@ -68,7 +68,13 @@ export const reactTo = (
 		if (!next.customEmoji && customEmoji) next.customEmoji = customEmoji;
 		if (actor === viewer) next.viewerReacted = true;
 		if (current) reactions[index] = next;
-		else reactions.push(next);
+		else {
+			const at = reactions.findIndex(
+				(entry) => entry.emoji.localeCompare(emoji) > 0,
+			);
+			if (at < 0) reactions.push(next);
+			else reactions.splice(at, 0, next);
+		}
 	} else {
 		const ownReaction = actor === viewer && current?.viewerReacted;
 		if (!current?.reactors.includes(actor) && !ownReaction) return message;

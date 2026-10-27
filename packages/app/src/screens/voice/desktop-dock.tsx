@@ -22,7 +22,7 @@ import {
 	screenShareMenu,
 	toggleScreenShare,
 } from "./screen-share";
-import { callTiles } from "./tiles";
+import { callTiles, floatingSubject } from "./tiles";
 
 const CORNER_KEY = "colibri:voice-floating-corner";
 const WIDTH_KEY = "colibri:voice-floating-width";
@@ -84,20 +84,14 @@ export default function VoiceDock() {
 		const speaking = participants().find((tile) => tile.speaking);
 		if (speaking) setLastSpeaker(speaking.id);
 	});
-	const subject = createMemo((): VoiceTileData | undefined => {
-		const tiles = participants();
-		const focused = voice.focusedKey();
-		return (
-			(focused
-				? tiles.find((tile) => voiceTileKey(tile) === focused)
-				: undefined) ??
-			tiles.find((tile) => tile.speaking && tile.kind !== "screen") ??
-			tiles.find((tile) => tile.kind === "screen") ??
-			tiles.find((tile) => tile.id === lastSpeaker()) ??
-			tiles.find((tile) => tile.id === data.viewer.did) ??
-			tiles[0]
-		);
-	});
+	const subject = createMemo((): VoiceTileData | undefined =>
+		floatingSubject(participants(), {
+			focusedKey: voice.focusedKey(),
+			lastSpeaker: lastSpeaker(),
+			viewer: data.viewer.did,
+			keyOf: voiceTileKey,
+		}),
+	);
 
 	const hasVideo = () => voice.camera() || voice.videos().length > 0;
 	const floating = () =>
@@ -130,8 +124,10 @@ export default function VoiceDock() {
 						channelName={current().view?.name}
 						spaceName={current().community?.name}
 						muted={voice.muted()}
+						micMissing={voice.micMissing()}
 						deafened={voice.deafened()}
 						cameraOn={voice.camera()}
+						cameraPending={voice.cameraPending()}
 						screenSharing={voice.screenSharing()}
 						class="border-t-0"
 						onDisconnect={voice.leave}
@@ -170,6 +166,7 @@ export default function VoiceDock() {
 								}}
 								insets={{ top: windowBarHeight() }}
 								cameraOn={voice.camera()}
+								cameraPending={voice.cameraPending()}
 								onToggleCamera={voice.toggleCamera}
 								screenSharing={voice.screenSharing()}
 								onToggleScreenShare={voice.stopScreenShare}

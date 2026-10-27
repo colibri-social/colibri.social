@@ -125,13 +125,18 @@ const createVoice = (role: VoiceRole) => {
 	} satisfies MemberMenuVoice;
 };
 
-const DesktopDemo = (props: { kind: VoiceRole; moderator?: boolean }) => {
+const DesktopDemo = (props: {
+	kind: VoiceRole;
+	moderator?: boolean;
+	name?: string;
+}) => {
 	const voice = createVoice(props.kind);
+	const name = () => props.name ?? NAME;
 	return (
 		<div class="min-h-screen bg-background p-8">
 			<div class="w-60 rounded-surface bg-card p-2">
 				<MemberContextMenu
-					name={NAME}
+					name={name()}
 					voice={voice}
 					onViewProfile={spy.viewProfile}
 					onKick={props.moderator ? spy.kick : undefined}
@@ -140,7 +145,7 @@ const DesktopDemo = (props: { kind: VoiceRole; moderator?: boolean }) => {
 					developerMode
 					onCopyAtUri={spy.copyAtUri}
 				>
-					<MemberRow name={NAME} seed="did:plc:wren" presence="online" />
+					<MemberRow name={name()} seed="did:plc:wren" presence="online" />
 				</MemberContextMenu>
 			</div>
 		</div>
@@ -160,13 +165,14 @@ const rightClick = (element: Element) => {
 	);
 };
 
-const openMenu = async (canvasElement: HTMLElement) => {
+const openMenu = async (canvasElement: HTMLElement, name = NAME) => {
 	const row = within(canvasElement)
-		.getAllByText(NAME)[0]
+		.getAllByText(name)[0]
 		?.closest("[data-member-row]") as Element;
+	const label = `${name} options`;
 	return waitFor(() => {
-		if (!screen.queryByRole("menu", { name: MENU })) rightClick(row);
-		return screen.getByRole("menu", { name: MENU });
+		if (!screen.queryByRole("menu", { name: label })) rightClick(row);
+		return screen.getByRole("menu", { name: label });
 	});
 };
 
@@ -196,6 +202,21 @@ const closeMenu = async () => {
 	});
 };
 
+const expectFullWidthSliders = async (menu: HTMLElement) => {
+	const row = within(menu)
+		.getByRole("menuitemcheckbox", { name: "Server mute" })
+		.getBoundingClientRect();
+	const rails = Array.from(
+		menu.querySelectorAll<HTMLElement>("[data-slider-rail]"),
+	);
+	await expect(rails).toHaveLength(2);
+	for (const rail of rails) {
+		const box = rail.getBoundingClientRect();
+		await expect(Math.abs(box.left - (row.left + 8))).toBeLessThanOrEqual(1);
+		await expect(Math.abs(box.right - (row.right - 8))).toBeLessThanOrEqual(1);
+	}
+};
+
 const REGULAR_ENTRIES = ["View profile", "Copy DID", "Developer mode"];
 
 export const PeerInCall: Story = {
@@ -204,6 +225,7 @@ export const PeerInCall: Story = {
 		resetSpies();
 		const menu = await openMenu(canvasElement);
 		await expectNoLayoutIssues(menu);
+		await expectFullWidthSliders(menu);
 		await expect(entryNames(menu)).toEqual([
 			"slider:100%",
 			"slider:60%",
@@ -241,6 +263,20 @@ export const PeerInCall: Story = {
 		await userEvent.click(disconnect);
 		await expect(spy.disconnect).toHaveBeenCalledTimes(1);
 		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+	},
+};
+
+const LONG_NAME = "Wren from the evening birdwatch group";
+
+export const PeerInCallLongName: Story = {
+	render: () => <DesktopDemo kind="peer" moderator name={LONG_NAME} />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const menu = await openMenu(canvasElement, LONG_NAME);
+		await expectNoLayoutIssues(menu);
+		await expect(menu.getBoundingClientRect().width).toBeGreaterThan(260);
+		await expectFullWidthSliders(menu);
+		await closeMenu();
 	},
 };
 

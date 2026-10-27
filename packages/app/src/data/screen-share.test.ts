@@ -13,6 +13,7 @@ import {
 	screenContentHint,
 	screenDegradationPreference,
 	screenEncodings,
+	screenEncodingTarget,
 	screenMaxBitrate,
 	screenVideoConstraints,
 	supportsDisplayAudio,
@@ -89,11 +90,38 @@ describe("screenMaxBitrate", () => {
 });
 
 describe("screenEncodings and screenCodecOptions", () => {
-	it("produces a single encoding capped at the ladder bitrate", () => {
+	it("produces a single encoding capped at the ladder bitrate and framerate", () => {
 		const quality = { resolution: "1440", framerate: 30 } as const;
 		expect(screenEncodings(quality)).toEqual([
-			{ maxBitrate: screenMaxBitrate(quality) },
+			{ maxBitrate: screenMaxBitrate(quality), maxFramerate: 30 },
 		]);
+	});
+
+	it("adds temporal layers when a scalability mode is given", () => {
+		const quality = { resolution: "1080", framerate: 60 } as const;
+		expect(screenEncodings(quality, "L1T3")).toEqual([
+			{
+				maxBitrate: screenMaxBitrate(quality),
+				maxFramerate: 60,
+				scalabilityMode: "L1T3",
+			},
+		]);
+	});
+
+	it("sizes the encoder target from the capture or the chosen resolution", () => {
+		const quality = { resolution: "1080", framerate: 30 } as const;
+		expect(screenEncodingTarget(quality)).toEqual({
+			width: 1920,
+			height: 1080,
+			framerate: 30,
+			bitrate: screenMaxBitrate(quality),
+		});
+		expect(
+			screenEncodingTarget(
+				{ resolution: "source", framerate: 60 },
+				{ width: 2560, height: 1600 },
+			),
+		).toMatchObject({ width: 2560, height: 1600, framerate: 60 });
 	});
 
 	it("starts the encoder at half the ceiling in kbps", () => {

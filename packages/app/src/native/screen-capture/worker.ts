@@ -43,10 +43,13 @@ self.onmessage = (event) => {
 	let writer = null;
 	let closed = false;
 
-	const fail = (message) => {
+	const fail = (stage, message) => {
 		if (closed) return;
 		closed = true;
-		self.postMessage({ type: "error", message: String(message) });
+		try { decoder?.close(); } catch {}
+		try { writer?.close(); } catch {}
+		try { activeSocket?.close(); } catch {}
+		self.postMessage({ type: "error", stage, message: String(message) });
 	};
 
 	const finish = () => {
@@ -72,7 +75,7 @@ self.onmessage = (event) => {
 		try {
 			generator = new VideoTrackGenerator();
 		} catch (error) {
-			fail(error);
+			fail("bridge", error);
 			return;
 		}
 
@@ -84,7 +87,7 @@ self.onmessage = (event) => {
 	socket.binaryType = "arraybuffer";
 	activeSocket = socket;
 
-	socket.onerror = () => fail("the capture connection failed");
+	socket.onerror = () => fail("connection", "the capture connection failed");
 	socket.onclose = () => finish();
 
 	socket.onmessage = (message) => {
@@ -93,7 +96,7 @@ self.onmessage = (event) => {
 			if (config.type !== "config") return;
 			decoder = new VideoDecoder({
 				output: (frame) => emit(frame),
-				error: (error) => fail(error),
+				error: (error) => fail("decode", error),
 			});
 			decoder.configure({
 				codec: config.codec,
@@ -123,7 +126,7 @@ self.onmessage = (event) => {
 				data: parsed.data,
 			}));
 		} catch (error) {
-			fail(error);
+			fail("decode", error);
 		}
 	};
 };

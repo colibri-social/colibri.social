@@ -12,6 +12,7 @@ export const SETTINGS_PAGE_IDS = [
 	"advanced",
 	"whatsNew",
 	"support",
+	"acknowledgements",
 	"experiments",
 	"debugInfo",
 	"logs",

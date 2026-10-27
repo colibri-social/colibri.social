@@ -47,6 +47,7 @@ export type VoiceFloatingWindowProps = {
 	onWidthChange?: (width: number) => void;
 	insets?: FloatingInsets;
 	cameraOn?: boolean;
+	cameraPending?: boolean;
 	onToggleCamera?: () => void;
 	screenSharing?: boolean;
 	onToggleScreenShare?: () => void;
@@ -190,6 +191,17 @@ export const VoiceFloatingWindow = (props: VoiceFloatingWindowProps) => {
 		capture(box, event.pointerId);
 	};
 
+	const onDoubleClick = (event: MouseEvent) => {
+		if (moved) return;
+		const target = event.target as Element;
+		if (
+			target.closest("button:not([data-floating-surface])") ||
+			target.closest("[data-floating-resize]")
+		)
+			return;
+		props.onReturn();
+	};
+
 	const onResizeDown = (event: PointerEvent) => {
 		event.stopPropagation();
 		if (event.button !== 0) return;
@@ -260,6 +272,7 @@ export const VoiceFloatingWindow = (props: VoiceFloatingWindowProps) => {
 				onPointerUp={endDrag}
 				onPointerCancel={endDrag}
 				onLostPointerCapture={() => start && endDrag()}
+				onDblClick={onDoubleClick}
 				onDragStart={(event) => event.preventDefault()}
 				class={cx(
 					"group/floating fixed top-0 left-0 z-40 cursor-grab touch-none overflow-hidden rounded-surface border border-border bg-card shadow-overlay select-none data-dragging:cursor-grabbing",
@@ -284,7 +297,6 @@ export const VoiceFloatingWindow = (props: VoiceFloatingWindowProps) => {
 					onClick={(event) => {
 						if (event.detail === 0) props.onReturn();
 					}}
-					onDblClick={() => props.onReturn()}
 					class="absolute inset-0 z-10 cursor-[inherit] rounded-surface border-0 bg-transparent p-0 outline-none focus-ring-inset"
 				/>
 				<div
@@ -320,6 +332,7 @@ export const VoiceFloatingWindow = (props: VoiceFloatingWindowProps) => {
 								pressed
 								tone="active"
 								size="md"
+								loading={props.cameraPending}
 								icon={<AnimatedVideocameraIcon off={false} />}
 								onClick={props.onToggleCamera}
 								class="pointer-events-auto"

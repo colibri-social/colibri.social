@@ -157,6 +157,7 @@ fn expose_cef_library_dir() {
 fn chromium_switches() -> Vec<(String, Option<String>)> {
     let mut switches = vec![
         ("--no-first-run".to_owned(), None),
+        ("disable-pinch".to_owned(), None),
         (
             "autoplay-policy".to_owned(),
             Some("no-user-gesture-required".to_owned()),

@@ -322,8 +322,10 @@ export const voiceScreen = defineContract({
 			<CallControls
 				size={p.size}
 				muted={voice.muted()}
+				micMissing={voice.micMissing()}
 				deafened={voice.deafened()}
 				cameraOn={voice.camera()}
+				cameraPending={voice.cameraPending()}
 				screenSharing={voice.screenSharing()}
 				onToggleCamera={voice.toggleCamera}
 				onToggleScreenShare={

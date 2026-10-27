@@ -35,6 +35,7 @@ export type CallControlButtonProps = {
 	size?: CallControlSize;
 	stretch?: boolean;
 	disabled?: boolean;
+	loading?: boolean;
 	tooltip?: string;
 	onClick?: () => void;
 	class?: string;
@@ -50,6 +51,7 @@ export const CallControlButton = (props: CallControlButtonProps) => {
 			size={props.size ?? "xl"}
 			variant="secondary"
 			disabled={props.disabled}
+			loading={props.loading}
 			aria-pressed={props.pressed === undefined ? undefined : props.pressed}
 			data-tone={props.tone ?? "default"}
 			onClick={() => {
@@ -97,20 +99,31 @@ export type CallMediaState = {
 	deafened?: boolean;
 	serverMuted?: boolean;
 	serverDeafened?: boolean;
+	micMissing?: boolean;
 	cameraOn?: boolean;
+	cameraPending?: boolean;
 	screenSharing?: boolean;
 };
 
 export const micControl = (state: CallMediaState) => {
-	const off = () => !!(state.muted || state.serverMuted);
+	const off = () => !!(state.muted || state.serverMuted || state.micMissing);
 	return {
 		off,
+		disabled: () => !!(state.serverMuted || state.micMissing),
 		label: () =>
-			state.serverMuted ? "Muted by a moderator" : off() ? "Unmute" : "Mute",
+			state.serverMuted
+				? "Muted by a moderator"
+				: state.micMissing
+					? "No microphone"
+					: off()
+						? "Unmute"
+						: "Mute",
 		tooltip: () =>
 			state.serverMuted
 				? "A moderator muted you. Your mic stays muted until they lift it."
-				: undefined,
+				: state.micMissing
+					? "Colibri can't find a microphone. Plug one in and join the call again to talk."
+					: undefined,
 		tone: (): CallControlTone =>
 			state.serverMuted ? "server" : off() ? "off" : "default",
 	};
@@ -171,6 +184,7 @@ export const CallControls = (props: CallControlsProps) => {
 					pressed={!!props.cameraOn}
 					tone={props.cameraOn ? "active" : "default"}
 					size={props.size}
+					loading={props.cameraPending}
 					icon={<AnimatedVideocameraIcon off={!props.cameraOn} />}
 					onClick={props.onToggleCamera}
 				/>
@@ -181,7 +195,7 @@ export const CallControls = (props: CallControlsProps) => {
 				pressed={mic.off()}
 				tone={mic.tone()}
 				size={props.size}
-				disabled={props.serverMuted}
+				disabled={mic.disabled()}
 				icon={<AnimatedMicrophoneIcon muted={mic.off()} />}
 				onClick={props.onToggleMute}
 			/>

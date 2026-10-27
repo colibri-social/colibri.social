@@ -1684,7 +1684,7 @@ impl Default for PlatformSpecificWebViewAttributes {
   fn default() -> Self {
     Self {
       additional_browser_args: None,
-      browser_accelerator_keys: true, // This is WebView2's default behavior
+      browser_accelerator_keys: false,
       default_context_menus: true,    // This is WebView2's default behavior
       theme: None,
       use_https: false, // To match macOS & Linux behavior in the context of mixed content.
@@ -1711,7 +1711,7 @@ pub trait WebViewBuilderExtWindows {
 
   /// Determines whether browser-specific accelerator keys are enabled. When this setting is set to
   /// `false`, it disables all accelerator keys that access features specific to a web browser.
-  /// The default value is `true`. See the following link to know more details.
+  /// See the following link to know more details.
   ///
   /// Setting to `false` does nothing on WebView2 Runtime version before 92.0.902.0,
   /// see <https://learn.microsoft.com/en-us/microsoft-edge/webview2/release-notes/archive?tabs=dotnetcsharp#10824-prerelease>

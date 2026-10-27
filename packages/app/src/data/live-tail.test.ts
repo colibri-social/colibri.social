@@ -128,4 +128,21 @@ describe("live tails", () => {
 			viewerReacted: true,
 		});
 	});
+
+	it("inserts a new reaction where the server sorts it", () => {
+		const react = (list: readonly MessageView[], emoji: string) =>
+			reactIn(list, {
+				rkey: "a",
+				emoji,
+				actor: VIEWER,
+				add: true,
+				viewer: VIEWER,
+			});
+		const sorted = ["c", "a", "b"].reduce(react, [message("a")]);
+		expect(sorted[0]?.reactions.map((entry) => entry.emoji)).toEqual([
+			"a",
+			"b",
+			"c",
+		]);
+	});
 });

@@ -189,7 +189,7 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 					tone={mic.tone()}
 					size="lg"
 					stretch
-					disabled={props.serverMuted}
+					disabled={mic.disabled()}
 					icon={<AnimatedMicrophoneIcon muted={mic.off()} />}
 					onClick={props.onToggleMute}
 				/>
@@ -210,6 +210,7 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 					tone={props.cameraOn ? "active" : "default"}
 					size="lg"
 					stretch
+					loading={props.cameraPending}
 					icon={<AnimatedVideocameraIcon off={!props.cameraOn} />}
 					onClick={props.onToggleCamera}
 				/>

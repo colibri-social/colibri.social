@@ -79,8 +79,6 @@ fn color_to_argb(color: Color) -> u32 {
 ///   support in the Chrome runtime.
 /// - `data_store_identifier`: a WKWebView data-store concept with no CEF analog
 ///   (per-webview isolation is done through the request context cache path).
-/// - `zoom_hotkeys_enabled`: handled by Chromium's accelerator table, not a
-///   browser setting.
 ///
 /// `proxy_url` is handled separately via the request context preference.
 fn browser_settings_from_webview_attributes(
@@ -841,8 +839,17 @@ impl CefInitScript {
   }
 }
 
+const ZOOM_GUARD_SCRIPT: &str = r#"addEventListener("wheel", (event) => { if (event.ctrlKey) event.preventDefault(); }, { capture: true, passive: false });"#;
+
 pub(crate) fn initialization_scripts(attrs: &mut WebviewAttributes) -> Arc<Vec<CefInitScript>> {
   let mut initialization_scripts = Vec::new();
+
+  if !attrs.zoom_hotkeys_enabled {
+    initialization_scripts.push(CefInitScript::new(InitializationScript {
+      script: ZOOM_GUARD_SCRIPT.to_string(),
+      for_main_frame_only: true,
+    }));
+  }
 
   if attrs.drag_drop_handler_enabled {
     let drag_script = browser_client::drag_drop_initialization_script();

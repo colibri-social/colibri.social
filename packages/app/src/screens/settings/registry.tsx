@@ -13,6 +13,7 @@ import { sellsThroughAppStore } from "../../native/app-store";
 import type { Platform } from "../../screen/platform";
 import { accountPageOf } from "./account-page";
 import type { SettingsNav, SettingsPageId } from "./nav";
+import AcknowledgementsPage from "./pages/acknowledgements";
 import AdvancedPage from "./pages/advanced";
 import AppearancePage from "./pages/appearance";
 import ChatPage from "./pages/chat";
@@ -87,6 +88,11 @@ export const SETTINGS_PAGES: Record<SettingsPageId, PageInfo> = {
 		entry: "support",
 		view: SupportPage,
 	},
+	acknowledgements: {
+		title: SETTINGS_ENTRY_INFO.acknowledgements.label,
+		entry: "acknowledgements",
+		view: AcknowledgementsPage,
+	},
 	experiments: {
 		title: SETTINGS_ENTRY_INFO.experiments.label,
 		entry: "experiments",
@@ -142,6 +148,7 @@ export const settingsEntries = (
 		feedback: external(FEEDBACK_URL),
 		documentation: external(DOCUMENTATION_URL),
 		...(sellsThroughAppStore() ? {} : { support: page("support") }),
+		acknowledgements: page("acknowledgements"),
 		experiments: page("experiments"),
 		...(developer
 			? {

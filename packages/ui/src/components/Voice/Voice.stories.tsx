@@ -179,12 +179,32 @@ const ControlsDemo = () => {
 				screenSharing={sharing()}
 				onLeave={() => {}}
 			/>
+			<Label>Camera starting</Label>
+			<div data-testid="pending-controls">
+				<CallControls
+					cameraOn
+					cameraPending
+					onToggleMute={() => {}}
+					onToggleDeafen={() => {}}
+					onToggleCamera={toggles.camera}
+					onLeave={() => {}}
+				/>
+			</div>
 			<Label>Moderator muted and deafened</Label>
 			<div data-testid="server-controls">
 				<CallControls
 					serverMuted
 					serverDeafened
 					onToggleMute={() => {}}
+					onToggleDeafen={() => {}}
+					onLeave={() => {}}
+				/>
+			</div>
+			<Label>No microphone</Label>
+			<div data-testid="no-mic-controls">
+				<CallControls
+					micMissing
+					onToggleMute={toggles.mute}
 					onToggleDeafen={() => {}}
 					onLeave={() => {}}
 				/>
@@ -226,6 +246,16 @@ export const Controls: Story = {
 			live.getByRole("button", { name: "Turn off camera" }),
 		).toHaveAttribute("aria-pressed", "true");
 
+		const pending = within(
+			within(canvasElement).getByTestId("pending-controls"),
+		);
+		const starting = pending.getByRole("button", { name: "Turn off camera" });
+		await expect(starting).toHaveAttribute("aria-busy", "true");
+		await expect(starting).toHaveAttribute("aria-disabled", "true");
+		const cameraToggles = toggles.camera.mock.calls.length;
+		await userEvent.click(starting);
+		await expect(toggles.camera).toHaveBeenCalledTimes(cameraToggles);
+
 		const server = within(within(canvasElement).getByTestId("server-controls"));
 		const serverMic = server.getByRole("button", {
 			name: "Muted by a moderator",
@@ -257,6 +287,21 @@ export const Controls: Story = {
 			{ timeout: 2000 },
 		);
 		await userEvent.unhover(serverDeafen);
+		const noMic = within(within(canvasElement).getByTestId("no-mic-controls"));
+		const missingMic = noMic.getByRole("button", { name: "No microphone" });
+		await expect(missingMic).toHaveAttribute("aria-disabled", "true");
+		const mutesBefore = toggles.mute.mock.calls.length;
+		await userEvent.click(missingMic);
+		await expect(toggles.mute).toHaveBeenCalledTimes(mutesBefore);
+		await userEvent.hover(missingMic);
+		await waitFor(
+			() =>
+				expect(screen.getByRole("tooltip")).toHaveTextContent(
+					"Colibri can't find a microphone. Plug one in and join the call again to talk.",
+				),
+			{ timeout: 3000 },
+		);
+		await userEvent.unhover(missingMic);
 	},
 };
 
@@ -322,6 +367,65 @@ export const Grid: Story = {
 			.getByTestId("grid-2")
 			.querySelector("video[data-video-surface]");
 		await expect(camera).not.toBeNull();
+	},
+};
+
+const JoinReflowDemo = () => {
+	const [count, setCount] = createSignal(4);
+	const camera = fakeCamera("Moving camera", 120);
+	const tiles = (): VoiceTileData[] =>
+		people
+			.slice(0, count())
+			.map((person, index) =>
+				index === 2 ? { ...person, stream: camera } : person,
+			);
+	return (
+		<Screen>
+			<button type="button" onClick={() => setCount(7)}>
+				Three people join
+			</button>
+			<div
+				data-testid="reflow-grid"
+				class="h-80 rounded-surface border border-border bg-background p-3"
+			>
+				<VoiceGrid tiles={tiles()} />
+			</div>
+		</Screen>
+	);
+};
+
+export const KeepsVideoWhenRowsReflow: Story = {
+	render: () => <JoinReflowDemo />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const grid = canvas
+			.getByTestId("reflow-grid")
+			.querySelector("[data-voice-grid]") as HTMLElement;
+		const tileTops = () =>
+			Array.from(grid.querySelectorAll<HTMLElement>("[data-voice-tile]")).map(
+				(tile) => Math.round(tile.getBoundingClientRect().top),
+			);
+		await waitFor(() => expect(grid.querySelector("video")).not.toBeNull());
+		const before = grid.querySelector("video");
+		await waitFor(() => {
+			const tops = tileTops();
+			expect(tops[2]).toBeGreaterThan(tops[0] as number);
+		});
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Three people join" }),
+		);
+		await waitFor(() =>
+			expect(grid.querySelectorAll("[data-voice-tile]").length).toBe(7),
+		);
+		await expect(grid).toHaveAttribute("data-columns", "3");
+		await expect(grid.querySelector("video")).toBe(before);
+		await waitFor(() => {
+			const tops = tileTops();
+			expect(tops[2]).toBe(tops[0]);
+			expect(tops[3]).toBeGreaterThan(tops[0] as number);
+			expect(tops[6]).toBeGreaterThan(tops[3] as number);
+		});
+		await expectNoLayoutIssues(grid);
 	},
 };
 
@@ -1280,6 +1384,8 @@ export const FloatingWindow: Story = {
 			new PointerEvent("pointerup", { bubbles: true, pointerId: 7 }),
 		);
 		await expect(corner).toHaveTextContent("tl");
+		surface.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+		await expect(floatingReturn).not.toHaveBeenCalled();
 		await settleTransform();
 		await expect(Math.round(rect().left)).toBe(16);
 		await expect(Math.round(rect().top)).toBe(16);
@@ -1292,13 +1398,15 @@ export const FloatingWindow: Story = {
 		await expect(corner).toHaveTextContent("br");
 		await userEvent.keyboard("{Enter}");
 		await expect(floatingReturn).toHaveBeenCalledTimes(1);
+		await userEvent.dblClick(surface);
+		await expect(floatingReturn).toHaveBeenCalledTimes(2);
 
 		await userEvent.hover(surface);
 		const chrome = within(win);
 		await userEvent.click(
 			chrome.getByRole("button", { name: /^Hangout.*back to call$/ }),
 		);
-		await expect(floatingReturn).toHaveBeenCalledTimes(2);
+		await expect(floatingReturn).toHaveBeenCalledTimes(3);
 		await userEvent.click(
 			chrome.getByRole("button", { name: "Turn off camera" }),
 		);

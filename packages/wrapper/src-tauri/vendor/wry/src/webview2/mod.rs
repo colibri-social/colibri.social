@@ -494,24 +494,24 @@ impl InnerWebView {
       Self::add_script_to_execute_on_document_created(&webview, init_script.script)?;
     }
 
-    // Enable clipboard
-    if attributes.clipboard {
-      unsafe {
-        webview.add_PermissionRequested(
-          &PermissionRequestedEventHandler::create(Box::new(|_, args| {
-            let Some(args) = args else { return Ok(()) };
+    let clipboard = attributes.clipboard;
+    unsafe {
+      webview.add_PermissionRequested(
+        &PermissionRequestedEventHandler::create(Box::new(move |_, args| {
+          let Some(args) = args else { return Ok(()) };
 
-            let mut kind = COREWEBVIEW2_PERMISSION_KIND::default();
-            args.PermissionKind(&mut kind)?;
-            if kind == COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ {
-              args.SetState(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?;
-            }
+          let mut kind = COREWEBVIEW2_PERMISSION_KIND::default();
+          args.PermissionKind(&mut kind)?;
+          let mut uri = PWSTR::null();
+          args.Uri(&mut uri)?;
+          if grants_permission(kind, clipboard, &take_pwstr(uri)) {
+            args.SetState(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?;
+          }
 
-            Ok(())
-          })),
-          &mut token,
-        )?;
-      }
+          Ok(())
+        })),
+        &mut token,
+      )?;
     }
 
     // Navigation
@@ -572,6 +572,7 @@ impl InnerWebView {
     settings.SetIsZoomControlEnabled(attributes.zoom_hotkeys_enabled)?;
     settings.SetAreDevToolsEnabled(attributes.devtools)?;
     settings.SetIsScriptEnabled(!attributes.javascript_disabled)?;
+    settings.SetIsBuiltInErrorPageEnabled(false)?;
 
     if let Some(user_agent) = &attributes.user_agent {
       if let Ok(settings2) = settings.cast::<ICoreWebView2Settings2>() {
@@ -587,6 +588,7 @@ impl InnerWebView {
 
     if let Ok(settings4) = settings.cast::<ICoreWebView2Settings4>() {
       settings4.SetIsGeneralAutofillEnabled(attributes.general_autofill_enabled)?;
+      settings4.SetIsPasswordAutosaveEnabled(false)?;
     }
 
     if let Ok(settings5) = settings.cast::<ICoreWebView2Settings5>() {
@@ -595,6 +597,10 @@ impl InnerWebView {
 
     if let Ok(settings6) = settings.cast::<ICoreWebView2Settings6>() {
       settings6.SetIsSwipeNavigationEnabled(attributes.back_forward_navigation_gestures)?;
+    }
+
+    if let Ok(settings8) = settings.cast::<ICoreWebView2Settings8>() {
+      settings8.SetIsReputationCheckingRequired(false)?;
     }
 
     if let Ok(settings9) = settings.cast::<ICoreWebView2Settings9>() {
@@ -788,9 +794,20 @@ impl InnerWebView {
     )?;
     Self::attach_main_thread_dispatcher(hwnd);
 
+    let devtools = attributes.devtools;
+    if let Ok(webview11) = webview.cast::<ICoreWebView2_11>() {
+      webview11.add_ContextMenuRequested(
+        &ContextMenuRequestedEventHandler::create(Box::new(move |_, args| {
+          let Some(args) = args else {
+            return Ok(());
+          };
+          Self::filter_context_menu(&args.MenuItems()?, devtools)
+        })),
+        token,
+      )?;
+    }
+
     // Download handler
-    if attributes.download_started_handler.is_some()
-      || attributes.download_completed_handler.is_some()
     {
       let mut download_started_handler = attributes.download_started_handler.take();
       let download_completed_handler = attributes.download_completed_handler.take();
@@ -801,6 +818,28 @@ impl InnerWebView {
           let Some(args) = args else {
             return Ok(());
           };
+
+          if download_started_handler.is_none() && download_completed_handler.is_none() {
+            let suggested = {
+              let mut path = PWSTR::null();
+              args.ResultFilePath(&mut path)?;
+              PathBuf::from(take_pwstr(path))
+            };
+            let deferral = args.GetDeferral()?;
+            Self::dispatch_handler(hwnd, move || {
+              match Self::prompt_download_path(hwnd, &suggested) {
+                Some(path) => {
+                  let _ = args.SetResultFilePath(&HSTRING::from(dunce::simplified(&path)));
+                }
+                None => {
+                  let _ = args.SetCancel(true);
+                }
+              }
+              let _ = args.SetHandled(true);
+              let _ = deferral.Complete();
+            });
+            return Ok(());
+          }
 
           let uri = {
             let mut uri = PWSTR::null();
@@ -871,6 +910,57 @@ impl InnerWebView {
     }
 
     Ok(())
+  }
+
+  unsafe fn filter_context_menu(
+    items: &ICoreWebView2ContextMenuItemCollection,
+    devtools: bool,
+  ) -> windows::core::Result<()> {
+    let mut count = 0;
+    items.Count(&mut count)?;
+    let mut entries = Vec::with_capacity(count as usize);
+    for index in 0..count {
+      let item = items.GetValueAtIndex(index)?;
+      let mut kind = COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND::default();
+      item.Kind(&mut kind)?;
+      if kind == COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_SEPARATOR {
+        entries.push(ContextMenuEntry::Separator);
+        continue;
+      }
+      let mut name = PWSTR::null();
+      item.Name(&mut name)?;
+      entries.push(ContextMenuEntry::Item(take_pwstr(name)));
+    }
+
+    let keep = retained_context_menu_items(&entries, devtools);
+    for (index, kept) in keep.iter().enumerate().rev() {
+      if !kept {
+        items.RemoveValueAtIndex(index as u32)?;
+      }
+    }
+    Ok(())
+  }
+
+  unsafe fn prompt_download_path(owner: HWND, suggested: &std::path::Path) -> Option<PathBuf> {
+    let dialog: IFileSaveDialog =
+      CoCreateInstance(&FileSaveDialog, None, CLSCTX_INPROC_SERVER).ok()?;
+    let options = dialog.GetOptions().ok()?;
+    dialog
+      .SetOptions(options | FOS_OVERWRITEPROMPT | FOS_FORCEFILESYSTEM)
+      .ok()?;
+    if let Some(name) = suggested.file_name() {
+      dialog.SetFileName(&HSTRING::from(name)).ok()?;
+    }
+    if let Some(folder) = suggested.parent().filter(|folder| folder.is_dir()) {
+      if let Ok(item) =
+        SHCreateItemFromParsingName::<_, _, IShellItem>(&HSTRING::from(folder), None::<&IBindCtx>)
+      {
+        let _ = dialog.SetFolder(&item);
+      }
+    }
+    dialog.Show(Some(GetAncestor(owner, GA_ROOT))).ok()?;
+    let path = dialog.GetResult().ok()?.GetDisplayName(SIGDN_FILESYSPATH).ok()?;
+    Some(PathBuf::from(take_pwstr(path)))
   }
 
   #[inline]
@@ -1851,4 +1941,76 @@ fn is_windows_7() -> bool {
   let v = windows_version::OsVersion::current();
   // windows 7 is 6.1
   v.major == 6 && v.minor == 1
+}
+
+const APP_CONTEXT_MENU_ITEMS: [&str; 11] = [
+  "undo",
+  "redo",
+  "cut",
+  "copy",
+  "paste",
+  "pasteAndMatchStyle",
+  "pasteAsPlainText",
+  "delete",
+  "selectAll",
+  "emoji",
+  "spellCheck",
+];
+
+enum ContextMenuEntry {
+  Separator,
+  Item(String),
+}
+
+fn keeps_context_menu_item(name: &str, devtools: bool) -> bool {
+  APP_CONTEXT_MENU_ITEMS.contains(&name) || (devtools && name == "inspectElement")
+}
+
+fn retained_context_menu_items(entries: &[ContextMenuEntry], devtools: bool) -> Vec<bool> {
+  let mut keep: Vec<bool> = entries
+    .iter()
+    .map(|entry| match entry {
+      ContextMenuEntry::Item(name) => keeps_context_menu_item(name, devtools),
+      ContextMenuEntry::Separator => false,
+    })
+    .collect();
+
+  let mut previous_kept_item = false;
+  let mut pending_separator = None;
+  for (index, entry) in entries.iter().enumerate() {
+    match entry {
+      ContextMenuEntry::Separator if previous_kept_item => {
+        pending_separator.get_or_insert(index);
+      }
+      ContextMenuEntry::Item(_) if keep[index] => {
+        if let Some(separator) = pending_separator.take() {
+          keep[separator] = true;
+        }
+        previous_kept_item = true;
+      }
+      _ => {}
+    }
+  }
+
+  keep
+}
+
+const APP_ORIGINS: [&str; 2] = ["http://tauri.localhost", "https://tauri.localhost"];
+
+fn is_app_origin(uri: &str) -> bool {
+  APP_ORIGINS.iter().any(|origin| {
+    uri
+      .strip_prefix(origin)
+      .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+  })
+}
+
+fn grants_permission(kind: COREWEBVIEW2_PERMISSION_KIND, clipboard: bool, uri: &str) -> bool {
+  if kind == COREWEBVIEW2_PERMISSION_KIND_CLIPBOARD_READ {
+    return clipboard;
+  }
+  is_app_origin(uri)
+    && (kind == COREWEBVIEW2_PERMISSION_KIND_MICROPHONE
+      || kind == COREWEBVIEW2_PERMISSION_KIND_CAMERA
+      || kind == COREWEBVIEW2_PERMISSION_KIND_NOTIFICATIONS)
 }

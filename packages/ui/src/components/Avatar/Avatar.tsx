@@ -1,8 +1,12 @@
 import {
+	createEffect,
+	createMemo,
 	createSignal,
 	createUniqueId,
 	type JSX,
 	Match,
+	on,
+	onCleanup,
 	Show,
 	Switch,
 	splitProps,
@@ -134,6 +138,8 @@ export type AvatarProps = Omit<
 	play?: boolean;
 };
 
+const IMAGE_RETRY_MS = [1_500, 5_000];
+
 const initialsOf = (name: string) =>
 	name
 		.trim()
@@ -158,6 +164,36 @@ export const Avatar = (props: AvatarProps) => {
 	]);
 	const [loaded, setLoaded] = createSignal(false);
 	const [failed, setFailed] = createSignal(false);
+	const [attempt, setAttempt] = createSignal(0);
+	let retry: ReturnType<typeof setTimeout> | undefined;
+	const stopRetry = () => {
+		clearTimeout(retry);
+		retry = undefined;
+	};
+	onCleanup(stopRetry);
+	const source = createMemo(() => local.src);
+	createEffect(
+		on(
+			source,
+			() => {
+				stopRetry();
+				setLoaded(false);
+				setFailed(false);
+				setAttempt(0);
+			},
+			{ defer: true },
+		),
+	);
+	const fail = () => {
+		setFailed(true);
+		const delay = IMAGE_RETRY_MS[attempt()];
+		if (delay === undefined || retry) return;
+		retry = setTimeout(() => {
+			retry = undefined;
+			setAttempt((count) => count + 1);
+			setFailed(false);
+		}, delay);
+	};
 	const pixels = () => SIZES[local.size ?? "md"];
 	const showImage = () => !!local.src && !failed();
 	const fallbackMode = () =>
@@ -210,32 +246,36 @@ export const Avatar = (props: AvatarProps) => {
 					/>
 				</Show>
 				<Show
-					when={showImage()}
+					when={showImage() && attempt() + 1}
+					keyed
 					fallback={<span class="sr-only">{local.name}</span>}
 				>
-					<span
-						data-avatar-image=""
-						class={cx(
-							"absolute inset-0 transition-opacity duration-[calc(180ms*var(--motion-scale))] ease-(--ease-out-quick)",
-							!loaded() && "opacity-0",
-						)}
-					>
-						<AnimatedImage
-							src={local.src}
-							alt={local.name}
-							draggable={false}
-							animated={!isStaticSource(local.src)}
-							playback="demand"
-							play={local.play}
-							frameSize={pixels()}
-							onLoad={() => setLoaded(true)}
-							onError={() => setFailed(true)}
+					{(key) => (
+						<span
+							data-avatar-image=""
+							data-avatar-attempt={key}
 							class={cx(
-								"absolute inset-0 size-full object-cover outline-1 -outline-offset-1 outline-white/8 light:outline-black/8",
-								radius(),
+								"absolute inset-0 transition-opacity duration-[calc(180ms*var(--motion-scale))] ease-(--ease-out-quick)",
+								!loaded() && "opacity-0",
 							)}
-						/>
-					</span>
+						>
+							<AnimatedImage
+								src={local.src}
+								alt={local.name}
+								draggable={false}
+								animated={!isStaticSource(local.src)}
+								playback="demand"
+								play={local.play}
+								frameSize={pixels()}
+								onLoad={() => setLoaded(true)}
+								onError={fail}
+								class={cx(
+									"absolute inset-0 size-full object-cover outline-1 -outline-offset-1 outline-white/8 light:outline-black/8",
+									radius(),
+								)}
+							/>
+						</span>
+					)}
 				</Show>
 			</span>
 			<Show when={local.presence}>

@@ -300,6 +300,38 @@ fn apply_proxy(request_context: &RequestContext, proxy_url: &url::Url) {
   }
 }
 
+const APP_SHELL_PREFERENCES: [(&str, bool); 7] = [
+  ("printing.enabled", false),
+  ("autofill.profile_enabled", false),
+  ("autofill.credit_card_enabled", false),
+  ("credentials_enable_service", false),
+  ("credentials_enable_autosignin", false),
+  ("translate.enabled", false),
+  ("download_bubble.partial_view_enabled", false),
+];
+
+fn apply_app_shell_preferences(request_context: &RequestContext) {
+  use cef::ImplValue;
+
+  for (name, enabled) in APP_SHELL_PREFERENCES {
+    let pref_name: CefString = name.into();
+    if request_context.has_preference(Some(&pref_name)) != 1
+      || request_context.can_set_preference(Some(&pref_name)) != 1
+    {
+      log::debug!("the CEF request context does not offer the {name} preference");
+      continue;
+    }
+    let Some(mut value) = cef::value_create() else {
+      continue;
+    };
+    value.set_bool(enabled as ::std::os::raw::c_int);
+    let mut error = CefString::default();
+    if request_context.set_preference(Some(&pref_name), Some(&mut value), Some(&mut error)) != 1 {
+      log::warn!("could not set the {name} preference: {error}");
+    }
+  }
+}
+
 pub(crate) fn request_context_from_webview_attributes<'a>(
   global_cache_path: &Path,
   webview_attributes: &WebviewAttributes,
@@ -349,6 +381,9 @@ pub(crate) fn request_context_from_webview_attributes<'a>(
   let wrapped_callback: RequestContextInitContinuation = Box::new({
     let rc_holder = rc_holder.clone();
     move |rc| {
+      if let Some(rc) = rc.as_ref() {
+        apply_app_shell_preferences(rc);
+      }
       // The proxy preference can only be set once the request context's
       // underlying profile has finished initializing, which is exactly what
       // this continuation signals.

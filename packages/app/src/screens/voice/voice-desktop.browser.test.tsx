@@ -328,6 +328,27 @@ it("keeps the floating window hidden without video and after leaving", async () 
 	expect(floating()).toBeNull();
 });
 
+it("returns to the call when double clicking the floating window", async () => {
+	const host = await mount("standup");
+	await userEvent.click(button(stage(), "Join voice"));
+	await expect.poll(() => voice.connection().state).toBe("connected");
+	await openGeneral(host);
+	button(
+		document.querySelector("[data-voice-status]") as HTMLElement,
+		"Turn on camera",
+	).click();
+	await expect.poll(() => floating()).not.toBeNull();
+	const surface = floating()?.querySelector(
+		"[data-floating-surface]",
+	) as HTMLElement;
+	await userEvent.dblClick(surface);
+	await expect
+		.poll(() => document.querySelector("[data-voice-desktop][data-joined]"))
+		.not.toBeNull();
+	expect(location.pathname).toBe(`/app/c/${HQ}/${VOICE}/standup`);
+	expect(floating()).toBeNull();
+});
+
 const floatingName = () =>
 	floating()?.querySelector("[data-voice-tile]")?.getAttribute("aria-label");
 

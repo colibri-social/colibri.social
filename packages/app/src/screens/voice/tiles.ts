@@ -43,3 +43,21 @@ export const callTiles = (input: {
 			: people.filter((tile) => tile.stream);
 	return [...screens, ...shown];
 };
+
+export const floatingSubject = (
+	tiles: readonly VoiceTileData[],
+	input: {
+		focusedKey: string | null | undefined;
+		lastSpeaker: string | undefined;
+		viewer: string;
+		keyOf: (tile: VoiceTileData) => string;
+	},
+): VoiceTileData | undefined =>
+	(input.focusedKey
+		? tiles.find((tile) => input.keyOf(tile) === input.focusedKey)
+		: undefined) ??
+	tiles.find((tile) => tile.kind === "screen") ??
+	tiles.find((tile) => tile.speaking) ??
+	tiles.find((tile) => tile.id === input.lastSpeaker) ??
+	tiles.find((tile) => tile.id === input.viewer) ??
+	tiles[0];

@@ -5,7 +5,6 @@ import { FileIcon } from "@solar-icons/solid/bold/file";
 import { GalleryMinimalisticIcon } from "@solar-icons/solid/bold/gallery-minimalistic";
 import { LockKeyholeMinimalisticIcon } from "@solar-icons/solid/bold/lock-keyhole-minimalistic";
 import { SettingsIcon } from "@solar-icons/solid/bold/settings";
-import { VideocameraIcon } from "@solar-icons/solid/bold/videocamera";
 import { VolumeIcon } from "@solar-icons/solid/bold/volume";
 import { VolumeLoudIcon } from "@solar-icons/solid/bold/volume-loud";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
@@ -519,12 +518,12 @@ export const VoiceChannelRow = (props: VoiceChannelRowProps) => {
 				onClick={(event: MouseEvent) => props.onClick?.(event)}
 				onContextMenu={(event: MouseEvent) => props.onContextMenu?.(event)}
 				class={cx(
-					"ripple flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-r-control-xs border-0 border-l-2 border-solid bg-transparent p-1.5 text-left no-underline select-none [-webkit-touch-callout:none]",
+					"ripple flex w-full min-w-0 cursor-pointer items-center gap-2 border-0 border-l-2 border-solid bg-transparent p-1.5 text-left no-underline select-none [-webkit-touch-callout:none]",
 					compact() ? compactRowHeight(props.platform) : "h-8",
 					rowFocus,
 					props.joined
 						? "rounded-r-control-sm border-primary"
-						: "border-transparent hover:bg-popover/60",
+						: "rounded-control-sm border-transparent hover:bg-popover/60",
 					props.active &&
 						!props.joined &&
 						(desktop() ? "bg-popover" : "bg-muted"),
@@ -654,13 +653,7 @@ const ParticipantContent = (props: {
 			<span class="sr-only">, speaking</span>
 		</Show>
 		<Show when={props.person.streaming}>
-			<span
-				data-voice-streaming=""
-				class="flex shrink-0 items-center gap-1 text-muted-foreground"
-			>
-				<span aria-hidden="true" class="flex size-4 [&>svg]:size-4">
-					<VideocameraIcon />
-				</span>
+			<span data-voice-streaming="" class="flex shrink-0 items-center">
 				<Badge variant="live" aria-hidden="true">
 					Live
 				</Badge>

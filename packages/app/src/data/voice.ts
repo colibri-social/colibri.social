@@ -36,7 +36,9 @@ export type VoiceController = {
 	muted: Accessor<boolean>;
 	deafened: Accessor<boolean>;
 	camera: Accessor<boolean>;
+	cameraPending: Accessor<boolean>;
 	screenSharing: Accessor<boolean>;
+	micMissing: Accessor<boolean>;
 	expanded: Accessor<boolean>;
 	startedAt: Accessor<number | undefined>;
 	connection: Accessor<VoiceConnection>;
@@ -99,10 +101,13 @@ export const createVoice = (
 		const [selfMuted, setSelfMuted] = createSignal(false);
 		const [deafened, setDeafened] = createSignal(false);
 		const [camera, setCamera] = createSignal(false);
+		const [cameraPending, setCameraPending] = createSignal(false);
+		let cameraRequest = 0;
 		const [expanded, setExpanded] = createSignal(false);
 		const [startedAt, setStartedAt] = createSignal<number>();
 
-		const muted = () => selfMuted() || deafened();
+		const micMissing = () => !!current() && link().micAvailable?.() === false;
+		const muted = () => selfMuted() || deafened() || micMissing();
 
 		const moderationOf = (did: string): VoiceModeration => {
 			const live = current() ? link().moderation?.()[did] : undefined;
@@ -127,7 +132,7 @@ export const createVoice = (
 			current()?.channel === channelUri &&
 			!!link()
 				.videos?.()
-				.some((video) => video.did === did);
+				.some((video) => video.did === did && video.source === "screen");
 
 		const channelOf = (did: string) =>
 			store()?.presenceOf(did as Did)?.voice?.channel;
@@ -155,6 +160,8 @@ export const createVoice = (
 				setSelfMuted(false);
 				setDeafened(false);
 				setCamera(false);
+				cameraRequest += 1;
+				setCameraPending(false);
 				setExpanded(false);
 				setStartedAt(undefined);
 				setFloatingDismissed(false);
@@ -199,10 +206,7 @@ export const createVoice = (
 					speaking: speakingIn(channelUri, did),
 					muted: voice?.muted,
 					deafened: voice?.deafened,
-					streaming:
-						!!(voice?.camera || voice?.screen) ||
-						sharingIn(channelUri, did) ||
-						undefined,
+					streaming: !!voice?.screen || sharingIn(channelUri, did) || undefined,
 					...moderated(channelUri, did, voice),
 				};
 			});
@@ -270,6 +274,8 @@ export const createVoice = (
 			batch(() => {
 				setCurrent({ ...active, channel });
 				setCamera(false);
+				cameraRequest += 1;
+				setCameraPending(false);
 				setStartedAt(Date.now());
 				setFocusedKey(null);
 			});
@@ -292,11 +298,15 @@ export const createVoice = (
 			const releaseScreenShare = active.onScreenShare?.((sharing) => {
 				if (current()) play(sharing ? "screenShared" : "screenUnshared");
 			});
+			const releaseMic = active.onMicAvailable?.(() => {
+				if (current()) publish();
+			});
 			detach = () => {
 				releaseEnded?.();
 				releaseMoved?.();
 				releaseNotice?.();
 				releaseScreenShare?.();
+				releaseMic?.();
 			};
 		};
 		attach(link());
@@ -316,7 +326,9 @@ export const createVoice = (
 			muted,
 			deafened,
 			camera,
+			cameraPending,
 			screenSharing,
+			micMissing,
 			expanded,
 			startedAt,
 			connection: () => link().connection(),
@@ -342,6 +354,8 @@ export const createVoice = (
 					setCurrent({ ...call });
 					if (opts?.muted !== undefined) setSelfMuted(opts.muted);
 					setCamera(false);
+					cameraRequest += 1;
+					setCameraPending(false);
 					setStartedAt(Date.now());
 					setExpanded(true);
 					setFloatingDismissed(false);
@@ -362,6 +376,7 @@ export const createVoice = (
 					notify("serverMuted");
 					return;
 				}
+				if (micMissing()) return;
 				batch(() => {
 					if (deafened()) {
 						setDeafened(false);
@@ -386,13 +401,17 @@ export const createVoice = (
 			},
 			toggleCamera: () => {
 				const call = current();
-				if (!call) return;
+				if (!call || cameraPending()) return;
 				const next = !camera();
 				setCamera(next);
 				play(next ? "camOn" : "camOff");
 				const apply = link().setCamera;
 				if (!apply) return;
+				const request = ++cameraRequest;
+				if (next) setCameraPending(true);
 				void apply(next).then((on) => {
+					if (request !== cameraRequest) return;
+					setCameraPending(false);
 					if (current() === call && camera() === next && on !== next) {
 						setCamera(on);
 					}

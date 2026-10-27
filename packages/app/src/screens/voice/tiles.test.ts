@@ -1,6 +1,6 @@
 import type { VoiceParticipant } from "@colibri-social/ui";
 import { describe, expect, it } from "vitest";
-import { callTiles } from "./tiles";
+import { callTiles, floatingSubject } from "./tiles";
 
 const VIEWER = "did:plc:viewer";
 const PEER = "did:plc:peer";
@@ -75,5 +75,56 @@ describe("callTiles", () => {
 		expect(
 			callTiles({ participants, videos: [], viewer: VIEWER, view }),
 		).toHaveLength(3);
+	});
+});
+
+describe("floatingSubject", () => {
+	const keyOf = (tile: { kind?: string; id: string }) =>
+		`${tile.kind === "screen" ? "s" : "p"}:${tile.id}`;
+	const screenTile = {
+		...person(PEER),
+		kind: "screen" as const,
+		key: `s:${PEER}`,
+		stream: stream("screen"),
+	};
+	const speaking = { ...person(QUIET), speaking: true };
+
+	it("stays on a screen share while people talk", () => {
+		expect(
+			floatingSubject([screenTile, person(VIEWER), speaking], {
+				focusedKey: null,
+				lastSpeaker: QUIET,
+				viewer: VIEWER,
+				keyOf,
+			}),
+		).toBe(screenTile);
+	});
+
+	it("follows the focused tile, then the speaker, then the viewer", () => {
+		const tiles = [screenTile, person(VIEWER), speaking];
+		expect(
+			floatingSubject(tiles, {
+				focusedKey: `p:${QUIET}`,
+				lastSpeaker: undefined,
+				viewer: VIEWER,
+				keyOf,
+			}),
+		).toBe(speaking);
+		expect(
+			floatingSubject([person(VIEWER), speaking], {
+				focusedKey: null,
+				lastSpeaker: undefined,
+				viewer: VIEWER,
+				keyOf,
+			}),
+		).toBe(speaking);
+		expect(
+			floatingSubject([person(PEER), person(VIEWER)], {
+				focusedKey: null,
+				lastSpeaker: undefined,
+				viewer: VIEWER,
+				keyOf,
+			}),
+		).toEqual(person(VIEWER));
 	});
 });

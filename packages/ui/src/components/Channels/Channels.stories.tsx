@@ -345,6 +345,26 @@ export const RowStates: Story = {
 			'[data-voice-row][data-state="empty"]',
 		) as HTMLElement;
 		await expect(empty.querySelector("[data-voice-participants]")).toBeNull();
+		const textRadius = getComputedStyle(
+			read.querySelector("a, button") as HTMLElement,
+		).borderTopLeftRadius;
+		await expect(Number.parseFloat(textRadius)).toBeGreaterThan(0);
+		for (const row of [
+			empty,
+			canvasElement.querySelector(
+				'[data-voice-row][data-state="active"]',
+			) as HTMLElement,
+		]) {
+			const style = getComputedStyle(
+				row.querySelector("button") as HTMLElement,
+			);
+			await expect(style.borderTopLeftRadius).toBe(textRadius);
+			await expect(style.borderBottomLeftRadius).toBe(textRadius);
+			await expect(style.borderTopRightRadius).toBe(textRadius);
+		}
+		const joinedStyle = getComputedStyle(joinedButton);
+		await expect(joinedStyle.borderTopLeftRadius).toBe("0px");
+		await expect(joinedStyle.borderTopRightRadius).toBe(textRadius);
 
 		const locks = Array.from(
 			canvasElement.querySelectorAll<HTMLElement>("[data-channel-private]"),

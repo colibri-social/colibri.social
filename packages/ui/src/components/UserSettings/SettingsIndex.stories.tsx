@@ -33,6 +33,7 @@ const MAIN_ORDER: SettingsEntryId[] = [
 	"feedback",
 	"documentation",
 	"support",
+	"acknowledgements",
 	"experiments",
 ];
 

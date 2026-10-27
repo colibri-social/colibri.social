@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { screenMaxBitrate } from "../../data/screen-share";
 import {
+	CaptureBridgeError,
 	createCaptureCleanup,
+	createNativeCaptureTrack,
 	nativeCaptureQuality,
 	previewAspectRatio,
 } from "./index";
@@ -310,5 +312,72 @@ describe("previewAspectRatio", () => {
 		expect(Number(previewAspectRatio({ width: 0, height: 0 }))).toBeGreaterThan(
 			0,
 		);
+	});
+});
+
+class FakeWorker {
+	static last: FakeWorker | undefined;
+	onmessage: ((event: { data: unknown }) => void) | null = null;
+	onerror: (() => void) | null = null;
+	terminated = false;
+	constructor() {
+		FakeWorker.last = this;
+	}
+	postMessage() {}
+	terminate() {
+		this.terminated = true;
+	}
+	emit(data: unknown) {
+		this.onmessage?.({ data });
+	}
+}
+
+const SESSION = { url: "ws://127.0.0.1:1", token: "t" };
+
+describe("createNativeCaptureTrack", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		FakeWorker.last = undefined;
+	});
+
+	const stubWorker = () => {
+		vi.stubGlobal("Worker", FakeWorker);
+		vi.stubGlobal("URL", {
+			createObjectURL: () => "blob:capture",
+			revokeObjectURL: () => {},
+		});
+	};
+
+	it("rejects with the failing stage before the capture starts", async () => {
+		stubWorker();
+		const pending = createNativeCaptureTrack(SESSION, false);
+		await vi.waitFor(() => expect(FakeWorker.last).toBeDefined());
+		FakeWorker.last?.emit({
+			type: "error",
+			stage: "connection",
+			message: "the capture connection failed",
+		});
+		const error = await pending.catch((thrown: unknown) => thrown);
+		expect(error).toBeInstanceOf(CaptureBridgeError);
+		expect((error as CaptureBridgeError).stage).toBe("connection");
+	});
+
+	it("reports a failure after the capture started", async () => {
+		stubWorker();
+		const failures: string[] = [];
+		const pending = createNativeCaptureTrack(SESSION, false, (stage) =>
+			failures.push(stage),
+		);
+		await vi.waitFor(() => expect(FakeWorker.last).toBeDefined());
+		const worker = FakeWorker.last as FakeWorker;
+		worker.emit({ type: "track", track: { kind: "video" } });
+		await pending;
+		worker.emit({
+			type: "error",
+			stage: "connection",
+			message: "the capture connection failed",
+		});
+		expect(failures).toEqual(["connection"]);
+		expect(worker.terminated).toBe(true);
 	});
 });

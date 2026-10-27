@@ -185,17 +185,30 @@ export const createCaptureCleanup = (
 	};
 };
 
+export type CaptureFailureStage = "bridge" | "connection" | "decode";
+
+export class CaptureBridgeError extends Error {
+	constructor(
+		readonly stage: CaptureFailureStage,
+		message: string,
+	) {
+		super(message);
+		this.name = "CaptureBridgeError";
+	}
+}
+
 type WorkerMessage =
 	| { type: "ready" }
 	| { type: "track"; track: MediaStreamTrack }
 	| { type: "frame"; frame: VideoFrame }
 	| { type: "audio"; frames: number; planes: Float32Array[] }
-	| { type: "error"; message: string }
+	| { type: "error"; stage: CaptureFailureStage; message: string }
 	| { type: "ended" };
 
 export const createNativeCaptureTrack = async (
 	session: NativeCaptureSession,
 	withAudio: boolean,
+	onFailure?: (stage: CaptureFailureStage) => void,
 ): Promise<NativeCaptureTrack> => {
 	const audio = withAudio ? await createNativeAudioBridge() : null;
 	const sink = createMainThreadSink();
@@ -251,10 +264,15 @@ export const createNativeCaptureTrack = async (
 				settle(data.track);
 				return;
 			}
-			if (data.type === "error" && !settled) {
-				settled = true;
+			if (data.type === "error") {
 				cleanup();
-				reject(new Error(data.message));
+				if (!settled) {
+					settled = true;
+					reject(new CaptureBridgeError(data.stage, data.message));
+					return;
+				}
+				log.warn("the screen capture stopped", { stage: data.stage });
+				onFailure?.(data.stage);
 				return;
 			}
 			if (data.type === "ended") cleanup();
@@ -264,7 +282,9 @@ export const createNativeCaptureTrack = async (
 			if (settled) return;
 			settled = true;
 			cleanup();
-			reject(new Error("the capture bridge failed to start"));
+			reject(
+				new CaptureBridgeError("bridge", "the capture bridge failed to start"),
+			);
 		};
 
 		worker.postMessage({

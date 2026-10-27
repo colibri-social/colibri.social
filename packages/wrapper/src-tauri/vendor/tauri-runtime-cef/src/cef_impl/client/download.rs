@@ -8,7 +8,7 @@ use cef::*;
 
 wrap_download_handler! {
   pub struct TauriCefDownloadHandler {
-    download_handler: Arc<crate::compat::DownloadHandler>,
+    download_handler: Option<Arc<crate::compat::DownloadHandler>>,
   }
 
   impl DownloadHandler {
@@ -37,6 +37,11 @@ wrap_download_handler! {
         return 0;
       };
 
+      let Some(download_handler) = &self.download_handler else {
+        callback.cont(suggested_name, 1);
+        return 1;
+      };
+
       let url_str = CefString::from(&download_item.url()).to_string();
       let Ok(url) = url::Url::parse(&url_str) else {
         return 0;
@@ -51,7 +56,7 @@ wrap_download_handler! {
 
       // Call handler with Requested event.
       let should_allow =
-        (self.download_handler)(tauri_runtime::webview::DownloadEvent::Requested {
+        download_handler(tauri_runtime::webview::DownloadEvent::Requested {
           url: url.clone(),
           destination: &mut destination,
         });
@@ -74,6 +79,9 @@ wrap_download_handler! {
       download_item: Option<&mut DownloadItem>,
       _callback: Option<&mut DownloadItemCallback>,
     ) {
+      let Some(download_handler) = &self.download_handler else {
+        return;
+      };
       let Some(download_item) = download_item else {
         return;
       };
@@ -105,7 +113,7 @@ wrap_download_handler! {
       // Only call handler when download is finished (complete or canceled).
       if is_complete || is_canceled {
         // Call handler with Finished event.
-        (self.download_handler)(tauri_runtime::webview::DownloadEvent::Finished {
+        download_handler(tauri_runtime::webview::DownloadEvent::Finished {
           url,
           path: full_path,
           success,

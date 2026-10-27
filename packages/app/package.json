@@ -9,8 +9,9 @@
 		"./dist/*": "./dist/*"
 	},
 	"scripts": {
-		"dev": "pnpm --filter @colibri-social/assets build-worklets && vite",
-		"build": "pnpm --filter @colibri-social/assets build-worklets && vite build",
+		"acknowledgements": "node --experimental-strip-types ../../scripts/generate-acknowledgements.ts",
+		"dev": "pnpm run acknowledgements && pnpm --filter @colibri-social/assets build-worklets && vite",
+		"build": "pnpm run acknowledgements && pnpm --filter @colibri-social/assets build-worklets && vite build",
 		"preview": "vite preview",
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run"

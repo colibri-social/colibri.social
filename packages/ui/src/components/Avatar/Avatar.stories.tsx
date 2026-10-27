@@ -1,4 +1,4 @@
-import { For } from "solid-js";
+import { createSignal, For } from "solid-js";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { Avatar } from "./Avatar";
@@ -188,6 +188,40 @@ export const StillAvatarNeverSwaps: Story = {
 		await expect(geometryOf(image)).toEqual(resting);
 		await userEvent.unhover(row);
 		await expect(canvasElement.querySelector("canvas")).toBeNull();
+	},
+};
+
+export const StaysLoadedWhenOwnerUpdates: Story = {
+	render: () => {
+		const [author, setAuthor] = createSignal({
+			name: "Lou Escher",
+			avatar: LARGE_PNG,
+		});
+		return (
+			<div class="flex items-center gap-3">
+				<Avatar name={author().name} size="md" src={author().avatar} />
+				<button
+					type="button"
+					onClick={() => setAuthor((current) => ({ ...current }))}
+				>
+					Refresh author
+				</button>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const layer = () =>
+			canvasElement.querySelector<HTMLElement>("[data-avatar-image]");
+		await waitFor(
+			() => expect(layer()?.classList.contains("opacity-0")).toBe(false),
+			{ timeout: 3000 },
+		);
+		const image = canvasElement.querySelector("img");
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Refresh author" }),
+		);
+		await expect(layer()?.classList.contains("opacity-0")).toBe(false);
+		await expect(canvasElement.querySelector("img")).toBe(image);
 	},
 };
 

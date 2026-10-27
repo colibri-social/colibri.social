@@ -4,6 +4,7 @@ import { ChatRoundDotsIcon } from "@solar-icons/solid/bold/chat-round-dots";
 import { CheckCircleIcon } from "@solar-icons/solid/bold/check-circle";
 import { CopyIcon } from "@solar-icons/solid/bold/copy";
 import { DocumentTextIcon } from "@solar-icons/solid/bold/document-text";
+import { HandHeartIcon } from "@solar-icons/solid/bold/hand-heart";
 import { HandMoneyIcon } from "@solar-icons/solid/bold/hand-money";
 import { LikeIcon } from "@solar-icons/solid/bold/like";
 import { Logout2Icon } from "@solar-icons/solid/bold/logout-2";
@@ -44,6 +45,7 @@ export type SettingsEntryId =
 	| "feedback"
 	| "documentation"
 	| "support"
+	| "acknowledgements"
 	| "experiments"
 	| "copyDid"
 	| "pdsls"
@@ -137,6 +139,11 @@ export const SETTINGS_ENTRY_INFO: Record<SettingsEntryId, EntryInfo> = {
 		icon: () => <HandMoneyIcon />,
 		keywords: ["donate"],
 	},
+	acknowledgements: {
+		label: "Acknowledgements",
+		icon: () => <HandHeartIcon />,
+		keywords: ["credits", "open source", "licenses", "thanks"],
+	},
 	experiments: {
 		label: "Experiments",
 		icon: () => <TestTubeMinimalisticIcon />,
@@ -166,6 +173,7 @@ const SECTIONS: EntrySection[] = [
 			"feedback",
 			"documentation",
 			"support",
+			"acknowledgements",
 			"experiments",
 		],
 	},

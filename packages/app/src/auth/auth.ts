@@ -76,6 +76,7 @@ const FALLBACK_FLAG_KEY = "colibri:oauth-storage-fallback";
 const SCOPE_PAUSED_KEY = "colibri:scope-prompt-paused";
 const SCOPE_REAPPROVAL_KEY = "colibri:scope-reapproval";
 export const GRANT_REFRESH_AFTER_MS = 15 * 60_000;
+export const NEAR_EXPIRY_MS = 5 * 60_000;
 const SIGN_IN_TIMEOUT_MS = 75_000;
 export const STARTUP_TIMEOUT_MS = 30_000;
 export const BEFORE_SIGN_OUT_TIMEOUT_MS = 3_000;
@@ -391,21 +392,36 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		});
 	};
 
+	const applyGrant = (owner: Agent, scope: string | undefined) => {
+		if (agent() !== owner) return;
+		if (scope !== untrack(grantedScope)) health.clearScopeRejections();
+		setGrantedScope(scope);
+	};
+
 	const refreshGrant = (oauth: OAuthSession, owner: Agent) =>
 		oauth.getTokenInfo(true).then(
-			(info) => {
-				if (agent() !== owner) return;
-				if (info.scope !== untrack(grantedScope)) {
-					health.clearScopeRejections();
-				}
-				setGrantedScope(info.scope);
-			},
+			(info) => applyGrant(owner, info.scope),
 			(err: unknown) => {
 				const failure = classifyThrown(err, { method: "oauth.getTokenInfo" });
 				log.warn("refreshing access failed", { code: failure.code });
 				health.noteAuthFailure(failure.code);
 			},
 		);
+
+	const refreshGrantIfExpiring = async (oauth: OAuthSession, owner: Agent) => {
+		let info: Awaited<ReturnType<OAuthSession["getTokenInfo"]>>;
+		try {
+			info = await oauth.getTokenInfo(false);
+		} catch {
+			return;
+		}
+		const expiresAt = info.expiresAt?.getTime();
+		if (expiresAt === undefined || expiresAt - Date.now() > NEAR_EXPIRY_MS) {
+			applyGrant(owner, info.scope);
+			return;
+		}
+		return refreshGrant(oauth, owner);
+	};
 
 	const isOnline = () => typeof navigator === "undefined" || navigator.onLine;
 
@@ -452,7 +468,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		stopGrantRefresh = watchResume({
 			onResume: () => {
 				if (agent() === next && untrack(grantedScope) && refreshable()) {
-					void refreshGrant(oauth, next);
+					void refreshGrantIfExpiring(oauth, next);
 				}
 			},
 			afterMs: GRANT_REFRESH_AFTER_MS,

@@ -172,7 +172,7 @@ describe("voice", () => {
 		}
 	});
 
-	it("marks participants sharing a camera or screen as streaming, joined or not", () => {
+	it("marks only participants sharing their screen as streaming, joined or not", () => {
 		const { voice, setPresence } = setup();
 		const alice = "did:plc:alice" as Did;
 		const bob = "did:plc:bob" as Did;
@@ -191,7 +191,7 @@ describe("voice", () => {
 				.participants(STANDUP)
 				.map((person) => [person.id, person.streaming]),
 		).toEqual([
-			[alice, true],
+			[alice, undefined],
 			[bob, true],
 			[carol, undefined],
 		]);
@@ -251,7 +251,9 @@ const fakeMonitor = () => {
 	let movedListener: ((channel: string) => void) | undefined;
 	let cameraResult = true;
 	const [screenSharing, setScreenSharing] = createSignal(false);
+	const [micAvailable, setMicAvailable] = createSignal(true);
 	let screenShareListener: ((sharing: boolean) => void) | undefined;
+	let micListener: ((available: boolean) => void) | undefined;
 	const monitor = {
 		connection,
 		start: vi.fn((session?: VoiceSession) => {
@@ -272,6 +274,13 @@ const fakeMonitor = () => {
 		}),
 		applyScreenQuality: vi.fn(),
 		screenSharing,
+		micAvailable,
+		onMicAvailable: (listener: (available: boolean) => void) => {
+			micListener = listener;
+			return () => {
+				micListener = undefined;
+			};
+		},
 		onScreenShare: (listener: (sharing: boolean) => void) => {
 			screenShareListener = listener;
 			return () => {
@@ -296,6 +305,10 @@ const fakeMonitor = () => {
 	} satisfies VoiceConnectionMonitor;
 	return {
 		monitor,
+		setMicAvailable: (available: boolean) => {
+			setMicAvailable(available);
+			micListener?.(available);
+		},
 		setSpeakers,
 		setVideos,
 		setModeration,
@@ -359,6 +372,19 @@ describe("voice with a media engine", () => {
 		});
 	});
 
+	it("shows the viewer muted when the call has no microphone", () => {
+		const { voice, fake, sent } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		expect(voice.muted()).toBe(false);
+		fake.setMicAvailable(false);
+		expect(voice.muted()).toBe(true);
+		expect(sent.at(-1)).toEqual({ channel: LOUNGE, muted: true });
+		voice.toggleMute();
+		expect(voice.muted()).toBe(true);
+		voice.leave();
+		expect(voice.muted()).toBe(false);
+	});
+
 	it("passes mute and deafen changes to the engine", () => {
 		const { voice, fake } = setupWithMonitor();
 		voice.join({ space: SPACE, channel: LOUNGE });
@@ -385,6 +411,11 @@ describe("voice with a media engine", () => {
 		await Promise.resolve();
 		expect(voice.participants(LOUNGE)[0]?.streaming).toBeUndefined();
 		fake.setVideos([{ did: VIEWER, source: "cam", stream: {} as MediaStream }]);
+		expect(voice.participants(LOUNGE)[0]?.streaming).toBeUndefined();
+		fake.setVideos([
+			{ did: VIEWER, source: "cam", stream: {} as MediaStream },
+			{ did: VIEWER, source: "screen", stream: {} as MediaStream },
+		]);
 		expect(voice.participants(LOUNGE)[0]?.streaming).toBe(true);
 		voice.leave();
 		expect(voice.participants(LOUNGE)).toEqual([]);
@@ -450,6 +481,43 @@ describe("voice with a media engine", () => {
 		expect(voice.camera()).toBe(true);
 		await vi.waitFor(() => expect(voice.camera()).toBe(false));
 		expect(fake.monitor.setCamera).toHaveBeenCalledWith(true);
+	});
+
+	it("ignores camera toggles while the camera is starting", async () => {
+		const { voice, fake } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		let finish: (on: boolean) => void = () => {};
+		fake.monitor.setCamera.mockImplementationOnce(
+			() =>
+				new Promise<boolean>((resolve) => {
+					finish = resolve;
+				}),
+		);
+		voice.toggleCamera();
+		expect(voice.camera()).toBe(true);
+		expect(voice.cameraPending()).toBe(true);
+		voice.toggleCamera();
+		expect(voice.camera()).toBe(true);
+		expect(fake.monitor.setCamera).toHaveBeenCalledTimes(1);
+		finish(true);
+		await vi.waitFor(() => expect(voice.cameraPending()).toBe(false));
+		expect(voice.camera()).toBe(true);
+		voice.toggleCamera();
+		expect(voice.camera()).toBe(false);
+		expect(voice.cameraPending()).toBe(false);
+		expect(fake.monitor.setCamera).toHaveBeenLastCalledWith(false);
+	});
+
+	it("clears the pending camera when the call ends", () => {
+		const { voice, fake } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		fake.monitor.setCamera.mockImplementationOnce(
+			() => new Promise<boolean>(() => {}),
+		);
+		voice.toggleCamera();
+		expect(voice.cameraPending()).toBe(true);
+		voice.leave();
+		expect(voice.cameraPending()).toBe(false);
 	});
 
 	it("shares the screen during a call and plays the share sounds", async () => {

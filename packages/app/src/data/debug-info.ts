@@ -7,6 +7,11 @@ import type { DiagnosticsField, DiagnosticsSection } from "@colibri-social/ui";
 import { appViewUrl } from "../auth/appview";
 import { resolvePdsHost } from "../auth/identity";
 import { formatLogs } from "./log-buffer";
+import {
+	formatVideoSample,
+	latestVideoStats,
+	type VideoStatsSample,
+} from "./voice/video-stats";
 
 export const RECENT_LOG_LINES = 60;
 
@@ -140,6 +145,13 @@ export const logSection = (
 	],
 });
 
+export const videoSection = (
+	samples: readonly VideoStatsSample[] = latestVideoStats(),
+): DiagnosticsSection => ({
+	title: "Call video",
+	fields: [list("Streams", samples.map(formatVideoSample))],
+});
+
 export const collectDiagnostics = async (
 	input: AccountInput & { experiments: string[] },
 ): Promise<DiagnosticsSection[]> => {
@@ -152,6 +164,7 @@ export const collectDiagnostics = async (
 		deviceSection(),
 		account,
 		runtimeSection(input.experiments),
+		videoSection(),
 		logSection(),
 	];
 };

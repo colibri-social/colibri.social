@@ -288,6 +288,41 @@ describe("voice engine", () => {
 			expect(harness.engine.connection().state).toBe("connected"),
 		);
 		expect(harness.notices).toEqual(["noMicrophone"]);
+		expect(harness.engine.connection().latency).toBeNull();
+		await reply(socket, "setSelfState", { $type: `${DEFS}ack` });
+		await vi.waitFor(() =>
+			expect(harness.engine.connection().latency).toBeGreaterThan(0),
+		);
+	});
+
+	it("joins listen-only without a warning when there is no microphone", async () => {
+		const harness = track(
+			setup({
+				media: {
+					getUserMedia: async () => {
+						throw new DOMException("none", "NotFoundError");
+					},
+				},
+			}),
+		);
+		harness.engine.start({ channel: CHANNEL, muted: false, deafened: false });
+		await vi.waitFor(() => expect(harness.sockets).toHaveLength(1));
+		const socket = harness.sockets[0];
+		socket.open();
+		await reply(socket, "join", { $type: `${DEFS}joined`, channel: CHANNEL });
+		await reply(socket, "getRtpCapabilities", {
+			$type: `${DEFS}rtpCapabilities`,
+			payload: { codecs: [] },
+		});
+		await reply(socket, "createTransport", transportOptions("send-1", "send"));
+		await reply(socket, "createTransport", transportOptions("recv-1", "recv"));
+		await vi.waitFor(() =>
+			expect(harness.engine.connection().state).toBe("connected"),
+		);
+		expect(harness.notices).toEqual([]);
+		expect(harness.engine.micAvailable()).toBe(false);
+		const state = await reply(socket, "setSelfState", { $type: `${DEFS}ack` });
+		expect(state).toMatchObject({ muted: true });
 	});
 
 	it("gives up when the system has no WebRTC", async () => {
@@ -327,6 +362,55 @@ describe("voice engine", () => {
 			expect.objectContaining({ did: VIEWER, source: "cam" }),
 		]);
 		expect(await harness.engine.setCamera(false)).toBe(false);
+		expect(harness.engine.videos()).toEqual([]);
+		const close = await pending(socket, "closeProducer");
+		expect(close).toMatchObject({ producerId: "cam-1" });
+	});
+
+	it("drops a camera turned off while the device is still opening", async () => {
+		const harness = track(setup());
+		const { socket } = await connect(harness);
+		const camTrack = new FakeTrack("video");
+		let open: (stream: MediaStream) => void = () => {};
+		harness.getUserMedia.mockImplementationOnce(
+			() =>
+				new Promise<MediaStream>((resolve) => {
+					open = resolve;
+				}),
+		);
+		const calls = harness.getUserMedia.mock.calls.length;
+		const turningOn = harness.engine.setCamera(true);
+		const again = harness.engine.setCamera(true);
+		await flush();
+		expect(harness.getUserMedia.mock.calls.length).toBe(calls + 1);
+		expect(await harness.engine.setCamera(false)).toBe(false);
+		open(new FakeStream([camTrack]) as unknown as MediaStream);
+		expect(await turningOn).toBe(false);
+		expect(await again).toBe(false);
+		await flush();
+		expect(camTrack.stopped).toBe(true);
+		expect(harness.engine.videos()).toEqual([]);
+		expect(socket.sent.slice(socket.answered)).toEqual([]);
+		expect(harness.notices).toEqual([]);
+	});
+
+	it("closes a camera turned off while it is still being sent", async () => {
+		const harness = track(setup());
+		const { socket } = await connect(harness);
+		const turningOn = harness.engine.setCamera(true);
+		await vi.waitFor(() =>
+			expect(socket.sent[socket.answered]?.$type).toBe(`${DEFS}produce`),
+		);
+		expect(await harness.engine.setCamera(false)).toBe(false);
+		expect(harness.engine.videos()).toEqual([]);
+		await reply(socket, "produce", {
+			$type: `${DEFS}producerInfo`,
+			producerId: "cam-1",
+			did: VIEWER,
+			kind: "video",
+			source: "camera",
+		});
+		expect(await turningOn).toBe(false);
 		expect(harness.engine.videos()).toEqual([]);
 		const close = await pending(socket, "closeProducer");
 		expect(close).toMatchObject({ producerId: "cam-1" });

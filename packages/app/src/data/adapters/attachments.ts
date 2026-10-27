@@ -182,6 +182,11 @@ export const isGifSiteUrl = (uri: string) => {
 	return !!url && isGifHost(url.hostname);
 };
 
+const directImageOf = (embed: LinkEmbed) => {
+	const only = embed.media?.length === 1 ? embed.media[0] : undefined;
+	return only?.mimeType?.toLowerCase().startsWith("image/") ? only : undefined;
+};
+
 export const inlineMediaOf = (embed: LinkEmbed): MediaItem | undefined => {
 	const url = parseUrl(embed.uri);
 	if (!url) return undefined;
@@ -201,6 +206,15 @@ export const inlineMediaOf = (embed: LinkEmbed): MediaItem | undefined => {
 			kind: "gif",
 			width: embed.image.width,
 			height: embed.image.height,
+		};
+	}
+	const direct = directImageOf(embed);
+	if (direct) {
+		return {
+			src: direct.url,
+			kind: direct.mimeType?.toLowerCase() === "image/gif" ? "gif" : "image",
+			width: direct.width,
+			height: direct.height,
 		};
 	}
 	if (embed.image && STILL_IMAGE_PATH.test(url.pathname)) {

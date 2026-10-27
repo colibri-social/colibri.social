@@ -8,6 +8,7 @@ import {
 	createAuth,
 	GRANT_REFRESH_AFTER_MS,
 	type LoadOAuthClient,
+	NEAR_EXPIRY_MS,
 } from "./auth";
 import {
 	expandedScope,
@@ -595,13 +596,20 @@ const fakeResume = () => {
 	return { environment, awayFor };
 };
 
-const refreshingSession = (scopes: { current: string }) => {
+const refreshingSession = (
+	scopes: { current: string },
+	expiry: { inMs?: number } = {},
+) => {
 	const forced: boolean[] = [];
 	const session = {
 		...fakeSession(DID),
 		getTokenInfo: async (force: boolean) => {
 			forced.push(force);
-			return { scope: scopes.current };
+			const expiresAt =
+				expiry.inMs === undefined
+					? undefined
+					: new Date(Date.now() + expiry.inMs);
+			return { scope: scopes.current, expiresAt };
 		},
 	} as unknown as OAuthSession;
 	return { session, forced };
@@ -629,7 +637,49 @@ describe("grant refresh", () => {
 		scopes.current = expandedScope();
 		resume.awayFor(GRANT_REFRESH_AFTER_MS);
 		await vi.waitFor(() => expect(auth.scopeNotice()).toBeUndefined());
-		expect(forced).toEqual([false, true, true]);
+		expect(forced).toEqual([false, true, false]);
+	});
+
+	it("forces a token refresh on resume when the access token is about to expire", async () => {
+		const scopes = { current: FULL_SCOPE };
+		const expiry = { inMs: NEAR_EXPIRY_MS + 60_000 };
+		const { session, forced } = refreshingSession(scopes, expiry);
+		const resume = fakeResume();
+		const { auth } = setup(
+			{ stored: session },
+			{
+				storage: memoryStorage({ sub: DID }),
+				resumeEnvironment: resume.environment,
+			},
+		);
+		await auth.init();
+		await vi.waitFor(() => expect(forced).toEqual([false, true]));
+
+		expiry.inMs = NEAR_EXPIRY_MS - 60_000;
+		resume.awayFor(GRANT_REFRESH_AFTER_MS);
+		await vi.waitFor(() => expect(forced).toEqual([false, true, false, true]));
+	});
+
+	it("reads the stored grant on resume without refreshing a token that is still fresh", async () => {
+		const scopes = { current: FULL_SCOPE };
+		const { session, forced } = refreshingSession(scopes, {
+			inMs: NEAR_EXPIRY_MS + 60_000,
+		});
+		const resume = fakeResume();
+		const { auth } = setup(
+			{ stored: session },
+			{
+				storage: memoryStorage({ sub: DID }),
+				resumeEnvironment: resume.environment,
+			},
+		);
+		await auth.init();
+		await vi.waitFor(() => expect(forced).toEqual([false, true]));
+
+		resume.awayFor(GRANT_REFRESH_AFTER_MS);
+		await vi.waitFor(() => expect(forced).toEqual([false, true, false]));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(forced).toEqual([false, true, false]);
 	});
 
 	it("clears rejections once a refreshed grant differs", async () => {

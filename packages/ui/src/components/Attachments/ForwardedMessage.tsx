@@ -107,10 +107,7 @@ const SourceChip = (props: { source?: ForwardSource }) => {
 
 export const ForwardedMessage = (props: ForwardedMessageProps) => {
 	return (
-		<div
-			data-forwarded-message=""
-			class={cx("flex w-full max-w-[480px] gap-3", props.class)}
-		>
+		<div data-forwarded-message="" class={cx("flex w-full gap-3", props.class)}>
 			<span aria-hidden="true" class="w-0.5 shrink-0 rounded-full bg-accent" />
 			<div class="flex min-w-0 flex-1 flex-col gap-1.5 py-0.5">
 				<span class="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground [&>svg]:size-3.5">

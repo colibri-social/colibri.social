@@ -418,6 +418,9 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             apns::setup();
 
+            #[cfg(target_os = "macos")]
+            quit_guard::install_terminate_guard(app.handle());
+
             #[cfg(not(any(target_os = "linux", windows, desktop)))]
             let _ = app;
             Ok(())

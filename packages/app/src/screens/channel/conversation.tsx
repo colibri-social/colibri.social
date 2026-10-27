@@ -37,7 +37,11 @@ import {
 import { authorForDid, displayNameOf } from "../../data/adapters/authors";
 import { fromComposerValue, toTextValue } from "../../data/adapters/facets";
 import type { ForwardTarget as ForwardPlace } from "../../data/adapters/forward";
-import { reactionFor, reactionShortcode } from "../../data/adapters/reactions";
+import {
+	pickedReactionAdds,
+	reactionFor,
+	reactionShortcode,
+} from "../../data/adapters/reactions";
 import { describeError } from "../../data/error-copy";
 import { channelSlug, skeyOf, spaceKey } from "../../data/ids";
 import {
@@ -1007,7 +1011,7 @@ export const createConversation = (options: ConversationOptions) => {
 					void feed()?.react(
 						message.rkey,
 						emoji,
-						true,
+						pickedReactionAdds(message.view?.reactions, emoji),
 						reactionEmojiRef(message, emoji),
 					);
 			}),

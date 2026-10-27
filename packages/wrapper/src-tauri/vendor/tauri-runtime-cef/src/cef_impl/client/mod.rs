@@ -13,6 +13,7 @@ use crate::{
   runtime::{Message, RuntimeContext},
 };
 
+mod command;
 mod context_menu;
 mod display;
 mod download;
@@ -23,6 +24,7 @@ mod load;
 mod permission;
 mod process;
 
+use command::TauriCefCommandHandler;
 use context_menu::TauriCefContextMenuHandler;
 use display::TauriCefDisplayHandler;
 use download::TauriCefDownloadHandler;
@@ -127,11 +129,13 @@ wrap_client! {
     }
 
     fn download_handler(&self) -> Option<DownloadHandler> {
-      self
-        .handlers
-        .download_handler
-        .clone()
-        .map(TauriCefDownloadHandler::new)
+      Some(TauriCefDownloadHandler::new(
+        self.handlers.download_handler.clone(),
+      ))
+    }
+
+    fn command_handler(&self) -> Option<CommandHandler> {
+      Some(TauriCefCommandHandler::new(self.devtools_enabled))
     }
 
     fn context_menu_handler(&self) -> Option<ContextMenuHandler> {

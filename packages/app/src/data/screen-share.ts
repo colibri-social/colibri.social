@@ -104,7 +104,29 @@ export const screenVideoConstraints = (
 
 export const screenEncodings = (
 	quality: ScreenShareQuality,
-): RTCRtpEncodingParameters[] => [{ maxBitrate: screenMaxBitrate(quality) }];
+	scalabilityMode?: string,
+): RTCRtpEncodingParameters[] => [
+	{
+		maxBitrate: screenMaxBitrate(quality),
+		maxFramerate: quality.framerate,
+		...(scalabilityMode ? { scalabilityMode } : {}),
+	},
+];
+
+export const screenEncodingTarget = (
+	quality: ScreenShareQuality,
+	settings: { width?: number; height?: number } = {},
+): { width: number; height: number; framerate: number; bitrate: number } => {
+	const height =
+		settings.height ?? RESOLUTION_HEIGHTS[quality.resolution] ?? 1080;
+	const width = settings.width ?? Math.round((height * 16) / 9);
+	return {
+		width,
+		height,
+		framerate: quality.framerate,
+		bitrate: screenMaxBitrate(quality),
+	};
+};
 
 export const screenCodecOptions = (
 	quality: ScreenShareQuality,

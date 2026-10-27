@@ -1,4 +1,8 @@
-import { classifyThrown, createLogger } from "@colibri-social/lib";
+import {
+	ColibriError,
+	classifyThrown,
+	createLogger,
+} from "@colibri-social/lib";
 import {
 	ConfirmDialog,
 	type ScreenShareMenuProps,
@@ -14,6 +18,7 @@ import {
 	createSignal,
 	on,
 } from "solid-js";
+import { withDeadline } from "../../auth/deadline";
 import { VOICE_NOTICE_COPY } from "../../data/error-copy";
 import {
 	displayMediaRequest,
@@ -24,6 +29,7 @@ import {
 import { voice } from "../../data/voice";
 import { voiceSettings } from "../../data/voice-settings";
 import {
+	CaptureBridgeError,
 	createNativeCaptureTrack,
 	listNativeCaptureSources,
 	type NativeCaptureSource,
@@ -97,7 +103,9 @@ export const toggleScreenShare = async () => {
 		voice.stopScreenShare();
 		return;
 	}
+	log.debug("screen share requested", { native: native() });
 	if (native() && !(await nativeCapturePermission(true))) {
+		log.debug("screen share needs permission");
 		setPermissionOpen(true);
 		return;
 	}
@@ -142,15 +150,34 @@ const shareBrowser = async () => {
 	);
 };
 
+const NATIVE_CAPTURE_DEADLINE_MS = 15_000;
+
 const shareNative = async (source: NativeCaptureSource) => {
 	const chosen = options();
+	let stage = "start";
 	try {
-		const session = await startNativeCapture(
-			source.id,
-			nativeCaptureQuality(chosen, source.width, source.height),
-			chosen.shareAudio,
+		log.debug("starting the native capture", { kind: source.kind });
+		const session = await withDeadline(
+			startNativeCapture(
+				source.id,
+				nativeCaptureQuality(chosen, source.width, source.height),
+				chosen.shareAudio,
+			),
+			NATIVE_CAPTURE_DEADLINE_MS,
+			() => new ColibriError({ code: "Timeout" }),
 		);
-		const bridge = await createNativeCaptureTrack(session, chosen.shareAudio);
+		stage = "bridge";
+		log.debug("the native capture started, connecting the bridge");
+		const bridge = await withDeadline(
+			createNativeCaptureTrack(session, chosen.shareAudio, () => {
+				voice.stopScreenShare();
+				failed();
+			}),
+			NATIVE_CAPTURE_DEADLINE_MS,
+			() => new ColibriError({ code: "Timeout" }),
+		);
+		stage = "send";
+		log.debug("the capture bridge is ready, sending the screen");
 		await voice.shareScreen(
 			{
 				video: bridge.track,
@@ -164,7 +191,12 @@ const shareNative = async (source: NativeCaptureSource) => {
 		);
 	} catch (error) {
 		void stopNativeCapture();
-		log.warn("native capture failed", { code: classifyThrown(error).code });
+		const failure = classifyThrown(error);
+		log.warn("native capture failed", {
+			code: failure.code,
+			stage: error instanceof CaptureBridgeError ? error.stage : stage,
+			...(failure.serverMessage ? { reason: failure.serverMessage } : {}),
+		});
 		failed();
 	}
 };
@@ -198,6 +230,7 @@ export const ScreenShareHost = () => {
 			const next = await listNativeCaptureSources();
 			const mapped = await Promise.all(next.map(toPickerSource));
 			if (run !== listing) return;
+			log.debug("capture sources listed", { count: next.length });
 			setSources(next);
 			setShown(mapped);
 		} catch (error) {
@@ -236,13 +269,18 @@ export const ScreenShareHost = () => {
 	);
 
 	const share = (picked?: ScreenShareSource) => {
+		const source = sources().find((entry) => entry.id === picked?.id);
 		setPickerOpen(false);
 		if (!native()) {
 			void shareBrowser();
 			return;
 		}
-		const source = sources().find((entry) => entry.id === picked?.id);
-		if (source) void shareNative(source);
+		if (!source) {
+			log.warn("the picked capture source is gone");
+			failed();
+			return;
+		}
+		void shareNative(source);
 	};
 
 	return (
