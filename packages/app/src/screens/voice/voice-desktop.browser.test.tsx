@@ -1,5 +1,5 @@
 import "../../app.css";
-import { Suspense } from "solid-js";
+import { createSignal, Suspense } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -656,6 +656,42 @@ it("opens the member menu with Volume when right-clicking a call tile", async ()
 	await expect.poll(() => document.querySelector("[role='menu']")).toBeTruthy();
 	expect(menuSliders()).toContain("Volume");
 	expect(document.querySelector("[role='dialog']")).toBeNull();
+	await expect
+		.poll(() => document.activeElement?.closest("[data-menu-slider]"))
+		.toBeTruthy();
+	const slider = document.activeElement as HTMLElement;
+	expect(slider.getAttribute("role")).toBe("slider");
+	const before = Number(slider.getAttribute("aria-valuenow"));
+	await userEvent.keyboard("{ArrowRight}");
+	await expect
+		.poll(() => Number(slider.getAttribute("aria-valuenow")))
+		.toBeGreaterThan(before);
+	expect(document.querySelector("[role='menu']")).toBeTruthy();
+	await userEvent.keyboard("{Escape}");
+	await expect.poll(() => document.querySelector("[role='menu']")).toBeNull();
+});
+
+it("keeps the standard menu focus when a tile menu opens from the keyboard", async () => {
+	await mount("lounge");
+	await userEvent.click(button(stage(), "Join voice"));
+	await expect
+		.poll(() => stage().querySelectorAll("[data-voice-tile]").length)
+		.toBe(4);
+	const peer = Array.from(
+		stage().querySelectorAll<HTMLElement>("[data-voice-tile]"),
+	).find((tile) => !tile.textContent?.includes(voiceSelfName())) as HTMLElement;
+	peer.focus();
+	peer.dispatchEvent(
+		new KeyboardEvent("keydown", { key: "F10", shiftKey: true, bubbles: true }),
+	);
+	peer.dispatchEvent(
+		new MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+	);
+	await expect
+		.poll(() => document.activeElement?.closest("[role='menu']"))
+		.toBeTruthy();
+	await wait(100);
+	expect(document.activeElement?.closest("[data-menu-slider]")).toBeNull();
 	await userEvent.keyboard("{Escape}");
 	await expect.poll(() => document.querySelector("[role='menu']")).toBeNull();
 });
@@ -693,4 +729,135 @@ it("offers only Stream volume when right-clicking a screen share tile", async ()
 		"View profile",
 	);
 	await userEvent.keyboard("{Escape}");
+});
+
+const mirrored = (video: Element | null | undefined) =>
+	!!video && getComputedStyle(video).transform === "matrix(-1, 0, 0, 1, 0, 0)";
+
+it("mirrors only the viewer's own camera on the stage and in the floating window", async () => {
+	const host = await mount("lounge");
+	const simulated = createSimulatedConnection({ connectMs: 30, tickMs: 60 });
+	const peer = () => {
+		const channel = voice.current()?.channel;
+		const viewer = lastStore?.viewer.did;
+		return channel
+			? lastStore?.inVoice(channel).find((did) => did !== viewer)
+			: undefined;
+	};
+	const own = new MediaStream();
+	const theirs = new MediaStream();
+	const screen = new MediaStream();
+	setVoiceConnectionMonitor({
+		...simulated,
+		videos: () => {
+			const viewer = lastStore?.viewer.did;
+			const other = peer();
+			return viewer && other
+				? [
+						{ did: viewer, source: "cam", stream: own },
+						{ did: other, source: "cam", stream: theirs },
+						{ did: other, source: "screen", stream: screen },
+					]
+				: [];
+		},
+	});
+	await userEvent.click(button(stage(), "Join voice"));
+	const surfaceOf = (stream: MediaStream, root: ParentNode = stage()) =>
+		Array.from(
+			root.querySelectorAll<HTMLVideoElement>("[data-video-surface]"),
+		).find((video) => video.srcObject === stream);
+	await expect.poll(() => surfaceOf(own)).toBeTruthy();
+	expect(mirrored(surfaceOf(own))).toBe(true);
+	expect(mirrored(surfaceOf(theirs))).toBe(false);
+	expect(mirrored(surfaceOf(screen))).toBe(false);
+
+	const ownTile = surfaceOf(own)?.closest<HTMLElement>(
+		"button[data-voice-tile]",
+	);
+	ownTile?.click();
+	await expect.poll(() => voice.focusedKey()).toMatch(/^p:/);
+	await openGeneral(host);
+	await expect
+		.poll(() => surfaceOf(own, floating() as HTMLElement))
+		.toBeTruthy();
+	expect(mirrored(surfaceOf(own, floating() as HTMLElement))).toBe(true);
+});
+
+const countSurfaceChurn = async (run: () => Promise<void>) => {
+	let mounts = 0;
+	let plays = 0;
+	const observer = new MutationObserver((records) => {
+		for (const record of records)
+			for (const node of record.addedNodes)
+				if (
+					node instanceof Element &&
+					(node.matches("[data-video-surface]") ||
+						node.querySelector("[data-video-surface]"))
+				)
+					mounts += 1;
+	});
+	const play = HTMLMediaElement.prototype.play;
+	HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+		plays += 1;
+		return play.call(this);
+	};
+	observer.observe(document.body, { childList: true, subtree: true });
+	try {
+		await run();
+	} finally {
+		observer.disconnect();
+		HTMLMediaElement.prototype.play = play;
+	}
+	return { mounts, plays };
+};
+
+it("keeps the screen share surface mounted while people talk", async () => {
+	await mount("lounge");
+	const simulated = createSimulatedConnection({ connectMs: 30, tickMs: 60 });
+	const [speakers, setSpeakers] = createSignal<ReadonlySet<string>>(new Set());
+	const others = () => {
+		const channel = voice.current()?.channel;
+		const viewer = lastStore?.viewer.did;
+		return channel
+			? (lastStore?.inVoice(channel) ?? []).filter((did) => did !== viewer)
+			: [];
+	};
+	const stream = new MediaStream();
+	setVoiceConnectionMonitor({
+		...simulated,
+		speakers,
+		videos: () => {
+			const did = others()[0];
+			return did ? [{ did, source: "screen", stream }] : [];
+		},
+	});
+	await userEvent.click(button(stage(), "Join voice"));
+	const screenSurface = () =>
+		stage().querySelector<HTMLVideoElement>(
+			"[data-voice-tile][data-kind='screen'] [data-video-surface]",
+		);
+	await expect.poll(() => screenSurface()).toBeTruthy();
+	const talk = async () => {
+		const talkers = others();
+		for (let round = 0; round < 6; round += 1) {
+			const talking = round % 2 ? [] : talkers.slice(0, (round % 3) + 1);
+			setSpeakers(new Set(talking));
+			await expect
+				.poll(
+					() =>
+						stage().querySelectorAll("[data-voice-tile][data-speaking]").length,
+				)
+				.toBe(talking.length);
+		}
+	};
+
+	const inGrid = screenSurface();
+	expect(await countSurfaceChurn(talk)).toEqual({ mounts: 0, plays: 0 });
+	expect(screenSurface()).toBe(inGrid);
+
+	screenSurface()?.closest<HTMLElement>("button[data-voice-tile]")?.click();
+	await expect.poll(() => voice.focusedKey()).toMatch(/^s:/);
+	const focused = screenSurface();
+	expect(await countSurfaceChurn(talk)).toEqual({ mounts: 0, plays: 0 });
+	expect(screenSurface()).toBe(focused);
 });

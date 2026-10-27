@@ -344,7 +344,7 @@ export const VoiceFloatingWindow = (props: VoiceFloatingWindowProps) => {
 								pressed
 								tone="active"
 								size="md"
-								icon={<AnimatedScreencastIcon />}
+								icon={<AnimatedScreencastIcon trigger="press" />}
 								onClick={props.onToggleScreenShare}
 								class="pointer-events-auto"
 							/>

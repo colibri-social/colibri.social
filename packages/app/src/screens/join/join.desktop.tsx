@@ -6,7 +6,7 @@ export default join.view({
 	omit: ["Header"] as const,
 	render: ({ slots: s, model: m }) => (
 		<ModalContent title={JOIN_COPY.title} class="md:w-[440px]">
-			<div data-join="" class="-mx-4 -mb-4 flex flex-col">
+			<div data-join="" class="-mx-4 flex flex-col">
 				<Switch>
 					<Match when={m.state() === "loading"}>
 						<s.Loading />

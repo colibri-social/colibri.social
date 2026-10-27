@@ -4,6 +4,7 @@ import {
 	BLUESKY_CLIENTS,
 	type BlueskyClient,
 	type ClientPreferences,
+	DEFAULT_SOUND_VOLUME,
 	GIF_LOOP_LIMITS,
 	INBOX_PRESENTATIONS,
 	type InboxPresentation,
@@ -22,6 +23,7 @@ export type ResolvedClient = {
 	hideModeratedMessages: boolean;
 	inboxPresentation: InboxPresentation;
 	gifLoopLimit: number | undefined;
+	soundVolume: number;
 	controls: {
 		swipeLeftAction: ControlsPreferences["swipeLeftAction"];
 		doubleTapEnabled: boolean;
@@ -46,6 +48,11 @@ const oneOf = <T extends string>(
 		? (value as T)
 		: fallback;
 
+export const soundVolumeOf = (value: unknown): number =>
+	typeof value === "number" && Number.isFinite(value)
+		? Math.min(100, Math.max(0, Math.round(value)))
+		: DEFAULT_SOUND_VOLUME;
+
 export const resolveClient = (
 	client: ClientPreferences,
 	defaults: ControlsPreferences,
@@ -68,6 +75,7 @@ export const resolveClient = (
 	)
 		? client.gifLoopLimit
 		: undefined,
+	soundVolume: soundVolumeOf(client.soundVolume),
 	controls: {
 		swipeLeftAction: oneOf(
 			["members", "reply"],

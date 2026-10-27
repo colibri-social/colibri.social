@@ -130,11 +130,23 @@ describe("synced preferences in the store", () => {
 	it("orders Spaces by the synced order", async () => {
 		const { source, store } = await setup();
 		const list = store.communities.value() ?? [];
-		const last = list.at(-1);
-		if (!last || list.length < 2) throw new Error("needs two Spaces");
-		await source.preferences.setCommunityOrder([last.did]);
-		expect(store.communities.value()?.[0]?.did).toBe(last.did);
+		if (list.length < 2) throw new Error("needs two Spaces");
+		const reversed = list.map((entry) => entry.did).reverse();
+		await source.preferences.setCommunityOrder(reversed);
+		expect(store.communities.value()?.map((entry) => entry.did)).toEqual(
+			reversed,
+		);
+	});
+
+	it("puts Spaces missing from the synced order on top", async () => {
+		const { source, store } = await setup();
+		const list = store.communities.value() ?? [];
+		const first = list[0];
+		if (!first || list.length < 2) throw new Error("needs two Spaces");
+		await source.preferences.setCommunityOrder([first.did]);
+		expect(store.communities.value()?.at(-1)?.did).toBe(first.did);
 		expect(store.communities.value()).toHaveLength(list.length);
+		expect(source.preferences.communityOrder()).toEqual([first.did]);
 	});
 
 	it("falls back to the global notification level", async () => {

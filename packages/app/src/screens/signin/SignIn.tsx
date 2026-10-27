@@ -198,10 +198,7 @@ export const SignInFlow = (props: SignInFlowProps) => {
 				back={{ label: "Back", onClick: () => props.auth.cancelSignIn() }}
 				primary={{
 					label: "Try again",
-					onClick: () => {
-						props.auth.cancelSignIn();
-						setStep("sign-in");
-					},
+					onClick: () => void props.auth.retrySignIn(),
 				}}
 			/>
 		</div>

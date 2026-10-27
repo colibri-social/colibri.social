@@ -1,3 +1,5 @@
+/// <reference path="../../gifenc.d.ts" />
+import { GIFEncoder } from "gifenc";
 import { createSignal, For, type JSX, onCleanup } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
@@ -1096,6 +1098,72 @@ export const TileAvatarFit: Story = {
 		await waitFor(() =>
 			expect(Math.round(large.getBoundingClientRect().width)).toBe(88),
 		);
+	},
+};
+
+const animatedAvatar = (() => {
+	const size = 256;
+	const palette = [
+		[142, 81, 255],
+		[255, 255, 255],
+	];
+	const encoder = GIFEncoder();
+	for (let frame = 0; frame < 2; frame++) {
+		const index = new Uint8Array(size * size);
+		for (let pixel = 0; pixel < index.length; pixel++)
+			index[pixel] = (pixel % size) / size < (frame + 1) / 3 ? 1 : 0;
+		encoder.writeFrame(index, size, size, { palette, delay: 120 });
+	}
+	encoder.finish();
+	let binary = "";
+	for (const byte of encoder.bytes()) binary += String.fromCharCode(byte);
+	return `data:image/gif;base64,${btoa(binary)}`;
+})();
+
+const GrowingAvatarTile = () => {
+	const [large, setLarge] = createSignal(false);
+	return (
+		<Screen>
+			<Label>Tile that grows after its animated avatar loads</Label>
+			<button type="button" onClick={() => setLarge(true)}>
+				Grow tile
+			</button>
+			<div data-testid="animated-avatar-tile">
+				<VoiceTile
+					tile={
+						{
+							...people[0],
+							avatarSrc: animatedAvatar,
+						} as VoiceTileData
+					}
+					class={large() ? "h-[220px] w-[370px]" : "h-[72px] w-[128px]"}
+				/>
+			</div>
+		</Screen>
+	);
+};
+
+const pausedFrame = (root: HTMLElement) =>
+	root.querySelector<HTMLCanvasElement>('canvas[data-animated-image="paused"]');
+
+export const SharpAnimatedAvatar: Story = {
+	name: "Sharp animated avatar",
+	render: () => <GrowingAvatarTile />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const tile = canvas.getByTestId("animated-avatar-tile");
+		const small = await waitFor(
+			() => {
+				const width = pausedFrame(tile)?.width ?? 0;
+				expect(width).toBeGreaterThan(0);
+				return width;
+			},
+			{ timeout: 3000 },
+		);
+		await userEvent.click(canvas.getByRole("button", { name: "Grow tile" }));
+		const expected = Math.min(256, Math.round(88 * devicePixelRatio));
+		await expect(expected).toBeGreaterThan(small);
+		await waitFor(() => expect(pausedFrame(tile)?.width).toBe(expected));
 	},
 };
 

@@ -128,6 +128,15 @@ export type LiveEvent =
 			event: "create" | "update" | "delete";
 			thread: ThreadView;
 	  }
+	| { $type: "threadRemovedEvent"; space: SpaceRef; channel?: SpaceRef }
+	| {
+			$type: "messageLabelEvent";
+			event: "create" | "negate";
+			space: SpaceRef;
+			subject: { did: Did; rkey: string };
+			val: string;
+			src: Did;
+	  }
 	| {
 			$type: "channelEvent";
 			event: "create" | "update" | "delete";

@@ -485,6 +485,12 @@
 					"maximum": 5,
 					"description": "How many times a GIF in chat plays before it pauses. Absent means no limit."
 				},
+				"soundVolume": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 100,
+					"description": "The volume of in-app sound effects such as message pings and call sounds, in percent. Absent means 100."
+				},
 				"warnOnExternalLinks": {
 					"type": "boolean",
 					"description": "Whether opening a link to another site asks for confirmation first."

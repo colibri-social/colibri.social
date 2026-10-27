@@ -38,7 +38,8 @@ export const AuthGate = (props: AuthGateProps) => {
 				when={
 					props.platform === "desktop" &&
 					!inApp() &&
-					props.auth.status() !== "failed"
+					props.auth.status() !== "failed" &&
+					props.auth.status() !== "loading"
 				}
 			>
 				<WindowChrome />

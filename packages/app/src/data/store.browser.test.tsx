@@ -1437,11 +1437,8 @@ describe("catch-up on resume", () => {
 		store.setViewing(undefined);
 	});
 
-	it("queues a member refresh only for Spaces with loaded members", async () => {
+	it("refreshes loaded member lists on catch-up and keeps unchanged rows", async () => {
 		const { store, space, calls } = await setupQuiet();
-		store.catchUp();
-		await settle();
-		expect(calls.members).toBe(0);
 		await until(() => !!space.members.value());
 		const members = space.members.value();
 		const counted = calls.members;

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { isVoiceChannel } from "./ids";
 import { createMockSource, setLatency } from "./mock/source";
+import type { DataSource } from "./source";
 import { createDataStore } from "./store";
 import type { Did, MemberView } from "./types";
 
@@ -12,6 +14,13 @@ const until = async (check: () => boolean, timeout = 4000) => {
 		await new Promise((resolve) => setTimeout(resolve, 20));
 	}
 };
+
+const newcomer = (did: Did) =>
+	({
+		actor: { did, handle: "newcomer.test", displayName: "Newcomer" },
+		roles: [],
+		joinedAt: new Date().toISOString(),
+	}) as unknown as MemberView;
 
 const setup = async () => {
 	setLatency(0);
@@ -116,5 +125,74 @@ describe("member live events", () => {
 			subject: store.viewer.did as Did,
 		});
 		expect(store.spaceByKey(HQ)).toBeUndefined();
+	});
+
+	it("keeps a join and a leave that land while the member list is loading", async () => {
+		setLatency(0);
+		const source = createMockSource({ live: false });
+		const listMembers = source.listMembers;
+		const held: Array<() => void> = [];
+		source.listMembers = ((...args: Parameters<DataSource["listMembers"]>) =>
+			new Promise((resolve) => {
+				held.push(() => resolve(listMembers(...args)));
+			})) as DataSource["listMembers"];
+		const store = createDataStore(source);
+		await until(() => !!store.communities.value()?.length);
+		const community = store.spaceByKey(HQ);
+		if (!community) throw new Error("Seed changed");
+		const space = store.space(community);
+		space.members.value();
+		await until(() => held.length > 0);
+		const seeded = await new Promise<MemberView[]>((resolve) => {
+			listMembers(HQ, { limit: 100 }).then((page) => resolve(page.items));
+		});
+		const leaving = seeded[seeded.length - 1]?.actor.did;
+		if (!leaving) throw new Error("Seed changed");
+		const did = "did:plc:midfetch" as Did;
+		source.emit({
+			$type: "memberJoinEvent",
+			community: HQ,
+			member: newcomer(did),
+		});
+		source.emit({ $type: "memberLeaveEvent", community: HQ, subject: leaving });
+		while (held.length > 0) held.shift()?.();
+		await until(() => !!space.members.value());
+		const dids = space.members.value()?.map((entry) => entry.actor.did);
+		expect(dids).toContain(did);
+		expect(dids).not.toContain(leaving);
+		store.dispose();
+	});
+
+	it("adds a member whose update arrives before the join", async () => {
+		const { source, space } = await setup();
+		const did = "did:plc:updatedfirst" as Did;
+		source.emit({
+			$type: "memberUpdateEvent",
+			community: HQ,
+			member: newcomer(did),
+		});
+		expect(space.memberByDid(did)?.actor.handle).toBe("newcomer.test");
+	});
+
+	it("names a typing member once their join lands", async () => {
+		const { source, store, space } = await setup();
+		await until(() => !!space.channels.value()?.length);
+		const text = space.channels
+			.value()
+			?.find((entry) => !isVoiceChannel(entry));
+		if (!text) throw new Error("Seed changed");
+		const feed = store.channel(text.space);
+		await until(() => feed.ready());
+		const did = "did:plc:typingnewcomer" as Did;
+		source.emit({ $type: "typingEvent", did, channel: text.space });
+		expect(feed.typing()).toContain(did);
+		expect(space.memberByDid(did)).toBeUndefined();
+		source.emit({
+			$type: "memberJoinEvent",
+			community: HQ,
+			member: newcomer(did),
+		});
+		expect(feed.typing()).toContain(did);
+		expect(space.memberByDid(did)?.actor.displayName).toBe("Newcomer");
 	});
 });

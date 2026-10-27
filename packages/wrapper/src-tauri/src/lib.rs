@@ -30,6 +30,11 @@ pub type AppRuntime = tauri_runtime_cef::CefRuntime<tauri::EventLoopMessage>;
 #[cfg(not(target_os = "linux"))]
 pub type AppRuntime = tauri::Wry;
 
+#[cfg(desktop)]
+const WINDOW_STATE_FLAGS: tauri_plugin_window_state::StateFlags =
+    tauri_plugin_window_state::StateFlags::all()
+        .difference(tauri_plugin_window_state::StateFlags::DECORATIONS);
+
 pub mod native_error {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
     pub enum NativeErrorCode {
@@ -260,10 +265,7 @@ pub fn run() {
             }))
             .plugin(
                 tauri_plugin_window_state::Builder::default()
-                    .with_state_flags(
-                        tauri_plugin_window_state::StateFlags::all()
-                            - tauri_plugin_window_state::StateFlags::DECORATIONS,
-                    )
+                    .with_state_flags(WINDOW_STATE_FLAGS)
                     .build(),
             )
             .plugin(tauri_plugin_dialog::init())
@@ -437,6 +439,13 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app, _event| {
+            #[cfg(target_os = "linux")]
+            if let tauri::RunEvent::ExitRequested { code: Some(_), .. } = &_event {
+                use tauri_plugin_window_state::AppHandleExt;
+                if let Err(error) = _app.save_window_state(WINDOW_STATE_FLAGS) {
+                    eprintln!("could not save the window state: {error}");
+                }
+            }
             #[cfg(desktop)]
             if let tauri::RunEvent::ExitRequested { code: None, api, .. } = &_event {
                 if !quit_guard::released() {

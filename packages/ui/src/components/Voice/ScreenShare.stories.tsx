@@ -9,6 +9,7 @@ import {
 	ScreenSharePicker,
 	type ScreenSharePickerMode,
 	type ScreenShareSource,
+	type ScreenShareSurface,
 } from "./ScreenSharePicker";
 import { VoiceStatusPanel } from "./VoiceStatusPanel";
 
@@ -96,6 +97,7 @@ const PickerDemo = (props: {
 	failed?: boolean;
 }) => {
 	const [open, setOpen] = createSignal(false);
+	const [surface, setSurface] = createSignal<ScreenShareSurface>("screen");
 	const [settings, setSettings] = createSignal<ScreenShareSettings>({
 		resolution: "1080",
 		framerate: 30,
@@ -106,7 +108,10 @@ const PickerDemo = (props: {
 			<Button variant="secondary" onClick={() => setOpen(true)}>
 				Share screen
 			</Button>
+			<output data-testid="surface">{surface()}</output>
 			<ScreenSharePicker
+				surface={surface()}
+				onSurfaceChange={setSurface}
 				open={open()}
 				onOpenChange={setOpen}
 				mode={props.mode ?? "native"}
@@ -240,6 +245,33 @@ export const PickerBrowser: Story = {
 		const dialog = await openPicker(canvasElement);
 		await expectNoLayoutIssues(dialog);
 		await expect(within(dialog).queryByRole("tab")).toBeNull();
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Continue" }),
+		);
+		await expect(spy.share).toHaveBeenCalledWith(undefined);
+	},
+};
+
+export const PickerSystem: Story = {
+	name: "Picker with the system dialog",
+	render: () => <PickerDemo mode="system" />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const dialog = await openPicker(canvasElement);
+		await expectNoLayoutIssues(dialog);
+		await expect(
+			within(dialog).getByRole("radio", { name: /Whole screen/ }),
+		).toBeChecked();
+		await userEvent.click(within(dialog).getByText("One window"));
+		await expect(
+			within(dialog).getByRole("radio", { name: /One window/ }),
+		).toBeChecked();
+		await expect(
+			within(canvasElement).getByTestId("surface"),
+		).toHaveTextContent("window");
+		await expect(
+			within(dialog).getByRole("switch", { name: /Share sound/ }),
+		).toBeVisible();
 		await userEvent.click(
 			within(dialog).getByRole("button", { name: "Continue" }),
 		);

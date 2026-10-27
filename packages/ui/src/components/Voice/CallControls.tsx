@@ -216,7 +216,7 @@ export const CallControls = (props: CallControlsProps) => {
 						pressed={!!props.screenSharing}
 						tone={props.screenSharing ? "active" : "default"}
 						size={props.size}
-						icon={<AnimatedScreencastIcon />}
+						icon={<AnimatedScreencastIcon trigger="press" />}
 						onClick={props.onToggleScreenShare}
 					/>
 				</ScreenShareControl>

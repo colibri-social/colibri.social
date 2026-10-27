@@ -12,6 +12,7 @@ import {
 	reply,
 	setup,
 	suppressor,
+	VIEWER,
 } from "./engine-fakes";
 import type { NoiseSuppressor } from "./noise-suppressor";
 import type { ParticipantVolumes } from "./volumes";
@@ -117,5 +118,29 @@ describe("voice engine settings", () => {
 		expect(test.audio[0].volume).toBeCloseTo(0.4);
 		test.setSettings({ ...BASE, outputVolume: 50 });
 		expect(test.audio[0].volume).toBeCloseTo(0.2);
+	});
+
+	it("keeps the camera and microphone when other settings change", async () => {
+		const test = harness();
+		const { socket } = await connect(test);
+		const turningOn = test.engine.setCamera(true);
+		await reply(socket, "produce", {
+			$type: `${DEFS}producerInfo`,
+			producerId: "cam-1",
+			did: VIEWER,
+			kind: "video",
+			source: "camera",
+		});
+		expect(await turningOn).toBe(true);
+		const camera = test.engine.videos()[0]?.stream;
+		const opened = test.getUserMedia.mock.calls.length;
+		test.setSettings({
+			...BASE,
+			screen: { ...DEFAULT_SCREEN_SHARE, framerate: 60 },
+		});
+		test.setSettings({ ...BASE, outputVolume: 80 });
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(test.getUserMedia).toHaveBeenCalledTimes(opened);
+		expect(test.engine.videos()[0]?.stream).toBe(camera);
 	});
 });

@@ -320,6 +320,9 @@ describe("device-local restore", () => {
 		await expect.poll(() => pane()?.style.width).toBe("520px");
 		const handle = pane()?.querySelector<HTMLElement>("[data-pane-resizer]");
 		if (!handle) throw new Error("resizer missing");
+		await expect
+			.poll(() => document.querySelector("[data-boot-content][inert]"))
+			.toBeNull();
 		handle.focus();
 		await userEvent.keyboard("{ArrowLeft}");
 		await expect.poll(() => pane()?.style.width).not.toBe("520px");

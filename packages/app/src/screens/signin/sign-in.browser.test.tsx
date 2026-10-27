@@ -391,6 +391,9 @@ describe("sign-in", () => {
 		await expect.poll(screenOf).toBe("browser");
 		expect(openBrowser).toHaveBeenCalledOnce();
 		await userEvent.click(page.getByRole("button", { name: "Try again" }));
+		await expect.poll(() => openBrowser.mock.calls.length).toBe(2);
+		expect(screenOf()).toBe("browser");
+		await userEvent.click(page.getByRole("button", { name: "Back" }));
 		await expect.poll(screenOf).toBe("sign-in");
 	});
 

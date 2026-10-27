@@ -2,6 +2,7 @@ import { BellIcon } from "@solar-icons/solid/bold/bell";
 import { For, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { ListGroup, RadioRow, RadioRowGroup, ToggleRow } from "../List/List";
+import { Slider } from "../Slider/Slider";
 import {
 	isNotificationLevel,
 	NOTIFICATION_LEVEL_COPY,
@@ -17,10 +18,17 @@ export type DeviceNotifications = {
 	busy?: boolean;
 };
 
+export type SoundEffectsVolume = {
+	volume: number;
+	onChange: (volume: number) => void;
+	onChangeEnd?: (volume: number) => void;
+};
+
 export type NotificationSettingsProps = {
 	level: NotificationLevel;
 	onLevelChange: (level: NotificationLevel) => void;
 	device?: DeviceNotifications;
+	sounds?: SoundEffectsVolume;
 	class?: string;
 };
 
@@ -32,7 +40,12 @@ export const NOTIFICATION_SETTINGS_COPY = {
 		"Shows notifications while Colibri is in the background or closed.",
 	blocked: (place: "browser" | "system") =>
 		`Colibri isn't allowed to show notifications. Allow them in your ${place} settings, then turn this on again.`,
+	soundVolume: "Sound effects volume",
+	soundVolumeDescription:
+		"How loud message pings and call sounds like joining, leaving and muting are.",
 } as const;
+
+const percent = (value: number) => `${Math.round(value)}%`;
 
 export const NotificationSettings = (props: NotificationSettingsProps) => (
 	<div
@@ -66,6 +79,22 @@ export const NotificationSettings = (props: NotificationSettingsProps) => (
 						onChange={device().onChange}
 					/>
 				</ListGroup>
+			)}
+		</Show>
+		<Show when={props.sounds}>
+			{(sounds) => (
+				<Slider
+					label={NOTIFICATION_SETTINGS_COPY.soundVolume}
+					description={NOTIFICATION_SETTINGS_COPY.soundVolumeDescription}
+					showValue
+					formatValue={percent}
+					minValue={0}
+					maxValue={100}
+					step={1}
+					value={[sounds().volume]}
+					onChange={(values) => sounds().onChange(values[0] ?? 0)}
+					onChangeEnd={(values) => sounds().onChangeEnd?.(values[0] ?? 0)}
+				/>
 			)}
 		</Show>
 		<div class="flex flex-col gap-2">

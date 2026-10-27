@@ -375,6 +375,21 @@ describe("client preferences", () => {
 		store.adopt(prefs({ client: { gifLoopLimit: 4 } }));
 		expect(store.client().gifLoopLimit).toBeUndefined();
 	});
+
+	it("plays sound effects at full volume unless the synced record lowers it", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const store = create(memory.backend);
+		expect(store.client().soundVolume).toBe(100);
+
+		await store.setClient({ soundVolume: 35 });
+		expect(store.client().soundVolume).toBe(35);
+		expect(memory.state().client).toEqual({ soundVolume: 35 });
+
+		store.adopt(prefs({ client: { soundVolume: 140 } }));
+		expect(store.client().soundVolume).toBe(100);
+		store.adopt(prefs({ client: { soundVolume: -5 } }));
+		expect(store.client().soundVolume).toBe(0);
+	});
 });
 
 describe("composer state", () => {
@@ -502,18 +517,36 @@ describe("hidden messages", () => {
 describe("orderCommunities", () => {
 	const did = (name: string) => `did:plc:${name}` as Did;
 	const view = (name: string) => ({ did: did(name) }) as CommunityView;
+	const dids = (list: CommunityView[] | undefined) =>
+		list?.map((entry) => entry.did);
 
-	it("puts ordered communities first and keeps the rest in place", () => {
+	it("puts Spaces missing from the order first, newest first, then the ordered ones", () => {
 		const list = [view("a"), view("b"), view("c"), view("d")];
 		expect(
-			orderCommunities(list, [did("c"), did("zz"), did("a")])?.map(
-				(entry) => entry.did,
-			),
-		).toEqual([did("c"), did("a"), did("b"), did("d")]);
+			dids(orderCommunities(list, [did("c"), did("zz"), did("a")])),
+		).toEqual([did("d"), did("b"), did("c"), did("a")]);
 	});
 
-	it("returns the same list without an order", () => {
-		const list = [view("a")];
-		expect(orderCommunities(list, [])).toBe(list);
+	it("puts a Space appended after a refresh at the top of an ordered rail", () => {
+		const order = [did("b"), did("a")];
+		const list = [view("a"), view("b"), view("new")];
+		expect(dids(orderCommunities(list, order))).toEqual([
+			did("new"),
+			did("b"),
+			did("a"),
+		]);
+	});
+
+	it("shows the newest Space first without an order", () => {
+		const list = [view("a"), view("b")];
+		expect(dids(orderCommunities(list, []))).toEqual([did("b"), did("a")]);
+	});
+
+	it("leaves the order and the input list untouched", () => {
+		const order = [did("a")];
+		const list = [view("a"), view("b")];
+		orderCommunities(list, order);
+		expect(order).toEqual([did("a")]);
+		expect(dids(list)).toEqual([did("a"), did("b")]);
 	});
 });

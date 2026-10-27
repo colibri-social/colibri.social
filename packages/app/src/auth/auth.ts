@@ -164,6 +164,7 @@ export type Auth = {
 	signOut: (options?: SignOutOptions) => Promise<void>;
 	completeCallback: (params: URLSearchParams) => Promise<boolean>;
 	cancelSignIn: () => void;
+	retrySignIn: () => Promise<void>;
 	redirectToSignIn: () => void;
 	clearError: () => void;
 	onAuthFailure: (code: ColibriErrorCode) => void;
@@ -733,12 +734,15 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		}
 	};
 
+	let lastSignIn: { handle: string; create: boolean } | undefined;
+
 	const signIn = async (
 		handle: string,
 		signInOptions: { create?: boolean } = {},
 	) => {
 		if (phase()) return;
 		const create = signInOptions.create === true;
+		lastSignIn = { handle, create };
 		batch(() => {
 			setError(undefined);
 			setPhase("checking");
@@ -848,6 +852,11 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		signOut,
 		completeCallback,
 		cancelSignIn: () => setPhase(undefined),
+		retrySignIn: async () => {
+			const last = lastSignIn;
+			setPhase(undefined);
+			if (last) await signIn(last.handle, { create: last.create });
+		},
 		redirectToSignIn: () => {
 			if (location().pathname === SIGN_IN_PATH) return;
 			rememberReturn();

@@ -47,6 +47,8 @@ export type InboxPresentation = (typeof INBOX_PRESENTATIONS)[number];
 
 export const GIF_LOOP_LIMITS = [1, 2, 3, 5] as const;
 
+export const DEFAULT_SOUND_VOLUME = 100;
+
 export type ClientPreferences = Omit<
 	ClientPreferencesWire,
 	"$type" | "controls" | "voiceView"

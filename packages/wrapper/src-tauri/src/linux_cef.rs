@@ -18,6 +18,7 @@ static APP: OnceLock<AppHandle<AppRuntime>> = OnceLock::new();
 static PENDING: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static NATIVE_WAYLAND: OnceLock<bool> = OnceLock::new();
 static INJECTED_LIBRARY_DIR: OnceLock<PathBuf> = OnceLock::new();
+static FORCED_GDK_BACKEND: OnceLock<bool> = OnceLock::new();
 
 pub enum Launch {
     Primary,
@@ -31,14 +32,23 @@ pub fn native_wayland() -> bool {
     })
 }
 
+pub fn forced_gdk_backend() -> bool {
+    FORCED_GDK_BACKEND.get().copied().unwrap_or(false)
+}
+
 pub fn injected_library_dir() -> Option<&'static Path> {
     INJECTED_LIBRARY_DIR.get().map(PathBuf::as_path)
 }
 
 pub fn bootstrap() -> Launch {
     let wayland = native_wayland();
-    if !wayland && std::env::var_os("GDK_BACKEND").is_none() {
+    let force_x11 = !wayland && std::env::var_os("GDK_BACKEND").is_none();
+    if force_x11 {
         std::env::set_var("GDK_BACKEND", "x11");
+    }
+    let _ = FORCED_GDK_BACKEND.set(force_x11);
+    if std::env::var_os("APPDIR").is_some_and(|dir| !dir.is_empty()) {
+        std::env::remove_var("GTK_THEME");
     }
     expose_cef_library_dir();
 

@@ -32,7 +32,18 @@ type NativeSoundBridge = {
 	hasSound: (name: string) => boolean;
 	storeSound: (name: string, base64: string) => void;
 	playSound: (name: string) => void;
+	playSoundAt?: (name: string, volume: number) => void;
 };
+
+let effectsGain = 1;
+
+export const setSoundEffectsVolume = (percent: number) => {
+	effectsGain = Number.isFinite(percent)
+		? Math.min(1, Math.max(0, percent / 100))
+		: 1;
+};
+
+export const soundEffectsGain = () => effectsGain;
 
 const nativeSoundBridge = (): NativeSoundBridge | undefined => {
 	if (typeof window === "undefined") return undefined;
@@ -89,8 +100,12 @@ export const createNativeSoundPlayer = <Sound extends string = VoiceSound>(
 		return pending;
 	};
 	return (sound) => {
+		if (effectsGain <= 0) return;
 		void ensure(sound).then((name) => {
-			if (name) bridge.playSound(name);
+			const gain = effectsGain;
+			if (!name || gain <= 0) return;
+			if (bridge.playSoundAt) bridge.playSoundAt(name, gain);
+			else bridge.playSound(name);
 		});
 	};
 };
@@ -140,6 +155,7 @@ export const createSoundPlayer = <Sound extends string>(
 	};
 
 	return (sound) => {
+		if (effectsGain <= 0) return;
 		const ctx = ensureContext();
 		if (!ctx) return;
 		bindUnlock(ctx);
@@ -151,10 +167,17 @@ export const createSoundPlayer = <Sound extends string>(
 					() => false,
 				));
 			const buffer = await load(ctx, sound);
-			if (!buffer || !resumed) return;
+			const gain = effectsGain;
+			if (!buffer || !resumed || gain <= 0) return;
 			const source = ctx.createBufferSource();
 			source.buffer = buffer;
-			source.connect(ctx.destination);
+			const volume = ctx.createGain();
+			volume.gain.value = gain;
+			source.connect(volume);
+			volume.connect(ctx.destination);
+			source.addEventListener("ended", () => volume.disconnect(), {
+				once: true,
+			});
 			source.start();
 		})();
 	};

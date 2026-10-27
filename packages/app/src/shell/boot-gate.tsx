@@ -6,13 +6,12 @@ import {
 	onMount,
 	Show,
 } from "solid-js";
-import type { DataStore } from "../data/store";
+import { BOOT_CAP_MS, type DataStore } from "../data/store";
 import { LaunchScreen } from "./launch/LaunchScreen";
 
 const SKELETON_SELECTOR =
 	"[data-skeleton],[data-skeleton-group],[data-skeleton-text],[data-session-loading]";
 export const SETTLED_FRAMES = 2;
-const BOOT_FALLBACK_MS = 15_000;
 export const CROSSFADE_MS = 150;
 
 export const ColdStart = (props: {
@@ -41,7 +40,7 @@ export const ColdStart = (props: {
 			frame = requestAnimationFrame(check);
 		};
 		frame = requestAnimationFrame(check);
-		const fallback = setTimeout(() => setSettled(true), BOOT_FALLBACK_MS);
+		const fallback = setTimeout(() => setSettled(true), BOOT_CAP_MS);
 		onCleanup(() => {
 			cancelAnimationFrame(frame);
 			clearTimeout(fallback);

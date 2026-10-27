@@ -164,8 +164,9 @@ export type VideoSurfaceProps = JSX.VideoHTMLAttributes<HTMLVideoElement> & {
 export const VideoSurface = (props: VideoSurfaceProps) => {
 	const [local, rest] = splitProps(props, ["stream", "mirror", "fit", "class"]);
 	let video: HTMLVideoElement | undefined;
+	const source = createMemo(() => local.stream);
 	createEffect(() => {
-		const stream = local.stream;
+		const stream = source();
 		if (!video) return;
 		if (video.srcObject !== (stream ?? null)) video.srcObject = stream ?? null;
 		if (stream) void video.play().catch(() => {});
@@ -181,7 +182,7 @@ export const VideoSurface = (props: VideoSurfaceProps) => {
 			class={cx(
 				"absolute inset-0 size-full bg-black",
 				local.fit === "contain" ? "object-contain" : "object-cover",
-				local.mirror && "-scale-x-100",
+				local.mirror && "[transform:scaleX(-1)]",
 				local.class,
 			)}
 		/>

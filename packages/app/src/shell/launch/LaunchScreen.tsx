@@ -1,6 +1,7 @@
 import { LoadingScreen } from "@colibri-social/ui";
-import { onCleanup } from "solid-js";
+import { onCleanup, Show } from "solid-js";
 import { usePlatform } from "../../screen/platform";
+import { WindowChrome } from "../desktop/TitleBar";
 import {
 	LAUNCH_BIRD_SIZE,
 	LAUNCH_SCREEN_ID,
@@ -53,6 +54,11 @@ export const LaunchScreen = () => {
 	const since = claimLaunchStart();
 	return (
 		<div data-launch-screen="">
+			<Show when={platform() === "desktop"}>
+				<div class="absolute inset-x-0 top-0 z-10">
+					<WindowChrome />
+				</div>
+			</Show>
 			<LoadingScreen
 				class="absolute inset-0"
 				label={LAUNCH_SCREEN_LABEL}

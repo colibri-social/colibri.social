@@ -80,6 +80,17 @@ export type ControlsLayout = {
 const isControl = (value: string): value is WindowControl =>
 	RENDERED.includes(value as WindowControl);
 
+const withEveryControl = (
+	listed: WindowControl[],
+	side: ControlsLayout["side"],
+): WindowControl[] => {
+	const shown = listed.filter(
+		(control, index) => listed.indexOf(control) === index,
+	);
+	const missing = DEFAULT_ORDER.filter((control) => !shown.includes(control));
+	return side === "left" ? [...shown, ...missing] : [...missing, ...shown];
+};
+
 export const controlsLayoutFrom = (
 	layout: ButtonLayout | null | undefined,
 ): ControlsLayout => {
@@ -87,9 +98,9 @@ export const controlsLayoutFrom = (
 	const left = layout.left.filter(isControl);
 	const right = layout.right.filter(isControl);
 	if (left.length > 0 && right.length === 0) {
-		return { side: "left", order: left };
+		return { side: "left", order: withEveryControl(left, "left") };
 	}
-	return { side: "right", order: right };
+	return { side: "right", order: withEveryControl(right, "right") };
 };
 
 export type PhysicalRect = {

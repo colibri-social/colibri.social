@@ -14,7 +14,7 @@ export type ScreenShareOptions = ScreenShareQuality & {
 
 export type DisplayMediaRequest = {
 	video: MediaTrackConstraints;
-	audio: boolean;
+	audio: false | MediaTrackConstraints;
 	systemAudio?: "include" | "exclude";
 	selfBrowserSurface?: "include" | "exclude";
 	surfaceSwitching?: "include" | "exclude";
@@ -38,6 +38,13 @@ export const SCREEN_SHARE_FRAMERATES: readonly ScreenShareFramerate[] = [
 ];
 
 const DETAIL_FRAMERATE_CEILING = 15;
+
+export const DISPLAY_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+	echoCancellation: false,
+	noiseSuppression: false,
+	autoGainControl: false,
+	channelCount: 2,
+};
 
 const RESOLUTION_HEIGHTS: Record<ScreenShareResolution, number | undefined> = {
 	"720": 720,
@@ -138,11 +145,46 @@ export const displayMediaRequest = (
 	options: ScreenShareOptions,
 ): DisplayMediaRequest => ({
 	video: screenVideoConstraints(options),
-	audio: options.shareAudio,
+	audio: options.shareAudio ? DISPLAY_AUDIO_CONSTRAINTS : false,
 	systemAudio: options.shareAudio ? "include" : "exclude",
 	selfBrowserSurface: "exclude",
 	surfaceSwitching: "include",
 });
+
+export const PORTAL_WINDOW_SOURCE = "window:1:0";
+
+export type DesktopCaptureRequest = {
+	video: { mandatory: Record<string, string | number> };
+	audio: false | { mandatory: { chromeMediaSource: "desktop" } };
+};
+
+export const windowCaptureRequest = (
+	options: ScreenShareOptions,
+): DesktopCaptureRequest => {
+	const height = RESOLUTION_HEIGHTS[options.resolution];
+	return {
+		video: {
+			mandatory: {
+				chromeMediaSource: "desktop",
+				chromeMediaSourceId: PORTAL_WINDOW_SOURCE,
+				maxFrameRate: options.framerate,
+				...(height !== undefined ? { maxHeight: height } : {}),
+			},
+		},
+		audio: options.shareAudio
+			? { mandatory: { chromeMediaSource: "desktop" } }
+			: false,
+	};
+};
+
+export const choosesCaptureSurface = (
+	userAgent: string | undefined,
+	nativeShell: boolean,
+): boolean =>
+	nativeShell &&
+	!!userAgent &&
+	/\bLinux\b/.test(userAgent) &&
+	!/Android/.test(userAgent);
 
 export const supportsDisplayMedia = (): boolean =>
 	typeof navigator !== "undefined" &&

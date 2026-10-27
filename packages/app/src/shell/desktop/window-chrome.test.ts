@@ -30,17 +30,24 @@ describe("window chrome", () => {
 		expect(composeWindowTitle(undefined, "general")).toBe("Colibri");
 	});
 
-	it("follows the desktop button layout", () => {
+	it("follows the side of the desktop button layout and shows every control", () => {
 		expect(controlsLayoutFrom(null)).toEqual({
 			side: "right",
 			order: ["minimize", "maximize", "close"],
 		});
 		expect(
 			controlsLayoutFrom({ left: ["close", "minimize"], right: [] }),
-		).toEqual({ side: "left", order: ["close", "minimize"] });
+		).toEqual({ side: "left", order: ["close", "minimize", "maximize"] });
 		expect(
 			controlsLayoutFrom({ left: ["appmenu"], right: ["spacer", "close"] }),
-		).toEqual({ side: "right", order: ["close"] });
+		).toEqual({ side: "right", order: ["minimize", "maximize", "close"] });
+		expect(
+			controlsLayoutFrom({ left: [], right: ["maximize", "close", "close"] }),
+		).toEqual({ side: "right", order: ["minimize", "maximize", "close"] });
+		expect(controlsLayoutFrom({ left: [], right: [] })).toEqual({
+			side: "right",
+			order: ["minimize", "maximize", "close"],
+		});
 	});
 
 	it("covers every device pixel of the snap target", () => {

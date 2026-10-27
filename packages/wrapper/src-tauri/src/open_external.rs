@@ -180,14 +180,25 @@ mod linux {
         let appdir = std::env::var_os("APPDIR")
             .filter(|dir| !dir.is_empty())
             .map(PathBuf::from);
+        let forced_gdk_backend = crate::linux_cef::forced_gdk_backend();
         let env = super::child_env::clean(
-            std::env::vars_os(),
+            std::env::vars_os().filter(|(key, _)| !(forced_gdk_backend && key == "GDK_BACKEND")),
             appdir.as_deref(),
             crate::linux_cef::injected_library_dir(),
         );
 
+        let working_dir = appdir.as_ref().and_then(|_| {
+            std::env::var_os("OWD")
+                .or_else(|| std::env::var_os("HOME"))
+                .map(PathBuf::from)
+                .filter(|dir| dir.is_dir())
+        });
+
         let mut last_error = Error::new(ErrorKind::NotFound, "no program to open links with");
         for mut command in open::commands(url) {
+            if let Some(dir) = &working_dir {
+                command.current_dir(dir);
+            }
             command
                 .env_clear()
                 .envs(env.iter().map(|(key, value)| (key, value)))

@@ -256,6 +256,21 @@ describe("desktop title bar", () => {
 		).toBeLessThanOrEqual(controls?.getBoundingClientRect().left ?? 0);
 	});
 
+	it("shows every window control when the Linux desktop lists only close", async () => {
+		fakeShell(LINUX, {
+			maximized: false,
+			layout: { left: [], right: ["close"] },
+		});
+		await mount();
+		await expect
+			.poll(() =>
+				Array.from(
+					bar()?.querySelectorAll<HTMLElement>("[data-control]") ?? [],
+				).map((button) => button.dataset.control),
+			)
+			.toEqual(["minimize", "maximize", "close"]);
+	});
+
 	it("puts the controls on the left when the Linux desktop does", async () => {
 		fakeShell(LINUX, {
 			maximized: false,

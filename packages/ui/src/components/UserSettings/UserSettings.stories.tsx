@@ -225,14 +225,17 @@ export const Notifications: Story = {
 	render: () => {
 		const [level, setLevel] = createSignal<NotificationLevel>("all");
 		const [enabled, setEnabled] = createSignal(true);
+		const [volume, setVolume] = createSignal(100);
 		return (
 			<Page>
 				<NotificationSettings
 					level={level()}
 					onLevelChange={setLevel}
 					device={{ enabled: enabled(), onChange: setEnabled }}
+					sounds={{ volume: volume(), onChange: setVolume }}
 				/>
 				<output data-testid="level">{level()}</output>
+				<output data-testid="volume">{volume()}</output>
 			</Page>
 		);
 	},
@@ -244,6 +247,15 @@ export const Notifications: Story = {
 		await userEvent.click(canvas.getByText("Nothing"));
 		await waitFor(() =>
 			expect(canvas.getByTestId("level")).toHaveTextContent("nothing"),
+		);
+		const slider = canvas.getByRole("slider", {
+			name: /Sound effects volume/,
+		});
+		await expect(slider).toHaveAttribute("aria-valuenow", "100");
+		slider.focus();
+		await userEvent.keyboard("{ArrowLeft}");
+		await waitFor(() =>
+			expect(canvas.getByTestId("volume")).toHaveTextContent("99"),
 		);
 		await userEvent.click(canvas.getByText("Notifications on this device"));
 		await expect(

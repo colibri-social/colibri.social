@@ -233,7 +233,9 @@ export const CameraPreview: Story = {
 		await expectNoLayoutIssues(dialog);
 		const video = dialog.querySelector("video") as HTMLVideoElement;
 		await expect(video).not.toBeNull();
-		await expect(video.className).toContain("-scale-x-100");
+		await expect(getComputedStyle(video).transform).toBe(
+			"matrix(-1, 0, 0, 1, 0, 0)",
+		);
 		await userEvent.click(
 			within(dialog).getByRole("button", { name: "Turn on camera" }),
 		);

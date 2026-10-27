@@ -15,7 +15,7 @@ object CallSounds {
   private var mediaPool: SoundPool? = null
   private val callIds = mutableMapOf<String, Int>()
   private val mediaIds = mutableMapOf<String, Int>()
-  private val pendingPlays = mutableMapOf<Int, SoundPool>()
+  private val pendingPlays = mutableMapOf<Int, Pair<SoundPool, Float>>()
   private val speakerPlayers = mutableMapOf<String, MediaPlayer>()
 
   private val headsetTypes = setOf(
@@ -50,19 +50,20 @@ object CallSounds {
       .build()
       .also { created ->
         created.setOnLoadCompleteListener { loaded, id, status ->
-          if (status == 0 && pendingPlays.remove(id) != null) loaded.play(id, 1f, 1f, 1, 0, 1f)
+          val volume = pendingPlays.remove(id)?.second
+          if (status == 0 && volume != null) loaded.play(id, volume, volume, 1, 0, 1f)
         }
       }
 
-  private fun playFromPool(target: SoundPool, ids: MutableMap<String, Int>, name: String, sound: File) {
+  private fun playFromPool(target: SoundPool, ids: MutableMap<String, Int>, name: String, sound: File, volume: Float) {
     val existing = ids[name]
     if (existing != null) {
-      target.play(existing, 1f, 1f, 1, 0, 1f)
+      target.play(existing, volume, volume, 1, 0, 1f)
       return
     }
     val id = target.load(sound.path, 1)
     ids[name] = id
-    pendingPlays[id] = target
+    pendingPlays[id] = target to volume
   }
 
   private fun builtInSpeaker(audio: AudioManager): AudioDeviceInfo? {
@@ -71,7 +72,7 @@ object CallSounds {
     return outputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
   }
 
-  private fun playOnSpeaker(name: String, sound: File, speaker: AudioDeviceInfo) {
+  private fun playOnSpeaker(name: String, sound: File, speaker: AudioDeviceInfo, volume: Float) {
     speakerPlayers.remove(name)?.release()
     val player = MediaPlayer()
     speakerPlayers[name] = player
@@ -88,6 +89,7 @@ object CallSounds {
       )
       player.setDataSource(sound.path)
       player.setPreferredDevice(speaker)
+      player.setVolume(volume, volume)
       player.setOnPreparedListener { it.start() }
       player.setOnCompletionListener { release() }
       player.setOnErrorListener { _, _, _ ->
@@ -100,22 +102,24 @@ object CallSounds {
     }
   }
 
-  fun play(context: Context, name: String) {
+  fun play(context: Context, name: String, volume: Float = 1f) {
+    val level = volume.coerceIn(0f, 1f)
+    if (level <= 0f) return
     val sound = file(context, name)
     if (!sound.exists()) return
     val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     if (audio.ringerMode != AudioManager.RINGER_MODE_NORMAL) return
     if (CallService.inCall) {
       val target = callPool ?: pool(AudioAttributes.USAGE_VOICE_COMMUNICATION).also { callPool = it }
-      playFromPool(target, callIds, name, sound)
+      playFromPool(target, callIds, name, sound, level)
       return
     }
     val speaker = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) builtInSpeaker(audio) else null
     if (speaker != null) {
-      playOnSpeaker(name, sound, speaker)
+      playOnSpeaker(name, sound, speaker, level)
       return
     }
     val target = mediaPool ?: pool(AudioAttributes.USAGE_MEDIA).also { mediaPool = it }
-    playFromPool(target, mediaIds, name, sound)
+    playFromPool(target, mediaIds, name, sound, level)
   }
 }

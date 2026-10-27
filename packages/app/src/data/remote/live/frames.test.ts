@@ -107,7 +107,31 @@ describe("toLiveEvents", () => {
 					src: COMMUNITY,
 				}),
 			),
-		).toEqual([]);
+		).toEqual([
+			{
+				$type: "messageLabelEvent",
+				event: "create",
+				space: GENERAL,
+				subject: { did: subject.did, rkey: subject.rkey },
+				val: "hidden",
+				src: COMMUNITY,
+			},
+		]);
+	});
+
+	it("maps a thread delete without a view to its space", () => {
+		expect(
+			toLiveEvents(
+				frame("threadEvent", {
+					event: "delete",
+					community: COMMUNITY,
+					space: THREAD,
+					channel: GENERAL,
+				}),
+			),
+		).toEqual([
+			{ $type: "threadRemovedEvent", space: THREAD, channel: GENERAL },
+		]);
 	});
 
 	it("maps reactions to the target record key", () => {

@@ -28,7 +28,13 @@ import {
 	voiceHeartbeatFrame,
 } from "@colibri-social/lib";
 import { Device, type types } from "mediasoup-client";
-import { createEffect, createRoot, createSignal, on } from "solid-js";
+import {
+	createEffect,
+	createMemo,
+	createRoot,
+	createSignal,
+	on,
+} from "solid-js";
 import type { ServiceAuthAgent } from "../remote/live/connection";
 import {
 	type ScreenShareQuality,
@@ -1722,20 +1728,12 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				{ defer: true },
 			),
 		);
+		const savedMicrophone = createMemo(() => settings().microphone);
+		const savedCamera = createMemo(() => settings().camera);
 		createEffect(
-			on(
-				() => settings().microphone,
-				() => void switchMicrophone(),
-				{ defer: true },
-			),
+			on(savedMicrophone, () => void switchMicrophone(), { defer: true }),
 		);
-		createEffect(
-			on(
-				() => settings().camera,
-				() => void switchCamera(),
-				{ defer: true },
-			),
-		);
+		createEffect(on(savedCamera, () => void switchCamera(), { defer: true }));
 
 		const stopDeviceWatch = media?.onDeviceChange?.(() =>
 			reapplyAudioSettings(true),

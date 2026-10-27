@@ -78,7 +78,7 @@ impl WindowConfig {
       visible: attrs.inner.visible,
       frameless: !attrs.inner.decorations,
       initial_scale_factor: scale_factor,
-      app_id: crate::config::config().identifier.clone(),
+      app_id: wayland_app_id(),
       emit: Arc::new(emit),
       resizable: attrs.inner.resizable,
       maximizable: buttons.contains(winit::window::WindowButtons::MAXIMIZE),
@@ -88,6 +88,26 @@ impl WindowConfig {
       icon: attrs.rgba_icon.clone(),
     }
   }
+}
+
+fn owned_cef_string(value: &str) -> CefString {
+  let mut raw: cef::sys::cef_string_utf16_t = unsafe { std::mem::zeroed() };
+  unsafe {
+    cef::sys::cef_string_utf8_to_utf16(value.as_ptr().cast(), value.len(), &mut raw);
+  }
+  CefString::from(raw)
+}
+
+fn wayland_app_id() -> String {
+  std::env::current_exe()
+    .ok()
+    .and_then(|exe| {
+      exe
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().into_owned())
+    })
+    .filter(|stem| !stem.is_empty())
+    .unwrap_or_else(|| crate::config::config().identifier.clone())
 }
 
 pub(crate) struct NativeWindow {
@@ -145,7 +165,12 @@ pub(crate) fn handle_window_message(
       _ = tx.send(Ok(PhysicalPosition::new(0, 0)))
     }
     WindowMessage::InnerSize(tx) | WindowMessage::OuterSize(tx) => {
-      _ = tx.send(Ok(appwindow.initial_surface_size))
+      let size = native
+        .map(|native| native.window.bounds())
+        .filter(|bounds| bounds.width > 0 && bounds.height > 0)
+        .map(|bounds| physical_size(&bounds, appwindow.initial_scale_factor))
+        .unwrap_or(appwindow.initial_surface_size);
+      _ = tx.send(Ok(size))
     }
     WindowMessage::IsFullscreen(tx) => {
       _ = tx.send(Ok(
@@ -301,24 +326,19 @@ pub(crate) fn handle_window_message(
     | WindowMessage::SetTrafficLightPosition(_)
     | WindowMessage::SetProgressBar(_)
     | WindowMessage::SetTheme(_) => {}
+    WindowMessage::SetSize(size) => {
+      if let Some(native) = native {
+        let size = cef_size_from_tauri(size, appwindow.initial_scale_factor);
+        native.window.set_size(Some(&size));
+      }
+    }
+    WindowMessage::SetPosition(_) => {}
     // ponytail: no draggable-region support on the CEF Views backend, so a frameless
     // window cannot be moved or edge-resized from the page. Only reachable when
     // `decorations(false)` is set at build time. Upgrade path: implement
     // `DragHandler::on_draggable_regions_changed` -> `Window::set_draggable_regions`
     // and inject the `-webkit-app-region` stylesheet (see `src/native_wayland/drag.rs`
     // in commit ddd270e).
-    // ponytail: geometry is frozen at creation. Getters answer from
-    // `initial_surface_size` / `PhysicalPosition(0, 0)` and the setters do nothing, so
-    // `tauri-plugin-window-state` will persist the creation size at 0,0. Upgrade path
-    // for size: `native.window.size()` / `set_bounds()` (already in scope, see
-    // `IsFullscreen` above). Position is a genuine Wayland protocol limit -- there are
-    // no global window coordinates -- so it stays stubbed.
-    WindowMessage::SetSize(_) | WindowMessage::SetPosition(_) => {
-      log::warn!(
-        "set_size/set_position are unsupported on native Wayland; window geometry is \
-         fixed at the creation size and any persisted window state will be inaccurate"
-      );
-    }
     WindowMessage::StartDragging | WindowMessage::StartResizeDragging(_) => {
       log::warn!(
         "window drag is unsupported on native Wayland (decorations={}); \
@@ -354,6 +374,13 @@ fn apply_icon(window: &Window, icon: &RgbaIcon) {
 
 fn cef_dimension(value: u32, scale: f64) -> i32 {
   (value as f64 / scale).round().max(1.0) as i32
+}
+
+fn physical_size(bounds: &Rect, scale: f64) -> PhysicalSize<u32> {
+  PhysicalSize::new(
+    (bounds.width as f64 * scale).round() as u32,
+    (bounds.height as f64 * scale).round() as u32,
+  )
 }
 
 fn cef_size_from_tauri(size: TauriSize, scale: f64) -> Size {
@@ -513,7 +540,7 @@ wrap_window_delegate! {
       properties: Option<&mut LinuxWindowProperties>,
     ) -> i32 {
       let Some(properties) = properties else { return 0 };
-      properties.wayland_app_id = CefString::from(self.config.app_id.as_str());
+      properties.wayland_app_id = owned_cef_string(&self.config.app_id);
       1
     }
   }

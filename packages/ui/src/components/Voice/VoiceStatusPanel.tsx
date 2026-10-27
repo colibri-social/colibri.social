@@ -222,7 +222,7 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 							tone={props.screenSharing ? "active" : "default"}
 							size="lg"
 							stretch
-							icon={<AnimatedScreencastIcon />}
+							icon={<AnimatedScreencastIcon trigger="press" />}
 							onClick={props.onToggleScreenShare}
 						/>
 					</ScreenShareControl>

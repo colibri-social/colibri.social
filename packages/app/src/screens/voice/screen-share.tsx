@@ -9,6 +9,7 @@ import {
 	ScreenSharePicker,
 	type ScreenShareSettings,
 	type ScreenShareSource,
+	type ScreenShareSurface,
 	toast,
 } from "@colibri-social/ui";
 import {
@@ -21,10 +22,12 @@ import {
 import { withDeadline } from "../../auth/deadline";
 import { VOICE_NOTICE_COPY } from "../../data/error-copy";
 import {
+	choosesCaptureSurface,
 	displayMediaRequest,
 	type ScreenShareOptions,
 	supportsDisplayAudio,
 	supportsDisplayMedia,
+	windowCaptureRequest,
 } from "../../data/screen-share";
 import { voice } from "../../data/voice";
 import { voiceSettings } from "../../data/voice-settings";
@@ -43,6 +46,7 @@ import {
 	supportsNativeCapture,
 } from "../../native/screen-capture";
 import { usePlatform } from "../../screen/platform";
+import { isNativeShell } from "../../shell/desktop/window-chrome";
 
 const log = createLogger("voice/screen-share");
 
@@ -58,6 +62,15 @@ const MOBILE_DEVICE = /Android|iPhone|iPad/;
 
 const [pickerOpen, setPickerOpen] = createSignal(false);
 const [permissionOpen, setPermissionOpen] = createSignal(false);
+const [surface, setSurface] = createSignal<ScreenShareSurface>("screen");
+
+const RAW_AUDIO: MediaTrackConstraints = {
+	echoCancellation: false,
+	noiseSuppression: false,
+	autoGainControl: false,
+};
+
+const CANCELLED_CAPTURE = new Set(["NotAllowedError", "AbortError"]);
 
 const native = createRoot(() => {
 	const [supported] = createResource(supportsNativeCapture, {
@@ -117,15 +130,37 @@ const failed = () => {
 	toast(copy.title, { description: copy.description });
 };
 
+export const systemPicker = () =>
+	!native() &&
+	choosesCaptureSurface(
+		typeof navigator === "undefined" ? undefined : navigator.userAgent,
+		isNativeShell(),
+	);
+
+const captureWindow = async (chosen: ScreenShareOptions) => {
+	const stream = await navigator.mediaDevices.getUserMedia(
+		windowCaptureRequest(chosen) as unknown as MediaStreamConstraints,
+	);
+	await Promise.all(
+		stream
+			.getAudioTracks()
+			.map((track) => track.applyConstraints(RAW_AUDIO).catch(() => {})),
+	);
+	return stream;
+};
+
 const shareBrowser = async () => {
 	const chosen = options();
 	let stream: MediaStream;
 	try {
-		stream = await navigator.mediaDevices.getDisplayMedia(
-			displayMediaRequest(chosen) as DisplayMediaStreamOptions,
-		);
+		stream =
+			systemPicker() && surface() === "window"
+				? await captureWindow(chosen)
+				: await navigator.mediaDevices.getDisplayMedia(
+						displayMediaRequest(chosen) as DisplayMediaStreamOptions,
+					);
 	} catch (error) {
-		if (error instanceof DOMException && error.name === "NotAllowedError") {
+		if (error instanceof DOMException && CANCELLED_CAPTURE.has(error.name)) {
 			return;
 		}
 		log.warn("display capture failed", { code: classifyThrown(error).code });
@@ -288,7 +323,9 @@ export const ScreenShareHost = () => {
 			<ScreenSharePicker
 				open={pickerOpen()}
 				onOpenChange={setPickerOpen}
-				mode={native() ? "native" : "browser"}
+				mode={native() ? "native" : systemPicker() ? "system" : "browser"}
+				surface={surface()}
+				onSurfaceChange={setSurface}
 				platform={platform()}
 				sources={shown()}
 				loading={loading()}

@@ -25,6 +25,7 @@ import { useData } from "../data/store";
 import type { Did, NotificationView, SpaceRef } from "../data/types";
 import { appVisible } from "../data/visibility";
 import { voice } from "../data/voice";
+import { setSoundEffectsVolume } from "../data/voice-sounds";
 import {
 	type DeviceNotifications,
 	deviceNotifications,
@@ -77,6 +78,10 @@ export const NotificationHost = (props: {
 	let disposed = false;
 
 	onCleanup(device.watch());
+
+	createEffect(() =>
+		setSoundEffectsVolume(data.preferences.client().soundVolume),
+	);
 
 	const settingsOpen = () =>
 		props.stack.root().tab === "settings" ||

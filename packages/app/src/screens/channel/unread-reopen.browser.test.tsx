@@ -42,7 +42,7 @@ const mount = async (
 	options: { prepare?: (source: MockSource) => Promise<void> } = {},
 ) => {
 	setLatency(0);
-	history.replaceState(null, "", "/");
+	history.replaceState(null, "", `/app/c/${HQ}`);
 	const source = createMockSource({ live: false });
 	await options.prepare?.(source);
 	const [epoch] = createSignal<number | undefined>(1);

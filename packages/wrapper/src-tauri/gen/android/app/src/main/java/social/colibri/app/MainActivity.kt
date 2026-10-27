@@ -272,6 +272,11 @@ class MainActivity : TauriActivity() {
     fun playSound(name: String) {
       handler.post { CallSounds.play(this@MainActivity, name) }
     }
+
+    @JavascriptInterface
+    fun playSoundAt(name: String, volume: Double) {
+      handler.post { CallSounds.play(this@MainActivity, name, volume.toFloat()) }
+    }
   }
 
   companion object {

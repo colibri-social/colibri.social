@@ -1,5 +1,11 @@
-import { expect, it, vi } from "vitest";
-import { createNativeSoundPlayer, VOICE_SOUNDS } from "./voice-sounds";
+import { afterEach, expect, it, vi } from "vitest";
+import {
+	createNativeSoundPlayer,
+	setSoundEffectsVolume,
+	VOICE_SOUNDS,
+} from "./voice-sounds";
+
+afterEach(() => setSoundEffectsVolume(100));
 
 const until = async (check: () => boolean, timeout = 4000) => {
 	const started = performance.now();
@@ -38,4 +44,32 @@ it("skips storing a sound the device already has", async () => {
 	createNativeSoundPlayer(bridge)("mute");
 	await until(() => bridge.playSound.mock.calls.length === 1);
 	expect(bridge.storeSound).not.toHaveBeenCalled();
+});
+
+it("passes the sound effects volume to the device", async () => {
+	const bridge = {
+		hasSound: vi.fn(() => true),
+		storeSound: vi.fn(),
+		playSound: vi.fn(),
+		playSoundAt: vi.fn(),
+	};
+	setSoundEffectsVolume(40);
+	createNativeSoundPlayer(bridge)("join");
+	await until(() => bridge.playSoundAt.mock.calls.length === 1);
+	expect(bridge.playSoundAt.mock.calls[0]?.[1]).toBeCloseTo(0.4);
+	expect(bridge.playSound).not.toHaveBeenCalled();
+});
+
+it("stays silent when sound effects are turned all the way down", async () => {
+	const bridge = {
+		hasSound: vi.fn(() => true),
+		storeSound: vi.fn(),
+		playSound: vi.fn(),
+		playSoundAt: vi.fn(),
+	};
+	setSoundEffectsVolume(0);
+	createNativeSoundPlayer(bridge)("leave");
+	await new Promise((resolve) => setTimeout(resolve, 100));
+	expect(bridge.playSoundAt).not.toHaveBeenCalled();
+	expect(bridge.playSound).not.toHaveBeenCalled();
 });

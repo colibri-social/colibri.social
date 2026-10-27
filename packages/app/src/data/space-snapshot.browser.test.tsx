@@ -69,18 +69,23 @@ const warmUp = async (kv: KvStore) => {
 				data.categories.value() !== undefined,
 		);
 	}
-	const first = list[0];
-	if (!first) throw new Error("no Spaces");
-	const general = store
-		.space(first)
-		.channels.value()
-		?.find((channel) => channel.name === "general");
+	const general = list
+		.flatMap((community) => store.space(community).channels.value() ?? [])
+		.find((channel) => channel.name === "general");
 	if (!general) throw new Error("no general channel");
 	const feed = store.channel(general.space);
 	await until(() => feed.ready() && feed.messages().length > 0);
 	await spaces.flush();
 	await cache.flush();
-	return { names: list.map((community) => community.name), general };
+	const home = list.find((community) =>
+		general.space.startsWith(`at://${community.did}/`),
+	);
+	if (!home) throw new Error("no Space for general");
+	return {
+		names: list.map((community) => community.name),
+		general,
+		home: home.name,
+	};
 };
 
 const startOffline = async (kv: KvStore) => {
@@ -125,15 +130,16 @@ it("starts from the last known Spaces without waiting for the network", async ()
 
 it("switches Spaces and opens a cached channel while the network is silent", async () => {
 	const kv = memoryKv();
-	const { names } = await warmUp(kv);
+	const { names, home } = await warmUp(kv);
 	const { root } = await startOffline(kv);
-	const [first, second] = names as [string, string];
-	await until(() => !!buttonStarting(root, second));
-	buttonStarting(root, second)?.click();
+	const other = names.find((name) => name !== home);
+	if (!other) throw new Error("needs two Spaces");
+	await until(() => !!buttonStarting(root, other));
+	buttonStarting(root, other)?.click();
 	await frames(3);
 	expect(root.querySelector(SKELETON)).toBeNull();
-	await until(() => !!buttonStarting(root, first));
-	buttonStarting(root, first)?.click();
+	await until(() => !!buttonStarting(root, home));
+	buttonStarting(root, home)?.click();
 	await until(() => !!buttonStarting(root, "general"));
 	buttonStarting(root, "general")?.click();
 	await until(() => root.querySelectorAll("[data-message]").length > 0, 3000);

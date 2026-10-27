@@ -1,9 +1,9 @@
 {
 	"count": 171,
 	"lexicons": {
-		"social.colibri.beta.actor.clientPreferences": "6aa42f07078e1c03e0f98c62842acee393edd5dc8aab2134e4eb45c0a7658da5",
+		"social.colibri.beta.actor.clientPreferences": "57326b2914c8f6c1f6a7a71f067723ed10834e2d9026e613a0b95606b60fcda1",
 		"social.colibri.beta.actor.composerState": "abe7e1c4d10e30b449e8b487ab49d599157f9a14282d868f8a7f0dba2cda92d7",
-		"social.colibri.beta.actor.defs": "e0408cbba66a44aa197f05194a1ff15283e78ea2c50958a764b3041e49147a2d",
+		"social.colibri.beta.actor.defs": "c61e944bc0fb3670cd0b00cdc9122030d8761134514385e55529d837ad1ba4d0",
 		"social.colibri.beta.actor.deleteAccount": "71ab973c05ff9feeffc48efc241ff5de106ccfa90c9ed35e01884cf1f4789c06",
 		"social.colibri.beta.actor.getDeletionStatus": "12b169e3479a01b8dd6271f19d0b17aae8c90060c19f8c71fa6a0c40ac9bc435",
 		"social.colibri.beta.actor.getPreferences": "1f5b6cf1590123b0870b29fa663e2458eb9c869b1381b2e32888fdbee7440568",

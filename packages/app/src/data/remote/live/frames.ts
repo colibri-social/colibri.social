@@ -92,12 +92,26 @@ export const toLiveEvents = (
 	if (frameIs(frame, "messageEvent")) return messageEvents(frame);
 
 	if (frameIs(frame, "labelEvent")) {
-		if (frame.val !== "moved" || frame.event !== "create") return [];
+		if (frame.val === "moved") {
+			if (frame.event !== "create") return [];
+			return [
+				{
+					$type: "messagesMovedEvent",
+					space: asSpace(frame.space),
+					rkeys: [frame.subject.rkey],
+				},
+			];
+		}
+		const event = known(frame.event, ["create", "negate"] as const);
+		if (!event) return [];
 		return [
 			{
-				$type: "messagesMovedEvent",
+				$type: "messageLabelEvent",
+				event,
 				space: asSpace(frame.space),
-				rkeys: [frame.subject.rkey],
+				subject: { did: asDid(frame.subject.did), rkey: frame.subject.rkey },
+				val: frame.val,
+				src: asDid(frame.src),
 			},
 		];
 	}
@@ -197,6 +211,16 @@ export const toLiveEvents = (
 			frame.event === "activity" ? "update" : frame.event,
 			CHANGE,
 		);
+		if (event === "delete" && !frame.thread) {
+			if (!frame.space) return [];
+			return [
+				{
+					$type: "threadRemovedEvent",
+					space: asSpace(frame.space),
+					...(frame.channel ? { channel: asSpace(frame.channel) } : {}),
+				},
+			];
+		}
 		if (!frame.thread || !event) return [];
 		return [
 			{

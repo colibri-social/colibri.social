@@ -6,6 +6,7 @@ import {
 	onCleanup,
 	onMount,
 	Show,
+	untrack,
 } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createMenuTrigger } from "../../utils/gestures";
@@ -99,12 +100,43 @@ const avatarSizeFor = (pixels: number): AvatarSize =>
 						? "lg"
 						: "xl";
 
+const MENU_FOCUS_FRAMES = 30;
+
+const focusMenuSlider = (frames = MENU_FOCUS_FRAMES) => {
+	const menu = document.activeElement?.closest<HTMLElement>('[role="menu"]');
+	const slider = menu?.querySelector<HTMLElement>(
+		'[data-menu-slider] [role="slider"]',
+	);
+	if (slider) {
+		slider.focus();
+		return;
+	}
+	if (!menu && frames > 0)
+		requestAnimationFrame(() => focusMenuSlider(frames - 1));
+};
+
+const focusSliderOnPointerMenu = (element: HTMLElement) => {
+	let pointer = false;
+	element.addEventListener("pointerdown", (event) => {
+		pointer = event.pointerType === "mouse";
+	});
+	element.addEventListener("keydown", () => {
+		pointer = false;
+	});
+	element.addEventListener("contextmenu", (event) => {
+		const fromPointer = pointer || event.button === 2;
+		pointer = false;
+		if (fromPointer) requestAnimationFrame(() => focusMenuSlider());
+	});
+};
+
 export const VoiceTile = (props: VoiceTileProps) => {
 	const [box, setBox] = createSignal({ w: 0, h: 0 });
 	let observer: ResizeObserver | undefined;
 	onCleanup(() => observer?.disconnect());
 	const bind = (element: HTMLElement) => {
 		observe(element);
+		focusSliderOnPointerMenu(element);
 		createMenuTrigger(element, {
 			enabled: () => !!props.onMenu,
 			onMenu: () => props.onMenu?.(),
@@ -317,8 +349,13 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 		return props.tiles.find((tile) => voiceTileKey(tile) === key);
 	});
 
+	const focusedTileKey = createMemo(() => {
+		const tile = focused();
+		return tile ? voiceTileKey(tile) : undefined;
+	});
+
 	const others = createMemo(() => {
-		const key = focused() ? voiceTileKey(focused() as VoiceTileData) : null;
+		const key = focusedTileKey() ?? null;
 		return props.tiles.filter((tile) => voiceTileKey(tile) !== key);
 	});
 
@@ -365,7 +402,7 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 	};
 
 	const wrap = (tile: () => VoiceTileData, element: JSX.Element) =>
-		props.tileMenu ? props.tileMenu(tile(), element) : element;
+		untrack(() => (props.tileMenu ? props.tileMenu(tile(), element) : element));
 
 	const trackWidth = () => {
 		const tile = tileSize();
@@ -396,7 +433,8 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 			style={{ gap: `${gap()}px` }}
 		>
 			<Show
-				when={focused()}
+				when={focusedTileKey()}
+				keyed
 				fallback={
 					<div
 						data-voice-tiles=""
@@ -427,54 +465,60 @@ export const VoiceGrid = (props: VoiceGridProps) => {
 					</div>
 				}
 			>
-				{(tile) => (
-					<>
-						{wrap(
-							tile,
-							<VoiceTile
-								tile={tile()}
-								portrait={props.portrait}
-								focused
-								onSelect={toggle(tile)}
-								onMenu={menuFor(tile)}
-								style={{
-									width: px(focusedSize()?.w),
-									height: px(focusedSize()?.h),
-								}}
-							/>,
-						)}
-						<Show when={others().length}>
-							<div
-								data-voice-strip=""
-								class="ring-room flex w-full shrink-0 justify-center-safe overflow-x-auto overscroll-x-contain"
-								style={{
-									gap: `${gap()}px`,
-									height: `calc(${STRIP_HEIGHT}px + var(--focus-ring-reach) * 2)`,
-								}}
-							>
-								<KeyedFor each={others()} by={voiceTileKey}>
-									{(other) =>
-										wrap(
-											other,
-											<VoiceTile
-												tile={other()}
-												portrait={props.portrait}
-												compact
-												onSelect={toggle(other)}
-												onMenu={menuFor(other)}
-												class="shrink-0"
-												style={{
-													height: `${STRIP_HEIGHT}px`,
-													width: `${Math.round((STRIP_HEIGHT * 16) / 9)}px`,
-												}}
-											/>,
-										)
-									}
-								</KeyedFor>
-							</div>
-						</Show>
-					</>
-				)}
+				{(_key) => {
+					const tile = createMemo<VoiceTileData>(
+						(previous) => focused() ?? previous,
+						untrack(focused) as VoiceTileData,
+					);
+					return (
+						<>
+							{wrap(
+								tile,
+								<VoiceTile
+									tile={tile()}
+									portrait={props.portrait}
+									focused
+									onSelect={toggle(tile)}
+									onMenu={menuFor(tile)}
+									style={{
+										width: px(focusedSize()?.w),
+										height: px(focusedSize()?.h),
+									}}
+								/>,
+							)}
+							<Show when={others().length}>
+								<div
+									data-voice-strip=""
+									class="ring-room flex w-full shrink-0 justify-center-safe overflow-x-auto overscroll-x-contain"
+									style={{
+										gap: `${gap()}px`,
+										height: `calc(${STRIP_HEIGHT}px + var(--focus-ring-reach) * 2)`,
+									}}
+								>
+									<KeyedFor each={others()} by={voiceTileKey}>
+										{(other) =>
+											wrap(
+												other,
+												<VoiceTile
+													tile={other()}
+													portrait={props.portrait}
+													compact
+													onSelect={toggle(other)}
+													onMenu={menuFor(other)}
+													class="shrink-0"
+													style={{
+														height: `${STRIP_HEIGHT}px`,
+														width: `${Math.round((STRIP_HEIGHT * 16) / 9)}px`,
+													}}
+												/>,
+											)
+										}
+									</KeyedFor>
+								</div>
+							</Show>
+						</>
+					);
+				}}
 			</Show>
 		</div>
 	);

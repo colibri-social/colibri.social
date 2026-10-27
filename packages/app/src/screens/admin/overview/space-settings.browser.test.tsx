@@ -3,7 +3,11 @@ import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { expectNoLayoutIssues } from "../../../../../ui/src/foundations/layout-test";
 import { createMockSource, setLatency } from "../../../data/mock/source";
-import { createDataStore, DataContext } from "../../../data/store";
+import {
+	createDataStore,
+	DataContext,
+	type DataStore,
+} from "../../../data/store";
 import { Providers } from "../../../providers";
 import { MobileShell } from "../../../shell/MobileShell";
 
@@ -17,6 +21,9 @@ const until = async (check: () => boolean, timeout = 8000) => {
 		await new Promise((resolve) => setTimeout(resolve, 20));
 	}
 };
+
+const firstSpacePath = (store: DataStore) =>
+	`/app/c/${store.communities.value()?.[0]?.did}`;
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -175,7 +182,7 @@ describe("space settings hub", () => {
 		await until(
 			() => !store.communities.value()?.some((entry) => entry.did === HQ),
 		);
-		await until(() => location.pathname === `/app/c/${OWLS}`);
+		await until(() => location.pathname === firstSpacePath(store));
 	});
 
 	it("offers a member only Members and Leave Space", async () => {
@@ -191,7 +198,7 @@ describe("space settings hub", () => {
 		await until(
 			() => !store.communities.value()?.some((entry) => entry.did === OWLS),
 		);
-		await until(() => location.pathname === `/app/c/${HQ}`);
+		await until(() => location.pathname === firstSpacePath(store));
 	});
 
 	it("opens from the Space drawer's settings tile", async () => {
@@ -217,7 +224,7 @@ describe("space settings hub", () => {
 		await until(
 			() => !store.communities.value()?.some((entry) => entry.did === OWLS),
 		);
-		await until(() => location.pathname === `/app/c/${HQ}`);
+		await until(() => location.pathname === firstSpacePath(store));
 		expect(
 			store.notifications
 				.items()

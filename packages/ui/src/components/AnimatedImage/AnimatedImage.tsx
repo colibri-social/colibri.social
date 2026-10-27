@@ -280,8 +280,10 @@ export const AnimatedImage = (props: AnimatedImageProps) => {
 					<canvas
 						{...(shared as JSX.CanvasHTMLAttributes<HTMLCanvasElement>)}
 						ref={(canvas) => {
-							const element = image();
-							if (element?.src) drawFrame(canvas, element, local.frameSize);
+							createEffect(() => {
+								const element = image();
+								if (element?.src) drawFrame(canvas, element, local.frameSize);
+							});
 						}}
 						role={imageProps.alt ? "img" : undefined}
 						aria-label={imageProps.alt || undefined}

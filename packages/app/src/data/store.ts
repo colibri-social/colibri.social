@@ -87,6 +87,7 @@ import type {
 	CategoryView,
 	ChannelView,
 	CommunityView,
+	Datetime,
 	Did,
 	Facet,
 	MemberView,
@@ -110,6 +111,7 @@ const CATCH_UP_SPACING_MS = 1_000;
 const TYPING_MS = 6000;
 const OWN_REACTION_ECHO_MS = 15_000;
 const INVALIDATION_DELAY_MS = 50;
+export const BOOT_CAP_MS = 4_000;
 
 type Invalidation = { layout: boolean; roles: boolean; community: boolean };
 
@@ -317,18 +319,32 @@ const insertSorted = (
 	return next;
 };
 
+type LoadOptions = { replay?: boolean };
+
 const createLoad = <T>(
 	fetch: () => Promise<T>,
 	method: string,
 	seed?: T,
+	options: LoadOptions = {},
 ): MutableLoad<T> => {
 	const [value, setValue] = createSignal<T | undefined>(seed);
 	const [loading, setLoading] = createSignal(seed === undefined);
 	const [error, setError] = createSignal<ColibriError>();
 	let attempt = 0;
 	let running: Promise<void> | undefined;
+	let inFlight = false;
+	let stale = false;
+	let journal: ((current: T) => T)[] = [];
+	const replayed = (result: T) => {
+		const changes = journal;
+		journal = [];
+		return changes.reduce((current, change) => change(current), result);
+	};
 	const run = (quiet = false): Promise<void> => {
 		const current = ++attempt;
+		inFlight = true;
+		stale = false;
+		journal = [];
 		if (!quiet)
 			batch(() => {
 				setLoading(true);
@@ -343,17 +359,22 @@ const createLoad = <T>(
 		const settled = request.then(
 			(result) => {
 				if (current !== attempt) return;
+				inFlight = false;
+				const next = replayed(result);
 				batch(() => {
 					setValue((previous) =>
 						quiet && previous !== undefined
-							? keepUnchanged(previous, result)
-							: result,
+							? keepUnchanged(previous, next)
+							: next,
 					);
 					setLoading(false);
 				});
+				if (stale) void run(true);
 			},
 			(thrown: unknown) => {
 				if (current !== attempt) return;
+				inFlight = false;
+				journal = [];
 				const failure = classifyThrown(thrown, { method });
 				log.warn("load failed", { method, code: failure.code });
 				if (quiet && untrack(value) !== undefined) return;
@@ -367,14 +388,19 @@ const createLoad = <T>(
 		return settled;
 	};
 	void run(seed !== undefined);
-	const update = (change: (current: T) => T) =>
+	const update = (change: (current: T) => T) => {
+		if (options.replay && inFlight) journal.push(change);
 		setValue((current) => (current === undefined ? current : change(current)));
+	};
 	const retry = (): Promise<void> =>
 		untrack(loading) ? (running ?? Promise.resolve()) : run();
-	const refresh = () =>
-		untrack(value) === undefined || untrack(loading)
-			? Promise.resolve()
-			: run(true);
+	const refresh = () => {
+		if (inFlight) {
+			stale = true;
+			return running ?? Promise.resolve();
+		}
+		return untrack(value) === undefined ? Promise.resolve() : run(true);
+	};
 	return { value, loading, error, retry, update, refresh };
 };
 
@@ -382,12 +408,14 @@ const createLazyLoad = <T>(
 	fetch: () => Promise<T>,
 	method: string,
 	seed?: T,
-): MutableLoad<T> => {
+	options: LoadOptions = {},
+): MutableLoad<T> & { start: () => void } => {
 	let inner: MutableLoad<T> | undefined;
+	let pendingSeed = seed;
 	const [started, setStarted] = createSignal(false);
 	const ensure = () => {
 		if (!inner) {
-			inner = createRoot(() => createLoad(fetch, method, seed));
+			inner = createRoot(() => createLoad(fetch, method, pendingSeed, options));
 			setStarted(true);
 		}
 		return inner;
@@ -397,9 +425,15 @@ const createLazyLoad = <T>(
 		loading: () => ensure().loading(),
 		error: () => ensure().error(),
 		retry: () => ensure().retry() ?? Promise.resolve(),
-		update: (change) => inner?.update(change),
+		update: (change) => {
+			if (inner) inner.update(change);
+			else if (pendingSeed !== undefined) pendingSeed = change(pendingSeed);
+		},
 		refresh: () => inner?.refresh() ?? Promise.resolve(),
 		peek: () => (started() ? inner?.value() : undefined),
+		start: () => {
+			ensure();
+		},
 	};
 };
 
@@ -463,6 +497,8 @@ export const createDataStore = (
 		};
 		const [viewer, setViewer] = createStore<ProfileView>(source.viewer());
 		const memberLoads = new Map<Did, MutableLoad<MemberView[]>>();
+		const memberStarts = new Map<Did, () => void>();
+		const coreReady = new Map<Did, Accessor<boolean>>();
 		const roleLoads = new Map<Did, MutableLoad<RoleView[]>>();
 		const [simulation, setSimulationSignal] = createSignal(source.simulation());
 		const loadedCommunities = createLoad(
@@ -481,7 +517,7 @@ export const createDataStore = (
 			value: orderedCommunities,
 		};
 		persist(() => {
-			const list = communities.value();
+			const list = loadedCommunities.value();
 			if (list) spaceCache?.offerCommunities(list);
 		});
 		persist(() => {
@@ -661,9 +697,11 @@ export const createDataStore = (
 				memberLoads
 					.get(event.community)
 					?.update((list) =>
-						list.map((member) =>
-							member.actor.did === subject ? event.member : member,
-						),
+						list.some((member) => member.actor.did === subject)
+							? list.map((member) =>
+									member.actor.did === subject ? event.member : member,
+								)
+							: [...list, event.member],
 					);
 				if (subject === viewer.did) {
 					const changed = !sameRoleSet(
@@ -965,7 +1003,7 @@ export const createDataStore = (
 			for (const summary of cached?.summaries ?? []) putSummary(summary);
 			for (const [slug, read] of Object.entries(cached?.reads ?? {}))
 				cachedReads.set(readKey(community.did, slug), read);
-			void loadSummaries(community.did);
+			const summariesLoaded = loadSummaries(community.did);
 			categoryLoads.set(community.did, categories);
 			channelLoads.set(community.did, channelList);
 			const roles = createLoad(
@@ -976,7 +1014,6 @@ export const createDataStore = (
 			roleLoads.set(community.did, roles);
 			const members = createLazyLoad(
 				async () => {
-					memberLoads.set(community.did, members);
 					const all: MemberView[] = [];
 					let cursor: string | undefined;
 					do {
@@ -1002,8 +1039,25 @@ export const createDataStore = (
 				},
 				"member.list",
 				cached?.members,
+				{ replay: true },
 			);
-			void loadUnread(community.did);
+			memberLoads.set(community.did, members);
+			memberStarts.set(community.did, members.start);
+			const unreadLoaded = loadUnread(community.did);
+			const [extrasReady, setExtrasReady] = createSignal(!!cached?.channels);
+			void Promise.all([summariesLoaded, unreadLoaded]).then(() =>
+				setExtrasReady(true),
+			);
+			const settled = (load: Load<unknown>) =>
+				load.value() !== undefined || !!load.error();
+			coreReady.set(
+				community.did,
+				() =>
+					extrasReady() &&
+					settled(categories) &&
+					settled(channelList) &&
+					settled(roles),
+			);
 
 			let memberIndex: Map<string, MemberView> | undefined;
 			let memberIndexSource: MemberView[] | undefined;
@@ -1247,6 +1301,16 @@ export const createDataStore = (
 					list.filter((entry) => entry.space !== thread.space),
 				);
 		source.subscribe((event) => {
+			if (event.$type === "threadRemovedEvent") {
+				const drop = (list: ThreadView[]) =>
+					list.some((entry) => entry.space === event.space)
+						? list.filter((entry) => entry.space !== event.space)
+						: list;
+				const known = event.channel && threadLoads.get(event.channel);
+				if (known) known.update(drop);
+				else for (const load of threadLoads.values()) load.update(drop);
+				return;
+			}
 			if (event.$type !== "threadEvent") return;
 			if (event.event === "delete") removeThread(event.thread);
 			else upsertThread(event.thread);
@@ -1773,10 +1837,15 @@ export const createDataStore = (
 					void communities.refresh();
 					return;
 				}
+				const joined = event.member.actor;
+				if (joined.presence && !untrack(() => presence[joined.did])) {
+					seededPresence.delete(joined.did);
+					presences.put(joined.did, joined.presence);
+				}
 				memberLoads
 					.get(event.community)
 					?.update((list) =>
-						list.some((entry) => entry.actor.did === event.member.actor.did)
+						list.some((entry) => entry.actor.did === joined.did)
 							? list
 							: [...list, event.member],
 					);
@@ -2636,6 +2705,32 @@ export const createDataStore = (
 					if (event.message) upsert(event.message);
 					return true;
 				}
+				if (event.$type === "messageLabelEvent") {
+					const current = untrack(messages).find(
+						(entry) =>
+							entry.rkey === event.subject.rkey &&
+							entry.author.did === event.subject.did,
+					);
+					if (!current) return true;
+					const others = current.labels.filter(
+						(label) => label.val !== event.val,
+					);
+					upsert({
+						...current,
+						labels:
+							event.event === "create"
+								? [
+										...others,
+										{
+											src: event.src,
+											val: event.val,
+											createdAt: new Date().toISOString() as Datetime,
+										},
+									]
+								: others,
+					});
+					return true;
+				}
 				if (event.$type === "reactionEvent") {
 					applyReaction(
 						event.target,
@@ -3195,6 +3290,9 @@ export const createDataStore = (
 					}
 					return;
 				}
+				case "messageLabelEvent":
+					messageListeners.get(event.space)?.(event);
+					return;
 				case "reactionEvent":
 					if (
 						event.actor === viewer.did &&
@@ -3431,25 +3529,38 @@ export const createDataStore = (
 			void backfill.run(queued);
 		};
 
+		createEffect(() => {
+			const list = communities.value();
+			if (!list) return;
+			untrack(() => {
+				for (const entry of list) runWithOwner(owner, () => space(entry));
+			});
+		});
+
 		const bootReady = createMemo(() => {
 			const list = communities.value();
 			if (!list) return false;
-			const key = lastSpace();
-			const current = key
-				? list.find((entry) => spaceKey(entry) === key)
-				: undefined;
-			if (current) {
-				const data = runWithOwner(owner, () => space(current));
-				if (
-					!data ||
-					data.channels.value() === undefined ||
-					data.categories.value() === undefined
-				)
-					return false;
+			for (const entry of list) {
+				runWithOwner(owner, () => space(entry));
+				if (!coreReady.get(entry.did)?.()) return false;
 			}
 			const ref = viewing();
 			const feed = ref ? channels.get(ref) : undefined;
 			return !feed || feed.ready();
+		});
+
+		const [bootCapped, setBootCapped] = createSignal(false);
+		const bootCap = setTimeout(() => setBootCapped(true), BOOT_CAP_MS);
+		onCleanup(() => clearTimeout(bootCap));
+		const bootSettled = () => bootReady() || bootCapped();
+
+		createEffect(() => {
+			if (!bootSettled()) return;
+			const list = communities.value();
+			if (!list) return;
+			untrack(() => {
+				for (const entry of list) memberStarts.get(entry.did)?.();
+			});
 		});
 
 		const accessStore = createAccessStore({ source, memberLoads });

@@ -12,7 +12,7 @@ import {
 } from "solid-js";
 import { cx } from "../../utils/cx";
 import { Button } from "../Button/Button";
-import { ListGroup, ToggleRow } from "../List/List";
+import { ListGroup, RadioRow, RadioRowGroup, ToggleRow } from "../List/List";
 import { Modal, ModalContent } from "../Modal/Modal";
 import { Select, type SelectPlatform } from "../Select/Select";
 import {
@@ -38,7 +38,17 @@ export type ScreenShareSource = {
 	aspectRatio?: number;
 };
 
-export type ScreenSharePickerMode = "native" | "browser";
+export type ScreenSharePickerMode = "native" | "browser" | "system";
+
+export type ScreenShareSurface = "screen" | "window";
+
+export const SCREEN_SHARE_SURFACES: readonly ScreenShareSurface[] = [
+	"screen",
+	"window",
+];
+
+const isSurface = (value: string): value is ScreenShareSurface =>
+	(SCREEN_SHARE_SURFACES as readonly string[]).includes(value);
 
 export type ScreenSharePickerProps = {
 	open: boolean;
@@ -53,6 +63,8 @@ export type ScreenSharePickerProps = {
 	onSettingsChange: (patch: Partial<ScreenShareSettings>) => void;
 	onShare: (source?: ScreenShareSource) => void;
 	onOpenPermissionSettings?: () => void;
+	surface?: ScreenShareSurface;
+	onSurfaceChange?: (surface: ScreenShareSurface) => void;
 };
 
 export const SCREEN_SHARE_PICKER_COPY = {
@@ -60,6 +72,19 @@ export const SCREEN_SHARE_PICKER_COPY = {
 	nativeDescription: "Pick what everyone in the call sees.",
 	browserDescription:
 		"Choose the quality first. Your browser asks what to share next.",
+	systemDescription:
+		"Choose what to share and how sharp it looks. Your computer asks which one next.",
+	surface: "What to share",
+	surfaces: {
+		screen: {
+			title: "Whole screen",
+			description: "Everyone sees everything on one of your screens.",
+		},
+		window: {
+			title: "One window",
+			description: "Everyone sees only the window you pick.",
+		},
+	},
 	share: "Share",
 	continue: "Continue",
 	cancel: "Cancel",
@@ -271,7 +296,9 @@ export const ScreenSharePicker = (props: ScreenSharePickerProps) => {
 				description={
 					native()
 						? SCREEN_SHARE_PICKER_COPY.nativeDescription
-						: SCREEN_SHARE_PICKER_COPY.browserDescription
+						: props.mode === "system"
+							? SCREEN_SHARE_PICKER_COPY.systemDescription
+							: SCREEN_SHARE_PICKER_COPY.browserDescription
 				}
 				class={native() ? "md:w-[640px]" : "md:w-[440px]"}
 				footer={
@@ -376,6 +403,30 @@ export const ScreenSharePicker = (props: ScreenSharePickerProps) => {
 							</Switch>
 						</div>
 					</Tabs>
+				</Show>
+				<Show when={props.mode === "system"}>
+					<RadioRowGroup
+						label={SCREEN_SHARE_PICKER_COPY.surface}
+						value={props.surface ?? "screen"}
+						onChange={(value) => {
+							if (isSurface(value)) props.onSurfaceChange?.(value);
+						}}
+					>
+						<For each={SCREEN_SHARE_SURFACES}>
+							{(surface) => (
+								<RadioRow
+									value={surface}
+									icon={
+										surface === "screen" ? <MonitorIcon /> : <WindowFrameIcon />
+									}
+									title={SCREEN_SHARE_PICKER_COPY.surfaces[surface].title}
+									description={
+										SCREEN_SHARE_PICKER_COPY.surfaces[surface].description
+									}
+								/>
+							)}
+						</For>
+					</RadioRowGroup>
 				</Show>
 				<QualityFields
 					platform={props.platform}
