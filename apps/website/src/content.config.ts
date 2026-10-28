@@ -1,7 +1,7 @@
 import { defineCollection } from "astro:content";
 import { docsLoader } from "@astrojs/starlight/loaders";
 import { docsSchema } from "@astrojs/starlight/schema";
-import { glob } from "astro/loaders";
+import { file, glob } from "astro/loaders";
 import { z } from "astro/zod";
 
 const documents = defineCollection({
@@ -13,9 +13,18 @@ const documents = defineCollection({
 	}),
 });
 
+const faq = defineCollection({
+	loader: file("./src/content/faq.yaml"),
+	schema: z.object({
+		question: z.string(),
+		answer: z.string(),
+	}),
+});
+
 const docs = defineCollection({ loader: docsLoader(), schema: docsSchema() });
 
 export const collections = {
 	documents,
+	faq,
 	docs,
 };

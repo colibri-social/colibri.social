@@ -1,30 +1,55 @@
 ---
+import NavLink from "@/components/public/NavLink.astro";
+import PageBand from "@/components/public/PageBand.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
 ---
 
 <PublicLayout
 	title="Page Not Found"
 	description="We were unable to find the page you're looking for."
+	starry
 >
-	<section
-		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12 h-screen justify-center"
-	>
-		<div class="flex flex-col gap-4 items-center text-center">
-			<small class="text-primary text-sm">Whoops.</small>
-			<h1 class="reset h-fit leading-56 text-[192px] font-black m-0">404</h1>
-			<p class="m-0 text-muted-foreground">
-				We were unable to find the page you're looking for. Try one of these
-				links:
-			</p>
-		</div>
-		<div
-			class="flex flex-row items-center justify-center text-muted-foreground w-full max-w-xl gap-4 text-lg"
-		>
-			<a href="/" class="hover:underline">Home</a>
-			<span class="w-1 h-1 rounded-full bg-muted-foreground"></span>
-			<a href="/app" class="hover:underline">Web-App</a>
-			<span class="w-1 h-1 rounded-full bg-muted-foreground"></span>
-			<a href="/faq" class="hover:underline">FAQ</a>
-		</div>
-	</section>
+	<PageBand labelledby="lost-title" class="lost">
+		<h1 class="lost-code reset" id="lost-title">404</h1>
+		<p class="page-band-lead lost-lead">
+			This page flew off somewhere. Try one of these instead:
+		</p>
+		<nav class="lost-links" aria-label="Helpful links">
+			<NavLink text="Home" href="/" />
+			<NavLink text="Web-App" href="/app" />
+			<NavLink text="FAQ" href="/faq" />
+		</nav>
+	</PageBand>
 </PublicLayout>
+
+<style>
+	.lost {
+		min-height: 860px;
+		padding-top: clamp(150px, 14vw, 200px);
+		padding-bottom: 160px;
+	}
+
+	.lost .lost-code {
+		font-family: var(--font-stardom);
+		font-weight: 400;
+		font-size: clamp(150px, 20vw, 280px);
+		line-height: 0.8;
+		text-shadow:
+			0 0 24px rgba(0, 0, 0, 0.45),
+			0 4px 40px rgba(16, 13, 26, 0.6);
+	}
+
+	.lost-lead {
+		max-width: 44ch;
+	}
+
+	.lost-links {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 8px 12px;
+		margin-top: 8px;
+		font-size: 19px;
+	}
+
+</style>

@@ -1,10 +1,11 @@
 ---
 import { getLinearBlocks } from "@colibri-social/standard-renderer";
 import LeafletDocument from "@colibri-social/standard-renderer/astro/LeafletDocument.astro";
+import PageHeader from "@/components/public/prose/PageHeader.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
 import { blobUrl } from "@/lib/blog/blob";
 import { documentUri, postUrl } from "@/lib/blog/config";
-import { getPost } from "@/lib/blog/posts";
+import { getPost, listPosts } from "@/lib/blog/posts";
 
 const { rkey } = Astro.params;
 
@@ -16,60 +17,341 @@ if (!post) {
 
 const { doc } = post;
 const blocks = getLinearBlocks(doc);
-const cover = blobUrl(doc.coverImage);
 const canonical = postUrl(post.rkey);
+
+let morePosts: Awaited<ReturnType<typeof listPosts>> = [];
+try {
+	morePosts = (await listPosts())
+		.filter((other) => other.rkey !== post.rkey)
+		.slice(0, 2);
+} catch {
+	morePosts = [];
+}
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
 	year: "numeric",
 	month: "long",
 	day: "numeric",
 });
+
+import { ogImageFor } from "@/lib/og/url";
 ---
 
 <PublicLayout
 	title={`${doc.title} | Colibri Blog`}
 	description={doc.description}
-	image={cover}
+	image={ogImageFor({ kind: "blog-post", rkey: post.rkey }, Astro.site)}
 	canonical={canonical}
 	ogType="article"
+	starry
 >
 	<Fragment slot="head">
 		<link rel="site.standard.document" href={documentUri(post.rkey)} />
 		<meta property="article:published_time" content={doc.publishedAt} />
 		{doc.tags?.map((tag) => <meta property="article:tag" content={tag} />)}
-		{cover && <meta name="twitter:image" content={cover} />}
 	</Fragment>
 
-	<article
-		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-8"
-	>
-		<div class="w-full max-w-[65ch] flex flex-col gap-4">
-			<a href="/blog" class="text-sm text-primary hover:underline no-underline"
-				>← Back to blog</a
+	<PageHeader title={doc.title} id="post-title" align="start" display={false}>
+		<a class="back-link" href="/blog" slot="before">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5L9 12L15 19"
+				></path></svg
 			>
-			<h1 class="text-4xl md:text-5xl font-black m-0">{doc.title}</h1>
-			<div
-				class="flex flex-row flex-wrap items-center gap-3 text-sm text-muted-foreground"
-			>
-				<time datetime={doc.publishedAt}>
-					{dateFormatter.format(new Date(doc.publishedAt))}
-				</time>
-				{
-					doc.tags && doc.tags.length > 0 && (
-						<div class="flex flex-row flex-wrap gap-2">
-							{doc.tags.map((tag) => (
-								<span class="text-xs px-2 py-1 rounded-full bg-muted">
-									{tag}
-								</span>
+			Back to blog
+		</a>
+		<div class="post-meta">
+			<time datetime={doc.publishedAt}>
+				{dateFormatter.format(new Date(doc.publishedAt))}
+			</time>
+			{
+				doc.tags && doc.tags.length > 0 && (
+					<>
+						<span class="post-meta-dot" aria-hidden="true" />
+						{doc.tags.map((tag) => (
+							<span class="post-tag">{tag}</span>
+						))}
+					</>
+				)
+			}
+		</div>
+	</PageHeader>
+
+	<article class="post-body" aria-labelledby="post-title">
+		<div class="site-wrap">
+			<div class="post-prose">
+				<LeafletDocument blocks={blocks} resolveBlob={blobUrl} />
+			</div>
+
+			{
+				morePosts.length > 0 && (
+					<section class="post-end" aria-labelledby="more-title">
+						<h2 id="more-title">Keep reading</h2>
+						<div class="next-grid">
+							{morePosts.map((other) => (
+								<div class="next">
+									<time datetime={other.doc.publishedAt}>
+										{dateFormatter.format(new Date(other.doc.publishedAt))}
+									</time>
+									<a href={`/blog/${other.rkey}`}>{other.doc.title}</a>
+								</div>
 							))}
 						</div>
-					)
-				}
-			</div>
-		</div>
-
-		<div class="w-full max-w-[65ch]">
-			<LeafletDocument blocks={blocks} resolveBlob={blobUrl} />
+					</section>
+				)
+			}
 		</div>
 	</article>
 </PublicLayout>
+
+<style>
+	.back-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		color: #fff;
+		font-family: var(--font-sans);
+		font-weight: 600;
+		font-size: 16px;
+		text-decoration: none;
+		text-underline-offset: 5px;
+	}
+
+	.back-link:hover {
+		text-decoration: underline;
+	}
+
+	.back-link svg {
+		width: 16px;
+		height: 16px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.5;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		transition: transform 0.15s;
+	}
+
+	.back-link:hover svg {
+		transform: translateX(-3px);
+	}
+
+	.post-meta {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 10px;
+		font-family: var(--font-sans);
+		font-size: 15px;
+		color: #d4d4d4;
+	}
+
+	.post-meta-dot {
+		width: 4px;
+		height: 4px;
+		border-radius: 50%;
+		background: #a3a3a3;
+	}
+
+	.post-tag {
+		display: inline-flex;
+		align-items: center;
+		height: 24px;
+		padding: 0 9px;
+		border-radius: 99px;
+		background: var(--site-secondary);
+		color: #d4d4d4;
+		font-weight: 600;
+		font-size: 13px;
+	}
+
+	.post-body {
+		position: relative;
+		z-index: 5;
+		color: #fff;
+		font-family: var(--font-sans);
+	}
+
+	.post-prose {
+		max-width: 760px;
+		margin-inline: auto;
+	}
+
+	.post-prose :global(.prose) {
+		font-size: clamp(16px, 1.1vw, 18px);
+		font-weight: 400;
+		line-height: 1.65;
+		color: #ededed;
+	}
+
+	.post-prose :global(.prose :is(h1, h2, h3, h4)) {
+		font-family: var(--font-sans);
+		color: #fff;
+		background: none;
+		-webkit-text-fill-color: currentColor;
+		letter-spacing: normal;
+		text-wrap: balance;
+	}
+
+	.post-prose :global(.prose h2) {
+		margin: 48px 0 16px;
+		font-weight: 900;
+		font-size: clamp(26px, 2.4vw, 34px);
+		line-height: 1.15;
+	}
+
+	.post-prose :global(.prose h3) {
+		margin: 32px 0 12px;
+		font-weight: 800;
+		font-size: 21px;
+		line-height: 1.2;
+	}
+
+	.post-prose :global(.prose p) {
+		margin: 0 0 20px;
+		color: #ededed;
+	}
+
+	.post-prose :global(.prose a) {
+		color: #fff;
+		font-weight: 500;
+		text-decoration: underline;
+		text-decoration-color: var(--site-primary);
+		text-decoration-thickness: 1.5px;
+		text-underline-offset: 4px;
+	}
+
+	.post-prose :global(.prose a:hover) {
+		text-decoration-color: #fff;
+	}
+
+	.post-prose :global(.prose strong) {
+		color: #fff;
+	}
+
+	.post-prose :global(.prose li::marker) {
+		color: var(--site-primary);
+	}
+
+	.post-prose :global(.prose img) {
+		border-radius: 12px;
+		border: 1px solid var(--site-line);
+	}
+
+	.post-prose :global(.prose blockquote) {
+		position: relative;
+		margin: 28px 0;
+		padding: 18px 20px 18px 24px;
+		border: 1px solid var(--site-line);
+		border-radius: 12px;
+		background: var(--site-card);
+		color: #fff;
+		font-style: normal;
+		font-weight: 500;
+		overflow: hidden;
+	}
+
+	.post-prose :global(.prose blockquote::before) {
+		content: "";
+		position: absolute;
+		inset: 0 auto 0 0;
+		width: 4px;
+		background: linear-gradient(180deg, var(--site-primary), var(--site-gold));
+	}
+
+	.post-prose :global(.prose code) {
+		padding: 2px 6px;
+		border-radius: 6px;
+		border: 1px solid var(--site-line);
+		background: var(--site-secondary);
+		color: #e5e5e5;
+		font: 400 0.88em/1.5 var(--font-mono);
+	}
+
+	.post-prose :global(.prose code::before),
+	.post-prose :global(.prose code::after) {
+		content: none;
+	}
+
+	.post-prose :global(.prose pre) {
+		padding: 16px 18px;
+		border-radius: 12px;
+		border: 1px solid var(--site-line);
+		background: #0b0b0d;
+		color: #e5e5e5;
+		overflow-x: auto;
+		font: 400 14px/1.6 var(--font-mono);
+	}
+
+	.post-prose :global(.prose pre code) {
+		padding: 0;
+		border: 0;
+		background: none;
+		font-size: inherit;
+	}
+
+	.post-end {
+		max-width: 760px;
+		margin: 56px auto 0;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+	}
+
+	.post-end h2 {
+		margin: 0;
+		font-family: var(--font-sans);
+		font-weight: 900;
+		font-size: 22px;
+		letter-spacing: normal;
+		color: #fff;
+		background: none;
+		-webkit-text-fill-color: currentColor;
+	}
+
+	.next-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 16px;
+	}
+
+	.next {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		padding: 18px;
+		border-radius: 20px;
+		background: var(--site-card);
+		border: 1px solid var(--site-line);
+		transition: border-color 0.15s;
+	}
+
+	.next:hover {
+		border-color: rgba(255, 255, 255, 0.16);
+	}
+
+	.next time {
+		font-size: 14px;
+		color: #a3a3a3;
+	}
+
+	.next a {
+		color: #fff;
+		font-weight: 800;
+		font-size: 18px;
+		line-height: 1.2;
+		text-decoration: none;
+	}
+
+	.next a::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		border-radius: 20px;
+	}
+
+	@media (max-width: 640px) {
+		.next-grid {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+</style>

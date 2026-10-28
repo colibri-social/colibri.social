@@ -1,23 +1,42 @@
 ---
-import { Image } from "astro:assets";
-import Logo from "@/assets/logo.png";
+import Hummingbird from "@/assets/landing/hummingbird.svg";
 ---
 
-<a
-	href="/"
-	class="w-42 flex flex-row gap-2 items-center focus:outline outline-primary rounded-sm"
->
-	<Image
-		src={Logo}
-		width={32}
-		height={32}
-		alt={"A minimalist-looking hummingbird shape with a gradient from purple to white."}
-		loading={"eager"}
-	/>
-	<span
-		style={{ fontFamily: "var(--font-stardom)" }}
-		class="text-xl not-italic leading-[normal]"
-	>
-		Colibri Social
+<a href="/" class="home-link">
+	<span class="home-link-mark">
+		<Hummingbird width={26} height={37} aria-hidden="true" />
 	</span>
+	<span class="home-link-name">Colibri Social</span>
 </a>
+
+<style>
+	.home-link {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding-block: 4px;
+		color: #fff;
+		text-decoration: none;
+		border-radius: 8px;
+	}
+
+	.home-link:focus-visible {
+		outline: 2px solid var(--site-primary);
+		outline-offset: 3px;
+	}
+
+	.home-link-mark {
+		width: 40px;
+		height: 40px;
+		display: grid;
+		place-items: center;
+	}
+
+	.home-link-name {
+		font-family: var(--font-sans);
+		font-weight: 900;
+		font-size: 18px;
+		line-height: normal;
+		white-space: nowrap;
+	}
+</style>

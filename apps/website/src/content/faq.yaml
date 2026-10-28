@@ -1,0 +1,39 @@
+- id: 01-free
+  question: Is Colibri free to use?
+  answer: Yes. Chatting, voice and video calls, screen sharing and custom emoji are all free. Colibri is open source and paid for by people who choose to support it.
+
+- id: 02-account
+  question: Do I need to make a new account?
+  answer: Not if you already use Bluesky or another app built on the AT Protocol. Sign in with the account you already have. If you don't have one yet, you can create one when you sign up.
+
+- id: 03-devices
+  question: Which devices can I use Colibri on?
+  answer: Colibri runs on Windows, macOS and Linux, has apps for Android and iOS, and works in your browser. Your spaces and messages are the same everywhere you sign in.
+
+- id: 04-calls
+  question: Can I share my screen or turn on my camera in a call?
+  answer: Yes. Join any voice channel, then turn on your camera or share your screen. Screen sharing runs in high resolution, so it works well for games and presentations.
+
+- id: 05-uploads
+  question: What can I share in a chat?
+  answer: Images, videos, PDFs and other files, plus GIFs from the built-in GIF picker. Images and videos play right in the conversation.
+
+- id: 06-emoji
+  question: Can I make my own emoji?
+  answer: Yes, static and animated, for free. Group them into packs and share the packs with your friends or your whole space.
+
+- id: 07-bridge
+  question: Can I bring my community's old messages with me?
+  answer: Yes. A bridge copies your existing channels and their history into Colibri, so nobody has to start from an empty chat.
+
+- id: 08-moderation
+  question: How do I keep my space safe?
+  answer: You can remove messages, kick members, and stop people you've removed from joining again.
+
+- id: 09-ownership
+  question: Who owns my messages?
+  answer: You do. Your messages are stored with your account, and you can move your account to another provider whenever you like without losing them.
+
+- id: 10-bluesky
+  question: Will my messages show up on Bluesky?
+  answer: No. Colibri uses the same account system as Bluesky, but your messages stay in Colibri and never appear in your Bluesky feed.

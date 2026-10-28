@@ -1,76 +1,179 @@
 ---
+import PageBand from "@/components/public/PageBand.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
 ---
 
-<PublicLayout title={`Request received!`}>
-	<section
-		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12"
-	>
-		<div class="flex flex-col gap-4 items-center text-center">
-			<small class="text-primary text-sm">It won't be long.</small>
-			<h1 class="text-5xl font-black m-0">Request Received</h1>
-			<div
-				class="mt-8 rounded-2xl w-full bg-card border border-border p-6 flex flex-col gap-4"
-			>
-				<p class="max-w-[65ch]">
-					We were unable to add you to the community right away. You'll have to
-					wait for approval from the community's owner. Please check the app in
-					a bit!
-				</p>
+<PublicLayout title="Request received!" starry>
+	<PageBand labelledby="pending-title" class="pending">
+		<h1 class="page-band-display reset" id="pending-title">REQUEST RECEIVED</h1>
+		<p class="page-band-lead pending-lead">
+			You're almost in. The owner of this space wants to say hello before
+			letting new members join.
+		</p>
+
+		<div class="status-card">
+			<ol class="steps" aria-label="Your request">
+				<li class="step done">
+					<span class="step-dot">
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg
+						>
+					</span>
+					<span class="step-text">
+						<strong>Request sent</strong>
+						<span>Your invite was accepted.</span>
+					</span>
+				</li>
+				<li class="step current">
+					<span class="step-dot">2</span>
+					<span class="step-text">
+						<strong>Waiting for the owner</strong>
+						<span>They'll see your request in the app.</span>
+					</span>
+				</li>
+				<li class="step todo">
+					<span class="step-dot">3</span>
+					<span class="step-text">
+						<strong>You're in</strong>
+						<span>The space shows up in your sidebar.</span>
+					</span>
+				</li>
+			</ol>
+			<p class="status-note">
+				You don't need to keep this page open. Once the owner approves you, the
+				space appears in Colibri on all your devices.
+			</p>
+			<div class="status-actions">
+				<a class="site-btn site-btn-light" href="/app">Open Colibri</a>
+				<a class="site-btn site-btn-dark" href="/">Back to home</a>
 			</div>
 		</div>
-	</section>
+	</PageBand>
 </PublicLayout>
-<script>
-	import { actions } from "astro:actions";
-	import Spinner from "@/assets/spinner.svg?raw";
 
-	const acceptBtn = document.querySelector<HTMLButtonElement>("#accept-btn");
-	const cancelBtn = document.querySelector<HTMLButtonElement>("#cancel-btn")!;
+<style>
+	.pending {
+		min-height: 760px;
+		padding-top: clamp(140px, 13vw, 180px);
+		padding-bottom: 120px;
+	}
 
-	const code = acceptBtn?.dataset.code as string;
+	.pending-lead {
+		max-width: 46ch;
+	}
 
-	acceptBtn?.addEventListener("click", async () => {
-		let prevHtml = `${acceptBtn.innerHTML}`;
-		acceptBtn.innerHTML = Spinner;
+	.status-card {
+		width: 100%;
+		max-width: 520px;
+		margin-top: 28px;
+		padding: 20px;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+		text-align: left;
+		border-radius: 20px;
+		background: var(--site-card);
+		border: 1px solid var(--site-line);
+	}
 
-		const { error, data } = await actions.acceptInvitation({
-			code,
-		});
+	.steps {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		margin: 0;
+		padding: 8px;
+		border-radius: 10px;
+		background: var(--site-muted);
+		list-style: none;
+	}
 
-		acceptBtn.innerHTML = prevHtml;
+	.step {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		margin: 0;
+		padding: 10px 8px;
+		font-size: 16px;
+	}
 
-		if (error) {
-			return window.toast.error({
-				title: "Unable to join community:",
-				description: error.message,
-			});
+	.step-dot {
+		width: 28px;
+		height: 28px;
+		flex: none;
+		display: grid;
+		place-items: center;
+		border-radius: 50%;
+		border: 1.5px solid rgba(255, 255, 255, 0.18);
+		color: #a3a3a3;
+		font-size: 13px;
+		font-weight: 700;
+	}
+
+	.step-dot svg {
+		width: 16px;
+		height: 16px;
+	}
+
+	.step.done .step-dot {
+		background: var(--site-primary);
+		border-color: var(--site-primary);
+		color: #fff;
+	}
+
+	.step.current .step-dot {
+		border-color: var(--site-gold);
+		color: var(--site-gold);
+	}
+
+	.step-text {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.step-text strong {
+		font-weight: 700;
+		color: #fff;
+	}
+
+	.step-text span {
+		font-size: 14px;
+		color: #a3a3a3;
+	}
+
+	.step.todo .step-text strong {
+		color: #a3a3a3;
+	}
+
+	.pending .status-note {
+		font-size: 15px;
+		line-height: 1.5;
+		color: #e9e6f0;
+		text-wrap: pretty;
+	}
+
+	.status-actions {
+		display: flex;
+		gap: 10px;
+	}
+
+	.status-actions .site-btn {
+		flex: 1 1 0;
+		height: 42px;
+		border-radius: 9px;
+		font-weight: 700;
+		font-size: 15px;
+	}
+
+	@media (max-width: 480px) {
+		.status-actions {
+			flex-direction: column;
 		}
-
-		if (!data) {
-			return window.toast.error({
-				title: "Unable to join community.",
-			});
-		}
-
-		if (data.state)
-			if (data.state !== "success") {
-				if (data.state === "partial") {
-					window.location.href = `/pending-invite`;
-					return;
-				}
-
-				return window.toast.error({
-					title: "Unable to join community;",
-					description: data.message,
-				});
-			}
-
-		// At this point, the message will be the record key of the community
-		window.location.href = `/app/c/${data.message}`;
-	});
-
-	cancelBtn.addEventListener("click", () => {
-		window.close();
-	});
-</script>
+	}
+</style>

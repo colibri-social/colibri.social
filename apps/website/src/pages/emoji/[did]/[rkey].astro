@@ -1,30 +1,99 @@
 ---
+import PageBand from "@/components/public/PageBand.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
 
 const { did, rkey } = Astro.params;
 
 if (!did?.startsWith("did:") || !rkey) return Astro.redirect("/");
+
+const webUrl = `/app/emoji/${did}/${encodeURIComponent(rkey)}`;
+
+import { ogImageFor } from "@/lib/og/url";
 ---
 
 <PublicLayout
 	title="Someone shared an emoji pack with you on Colibri!"
+	image={ogImageFor({ kind: "emoji-pack", did, rkey }, Astro.site)}
 	description="Open Colibri to see every emoji in the pack and follow it."
+	starry
 >
-	<section
-		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-6 text-center"
-		id="loading-section"
-		data-did={did}
-		data-rkey={rkey}
-	>
-		<h1 class="text-3xl font-black m-0">Opening Colibri...</h1>
-		<p class="m-0 text-muted-foreground">
-			If nothing happens, <a
-				class="text-primary"
-				href={`/app/emoji/${did}/${encodeURIComponent(rkey)}`}>click here</a
-			> to continue.
-		</p>
-	</section>
+	<PageBand labelledby="handoff-title" class="emoji-band">
+		<div class="handoff" id="loading-section" data-did={did} data-rkey={rkey}>
+			<h1 class="handoff-title reset" id="handoff-title">Opening Colibri...</h1>
+			<p class="handoff-text">
+				Someone shared an emoji pack with you. Colibri opens it so you can see
+				every emoji and follow the pack.
+			</p>
+			<div class="handoff-actions">
+				<a class="site-btn site-btn-light" href={webUrl}>Open in your browser</a>
+				<a class="site-btn site-btn-dark" href="/download">Get the app</a>
+			</div>
+			<p class="handoff-note">
+				If nothing happens in a few seconds, open it in your browser.
+			</p>
+		</div>
+	</PageBand>
 </PublicLayout>
+
+<style>
+	.emoji-band {
+		min-height: min(100vh, 860px);
+		display: grid;
+		place-items: center;
+		padding-top: clamp(120px, 12vw, 160px);
+		padding-bottom: clamp(96px, 8vw, 128px);
+	}
+
+	.handoff {
+		width: 100%;
+		max-width: 560px;
+		margin-inline: auto;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 20px;
+		padding: 40px 28px 32px;
+		text-align: center;
+		border-radius: 20px;
+		background: var(--site-card);
+		border: 1px solid var(--site-line);
+		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+	}
+
+	.emoji-band .handoff-title {
+		font-family: var(--font-sans);
+		font-weight: 900;
+		font-size: clamp(28px, 2.6vw, 36px);
+		line-height: 1.1;
+	}
+
+	.emoji-band .handoff-text {
+		max-width: 40ch;
+		font-size: clamp(16px, 1.1vw, 18px);
+		line-height: 1.4;
+		color: #e5e5e5;
+	}
+
+	.handoff-actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 12px;
+		margin-top: 4px;
+	}
+
+	.emoji-band .handoff-note {
+		font-size: 14px;
+		color: #a3a3a3;
+	}
+
+	@media (max-width: 520px) {
+		.handoff-actions .site-btn {
+			width: 100%;
+		}
+	}
+</style>
+
 <script>
 	const section = document.querySelector<HTMLElement>("#loading-section");
 	const did = section?.dataset.did;

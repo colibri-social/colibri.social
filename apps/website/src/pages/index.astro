@@ -1,721 +1,475 @@
 ---
 import { Image } from "astro:assets";
-import AppScreenshot from "@/assets/landing/app-screenshot.png";
-import atShield from "@/assets/landing/atShield.webp";
+import { getCollection } from "astro:content";
+import AppMock from "@/assets/landing/app-mock.png";
 import Branch from "@/assets/landing/branch.webp";
-import Eye from "@/assets/landing/Eye.png";
-import SettingsScreenshot from "@/assets/landing/settings-screenshot.png";
-import Tools from "@/assets/landing/Tools.png";
-import User from "@/assets/landing/User.png";
-import UserVerified from "@/assets/landing/UserVerified.png";
-import VcScreenshot from "@/assets/landing/vc-screenshot.png";
-import {
-	Accordion,
-	AccordionContent,
-	AccordionItem,
-	AccordionTrigger,
-} from "@/components/bearnie/accordion";
-import Button from "@/components/bearnie/button/Button.astro";
-import Download from "@/components/icons/download.svg";
-import Globe from "@/components/icons/globe.svg";
-import BinaryMarquee from "@/components/public/BinaryMarquee.astro";
-import Clouds from "@/components/public/Clouds.astro";
-import FloatingHummingbird from "@/components/public/FloatingHummingbird.tsx";
-import HeroDevices from "@/components/public/HeroDevices.astro";
+import Doge from "@/assets/landing/doge.webp";
+import Grin from "@/assets/landing/grin.webp";
+import Kira from "@/assets/landing/kira.webp";
+import MilkyWayCard from "@/assets/landing/milkyway-card.webp";
+import MilkyWayWide from "@/assets/landing/milkyway-wide.webp";
 import MockVoiceCall from "@/components/public/MockVoiceCall.tsx";
 import PetalField from "@/components/public/nature/PetalField.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
-import { listPosts } from "@/lib/blog/posts";
+import { getFunding } from "@/lib/funding";
 
-let latestPost: Awaited<ReturnType<typeof listPosts>>[number] | null = null;
-try {
-	latestPost = (await listPosts())[0] ?? null;
-} catch {
-	latestPost = null;
-}
+const faq = (await getCollection("faq")).sort((a, b) =>
+	a.id.localeCompare(b.id),
+);
+const funding = await getFunding();
 
-const COLLECTIVE_URL = "https://opencollective.com/colibri-social";
+const dollars = (cents: number) =>
+	`$${Math.round(cents / 100).toLocaleString("en-US")}`;
 
-const BADGE_BASE =
-	"px-1.5 rounded-sm inline-flex shrink-0 whitespace-nowrap w-fit";
+const fundingPercent = funding
+	? Math.min(100, (funding.monthlyCents / funding.goalCents) * 100)
+	: 0;
 
-const tiers = [
-	{
-		val: "backer-five",
-		badge: "$5 BACKER",
-		badgeClass: "bg-cyan-400 text-black",
-		price: "$5",
-		cadence: "/ month",
-		blurb:
-			"Keep the lights on and get the cyan $5 Backer badge on your profile.",
-		url: `${COLLECTIVE_URL}/contribute/backers-100302/checkout?interval=month&amount=5&name=&legalName=&email=`,
-		highlight: false,
-	},
-	{
-		val: "sponsor-twenty-five",
-		badge: "$25 SPONSOR",
-		badgeClass: "bg-blue-400 text-black",
-		price: "$25",
-		cadence: "/ month",
-		blurb:
-			"Seriously move the needle on development and wear the blue $25 Sponsor badge.",
-		url: `${COLLECTIVE_URL}/contribute/sponsor-100710/checkout?interval=month&amount=25&name=&legalName=&email=`,
-		highlight: true,
-	},
-	{
-		val: "donator",
-		badge: "DONATOR",
-		badgeClass: "bg-teal-400 text-black",
-		price: "Custom",
-		cadence: "one-time",
-		blurb:
-			"Chip in any amount, whenever you like, and earn the teal Donator badge.",
-		url: `${COLLECTIVE_URL}/donate?interval=oneTime&amount=20&name=&legalName=&email=`,
-		highlight: false,
-	},
-];
+const milkyWayVars = `--milkyway-wide: url(${MilkyWayWide.src}); --milkyway-card: url(${MilkyWayCard.src});`;
 
-const defaultTier = tiers.find((tier) => tier.highlight) ?? tiers[0];
+import { ogImageFor } from "@/lib/og/url";
 ---
 
 <PublicLayout
 	title="Chats where you truly own your data."
 	description="Colibri is an open source chat platform built on the AT protocol for
 	communities big and small."
-	image="/og.png"
+	image={ogImageFor({ kind: "home" }, Astro.site)}
 	home
 >
-	<script is:inline>
-		if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-			document.documentElement.classList.add("hero-anim");
-		}
-	</script>
+	<div class="landing" style={milkyWayVars}>
+		<div class="petal-layer" aria-hidden="true">
+			<PetalField count={70} />
+		</div>
 
-	<div class="hero-sky" aria-hidden="true"></div>
-	<PetalField count={70} />
+		<section class="hero">
+			<div class="hero-milkyway" aria-hidden="true"></div>
+			<div class="hero-petals" aria-hidden="true"></div>
 
-	<section class="hero relative w-full">
-		<div class="hero-fog"></div>
-		<div class="hero-petals" aria-hidden="true"></div>
-
-		<div
-			class="hero-branch-wrap lg:block hidden"
-			data-branch="right"
-			data-parallax="0.18"
-			aria-hidden="true"
-		>
-			<canvas
-				class="branch-gl"
+			<div
+				class="hero-branch-wrap"
 				data-branch="right"
-				data-branch-src={Branch.src}
-				data-draw-w="800"
-				data-draw-h="519"></canvas>
-			<Image
-				src={Branch}
-				width={800}
-				height={519}
-				quality={100}
-				alt=""
-				class="branch-fallback"
-				loading="eager"
-			/>
-			<div class="branch-hit" data-branch-hit="right"></div>
-		</div>
-		<div
-			class="hero-branch-wrap sm:block hidden"
-			data-branch="left"
-			data-parallax="0.26"
-			aria-hidden="true"
-		>
-			<canvas
-				class="branch-gl"
+				data-parallax="0.18"
+				aria-hidden="true"
+			>
+				<canvas
+					class="branch-gl"
+					data-branch="right"
+					data-branch-src={Branch.src}
+					data-draw-w="800"
+					data-draw-h="519"></canvas>
+				<Image
+					src={Branch}
+					width={800}
+					height={519}
+					quality={100}
+					alt=""
+					class="branch-fallback"
+					loading="eager"
+				/>
+				<div class="branch-hit" data-branch-hit="right"></div>
+			</div>
+			<div
+				class="hero-branch-wrap"
 				data-branch="left"
-				data-branch-src={Branch.src}
-				data-draw-w="800"
-				data-draw-h="519"></canvas>
-			<Image
-				src={Branch}
-				width={800}
-				height={519}
-				quality={100}
-				alt=""
-				class="branch-fallback"
-				loading="eager"
-			/>
-			<div class="branch-hit" data-branch-hit="left"></div>
-		</div>
+				data-parallax="0.26"
+				aria-hidden="true"
+			>
+				<canvas
+					class="branch-gl"
+					data-branch="left"
+					data-branch-src={Branch.src}
+					data-draw-w="800"
+					data-draw-h="519"></canvas>
+				<Image
+					src={Branch}
+					width={800}
+					height={519}
+					quality={100}
+					alt=""
+					class="branch-fallback"
+					loading="eager"
+				/>
+				<div class="branch-hit" data-branch-hit="left"></div>
+			</div>
 
-		<div
-			class="hero-inner relative z-20 mx-auto w-full max-w-336 md:px-16 px-6 pt-40 flex flex-col items-center text-center gap-5"
-		>
-			{
-				latestPost && (
-					<a
-						href={`/blog/${latestPost.rkey}`}
-						class="hero-reveal group inline-flex items-center gap-2 max-w-full rounded-full border border-border bg-card px-3 py-1 text-sm text-muted-foreground no-underline transition-colors hover:border-primary/50 hover:text-foreground"
-					>
-						<span class="shrink-0 font-semibold text-primary">New</span>
-						<span class="h-3 w-px shrink-0 bg-border" />
-						<span class="truncate">{latestPost.doc.title}</span>
-						<span
-							aria-hidden="true"
-							class="shrink-0 transition-transform relative bottom-px group-hover:translate-x-0.5"
-						>
-							→
-						</span>
+			<div class="site-wrap hero-inner">
+				<h1 class="hero-title reset">LET YOUR COMMUNITY SPREAD ITS WINGS.</h1>
+				<p class="hero-sub">
+					Call, chat, and hang out on a platform built for you!
+				</p>
+				<div class="cta-row">
+					<a class="site-btn site-btn-light" data-download href="/download">
+						Download Colibri
 					</a>
-				)
-			}
-			<h1 class="hero-title hero-reveal text-5xl md:text-7xl font-black">
-				LET YOUR COMMUNITY SPREAD ITS WINGS.
-			</h1>
-			<p class="hero-sub hero-reveal m-0 max-w-[52ch] text-balance">
-				Colibri is an open source chat platform built on the AT protocol for
-				communities big and small.
-			</p>
-			<div
-				class="hero-reveal flex flex-row items-start justify-center gap-4 flex-wrap mt-2"
-			>
-				<span class="hero-cta inline-flex">
-					<Button variant="default" href="/download">
-						<Download slot="left-icon" />
-						Download
-					</Button>
-				</span>
-				<span class="hero-cta inline-flex">
-					<Button variant="secondary" href="/app">
-						<Globe slot="left-icon" />
-						Open in Browser
-					</Button>
-				</span>
+					<a class="site-btn site-btn-dark" href="/app">
+						Open Colibri in your browser
+					</a>
+				</div>
 			</div>
-		</div>
 
-		<div class="hero-devices-wrap hero-reveal w-full mt-16 md:mt-20">
-			<HeroDevices />
-		</div>
-
-		<div class="hero-seam" aria-hidden="true">
-			<Clouds />
-		</div>
-	</section>
-
-	<section class="py-40 mx-auto w-full overflow-hidden relative z-40">
-		<div
-			class="bg-gradient-dark max-w-304 md:mx-auto mx-6 w-[calc(100%-48px)] md:w-[calc(100%-8rem)] rounded-2xl border border-border flex flex-col h-fit drop-shadow-black/25 drop-shadow-2xl"
-		>
-			<div
-				class="w-full flex flex-col lg:flex-row p-6 border-b border-border gap-6"
-			>
-				<div class="flex flex-col gap-4 w-full lg:w-[calc(50%-36px)]">
-					<small class="text-primary text-sm"> Coming soon. </small>
-					<h2 class="text-4xl font-black m-0">OPEN BY DESIGN.</h2>
-					<p class="m-0">
-						Bluesky is actively building <strong class="text-foreground"
-							>permissioned data</strong
-						>: a protocol-level way to keep some data private within a space
-						instead of broadcasting it to the whole network. Until that ships,
-						Colibri stays in <strong class="text-foreground">beta</strong>: we
-						won't promise private spaces we can't yet secure. The moment
-						permissioned data launches, Colibri's stable version will too.
-					</p>
-					<Button href="/download">Get Started</Button>
-				</div>
-				<div
-					class="bg-gradient-feature p-8 rounded-sm h-auto hidden lg:flex items-center justify-center overflow-hidden w-full lg:w-[calc(50%-36px)] ml-auto"
-					style="box-shadow: 0 0 5.625px 0 rgba(14, 0, 23, 0.50) inset;"
-				>
-					<Image
-						src={Eye}
-						width={200}
-						height={200}
-						quality={100}
-						alt="A white, 3D eye."
-						class="z-10"
-					/>
-				</div>
-			</div>
-			<div class="w-full h-auto flex flex-col lg:flex-row">
-				<div
-					class="h-auto w-full flex flex-col gap-12 p-6 border-b lg:border-b-0 border-border border-r"
-				>
-					<div
-						class="bg-gradient-feature p-8 rounded-sm h-92 flex items-center justify-center overflow-hidden"
-						style="box-shadow: 0 0 5.625px 0 rgba(14, 0, 23, 0.50) inset;"
-					>
-						<MockVoiceCall client:visible />
-					</div>
-					<div class="flex flex-col gap-4">
-						<h2 class="text-4xl font-black m-0">
-							CHAT, TALK, AND HANG OUT IN REAL TIME.
-						</h2>
-						<p class="m-0">
-							From quick chats and drop-in voice or video calls to organized
-							forum discussions, Colibri gives your community the perfect space
-							to stay connected and share what matters.
-						</p>
-					</div>
-				</div>
-				<div class="h-full w-full flex flex-col">
-					<div class="flex flex-col gap-4 p-6 h-full border-b border-border">
-						<div
-							class="h-30 flex flex-row items-center justify-center relative"
-						>
-							<Image
-								src={atShield}
-								width={120}
-								height={120}
-								alt="A white, 3D shield with 'at://' written on it."
-								class="z-10"
-							/>
-							<BinaryMarquee />
-						</div>
-						<h2 class="text-4xl font-black m-0">YOU OWN YOUR DATA.</h2>
-						<p class="m-0 prose prose-invert prose-neutral">
-							Your data isn’t trapped on our servers, it's stored within the
-							personal data server that hosts your ATmosphere profile. You can
-							check our <a href="/faq">FAQ page</a> for more information.
-						</p>
-					</div>
-					<div class="flex flex-col gap-4 p-6 h-full">
-						<div class="h-30 flex flex-row items-center justify-around">
-							<div class="w-23 flex items-center justify-center">
-								<Image
-									src={User}
-									width={72}
-									height={72}
-									alt="A white, 3D User icon."
-								/>
-							</div>
-							<Image
-								src={Tools}
-								width={120}
-								height={120}
-								alt="A white 3D-looking hammer and wrench."
-							/>
-							<Image
-								src={UserVerified}
-								width={92}
-								height={72}
-								alt="A white, 3D User icon with a checkmark."
-							/>
-						</div>
-						<h2 class="text-4xl font-black m-0">EASY MOD TOOLING.</h2>
-						<p class="m-0">
-							Running more than just a group chat? Colibri allows you to easily
-							block and remove messages, kick members from your community, and
-							stop them from joining again.
-						</p>
-					</div>
-				</div>
-			</div>
-		</div>
-	</section>
-	<section class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative">
-		<div
-			class="absolute -top-8 right-0 2lg:-right-36 rotate-5 glide glide-offset"
-			aria-hidden="true"
-		>
-			<FloatingHummingbird size={240} flipped client:visible />
-		</div>
-		<div
-			class="absolute -bottom-48 -left-28 rotate-25 glide"
-			aria-hidden="true"
-		>
-			<FloatingHummingbird size={280} client:visible />
-		</div>
-		<div
-			class="w-full rounded-2xl border-border border drop-shadow-black/25 drop-shadow-2xl overflow-hidden p-4 bg-gradient-dark flex flex-col items-center justify-center gap-4"
-		>
-			<div
-				class="w-full flex flex-col gap-4 justify-center p-8 items-center text-center"
-			>
-				<small class="text-primary text-sm">No need to learn another app.</small
-				>
-				<h2 class="text-4xl font-black m-0">
-					A MODERN, SIMPLE, AND FAMILIAR UI.
-				</h2>
-				<p class="m-0 max-w-[70ch] text-center">
-					Colibri's user interface is inspired by other apps like Discord, Teams
-					and Slack. You'll feel right at home with familiar design elements,
-					structures, and features.
-				</p>
-			</div>
-			<Image
-				src={AppScreenshot}
-				width={1920}
-				height={1150}
-				quality={100}
-				data-lightbox
-				loading="lazy"
-				alt="A screenshot of the Colibri App UI, with a 'General' channel visible, showing a conversation between two users."
-				class="rounded-lg border border-border w-full"
-			/>
-			<div class="grid md:grid-cols-2 grid-cols-1 gap-4">
+			<div class="app-mock">
 				<Image
-					src={SettingsScreenshot}
-					width={1920}
-					height={1150}
+					src={AppMock}
+					width={1290}
+					height={726}
+					densities={[1, 2]}
 					quality={100}
-					data-lightbox
-					loading="lazy"
-					alt="A screenshot of the Colibri App UI, with the user settings for the user's profile visible."
-					class="rounded-lg border border-border w-full"
-				/>
-				<Image
-					src={VcScreenshot}
-					width={1920}
-					height={1150}
-					quality={100}
-					data-lightbox
-					loading="lazy"
-					alt="A screenshot of the Colibri App UI, with two users in a VC being shown on screen."
-					class="rounded-lg border border-border w-full"
+					loading="eager"
+					alt="The Colibri desktop app showing the general channel of a space called Colibri HQ, with messages, reactions and a member list."
 				/>
 			</div>
-		</div>
-	</section>
+		</section>
 
-	<section class="py-32 mx-auto w-full max-w-336 md:px-16 px-6 relative">
-		<div
-			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-col gap-8 h-fit p-6 relative z-10 items-center drop-shadow-black/25 drop-shadow-2xl"
-		>
-			<div class="flex flex-col gap-4 items-center text-center">
-				<span
-					data-badge-preview
-					data-badge-base={BADGE_BASE}
-					class:list={[BADGE_BASE, defaultTier.badgeClass]}
-				>
-					<span class="font-bold text-sm">{defaultTier.badge}</span>
-				</span>
-				<h2 class="text-4xl font-black m-0">KEEP COLIBRI IN THE AIR.</h2>
-				<p class="m-0 max-w-[70ch]">
-					Colibri is paid for by the people who use it. Contributions cover the
-					servers that keep the network running and the work that goes into
-					building it, and every expense is public on Open Collective. Chip in
-					and you'll get a supporter badge next to your name everywhere on
-					Colibri.
-				</p>
-			</div>
-			<div class="grid lg:grid-cols-2 grid-cols-1 gap-6 w-full items-stretch">
-				<div class="flex flex-col gap-4">
-					{
-						tiers.map((tier) => (
-							<div
-								data-tier
-								data-badge-text={tier.badge}
-								data-badge-class={tier.badgeClass}
-								class:list={[
-									"flex flex-col gap-3 p-6 rounded-lg border cursor-pointer transition-colors",
-									tier.val === defaultTier.val
-										? "border-primary"
-										: "border-border hover:border-primary/50",
-								]}
-							>
-								<div class="flex flex-row items-center justify-between gap-3">
-									<span class:list={[BADGE_BASE, tier.badgeClass]}>
-										<span class="font-bold text-sm">{tier.badge}</span>
-									</span>
-									<div class="flex flex-row items-baseline gap-2">
-										<span class="text-2xl font-black">{tier.price}</span>
-										<span class="text-muted-foreground text-sm">
-											{tier.cadence}
-										</span>
-									</div>
-								</div>
-								<p class="m-0 text-sm">{tier.blurb}</p>
-								<Button
-									href={tier.url}
-									target="_blank"
-									rel="noreferrer"
-									variant={tier.highlight ? "default" : "secondary"}
+		<section class="bento-section" aria-label="Features">
+			<div class="site-wrap">
+				<div class="bento">
+					<article class="card card-row c-bridge">
+						<div class="media">
+							<p class="placeholder">Abstract bridge UI / Graph</p>
+						</div>
+						<div class="card-text">
+							<h3 class="card-title">Take your old messages with you</h3>
+							<p class="card-body">
+								Bridge existing content from other platforms so you don’t have
+								to leave anything behind. Your entire history is preserved and
+								viewable from within Colibri!
+							</p>
+							<a class="more-link" href="#">
+								Get bridging
+								<svg viewBox="0 0 24 24" aria-hidden="true"
+									><path d="M9 5L15 12L9 19"></path></svg
 								>
-									Contribute
-								</Button>
+							</a>
+						</div>
+					</article>
+
+					<article class="card c-emoji">
+						<div class="media">
+							<Image
+								src={Doge}
+								width={64}
+								height={64}
+								alt="A custom emoji of a smiling doge."
+								class="doge"
+							/>
+						</div>
+						<div class="card-text">
+							<h3 class="card-title">Express yourself</h3>
+							<p class="card-body">
+								Colibri supports custom emoji, static and animated, without you
+								having to pay for either. Make packs and share them with
+								friends!
+							</p>
+						</div>
+					</article>
+
+					<article class="card c-phone">
+						<div class="media">
+							<p class="placeholder">Phone mock</p>
+						</div>
+						<div class="card-text">
+							<h3 class="card-title">Made for your phone</h3>
+							<p class="card-body">
+								Currently on the go? We’ve got first-party apps for Android and
+								iOS, so you can take your conversations with you.
+							</p>
+						</div>
+					</article>
+
+					<article class="card c-files">
+						<div class="media">
+							<p class="placeholder">
+								File formats preview (file,<br />video, image, ...)
+							</p>
+						</div>
+						<div class="card-text">
+							<h3 class="card-title">Share your memes and compilations</h3>
+							<p class="card-body">
+								Upload images, videos, PDFs, and GIFs powered by our GIF picker
+								to add some spice to your conversations.<br />Yes, that doge is
+								very cute.
+							</p>
+						</div>
+					</article>
+
+					<article class="card c-channels">
+						<div class="media">
+							<p class="placeholder">Channel type preview</p>
+						</div>
+						<div class="card-text">
+							<h3 class="card-title">Jump in and out of conversations</h3>
+							<p class="card-body">
+								Create channels for chatting, one for sharing images, have two
+								voice channels for your gaming sessions, and create threads when
+								it’s going a bit too much off-topic.
+							</p>
+						</div>
+					</article>
+
+					<article class="card card-row c-voice">
+						<div class="card-text">
+							<h3 class="card-title">Get chatty</h3>
+							<p class="card-body">
+								Hop into a voice channel and get talking! Turn on your camera
+								for those reading sessions, or share your screen in high
+								resolution for some gaming sessions.
+							</p>
+						</div>
+						<div class="media">
+							<div class="voice-scale" aria-hidden="true">
+								<MockVoiceCall client:visible />
 							</div>
+						</div>
+					</article>
+				</div>
+			</div>
+		</section>
+
+		<section class="support" aria-labelledby="support-title">
+			<div class="support-milkyway" aria-hidden="true"></div>
+			<div class="site-wrap split">
+				<div class="split-text">
+					<h2 class="h2" id="support-title">
+						Colibri is made possible by people <span class="gold">like you</span
+						>.
+					</h2>
+					<p class="lead">
+						Colibri is free, open source software that anyone can use. Your
+						contributions help us pay for fixes, updates and the infrastructure
+						around the globe. Every amount helps, and you can get an in-app
+						badge for supporting us.
+					</p>
+					{
+						funding && (
+							<div class="progress">
+								<div class="progress-top">
+									<span>{dollars(funding.monthlyCents)} raised per month</span>
+									<span>Goal: {dollars(funding.goalCents)}</span>
+								</div>
+								<div
+									class="progress-bar"
+									role="progressbar"
+									aria-valuemin="0"
+									aria-valuemax={funding.goalCents / 100}
+									aria-valuenow={funding.monthlyCents / 100}
+									aria-label="Monthly funding goal"
+								>
+									<div
+										class="progress-fill"
+										style={`width: ${fundingPercent}%`}
+									/>
+								</div>
+								<span>
+									By {funding.contributors}{" "}
+									{funding.contributors === 1 ? "contributor" : "contributors"}
+								</span>
+							</div>
+						)
+					}
+				</div>
+
+				<div class="support-card" data-support-card>
+					<div class="seg-group">
+						<div class="seg" role="group" aria-label="How often">
+							<button type="button" data-freq="month" aria-pressed="true"
+								>Monthly</button
+							>
+							<button type="button" data-freq="once" aria-pressed="false"
+								>One-time</button
+							>
+						</div>
+						<div class="seg" role="group" aria-label="Amount">
+							<button type="button" data-amount="5" aria-pressed="false"
+								>$5</button
+							>
+							<button type="button" data-amount="10" aria-pressed="true"
+								>$10</button
+							>
+							<button type="button" data-amount="25" aria-pressed="false"
+								>$25</button
+							>
+						</div>
+					</div>
+					<div class="profile" aria-live="polite">
+						<Image
+							src={Kira}
+							width={52}
+							height={52}
+							alt=""
+							class="profile-avatar"
+						/>
+						<div class="profile-main">
+							<div class="profile-name">
+								<strong>Kira</strong>
+								<span class="badge" data-support-badge style="background: #e870df"
+									>$10 SUPPORTER</span
+								>
+							</div>
+							<div class="profile-status">
+								<Image src={Grin} width={18} height={18} alt="" />
+								<span data-support-status
+									>I’m supporting Colibri with $10 per month!</span
+								>
+							</div>
+						</div>
+					</div>
+					<div class="support-actions">
+						<a
+							class="site-btn site-btn-primary"
+							data-support-link
+							href="https://opencollective.com/colibri-social/donate?interval=month&amount=10"
+							target="_blank"
+							rel="noreferrer">Support on Open Collective</a
+						>
+						<a
+							class="site-btn support-secondary"
+							href="https://github.com/sponsors/colibri-social"
+							target="_blank"
+							rel="noreferrer">Support on GitHub Sponsors</a
+						>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section class="atproto" aria-labelledby="atproto-title">
+			<div class="site-wrap split">
+				<div class="media">
+					<p class="placeholder">Abstract PDS / ATproto graphic?</p>
+				</div>
+				<div class="split-text">
+					<h2 class="h2" id="atproto-title">
+						Built so your messages <span class="gold">stay with you</span>
+					</h2>
+					<p class="lead">
+						Colibri is built on an emerging technology called the AT Protocol. It
+						allows you to move your account to wherever you want, without losing
+						ownership over the messages you’ve sent.
+					</p>
+					<a class="more-link" href="#">
+						Read our explainer article
+						<svg viewBox="0 0 24 24" aria-hidden="true"
+							><path d="M9 5L15 12L9 19"></path></svg
+						>
+					</a>
+				</div>
+			</div>
+		</section>
+
+		<section class="cta-section" aria-labelledby="cta-title">
+			<div class="site-wrap">
+				<div class="cta">
+					<div class="cta-milkyway" aria-hidden="true"></div>
+					<canvas class="cta-stars" data-cta-stars aria-hidden="true"></canvas>
+					<div class="cta-inner">
+						<h2 class="cta-title" id="cta-title">Are you ready to take off?</h2>
+						<p class="cta-sub">
+							Join Colibri today, create a space for you and your friends, and
+							get chatting on a platform that’s made for you!
+						</p>
+						<div class="cta-row">
+							<a class="site-btn site-btn-light" data-download href="/download">
+								Download Colibri
+							</a>
+							<a class="site-btn site-btn-dark" href="/app">
+								Open Colibri in your browser
+							</a>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<section class="faq-section" id="faq" aria-labelledby="faq-title">
+			<div class="site-wrap">
+				<h2 class="faq-title" id="faq-title">
+					Still got questions? Maybe we can help you!
+				</h2>
+				<div class="faq" data-faq>
+					{
+						faq.map((item, i) => (
+							<details name="faq" open={i === 0}>
+								<summary>
+									{item.data.question}
+									<svg viewBox="0 0 24 24" aria-hidden="true">
+										<path d="M19 9L12 15L5 9" />
+									</svg>
+								</summary>
+								<p class="faq-answer">{item.data.answer}</p>
+							</details>
 						))
 					}
 				</div>
-				<div
-					class="rounded-lg border border-border bg-gradient-feature flex items-center justify-center overflow-hidden p-6 lg:p-8"
-					style="box-shadow: 0 0 5.625px 0 rgba(14, 0, 23, 0.50) inset;"
-				>
-					<div
-						class="w-80 max-w-full bg-card text-card-foreground text-left rounded-xl border border-border overflow-hidden select-none relative drop-shadow-black drop-shadow-xl"
-					>
-						<div
-							class="w-full aspect-3/1"
-							style="background: linear-gradient(135deg, #8e51ff, #38bdf8);"
-						>
-						</div>
-						<div class="relative z-10 -mt-14 p-4 flex flex-col gap-2">
-							<div class="flex flex-row items-center gap-4">
-								<img
-									src="/user-placeholder.png"
-									width="80"
-									height="80"
-									alt=""
-									class="size-20 shrink-0 rounded-full object-cover bg-muted outline-4 outline-card"
-								/>
-								<span
-									class="flex flex-row items-start gap-2 bg-card border border-border rounded-sm px-1.5 py-0.5 drop-shadow-black drop-shadow-sm"
-								>
-									<span class="size-5.5 flex items-center justify-center">
-										✨
-									</span>
-									<span class="leading-5.5 text-sm">shipping</span>
-								</span>
-							</div>
-							<div class="px-1 flex flex-col">
-								<span class="font-black text-xl" style="color: #8e51ff;">
-									Kira
-								</span>
-								<div class="flex flex-row gap-2 items-center flex-wrap">
-									<span class="text-sm">@kira.colibri.social</span>
-									<span class="w-1 h-1 rounded-full bg-muted-foreground"></span>
-									<span
-										data-profile-badge
-										data-badge-base={BADGE_BASE}
-										class:list={[BADGE_BASE, defaultTier.badgeClass]}
-									>
-										<span class="font-bold text-xs">{defaultTier.badge}</span>
-									</span>
-								</div>
-							</div>
-							<hr class="w-full h-px border-none bg-border m-0" />
-							<p
-								class="prose prose-invert prose-neutral prose-sm m-0 px-1 text-sm wrap-anywhere"
-							>
-								Building on atproto, mostly in the open. Writing things down at
-								colibri.social, and (not actually) reachable as
-								@kira.colibri.social if you want to talk shop!
-							</p>
-						</div>
-					</div>
-				</div>
 			</div>
-			<a
-				href={COLLECTIVE_URL}
-				target="_blank"
-				rel="noreferrer"
-				class="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4"
-			>
-				See the whole ledger on Open Collective
-			</a>
-		</div>
-		<script>
-			const tierCards = document.querySelectorAll<HTMLElement>("[data-tier]");
-			const badgePreviews = document.querySelectorAll<HTMLElement>(
-				"[data-badge-preview], [data-profile-badge]",
-			);
-
-			function selectTier(card: HTMLElement) {
-				const badgeClass = card.dataset.badgeClass ?? "";
-				const badgeText = card.dataset.badgeText ?? "";
-
-				tierCards.forEach((other) => {
-					const active = other === card;
-					other.classList.toggle("border-primary", active);
-					other.classList.toggle("border-border", !active);
-					other.classList.toggle("hover:border-primary/50", !active);
-				});
-
-				badgePreviews.forEach((preview) => {
-					preview.className = `${preview.dataset.badgeBase ?? ""} ${badgeClass}`;
-					const label = preview.querySelector("span");
-					if (label) label.textContent = badgeText;
-				});
-			}
-
-			tierCards.forEach((card) => {
-				card.addEventListener("click", () => selectTier(card));
-				card.addEventListener("mouseenter", () => selectTier(card));
-				card.addEventListener("focusin", () => selectTier(card));
-			});
-		</script>
-	</section>
-	<section class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative z-20">
-		<div
-			class="bg-gradient-dark w-full rounded-2xl border border-border flex flex-col gap-8 h-fit p-6 relative z-10 items-center drop-shadow-black/25 drop-shadow-2xl"
-		>
-			<div class="flex flex-col gap-4 items-center text-center">
-				<small class="text-primary text-sm">Stuff you might ask about.</small>
-				<h2 class="text-4xl font-black m-0">QUESTIONS? WE’VE GOT ANSWERS.</h2>
-			</div>
-			<Accordion type="single" class="space-y-4 text-foreground">
-				<AccordionItem value="item-1" class="border rounded-lg px-4">
-					<AccordionTrigger defaultOpen={true}>
-						What is the AT Protocol?
-					</AccordionTrigger>
-					<AccordionContent defaultOpen={true}>
-						The AT Protocol (Authenticated Transfer Protocol) is an open,
-						decentralized network originally created by the team behind Bluesky.
-						It lets you truly own your identity and data - your account, posts,
-						and social graph aren't locked into any single platform. With over
-						40 million users, it's a growing foundation for the next generation
-						of social apps.
-					</AccordionContent>
-				</AccordionItem>
-				<AccordionItem value="item-2" class="border rounded-lg px-4">
-					<AccordionTrigger>
-						Why is Colibri built on the AT Protocol?
-					</AccordionTrigger>
-					<AccordionContent>
-						We believe your community shouldn't be held hostage by any single
-						company. Building on the AT Protocol means your data is portable,
-						your identity is yours, and Colibri can't lock you in. If you ever
-						want to move, your data comes with you.
-					</AccordionContent>
-				</AccordionItem>
-				<AccordionItem value="item-signup" class="border rounded-lg px-4">
-					<AccordionTrigger>Can I sign up right now?</AccordionTrigger>
-					<AccordionContent>
-						Not yet. Colibri is in <strong class="text-foreground"
-							>limited early access</strong
-						> while we wait for the AT Protocol to officially support <strong
-							class="text-foreground">permissioned data</strong
-						>, the upcoming way to keep some data private within a space instead
-						of broadcasting it to the whole network. Since private spaces are
-						core to what we're building, we're holding off on opening things up
-						until that lands. In the meantime, <a href="/app/waitlist"
-							>join the waitlist</a
-						> and we'll email you the moment there's room.
-					</AccordionContent>
-				</AccordionItem>
-				<AccordionItem value="item-3" class="border rounded-lg px-4">
-					<AccordionTrigger> Where is my data stored? </AccordionTrigger>
-					<AccordionContent>
-						<p class="m-0">
-							Your data is stored on the personal data server that hosts your
-							profile. On the AT protocol, each user has their own profile that
-							isn't specific to any app or service. You can use it to log in
-							anywhere! Because of this, you need a single source of truth that
-							handles logins and data storage for you. The server that does this
-							for you is called your personal data server, or PDS.
-						</p>
-						<p class="mb-0">
-							If you've previously signed up to Bluesky, they will currently be
-							hosting your PDS for you. But it's easy to migrate to a{" "}
-							<a href="https://atproto.com/guides/self-hosting"
-								>self-hosted PDS</a
-							>{" "}
-							as well! Tools like <a href="https://pdsmoover.com/">PDS MOOver</a
-							>{" "}
-							can help you migrate your data to your own servers when you are ready
-							to.
-						</p>
-					</AccordionContent>
-				</AccordionItem>
-				<AccordionItem value="item-3" class="border rounded-lg px-4">
-					<AccordionTrigger>
-						Can I use my Bluesky account with Colibri?
-					</AccordionTrigger>
-					<AccordionContent>
-						Yes! Since Colibri is built on the same AT Protocol that powers
-						Bluesky, you can sign in with your existing Bluesky handle. No need
-						to create a new account - your identity carries over seamlessly.
-						Note that Colibri is currently in limited early access, so sign-in
-						is invite-only for now. <a href="/app/waitlist">Join the waitlist</a
-						> and we'll let you in soon.
-					</AccordionContent>
-				</AccordionItem>
-				<AccordionItem value="item-4" class="border rounded-lg px-4">
-					<AccordionTrigger>
-						Can I use my private PDS account?
-					</AccordionTrigger>
-					<AccordionContent>
-						Absolutely. If you're running your own Personal Data Server, Colibri
-						works with it out of the box. Just sign in with your handle or DID
-						and we'll connect to your PDS directly. You stay in full control of
-						where your data lives - that's the whole point of the AT Protocol.
-					</AccordionContent>
-				</AccordionItem>
-				<AccordionItem value="item-5" class="border rounded-lg px-4">
-					<AccordionTrigger>
-						Do you host a PDS if I want a new account or move my data over to
-						you?
-					</AccordionTrigger>
-					<AccordionContent>
-						We do, though new accounts aren't open yet while we're in limited
-						early access. Once we open up, you'll be able to create an account
-						or use a tool like <a href="https://pdsmoover.com/">PDS MOOver</a> to
-						migrate your data over. Our PDS is hosted at colibri.social. For now,
-						<a href="/app/waitlist">join the waitlist</a>, and feel free to
-						reach out to <a
-							href="https://bsky.app/profile/colibri.social"
-							target="_blank"
-							rel="noreferrer"
-						>
-							@colibri.social on Bluesky
-						</a> with any questions.
-					</AccordionContent>
-				</AccordionItem>
-				<AccordionItem value="item-7" class="border rounded-lg px-4">
-					<AccordionTrigger
-						>Do my messages show up as posts on Bluesky?</AccordionTrigger
-					>
-					<AccordionContent>
-						No, they don't. While we store data the same way Bluesky does, we
-						use a different "collection", meaning your data will stay confined
-						to Colibri. You can use a tool like{" "}
-						<a href="https://pdsls.dev">pdsls.dev</a> to inspect your profile and
-						all related data.
-					</AccordionContent>
-				</AccordionItem>
-			</Accordion>
-		</div>
-	</section>
+		</section>
+	</div>
 </PublicLayout>
+
 <style>
-	.hero {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		padding-bottom: 7rem;
-		overflow-x: clip;
+	.landing {
+		position: relative;
+		color: #fff;
+		font-family: var(--font-sans);
+		font-weight: 500;
+		--t-hero: clamp(40px, 6.2vw, 88px);
+		--t-h2: clamp(30px, 3.3vw, 44px);
+		--t-cta: clamp(34px, 4.2vw, 58px);
+		--t-lead: clamp(17px, 1.35vw, 21px);
+		--t-card-title: clamp(20px, 1.4vw, 22px);
+		--t-card-body: clamp(16px, 1.1vw, 18px);
+		--mock-w: min(1290px, calc(100vw - 32px));
 	}
 
-	.hero-sky {
+	.landing :is(h1, h2, h3, p) {
+		margin: 0;
+		color: #fff;
+		background: none;
+		-webkit-text-fill-color: currentColor;
+		letter-spacing: normal;
+		text-wrap: balance;
+	}
+
+	.landing p {
+		text-wrap: wrap;
+	}
+
+	.landing :is(h2, h3) {
+		font-family: var(--font-sans);
+	}
+
+	.petal-layer {
 		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		height: 100vh;
-		z-index: -2;
+		inset: 0 0 calc(-1 * var(--footer-height, 0px));
+		z-index: 1;
 		pointer-events: none;
-		background:
-			radial-gradient(
-				90% 55% at 50% 10%,
-				rgba(134, 102, 255, 0.16) 0%,
-				rgba(134, 102, 255, 0) 60%
-			),
-			linear-gradient(180deg, #17112b 0%, #100d1a 45%, var(--background) 100%);
 	}
 
-	.hero-fog {
+	.hero {
+		position: relative;
+		display: flow-root;
+		padding-top: clamp(132px, 15vw, 210px);
+		background:
+			linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)),
+			radial-gradient(var(--mw-hero-rx) 100% at 50% 100%, var(--mw));
+	}
+
+	.hero-milkyway {
 		position: absolute;
-		left: 50%;
-		top: 34%;
-		width: 85%;
-		height: 70%;
-		transform: translateX(-50%);
-		background: radial-gradient(
-			closest-side,
-			rgba(134, 102, 255, 0.3) 0%,
-			rgba(134, 102, 255, 0.12) 40%,
-			rgba(134, 102, 255, 0) 74%
-		);
-		opacity: 0.85;
-		z-index: 0;
+		inset: 0;
+		background: radial-gradient(var(--mw-hero-rx) 100% at 50% 100%, var(--mw-glow)), #d9d9d9;
+		-webkit-mask: var(--milkyway-wide) center / cover no-repeat;
+		mask: var(--milkyway-wide) center / cover no-repeat;
 		pointer-events: none;
 	}
 
 	.hero-petals {
 		position: absolute;
 		inset: 0;
-		z-index: 15;
+		z-index: 6;
 		pointer-events: none;
-		overflow: visible;
+		overflow-x: clip;
+		overflow-y: visible;
 	}
 
 	:global(.phys-petal) {
@@ -735,20 +489,20 @@ const defaultTier = tiers.find((tier) => tier.highlight) ?? tiers[0];
 		--bmx: 200px;
 		--bmy: 70px;
 		position: absolute;
-		z-index: 10;
+		z-index: 3;
 		pointer-events: none;
 		width: calc(800px + 2 * var(--bmx));
 		height: calc(519px + 2 * var(--bmy));
 	}
 
 	.hero-branch-wrap[data-branch="right"] {
-		right: calc(-16rem - var(--bmx));
-		top: calc(-1rem - var(--bmy));
+		right: calc(-286px - var(--bmx));
+		top: calc(256px - var(--bmy));
 	}
 
 	.hero-branch-wrap[data-branch="left"] {
-		left: calc(-28rem - var(--bmx));
-		top: calc(8rem - var(--bmy));
+		left: calc(-345px - var(--bmx));
+		top: calc(170px - var(--bmy));
 	}
 
 	.branch-gl {
@@ -764,6 +518,7 @@ const defaultTier = tiers.find((tier) => tier.highlight) ?? tiers[0];
 		position: absolute;
 		top: var(--bmy);
 		left: var(--bmx);
+		max-width: none;
 	}
 
 	.hero-branch-wrap[data-branch="left"] .branch-fallback {
@@ -773,105 +528,778 @@ const defaultTier = tiers.find((tier) => tier.highlight) ?? tiers[0];
 	.branch-hit {
 		position: absolute;
 		pointer-events: none;
+		top: calc(var(--bmy) + 8rem);
+		width: 24rem;
+		height: 15rem;
 	}
 
 	.hero-branch-wrap[data-branch="right"] .branch-hit {
-		top: calc(var(--bmy) + 8rem);
 		left: var(--bmx);
-		width: 24rem;
-		height: 15rem;
 	}
 
 	.hero-branch-wrap[data-branch="left"] .branch-hit {
-		top: calc(var(--bmy) + 8rem);
 		right: var(--bmx);
-		width: 24rem;
-		height: 15rem;
+	}
+
+	@media (max-width: 1023px) {
+		.hero-branch-wrap[data-branch="right"] {
+			display: none;
+		}
+	}
+
+	@media (max-width: 639px) {
+		.hero-branch-wrap[data-branch="left"] {
+			display: none;
+		}
+	}
+
+	.hero-inner {
+		z-index: 5;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
 	}
 
 	.hero-inner::before {
 		content: "";
 		position: absolute;
-		inset: -3rem -6rem -10rem;
+		inset: -3rem -6rem -6rem;
 		z-index: -1;
 		pointer-events: none;
 		background: radial-gradient(
 			58% 66% at 50% 50%,
-			rgba(16, 13, 26, 0.82) 0%,
-			rgba(16, 13, 26, 0.55) 46%,
+			rgba(16, 13, 26, 0.55) 0%,
+			rgba(16, 13, 26, 0.32) 46%,
 			rgba(16, 13, 26, 0) 78%
 		);
 	}
 
-	.hero-title {
-		margin: 0;
-		line-height: 1.02;
-		max-width: 18ch;
+	.landing .hero-title {
+		max-width: 22ch;
+		font-family: var(--font-stardom);
+		font-weight: 400;
+		font-size: var(--t-hero);
+		line-height: 0.86;
+		letter-spacing: 0.005em;
+		text-shadow:
+			0 0 16px rgba(0, 0, 0, 0.5),
+			0 2px 28px rgba(16, 13, 26, 0.6);
 	}
 
-	.hero-eyebrow,
-	.hero-sub {
-		text-shadow: 0 1px 14px rgba(16, 13, 26, 0.65);
+	.landing .hero-sub {
+		margin-top: clamp(28px, 3.4vw, 52px);
+		font-size: clamp(18px, 1.3vw, 22px);
+		text-shadow: 0 1px 14px rgba(16, 13, 26, 0.45);
 	}
 
-	.hero-devices-wrap {
+	.cta-row {
+		margin-top: 32px;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 16px;
+	}
+
+	.app-mock {
 		position: relative;
+		z-index: 5;
+		width: var(--mock-w);
+		margin: clamp(72px, 7vw, 132px) auto calc(var(--mock-w) * -0.2667);
+	}
+
+	.app-mock img {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+
+	.bento-section {
+		position: relative;
+		padding-top: calc(var(--mock-w) * 0.2667 + clamp(64px, 6vw, 112px));
+		padding-bottom: 128px;
+	}
+
+	.bento-section .site-wrap {
 		z-index: 5;
 	}
 
-	.hero-seam {
+	.bento {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		grid-template-areas:
+			"bridge bridge emoji"
+			"phone files channels"
+			"phone voice voice";
+		gap: 24px;
+	}
+
+	.card {
+		position: relative;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 24px;
+		padding: 20px;
+		border-radius: 20px;
+		background: var(--site-card);
+		border: 1px solid var(--site-line);
+		overflow: hidden;
+	}
+
+	.card-row {
+		flex-direction: row;
+		gap: 32px;
+	}
+
+	.card-row > * {
+		flex: 1 1 0;
+		min-width: 0;
+	}
+
+	.card-text {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: 20px;
+	}
+
+	.landing .card-title {
+		font-weight: 900;
+		font-size: var(--t-card-title);
+		line-height: 1.05;
+	}
+
+	.landing .card-body {
+		font-size: var(--t-card-body);
+		line-height: 1.35;
+	}
+
+	.media {
+		position: relative;
+		display: grid;
+		place-items: center;
+		border-radius: 10px;
+		overflow: hidden;
+		background: radial-gradient(182% 100% at 50% 100%, var(--mw)), #171717;
+	}
+
+	.landing .placeholder {
+		padding: 0 12px;
+		font-family: "Comic Sans MS", "Chalkboard SE", cursive;
+		font-weight: 700;
+		font-size: 19px;
+		line-height: 1;
+		text-align: center;
+		background: linear-gradient(
+			90deg,
+			#ff0000 0%,
+			#ffc300 17.8%,
+			#00ffb7 37.5%,
+			#0066ff 74%,
+			#ff00a1 100%
+		);
+		-webkit-background-clip: text;
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+	}
+
+	.more-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		width: fit-content;
+		font-weight: 600;
+		font-size: clamp(17px, 1.2vw, 19px);
+		color: #fff;
+		text-decoration: none;
+		text-decoration-thickness: 1.5px;
+		text-underline-offset: 5px;
+	}
+
+	.more-link:hover {
+		text-decoration: underline;
+	}
+
+	.more-link svg {
+		width: 16px;
+		height: 16px;
+		flex: none;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.5;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		transition: transform 0.15s;
+	}
+
+	.more-link:hover svg {
+		transform: translateX(3px);
+	}
+
+	.c-bridge {
+		grid-area: bridge;
+	}
+
+	.c-bridge .media {
+		min-height: 240px;
+	}
+
+	.c-emoji {
+		grid-area: emoji;
+	}
+
+	.c-emoji .media {
+		height: 150px;
+		flex: none;
+	}
+
+	.c-emoji :global(.doge) {
+		width: 64px;
+		height: 64px;
+		border-radius: 8px;
+		object-fit: cover;
+	}
+
+	.c-phone {
+		grid-area: phone;
+	}
+
+	.c-phone .media {
+		flex: 1 1 auto;
+		min-height: 200px;
+	}
+
+	.c-files {
+		grid-area: files;
+	}
+
+	.c-channels {
+		grid-area: channels;
+	}
+
+	.c-files .media,
+	.c-channels .media {
+		height: 150px;
+	}
+
+	.c-voice {
+		grid-area: voice;
+	}
+
+	.c-voice .media {
+		height: 300px;
+		place-items: end center;
+	}
+
+	.voice-scale {
+		zoom: 0.8;
+	}
+
+	@media (max-width: 900px) {
+		.bento {
+			grid-template-columns: minmax(0, 1fr);
+			grid-template-areas: "bridge" "emoji" "phone" "files" "channels" "voice";
+		}
+
+		.card,
+		.card-row {
+			flex-direction: row;
+			align-items: stretch;
+			gap: 28px;
+		}
+
+		.card .media,
+		.card .card-text {
+			flex: 1 1 0;
+			min-width: 0;
+		}
+
+		.card .card-text {
+			order: 1;
+		}
+
+		.c-bridge .media,
+		.c-phone .media,
+		.c-channels .media {
+			order: 0;
+		}
+
+		.c-emoji .media,
+		.c-files .media,
+		.c-voice .media {
+			order: 2;
+		}
+
+		.c-bridge .media,
+		.c-emoji .media,
+		.c-files .media,
+		.c-channels .media {
+			height: auto;
+			min-height: 220px;
+		}
+
+		.c-phone .media {
+			min-height: 320px;
+		}
+	}
+
+	@media (max-width: 600px) {
+		.hero {
+			padding-bottom: 112px;
+		}
+
+		.app-mock {
+			display: none;
+		}
+
+		.bento-section {
+			padding-top: 72px;
+		}
+
+		.bento {
+			grid-template-areas: "phone" "bridge" "emoji" "files" "channels" "voice";
+		}
+
+		.card,
+		.card-row {
+			flex-direction: column;
+			gap: 20px;
+		}
+
+		.card .media,
+		.card .card-text {
+			flex: none;
+		}
+
+		.card .media {
+			order: 0;
+		}
+
+		.c-bridge .media,
+		.c-emoji .media,
+		.c-files .media,
+		.c-channels .media {
+			min-height: 0;
+			height: 180px;
+		}
+
+		.c-phone .media {
+			min-height: 0;
+			height: 300px;
+		}
+	}
+
+	.support {
+		position: relative;
+		overflow: hidden;
+		padding-block: 128px;
+		background:
+			linear-gradient(rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.25)),
+			radial-gradient(var(--mw-band-rx) 100% at 50% 0%, var(--mw));
+	}
+
+	.support-milkyway {
 		position: absolute;
 		left: 0;
 		right: 0;
-		bottom: -4rem;
-		height: 12rem;
-		z-index: 30;
+		bottom: 0;
+		height: max(1080px, 100%);
+		transform: scaleY(-1);
+		background: radial-gradient(var(--mw-band-rx) 100% at 50% 100%, var(--mw-glow)), #d9d9d9;
+		-webkit-mask: var(--milkyway-wide) center / cover no-repeat;
+		mask: var(--milkyway-wide) center / cover no-repeat;
 		pointer-events: none;
 	}
 
-	.hero-seam :global(> div) {
-		position: absolute;
-		left: 0;
-		right: 0;
-		bottom: -32rem;
-		top: auto;
+	.split {
+		z-index: 5;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		gap: 64px;
+		align-items: start;
+	}
+
+	.support .split {
+		align-items: center;
+	}
+
+	.split-text {
+		display: flex;
+		flex-direction: column;
+		gap: 28px;
+	}
+
+	.landing .h2 {
+		font-weight: 900;
+		font-size: var(--t-h2);
+		line-height: 1.22;
+	}
+
+	.gold {
+		color: var(--site-gold);
+	}
+
+	.landing .lead {
+		font-size: var(--t-lead);
+		line-height: 1.32;
+	}
+
+	.progress {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		font-weight: 300;
+		font-size: 15px;
+	}
+
+	.progress-top {
+		display: flex;
+		justify-content: space-between;
+		gap: 12px;
+	}
+
+	.progress-bar {
+		height: 16px;
+		border-radius: 99px;
+		background: var(--site-secondary);
+		overflow: hidden;
+	}
+
+	.progress-fill {
+		height: 100%;
+		background: var(--site-gold);
+	}
+
+	.support-card {
+		justify-self: end;
 		width: 100%;
-		transform: none;
-		z-index: 30;
+		max-width: 480px;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+		padding: 20px;
+		border-radius: 20px;
+		background: var(--site-card);
+		border: 1px solid var(--site-line);
 	}
 
-	.glide {
-		animation: glide 8s ease-in-out infinite;
-		transform-origin: center center;
+	.seg-group {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
 	}
 
-	.glide-offset {
-		animation-delay: -1.5s;
+	.seg {
+		display: flex;
+		gap: 10px;
 	}
 
-	@keyframes glide {
-		0% {
-			transform: translateY(0px) rotate(var(--tw-rotate, 0deg));
+	.seg button {
+		flex: 1 1 0;
+		min-width: 0;
+		height: 38px;
+		border-radius: 9px;
+		border: 1px solid var(--site-line);
+		background: var(--site-secondary);
+		color: #fff;
+		font: 700 15px/1 var(--font-sans);
+		cursor: pointer;
+		transition:
+			background 0.15s,
+			color 0.15s;
+	}
+
+	.seg button:hover {
+		background: #2e2e2e;
+	}
+
+	.seg button[aria-pressed="true"] {
+		background: #fff;
+		color: #000;
+	}
+
+	.profile {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 8px;
+		border-radius: 10px;
+		background: var(--site-muted);
+	}
+
+	.profile :global(.profile-avatar) {
+		width: 52px;
+		height: 52px;
+		flex: none;
+		border-radius: 50%;
+		object-fit: cover;
+	}
+
+	.profile-main {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+		min-width: 0;
+	}
+
+	.profile-name {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 4px 8px;
+	}
+
+	.profile-name strong {
+		font-weight: 700;
+		font-size: 19px;
+	}
+
+	.badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0 6px;
+		border-radius: 4px;
+		color: #000;
+		font-weight: 700;
+		font-size: 14px;
+		line-height: 20px;
+		text-transform: uppercase;
+		white-space: nowrap;
+		transition: background 0.2s;
+	}
+
+	.profile-status {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		font-size: 13px;
+	}
+
+	.profile-status :global(img) {
+		width: 18px;
+		height: 18px;
+		flex: none;
+	}
+
+	.support-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.support-actions .site-btn {
+		height: 40px;
+		border-radius: 9px;
+		border: 1px solid var(--site-line);
+		font-weight: 700;
+		font-size: 15px;
+	}
+
+	.support-secondary {
+		background: var(--site-secondary);
+		color: #fff;
+	}
+
+	.atproto {
+		position: relative;
+		padding-block: 128px;
+	}
+
+	.atproto .split {
+		align-items: stretch;
+	}
+
+	.atproto .media {
+		min-height: 345px;
+	}
+
+	.atproto .split-text {
+		justify-content: center;
+	}
+
+	.cta-section {
+		position: relative;
+		padding-block: 128px;
+	}
+
+	.cta-section .site-wrap {
+		z-index: 5;
+	}
+
+	.cta {
+		position: relative;
+		overflow: hidden;
+		min-height: 480px;
+		display: grid;
+		place-items: center;
+		padding: 48px 24px;
+		border-radius: 24px;
+		background: radial-gradient(var(--mw-card-rx) 100% at 50% 0%, var(--mw)), #171717;
+	}
+
+	.cta-milkyway {
+		position: absolute;
+		inset: 0;
+		transform: scaleY(-1);
+		background: radial-gradient(var(--mw-card-rx) 100% at 50% 0%, var(--mw-soft)), #d9d9d9;
+		-webkit-mask: var(--milkyway-card) 50% 96% / cover no-repeat;
+		mask: var(--milkyway-card) 50% 96% / cover no-repeat;
+		pointer-events: none;
+	}
+
+	.cta-stars {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+
+	.cta-inner {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 28px;
+		max-width: 764px;
+		text-align: center;
+	}
+
+	.cta-inner .cta-row {
+		margin-top: 0;
+	}
+
+	.landing .cta-title {
+		font-weight: 900;
+		font-size: var(--t-cta);
+		line-height: 1.1;
+	}
+
+	.landing .cta-sub {
+		font-size: var(--t-lead);
+		line-height: 1.1;
+	}
+
+	.faq-section {
+		position: relative;
+		padding-block: 64px;
+	}
+
+	.faq-section .site-wrap {
+		z-index: 5;
+	}
+
+	.landing .faq-title {
+		margin-bottom: 32px;
+		font-weight: 900;
+		font-size: var(--t-h2);
+		line-height: 1.22;
+		text-align: center;
+	}
+
+	.faq {
+		border-radius: 12px;
+		border: 1px solid var(--site-line);
+		background: var(--site-muted);
+		overflow: hidden;
+	}
+
+	.faq details {
+		background: var(--site-secondary);
+		border-bottom: 1px solid var(--site-line);
+	}
+
+	.faq details:last-child {
+		border-bottom: 0;
+	}
+
+	.faq summary {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		padding: 16px;
+		list-style: none;
+		font-weight: 700;
+		font-size: clamp(17px, 1.2vw, 19px);
+		cursor: pointer;
+	}
+
+	.faq summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.faq summary svg {
+		width: 24px;
+		height: 24px;
+		flex: none;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.5;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		transition: transform 0.2s;
+	}
+
+	.faq details[open] summary svg {
+		transform: scaleY(-1);
+	}
+
+	.landing .faq-answer {
+		padding: 0 16px 16px;
+		font-size: 15px;
+		line-height: 1.5;
+		text-wrap: pretty;
+	}
+
+	@media (max-width: 900px) {
+		.split {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 40px;
 		}
-		25% {
-			transform: translateY(-12px) rotate(calc(var(--tw-rotate, 0deg) - 3deg));
+
+		.support-card {
+			justify-self: stretch;
+			max-width: none;
 		}
-		50% {
-			transform: translateY(4px) rotate(calc(var(--tw-rotate, 0deg) + 2deg));
+
+		.support,
+		.atproto,
+		.cta-section {
+			padding-block: 88px;
 		}
-		75% {
-			transform: translateY(-8px) rotate(calc(var(--tw-rotate, 0deg) - 1.5deg));
-		}
-		100% {
-			transform: translateY(0px) rotate(var(--tw-rotate, 0deg));
+
+		.atproto .media {
+			min-height: 240px;
 		}
 	}
 
-	@media (max-width: 768px) {
-		.hero-title {
-			max-width: 14ch;
+	@media (max-width: 520px) {
+		.support-card {
+			padding: 16px;
+		}
+
+		.card {
+			padding: 16px;
+			border-radius: 18px;
+		}
+
+		.cta-row {
+			width: 100%;
+			max-width: 340px;
+		}
+
+		.cta-row .site-btn {
+			width: 100%;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.petal-layer,
+		.hero-petals {
+			display: none;
 		}
 	}
 </style>
 <script src="@/scripts/landing.ts"></script>
-<script src="@/scripts/lightbox.ts"></script>

@@ -12,6 +12,7 @@ import Store from "@/components/icons/store.svg";
 import Terminal from "@/components/icons/terminal.svg";
 import Windows from "@/components/icons/windows.svg";
 import PublicLayout from "@/layouts/PublicLayout.astro";
+import { latestSpacesRelease } from "@/lib/updater";
 
 const RELEASES =
 	"https://github.com/colibri-social/colibri.social/releases/latest";
@@ -142,7 +143,6 @@ const platforms: Array<Platform> = [
 		id: "linux",
 		name: "Linux",
 		tabIcon: "linux",
-		hidden: true,
 		methods: [
 			{
 				name: "AppImage",
@@ -151,7 +151,7 @@ const platforms: Array<Platform> = [
 				href: RELEASES,
 			},
 			{
-				name: "Red Hat",
+				name: "RPM",
 				desc: "For Red Hat enjoyers",
 				icon: "download",
 				href: RELEASES,
@@ -165,6 +165,8 @@ const platforms: Array<Platform> = [
 		],
 	},
 ];
+
+const spacesRelease = await latestSpacesRelease();
 
 const visiblePlatforms = platforms.filter((pf) => !pf.hidden);
 
@@ -182,29 +184,46 @@ const methodIcons = {
 	terminal: Terminal,
 	mail: Mail,
 };
+
+import { ogImageFor } from "@/lib/og/url";
 ---
 
 <PublicLayout
 	title="Download Colibri"
-	description="Get the Colibri app for Android, iOS, macOS and Windows."
-	image="/og.png"
+	description="Get the Colibri app for Android, iOS, macOS, Windows and Linux."
+	image={ogImageFor({ kind: "download" }, Astro.site)}
+	starry
 >
 	<section
 		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-8 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 motion-reduce:animate-none"
 	>
 		<div class="flex flex-col gap-4 items-center text-center">
-			<small class="text-primary text-sm">
-				On your desktop, in your pocket.
-			</small>
-			<h1 class="text-5xl font-black m-0">DOWNLOAD</h1>
-			<p class="m-0 text-muted-foreground max-w-[48ch]">
+			<h1 class="dl-title reset m-0">DOWNLOAD</h1>
+			<p class="m-0 text-white/85 text-lg max-w-[48ch]">
 				Get the Colibri app for your favorite devices and go for a flight.
 			</p>
 		</div>
 
+		{
+			spacesRelease && (
+				<p class="m-0 w-full max-w-2xl rounded-[10px] border border-(--site-line) bg-(--site-muted) px-4 py-3 text-sm text-white/80 text-center">
+					For spaces (private data) support, grab the{" "}
+					<a
+						href={spacesRelease.url}
+						target="_blank"
+						rel="noreferrer"
+						class="text-primary hover:underline"
+					>
+						{spacesRelease.version} pre-release
+					</a>{" "}
+					on GitHub. <b>Please read the release description carefully.</b>
+				</p>
+			)
+		}
+
 		<div
 			id="download-card"
-			class="flex flex-col bg-card w-full max-w-2xl rounded-2xl border border-border relative drop-shadow-black/25 drop-shadow-2xl overflow-hidden"
+			class="flex flex-col bg-(--site-card) w-full max-w-2xl rounded-[20px] border border-(--site-line) relative drop-shadow-black/25 drop-shadow-2xl overflow-hidden"
 		>
 			<p
 				id="dl-hint"
@@ -217,7 +236,7 @@ const methodIcons = {
 				<div
 					role="tablist"
 					aria-label="Choose your platform"
-					class="flex flex-wrap gap-1.5 p-1.5 rounded-xl bg-muted/40 border border-border"
+					class="flex flex-wrap gap-2.5"
 				>
 					{
 						visiblePlatforms.map((pf) => {
@@ -229,10 +248,10 @@ const methodIcons = {
 									data-tab={pf.id}
 									aria-selected="false"
 									aria-controls={`panel-${pf.id}`}
-									class="dl-tab group grow basis-[calc(33.333%-0.5rem)] sm:basis-[calc(20%-0.6rem)] flex flex-col items-center justify-center gap-1.5 h-16 rounded-lg text-muted-foreground transition-colors cursor-pointer hover:text-foreground aria-selected:bg-card aria-selected:text-foreground aria-selected:shadow-sm"
+									class="dl-tab group grow basis-[calc(33.333%-0.5rem)] sm:basis-[calc(20%-0.6rem)] flex flex-col items-center justify-center gap-1.5 h-16 rounded-xl border border-(--site-line) bg-(--site-secondary) text-white transition-colors cursor-pointer hover:bg-[#2e2e2e] aria-selected:bg-white aria-selected:text-black"
 								>
 									<TabIcon class="size-5 shrink-0" />
-									<span class="text-xs font-medium">{pf.name}</span>
+									<span class="text-sm font-bold">{pf.name}</span>
 								</button>
 							);
 						})
@@ -257,10 +276,10 @@ const methodIcons = {
 								return (
 									<div
 										class:list={[
-											"rounded-xl border p-3 transition-colors",
+											"rounded-[10px] border p-3 transition-colors",
 											recommended
-												? "border-primary/40 bg-primary/5"
-												: "border-border bg-muted/20 hover:bg-muted/40",
+												? "border-(--site-primary)/50 bg-(--site-primary)/8"
+												: "border-(--site-line) bg-(--site-muted) hover:bg-[#2c2c2c]",
 										]}
 									>
 										<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -270,7 +289,7 @@ const methodIcons = {
 														"grid place-items-center size-10 shrink-0 rounded-lg [&_svg]:size-5",
 														recommended
 															? "bg-primary/10 text-primary"
-															: "bg-muted text-foreground",
+															: "bg-(--site-secondary) text-white",
 													]}
 												>
 													<MethodIcon />
@@ -313,7 +332,7 @@ const methodIcons = {
 											{m.command && (
 												<button
 													type="button"
-													class="dl-copy shrink-0 inline-flex items-center justify-center gap-2 w-full h-9 rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors cursor-pointer [&_svg]:size-4 sm:w-8 sm:h-8 sm:gap-0"
+													class="dl-copy shrink-0 inline-flex items-center justify-center gap-2 w-full h-9 rounded-md bg-(--site-secondary) text-white hover:bg-[#2e2e2e] transition-colors cursor-pointer [&_svg]:size-4 sm:w-8 sm:h-8 sm:gap-0"
 													data-copy={m.command}
 													aria-label={`Copy ${m.name} command`}
 												>
@@ -326,7 +345,7 @@ const methodIcons = {
 											)}
 										</div>
 										{m.command && (
-											<div class="mt-2.5 flex items-center gap-2 rounded-lg bg-background border border-border px-3 py-2 font-mono text-xs overflow-x-auto">
+											<div class="mt-2.5 flex items-center gap-2 rounded-lg bg-(--site-page) border border-(--site-line) px-3 py-2 font-mono text-xs overflow-x-auto">
 												<span class="text-primary select-none shrink-0">$</span>
 												<code class="text-foreground whitespace-nowrap text-xs bg-transparent">
 													{m.command}
@@ -361,6 +380,19 @@ const methodIcons = {
 		</div>
 	</section>
 </PublicLayout>
+
+<style>
+	.dl-title {
+		font-family: var(--font-stardom);
+		font-weight: 400;
+		font-size: clamp(44px, 5vw, 64px);
+		line-height: 0.9;
+		letter-spacing: 0.005em;
+		color: #fff;
+		background: none;
+		-webkit-text-fill-color: currentColor;
+	}
+</style>
 
 <script>
 	const card = document.getElementById("download-card");

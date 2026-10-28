@@ -1,0 +1,294 @@
+---
+import type { MarkdownHeading } from "astro";
+import PageHeader from "./PageHeader.astro";
+
+interface Props {
+	title: string;
+	description: string;
+	headings: MarkdownHeading[];
+}
+
+const { title, description, headings } = Astro.props;
+
+const sections = headings.filter((heading) => heading.depth === 2);
+const MAX_MOBILE_CHIPS = 8;
+---
+
+<PageHeader title={title} lead={description} id="doc-title" />
+
+<section class="doc-section">
+	<div class="site-wrap">
+		<article
+			class:list={[
+				"doc",
+				sections.length === 0 && "doc-no-toc",
+				sections.length > MAX_MOBILE_CHIPS && "doc-long-toc",
+			]}
+		>
+			{
+				sections.length > 0 && (
+					<nav class="toc" aria-label="On this page" data-toc>
+						<span class="toc-label">On this page</span>
+						{sections.map((heading) => (
+							<a href={`#${heading.slug}`} data-toc-link={heading.slug}>
+								{heading.text}
+							</a>
+						))}
+					</nav>
+				)
+			}
+			<div class="doc-main">
+				<div class="doc-prose">
+					<slot />
+				</div>
+				<div class="doc-meta">
+					<span>
+						Questions about this page? <a href="/support">Get in touch</a>.
+					</span>
+					<a href="#doc-title">Back to top</a>
+				</div>
+			</div>
+		</article>
+	</div>
+</section>
+
+<style>
+	.doc-section {
+		position: relative;
+		z-index: 5;
+		color: #fff;
+	}
+
+	.doc {
+		display: grid;
+		grid-template-columns: 220px minmax(0, 1fr);
+		gap: 56px;
+		padding: clamp(24px, 4vw, 56px);
+		border-radius: 20px;
+		background: var(--site-card);
+		border: 1px solid var(--site-line);
+		font-family: var(--font-sans);
+	}
+
+	.doc-no-toc {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.toc {
+		position: sticky;
+		top: 32px;
+		align-self: start;
+		max-height: calc(100vh - 64px);
+		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.toc-label {
+		padding: 0 10px 8px;
+		font-weight: 700;
+		font-size: 13px;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: #a3a3a3;
+	}
+
+	.toc a {
+		padding: 7px 10px;
+		border-radius: 8px;
+		font-weight: 500;
+		font-size: 15px;
+		line-height: 1.3;
+		color: #a3a3a3;
+		text-decoration: none;
+		transition:
+			background 0.15s,
+			color 0.15s;
+	}
+
+	.toc a:hover,
+	.toc a[aria-current="true"] {
+		background: var(--site-secondary);
+		color: #fff;
+	}
+
+	.doc-main {
+		min-width: 0;
+	}
+
+	.doc-prose {
+		max-width: 68ch;
+		font-size: 17px;
+		font-weight: 400;
+		line-height: 1.65;
+		color: #e9e6f0;
+	}
+
+	.doc-prose :global(:is(h2, h3, h4)) {
+		font-family: var(--font-sans);
+		color: #fff;
+		background: none;
+		-webkit-text-fill-color: currentColor;
+		letter-spacing: normal;
+		text-wrap: balance;
+		scroll-margin-top: 24px;
+	}
+
+	.doc-prose :global(h2) {
+		margin: 48px 0 14px;
+		font-weight: 900;
+		font-size: clamp(22px, 1.8vw, 27px);
+		line-height: 1.15;
+	}
+
+	.doc-prose :global(h3) {
+		margin: 32px 0 10px;
+		font-weight: 800;
+		font-size: 20px;
+		line-height: 1.2;
+	}
+
+	.doc-prose :global(h4) {
+		margin: 24px 0 8px;
+		font-weight: 700;
+		font-size: 17px;
+	}
+
+	.doc-prose > :global(:first-child) {
+		margin-top: 0;
+	}
+
+	.doc-prose :global(p) {
+		margin: 0 0 16px;
+	}
+
+	.doc-prose :global(a) {
+		color: #c4a6ff;
+		font-weight: 500;
+		text-decoration: underline;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 3px;
+	}
+
+	.doc-prose :global(a:hover) {
+		color: #fff;
+	}
+
+	.doc-prose :global(strong) {
+		color: #fff;
+		font-weight: 700;
+	}
+
+	.doc-prose :global(:is(ul, ol)) {
+		margin: 0 0 16px;
+		padding-left: 1.3em;
+	}
+
+	.doc-prose :global(li) {
+		margin: 6px 0;
+	}
+
+	.doc-prose :global(li::marker) {
+		color: var(--site-primary);
+	}
+
+	.doc-prose :global(code) {
+		padding: 2px 6px;
+		border-radius: 6px;
+		border: 1px solid var(--site-line);
+		background: var(--site-secondary);
+		color: #e5e5e5;
+		font: 400 0.88em/1.5 var(--font-mono);
+	}
+
+	.doc-prose :global(blockquote) {
+		margin: 24px 0;
+		padding: 14px 18px;
+		border-left: 4px solid var(--site-primary);
+		border-radius: 0 10px 10px 0;
+		background: var(--site-secondary);
+		color: #fff;
+		font-style: normal;
+	}
+
+	.doc-prose :global(hr) {
+		margin: 40px 0;
+		border: 0;
+		border-top: 1px solid var(--site-line);
+	}
+
+	.doc-meta {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		gap: 12px;
+		margin-top: 40px;
+		padding-top: 20px;
+		border-top: 1px solid var(--site-line);
+		font-size: 14px;
+		color: #a3a3a3;
+	}
+
+	.doc-meta a {
+		color: #fff;
+		font-weight: 500;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+
+	@media (max-width: 960px) {
+		.doc {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 28px;
+		}
+
+		.toc {
+			position: static;
+			max-height: none;
+			flex-direction: row;
+			flex-wrap: wrap;
+			gap: 6px;
+		}
+
+		.toc-label {
+			width: 100%;
+			padding-bottom: 2px;
+		}
+
+		.toc a {
+			background: var(--site-secondary);
+			font-size: 14px;
+		}
+
+		.doc-long-toc .toc {
+			display: none;
+		}
+	}
+</style>
+
+<script>
+	const links = document.querySelectorAll<HTMLAnchorElement>("[data-toc-link]");
+	const targets = [...links]
+		.map((link) => document.getElementById(link.dataset.tocLink ?? ""))
+		.filter((el): el is HTMLElement => el !== null);
+
+	const setActive = (slug: string) => {
+		for (const link of links) {
+			link.setAttribute("aria-current", String(link.dataset.tocLink === slug));
+		}
+	};
+
+	if (targets.length > 0) {
+		setActive(targets[0].id);
+		const update = () => {
+			let current = targets[0].id;
+			for (const target of targets) {
+				if (target.getBoundingClientRect().top <= 120) current = target.id;
+			}
+			setActive(current);
+		};
+		window.addEventListener("scroll", update, { passive: true });
+		update();
+	}
+</script>

@@ -1,39 +1,26 @@
 ---
 import { getEntry, render } from "astro:content";
+import ProsePage from "@/components/public/prose/ProsePage.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
 
 const data = await getEntry("documents", "privacy")!;
 
-const { Content } = await render(data);
+const { Content, headings } = await render(data);
+
+import { ogImageFor } from "@/lib/og/url";
 ---
 
 <PublicLayout
 	title="Privacy Policy"
 	description="How Colibri processes personal data, what leaves your device, and the rights you have under the GDPR."
-	image="/og.png"
+	image={ogImageFor({ kind: "document", id: "privacy" }, Astro.site)}
+	starry
 >
-	<section
-		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-12"
+	<ProsePage
+		title={data.data.title}
+		description={data.data.description}
+		headings={headings}
 	>
-		<article class="max-w-[65ch] w-full flex flex-col items-center gap-8">
-			<div class="flex flex-col gap-4 items-center text-center">
-				<small class="text-primary text-sm">
-					{data.data.eyebrow}
-				</small>
-				<h1 class="text-5xl font-black m-0">{data.data.title}</h1>
-				<p class="m-0 text-muted-foreground">
-					{data.data.description}
-				</p>
-			</div>
-			<div class="mx-8 mb-0 w-full border-none h-px bg-border relative"></div>
-			<div class="w-full prose prose-neutral dark:prose-invert">
-				<Content />
-			</div>
-		</article>
-	</section>
+		<Content />
+	</ProsePage>
 </PublicLayout>
-<style is:global>
-	h2:first-of-type {
-		margin-top: 0;
-	}
-</style>

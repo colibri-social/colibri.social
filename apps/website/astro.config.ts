@@ -65,6 +65,7 @@ export default defineConfig({
 			components: {
 				Head: "./src/components/docs/Head.astro",
 			},
+			routeMiddleware: "./src/lib/og/docs-route-data.ts",
 			customCss: [
 				"@fontsource-variable/hanken-grotesk/wght.css",
 				"./src/styles/docs.css",
@@ -115,6 +116,11 @@ export default defineConfig({
 				optional: true,
 			}),
 			GITHUB_TOKEN: envField.string({
+				context: "server",
+				access: "secret",
+				optional: true,
+			}),
+			GITHUB_SPONSORS_TOKEN: envField.string({
 				context: "server",
 				access: "secret",
 				optional: true,

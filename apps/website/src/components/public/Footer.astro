@@ -1,70 +1,220 @@
 ---
-import { Image } from "astro:assets";
-import Farn from "@/assets/landing/Farn.webp";
-import Plants from "@/assets/landing/Plants.webp";
+import MilkyWayCard from "@/assets/landing/milkyway-card.webp";
+import BlueskyLogo from "@/components/icons/bluesky-logo.svg";
+import GithubLogo from "@/components/icons/github-logo.svg";
+import Tangled from "@/components/icons/tangled.svg";
 import HomeLink from "./HomeLink.astro";
-import NavLink from "./NavLink.astro";
-import type { LinkData } from "./shared";
 
-const links: Array<LinkData> = [
-	{ text: "Download", href: "/download" },
-	{ text: "Web-App", href: "/app" },
-	{ text: "About", href: "/about" },
-	{ text: "Blog", href: "/blog" },
-	{ text: "Docs", href: "/docs" },
-	{ text: "GitHub", href: "https://github.com/colibri-social", external: true },
-	{ text: "FAQ", href: "/faq" },
-	{ text: "Support", href: "/support" },
+const columns = [
 	{
-		text: "Feedback",
-		href: "https://userinput.app/s/did:plc:mprdjqjluoswa7awzggaggj3/3msnhieoy7y2n",
-		external: true,
+		title: "App",
+		links: [
+			{ text: "Download", href: "/download" },
+			{ text: "Web-App", href: "/app" },
+		],
 	},
-	{ text: "Privacy", href: "/policy" },
-	{ text: "Terms", href: "/tos" },
-	{ text: "Imprint", href: "/imprint" },
+	{
+		title: "Resources",
+		links: [
+			{ text: "Official Space", href: "#" },
+			{ text: "Blog", href: "/blog" },
+			{ text: "Documentation", href: "/docs" },
+			{ text: "Support", href: "/support" },
+			{ text: "FAQ", href: "/faq" },
+		],
+	},
+	{
+		title: "Legal",
+		links: [
+			{ text: "Privacy", href: "/policy" },
+			{ text: "Terms of Service", href: "/tos" },
+			{ text: "Imprint", href: "/imprint" },
+		],
+	},
 ];
 ---
 
-<footer
-	class="w-full h-fit flex flex-col relative max-w-screen overflow-x-clip"
->
-	<Image
-		src={Farn}
-		width={620}
-		height={387}
-		quality={100}
-		alt={"Grayscale Plants"}
-		class="absolute -top-72 z-10 -right-44 hidden md:block"
-	/>
-	<Image
-		src={Plants}
-		width={600}
-		height={395}
-		quality={100}
-		alt={"Grayscale Plants"}
-		class="absolute -top-72 -left-52 z-10 hidden md:block"
-	/>
-	<div class="w-full h-full bg-gradient-dark absolute rounded-t-xl z-10"></div>
-	<div
-		class="py-6 mx-auto w-full max-w-336 md:px-16 px-6 flex flex-row items-center justify-between z-20 flex-wrap"
-	>
-		<HomeLink />
-		<span class="font-light">©️ 2026 Colibri Social Maintainers</span>
-	</div>
-	<div
-		class="flex flex-row items-center justify-between mx-auto w-full max-w-336 md:px-16 px-6 pb-6 z-20 flex-wrap"
-	>
-		{
-			links.map(({ text, href, external }) => (
-				<NavLink isFooterLink {text} {href} {external} />
-			))
-		}
-	</div>
-	<hr class="my-4 z-20 lg:block hidden" />
-	<div
-		class="w-full z-20 font-s h-50 relative overflow-hidden hidden lg:flex flex-col items-center justify-end bg-clip-text text-transparent bg-[linear-gradient(70deg,rgba(9,6,21,1)_-28.53%,rgba(49,34,109,1)_0.95%,rgba(108,90,166,1)_31.62%,rgba(174,153,203,1)_59.93%,rgba(224,222,236,1)_82.92%)] text-[16.8vw] not-italic font-black"
-	>
-		<span class="relative bottom-14 z-20">colibri.social</span>
+<footer class="site-footer" style={`--milkyway-card: url(${MilkyWayCard.src})`}>
+	<div class="site-wrap">
+		<div class="site-footer-card">
+			<div class="site-footer-milkyway" aria-hidden="true"></div>
+			<div class="site-footer-top">
+				<div class="site-footer-brand">
+					<HomeLink />
+					<p>
+						Let your community spread its wings.<br />Made with 💜 from
+						contributors from all around the world.
+					</p>
+				</div>
+				<div class="site-footer-cols">
+					{
+						columns.map((column) => (
+							<div class="site-footer-col">
+								<h3>{column.title}</h3>
+								{column.links.map((link) => (
+									<a href={link.href}>{link.text}</a>
+								))}
+							</div>
+						))
+					}
+				</div>
+			</div>
+			<div class="site-footer-bottom">
+				<span>© 2026 Colibri Social Maintainers</span>
+				<div class="site-footer-socials">
+					<a
+						href="https://bsky.app/profile/colibri.social"
+						target="_blank"
+						rel="noreferrer"
+						aria-label="Colibri on Bluesky"
+					>
+						<BlueskyLogo width={24} height={21} aria-hidden="true" />
+					</a>
+					<a
+						href="https://github.com/colibri-social"
+						target="_blank"
+						rel="noreferrer"
+						aria-label="Colibri on GitHub"
+					>
+						<GithubLogo width={24} height={24} aria-hidden="true" />
+					</a>
+					<a
+						href="https://tangled.org/colibri.social"
+						target="_blank"
+						rel="noreferrer"
+						aria-label="Colibri on Tangled"
+					>
+						<Tangled width={24} height={23} aria-hidden="true" />
+					</a>
+				</div>
+			</div>
+		</div>
 	</div>
 </footer>
+
+<style>
+	.site-footer {
+		position: relative;
+		z-index: 30;
+		padding-top: 128px;
+		color: #fff;
+	}
+
+	.site-footer-card {
+		position: relative;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		gap: 32px;
+		padding: 48px;
+		border-radius: 24px 24px 0 0;
+		background: var(--site-popover);
+	}
+
+	.site-footer-milkyway {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 0;
+		height: 480px;
+		background: radial-gradient(var(--mw-card-rx) 100% at 50% 0%, var(--mw-soft)), #d9d9d9;
+		-webkit-mask: var(--milkyway-card) 50% 0 / cover no-repeat;
+		mask: var(--milkyway-card) 50% 0 / cover no-repeat;
+		pointer-events: none;
+	}
+
+	.site-footer-card > :not(.site-footer-milkyway) {
+		position: relative;
+	}
+
+	.site-footer-top {
+		display: flex;
+		justify-content: space-between;
+		gap: 32px;
+		flex-wrap: wrap;
+	}
+
+	.site-footer-brand {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.site-footer-brand p {
+		margin: 0;
+		font-size: 16px;
+		line-height: 1.3;
+		color: #fff;
+	}
+
+	.site-footer-cols {
+		display: flex;
+		gap: 32px;
+		flex-wrap: wrap;
+	}
+
+	.site-footer-col {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 16px;
+		width: 128px;
+	}
+
+	.site-footer-col h3 {
+		margin: 0;
+		font-family: var(--font-sans);
+		font-weight: 700;
+		font-size: 20px;
+		letter-spacing: normal;
+		color: #fff;
+	}
+
+	.site-footer-col a {
+		font-weight: 400;
+		font-size: 16px;
+		color: #fff;
+		text-decoration: none;
+		opacity: 0.92;
+	}
+
+	.site-footer-col a:hover {
+		opacity: 1;
+		text-decoration: underline;
+		text-underline-offset: 4px;
+	}
+
+	.site-footer-bottom {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		flex-wrap: wrap;
+		font-size: 16px;
+	}
+
+	.site-footer-socials {
+		display: flex;
+		gap: 10px;
+	}
+
+	.site-footer-socials a {
+		width: 40px;
+		height: 40px;
+		border-radius: 12px;
+		display: grid;
+		place-items: center;
+		color: #fff;
+		transition: background 0.15s;
+	}
+
+	.site-footer-socials a:hover {
+		background: rgba(255, 255, 255, 0.08);
+	}
+
+	@media (max-width: 900px) {
+		.site-footer-card {
+			padding: 32px 24px;
+		}
+	}
+</style>

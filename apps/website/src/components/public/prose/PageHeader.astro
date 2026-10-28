@@ -1,0 +1,89 @@
+---
+interface Props {
+	title: string;
+	lead?: string;
+	id?: string;
+	align?: "center" | "start";
+	display?: boolean;
+}
+
+const {
+	title,
+	lead,
+	id = "page-title",
+	align = "center",
+	display = true,
+} = Astro.props;
+---
+
+<header class:list={["page-header", `page-header-${align}`]}>
+	<div class="site-wrap page-header-inner">
+		<slot name="before" />
+		<h1 class:list={["reset", display ? "page-title" : "page-title-plain"]} id={id}>
+			{title}
+		</h1>
+		{lead && <p class="page-lead">{lead}</p>}
+		<slot />
+	</div>
+</header>
+
+<style>
+	.page-header {
+		position: relative;
+		z-index: 5;
+		padding-top: clamp(128px, 12vw, 176px);
+		padding-bottom: clamp(40px, 4vw, 64px);
+		color: #fff;
+	}
+
+	.page-header-inner {
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+	}
+
+	.page-header-center .page-header-inner {
+		align-items: center;
+		text-align: center;
+	}
+
+	.page-header-start .page-header-inner {
+		max-width: calc(760px + 32px);
+		align-items: flex-start;
+		text-align: left;
+	}
+
+	.page-header :is(h1, p) {
+		margin: 0;
+		color: #fff;
+		background: none;
+		-webkit-text-fill-color: currentColor;
+		letter-spacing: normal;
+		text-wrap: balance;
+	}
+
+	.page-header .page-title {
+		font-family: var(--font-stardom);
+		font-weight: 400;
+		font-size: clamp(40px, 6.2vw, 88px);
+		line-height: 0.86;
+		letter-spacing: 0.005em;
+		text-transform: uppercase;
+	}
+
+	.page-header .page-title-plain {
+		font-family: var(--font-sans);
+		font-weight: 900;
+		font-size: clamp(32px, 3.6vw, 52px);
+		line-height: 1.08;
+	}
+
+	.page-header .page-lead {
+		max-width: 52ch;
+		font-family: var(--font-sans);
+		font-weight: 500;
+		font-size: clamp(17px, 1.35vw, 21px);
+		line-height: 1.32;
+		color: #e9e6f0;
+	}
+</style>

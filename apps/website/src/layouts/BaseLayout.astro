@@ -1,5 +1,6 @@
 ---
 import { Font } from "astro:assets";
+import Stars from "@/assets/landing/stars.webp";
 import { NOINDEX } from "../site";
 
 interface Props {
@@ -7,6 +8,7 @@ interface Props {
 	description?: string;
 	image?: string;
 	home?: boolean;
+	starry?: boolean;
 	canonical?: string | URL;
 	ogType?: string;
 }
@@ -16,6 +18,7 @@ const {
 	description,
 	image,
 	home,
+	starry,
 	canonical = Astro.site,
 	ogType = "website",
 } = Astro.props;
@@ -52,17 +55,17 @@ const {
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:title" content={title} />
 		<meta name="twitter:description" content={description} />
+		{image !== undefined && <meta name="twitter:image" content={image} />}
 		<Font cssVariable="--font-hanken-grotesk" preload />
 		<Font cssVariable="--font-geist-mono" preload />
 		<slot name="head" />
 	</head>
 	<body
 		class="w-screen min-h-screen"
-		class:list={[
-			home &&
-				"bg-[linear-gradient(354deg,#090615_4.83%,#31226D_31.34%,#6C5AA6_58.91%,#AE99CB_84.37%,#E0DEEC_105.04%),linear-gradient(180deg,#553199_74.71%,#8E51FF_100%)]",
-			!home && "bg-gradient-dark",
-		]}
+		class:list={[!(home || starry) && "bg-gradient-dark"]}
+		style={home || starry
+			? `background: url(${Stars.src}) 0 0 / 512px 512px repeat, var(--site-page);`
+			: undefined}
 	>
 		<slot />
 	</body>

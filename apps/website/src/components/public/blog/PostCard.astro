@@ -1,0 +1,231 @@
+---
+import { Image } from "astro:assets";
+import Hummingbird from "@/assets/landing/hummingbird.svg";
+import { blobUrl } from "@/lib/blog/blob";
+import type { listPosts } from "@/lib/blog/posts";
+
+type Post = Awaited<ReturnType<typeof listPosts>>[number];
+
+interface Props {
+	post: Post;
+	featured?: boolean;
+	eager?: boolean;
+}
+
+const { post, featured = false, eager = false } = Astro.props;
+const { rkey, doc } = post;
+const cover = blobUrl(doc.coverImage);
+
+const dateFormatter = new Intl.DateTimeFormat("en", {
+	year: "numeric",
+	month: "long",
+	day: "numeric",
+});
+---
+
+<article class:list={["post", featured && "post-featured"]}>
+	<div class="post-media">
+		{
+			cover ? (
+				<Image
+					inferSize
+					src={cover}
+					alt=""
+					loading={eager ? "eager" : "lazy"}
+					decoding="async"
+					quality={90}
+					class="post-cover"
+				/>
+			) : (
+				<Hummingbird
+					width={56}
+					height={80}
+					aria-hidden="true"
+					class="post-mark"
+				/>
+			)
+		}
+	</div>
+	<div class="post-text">
+		<time datetime={doc.publishedAt} class="post-date">
+			{dateFormatter.format(new Date(doc.publishedAt))}
+		</time>
+		<h2 class="post-title">
+			<a class="post-link" href={`/blog/${rkey}`}>{doc.title}</a>
+		</h2>
+		{doc.description && <p class="post-desc">{doc.description}</p>}
+		{
+			doc.tags && doc.tags.length > 0 && (
+				<div class="post-tags">
+					{doc.tags.map((tag) => (
+						<span class="post-tag">{tag}</span>
+					))}
+				</div>
+			)
+		}
+		<span class="post-more" aria-hidden="true">
+			Read post
+			<svg viewBox="0 0 24 24"><path d="M9 5L15 12L9 19"></path></svg>
+		</span>
+	</div>
+</article>
+
+<style>
+	.post {
+		position: relative;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 24px;
+		padding: 20px;
+		border-radius: 20px;
+		background: var(--site-card);
+		border: 1px solid var(--site-line);
+		color: #fff;
+		font-family: var(--font-sans);
+		transition: border-color 0.15s;
+	}
+
+	.post:hover {
+		border-color: rgba(255, 255, 255, 0.16);
+	}
+
+	.post-featured {
+		grid-column: 1 / -1;
+		flex-direction: row;
+		gap: 32px;
+	}
+
+	.post-featured > * {
+		flex: 1 1 0;
+		min-width: 0;
+	}
+
+	.post-media {
+		position: relative;
+		display: grid;
+		place-items: center;
+		aspect-ratio: 1200 / 630;
+		overflow: hidden;
+		border-radius: 10px;
+		background: radial-gradient(182% 100% at 50% 100%, var(--mw)), #171717;
+	}
+
+	.post-media :global(.post-cover) {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.post-media :global(.post-mark) {
+		opacity: 0.9;
+	}
+
+	.post-text {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: 14px;
+	}
+
+	.post-date {
+		font-size: 15px;
+		color: #a3a3a3;
+	}
+
+	.post .post-title {
+		margin: 0;
+		font-family: var(--font-sans);
+		font-weight: 900;
+		font-size: clamp(22px, 1.7vw, 26px);
+		line-height: 1.1;
+		letter-spacing: normal;
+		color: #fff;
+		text-wrap: balance;
+	}
+
+	.post-featured .post-title {
+		font-size: clamp(26px, 2.4vw, 34px);
+	}
+
+	.post-link {
+		color: #fff;
+		text-decoration: none;
+	}
+
+	.post-link::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		border-radius: 20px;
+	}
+
+	.post-link:focus-visible {
+		outline: none;
+	}
+
+	.post-link:focus-visible::after {
+		outline: 2px solid var(--site-primary);
+		outline-offset: 3px;
+	}
+
+	.post .post-desc {
+		margin: 0;
+		font-size: clamp(16px, 1.1vw, 18px);
+		line-height: 1.4;
+		color: #e5e5e5;
+	}
+
+	.post-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
+	.post-tag {
+		display: inline-flex;
+		align-items: center;
+		height: 24px;
+		padding: 0 9px;
+		border-radius: 99px;
+		background: var(--site-secondary);
+		color: #d4d4d4;
+		font-weight: 600;
+		font-size: 13px;
+	}
+
+	.post-more {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-weight: 600;
+		font-size: 17px;
+	}
+
+	.post-more svg {
+		width: 16px;
+		height: 16px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.5;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		transition: transform 0.15s;
+	}
+
+	.post:hover .post-more {
+		text-decoration: underline;
+		text-underline-offset: 5px;
+	}
+
+	.post:hover .post-more svg {
+		transform: translateX(3px);
+	}
+
+	@media (max-width: 860px) {
+		.post-featured {
+			flex-direction: column;
+			gap: 24px;
+		}
+	}
+</style>

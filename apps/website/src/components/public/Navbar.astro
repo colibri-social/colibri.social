@@ -1,5 +1,4 @@
 ---
-import Button from "@/components/bearnie/button/Button.astro";
 import HomeLink from "./HomeLink.astro";
 import NavLink from "./NavLink.astro";
 import type { LinkData } from "./shared";
@@ -18,112 +17,184 @@ const links: Array<LinkData> = [
 ];
 ---
 
-<nav
-	class="w-full h-fit absolute top-0 left-0 flex flex-row justify-between items-center p-6 z-50"
->
+<nav class="site-nav">
 	<a href="#main" class="skip sr-only">Skip to main content</a>
 	<HomeLink />
 
-	<div
-		id="mobile-menu"
-		class="lg:flex fixed inset-0 z-40 flex flex-col items-center justify-center gap-8 lg:gap-4 bg-background text-4xl transition-opacity duration-300 opacity-0 pointer-events-none [&.open]:opacity-100 [&.open]:pointer-events-auto"
-	>
+	<div class="site-nav-links">
 		{
-			links.map(({ text, href }, i) => (
-				<div
-					class="flex lg:hidden mobile-link translate-y-6 opacity-0 transition-[transform,opacity] duration-300"
-					style={`transition-delay: ${i * 60}ms`}
-				>
-					<NavLink {text} {href} />
-				</div>
+			links.map(({ text, href, external }) => (
+				<NavLink {text} {href} {external} />
 			))
 		}
-		<div
-			class="flex lg:hidden mobile-link translate-y-6 opacity-0 transition-[transform,opacity] duration-300 gap-3 mt-4"
-			style={`transition-delay: ${links.length * 60}ms`}
-		>
-			<Button href="/app">Open the app</Button>
-		</div>
 	</div>
 
-	<div class="hidden lg:flex flex-row items-center gap-4 text-base">
-		{links.map(({ text, href }) => <NavLink {text} {href} />)}
-	</div>
-
-	<div class="w-40 flex justify-end items-center gap-4">
-		<Button href="/app" class="hidden lg:inline-flex"> Open the app </Button>
+	<div class="site-nav-end">
+		<a class="site-btn site-btn-primary" href="/app">Open the app</a>
 		<button
 			id="menu-toggle"
-			class="lg:hidden relative z-50 flex flex-col justify-center items-center w-9 h-9 gap-1.5 rounded-md hover:bg-accent transition-colors"
-			aria-label="Toggle menu"
+			class="site-nav-toggle"
+			type="button"
+			aria-label="Open menu"
 			aria-expanded="false"
 			aria-controls="mobile-menu"
 		>
-			<span
-				class="menu-bar block w-5 h-0.5 bg-foreground rounded-full transition-[transform,opacity] duration-300 origin-center"
-			></span>
-			<span
-				class="menu-bar block w-5 h-0.5 bg-foreground rounded-full transition-[transform,opacity] duration-300 origin-center"
-			></span>
-			<span
-				class="menu-bar block w-5 h-0.5 bg-foreground rounded-full transition-[transform,opacity] duration-300 origin-center"
-			></span>
+			<svg
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.8"
+				stroke-linecap="round"
+				aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg
+			>
 		</button>
 	</div>
+
+	<div id="mobile-menu" class="site-nav-menu" hidden>
+		{
+			links.map(({ text, href, external }) => (
+				<a
+					href={href}
+					target={external ? "_blank" : undefined}
+					rel={external ? "noreferrer" : undefined}
+				>
+					{text}
+				</a>
+			))
+		}
+		<a class="site-btn site-btn-primary site-nav-menu-app" href="/app">
+			Open the app
+		</a>
+	</div>
 </nav>
+
+<style>
+	.site-nav {
+		position: absolute;
+		inset: 0 0 auto;
+		z-index: 50;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		padding-top: 8px;
+		padding-bottom: 8px;
+		padding-left: max(24px, env(safe-area-inset-left, 0px));
+		padding-right: max(24px, env(safe-area-inset-right, 0px));
+	}
+
+	.site-nav-links {
+		display: flex;
+		align-items: center;
+		gap: clamp(4px, 1vw, 16px);
+		font-size: 16px;
+	}
+
+	.site-nav-end .site-btn {
+		height: 34px;
+		padding: 0 14px;
+		font-size: 14px;
+	}
+
+	.site-nav-end {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 8px;
+		min-width: 160px;
+	}
+
+	.site-nav-toggle {
+		display: none;
+		width: 40px;
+		height: 40px;
+		place-items: center;
+		border-radius: 8px;
+		border: 1px solid var(--site-line);
+		background: rgba(15, 15, 15, 0.55);
+		color: #fff;
+		cursor: pointer;
+	}
+
+	.site-nav-toggle svg {
+		width: 22px;
+		height: 22px;
+	}
+
+	.site-nav-menu {
+		position: absolute;
+		top: 68px;
+		left: max(16px, env(safe-area-inset-left, 0px));
+		right: max(16px, env(safe-area-inset-right, 0px));
+		display: flex;
+		flex-direction: column;
+		padding: 8px;
+		border-radius: 16px;
+		border: 1px solid var(--site-line);
+		background: rgba(15, 15, 15, 0.94);
+		backdrop-filter: blur(12px);
+	}
+
+	.site-nav-menu[hidden] {
+		display: none;
+	}
+
+	.site-nav-menu a {
+		padding: 12px 14px;
+		border-radius: 10px;
+		font-size: 18px;
+		color: #fff;
+		text-decoration: none;
+	}
+
+	.site-nav-menu a:hover {
+		background: var(--site-secondary);
+	}
+
+	.site-nav-menu .site-nav-menu-app {
+		margin-top: 6px;
+		height: 44px;
+		padding: 0 14px;
+		border-radius: 10px;
+		font-size: 16px;
+	}
+
+	.site-nav-menu .site-nav-menu-app:hover {
+		background: var(--site-primary);
+	}
+
+	@media (max-width: 960px) {
+		.site-nav-links {
+			display: none;
+		}
+
+		.site-nav-toggle {
+			display: grid;
+		}
+
+		.site-nav-end > .site-btn {
+			display: none;
+		}
+
+		.site-nav-end {
+			min-width: 0;
+		}
+	}
+</style>
 
 <script>
 	const toggle = document.getElementById("menu-toggle")!;
 	const menu = document.getElementById("mobile-menu")!;
-	const bars = toggle.querySelectorAll<HTMLElement>(".menu-bar");
-	const mobileLinks = menu.querySelectorAll<HTMLElement>(".mobile-link");
 
-	let isOpen = false;
+	const setOpen = (open: boolean) => {
+		menu.hidden = !open;
+		toggle.setAttribute("aria-expanded", String(open));
+		toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+	};
 
-	function openMenu() {
-		isOpen = true;
-		menu.classList.add("open");
-		document.body.style.overflow = "hidden";
-		toggle.setAttribute("aria-expanded", "true");
-
-		bars[0].style.transform = "translateY(8px) rotate(45deg)";
-		bars[1].style.opacity = "0";
-		bars[2].style.transform = "translateY(-8px) rotate(-45deg)";
-
-		mobileLinks.forEach((link) => {
-			link.classList.remove("translate-y-6", "opacity-0");
-		});
-	}
-
-	function closeMenu() {
-		isOpen = false;
-		document.body.style.overflow = "";
-		toggle.setAttribute("aria-expanded", "false");
-
-		bars[0].style.transform = "";
-		bars[1].style.opacity = "";
-		bars[2].style.transform = "";
-
-		mobileLinks.forEach((link) => {
-			link.classList.add("translate-y-6", "opacity-0");
-		});
-
-		menu.addEventListener(
-			"transitionend",
-			() => {
-				if (!isOpen) menu.classList.remove("open");
-			},
-			{ once: true },
-		);
-		menu.classList.remove("open");
-	}
-
-	toggle.addEventListener("click", () => {
-		if (isOpen) closeMenu();
-		else openMenu();
-	});
+	toggle.addEventListener("click", () => setOpen(menu.hidden));
 
 	menu.querySelectorAll("a").forEach((link) => {
-		link.addEventListener("click", () => closeMenu());
+		link.addEventListener("click", () => setOpen(false));
 	});
 </script>
