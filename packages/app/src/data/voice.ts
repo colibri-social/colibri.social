@@ -301,12 +301,20 @@ export const createVoice = (
 			const releaseMic = active.onMicAvailable?.(() => {
 				if (current()) publish();
 			});
+			const releaseCameraOff = active.onCameraOff?.(() =>
+				batch(() => {
+					setCamera(false);
+					cameraRequest += 1;
+					setCameraPending(false);
+				}),
+			);
 			detach = () => {
 				releaseEnded?.();
 				releaseMoved?.();
 				releaseNotice?.();
 				releaseScreenShare?.();
 				releaseMic?.();
+				releaseCameraOff?.();
 			};
 		};
 		attach(link());

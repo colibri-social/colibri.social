@@ -122,13 +122,12 @@ pub async fn start(
 
 fn start_audio(
     options: &StartOptions,
-    kind: SourceKind,
-    window_process: Option<u32>,
+    shared: &audio::Shared,
     sender: &FrameSender,
 ) -> Option<audio::Capture> {
     if !options.capture_audio {
         return None;
     }
-    let target = audio::choose_target(kind, window_process, options.audio_apps.as_deref())?;
+    let target = audio::choose_target(shared, options.audio_apps.as_deref())?;
     audio::start(target, sender.clone()).ok()
 }

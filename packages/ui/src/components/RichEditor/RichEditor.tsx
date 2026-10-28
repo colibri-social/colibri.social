@@ -165,6 +165,11 @@ const isMac = () =>
 	typeof navigator !== "undefined" &&
 	/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
+const hasCoarsePointer = () =>
+	typeof window !== "undefined" &&
+	typeof window.matchMedia === "function" &&
+	window.matchMedia("(pointer: coarse)").matches;
+
 const toDoc = (value: RichText | string, sources: RichEditorSources) =>
 	typeof value === "string"
 		? facetsToProseMirror(value, [], sources)
@@ -424,6 +429,12 @@ export const RichEditor = (props: RichEditorProps) => {
 		);
 	};
 
+	const restartTouchKeyboard = (instance: Editor) => {
+		if (!hasCoarsePointer() || !instance.view.hasFocus()) return;
+		instance.view.dom.blur();
+		instance.view.focus();
+	};
+
 	const submit = () => {
 		const instance = editor();
 		if (!instance || instance.isDestroyed || props.disabled) return;
@@ -431,6 +442,7 @@ export const RichEditor = (props: RichEditorProps) => {
 		const current = proseMirrorToFacets(json);
 		if (!canSubmit(current)) return;
 		instance.commands.clearContent(true);
+		restartTouchKeyboard(instance);
 		const restore = () => {
 			if (instance.isDestroyed || !instance.isEmpty) return;
 			instance.commands.setContent(json, { emitUpdate: true });

@@ -1053,8 +1053,7 @@ pub fn start(
     let (target, window_process) = resolve(&display, source)?;
     let audio = Arc::new(Mutex::new(start_audio(
         &options,
-        source.kind,
-        window_process,
+        &audio::Shared::native(source.kind, window_process),
         &sender,
     )));
 

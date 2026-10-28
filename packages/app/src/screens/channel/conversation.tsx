@@ -533,13 +533,20 @@ export const createConversation = (options: ConversationOptions) => {
 		return now !== before && !!now && now !== document.body;
 	};
 
+	const focusInOtherPane = () => {
+		const pane = "[data-shell-main], [data-shell-thread]";
+		const own = editor?.element()?.closest(pane);
+		const focused = document.activeElement?.closest(pane);
+		return !!own && !!focused && own !== focused;
+	};
+
 	const overlayOpen = () =>
 		isInsideNestedLayer(document.activeElement) ||
 		!!document.querySelector(`[${NESTED_LAYER_ATTR}][data-expanded]`);
 
 	const focusWhenReady = (frames: number, before: Element | null) => {
 		if (frames <= 0 || !isActive() || modalOpen() || !writable()) return;
-		if (focusMoved(before) || overlayOpen()) return;
+		if (focusMoved(before) || overlayOpen() || focusInOtherPane()) return;
 		const element = editor?.element();
 		if (element?.isConnected) {
 			if (!element.contains(document.activeElement)) editor?.focus();

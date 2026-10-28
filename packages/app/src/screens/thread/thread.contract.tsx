@@ -1,7 +1,7 @@
 import {
 	ChannelHeader,
 	IconButton,
-	NavHeader,
+	iconButtonTouchTarget,
 	ThreadIcon,
 } from "@colibri-social/ui";
 import { CloseIcon } from "@solar-icons/solid/bold/close";
@@ -267,24 +267,36 @@ export const thread = defineContract({
 						</Show>
 					}
 				>
-					<NavHeader
+					<ChannelHeader
+						platform="mobile"
 						safeTop
-						kind="back"
-						navigateLabel={m.backLabel()}
-						onNavigate={() => m.stack.pop()}
-						title={m.options.label()}
-						action={
-							m.thread()
-								? {
-										type: "icon",
-										label: "Thread options",
-										icon: <MenuDotsIcon />,
-										onClick: () => {
-											const current = m.thread();
-											if (current) m.menu.open(current);
-										},
-									}
-								: undefined
+						name={m.unavailable() ? "Unavailable" : m.options.label()}
+						icon={<ThreadIcon />}
+						onBack={() => m.stack.pop()}
+						backLabel={m.backLabel()}
+						onToggleMembers={
+							m.unavailable()
+								? undefined
+								: () =>
+										m.stack.push({
+											kind: "members",
+											space: m.options.space,
+											channel: m.options.channel,
+										})
+						}
+						actions={
+							<Show when={m.thread()}>
+								{(current) => (
+									<IconButton
+										variant="ghost"
+										size="md"
+										label="Thread options"
+										icon={<MenuDotsIcon />}
+										onClick={() => m.menu.open(current())}
+										class={iconButtonTouchTarget}
+									/>
+								)}
+							</Show>
 						}
 					/>
 				</Show>

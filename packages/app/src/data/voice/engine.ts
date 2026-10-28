@@ -164,7 +164,10 @@ export type VoiceEngineOptions = {
 	probeVideoEncoding?: VideoEncodingProbe;
 };
 
-export type VoiceEngine = Required<
+export type VoiceEngine = {
+	camera: () => boolean;
+	onCameraOff: (listener: () => void) => () => void;
+} & Required<
 	Pick<
 		VoiceConnectionMonitor,
 		| "connection"
@@ -348,6 +351,8 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			Record<string, VoiceModeration>
 		>({});
 		const [screenSharing, setScreenSharing] = createSignal(false);
+		const [camera, setCameraOn] = createSignal(false);
+		const cameraOffListeners = new Set<() => void>();
 		const [micAvailable, setMicAvailableSignal] = createSignal(true);
 		const micListeners = new Set<(available: boolean) => void>();
 		const setMicAvailable = (available: boolean) => {
@@ -376,6 +381,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		let camEndedListener: (() => void) | null = null;
 		let cameraGeneration = 0;
 		let pendingCameraStart: Promise<boolean> | null = null;
+		let cameraIntent = 0;
 		let screenProducer: types.Producer | null = null;
 		let screenAudioProducer: types.Producer | null = null;
 		let screenCapture: ScreenCapture | null = null;
@@ -802,6 +808,8 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		const teardown = () => {
 			if (reconnectTimer) clearTimeout(reconnectTimer);
 			reconnectTimer = null;
+			cameraIntent += 1;
+			setCameraOn(false);
 			teardownMedia();
 			abandonSignaling();
 		};
@@ -1136,6 +1144,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			for (const producerId of producers.drain()) {
 				void consumeProducer(producerId);
 			}
+			if (camera()) void resumeCamera();
 		};
 
 		const failSetup = (error: unknown) => {
@@ -1367,6 +1376,8 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			intentionalClose = true;
 			session = null;
 			sessionId += 1;
+			cameraIntent += 1;
+			setCameraOn(false);
 			const close = () => {
 				teardown();
 				setModeration({});
@@ -1676,7 +1687,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				return false;
 			}
 			camProducer = producer;
-			camEndedListener = () => stopCamera();
+			camEndedListener = () => loseCamera();
 			track.addEventListener("ended", camEndedListener);
 			return true;
 		};
@@ -1699,7 +1710,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				releaseCameraListener();
 				await producer.replaceTrack({ track });
 				previous?.stop();
-				camEndedListener = () => stopCamera();
+				camEndedListener = () => loseCamera();
 				track.addEventListener("ended", camEndedListener);
 				setVideo("self:cam", {
 					did: viewer,
@@ -1713,12 +1724,8 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			}
 		};
 
-		const setCamera = async (on: boolean): Promise<boolean> => {
-			if (!on) {
-				stopCamera();
-				return false;
-			}
-			if (camProducer) return true;
+		const ensureCamera = (): Promise<boolean> => {
+			if (camProducer) return Promise.resolve(true);
 			if (pendingCameraStart) return pendingCameraStart;
 			const starting = startCamera();
 			pendingCameraStart = starting;
@@ -1726,6 +1733,36 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				if (pendingCameraStart === starting) pendingCameraStart = null;
 			});
 			return starting;
+		};
+
+		const loseCamera = () => {
+			cameraIntent += 1;
+			stopCamera();
+			if (!camera()) return;
+			setCameraOn(false);
+			for (const listener of [...cameraOffListeners]) listener();
+		};
+
+		const resumeCamera = async () => {
+			const intent = cameraIntent;
+			const epoch = mediaEpoch;
+			const live = await ensureCamera();
+			if (live || intent !== cameraIntent || epoch !== mediaEpoch) return;
+			loseCamera();
+		};
+
+		const setCamera = async (on: boolean): Promise<boolean> => {
+			if (!on) {
+				cameraIntent += 1;
+				setCameraOn(false);
+				stopCamera();
+				return false;
+			}
+			setCameraOn(true);
+			const intent = cameraIntent;
+			const live = await ensureCamera();
+			if (!live && intent === cameraIntent) setCameraOn(false);
+			return live;
 		};
 
 		createEffect(
@@ -1778,6 +1815,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			noticeListeners.clear();
 			screenShareListeners.clear();
 			micListeners.clear();
+			cameraOffListeners.clear();
 			disposeRoot();
 		};
 
@@ -1788,6 +1826,11 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			setMuted,
 			setDeafened,
 			setCamera,
+			camera,
+			onCameraOff: (listener) => {
+				cameraOffListeners.add(listener);
+				return () => cameraOffListeners.delete(listener);
+			},
 			shareScreen,
 			stopScreen,
 			applyScreenQuality,

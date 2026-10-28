@@ -23,6 +23,10 @@ const LIST_TIMEOUT: Duration = Duration::from_secs(5);
 const ANCESTRY_LIMIT: usize = 64;
 const PROCESS_PREFIX: &str = "process";
 const NAME_PREFIX: &str = "name";
+const DESKTOP_PREFIX: &str = "desktop";
+const DESKTOP_SUFFIX: &str = ".desktop";
+const BINARY_SUFFIX: &str = "-bin";
+const SHORTEST_APP_SEGMENT: usize = 3;
 
 const LEFT_CHANNELS: &[&str] = &[
     "FL", "SL", "RL", "FLC", "RLC", "FLW", "FLH", "TFL", "TSL", "TRL", "BLC",
@@ -53,6 +57,7 @@ const ROUTER_NODES: &[&str] = &[
 pub enum AppKey {
     Process(u32),
     Name(String),
+    Desktop(String),
 }
 
 impl AppKey {
@@ -60,6 +65,7 @@ impl AppKey {
         match self {
             AppKey::Process(pid) => format!("{PROCESS_PREFIX}-{pid}"),
             AppKey::Name(name) => format!("{NAME_PREFIX}-{name}"),
+            AppKey::Desktop(id) => format!("{DESKTOP_PREFIX}-{id}"),
         }
     }
 
@@ -71,6 +77,7 @@ impl AppKey {
         match prefix {
             PROCESS_PREFIX => rest.parse().ok().map(AppKey::Process),
             NAME_PREFIX => Some(AppKey::Name(rest.to_string())),
+            DESKTOP_PREFIX => desktop_id(rest).map(AppKey::Desktop),
             _ => None,
         }
     }
@@ -81,6 +88,52 @@ impl AppKey {
                 .process_id
                 .is_some_and(|pid| descends_from(pid, *root, parent)),
             AppKey::Name(name) => node.process_id.is_none() && node.name == *name,
+            AppKey::Desktop(id) => node.belongs_to(id),
+        }
+    }
+}
+
+pub fn desktop_id(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    let id = trimmed.strip_suffix(DESKTOP_SUFFIX).unwrap_or(trimmed);
+    let valid = !id.is_empty()
+        && !id.contains(':')
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'));
+    valid.then(|| id.to_string())
+}
+
+fn short_name(id: &str) -> Option<String> {
+    id.rsplit('.')
+        .next()
+        .map(str::to_lowercase)
+        .filter(|segment| segment.len() >= SHORTEST_APP_SEGMENT)
+}
+
+fn binary_name(binary: &str) -> String {
+    let file = binary.rsplit('/').next().unwrap_or(binary).to_lowercase();
+    match file.strip_suffix(BINARY_SUFFIX) {
+        Some(stem) if !stem.is_empty() => stem.to_string(),
+        _ => file,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Shared {
+    pub requested: SourceKind,
+    pub kind: SourceKind,
+    pub window_process: Option<u32>,
+    pub window_app: Option<String>,
+}
+
+impl Shared {
+    pub fn native(kind: SourceKind, window_process: Option<u32>) -> Self {
+        Self {
+            requested: kind,
+            kind,
+            window_process,
+            window_app: None,
         }
     }
 }
@@ -115,17 +168,26 @@ impl Target {
     }
 }
 
-pub fn choose_target(
-    kind: SourceKind,
-    window_process_id: Option<u32>,
-    chosen: Option<&[String]>,
-) -> Option<Target> {
+fn whole_screen(kind: SourceKind) -> bool {
+    matches!(kind, SourceKind::Display)
+}
+
+pub fn choose_target(shared: &Shared, chosen: Option<&[String]>) -> Option<Target> {
+    let chosen = chosen.filter(|_| !whole_screen(shared.requested) || whole_screen(shared.kind));
     if let Some(ids) = chosen {
         return Target::from_ids(ids);
     }
-    match kind {
+    match shared.kind {
         SourceKind::Display => Some(Target::EverythingExceptColibri),
-        SourceKind::Window | SourceKind::Application => window_process_id.map(Target::process_tree),
+        SourceKind::Window | SourceKind::Application => {
+            shared.window_process.map(Target::process_tree).or_else(|| {
+                shared
+                    .window_app
+                    .as_deref()
+                    .and_then(desktop_id)
+                    .map(|id| Target::Apps(vec![AppKey::Desktop(id)]))
+            })
+        }
     }
 }
 
@@ -136,6 +198,8 @@ struct OutputNode {
     node_name: Option<String>,
     icon_name: Option<String>,
     binary: Option<String>,
+    application_id: Option<String>,
+    sandbox_app_id: Option<String>,
 }
 
 impl OutputNode {
@@ -159,7 +223,35 @@ impl OutputNode {
                 .or_else(|| present("application.icon-name"))
                 .map(str::to_string),
             binary,
+            application_id: present("application.id").map(str::to_string),
+            sandbox_app_id: present("pipewire.access.portal.app_id").map(str::to_string),
         })
+    }
+
+    fn belongs_to(&self, desktop: &str) -> bool {
+        let wanted = desktop.to_lowercase();
+        let ids = [
+            self.application_id.as_deref(),
+            self.sandbox_app_id.as_deref(),
+        ];
+        if ids
+            .iter()
+            .flatten()
+            .any(|id| desktop_id(id).is_some_and(|id| id.to_lowercase() == wanted))
+        {
+            return true;
+        }
+        let Some(short) = short_name(&wanted) else {
+            return false;
+        };
+        self.binary.as_deref().map(binary_name).as_deref() == Some(short.as_str())
+            || self.name.to_lowercase() == short
+            || self
+                .application_id
+                .as_deref()
+                .map(str::to_lowercase)
+                .as_deref()
+                == Some(short.as_str())
     }
 
     fn is_router(&self) -> bool {
@@ -193,6 +285,8 @@ const NODE_KEYS: &[&str] = &[
     "application.process.binary",
     "application.icon_name",
     "application.icon-name",
+    "application.id",
+    "pipewire.access.portal.app_id",
 ];
 const CLIENT_KEYS: &[&str] = &[
     "application.name",
@@ -200,6 +294,8 @@ const CLIENT_KEYS: &[&str] = &[
     "application.process.binary",
     "application.icon_name",
     "application.icon-name",
+    "application.id",
+    "pipewire.access.portal.app_id",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -879,7 +975,7 @@ fn group_apps(
         }
         let process_id = match key {
             AppKey::Process(pid) => Some(pid),
-            AppKey::Name(_) => None,
+            AppKey::Name(_) | AppKey::Desktop(_) => None,
         };
         let preselected = match (process_id, window_process_id) {
             (Some(pid), Some(window)) => {
@@ -949,7 +1045,22 @@ mod tests {
             node_name: None,
             icon_name: None,
             binary: None,
+            application_id: None,
+            sandbox_app_id: None,
         }
+    }
+
+    fn portal(requested: SourceKind, kind: SourceKind, window_app: Option<&str>) -> Shared {
+        Shared {
+            requested,
+            kind,
+            window_process: None,
+            window_app: window_app.map(str::to_string),
+        }
+    }
+
+    fn ids(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| value.to_string()).collect()
     }
 
     fn props<'a>(pairs: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<&'a str> + 'a {
@@ -1017,6 +1128,7 @@ mod tests {
         for key in [
             AppKey::Process(4242),
             AppKey::Name("Spotify-Free".to_string()),
+            AppKey::Desktop("org.mozilla.firefox".to_string()),
         ] {
             assert_eq!(AppKey::parse(&key.encode()), Some(key));
         }
@@ -1148,27 +1260,187 @@ mod tests {
 
     #[test]
     fn the_target_follows_the_source_and_the_choice() {
+        use SourceKind::{Display, Window};
         assert_eq!(
-            choose_target(SourceKind::Display, None, None),
+            choose_target(&Shared::native(Display, None), None),
             Some(Target::EverythingExceptColibri)
         );
         assert_eq!(
-            choose_target(SourceKind::Window, Some(42), None),
+            choose_target(&Shared::native(Window, Some(42)), None),
             Some(Target::process_tree(42))
         );
-        assert_eq!(choose_target(SourceKind::Window, None, None), None);
-        assert_eq!(choose_target(SourceKind::Display, None, Some(&[])), None);
+        assert_eq!(choose_target(&Shared::native(Window, None), None), None);
+        assert_eq!(
+            choose_target(&Shared::native(Display, None), Some(&[])),
+            None
+        );
         assert_eq!(
             choose_target(
-                SourceKind::Window,
-                Some(42),
-                Some(&["process-7".to_string(), "name-Spotify".to_string()])
+                &Shared::native(Window, Some(42)),
+                Some(&ids(&["process-7", "name-Spotify"]))
             ),
             Some(Target::Apps(vec![
                 AppKey::Process(7),
                 AppKey::Name("Spotify".to_string())
             ]))
         );
+    }
+
+    #[test]
+    fn a_portal_window_picked_from_the_screen_option_sends_no_audio() {
+        use SourceKind::{Display, Window};
+        assert_eq!(choose_target(&portal(Display, Window, None), None), None);
+        assert_eq!(
+            choose_target(
+                &portal(Display, Window, None),
+                Some(&ids(&["process-7", "process-8"]))
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn a_portal_window_with_a_known_app_takes_that_apps_audio() {
+        use SourceKind::{Display, Window};
+        let expected = Some(Target::Apps(vec![AppKey::Desktop(
+            "org.mozilla.firefox".to_string(),
+        )]));
+        assert_eq!(
+            choose_target(
+                &portal(Display, Window, Some("org.mozilla.firefox.desktop")),
+                None
+            ),
+            expected
+        );
+        assert_eq!(
+            choose_target(
+                &portal(Display, Window, Some("org.mozilla.firefox")),
+                Some(&ids(&["process-7"]))
+            ),
+            expected
+        );
+        assert_eq!(
+            choose_target(&portal(Window, Window, Some("org.mozilla.firefox")), None),
+            expected
+        );
+    }
+
+    #[test]
+    fn an_app_chosen_for_the_window_wins_over_the_known_app() {
+        use SourceKind::Window;
+        assert_eq!(
+            choose_target(
+                &portal(Window, Window, Some("org.mozilla.firefox")),
+                Some(&ids(&["name-Spotify"]))
+            ),
+            Some(Target::Apps(vec![AppKey::Name("Spotify".to_string())]))
+        );
+        assert_eq!(
+            choose_target(
+                &portal(Window, Window, Some("org.mozilla.firefox")),
+                Some(&[])
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn an_unusable_window_app_id_sends_no_audio() {
+        use SourceKind::{Display, Window};
+        for app in ["", "  ", "window:12", ".desktop", "bad id"] {
+            assert_eq!(
+                choose_target(&portal(Display, Window, Some(app)), None),
+                None,
+                "{app}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_portal_screen_picked_from_the_window_option_keeps_the_chosen_app() {
+        use SourceKind::{Display, Window};
+        assert_eq!(
+            choose_target(
+                &portal(Window, Display, None),
+                Some(&ids(&["name-Spotify"]))
+            ),
+            Some(Target::Apps(vec![AppKey::Name("Spotify".to_string())]))
+        );
+        assert_eq!(
+            choose_target(&portal(Window, Display, None), Some(&[])),
+            None
+        );
+    }
+
+    #[test]
+    fn an_x11_app_share_follows_its_process_tree() {
+        assert_eq!(
+            choose_target(&Shared::native(SourceKind::Application, Some(9)), None),
+            Some(Target::process_tree(9))
+        );
+    }
+
+    #[test]
+    fn a_desktop_app_matches_its_sandbox_or_application_id() {
+        let flatpak = OutputNode {
+            sandbox_app_id: Some("org.mozilla.firefox".to_string()),
+            ..node(Some(500), "Firefox Web Content")
+        };
+        let declared = OutputNode {
+            application_id: Some("org.mozilla.Firefox".to_string()),
+            ..node(None, "Something")
+        };
+        assert!(flatpak.belongs_to("org.mozilla.firefox"));
+        assert!(declared.belongs_to("org.mozilla.firefox"));
+    }
+
+    #[test]
+    fn a_desktop_app_matches_its_binary_or_name_by_the_last_segment() {
+        let binary = OutputNode {
+            binary: Some("/usr/lib/firefox/firefox-bin".to_string()),
+            ..node(Some(500), "Web Content")
+        };
+        let named = node(Some(600), "Spotify");
+        let plain = OutputNode {
+            binary: Some("dolphin".to_string()),
+            ..node(Some(700), "Dolphin")
+        };
+        assert!(binary.belongs_to("org.mozilla.firefox"));
+        assert!(named.belongs_to("spotify"));
+        assert!(plain.belongs_to("org.kde.dolphin"));
+    }
+
+    #[test]
+    fn a_desktop_app_does_not_match_other_apps() {
+        let zen = OutputNode {
+            binary: Some("zen-bin".to_string()),
+            sandbox_app_id: Some("app.zen_browser.zen".to_string()),
+            ..node(Some(500), "Zen")
+        };
+        let chromium = OutputNode {
+            binary: Some("chromium".to_string()),
+            ..node(Some(600), "Chromium")
+        };
+        assert!(!zen.belongs_to("org.mozilla.firefox"));
+        assert!(!chromium.belongs_to("org.mozilla.firefox"));
+        assert!(!node(Some(1), "ab").belongs_to("ab"));
+    }
+
+    #[test]
+    fn a_desktop_target_skips_colibri_and_other_apps() {
+        let parent = tree(&[(101, 100)]);
+        let target = Target::Apps(vec![AppKey::Desktop("org.mozilla.firefox".to_string())]);
+        let firefox = OutputNode {
+            binary: Some("firefox".to_string()),
+            ..node(Some(500), "Firefox")
+        };
+        let colibri = OutputNode {
+            binary: Some("firefox".to_string()),
+            ..node(Some(101), "Firefox")
+        };
+        assert!(target.wants(&firefox, 100, &parent));
+        assert!(!target.wants(&colibri, 100, &parent));
+        assert!(!target.wants(&node(Some(200), "Zen"), 100, &parent));
     }
 
     #[test]

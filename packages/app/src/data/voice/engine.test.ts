@@ -16,6 +16,7 @@ import {
 	FakeTrack,
 	type FakeTransport,
 	flush,
+	handshake,
 	OTHER_CHANNEL,
 	PEER,
 	pending,
@@ -444,6 +445,104 @@ describe("voice engine", () => {
 		expect(harness.engine.videos()).toEqual([]);
 		const close = await pending(socket, "closeProducer");
 		expect(close).toMatchObject({ producerId: "cam-1" });
+	});
+
+	it("resumes the camera after the signaling socket reconnects", async () => {
+		const harness = track(setup());
+		const { socket } = await connect(harness);
+		const offs: number[] = [];
+		harness.engine.onCameraOff(() => offs.push(1));
+		const turningOn = harness.engine.setCamera(true);
+		expect(harness.engine.camera()).toBe(true);
+		await reply(socket, "produce", camProducerInfo);
+		expect(await turningOn).toBe(true);
+		socket.drop();
+		expect(harness.engine.camera()).toBe(true);
+		expect(harness.engine.videos()).toEqual([]);
+		await vi.waitFor(() => expect(harness.sockets).toHaveLength(2), {
+			timeout: 3_000,
+		});
+		const next = harness.sockets[1];
+		await handshake(harness, next);
+		const produce = await reply(next, "produce", {
+			...camProducerInfo,
+			producerId: "cam-2",
+		});
+		expect(produce).toMatchObject({ kind: "video", source: "camera" });
+		await vi.waitFor(() =>
+			expect(harness.engine.videos()).toEqual([
+				expect.objectContaining({ did: VIEWER, source: "cam" }),
+			]),
+		);
+		expect(harness.engine.camera()).toBe(true);
+		expect(offs).toEqual([]);
+		expect(harness.notices).toEqual([]);
+	});
+
+	it("turns the camera off when it cannot resume after a reconnect", async () => {
+		const harness = track(setup());
+		const { socket } = await connect(harness);
+		const offs: number[] = [];
+		harness.engine.onCameraOff(() => offs.push(1));
+		const turningOn = harness.engine.setCamera(true);
+		await reply(socket, "produce", camProducerInfo);
+		expect(await turningOn).toBe(true);
+		const open = harness.getUserMedia.getMockImplementation();
+		harness.getUserMedia.mockImplementation(async (constraints) => {
+			if (constraints.video)
+				throw new DOMException("denied", "NotAllowedError");
+			return (open as NonNullable<typeof open>)(constraints);
+		});
+		socket.drop();
+		await vi.waitFor(() => expect(harness.sockets).toHaveLength(2), {
+			timeout: 3_000,
+		});
+		const next = harness.sockets[1];
+		await handshake(harness, next);
+		await vi.waitFor(() => expect(harness.engine.camera()).toBe(false));
+		expect(offs).toEqual([1]);
+		expect(harness.notices).toEqual(["cameraFailed"]);
+		expect(harness.engine.videos()).toEqual([]);
+		await flush();
+		expect(next.sent.slice(next.answered)).toEqual([]);
+	});
+
+	it("turns the camera off when its track ends", async () => {
+		const harness = track(setup());
+		const { socket } = await connect(harness);
+		const offs: number[] = [];
+		harness.engine.onCameraOff(() => offs.push(1));
+		const turningOn = harness.engine.setCamera(true);
+		await reply(socket, "produce", camProducerInfo);
+		expect(await turningOn).toBe(true);
+		const stream = (await harness.getUserMedia.mock.results.at(-1)
+			?.value) as unknown as FakeStream;
+		const camTrack = stream.getVideoTracks()[0];
+		camTrack.listeners.get("ended")?.();
+		expect(harness.engine.camera()).toBe(false);
+		expect(offs).toEqual([1]);
+		expect(harness.engine.videos()).toEqual([]);
+		const close = await pending(socket, "closeProducer");
+		expect(close).toMatchObject({ producerId: "cam-1" });
+	});
+
+	it("does not resume a camera turned off before the reconnect", async () => {
+		const harness = track(setup());
+		const { socket } = await connect(harness);
+		const turningOn = harness.engine.setCamera(true);
+		await reply(socket, "produce", camProducerInfo);
+		expect(await turningOn).toBe(true);
+		expect(await harness.engine.setCamera(false)).toBe(false);
+		expect(harness.engine.camera()).toBe(false);
+		socket.drop();
+		await vi.waitFor(() => expect(harness.sockets).toHaveLength(2), {
+			timeout: 3_000,
+		});
+		const next = harness.sockets[1];
+		await handshake(harness, next);
+		await flush();
+		expect(next.sent.slice(next.answered)).toEqual([]);
+		expect(harness.engine.camera()).toBe(false);
 	});
 
 	it("drops a camera turned off while the device is still opening", async () => {

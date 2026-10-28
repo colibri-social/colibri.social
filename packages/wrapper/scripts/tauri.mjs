@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
+import { EXCLUDED_LIBRARIES, installLinuxdeploy } from "./linuxdeploy.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -17,6 +18,20 @@ const COMPILE_SUBCOMMANDS = new Set(["dev", "build", "android", "ios"]);
 if (disableSentry && COMPILE_SUBCOMMANDS.has(args[0])) {
 	if (!args.includes("--")) args.push("--");
 	args.push("--no-default-features");
+}
+
+if (
+	process.platform === "linux" &&
+	args[0] === "build" &&
+	!args.includes("--no-bundle")
+) {
+	await installLinuxdeploy();
+	process.env.LINUXDEPLOY_EXCLUDED_LIBRARIES = [
+		process.env.LINUXDEPLOY_EXCLUDED_LIBRARIES,
+		...EXCLUDED_LIBRARIES,
+	]
+		.filter(Boolean)
+		.join(";");
 }
 
 // Resolve the Tauri CLI entry from its package manifest so we invoke it

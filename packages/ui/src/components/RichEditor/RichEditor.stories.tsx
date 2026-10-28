@@ -691,6 +691,107 @@ export const MobileEnterAddsLine: Story = {
 	},
 };
 
+const withPointer = async (coarse: boolean, run: () => Promise<void>) => {
+	const original = window.matchMedia;
+	window.matchMedia = (query: string) => {
+		const result = original.call(window, query);
+		if (query !== "(pointer: coarse)") return result;
+		return {
+			matches: coarse,
+			media: query,
+			onchange: null,
+			addEventListener: result.addEventListener.bind(result),
+			removeEventListener: result.removeEventListener.bind(result),
+			addListener: result.addListener.bind(result),
+			removeListener: result.removeListener.bind(result),
+			dispatchEvent: result.dispatchEvent.bind(result),
+		};
+	};
+	try {
+		await run();
+	} finally {
+		window.matchMedia = original;
+	}
+};
+
+const submitAndCountBlurs = async (
+	canvasElement: HTMLElement,
+	handle: () => RichEditorHandle | undefined,
+) => {
+	const editor = field(canvasElement);
+	await userEvent.click(editor);
+	await userEvent.keyboard("seed 42");
+	await waitFor(() => expect(currentValue(canvasElement).text).toBe("seed 42"));
+	let blurs = 0;
+	const count = () => {
+		blurs += 1;
+	};
+	editor.addEventListener("blur", count);
+	try {
+		handle()?.submit();
+	} finally {
+		editor.removeEventListener("blur", count);
+	}
+	await expect(onSubmit).toHaveBeenCalledWith(
+		expect.objectContaining({ text: "seed 42" }),
+	);
+	await expect(document.activeElement).toBe(editor);
+	await waitFor(() =>
+		expect(canvasElement.querySelector("[data-rich-editor]")).toHaveAttribute(
+			"data-empty",
+		),
+	);
+	return blurs;
+};
+
+let keyboardHandle: RichEditorHandle | undefined;
+
+export const TouchKeyboardResetsAfterSend: Story = {
+	name: "Touch keyboard restarts after send",
+	render: () => (
+		<Harness
+			platform="mobile"
+			onReady={(handle) => {
+				keyboardHandle = handle;
+			}}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		await withPointer(true, async () => {
+			const blurs = await submitAndCountBlurs(
+				canvasElement,
+				() => keyboardHandle,
+			);
+			await expect(blurs).toBe(1);
+		});
+		await userEvent.keyboard("next");
+		await waitFor(() => expect(currentValue(canvasElement).text).toBe("next"));
+	},
+};
+
+export const FinePointerKeepsFocusAfterSend: Story = {
+	name: "Fine pointer keeps focus after send",
+	render: () => (
+		<Harness
+			platform="desktop"
+			onReady={(handle) => {
+				keyboardHandle = handle;
+			}}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		await withPointer(false, async () => {
+			const blurs = await submitAndCountBlurs(
+				canvasElement,
+				() => keyboardHandle,
+			);
+			await expect(blurs).toBe(0);
+		});
+	},
+};
+
 export const SubtextCaretHeight: Story = {
 	render: () => <Harness platform="desktop" />,
 	play: async ({ canvasElement }) => {

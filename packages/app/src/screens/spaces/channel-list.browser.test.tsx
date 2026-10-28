@@ -211,10 +211,10 @@ describe("threads in the channel list", () => {
 					'[aria-label="Back to #critique"]',
 				),
 		);
-		const header = document.querySelector<HTMLElement>(
-			'[data-pane-index="2"] h1, [data-pane-index="2"] [data-channel-header]',
+		const composer = document.querySelector<HTMLElement>(
+			'[data-pane-index="2"] [contenteditable="true"]',
 		);
-		await userEvent.click(header ?? document.body);
+		await userEvent.click(composer ?? document.body);
 		await until(() => depthOf(history.state) === 2);
 		history.back();
 		await until(() => location.pathname === channelPath);

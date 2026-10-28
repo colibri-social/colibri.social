@@ -323,7 +323,13 @@ export const connect = async (
 ) => {
 	harness.engine.start(session);
 	await vi.waitFor(() => expect(harness.sockets).toHaveLength(1));
-	const socket = harness.sockets[0];
+	return handshake(harness, harness.sockets[0]);
+};
+
+export const handshake = async (
+	harness: ReturnType<typeof setup>,
+	socket: FakeSocket,
+) => {
 	socket.open();
 	await reply(socket, "join", { $type: `${DEFS}joined`, channel: CHANNEL });
 	await reply(socket, "getRtpCapabilities", {

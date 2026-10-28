@@ -1,9 +1,11 @@
+use std::collections::HashMap;
 use std::os::fd::OwnedFd;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
 use ashpd::desktop::screencast::{CursorMode, Screencast, SelectSourcesOptions, SourceType};
 use ashpd::desktop::{PersistMode, ResponseError};
+use ashpd::zvariant::{OwnedValue, Value as Variant};
 use futures_util::StreamExt;
 use pipewire as pw;
 use pw::spa;
@@ -20,6 +22,22 @@ const PORTAL_SOURCE: &str = "portal";
 const LARGEST_WIDTH: u32 = 7680;
 const LARGEST_HEIGHT: u32 = 4320;
 const PIPEWIRE_START_TIMEOUT_SECONDS: u64 = 10;
+const PORTAL_DESTINATION: &str = "org.freedesktop.portal.Desktop";
+const REQUEST_PATH: &str = "/org/freedesktop/portal/desktop/request";
+const REQUEST_INTERFACE: &str = "org.freedesktop.portal.Request";
+const RESPONSE_SIGNAL: &str = "Response";
+const START_METHOD: &str = "Start";
+const RESPONSE_SUCCESS: u32 = 0;
+const RESPONSE_CANCELLED: u32 = 1;
+const PORTAL_MONITOR: u32 = 1;
+const PORTAL_WINDOW: u32 = 2;
+const PORTAL_VIRTUAL: u32 = 4;
+const GNOME_RESTORE_VENDOR: &str = "GNOME";
+const KDE_RESTORE_VENDOR: &str = "KDE";
+const GNOME_WINDOW_SOURCE: u32 = 2;
+const KDE_WINDOW_LIST_TYPE: &[u8] = b"WindowRestoreInfo>\0";
+const QT_NULL_STRING: u32 = u32::MAX;
+const MOST_RESTORED_WINDOWS: u32 = 64;
 
 pub fn sources() -> Vec<CaptureSource> {
     [
@@ -60,6 +78,223 @@ struct Picked {
     portal: Portal,
     node: u32,
     fd: OwnedFd,
+    shared: SourceKind,
+    window_app: Option<String>,
+}
+
+fn variant<'v, 'a>(value: &'v Variant<'a>) -> &'v Variant<'a> {
+    match value {
+        Variant::Value(inner) => variant(inner),
+        other => other,
+    }
+}
+
+fn gnome_stream_app(stream: &Variant) -> Option<String> {
+    let Variant::Structure(stream) = variant(stream) else {
+        return None;
+    };
+    let [_, kind, window] = stream.fields() else {
+        return None;
+    };
+    if !matches!(variant(kind), Variant::U32(GNOME_WINDOW_SOURCE)) {
+        return None;
+    }
+    let Variant::Structure(window) = variant(window) else {
+        return None;
+    };
+    match window.fields() {
+        [app, _] => match variant(app) {
+            Variant::Str(app) => audio::desktop_id(app.as_str()),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn gnome_window_app(payload: &Variant) -> Option<String> {
+    let Variant::Structure(payload) = variant(payload) else {
+        return None;
+    };
+    payload
+        .fields()
+        .iter()
+        .find_map(|field| match variant(field) {
+            Variant::Array(streams) => streams.inner().iter().find_map(gnome_stream_app),
+            _ => None,
+        })
+}
+
+struct QtStream<'a> {
+    bytes: &'a [u8],
+}
+
+impl QtStream<'_> {
+    fn number(&mut self) -> Option<u32> {
+        let (head, rest) = self.bytes.split_first_chunk::<4>()?;
+        self.bytes = rest;
+        Some(u32::from_be_bytes(*head))
+    }
+
+    fn string(&mut self) -> Option<String> {
+        let length = self.number()?;
+        if length == QT_NULL_STRING {
+            return Some(String::new());
+        }
+        let length = usize::try_from(length).ok()?;
+        if length % 2 != 0 || length > self.bytes.len() {
+            return None;
+        }
+        let (text, rest) = self.bytes.split_at(length);
+        self.bytes = rest;
+        let units: Vec<u16> = text
+            .chunks_exact(2)
+            .map(|pair| u16::from_be_bytes([pair[0], pair[1]]))
+            .collect();
+        String::from_utf16(&units).ok()
+    }
+}
+
+fn kde_window_app_in(bytes: &[u8]) -> Option<String> {
+    let start = bytes
+        .windows(KDE_WINDOW_LIST_TYPE.len())
+        .position(|window| window == KDE_WINDOW_LIST_TYPE)?
+        + KDE_WINDOW_LIST_TYPE.len();
+    let mut stream = QtStream {
+        bytes: &bytes[start..],
+    };
+    let count = stream.number()?;
+    if count == 0 || count > MOST_RESTORED_WINDOWS {
+        return None;
+    }
+    let app = stream.string()?;
+    stream.string()?;
+    audio::desktop_id(&app)
+}
+
+fn kde_window_app(payload: &Variant) -> Option<String> {
+    let Variant::Array(bytes) = variant(payload) else {
+        return None;
+    };
+    let bytes: Vec<u8> = bytes
+        .inner()
+        .iter()
+        .map(|byte| match byte {
+            Variant::U8(byte) => Some(*byte),
+            _ => None,
+        })
+        .collect::<Option<_>>()?;
+    kde_window_app_in(&bytes)
+}
+
+fn window_app(vendor: &str, payload: &Variant) -> Option<String> {
+    match vendor {
+        GNOME_RESTORE_VENDOR => gnome_window_app(payload),
+        KDE_RESTORE_VENDOR => kde_window_app(payload),
+        _ => None,
+    }
+}
+
+type StartResults = HashMap<String, OwnedValue>;
+
+fn first_stream(results: &StartResults) -> Option<(u32, Option<u32>)> {
+    let Variant::Array(streams) = variant(results.get("streams")?) else {
+        return None;
+    };
+    let Variant::Structure(stream) = variant(streams.inner().first()?) else {
+        return None;
+    };
+    let [node, properties] = stream.fields() else {
+        return None;
+    };
+    let Variant::U32(node) = variant(node) else {
+        return None;
+    };
+    let reported = match variant(properties) {
+        Variant::Dict(properties) => {
+            properties
+                .iter()
+                .find_map(|(key, value)| match (variant(key), variant(value)) {
+                    (Variant::Str(key), Variant::U32(kind)) if key.as_str() == "source_type" => {
+                        Some(*kind)
+                    }
+                    _ => None,
+                })
+        }
+        _ => None,
+    };
+    Some((*node, reported))
+}
+
+fn restored_window_app(results: &StartResults) -> Option<String> {
+    let Variant::Structure(data) = variant(results.get("restore_data")?) else {
+        return None;
+    };
+    let [vendor, _, payload] = data.fields() else {
+        return None;
+    };
+    let Variant::Str(vendor) = variant(vendor) else {
+        return None;
+    };
+    window_app(vendor.as_str(), payload)
+}
+
+fn handle_token() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_nanos())
+        .unwrap_or_default();
+    format!("colibri_{}_{nanos}", std::process::id())
+}
+
+fn bus_error(error: ashpd::zbus::Error) -> NativeError {
+    NativeError::failed(format!("the screen sharing portal failed: {error}"))
+}
+
+async fn start_cast(portal: &Portal) -> Result<StartResults, NativeError> {
+    let connection = portal.proxy.connection().clone();
+    let token = handle_token();
+    let sender = connection
+        .unique_name()
+        .map(|name| name.as_str().trim_start_matches(':').replace('.', "_"))
+        .ok_or_else(|| NativeError::failed("the screen sharing portal has no connection"))?;
+    let path = format!("{REQUEST_PATH}/{sender}/{token}");
+    let request = ashpd::zbus::Proxy::new(
+        &connection,
+        PORTAL_DESTINATION,
+        path.as_str(),
+        REQUEST_INTERFACE,
+    )
+    .await
+    .map_err(bus_error)?;
+    let mut responses = request
+        .receive_signal(RESPONSE_SIGNAL)
+        .await
+        .map_err(bus_error)?;
+
+    let options: HashMap<&str, Variant> = HashMap::from([("handle_token", Variant::from(token))]);
+    portal
+        .proxy
+        .call_method(START_METHOD, &(&portal.session, "", options))
+        .await
+        .map_err(bus_error)?;
+
+    let message = responses.next().await.ok_or_else(cancelled)?;
+    let (code, results): (u32, StartResults) = message.body().deserialize().map_err(bus_error)?;
+    match code {
+        RESPONSE_SUCCESS => Ok(results),
+        RESPONSE_CANCELLED => Err(cancelled()),
+        _ => Err(NativeError::failed(
+            "the screen sharing portal could not start",
+        )),
+    }
+}
+
+fn shared_kind(reported: Option<u32>, requested: SourceKind) -> SourceKind {
+    match reported {
+        Some(PORTAL_MONITOR | PORTAL_VIRTUAL) => SourceKind::Display,
+        Some(PORTAL_WINDOW) => SourceKind::Window,
+        _ => requested,
+    }
 }
 
 async fn pick(kind: SourceKind) -> Result<Picked, NativeError> {
@@ -85,7 +320,7 @@ async fn pick(kind: SourceKind) -> Result<Picked, NativeError> {
                 .set_cursor_mode(cursor)
                 .set_sources(ashpd::enumflags2::BitFlags::from(source_type))
                 .set_multiple(false)
-                .set_persist_mode(PersistMode::DoNot),
+                .set_persist_mode(PersistMode::Application),
         )
         .await;
 
@@ -95,26 +330,22 @@ async fn pick(kind: SourceKind) -> Result<Picked, NativeError> {
         return Err(portal_error(error));
     }
 
-    let streams = match portal
-        .proxy
-        .start(&portal.session, None, Default::default())
-        .await
-        .and_then(|request| request.response())
-    {
-        Ok(streams) => streams,
+    let results = match start_cast(&portal).await {
+        Ok(results) => results,
         Err(error) => {
             let _ = portal.session.close().await;
-            return Err(portal_error(error));
+            return Err(error);
         }
     };
 
-    let Some(node) = streams
-        .streams()
-        .first()
-        .map(|stream| stream.pipe_wire_node_id())
-    else {
+    let Some((node, reported)) = first_stream(&results) else {
         let _ = portal.session.close().await;
         return Err(cancelled());
+    };
+    let shared = shared_kind(reported, kind);
+    let window_app = match shared {
+        SourceKind::Display => None,
+        SourceKind::Window | SourceKind::Application => restored_window_app(&results),
     };
 
     let fd = match portal
@@ -129,7 +360,13 @@ async fn pick(kind: SourceKind) -> Result<Picked, NativeError> {
         }
     };
 
-    Ok(Picked { portal, node, fd })
+    Ok(Picked {
+        portal,
+        node,
+        fd,
+        shared,
+        window_app,
+    })
 }
 
 fn serialize(object: Object) -> Option<Vec<u8>> {
@@ -246,6 +483,7 @@ fn run_pipewire(
         let _ = ready.send(Err(message));
     };
 
+    pw::init();
     let Ok(main_loop) = pw::main_loop::MainLoopRc::new(None) else {
         return fail("could not start PipeWire".to_string());
     };
@@ -453,12 +691,22 @@ pub async fn start(
         ));
     }
 
-    let Picked { portal, node, fd } = pick(source.kind).await?;
+    let Picked {
+        portal,
+        node,
+        fd,
+        shared,
+        window_app,
+    } = pick(source.kind).await?;
 
     let audio = Arc::new(Mutex::new(start_audio(
         &options,
-        source.kind,
-        None,
+        &audio::Shared {
+            requested: source.kind,
+            kind: shared,
+            window_process: None,
+            window_app,
+        },
         &sender,
     )));
 
@@ -541,5 +789,206 @@ mod tests {
                 .all(|source| SourceId::parse(&source.id)
                     .is_some_and(|id| id.native == PORTAL_SOURCE))
         );
+    }
+
+    #[test]
+    fn a_handle_token_is_a_valid_object_path_element() {
+        let token = handle_token();
+        assert!(!token.is_empty());
+        assert!(token.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'));
+    }
+
+    #[test]
+    fn the_shared_kind_follows_what_the_portal_reports() {
+        assert_eq!(
+            shared_kind(Some(PORTAL_WINDOW), SourceKind::Display),
+            SourceKind::Window
+        );
+        assert_eq!(
+            shared_kind(Some(PORTAL_MONITOR), SourceKind::Window),
+            SourceKind::Display
+        );
+        assert_eq!(
+            shared_kind(Some(PORTAL_VIRTUAL), SourceKind::Window),
+            SourceKind::Display
+        );
+    }
+
+    #[test]
+    fn an_unknown_reported_kind_falls_back_to_the_requested_one() {
+        assert_eq!(shared_kind(None, SourceKind::Display), SourceKind::Display);
+        assert_eq!(shared_kind(None, SourceKind::Window), SourceKind::Window);
+        assert_eq!(shared_kind(Some(9), SourceKind::Window), SourceKind::Window);
+    }
+
+    fn owned(value: Variant<'static>) -> OwnedValue {
+        value.try_to_owned().expect("owns")
+    }
+
+    fn structure(fields: Vec<Variant<'static>>) -> Variant<'static> {
+        let builder = fields.into_iter().fold(
+            ashpd::zvariant::StructureBuilder::new(),
+            |builder, field| builder.append_field(field),
+        );
+        Variant::Structure(builder.build().expect("builds"))
+    }
+
+    fn stream_with(node: u32, kind: Option<u32>) -> Variant<'static> {
+        let mut properties: HashMap<String, Variant<'static>> = HashMap::new();
+        properties.insert("size".to_string(), Variant::from((1920i32, 1080i32)));
+        if let Some(kind) = kind {
+            properties.insert("source_type".to_string(), Variant::U32(kind));
+        }
+        structure(vec![Variant::U32(node), Variant::from(properties)])
+    }
+
+    #[test]
+    fn the_first_stream_gives_its_node_and_reported_kind() {
+        let mut results = StartResults::new();
+        results.insert(
+            "streams".to_string(),
+            owned(Variant::Array(
+                vec![stream_with(57, Some(PORTAL_WINDOW))].into(),
+            )),
+        );
+        assert_eq!(first_stream(&results), Some((57, Some(PORTAL_WINDOW))));
+
+        results.insert(
+            "streams".to_string(),
+            owned(Variant::Array(vec![stream_with(12, None)].into())),
+        );
+        assert_eq!(first_stream(&results), Some((12, None)));
+    }
+
+    #[test]
+    fn no_streams_means_nothing_was_shared() {
+        assert_eq!(first_stream(&StartResults::new()), None);
+        let mut results = StartResults::new();
+        results.insert(
+            "streams".to_string(),
+            owned(Variant::Array(Vec::<Variant<'static>>::new().into())),
+        );
+        assert_eq!(first_stream(&results), None);
+    }
+
+    #[test]
+    fn restore_data_names_the_shared_window_app() {
+        let mut results = StartResults::new();
+        assert_eq!(restored_window_app(&results), None);
+        results.insert(
+            "restore_data".to_string(),
+            owned(structure(vec![
+                Variant::from("GNOME".to_string()),
+                Variant::U32(1),
+                Variant::Value(Box::new(gnome_payload(vec![gnome_stream(
+                    2,
+                    "org.gnome.Totem.desktop",
+                )]))),
+            ])),
+        );
+        assert_eq!(
+            restored_window_app(&results).as_deref(),
+            Some("org.gnome.Totem")
+        );
+    }
+
+    fn qt_string(text: &str) -> Vec<u8> {
+        let units: Vec<u8> = text.encode_utf16().flat_map(u16::to_be_bytes).collect();
+        let mut bytes = (units.len() as u32).to_be_bytes().to_vec();
+        bytes.extend(units);
+        bytes
+    }
+
+    fn kde_payload(windows: &[(&str, &str)]) -> Vec<u8> {
+        let mut bytes = 3u32.to_be_bytes().to_vec();
+        bytes.extend(qt_string("outputs"));
+        bytes.extend([0, 0, 0, 9, 0]);
+        bytes.extend(0u32.to_be_bytes());
+        bytes.extend(qt_string("windows"));
+        bytes.extend(65536u32.to_be_bytes());
+        bytes.push(0);
+        let name = b"QList<WindowRestoreInfo>\0";
+        bytes.extend((name.len() as u32).to_be_bytes());
+        bytes.extend(name);
+        bytes.extend((windows.len() as u32).to_be_bytes());
+        for (app, title) in windows {
+            bytes.extend(qt_string(app));
+            bytes.extend(qt_string(title));
+        }
+        bytes
+    }
+
+    fn gnome_payload(streams: Vec<Variant<'static>>) -> Variant<'static> {
+        Variant::Structure(
+            ashpd::zvariant::StructureBuilder::new()
+                .append_field(Variant::I64(1))
+                .append_field(Variant::I64(2))
+                .append_field(Variant::Array(streams.into()))
+                .build()
+                .expect("builds"),
+        )
+    }
+
+    fn gnome_stream(kind: u32, app: &str) -> Variant<'static> {
+        let window = Variant::Structure(
+            ashpd::zvariant::StructureBuilder::new()
+                .append_field(Variant::from(app.to_string()))
+                .append_field(Variant::from("A title".to_string()))
+                .build()
+                .expect("builds"),
+        );
+        Variant::Structure(
+            ashpd::zvariant::StructureBuilder::new()
+                .append_field(Variant::U32(0))
+                .append_field(Variant::U32(kind))
+                .append_field(Variant::Value(Box::new(window)))
+                .build()
+                .expect("builds"),
+        )
+    }
+
+    #[test]
+    fn a_gnome_window_names_its_app() {
+        let payload = gnome_payload(vec![gnome_stream(2, "org.mozilla.firefox.desktop")]);
+        assert_eq!(
+            window_app("GNOME", &payload).as_deref(),
+            Some("org.mozilla.firefox")
+        );
+    }
+
+    #[test]
+    fn a_gnome_monitor_or_unknown_window_names_no_app() {
+        let monitor = gnome_payload(vec![gnome_stream(1, "org.mozilla.firefox.desktop")]);
+        assert_eq!(window_app("GNOME", &monitor), None);
+        let unknown = gnome_payload(vec![gnome_stream(2, "window:42")]);
+        assert_eq!(window_app("GNOME", &unknown), None);
+        let empty = gnome_payload(vec![gnome_stream(2, "")]);
+        assert_eq!(window_app("GNOME", &empty), None);
+    }
+
+    #[test]
+    fn a_kde_window_names_its_app() {
+        let bytes = kde_payload(&[("org.kde.dolphin", "Home")]);
+        let payload = Variant::Array(bytes.into());
+        assert_eq!(
+            window_app("KDE", &payload).as_deref(),
+            Some("org.kde.dolphin")
+        );
+    }
+
+    #[test]
+    fn a_kde_payload_without_windows_names_no_app() {
+        assert_eq!(kde_window_app_in(&kde_payload(&[])), None);
+        assert_eq!(kde_window_app_in(&qt_string("windows")), None);
+        let mut truncated = kde_payload(&[("org.kde.dolphin", "Home")]);
+        truncated.truncate(truncated.len() - 6);
+        assert_eq!(kde_window_app_in(&truncated), None);
+    }
+
+    #[test]
+    fn an_unknown_vendor_names_no_app() {
+        let payload = gnome_payload(vec![gnome_stream(2, "org.mozilla.firefox")]);
+        assert_eq!(window_app("COSMIC", &payload), None);
+        assert_eq!(window_app("KDE", &payload), None);
     }
 }

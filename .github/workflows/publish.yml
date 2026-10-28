@@ -274,6 +274,14 @@ jobs:
           args: ${{ matrix.args }}${{ inputs.channel == 'spaces' && !matrix.is-android && format(' --config {0}/packages/wrapper/src-tauri/tauri.spaces.conf.json', github.workspace) || '' }}
           mobile: ${{ matrix.mobile }}
 
+      - name: Verify AppImage uses host PipeWire (Linux only)
+        if: (matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm') && !matrix.is-android
+        run: |
+          set -euo pipefail
+          for APPIMAGE in packages/wrapper/src-tauri/target/release/bundle/appimage/*.AppImage; do
+            bash packages/wrapper/scripts/verify-appimage.sh "$APPIMAGE"
+          done
+
       - name: Verify macOS signing and notarization
         if: matrix.platform == 'macos-latest'
         run: |

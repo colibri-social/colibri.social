@@ -20,8 +20,11 @@ const QUEUE_DEPTH: isize = 6;
 const PIXEL_FORMAT_420V: u32 = u32::from_be_bytes(*b"420v");
 const AUDIO_SAMPLE_RATE: isize = 48_000;
 
+const AUDIO_ONLY_EDGE: usize = 2;
+const AUDIO_ONLY_FRAMERATE: i32 = 1;
+
 pub struct OutputIvars {
-    encoder: Arc<Encoder>,
+    encoder: Option<Arc<Encoder>>,
     frame_duration: CMTime,
     audio: Option<FrameSender>,
 }
@@ -62,19 +65,23 @@ define_class!(
                 return;
             }
 
+            let Some(encoder) = ivars.encoder.as_ref() else {
+                return;
+            };
+
             let Some(image) = (unsafe { sample_buffer.image_buffer() }) else {
                 return;
             };
 
             let pts = unsafe { sample_buffer.presentation_time_stamp() };
-            ivars.encoder.encode(&image, pts, ivars.frame_duration);
+            encoder.encode(&image, pts, ivars.frame_duration);
         }
     }
 );
 
 impl CaptureOutput {
     fn new(
-        encoder: Arc<Encoder>,
+        encoder: Option<Arc<Encoder>>,
         frame_duration: CMTime,
         audio: Option<FrameSender>,
     ) -> Retained<Self> {
@@ -87,25 +94,54 @@ impl CaptureOutput {
     }
 }
 
-pub struct Capture {
+struct Running {
     stream: Retained<SCStream>,
-    encoder: Arc<Encoder>,
     _output: Retained<CaptureOutput>,
     _queue: DispatchRetained<DispatchQueue>,
 }
 
-impl Capture {
-    pub fn stop(self) {
+impl Running {
+    fn stop(&self) {
         let handler = RcBlock::new(|_error: *mut NSError| {});
         unsafe {
             self.stream.stopCaptureWithCompletionHandler(Some(&handler));
         }
+    }
+}
+
+pub enum AudioSource<'a> {
+    Silent,
+    Shared,
+    Separate(&'a SCContentFilter),
+}
+
+pub struct Capture {
+    video: Running,
+    audio: Option<Running>,
+    encoder: Arc<Encoder>,
+}
+
+impl Capture {
+    pub fn stop(self) {
+        if let Some(audio) = &self.audio {
+            audio.stop();
+        }
+        self.video.stop();
         self.encoder.finish();
     }
 }
 
 unsafe impl Send for Capture {}
 unsafe impl Sync for Capture {}
+
+fn with_audio(config: &SCStreamConfiguration) {
+    unsafe {
+        config.setCapturesAudio(true);
+        config.setSampleRate(AUDIO_SAMPLE_RATE);
+        config.setChannelCount(audio::MAX_CHANNELS as isize);
+        config.setExcludesCurrentProcessAudio(true);
+    }
+}
 
 fn configuration(quality: CaptureQuality, capture_audio: bool) -> Retained<SCStreamConfiguration> {
     let config = unsafe { SCStreamConfiguration::new() };
@@ -121,37 +157,39 @@ fn configuration(quality: CaptureQuality, capture_audio: bool) -> Retained<SCStr
         config.setShowsCursor(true);
         config.setScalesToFit(true);
         config.setIgnoreShadowsSingleWindow(true);
-
-        if capture_audio {
-            config.setCapturesAudio(true);
-            config.setSampleRate(AUDIO_SAMPLE_RATE);
-            config.setChannelCount(audio::MAX_CHANNELS as isize);
-            config.setExcludesCurrentProcessAudio(true);
-        }
+    }
+    if capture_audio {
+        with_audio(&config);
     }
     config
 }
 
-pub fn start(
+fn audio_only_configuration() -> Retained<SCStreamConfiguration> {
+    let config = unsafe { SCStreamConfiguration::new() };
+    unsafe {
+        config.setWidth(AUDIO_ONLY_EDGE);
+        config.setHeight(AUDIO_ONLY_EDGE);
+        config.setMinimumFrameInterval(CMTime::with_seconds(
+            1.0 / f64::from(AUDIO_ONLY_FRAMERATE),
+            AUDIO_ONLY_FRAMERATE,
+        ));
+        config.setShowsCursor(false);
+    }
+    with_audio(&config);
+    config
+}
+
+fn run(
     filter: &SCContentFilter,
-    quality: CaptureQuality,
+    config: &SCStreamConfiguration,
+    output: Retained<CaptureOutput>,
     capture_audio: bool,
-    sender: FrameSender,
-) -> Result<Capture, NativeError> {
-    let encoder = Arc::new(Encoder::new(quality, sender.clone())?);
-    let config = configuration(quality, capture_audio);
-    let frame_duration = unsafe { CMTime::with_seconds(1.0 / quality.framerate as f64, 90_000) };
-
+    label: &str,
+) -> Result<Running, NativeError> {
     let stream = unsafe {
-        SCStream::initWithFilter_configuration_delegate(SCStream::alloc(), filter, &config, None)
+        SCStream::initWithFilter_configuration_delegate(SCStream::alloc(), filter, config, None)
     };
-
-    let output = CaptureOutput::new(
-        encoder.clone(),
-        frame_duration,
-        capture_audio.then_some(sender),
-    );
-    let queue = DispatchQueue::new("social.colibri.capture", DispatchQueueAttr::SERIAL);
+    let queue = DispatchQueue::new(label, DispatchQueueAttr::SERIAL);
 
     let protocol_output = ProtocolObject::from_ref(&*output);
     unsafe {
@@ -189,19 +227,69 @@ pub fn start(
     }
 
     match rx.recv_timeout(std::time::Duration::from_secs(10)) {
-        Ok(Ok(())) => Ok(Capture {
+        Ok(Ok(())) => Ok(Running {
             stream,
-            encoder,
             _output: output,
             _queue: queue,
         }),
-        Ok(Err(message)) => {
-            encoder.finish();
-            Err(super::permission_error(&message))
-        }
-        Err(_) => {
-            encoder.finish();
-            Err(NativeError::failed("the screen capture never started"))
-        }
+        Ok(Err(message)) => Err(super::permission_error(&message)),
+        Err(_) => Err(NativeError::failed("the screen capture never started")),
     }
+}
+
+pub fn start(
+    filter: &SCContentFilter,
+    quality: CaptureQuality,
+    audio: AudioSource,
+    sender: FrameSender,
+) -> Result<Capture, NativeError> {
+    let encoder = Arc::new(Encoder::new(quality, sender.clone())?);
+    let shared_audio = matches!(audio, AudioSource::Shared);
+    let config = configuration(quality, shared_audio);
+    let frame_duration = unsafe { CMTime::with_seconds(1.0 / quality.framerate as f64, 90_000) };
+
+    let output = CaptureOutput::new(
+        Some(encoder.clone()),
+        frame_duration,
+        shared_audio.then(|| sender.clone()),
+    );
+    let video = match run(
+        filter,
+        &config,
+        output,
+        shared_audio,
+        "social.colibri.capture",
+    ) {
+        Ok(video) => video,
+        Err(error) => {
+            encoder.finish();
+            return Err(error);
+        }
+    };
+
+    let audio = match audio {
+        AudioSource::Separate(app_filter) => {
+            let output = CaptureOutput::new(None, frame_duration, Some(sender));
+            match run(
+                app_filter,
+                &audio_only_configuration(),
+                output,
+                true,
+                "social.colibri.capture-audio",
+            ) {
+                Ok(audio) => Some(audio),
+                Err(error) => {
+                    eprintln!("screen capture audio did not start: {}", error.message);
+                    None
+                }
+            }
+        }
+        AudioSource::Silent | AudioSource::Shared => None,
+    };
+
+    Ok(Capture {
+        video,
+        audio,
+        encoder,
+    })
 }
