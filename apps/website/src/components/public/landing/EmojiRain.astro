@@ -1,0 +1,494 @@
+---
+import Doge from "@/assets/landing/doge.webp";
+import BananaDance from "@/assets/landing/emoji/banana-dance.webp";
+import Burger from "@/assets/landing/emoji/burger.webp";
+import CatJam from "@/assets/landing/emoji/cat-jam.webp";
+import Clap from "@/assets/landing/emoji/clap.webp";
+import Crewmate from "@/assets/landing/emoji/crewmate.webp";
+import Floppa from "@/assets/landing/emoji/floppa.webp";
+import Hotdog from "@/assets/landing/emoji/hotdog.webp";
+import Kirby from "@/assets/landing/emoji/kirby.webp";
+import Maxwell from "@/assets/landing/emoji/maxwell.webp";
+import Nerd from "@/assets/landing/emoji/nerd.webp";
+import NyanCat from "@/assets/landing/emoji/nyan-cat.webp";
+import Skeleton from "@/assets/landing/emoji/skeleton.webp";
+import ThisIsFine from "@/assets/landing/emoji/this-is-fine.webp";
+import Grin from "@/assets/landing/grin.webp";
+
+const rainEmoji = [
+	{ src: NyanCat.src, ar: 94 / 64, rounded: false },
+	{ src: CatJam.src, ar: 1, rounded: false },
+	{ src: Floppa.src, ar: 1, rounded: false },
+	{ src: Maxwell.src, ar: 1.5, rounded: false },
+	{ src: ThisIsFine.src, ar: 1, rounded: false },
+	{ src: Crewmate.src, ar: 0.875, rounded: false },
+	{ src: BananaDance.src, ar: 60 / 64, rounded: false },
+	{ src: Skeleton.src, ar: 1, rounded: false },
+	{ src: Nerd.src, ar: 1, rounded: false },
+	{ src: Kirby.src, ar: 1, rounded: false },
+	{ src: Burger.src, ar: 84 / 64, rounded: false },
+	{ src: Clap.src, ar: 1, rounded: false },
+	{ src: Hotdog.src, ar: 1, rounded: false },
+	{ src: Doge.src, ar: 1, rounded: true },
+	{ src: Grin.src, ar: 1, rounded: true },
+].map((emoji) => ({ ...emoji, ar: Math.round(emoji.ar * 1000) / 1000 }));
+---
+
+<div
+	class="emoji-rain"
+	data-emoji-rain
+	data-emoji={JSON.stringify(rainEmoji)}
+	aria-hidden="true"
+>
+	<div class="rain" data-rain></div>
+	<span
+		class="rest rounded"
+		data-rest
+		style="--x: max(-82px, -34%); --y: 9px; --s: 40px; --r: -14deg; --d: 70ms"
+	>
+		<img src={Grin.src} alt="" width="40" height="40" draggable="false" />
+	</span>
+	<span
+		class="rest"
+		data-rest
+		style="--x: min(84px, 34%); --y: 9px; --s: 34px; --ar: 1.5; --r: 12deg; --d: 120ms"
+	>
+		<img src={Maxwell.src} alt="" width="51" height="34" draggable="false" />
+	</span>
+	<span
+		class="rest"
+		data-rest
+		style="--x: min(50px, 20%); --y: -43px; --s: 26px; --ar: 0.875; --r: -12deg; --d: 170ms"
+	>
+		<img src={Crewmate.src} alt="" width="23" height="26" draggable="false" />
+	</span>
+	<span
+		class="rest rounded doge"
+		data-rest
+		style="--x: 0px; --y: 0px; --s: 64px; --r: 0deg; --d: 0ms"
+	>
+		<img src={Doge.src} alt="" width="64" height="64" draggable="false" />
+	</span>
+</div>
+
+<style>
+	.emoji-rain {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		isolation: isolate;
+	}
+
+	.rain {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		pointer-events: none;
+	}
+
+	.rain :global(.emoji-rain-drop) {
+		position: absolute;
+		left: 0;
+		top: 0;
+		display: block;
+		object-fit: contain;
+		will-change: transform;
+		user-select: none;
+		-webkit-user-drag: none;
+	}
+
+	.rain :global(.emoji-rain-drop.rounded) {
+		border-radius: 12%;
+	}
+
+	.rest {
+		position: absolute;
+		top: calc(50% + var(--y));
+		left: calc(50% + var(--x));
+		z-index: 2;
+		width: calc(var(--s) * var(--ar, 1));
+		height: var(--s);
+		transform: translate(-50%, -50%) rotate(var(--r));
+		transition: transform 260ms ease;
+	}
+
+	.rest img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+		user-select: none;
+		-webkit-user-drag: none;
+	}
+
+	.rest.rounded img {
+		border-radius: 12%;
+	}
+
+	.rest.gone {
+		visibility: hidden;
+	}
+
+	.rest.pop img {
+		animation: emoji-rain-pop 560ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+		animation-delay: var(--d, 0ms);
+	}
+
+	.doge {
+		z-index: 3;
+	}
+
+	.doge img {
+		border-radius: 8px;
+		object-fit: cover;
+		filter: drop-shadow(0 6px 14px rgba(20, 0, 60, 0.35));
+	}
+
+	@keyframes emoji-rain-pop {
+		from {
+			opacity: 0;
+			transform: translateY(-14px) scale(0.3) rotate(calc(var(--r) * -1.5));
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.rest {
+			transition:
+				transform 400ms ease,
+				opacity 400ms ease;
+		}
+
+		.emoji-rain.is-hover .rest {
+			transform: translate(-50%, -50%) rotate(0deg);
+		}
+
+		.emoji-rain.is-hover .doge {
+			transform: translate(-50%, -50%) scale(1.05);
+		}
+
+		.rest.pop img {
+			animation: none;
+		}
+	}
+</style>
+
+<script>
+	interface RainEmoji {
+		src: string;
+		ar: number;
+		rounded: boolean;
+	}
+
+	interface DropInit {
+		src: string;
+		rounded: boolean;
+		w: number;
+		h: number;
+		x: number;
+		y: number;
+		vx: number;
+		vy: number;
+		target: number;
+		rot: number;
+		spin: number;
+		sway: number;
+		swayF: number;
+		phase: number;
+		opacity: number;
+		falling: boolean;
+		gravity: number;
+	}
+
+	interface Drop {
+		el: HTMLImageElement;
+		w: number;
+		h: number;
+		x: number;
+		y: number;
+		vx: number;
+		vy: number;
+		target: number;
+		rot: number;
+		spin: number;
+		sway: number;
+		swayF: number;
+		phase: number;
+		age: number;
+		falling: boolean;
+		gravity: number;
+	}
+
+	const SPAWN_MS = 150;
+	const SPAWN_REF_W = 344;
+	const RAMP_MS = 600;
+	const FIRST_SPAWN_MS = 140;
+	const SPEED_MIN = 70;
+	const SPEED_MAX = 180;
+	const EXIT_GRAVITY = 1500;
+	const HOP_GRAVITY = 1100;
+	const MAX_DROPS = 40;
+	const RETURN_DELAY = 220;
+
+	const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+	const rand = (min: number, max: number) => min + Math.random() * (max - min);
+
+	function initEmojiRain(root: HTMLElement) {
+		const card = root.closest<HTMLElement>(".card");
+		const rain = root.querySelector<HTMLElement>("[data-rain]");
+		if (!card || !rain) return;
+
+		const rests = Array.from(root.querySelectorAll<HTMLElement>("[data-rest]"));
+		const emoji = JSON.parse(root.dataset.emoji ?? "[]") as Array<RainEmoji>;
+		if (emoji.length === 0) return;
+
+		const pool: Array<HTMLImageElement> = [];
+		const drops: Array<Drop> = [];
+		let hovering = false;
+		let visible = false;
+		let preloaded = false;
+		let hoverStart = 0;
+		let nextSpawn = 0;
+		let rafId = 0;
+		let lastT = 0;
+		let returnTimer = 0;
+		let lastPick = -1;
+
+		const preload = () => {
+			if (preloaded) return;
+			preloaded = true;
+			for (const { src } of emoji) {
+				const img = new Image();
+				img.src = src;
+			}
+		};
+
+		const pick = () => {
+			let i = Math.floor(Math.random() * emoji.length);
+			if (i === lastPick) i = (i + 1) % emoji.length;
+			lastPick = i;
+			return emoji[i];
+		};
+
+		const takeImg = (src: string, rounded: boolean) => {
+			const img = pool.pop() ?? document.createElement("img");
+			img.className = rounded ? "emoji-rain-drop rounded" : "emoji-rain-drop";
+			img.alt = "";
+			img.draggable = false;
+			img.decoding = "async";
+			img.src = src;
+			rain.appendChild(img);
+			return img;
+		};
+
+		const releaseImg = (img: HTMLImageElement) => {
+			img.remove();
+			pool.push(img);
+		};
+
+		const addDrop = ({ src, rounded, opacity, ...drop }: DropInit) => {
+			const el = takeImg(src, rounded);
+			el.style.width = `${drop.w}px`;
+			el.style.height = `${drop.h}px`;
+			el.style.opacity = opacity.toFixed(2);
+			drops.push({ ...drop, el, age: 0 });
+		};
+
+		const clearDrops = () => {
+			for (const drop of drops) releaseImg(drop.el);
+			drops.length = 0;
+		};
+
+		const spawnRain = (width: number) => {
+			if (drops.length >= MAX_DROPS) return;
+			const e = pick();
+			const depth = Math.random();
+			const h = 22 + depth * 20;
+			const w = h * e.ar;
+			const target =
+				(SPEED_MIN + (SPEED_MAX - SPEED_MIN) * depth) * rand(0.85, 1.15);
+			addDrop({
+				src: e.src,
+				rounded: e.rounded,
+				w,
+				h,
+				x: rand(w * 0.5, width - w * 0.5),
+				y: -h * 0.6,
+				vx: rand(-14, 14),
+				vy: target * 0.5,
+				target,
+				rot: rand(-22, 22),
+				spin: rand(-45, 45),
+				sway: rand(3, 10),
+				swayF: rand(1.4, 2.6),
+				phase: rand(0, Math.PI * 2),
+				opacity: 0.82 + depth * 0.18,
+				falling: false,
+				gravity: 0,
+			});
+		};
+
+		const releaseRests = () => {
+			const box = root.getBoundingClientRect();
+			for (const rest of rests) {
+				if (rest.classList.contains("gone")) continue;
+				const img = rest.querySelector("img");
+				if (!img) continue;
+				const r = rest.getBoundingClientRect();
+				const cx = r.left + r.width / 2 - box.left;
+				const cy = r.top + r.height / 2 - box.top;
+				const offset = cx - box.width / 2;
+				const isCenter = Math.abs(offset) < 4;
+				const side = isCenter
+					? Math.random() < 0.5
+						? -1
+						: 1
+					: Math.sign(offset);
+				rest.classList.remove("pop");
+				rest.classList.add("gone");
+				addDrop({
+					src: img.src,
+					rounded: rest.classList.contains("rounded"),
+					w: rest.offsetWidth,
+					h: rest.offsetHeight,
+					x: cx,
+					y: cy,
+					vx: side * (isCenter ? rand(10, 24) : rand(30, 60)),
+					vy: isCenter ? rand(-150, -120) : rand(-170, -120),
+					target: 0,
+					rot: Number.parseFloat(rest.style.getPropertyValue("--r")) || 0,
+					spin: side * (isCenter ? rand(50, 90) : rand(80, 160)),
+					sway: 0,
+					swayF: 0,
+					phase: 0,
+					opacity: 1,
+					falling: true,
+					gravity: HOP_GRAVITY,
+				});
+			}
+		};
+
+		const restoreRests = (animate: boolean) => {
+			for (const rest of rests) {
+				rest.classList.remove("gone", "pop");
+				if (!animate) continue;
+				void rest.offsetWidth;
+				rest.classList.add("pop");
+			}
+		};
+
+		const frame = (now: number) => {
+			const dt = Math.min(0.05, (now - lastT) / 1000 || 0);
+			lastT = now;
+			const width = root.clientWidth;
+			const height = root.clientHeight;
+
+			if (hovering && width > 0) {
+				const ramp = Math.min(1, (now - hoverStart) / RAMP_MS);
+				const interval = ((SPAWN_MS * SPAWN_REF_W) / width) * (2.6 - 1.6 * ramp);
+				while (now >= nextSpawn) {
+					spawnRain(width);
+					nextSpawn += interval * rand(0.6, 1.4);
+				}
+			}
+
+			for (let i = drops.length - 1; i >= 0; i--) {
+				const d = drops[i];
+				d.age += dt;
+				if (d.falling) {
+					d.vy += d.gravity * dt;
+				} else {
+					d.vy += (d.target - d.vy) * Math.min(1, dt * 2.5);
+				}
+				d.x += d.vx * dt;
+				d.y += d.vy * dt;
+				d.rot += d.spin * dt;
+				const sx = d.x + Math.sin(d.phase + d.age * d.swayF) * d.sway - d.w / 2;
+				const sy = d.y - d.h / 2;
+				d.el.style.transform = `translate3d(${sx.toFixed(2)}px, ${sy.toFixed(2)}px, 0) rotate(${d.rot.toFixed(2)}deg)`;
+				if (sy > height + 4 || sx > width + d.w || sx < -d.w * 2) {
+					releaseImg(d.el);
+					drops.splice(i, 1);
+				}
+			}
+
+			rafId = hovering || drops.length > 0 ? requestAnimationFrame(frame) : 0;
+		};
+
+		const ensureLoop = () => {
+			if (rafId || !visible) return;
+			lastT = performance.now();
+			rafId = requestAnimationFrame(frame);
+		};
+
+		const stopLoop = () => {
+			cancelAnimationFrame(rafId);
+			rafId = 0;
+		};
+
+		const enter = () => {
+			if (hovering || !visible) return;
+			root.classList.add("is-hover");
+			if (reduceMotion.matches) return;
+			hovering = true;
+			window.clearTimeout(returnTimer);
+			hoverStart = performance.now();
+			nextSpawn = hoverStart + FIRST_SPAWN_MS;
+			releaseRests();
+			ensureLoop();
+		};
+
+		const leave = () => {
+			root.classList.remove("is-hover");
+			if (!hovering) return;
+			hovering = false;
+			for (const d of drops) {
+				if (d.falling) continue;
+				d.falling = true;
+				d.gravity = EXIT_GRAVITY;
+			}
+			window.clearTimeout(returnTimer);
+			returnTimer = window.setTimeout(() => restoreRests(true), RETURN_DELAY);
+			ensureLoop();
+		};
+
+		const reset = () => {
+			stopLoop();
+			window.clearTimeout(returnTimer);
+			hovering = false;
+			root.classList.remove("is-hover");
+			clearDrops();
+			restoreRests(false);
+		};
+
+		const observer = new IntersectionObserver((entries) => {
+			for (const entry of entries) {
+				visible = entry.isIntersecting;
+				if (visible) {
+					preload();
+					if (card.matches(":hover")) enter();
+				} else {
+					reset();
+				}
+			}
+		});
+		observer.observe(root);
+
+		card.addEventListener("pointerenter", enter);
+		card.addEventListener("pointerleave", leave);
+
+		reduceMotion.addEventListener("change", () => {
+			if (reduceMotion.matches && hovering) leave();
+		});
+	}
+
+	for (const root of document.querySelectorAll<HTMLElement>(
+		"[data-emoji-rain]",
+	)) {
+		initEmojiRain(root);
+	}
+</script>

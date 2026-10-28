@@ -1,0 +1,623 @@
+---
+import { Image } from "astro:assets";
+import type { ImageMetadata } from "astro";
+import catNails from "@/assets/landing/media/cat-nails.webp";
+import catTyping from "@/assets/landing/media/cat-typing.webp";
+import concert from "@/assets/landing/media/concert.webp";
+import kira from "@/assets/landing/media/kira.webp";
+import moraineLake from "@/assets/landing/media/moraine-lake.webp";
+import pizza from "@/assets/landing/media/pizza.webp";
+import surfVideo from "@/assets/landing/media/surf-video.webp";
+import tabbyCat from "@/assets/landing/media/tabby-cat.webp";
+import tokyoNight from "@/assets/landing/media/tokyo-night.webp";
+
+type IconName = "play" | "pdf" | "zip" | "audio" | "download";
+
+type IconPath = { d: string; evenOdd?: boolean };
+
+const icons: Record<IconName, Array<IconPath>> = {
+	play: [
+		{
+			d: "M21.4086 9.35258C23.5305 10.5065 23.5305 13.4935 21.4086 14.6474L8.59662 21.6145C6.53435 22.736 4 21.2763 4 18.9671L4 5.0329C4 2.72368 6.53435 1.26402 8.59661 2.38548L21.4086 9.35258Z",
+		},
+	],
+	pdf: [
+		{
+			d: "M4.17157 3.17157C3 4.34315 3 6.22876 3 10V14C3 17.7712 3 19.6569 4.17157 20.8284C5.34315 22 7.22876 22 11 22H13C16.7712 22 18.6569 22 19.8284 20.8284C21 19.6569 21 17.7712 21 14V10C21 6.22876 21 4.34315 19.8284 3.17157C18.6569 2 16.7712 2 13 2H11C7.22876 2 5.34315 2 4.17157 3.17157ZM7.25 8C7.25 7.58579 7.58579 7.25 8 7.25H16C16.4142 7.25 16.75 7.58579 16.75 8C16.75 8.41421 16.4142 8.75 16 8.75H8C7.58579 8.75 7.25 8.41421 7.25 8ZM7.25 12C7.25 11.5858 7.58579 11.25 8 11.25H16C16.4142 11.25 16.75 11.5858 16.75 12C16.75 12.4142 16.4142 12.75 16 12.75H8C7.58579 12.75 7.25 12.4142 7.25 12ZM8 15.25C7.58579 15.25 7.25 15.5858 7.25 16C7.25 16.4142 7.58579 16.75 8 16.75H13C13.4142 16.75 13.75 16.4142 13.75 16C13.75 15.5858 13.4142 15.25 13 15.25H8Z",
+			evenOdd: true,
+		},
+	],
+	zip: [
+		{
+			d: "M4.17157 3.17157C3 4.34315 3 6.22876 3 10V14C3 17.7712 3 19.6569 4.17157 20.8284C5.34315 22 7.22876 22 11 22H13C16.7712 22 18.6569 22 19.8284 20.8284C21 19.6569 21 17.7712 21 14V10C21 6.22876 21 4.34315 19.8284 3.17157C18.6569 2 16.7712 2 13 2H12V3V4H13.5C13.9714 4 14.2071 4 14.3536 4.14645C14.5 4.29289 14.5 4.5286 14.5 5C14.5 5.4714 14.5 5.70711 14.3536 5.85355C14.2071 6 13.9714 6 13.5 6H12V8H13.5C13.9714 8 14.2071 8 14.3536 8.14645C14.5 8.29289 14.5 8.5286 14.5 9C14.5 9.4714 14.5 9.70711 14.3536 9.85355C14.2071 10 13.9714 10 13.5 10H13C12.5286 10 12.2929 10 12.1464 9.85355C12 9.70711 12 9.4714 12 9V8H10.5C10.0286 8 9.79289 8 9.64645 7.85355C9.5 7.70711 9.5 7.4714 9.5 7C9.5 6.5286 9.5 6.29289 9.64645 6.14645C9.79289 6 10.0286 6 10.5 6H12V4H10.5C10.0286 4 9.79289 4 9.64645 3.85355C9.5 3.70711 9.5 3.4714 9.5 3V2.00338C6.70613 2.02377 5.17628 2.16686 4.17157 3.17157ZM9.5 12.875V13C9.5 14.3807 10.6193 15.5 12 15.5C13.3807 15.5 14.5 14.3807 14.5 13V12.875C14.5 12.3918 14.1082 12 13.625 12H10.375C9.89175 12 9.5 12.3918 9.5 12.875Z",
+			evenOdd: true,
+		},
+	],
+	audio: [
+		{
+			d: "M10.0909 11.9629L19.3636 8.63087V14.1707C18.8126 13.8538 18.1574 13.67 17.4545 13.67C15.4964 13.67 13.9091 15.096 13.9091 16.855C13.9091 18.614 15.4964 20.04 17.4545 20.04C19.4126 20.04 21 18.614 21 16.855L21 7.49236C21 6.37238 21 5.4331 20.9123 4.68472C20.8999 4.57895 20.8852 4.4738 20.869 4.37569C20.7845 3.86441 20.6352 3.38745 20.347 2.98917C20.2028 2.79002 20.024 2.61055 19.8012 2.45628C19.7594 2.42736 19.716 2.39932 19.6711 2.3722L19.6621 2.36679C18.8906 1.90553 18.0233 1.93852 17.1298 2.14305C16.2657 2.34086 15.1944 2.74368 13.8808 3.23763L11.5963 4.09656C10.9806 4.32806 10.4589 4.52419 10.0494 4.72734C9.61376 4.94348 9.23849 5.1984 8.95707 5.57828C8.67564 5.95817 8.55876 6.36756 8.50501 6.81203C8.4545 7.22978 8.45452 7.7378 8.45455 8.33743V16.1307C7.90347 15.8138 7.24835 15.63 6.54545 15.63C4.58735 15.63 3 17.056 3 18.815C3 20.574 4.58735 22 6.54545 22C8.50355 22 10.0909 20.574 10.0909 18.815L10.0909 11.9629Z",
+		},
+	],
+	download: [
+		{
+			d: "M12.5535 16.5061C12.4114 16.6615 12.2106 16.75 12 16.75C11.7894 16.75 11.5886 16.6615 11.4465 16.5061L7.44648 12.1311C7.16698 11.8254 7.18822 11.351 7.49392 11.0715C7.79963 10.792 8.27402 10.8132 8.55352 11.1189L11.25 14.0682V3C11.25 2.58579 11.5858 2.25 12 2.25C12.4142 2.25 12.75 2.58579 12.75 3V14.0682L15.4465 11.1189C15.726 10.8132 16.2004 10.792 16.5061 11.0715C16.8118 11.351 16.833 11.8254 16.5535 12.1311L12.5535 16.5061Z",
+		},
+		{
+			d: "M3.75 15C3.75 14.5858 3.41422 14.25 3 14.25C2.58579 14.25 2.25 14.5858 2.25 15V15.0549C2.24998 16.4225 2.24996 17.5248 2.36652 18.3918C2.48754 19.2919 2.74643 20.0497 3.34835 20.6516C3.95027 21.2536 4.70814 21.5125 5.60825 21.6335C6.47522 21.75 7.57754 21.75 8.94513 21.75H15.0549C16.4225 21.75 17.5248 21.75 18.3918 21.6335C19.2919 21.5125 20.0497 21.2536 20.6517 20.6516C21.2536 20.0497 21.5125 19.2919 21.6335 18.3918C21.75 17.5248 21.75 16.4225 21.75 15.0549V15C21.75 14.5858 21.4142 14.25 21 14.25C20.5858 14.25 20.25 14.5858 20.25 15C20.25 16.4354 20.2484 17.4365 20.1469 18.1919C20.0482 18.9257 19.8678 19.3142 19.591 19.591C19.3142 19.8678 18.9257 20.0482 18.1919 20.1469C17.4365 20.2484 16.4354 20.25 15 20.25H9C7.56459 20.25 6.56347 20.2484 5.80812 20.1469C5.07435 20.0482 4.68577 19.8678 4.40901 19.591C4.13225 19.3142 3.9518 18.9257 3.85315 18.1919C3.75159 17.4365 3.75 16.4354 3.75 15Z",
+		},
+	],
+};
+
+type Placement = { x: number; y: number; r: number; s: number };
+
+type StackItem = Placement &
+	(
+		| { kind: "photo"; src: ImageMetadata; width: number }
+		| { kind: "video"; src: ImageMetadata; width: number; duration: string }
+		| { kind: "gif"; src: ImageMetadata; width: number }
+		| { kind: "file"; icon: "pdf" | "zip"; name: string; meta: string }
+		| { kind: "audio"; name: string; meta: string }
+	);
+
+const items: Array<StackItem> = [
+	{ x: 14, y: 24, r: -3, s: 1, kind: "photo", src: moraineLake, width: 150 },
+	{ x: 86, y: 78, r: 3, s: 1, kind: "photo", src: concert, width: 150 },
+	{ x: 88, y: 20, r: 2, s: 1, kind: "photo", src: tokyoNight, width: 120 },
+	{ x: 16, y: 82, r: 2, s: 1, kind: "photo", src: pizza, width: 140 },
+	{ x: 50, y: 18, r: -2, s: 1, kind: "photo", src: tabbyCat, width: 84 },
+	{ x: 58, y: 86, r: 2, s: 1, kind: "gif", src: catTyping, width: 88 },
+	{
+		x: 28,
+		y: 40,
+		r: -2,
+		s: 0.62,
+		kind: "file",
+		icon: "pdf",
+		name: "recipe.pdf",
+		meta: "PDF · 1.2 MB",
+	},
+	{
+		x: 72,
+		y: 30,
+		r: 2,
+		s: 0.6,
+		kind: "file",
+		icon: "zip",
+		name: "trip-photos.zip",
+		meta: "Archive · 38 MB",
+	},
+	{
+		x: 30,
+		y: 78,
+		r: -2,
+		s: 0.58,
+		kind: "audio",
+		name: "voice-memo.m4a",
+		meta: "Audio · 812 KB",
+	},
+	{ x: 80, y: 64, r: -3, s: 1, kind: "gif", src: catNails, width: 80 },
+	{
+		x: 54,
+		y: 52,
+		r: 1,
+		s: 1,
+		kind: "video",
+		src: surfVideo,
+		width: 128,
+		duration: "9:56",
+	},
+];
+
+const waveBars = [
+	5, 9, 14, 20, 12, 18, 24, 16, 10, 19, 22, 13, 8, 15, 21, 11, 7, 12, 17, 9, 6,
+	10, 14, 8, 5,
+];
+const playedBars = 9;
+
+const tileStyle = (width: number, src: ImageMetadata) =>
+	`--w: ${width}px; --ar: ${src.width} / ${src.height}`;
+---
+
+<div class="media-stack" data-media-stack aria-hidden="true">
+	<div class="rest">
+		<Image src={kira} width={200} densities={[1, 2, 3]} alt="" />
+	</div>
+
+	{
+		items.map((item) => (
+			<div
+				class="item"
+				data-r={item.r}
+				data-s={item.s}
+				style={`--x: ${item.x}%; --y: ${item.y}%`}
+			>
+				{item.kind === "photo" && (
+					<div class="tile" style={tileStyle(item.width, item.src)}>
+						<Image
+							src={item.src}
+							width={item.width}
+							densities={[1, 2]}
+							alt=""
+						/>
+					</div>
+				)}
+				{item.kind === "video" && (
+					<div class="tile" style={tileStyle(item.width, item.src)}>
+						<Image
+							src={item.src}
+							width={item.width}
+							densities={[1, 2]}
+							alt=""
+						/>
+						<span class="pill pill-top">{item.duration}</span>
+						<span class="play">
+							<span>
+								<svg viewBox="0 0 24 24">
+									{icons.play.map(({ d }) => (
+										<path d={d} fill="currentColor" />
+									))}
+								</svg>
+							</span>
+						</span>
+					</div>
+				)}
+				{item.kind === "gif" && (
+					<div class="tile" style={tileStyle(item.width, item.src)}>
+						<img
+							src={item.src.src}
+							width={item.src.width}
+							height={item.src.height}
+							alt=""
+							loading="lazy"
+							decoding="async"
+						/>
+						<span class="pill pill-bottom">GIF</span>
+					</div>
+				)}
+				{(item.kind === "file" || item.kind === "audio") && (
+					<div class="file">
+						<div class="file-row">
+							<span
+								class:list={[
+									"kind",
+									item.kind === "file" ? item.icon : "audio",
+								]}
+							>
+								<svg viewBox="0 0 24 24">
+									{icons[item.kind === "file" ? item.icon : "audio"].map(
+										({ d, evenOdd }) => (
+											<path
+												d={d}
+												fill="currentColor"
+												fill-rule={evenOdd ? "evenodd" : undefined}
+												clip-rule={evenOdd ? "evenodd" : undefined}
+											/>
+										),
+									)}
+								</svg>
+							</span>
+							<span class="file-text">
+								<span class="file-name">{item.name}</span>
+								<span class="file-meta">{item.meta}</span>
+							</span>
+							{item.kind === "file" && (
+								<span class="download">
+									<svg viewBox="0 0 24 24">
+										{icons.download.map(({ d }) => (
+											<path d={d} fill="currentColor" />
+										))}
+									</svg>
+								</span>
+							)}
+						</div>
+						{item.kind === "audio" && (
+							<div class="player">
+								<span class="player-button">
+									<svg viewBox="0 0 24 24">
+										{icons.play.map(({ d }) => (
+											<path d={d} fill="currentColor" />
+										))}
+									</svg>
+								</span>
+								<span class="wave">
+									{waveBars.map((height, index) => (
+										<i
+											class:list={{ played: index < playedBars }}
+											style={`height: ${height}px`}
+										/>
+									))}
+								</span>
+								<span class="clock">0:07 / 0:19</span>
+							</div>
+						)}
+					</div>
+				)}
+			</div>
+		))
+	}
+</div>
+
+<style>
+	.media-stack {
+		--stack-muted-fg: #a1a1a1;
+		--stack-primary-highlight: #a579ff;
+		--stack-primary-fill: #8b4dfb;
+		--stack-destructive: #ff585b;
+		--stack-warning: #ffd857;
+		--stack-radius-surface: 12px;
+		--stack-radius-badge: 4px;
+		--stack-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		isolation: isolate;
+		color: #fff;
+		font-weight: 500;
+		pointer-events: none;
+		user-select: none;
+	}
+
+	.rest {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: min(200px, 70%);
+		aspect-ratio: 16 / 9;
+		translate: -50% -50%;
+		border-radius: 12px;
+		overflow: hidden;
+		background: var(--site-muted);
+		box-shadow: var(--stack-shadow);
+		transition:
+			transform 600ms cubic-bezier(0.22, 1, 0.36, 1),
+			filter 600ms ease;
+	}
+
+	.media-stack[data-active] .rest {
+		transform: scale(0.97);
+		filter: brightness(0.75);
+	}
+
+	.rest :global(img),
+	.tile :global(img) {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.rest :global(img) {
+		object-position: 30% 55%;
+	}
+
+	.item {
+		position: absolute;
+		left: var(--x);
+		top: var(--y);
+		opacity: 0;
+		visibility: hidden;
+		will-change: transform, opacity;
+	}
+
+	.item[data-shown] {
+		visibility: visible;
+	}
+
+	.tile {
+		position: relative;
+		width: var(--w);
+		aspect-ratio: var(--ar);
+		border-radius: 12px;
+		overflow: hidden;
+		background: var(--site-muted);
+		box-shadow: var(--stack-shadow);
+	}
+
+	.pill {
+		position: absolute;
+		border-radius: var(--stack-radius-badge);
+		background: rgba(0, 0, 0, 0.72);
+		padding: 1px 5px;
+		font-size: 10px;
+		font-weight: 600;
+		line-height: 1.5;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.pill-top {
+		top: 6px;
+		left: 6px;
+	}
+
+	.pill-bottom {
+		bottom: 6px;
+		left: 6px;
+	}
+
+	.play {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+	}
+
+	.play > span {
+		display: grid;
+		place-items: center;
+		width: 34px;
+		height: 34px;
+		border-radius: 999px;
+		background: rgba(0, 0, 0, 0.66);
+	}
+
+	.play svg {
+		width: 16px;
+		height: 16px;
+	}
+
+	.file {
+		width: 232px;
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		padding: 12px;
+		border-radius: var(--stack-radius-surface);
+		border: 1px solid var(--site-line);
+		background: var(--site-card);
+		box-shadow: var(--stack-shadow);
+	}
+
+	.file-row {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.kind {
+		display: grid;
+		place-items: center;
+		flex: none;
+		width: 48px;
+		height: 48px;
+		border-radius: var(--stack-radius-badge);
+	}
+
+	.kind svg {
+		width: 24px;
+		height: 24px;
+	}
+
+	.kind.pdf {
+		background: color-mix(in srgb, var(--stack-destructive) 15%, transparent);
+		color: var(--stack-destructive);
+	}
+
+	.kind.zip {
+		background: color-mix(in srgb, var(--stack-warning) 15%, transparent);
+		color: var(--stack-warning);
+	}
+
+	.kind.audio {
+		background: color-mix(in srgb, var(--site-primary) 20%, transparent);
+		color: var(--stack-primary-highlight);
+	}
+
+	.file-text {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		flex: 1;
+		min-width: 0;
+	}
+
+	.file-name {
+		font-size: 14px;
+		font-weight: 600;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.file-meta {
+		font-size: 12px;
+		color: var(--stack-muted-fg);
+	}
+
+	.download {
+		display: grid;
+		place-items: center;
+		flex: none;
+		width: 32px;
+		height: 32px;
+		color: var(--stack-muted-fg);
+	}
+
+	.download svg {
+		width: 20px;
+		height: 20px;
+	}
+
+	.player {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 6px;
+		border-radius: var(--stack-radius-badge);
+		background: var(--site-secondary);
+	}
+
+	.player-button {
+		display: grid;
+		place-items: center;
+		flex: none;
+		width: 32px;
+		height: 32px;
+		border-radius: 999px;
+		background: var(--stack-primary-fill);
+	}
+
+	.player-button svg {
+		width: 14px;
+		height: 14px;
+	}
+
+	.wave {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		flex: 1;
+		min-width: 0;
+		height: 24px;
+	}
+
+	.wave i {
+		flex: 1;
+		border-radius: 2px;
+		background: rgba(255, 255, 255, 0.28);
+	}
+
+	.wave i.played {
+		background: var(--stack-primary-highlight);
+	}
+
+	.clock {
+		flex: none;
+		font-size: 12px;
+		color: var(--stack-muted-fg);
+		font-variant-numeric: tabular-nums;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.rest {
+			transition: none;
+		}
+	}
+</style>
+
+<script>
+	const designWidth = 342;
+	const designHeight = 150;
+	const maxFit = 1.25;
+	const firstDelay = 200;
+	const gaps = [600, 540, 490, 450, 420, 400, 380, 365, 355, 350];
+	const popInDuration = 500;
+	const reducedPopInDuration = 160;
+	const popOutDuration = 280;
+	const popOutStagger = 55;
+	const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+	function initMediaStack(root: HTMLElement) {
+		const card = root.closest<HTMLElement>(".card");
+		if (!card) return;
+
+		const items = Array.from(root.querySelectorAll<HTMLElement>(".item"));
+		let timers: Array<number> = [];
+		let shown: Array<HTMLElement> = [];
+
+		const pose = (item: HTMLElement, scale: number, extraRotation: number) => {
+			const rotation = Number(item.dataset.r ?? 0) + extraRotation;
+			const fit = Math.min(
+				maxFit,
+				root.clientWidth / designWidth,
+				root.clientHeight / designHeight,
+			);
+			const base = Number(item.dataset.s ?? 1) * fit;
+			return `translate(-50%, -50%) rotate(${rotation}deg) scale(${base * scale})`;
+		};
+
+		const clearTimers = () => {
+			for (const timer of timers) window.clearTimeout(timer);
+			timers = [];
+		};
+
+		const reset = (item: HTMLElement) => {
+			for (const animation of item.getAnimations()) animation.cancel();
+			item.removeAttribute("data-shown");
+			item.style.zIndex = "";
+		};
+
+		const currentFrame = (item: HTMLElement): Keyframe => {
+			const style = getComputedStyle(item);
+			return { opacity: style.opacity, transform: style.transform };
+		};
+
+		const show = (item: HTMLElement) => {
+			const from = item.hasAttribute("data-shown") ? currentFrame(item) : null;
+			for (const animation of item.getAnimations()) animation.cancel();
+			item.setAttribute("data-shown", "");
+			item.style.zIndex = String(shown.length + 1);
+			shown.push(item);
+			const frames: Array<Keyframe> = from
+				? [from, { opacity: 1, transform: pose(item, 1, 0) }]
+				: reducedMotion.matches
+				? [
+						{ opacity: 0, transform: pose(item, 1, 0) },
+						{ opacity: 1, transform: pose(item, 1, 0) },
+					]
+				: [
+						{ opacity: 0, transform: pose(item, 0.7, -3), offset: 0 },
+						{ opacity: 1, transform: pose(item, 1.03, 0.5), offset: 0.6 },
+						{ opacity: 1, transform: pose(item, 1, 0), offset: 1 },
+					];
+			item.animate(frames, {
+				duration: reducedMotion.matches ? reducedPopInDuration : popInDuration,
+				easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+				fill: "forwards",
+			});
+		};
+
+		const hide = (item: HTMLElement, delay: number) => {
+			const from = currentFrame(item);
+			for (const animation of item.getAnimations()) animation.cancel();
+			const frames: Array<Keyframe> = [
+				from,
+				{
+					opacity: 0,
+					transform: reducedMotion.matches
+						? pose(item, 1, 0)
+						: pose(item, 0.88, 1.5),
+				},
+			];
+			const animation = item.animate(frames, {
+				duration: popOutDuration,
+				delay,
+				easing: "cubic-bezier(0.4, 0, 0.7, 0.2)",
+				fill: "both",
+			});
+			animation.addEventListener("finish", () => reset(item));
+		};
+
+		const start = () => {
+			clearTimers();
+			shown = [];
+			root.setAttribute("data-active", "");
+			let at = firstDelay;
+			items.forEach((item, index) => {
+				timers.push(window.setTimeout(() => show(item), at));
+				at += gaps[index] ?? gaps[gaps.length - 1];
+			});
+		};
+
+		const stop = () => {
+			clearTimers();
+			root.removeAttribute("data-active");
+			shown
+				.slice()
+				.reverse()
+				.forEach((item, index) => {
+					hide(item, index * popOutStagger);
+				});
+			shown = [];
+		};
+
+		card.addEventListener("pointerenter", start);
+		card.addEventListener("pointerleave", stop);
+	}
+
+	for (const root of document.querySelectorAll<HTMLElement>(
+		"[data-media-stack]",
+	)) {
+		initMediaStack(root);
+	}
+</script>

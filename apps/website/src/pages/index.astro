@@ -3,11 +3,14 @@ import { Image } from "astro:assets";
 import { getCollection } from "astro:content";
 import AppMock from "@/assets/landing/app-mock.png";
 import Branch from "@/assets/landing/branch.webp";
-import Doge from "@/assets/landing/doge.webp";
 import Grin from "@/assets/landing/grin.webp";
 import Kira from "@/assets/landing/kira.webp";
 import MilkyWayCard from "@/assets/landing/milkyway-card.webp";
 import MilkyWayWide from "@/assets/landing/milkyway-wide.webp";
+import PhoneMock from "@/assets/landing/phone-mock.webp";
+import ChannelTour from "@/components/public/landing/ChannelTour.astro";
+import EmojiRain from "@/components/public/landing/EmojiRain.astro";
+import MediaStack from "@/components/public/landing/MediaStack.astro";
 import MockVoiceCall from "@/components/public/MockVoiceCall.tsx";
 import PetalField from "@/components/public/nature/PetalField.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
@@ -146,13 +149,7 @@ import { ogImageFor } from "@/lib/og/url";
 
 					<article class="card c-emoji">
 						<div class="media">
-							<Image
-								src={Doge}
-								width={64}
-								height={64}
-								alt="A custom emoji of a smiling doge."
-								class="doge"
-							/>
+							<EmojiRain />
 						</div>
 						<div class="card-text">
 							<h3 class="card-title">Express yourself</h3>
@@ -166,7 +163,13 @@ import { ogImageFor } from "@/lib/og/url";
 
 					<article class="card c-phone">
 						<div class="media">
-							<p class="placeholder">Phone mock</p>
+							<Image
+								src={PhoneMock}
+								widths={[400, 800, 1200]}
+								sizes="(max-width: 600px) 80vw, (max-width: 900px) 45vw, 380px"
+								alt="The Colibri app on a phone, showing a conversation in a channel called general."
+								class="phone-mock"
+							/>
 						</div>
 						<div class="card-text">
 							<h3 class="card-title">Made for your phone</h3>
@@ -179,9 +182,7 @@ import { ogImageFor } from "@/lib/og/url";
 
 					<article class="card c-files">
 						<div class="media">
-							<p class="placeholder">
-								File formats preview (file,<br />video, image, ...)
-							</p>
+							<MediaStack />
 						</div>
 						<div class="card-text">
 							<h3 class="card-title">Share your memes and compilations</h3>
@@ -195,7 +196,7 @@ import { ogImageFor } from "@/lib/og/url";
 
 					<article class="card c-channels">
 						<div class="media">
-							<p class="placeholder">Channel type preview</p>
+							<ChannelTour />
 						</div>
 						<div class="card-text">
 							<h3 class="card-title">Jump in and out of conversations</h3>
@@ -754,13 +755,6 @@ import { ogImageFor } from "@/lib/og/url";
 		flex: none;
 	}
 
-	.c-emoji :global(.doge) {
-		width: 64px;
-		height: 64px;
-		border-radius: 8px;
-		object-fit: cover;
-	}
-
 	.c-phone {
 		grid-area: phone;
 	}
@@ -768,6 +762,15 @@ import { ogImageFor } from "@/lib/og/url";
 	.c-phone .media {
 		flex: 1 1 auto;
 		min-height: 200px;
+	}
+
+	.c-phone :global(.phone-mock) {
+		position: absolute;
+		inset: 16px 0 0;
+		width: 100%;
+		height: calc(100% - 16px);
+		object-fit: contain;
+		object-position: center bottom;
 	}
 
 	.c-files {
