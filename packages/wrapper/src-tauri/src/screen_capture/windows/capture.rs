@@ -520,7 +520,7 @@ pub fn start(
     item: GraphicsCaptureItem,
     quality: CaptureQuality,
     capture_audio: bool,
-    target: audio::Target,
+    targets: Vec<audio::Target>,
     sender: FrameSender,
 ) -> Result<Capture, NativeError> {
     let (device, context) = create_device()?;
@@ -580,7 +580,7 @@ pub fn start(
     .map_err(|error| NativeError::failed(format!("could not listen for frames: {error}")))?;
 
     let audio = if capture_audio {
-        audio::start(target, sender).ok()
+        audio::start(targets, sender).ok()
     } else {
         None
     };

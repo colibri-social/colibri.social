@@ -12,7 +12,13 @@ import {
 } from "solid-js";
 import { cx } from "../../utils/cx";
 import { Button } from "../Button/Button";
-import { ListGroup, RadioRow, RadioRowGroup, ToggleRow } from "../List/List";
+import {
+	CheckboxRow,
+	ListGroup,
+	RadioRow,
+	RadioRowGroup,
+	ToggleRow,
+} from "../List/List";
 import { Modal, ModalContent } from "../Modal/Modal";
 import { Select, type SelectPlatform } from "../Select/Select";
 import {
@@ -50,6 +56,12 @@ export const SCREEN_SHARE_SURFACES: readonly ScreenShareSurface[] = [
 const isSurface = (value: string): value is ScreenShareSurface =>
 	(SCREEN_SHARE_SURFACES as readonly string[]).includes(value);
 
+export type ScreenShareAudioApp = {
+	id: string;
+	name: string;
+	router?: boolean;
+};
+
 export type ScreenSharePickerProps = {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -65,7 +77,14 @@ export type ScreenSharePickerProps = {
 	onOpenPermissionSettings?: () => void;
 	surface?: ScreenShareSurface;
 	onSurfaceChange?: (surface: ScreenShareSurface) => void;
+	audioApps?: readonly ScreenShareAudioApp[];
+	audioApp?: string;
+	onAudioAppChange?: (id: string | undefined) => void;
+	excludedAudioApps?: readonly string[];
+	onExcludedAudioAppsChange?: (ids: string[]) => void;
 };
+
+const NO_AUDIO_APP = "none";
 
 export const SCREEN_SHARE_PICKER_COPY = {
 	title: "Share your screen",
@@ -97,6 +116,10 @@ export const SCREEN_SHARE_PICKER_COPY = {
 		"Higher settings look sharper and smoother, but need a faster connection.",
 	sound: "Share sound",
 	soundDescription: "Others hear what's playing on your screen.",
+	soundFrom: "Sound from",
+	noSound: "No sound",
+	routerNote:
+		"Some apps that route your sound are turned off so others don't hear themselves.",
 } as const;
 
 const TABS: { kind: ScreenShareSourceKind; label: string; empty: string }[] = [
@@ -152,12 +175,7 @@ const SourceTile = (props: {
 						src={src()}
 						alt=""
 						draggable={false}
-						class="max-h-full max-w-full object-contain"
-						style={
-							props.source.aspectRatio
-								? { "aspect-ratio": String(props.source.aspectRatio) }
-								: undefined
-						}
+						class="size-full object-cover"
 					/>
 				)}
 			</Show>
@@ -202,6 +220,12 @@ const QualityFields = (props: {
 	platform?: SelectPlatform;
 	settings: ScreenShareSettings;
 	onSettingsChange: (patch: Partial<ScreenShareSettings>) => void;
+	audioApps?: readonly ScreenShareAudioApp[];
+	audioApp?: string;
+	onAudioAppChange?: (id: string | undefined) => void;
+	screenAudioApps?: readonly ScreenShareAudioApp[];
+	excludedAudioApps?: readonly string[];
+	onExcludedAudioAppsChange?: (ids: string[]) => void;
 }) => (
 	<div class="flex flex-col gap-3" data-screen-share-quality="">
 		<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -249,6 +273,54 @@ const QualityFields = (props: {
 				/>
 			</ListGroup>
 		</Show>
+		<Show when={props.settings.shareAudio ? props.audioApps : undefined}>
+			{(apps) => (
+				<div data-screen-share-audio-app="">
+					<Select
+						platform={props.platform}
+						label={SCREEN_SHARE_PICKER_COPY.soundFrom}
+						options={[
+							{ value: NO_AUDIO_APP, label: SCREEN_SHARE_PICKER_COPY.noSound },
+							...apps().map((app) => ({ value: app.id, label: app.name })),
+						]}
+						value={props.audioApp ?? NO_AUDIO_APP}
+						onChange={(value) =>
+							props.onAudioAppChange?.(
+								value === NO_AUDIO_APP ? undefined : value,
+							)
+						}
+					/>
+				</div>
+			)}
+		</Show>
+		<Show when={props.settings.shareAudio ? props.screenAudioApps : undefined}>
+			{(apps) => (
+				<div data-screen-share-audio-apps="" class="flex flex-col gap-2">
+					<ListGroup label={SCREEN_SHARE_PICKER_COPY.soundFrom}>
+						<For each={apps()}>
+							{(app) => (
+								<CheckboxRow
+									label={app.name}
+									value={app.id}
+									checked={!props.excludedAudioApps?.includes(app.id)}
+									onChange={(checked) => {
+										const others = (props.excludedAudioApps ?? []).filter(
+											(id) => id !== app.id,
+										);
+										props.onExcludedAudioAppsChange?.(
+											checked ? others : [...others, app.id],
+										);
+									}}
+								/>
+							)}
+						</For>
+					</ListGroup>
+					<p class="m-0 text-xs text-pretty text-muted-foreground">
+						{SCREEN_SHARE_PICKER_COPY.routerNote}
+					</p>
+				</div>
+			)}
+		</Show>
 	</div>
 );
 
@@ -262,6 +334,19 @@ export const ScreenSharePicker = (props: ScreenSharePickerProps) => {
 		sources().find((source) => source.id === selectedId()),
 	);
 	const native = () => props.mode === "native";
+	const surface = () => props.surface ?? "screen";
+	const audioApps = () =>
+		props.mode === "system" && surface() === "window"
+			? props.audioApps
+			: undefined;
+	const wholeScreen = () =>
+		native()
+			? selected()?.kind === "display"
+			: props.mode === "system" && surface() === "screen";
+	const screenAudioApps = () =>
+		wholeScreen() && props.audioApps?.some((app) => app.router)
+			? props.audioApps
+			: undefined;
 
 	createEffect(
 		on(
@@ -321,118 +406,139 @@ export const ScreenSharePicker = (props: ScreenSharePickerProps) => {
 					</>
 				}
 			>
-				<Show when={native()}>
-					<Tabs
-						value={tab()}
-						onChange={(value) => setTab(value as ScreenShareSourceKind)}
-						class="flex min-h-0 flex-col gap-2"
-					>
-						<TabsList>
-							<For each={TABS}>
-								{(entry) => (
-									<TabsTrigger value={entry.kind}>{entry.label}</TabsTrigger>
+				<div
+					data-screen-share-body=""
+					class="-mx-4 -my-1 flex min-h-0 flex-col gap-4 overflow-y-auto px-4 py-1"
+				>
+					<Show when={native()}>
+						<Tabs
+							value={tab()}
+							onChange={(value) => setTab(value as ScreenShareSourceKind)}
+							class="flex min-h-0 flex-col gap-2"
+						>
+							<TabsList>
+								<For each={TABS}>
+									{(entry) => (
+										<TabsTrigger value={entry.kind}>{entry.label}</TabsTrigger>
+									)}
+								</For>
+							</TabsList>
+							<div class="-mx-1.5 max-h-[min(50dvh,360px)] min-h-[180px] overflow-y-auto">
+								<Switch>
+									<Match when={props.failed}>
+										<div
+											data-screen-sources-failed=""
+											class="flex min-h-[180px] flex-col items-center justify-center gap-3 px-4 text-center"
+										>
+											<p class="m-0 text-sm font-semibold text-balance">
+												{SCREEN_SHARE_PICKER_COPY.failed}
+											</p>
+											<p class="m-0 -mt-2 text-sm text-pretty text-muted-foreground">
+												{SCREEN_SHARE_PICKER_COPY.failedHint}
+											</p>
+											<div class="flex gap-2">
+												<Show when={props.onOpenPermissionSettings}>
+													{(open) => (
+														<Button
+															variant="secondary"
+															onClick={() => open()()}
+														>
+															{SCREEN_SHARE_PICKER_COPY.openSettings}
+														</Button>
+													)}
+												</Show>
+												<Show when={props.onRetry}>
+													{(retry) => (
+														<Button
+															variant="secondary"
+															onClick={() => retry()()}
+														>
+															{SCREEN_SHARE_PICKER_COPY.retry}
+														</Button>
+													)}
+												</Show>
+											</div>
+										</div>
+									</Match>
+									<Match when={props.loading && sources().length === 0}>
+										<SourceSkeletons />
+									</Match>
+									<Match when={true}>
+										<For each={TABS}>
+											{(entry) => (
+												<TabsContent value={entry.kind}>
+													<Show
+														when={ofKind(entry.kind).length > 0}
+														fallback={
+															<p class="m-0 flex min-h-[180px] items-center justify-center text-sm text-muted-foreground">
+																{entry.empty}
+															</p>
+														}
+													>
+														<div
+															data-screen-sources={entry.kind}
+															class="grid grid-cols-2 gap-1 md:grid-cols-3"
+														>
+															<For each={ofKind(entry.kind)}>
+																{(source) => (
+																	<SourceTile
+																		source={source}
+																		selected={selectedId() === source.id}
+																		onSelect={() => setSelectedId(source.id)}
+																		onShare={() => share(source)}
+																	/>
+																)}
+															</For>
+														</div>
+													</Show>
+												</TabsContent>
+											)}
+										</For>
+									</Match>
+								</Switch>
+							</div>
+						</Tabs>
+					</Show>
+					<Show when={props.mode === "system"}>
+						<RadioRowGroup
+							label={SCREEN_SHARE_PICKER_COPY.surface}
+							value={surface()}
+							onChange={(value) => {
+								if (isSurface(value)) props.onSurfaceChange?.(value);
+							}}
+						>
+							<For each={SCREEN_SHARE_SURFACES}>
+								{(surface) => (
+									<RadioRow
+										value={surface}
+										icon={
+											surface === "screen" ? (
+												<MonitorIcon />
+											) : (
+												<WindowFrameIcon />
+											)
+										}
+										title={SCREEN_SHARE_PICKER_COPY.surfaces[surface].title}
+										description={
+											SCREEN_SHARE_PICKER_COPY.surfaces[surface].description
+										}
+									/>
 								)}
 							</For>
-						</TabsList>
-						<div class="-mx-1.5 max-h-[min(50dvh,360px)] min-h-[180px] overflow-y-auto">
-							<Switch>
-								<Match when={props.failed}>
-									<div
-										data-screen-sources-failed=""
-										class="flex min-h-[180px] flex-col items-center justify-center gap-3 px-4 text-center"
-									>
-										<p class="m-0 text-sm font-semibold text-balance">
-											{SCREEN_SHARE_PICKER_COPY.failed}
-										</p>
-										<p class="m-0 -mt-2 text-sm text-pretty text-muted-foreground">
-											{SCREEN_SHARE_PICKER_COPY.failedHint}
-										</p>
-										<div class="flex gap-2">
-											<Show when={props.onOpenPermissionSettings}>
-												{(open) => (
-													<Button variant="secondary" onClick={() => open()()}>
-														{SCREEN_SHARE_PICKER_COPY.openSettings}
-													</Button>
-												)}
-											</Show>
-											<Show when={props.onRetry}>
-												{(retry) => (
-													<Button variant="secondary" onClick={() => retry()()}>
-														{SCREEN_SHARE_PICKER_COPY.retry}
-													</Button>
-												)}
-											</Show>
-										</div>
-									</div>
-								</Match>
-								<Match when={props.loading && sources().length === 0}>
-									<SourceSkeletons />
-								</Match>
-								<Match when={true}>
-									<For each={TABS}>
-										{(entry) => (
-											<TabsContent value={entry.kind}>
-												<Show
-													when={ofKind(entry.kind).length > 0}
-													fallback={
-														<p class="m-0 flex min-h-[180px] items-center justify-center text-sm text-muted-foreground">
-															{entry.empty}
-														</p>
-													}
-												>
-													<div
-														data-screen-sources={entry.kind}
-														class="grid grid-cols-2 gap-1 md:grid-cols-3"
-													>
-														<For each={ofKind(entry.kind)}>
-															{(source) => (
-																<SourceTile
-																	source={source}
-																	selected={selectedId() === source.id}
-																	onSelect={() => setSelectedId(source.id)}
-																	onShare={() => share(source)}
-																/>
-															)}
-														</For>
-													</div>
-												</Show>
-											</TabsContent>
-										)}
-									</For>
-								</Match>
-							</Switch>
-						</div>
-					</Tabs>
-				</Show>
-				<Show when={props.mode === "system"}>
-					<RadioRowGroup
-						label={SCREEN_SHARE_PICKER_COPY.surface}
-						value={props.surface ?? "screen"}
-						onChange={(value) => {
-							if (isSurface(value)) props.onSurfaceChange?.(value);
-						}}
-					>
-						<For each={SCREEN_SHARE_SURFACES}>
-							{(surface) => (
-								<RadioRow
-									value={surface}
-									icon={
-										surface === "screen" ? <MonitorIcon /> : <WindowFrameIcon />
-									}
-									title={SCREEN_SHARE_PICKER_COPY.surfaces[surface].title}
-									description={
-										SCREEN_SHARE_PICKER_COPY.surfaces[surface].description
-									}
-								/>
-							)}
-						</For>
-					</RadioRowGroup>
-				</Show>
-				<QualityFields
-					platform={props.platform}
-					settings={props.settings}
-					onSettingsChange={props.onSettingsChange}
-				/>
+						</RadioRowGroup>
+					</Show>
+					<QualityFields
+						platform={props.platform}
+						settings={props.settings}
+						onSettingsChange={props.onSettingsChange}
+						audioApps={audioApps()}
+						audioApp={props.audioApp}
+						onAudioAppChange={props.onAudioAppChange}
+						screenAudioApps={screenAudioApps()}
+						excludedAudioApps={props.excludedAudioApps}
+						onExcludedAudioAppsChange={props.onExcludedAudioAppsChange}
+					/>
+				</div>
 			</ModalContent>
 		</Modal>
 	);

@@ -57,8 +57,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 0.6.0-spaces.14
-        CFBundleVersion: "0.6.0-spaces.14"
+        CFBundleShortVersionString: 0.6.0-spaces.16
+        CFBundleVersion: "0.6.0-spaces.16"
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: Colibri uses your camera for video in voice channels and calls.
         NSMicrophoneUsageDescription: Colibri uses your microphone for voice channels and calls.
@@ -116,8 +116,8 @@ targets:
       path: NotificationService/Info.plist
       properties:
         CFBundleDisplayName: Colibri Social Notifications
-        CFBundleShortVersionString: 0.6.0-spaces.14
-        CFBundleVersion: "0.6.0-spaces.14"
+        CFBundleShortVersionString: 0.6.0-spaces.16
+        CFBundleVersion: "0.6.0-spaces.16"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService

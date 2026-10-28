@@ -4,7 +4,9 @@ import { MAX_VOLUME } from "../voice-settings";
 
 export type VolumeChannel = "voice" | "stream";
 
-export type ParticipantVolume = Partial<Record<VolumeChannel, number>>;
+export type ParticipantVolume = Partial<Record<VolumeChannel, number>> & {
+	streamMuted?: boolean;
+};
 
 export type ParticipantVolumes = Readonly<Record<string, ParticipantVolume>>;
 
@@ -23,7 +25,12 @@ export const isParticipantVolumes = (
 	return Object.values(value).every((entry) => {
 		if (typeof entry !== "object" || entry === null) return false;
 		const volume = entry as Record<string, unknown>;
-		return isVolume(volume.voice) && isVolume(volume.stream);
+		return (
+			isVolume(volume.voice) &&
+			isVolume(volume.stream) &&
+			(volume.streamMuted === undefined ||
+				typeof volume.streamMuted === "boolean")
+		);
 	});
 };
 
@@ -36,6 +43,29 @@ export const volumeOf = (
 	channel: VolumeChannel,
 ) => volumes[did]?.[channel] ?? DEFAULT_PARTICIPANT_VOLUME;
 
+export const streamMutedOf = (volumes: ParticipantVolumes, did: string) =>
+	volumes[did]?.streamMuted === true;
+
+export const playbackVolumeOf = (
+	volumes: ParticipantVolumes,
+	did: string,
+	channel: VolumeChannel,
+) =>
+	channel === "stream" && streamMutedOf(volumes, did)
+		? 0
+		: volumeOf(volumes, did, channel);
+
+const withEntry = (
+	volumes: ParticipantVolumes,
+	did: string,
+	entry: ParticipantVolume,
+): ParticipantVolumes => {
+	const next = { ...volumes };
+	if (Object.keys(entry).length === 0) delete next[did];
+	else next[did] = entry;
+	return next;
+};
+
 export const withVolume = (
 	volumes: ParticipantVolumes,
 	did: string,
@@ -46,10 +76,18 @@ export const withVolume = (
 	const entry: ParticipantVolume = { ...volumes[did] };
 	if (nextValue === DEFAULT_PARTICIPANT_VOLUME) delete entry[channel];
 	else entry[channel] = nextValue;
-	const next = { ...volumes };
-	if (Object.keys(entry).length === 0) delete next[did];
-	else next[did] = entry;
-	return next;
+	return withEntry(volumes, did, entry);
+};
+
+export const withStreamMuted = (
+	volumes: ParticipantVolumes,
+	did: string,
+	muted: boolean,
+): ParticipantVolumes => {
+	const entry: ParticipantVolume = { ...volumes[did] };
+	if (muted) entry.streamMuted = true;
+	else delete entry.streamMuted;
+	return withEntry(volumes, did, entry);
 };
 
 export const playbackGain = (output: number, participant: number) =>
@@ -67,6 +105,9 @@ export const createParticipantVolumes = () => {
 			volumeOf(volumes(), did, channel),
 		setVolume: (did: string, channel: VolumeChannel, value: number) =>
 			setVolumes(withVolume(volumes(), did, channel, value)),
+		streamMuted: (did: string) => streamMutedOf(volumes(), did),
+		setStreamMuted: (did: string, muted: boolean) =>
+			setVolumes(withStreamMuted(volumes(), did, muted)),
 	};
 };
 

@@ -1,3 +1,4 @@
+import { classifyThrown, createLogger } from "@colibri-social/lib";
 import camOffUrl from "../../../assets/files/sounds/cam-off.wav";
 import camOnUrl from "../../../assets/files/sounds/cam-on.wav";
 import deafenUrl from "../../../assets/files/sounds/deafen.wav";
@@ -8,6 +9,13 @@ import screenSharedUrl from "../../../assets/files/sounds/screen-shared.wav";
 import screenUnsharedUrl from "../../../assets/files/sounds/screen-unshared.wav";
 import undeafenUrl from "../../../assets/files/sounds/undeafen.wav";
 import unmuteUrl from "../../../assets/files/sounds/unmute.wav";
+import {
+	applyAudioSink,
+	DEFAULT_CONTEXT_SINK_ID,
+	type SinkableOutput,
+} from "./voice/audio-sink";
+
+const log = createLogger("voice/sounds");
 
 export const VOICE_SOUNDS = {
 	join: joinUrl,
@@ -44,6 +52,20 @@ export const setSoundEffectsVolume = (percent: number) => {
 };
 
 export const soundEffectsGain = () => effectsGain;
+
+let effectsSink: string | undefined;
+const sinkListeners = new Set<(force: boolean) => void>();
+
+export const setSoundEffectsSink = (deviceId: string | undefined) => {
+	effectsSink = deviceId || undefined;
+	for (const listener of sinkListeners) listener(false);
+};
+
+export const refreshSoundEffectsSink = () => {
+	for (const listener of sinkListeners) listener(true);
+};
+
+export const soundEffectsSink = () => effectsSink;
 
 const nativeSoundBridge = (): NativeSoundBridge | undefined => {
 	if (typeof window === "undefined") return undefined;
@@ -117,13 +139,35 @@ export const createSoundPlayer = <Sound extends string>(
 	if (native) return createNativeSoundPlayer(native, sounds);
 	let context: AudioContext | undefined;
 	let unlockBound = false;
+	let routing: Promise<void> = Promise.resolve();
 	const buffers = new Map<Sound, Promise<AudioBuffer | undefined>>();
+
+	const route = (ctx: AudioContext, force: boolean) => {
+		routing = routing
+			.then(() =>
+				applyAudioSink(ctx as AudioContext & SinkableOutput, effectsSink, {
+					force,
+					defaultId: DEFAULT_CONTEXT_SINK_ID,
+				}),
+			)
+			.then(
+				() => undefined,
+				(error: unknown) => {
+					log.warn("could not route sounds to the selected speaker", {
+						code: classifyThrown(error).code,
+					});
+				},
+			);
+	};
 
 	const ensureContext = () => {
 		if (context) return context;
 		if (typeof AudioContext === "undefined") return undefined;
-		context = new AudioContext({ latencyHint: "interactive" });
-		return context;
+		const created = new AudioContext({ latencyHint: "interactive" });
+		context = created;
+		route(created, true);
+		sinkListeners.add((force) => route(created, force));
+		return created;
 	};
 
 	const bindUnlock = (ctx: AudioContext) => {
@@ -167,6 +211,7 @@ export const createSoundPlayer = <Sound extends string>(
 					() => false,
 				));
 			const buffer = await load(ctx, sound);
+			await routing;
 			const gain = effectsGain;
 			if (!buffer || !resumed || gain <= 0) return;
 			const source = ctx.createBufferSource();

@@ -293,6 +293,7 @@ export const Select = (props: SelectProps) => {
 	const [internal, setInternal] = createSignal(props.defaultValue);
 	const current = () => (props.value !== undefined ? props.value : internal());
 	const commit = (value: string) => {
+		if (value === current()) return;
 		setInternal(value);
 		props.onChange?.(value);
 	};

@@ -185,6 +185,12 @@ export const DesktopShell = () => {
 
 	createEffect(() => {
 		const current = chat();
+		if (current?.channelType !== VOICE_CHANNEL) return;
+		untrack(() => data.setLastChannel(current.space, current.channel));
+	});
+
+	createEffect(() => {
+		const current = chat();
 		if (!current) return;
 		const pane = currentPane();
 		const open =

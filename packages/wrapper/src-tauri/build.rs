@@ -39,6 +39,11 @@ fn main() {
     }
     if target_os == "linux" {
         println!("cargo:rustc-link-arg-bins=-Wl,-rpath,$ORIGIN:$ORIGIN/../lib/colibri-social:$ORIGIN/../lib");
+        cc::Build::new()
+            .file("src/screen_capture/linux/vp8.c")
+            .compile("colibri_vp8");
+        println!("cargo:rustc-link-lib=vpx");
+        println!("cargo:rerun-if-changed=src/screen_capture/linux/vp8.c");
     }
     tauri_build::build()
 }

@@ -4,11 +4,10 @@ import type {
 } from "@colibri-social/ui";
 import { describe, expect, it } from "vitest";
 import {
-	choosesCaptureSurface,
 	DEFAULT_SCREEN_SHARE,
 	displayMediaRequest,
+	isLinuxApp,
 	isScreenShareOptions,
-	PORTAL_WINDOW_SOURCE,
 	SCREEN_SHARE_FRAMERATES,
 	SCREEN_SHARE_RESOLUTIONS,
 	screenCodecOptions,
@@ -19,7 +18,6 @@ import {
 	screenMaxBitrate,
 	screenVideoConstraints,
 	supportsDisplayAudio,
-	windowCaptureRequest,
 } from "./screen-share";
 
 const TAURI_MACOS =
@@ -190,53 +188,18 @@ describe("displayMediaRequest", () => {
 	});
 });
 
-describe("windowCaptureRequest", () => {
-	it("asks the system for one window at the chosen quality", () => {
-		expect(
-			windowCaptureRequest({
-				resolution: "720",
-				framerate: 15,
-				shareAudio: true,
-			}),
-		).toEqual({
-			video: {
-				mandatory: {
-					chromeMediaSource: "desktop",
-					chromeMediaSourceId: PORTAL_WINDOW_SOURCE,
-					maxFrameRate: 15,
-					maxHeight: 720,
-				},
-			},
-			audio: { mandatory: { chromeMediaSource: "desktop" } },
-		});
-	});
-
-	it("leaves the height open and skips sound when asked to", () => {
-		const request = windowCaptureRequest({
-			resolution: "source",
-			framerate: 60,
-			shareAudio: false,
-		});
-		expect(request.video.mandatory).not.toHaveProperty("maxHeight");
-		expect(request.audio).toBe(false);
-	});
-});
-
-describe("choosesCaptureSurface", () => {
-	it("only asks for a screen or window in the Linux app", () => {
+describe("isLinuxApp", () => {
+	it("only recognises the Linux app", () => {
 		const linux = "Mozilla/5.0 (X11; Linux x86_64) Chrome/150.0";
-		expect(choosesCaptureSurface(linux, true)).toBe(true);
-		expect(choosesCaptureSurface(linux, false)).toBe(false);
+		expect(isLinuxApp(linux, true)).toBe(true);
+		expect(isLinuxApp(linux, false)).toBe(false);
 		expect(
-			choosesCaptureSurface(
-				"Mozilla/5.0 (Linux; Android 15) Chrome/150.0",
-				true,
-			),
+			isLinuxApp("Mozilla/5.0 (Linux; Android 15) Chrome/150.0", true),
 		).toBe(false);
-		expect(
-			choosesCaptureSurface("Mozilla/5.0 (Windows NT 10.0) Chrome/150.0", true),
-		).toBe(false);
-		expect(choosesCaptureSurface(undefined, true)).toBe(false);
+		expect(isLinuxApp("Mozilla/5.0 (Windows NT 10.0) Chrome/150.0", true)).toBe(
+			false,
+		);
+		expect(isLinuxApp(undefined, true)).toBe(false);
 	});
 });
 

@@ -9,6 +9,7 @@ import { UserCircleIcon } from "@solar-icons/solid/bold/user-circle";
 import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded";
 import { UsersGroupRoundedIcon } from "@solar-icons/solid/bold/users-group-rounded";
 import { VolumeIcon } from "@solar-icons/solid/bold/volume";
+import { VolumeCrossIcon } from "@solar-icons/solid/bold/volume-cross";
 import { createMemo, type JSX, untrack } from "solid-js";
 import { HeadphonesSlashIcon, MicrophoneSlashIcon } from "../../icons/custom";
 import {
@@ -44,6 +45,8 @@ export type MemberMenuVoice = {
 	onVolumeChange?: (volume: number) => void;
 	streamVolume?: number;
 	onStreamVolumeChange?: (volume: number) => void;
+	streamMuted?: boolean;
+	onStreamMutedChange?: (muted: boolean) => void;
 	selfMuted?: boolean;
 	onSelfMutedChange?: (muted: boolean) => void;
 	selfDeafened?: boolean;
@@ -156,6 +159,7 @@ export const memberVoiceShape = (voice: MemberMenuVoice | undefined) =>
 		? [
 				!!voice.onVolumeChange,
 				!!voice.onStreamVolumeChange,
+				!!voice.onStreamMutedChange,
 				!!voice.onSelfMutedChange,
 				!!voice.onSelfDeafenedChange,
 				!!voice.onPreviewCamera,
@@ -191,6 +195,13 @@ export const memberVoiceEntries = (
 						"Stream volume",
 						() => current().streamVolume,
 						(value) => current().onStreamVolumeChange?.(value),
+					),
+				voice.onStreamMutedChange &&
+					voiceToggle(
+						"Mute stream",
+						() => <VolumeCrossIcon />,
+						() => current().streamMuted,
+						(checked) => current().onStreamMutedChange?.(checked),
 					),
 				voice.onSelfMutedChange &&
 					voiceToggle(

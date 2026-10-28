@@ -172,6 +172,10 @@ fn chromium_switches() -> Vec<(String, Option<String>)> {
             "autoplay-policy".to_owned(),
             Some("no-user-gesture-required".to_owned()),
         ),
+        (
+            "disable-features".to_owned(),
+            Some("LocalNetworkAccessChecksWebSockets".to_owned()),
+        ),
     ];
     if let Ok(port) = std::env::var("COLIBRI_DEVTOOLS") {
         let port = port

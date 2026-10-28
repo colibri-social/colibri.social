@@ -131,7 +131,7 @@ export const SpaceDrawer = (props: SpaceDrawerProps) => {
 						<Show when={notificationRow()}>
 							<NavRow
 								icon={<BellIcon />}
-								label="Space settings"
+								label="Notification settings"
 								onClick={run(props.onOpenNotificationSettings)}
 							/>
 						</Show>

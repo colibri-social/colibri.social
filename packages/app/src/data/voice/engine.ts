@@ -21,6 +21,7 @@ import {
 	resumeConsumerFrame,
 	type ServerVoiceFrame,
 	setSelfStateFrame,
+	setSpeakingFrame,
 	type TransportOptionsFrame,
 	VOICE_SIGNAL_LXM,
 	VOICE_SIGNAL_PATH,
@@ -35,6 +36,7 @@ import {
 	createSignal,
 	on,
 } from "solid-js";
+import { openCamera, openMicrophone } from "../media-devices";
 import type { ServiceAuthAgent } from "../remote/live/connection";
 import {
 	type ScreenShareQuality,
@@ -92,8 +94,8 @@ import {
 import {
 	type ParticipantVolumes,
 	playbackGain,
+	playbackVolumeOf,
 	type VolumeChannel,
-	volumeOf,
 } from "./volumes";
 
 const log = createLogger("voice");
@@ -254,10 +256,6 @@ const browserMedia = (): VoiceMedia | undefined => {
 		},
 	};
 };
-
-const cameraConstraints = (deviceId?: string): MediaStreamConstraints => ({
-	video: deviceId ? { deviceId: { ideal: deviceId } } : true,
-});
 
 const isMissingDevice = (error: unknown): boolean =>
 	error instanceof DOMException && error.name === "NotFoundError";
@@ -509,6 +507,13 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			patchConnection({ quality: qualityFor(latency), latency });
 		};
 
+		const setLocalSpeaking = (speaking: boolean) => {
+			if (speaking === localSpeaking) return;
+			localSpeaking = speaking;
+			recomputeSpeakers();
+			if (ready) send(setSpeakingFrame(speaking));
+		};
+
 		const sendSelfState = () => {
 			if (!ready || !session) return;
 			const sentAt = performance.now();
@@ -532,7 +537,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			entry.boost.apply(
 				playbackGain(
 					current.outputVolume,
-					volumeOf(volumes(), entry.did, entry.channel),
+					playbackVolumeOf(volumes(), entry.did, entry.channel),
 				),
 			);
 			void applyAudioSink(entry.el, current.speaker, { force }).catch(
@@ -817,13 +822,17 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				gate: input.voiceGate,
 				inputGain: input.inputVolume / 100,
 				onSpeaking: (speaking) => {
-					const next = speaking && !!session && !session.muted;
-					if (next === localSpeaking) return;
-					localSpeaking = next;
-					recomputeSpeakers();
+					setLocalSpeaking(speaking && !!session && !session.muted);
 				},
 			});
 		};
+
+		const openSavedMicrophone = (devices: VoiceMedia) =>
+			openMicrophone(
+				(constraints) => devices.getUserMedia(constraints),
+				captureConstraints(),
+				settings().microphone,
+			);
 
 		const startMic = async () => {
 			const transport = sendTransport;
@@ -832,9 +841,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			}
 			const epoch = mediaEpoch;
 			const stale = () => mediaEpoch !== epoch;
-			const stream = await media.getUserMedia({
-				audio: captureConstraints(settings().microphone),
-			});
+			const stream = await openSavedMicrophone(media);
 			let graph: NoiseSuppressor | null = null;
 			let adopted = false;
 			try {
@@ -863,16 +870,35 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			}
 		};
 
+		let recoveringMic = false;
+		const recoverMicrophone = async () => {
+			if (!ready || !session || micAvailable() || recoveringMic) return;
+			recoveringMic = true;
+			const epoch = mediaEpoch;
+			try {
+				await startMic();
+				if (mediaEpoch !== epoch || !micProducer) return;
+				setMicAvailable(true);
+				sendSelfState();
+			} catch (error) {
+				if (mediaEpoch !== epoch) return;
+				log.warn("the chosen microphone is still unavailable", {
+					code: classifyThrown(error).code,
+				});
+			} finally {
+				recoveringMic = false;
+			}
+		};
+
 		const switchMicrophone = async () => {
 			const producer = micProducer;
-			if (!producer || !media) return;
+			if (!producer) return recoverMicrophone();
+			if (!media) return;
 			const epoch = mediaEpoch;
 			let stream: MediaStream | undefined;
 			let graph: NoiseSuppressor | undefined;
 			try {
-				stream = await media.getUserMedia({
-					audio: captureConstraints(settings().microphone),
-				});
+				stream = await openSavedMicrophone(media);
 				if (mediaEpoch !== epoch || micProducer !== producer) {
 					throw new ColibriError({ code: "VoiceConnectionLost" });
 				}
@@ -1104,6 +1130,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			reconnectAttempts = 0;
 			patchConnection({ state: "connected" });
 			sendSelfState();
+			send(setSpeakingFrame(localSpeaking));
 			startStatsMonitor();
 			startHeartbeat();
 			for (const producerId of producers.drain()) {
@@ -1212,9 +1239,8 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 						serverDeafened: frame.serverDeafened ?? false,
 					};
 					setModeration((current) => ({ ...current, [frame.did]: state }));
-					if (frame.did === viewer && state.serverMuted && localSpeaking) {
-						localSpeaking = false;
-						recomputeSpeakers();
+					if (frame.did === viewer && state.serverMuted) {
+						setLocalSpeaking(false);
 					}
 					return;
 				}
@@ -1366,9 +1392,10 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				if (muted) micProducer.pause();
 				else micProducer.resume();
 			}
-			if (muted && localSpeaking) {
-				localSpeaking = false;
-				recomputeSpeakers();
+			if (muted) {
+				const wasSpeaking = localSpeaking;
+				setLocalSpeaking(false);
+				if (!wasSpeaking && ready) send(setSpeakingFrame(false));
 			}
 			sendSelfState();
 		};
@@ -1601,7 +1628,10 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				mediaEpoch !== epoch || cameraGeneration !== generation;
 			let stream: MediaStream;
 			try {
-				stream = await media.getUserMedia(cameraConstraints(settings().camera));
+				stream = await openCamera(
+					(constraints) => media.getUserMedia(constraints),
+					settings().camera,
+				);
 			} catch (error) {
 				if (stale()) return false;
 				log.warn("camera unavailable", { code: classifyThrown(error).code });
@@ -1656,8 +1686,9 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			if (!producer || !media) return;
 			const epoch = mediaEpoch;
 			try {
-				const stream = await media.getUserMedia(
-					cameraConstraints(settings().camera),
+				const stream = await openCamera(
+					(constraints) => media.getUserMedia(constraints),
+					settings().camera,
 				);
 				const track = stream.getVideoTracks()[0];
 				if (!track || mediaEpoch !== epoch || camProducer !== producer) {

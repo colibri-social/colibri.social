@@ -3,7 +3,7 @@
 	"plugins": {
 		"updater": {
 			"endpoints": [
-				"https://spaces.colibri.social/beta/{{target}}/{{arch}}/{{current_version}}"
+				"https://spaces.colibri.social/beta/{{target}}/{{arch}}/{{current_version}}?bundle={{bundle_type}}"
 			]
 		}
 	}

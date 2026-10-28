@@ -1,6 +1,7 @@
 import { AUTH_SUBPROTOCOL, VOICE_SIGNAL_LXM } from "@colibri-social/lib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SCREEN_SHARE } from "../screen-share";
+import { DEFAULT_VOICE_SETTINGS } from "../voice-settings";
 import {
 	endReasonOf,
 	reconnectDelay,
@@ -20,6 +21,7 @@ import {
 	pending,
 	reply,
 	setup,
+	suppressor,
 	transportOptions,
 	VIEWER,
 } from "./engine-fakes";
@@ -35,6 +37,19 @@ afterEach(() => {
 	running = [];
 	vi.unstubAllGlobals();
 });
+
+const withCamera = (camera: string) => ({
+	...DEFAULT_VOICE_SETTINGS,
+	camera,
+});
+
+const camProducerInfo = {
+	$type: `${DEFS}producerInfo`,
+	producerId: "cam-1",
+	did: VIEWER,
+	kind: "video",
+	source: "camera",
+};
 
 const track = (harness: ReturnType<typeof setup>) => {
 	running.push(harness.engine);
@@ -176,6 +191,42 @@ describe("voice engine", () => {
 		expect(gain.gain.value).toBe(1.5);
 	});
 
+	it("starts a muted screen share silent and keeps the sharer's voice playing", async () => {
+		const harness = track(
+			setup({
+				volumes: () => ({
+					[PEER]: { voice: 50, stream: 80, streamMuted: true },
+				}),
+			}),
+		);
+		const { socket } = await connect(harness);
+		const consumeAudio = async (producerId: string, source: string) => {
+			socket.serve({
+				$type: `${DEFS}producerInfo`,
+				producerId,
+				did: PEER,
+				kind: "audio",
+				source,
+			});
+			await reply(socket, "consume", {
+				$type: `${DEFS}consumerOptions`,
+				id: `consumer-${producerId}`,
+				producerId,
+				kind: "audio",
+				rtpParameters: { codecs: [] },
+			});
+			await reply(socket, "resumeConsumer", { $type: `${DEFS}ack` });
+		};
+		await consumeAudio("peer-mic", "microphone");
+		await vi.waitFor(() => expect(harness.audio).toHaveLength(1));
+		await consumeAudio("peer-screen-audio", "screen");
+		await vi.waitFor(() => expect(harness.audio).toHaveLength(2));
+		const [mic, stream] = harness.audio;
+		expect(mic.volume).toBe(0.5);
+		expect(stream.volume).toBe(0);
+		expect(stream.playing).toBe(true);
+	});
+
 	it("shows a peer's camera until the producer goes away", async () => {
 		const harness = track(setup());
 		const { socket } = await connect(harness);
@@ -230,6 +281,34 @@ describe("voice engine", () => {
 		socket.serve({ $type: `${DEFS}peerLeft`, did: PEER });
 		expect(harness.engine.speakers().size).toBe(0);
 		expect(harness.engine.moderation()[PEER]).toBeUndefined();
+	});
+
+	it("reports the viewer's own speaking to the server and stops it on mute", async () => {
+		let onSpeaking: ((speaking: boolean) => void) | undefined;
+		const harness = track(
+			setup({
+				createSuppressor: async (input, options) => {
+					onSpeaking = options.onSpeaking;
+					return suppressor(input as unknown as FakeTrack);
+				},
+			}),
+		);
+		const { socket } = await connect(harness);
+		expect(socket.speaking).toEqual([false]);
+
+		onSpeaking?.(true);
+		expect([...harness.engine.speakers()]).toEqual([VIEWER]);
+		onSpeaking?.(true);
+		onSpeaking?.(false);
+		onSpeaking?.(true);
+		expect(socket.speaking).toEqual([false, true, false, true]);
+
+		harness.engine.setMuted(true);
+		expect(harness.engine.speakers().size).toBe(0);
+		harness.engine.setMuted(false);
+		await reply(socket, "setSelfState", { $type: `${DEFS}ack` });
+		harness.engine.setMuted(true);
+		expect(socket.speaking).toEqual([false, true, false, true, false, false]);
 	});
 
 	it("ends the call when a moderator disconnects the viewer", async () => {
@@ -414,6 +493,56 @@ describe("voice engine", () => {
 		expect(harness.engine.videos()).toEqual([]);
 		const close = await pending(socket, "closeProducer");
 		expect(close).toMatchObject({ producerId: "cam-1" });
+	});
+
+	it("opens the saved camera exactly at 720p", async () => {
+		const harness = track(setup({ settings: () => withCamera("cam-2") }));
+		const { socket } = await connect(harness);
+		const turningOn = harness.engine.setCamera(true);
+		await reply(socket, "produce", camProducerInfo);
+		expect(await turningOn).toBe(true);
+		expect(harness.getUserMedia).toHaveBeenLastCalledWith({
+			video: {
+				width: { ideal: 1280 },
+				height: { ideal: 720 },
+				aspectRatio: { ideal: 16 / 9 },
+				deviceId: { exact: "cam-2" },
+			},
+		});
+	});
+
+	it.each([
+		"OverconstrainedError",
+		"NotFoundError",
+	])("falls back to the default camera on %s", async (name) => {
+		const harness = track(setup({ settings: () => withCamera("unplugged") }));
+		const { socket } = await connect(harness);
+		harness.getUserMedia.mockImplementationOnce(async () => {
+			throw new DOMException("gone", name);
+		});
+		const turningOn = harness.engine.setCamera(true);
+		await reply(socket, "produce", camProducerInfo);
+		expect(await turningOn).toBe(true);
+		expect(harness.getUserMedia).toHaveBeenLastCalledWith({
+			video: {
+				width: { ideal: 1280 },
+				height: { ideal: 720 },
+				aspectRatio: { ideal: 16 / 9 },
+			},
+		});
+		expect(harness.notices).toEqual([]);
+	});
+
+	it("reports a blocked camera without trying the default one", async () => {
+		const harness = track(setup({ settings: () => withCamera("cam-2") }));
+		await connect(harness);
+		const calls = harness.getUserMedia.mock.calls.length;
+		harness.getUserMedia.mockImplementationOnce(async () => {
+			throw new DOMException("denied", "NotAllowedError");
+		});
+		expect(await harness.engine.setCamera(true)).toBe(false);
+		expect(harness.getUserMedia.mock.calls.length).toBe(calls + 1);
+		expect(harness.notices).toEqual(["cameraFailed"]);
 	});
 
 	it("shares the screen with sound and stops when the capture ends", async () => {

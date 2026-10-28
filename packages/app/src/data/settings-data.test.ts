@@ -9,7 +9,12 @@ import {
 	setExperiment,
 } from "./experiments";
 import { formatLogs, toLogLine } from "./log-buffer";
-import { levelOf, microphoneConstraints, toDeviceLists } from "./media-devices";
+import {
+	levelOf,
+	microphoneConstraints,
+	openMicrophone,
+	toDeviceLists,
+} from "./media-devices";
 import {
 	formatReleaseDate,
 	releaseNotesFor,
@@ -111,16 +116,65 @@ describe("media devices", () => {
 		expect(levelOf(new Uint8Array(32).fill(255), 2)).toBe(1);
 	});
 
-	it("asks for the chosen microphone with the chosen noise suppression", () => {
-		expect(
-			microphoneConstraints({ microphone: "mic-2", noiseSuppression: false }),
-		).toMatchObject({
-			deviceId: { exact: "mic-2" },
-			noiseSuppression: false,
+	it("asks for the chosen microphone with the chosen noise suppression", async () => {
+		const stream = {} as MediaStream;
+		const getUserMedia = vi.fn(async () => stream);
+		await expect(
+			openMicrophone(
+				getUserMedia,
+				microphoneConstraints({ noiseSuppression: false }),
+				"mic-2",
+			),
+		).resolves.toBe(stream);
+		expect(getUserMedia).toHaveBeenCalledWith({
+			audio: expect.objectContaining({
+				deviceId: { exact: "mic-2" },
+				noiseSuppression: false,
+			}),
 		});
-		expect(
-			microphoneConstraints({ noiseSuppression: true }).deviceId,
-		).toBeUndefined();
+		await openMicrophone(
+			getUserMedia,
+			microphoneConstraints({ noiseSuppression: true }),
+			undefined,
+		);
+		expect(getUserMedia).toHaveBeenLastCalledWith({
+			audio: expect.not.objectContaining({ deviceId: expect.anything() }),
+		});
+	});
+
+	it("falls back to the system microphone when the saved one is gone", async () => {
+		const stream = {} as MediaStream;
+		const getUserMedia = vi.fn(async (constraints: MediaStreamConstraints) => {
+			const audio = constraints.audio as MediaTrackConstraints;
+			if (audio.deviceId) {
+				throw Object.assign(new Error("gone"), {
+					name: "OverconstrainedError",
+				});
+			}
+			return stream;
+		});
+		await expect(
+			openMicrophone(
+				getUserMedia,
+				microphoneConstraints({ noiseSuppression: true }),
+				"unplugged",
+			),
+		).resolves.toBe(stream);
+		expect(getUserMedia).toHaveBeenCalledTimes(2);
+	});
+
+	it("reports a blocked microphone without trying the default one", async () => {
+		const getUserMedia = vi.fn(async () => {
+			throw Object.assign(new Error("denied"), { name: "NotAllowedError" });
+		});
+		await expect(
+			openMicrophone(
+				getUserMedia,
+				microphoneConstraints({ noiseSuppression: true }),
+				"mic-2",
+			),
+		).rejects.toMatchObject({ name: "NotAllowedError" });
+		expect(getUserMedia).toHaveBeenCalledTimes(1);
 	});
 });
 

@@ -1849,6 +1849,13 @@
 			"ecosystem": "rust"
 		},
 		{
+			"name": "ashpd",
+			"version": "0.13.13",
+			"license": "MIT",
+			"href": "https://github.com/bilelmoussaoui/ashpd",
+			"ecosystem": "rust"
+		},
+		{
 			"name": "async-broadcast",
 			"version": "0.7.2",
 			"license": "MIT OR Apache-2.0",
@@ -2280,6 +2287,13 @@
 			"version": "0.22.1",
 			"license": "MIT OR Apache-2.0",
 			"href": "https://github.com/pfernie/cookie_store",
+			"ecosystem": "rust"
+		},
+		{
+			"name": "cookie-factory",
+			"version": "0.3.3",
+			"license": "MIT",
+			"href": "https://github.com/rust-bakery/cookie-factory",
 			"ecosystem": "rust"
 		},
 		{
@@ -3522,6 +3536,20 @@
 			"ecosystem": "rust"
 		},
 		{
+			"name": "libspa",
+			"version": "0.10.1",
+			"license": "MIT",
+			"href": "https://gitlab.freedesktop.org/pipewire/pipewire-rs",
+			"ecosystem": "rust"
+		},
+		{
+			"name": "libspa-sys",
+			"version": "0.10.1",
+			"license": "MIT",
+			"href": "https://gitlab.freedesktop.org/pipewire/pipewire-rs",
+			"ecosystem": "rust"
+		},
+		{
 			"name": "linux-raw-sys",
 			"version": "0.12.1",
 			"license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
@@ -3715,6 +3743,13 @@
 			"version": "0.1.14",
 			"license": "MIT OR Apache-2.0",
 			"href": "https://github.com/bluss/arrayvec",
+			"ecosystem": "rust"
+		},
+		{
+			"name": "nom",
+			"version": "8.0.0",
+			"license": "MIT",
+			"href": "https://github.com/rust-bakery/nom",
 			"ecosystem": "rust"
 		},
 		{
@@ -4240,6 +4275,20 @@
 			"version": "0.2.5",
 			"license": "MIT OR Apache-2.0",
 			"href": "https://github.com/smol-rs/piper",
+			"ecosystem": "rust"
+		},
+		{
+			"name": "pipewire",
+			"version": "0.10.1",
+			"license": "MIT",
+			"href": "https://gitlab.freedesktop.org/pipewire/pipewire-rs",
+			"ecosystem": "rust"
+		},
+		{
+			"name": "pipewire-sys",
+			"version": "0.10.1",
+			"license": "MIT",
+			"href": "https://gitlab.freedesktop.org/pipewire/pipewire-rs",
 			"ecosystem": "rust"
 		},
 		{

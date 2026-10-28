@@ -4,6 +4,7 @@ import { DEFAULT_SCREEN_SHARE } from "../screen-share";
 import type { VoiceSettings } from "../voice-settings";
 import type { VoiceEngine } from "./engine";
 import {
+	CHANNEL,
 	connect,
 	DEFS,
 	FakeStream,
@@ -12,6 +13,7 @@ import {
 	reply,
 	setup,
 	suppressor,
+	transportOptions,
 	VIEWER,
 } from "./engine-fakes";
 import type { NoiseSuppressor } from "./noise-suppressor";
@@ -78,7 +80,58 @@ describe("voice engine settings", () => {
 		test.setSettings({ ...BASE, microphone: "usb-mic" });
 		await connect(test);
 		expect(test.getUserMedia).toHaveBeenCalledWith({
-			audio: expect.objectContaining({ deviceId: { ideal: "usb-mic" } }),
+			audio: expect.objectContaining({ deviceId: { exact: "usb-mic" } }),
+		});
+	});
+
+	it("captures from the system microphone when the saved one is gone", async () => {
+		const test = harness();
+		test.getUserMedia.mockImplementationOnce(async () => {
+			throw Object.assign(new Error("gone"), { name: "OverconstrainedError" });
+		});
+		test.setSettings({ ...BASE, microphone: "unplugged" });
+		await connect(test);
+		expect(test.getUserMedia).toHaveBeenLastCalledWith({
+			audio: expect.not.objectContaining({ deviceId: expect.anything() }),
+		});
+		expect(test.engine.micAvailable()).toBe(true);
+	});
+
+	it("starts the microphone when one is picked after joining without one", async () => {
+		const test = harness();
+		test.getUserMedia.mockImplementationOnce(async () => {
+			throw new DOMException("busy", "NotReadableError");
+		});
+		test.engine.start({ channel: CHANNEL, muted: false, deafened: false });
+		await vi.waitFor(() => expect(test.sockets).toHaveLength(1));
+		const socket = test.sockets[0];
+		socket.open();
+		await reply(socket, "join", { $type: `${DEFS}joined`, channel: CHANNEL });
+		await reply(socket, "getRtpCapabilities", {
+			$type: `${DEFS}rtpCapabilities`,
+			payload: { codecs: [] },
+		});
+		await reply(socket, "createTransport", transportOptions("send-1", "send"));
+		await reply(socket, "createTransport", transportOptions("recv-1", "recv"));
+		await vi.waitFor(() =>
+			expect(test.engine.connection().state).toBe("connected"),
+		);
+		expect(test.engine.micAvailable()).toBe(false);
+		await reply(socket, "setSelfState", { $type: `${DEFS}ack` });
+
+		test.setSettings({ ...BASE, microphone: "headset" });
+		await reply(socket, "produce", {
+			$type: `${DEFS}producerInfo`,
+			producerId: "mic-1",
+			did: VIEWER,
+			kind: "audio",
+			source: "microphone",
+		});
+		const state = await reply(socket, "setSelfState", { $type: `${DEFS}ack` });
+		expect(state).toMatchObject({ muted: false });
+		expect(test.engine.micAvailable()).toBe(true);
+		expect(test.getUserMedia).toHaveBeenLastCalledWith({
+			audio: expect.objectContaining({ deviceId: { exact: "headset" } }),
 		});
 	});
 
@@ -88,7 +141,7 @@ describe("voice engine settings", () => {
 		test.setSettings({ ...BASE, microphone: "headset" });
 		await vi.waitFor(() =>
 			expect(test.getUserMedia).toHaveBeenLastCalledWith({
-				audio: expect.objectContaining({ deviceId: { ideal: "headset" } }),
+				audio: expect.objectContaining({ deviceId: { exact: "headset" } }),
 			}),
 		);
 		await vi.waitFor(() => expect(test.graphs[0].destroy).toHaveBeenCalled());
@@ -120,6 +173,41 @@ describe("voice engine settings", () => {
 		expect(test.audio[0].volume).toBeCloseTo(0.2);
 	});
 
+	it("mutes and unmutes a screen share's sound without touching the voice", async () => {
+		const test = harness();
+		const { socket } = await connect(test);
+		const consumeAudio = async (producerId: string, source: string) => {
+			socket.serve({
+				$type: `${DEFS}producerInfo`,
+				producerId,
+				did: PEER,
+				kind: "audio",
+				source,
+			});
+			await reply(socket, "consume", {
+				$type: `${DEFS}consumerOptions`,
+				id: `consumer-${producerId}`,
+				producerId,
+				kind: "audio",
+				rtpParameters: { codecs: [] },
+			});
+			await reply(socket, "resumeConsumer", { $type: `${DEFS}ack` });
+		};
+		await consumeAudio("peer-mic", "microphone");
+		await vi.waitFor(() => expect(test.audio).toHaveLength(1));
+		await consumeAudio("peer-screen-audio", "screen");
+		await vi.waitFor(() => expect(test.audio).toHaveLength(2));
+		const [mic, stream] = test.audio;
+		test.setVolumes({ [PEER]: { voice: 50, stream: 80 } });
+		expect(stream.volume).toBeCloseTo(0.8);
+		test.setVolumes({ [PEER]: { voice: 50, stream: 80, streamMuted: true } });
+		expect(stream.volume).toBe(0);
+		expect(mic.volume).toBeCloseTo(0.5);
+		test.setVolumes({ [PEER]: { voice: 50, stream: 80 } });
+		expect(stream.volume).toBeCloseTo(0.8);
+		expect(mic.volume).toBeCloseTo(0.5);
+	});
+
 	it("keeps the camera and microphone when other settings change", async () => {
 		const test = harness();
 		const { socket } = await connect(test);
@@ -142,5 +230,28 @@ describe("voice engine settings", () => {
 		await new Promise((resolve) => setTimeout(resolve, 20));
 		expect(test.getUserMedia).toHaveBeenCalledTimes(opened);
 		expect(test.engine.videos()[0]?.stream).toBe(camera);
+	});
+
+	it("switches to a newly saved camera exactly", async () => {
+		const test = harness();
+		const { socket } = await connect(test);
+		const turningOn = test.engine.setCamera(true);
+		await reply(socket, "produce", {
+			$type: `${DEFS}producerInfo`,
+			producerId: "cam-1",
+			did: VIEWER,
+			kind: "video",
+			source: "camera",
+		});
+		expect(await turningOn).toBe(true);
+		test.setSettings({ ...BASE, camera: "cam-2" });
+		await vi.waitFor(() =>
+			expect(test.getUserMedia).toHaveBeenLastCalledWith({
+				video: expect.objectContaining({
+					width: { ideal: 1280 },
+					deviceId: { exact: "cam-2" },
+				}),
+			}),
+		);
 	});
 });

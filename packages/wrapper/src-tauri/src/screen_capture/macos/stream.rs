@@ -120,6 +120,7 @@ fn configuration(quality: CaptureQuality, capture_audio: bool) -> Retained<SCStr
         config.setQueueDepth(QUEUE_DEPTH);
         config.setShowsCursor(true);
         config.setScalesToFit(true);
+        config.setIgnoreShadowsSingleWindow(true);
 
         if capture_audio {
             config.setCapturesAudio(true);

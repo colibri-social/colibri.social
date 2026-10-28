@@ -20,7 +20,7 @@ mod notifications;
 #[cfg(desktop)]
 mod quit_guard;
 #[cfg(desktop)]
-#[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
+#[cfg_attr(not(any(target_os = "macos", target_os = "windows", target_os = "linux")), allow(dead_code))]
 mod screen_capture;
 #[cfg(desktop)]
 mod titlebar;
@@ -347,6 +347,10 @@ pub fn run() {
             screen_capture::screen_capture_permission,
             #[cfg(desktop)]
             screen_capture::screen_capture_open_settings,
+            #[cfg(desktop)]
+            screen_capture::screen_capture_picker,
+            #[cfg(desktop)]
+            screen_capture::screen_capture_list_audio_apps,
             #[cfg(desktop)]
             notifications::native_notify_supported,
             #[cfg(desktop)]

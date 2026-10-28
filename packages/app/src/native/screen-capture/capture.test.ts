@@ -24,6 +24,14 @@ const loadParser = (): ((buffer: ArrayBuffer) => ParsedMessage) =>
 const loadBase64 = (): ((value: string) => Uint8Array) =>
 	new Function(`${WIRE_PARSER_SOURCE}\nreturn decodeBase64;`)();
 
+const loadDecoderConfig = (): ((config: {
+	codec: string;
+	description: string;
+	codedWidth: number;
+	codedHeight: number;
+}) => VideoDecoderConfig) =>
+	new Function(`${WIRE_PARSER_SOURCE}\nreturn decoderConfig;`)();
+
 const videoFrame = (
 	keyframe: boolean,
 	timestamp: bigint,
@@ -101,6 +109,33 @@ describe("the worker wire parser", () => {
 
 	it("decodes the base64 codec description", () => {
 		expect(Array.from(loadBase64()("AQID"))).toEqual([1, 2, 3]);
+	});
+});
+
+describe("the worker decoder config", () => {
+	it("leaves the description out for VP8, which has none", () => {
+		const config = loadDecoderConfig()({
+			codec: "vp8",
+			description: "",
+			codedWidth: 1920,
+			codedHeight: 1080,
+		});
+		expect(config).toEqual({
+			codec: "vp8",
+			codedWidth: 1920,
+			codedHeight: 1080,
+			optimizeForLatency: true,
+		});
+	});
+
+	it("passes an H.264 description through as bytes", () => {
+		const config = loadDecoderConfig()({
+			codec: "avc1.640028",
+			description: "AQID",
+			codedWidth: 1280,
+			codedHeight: 720,
+		});
+		expect(Array.from(config.description as Uint8Array)).toEqual([1, 2, 3]);
 	});
 });
 

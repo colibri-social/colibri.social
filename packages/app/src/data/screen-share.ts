@@ -151,33 +151,7 @@ export const displayMediaRequest = (
 	surfaceSwitching: "include",
 });
 
-export const PORTAL_WINDOW_SOURCE = "window:1:0";
-
-export type DesktopCaptureRequest = {
-	video: { mandatory: Record<string, string | number> };
-	audio: false | { mandatory: { chromeMediaSource: "desktop" } };
-};
-
-export const windowCaptureRequest = (
-	options: ScreenShareOptions,
-): DesktopCaptureRequest => {
-	const height = RESOLUTION_HEIGHTS[options.resolution];
-	return {
-		video: {
-			mandatory: {
-				chromeMediaSource: "desktop",
-				chromeMediaSourceId: PORTAL_WINDOW_SOURCE,
-				maxFrameRate: options.framerate,
-				...(height !== undefined ? { maxHeight: height } : {}),
-			},
-		},
-		audio: options.shareAudio
-			? { mandatory: { chromeMediaSource: "desktop" } }
-			: false,
-	};
-};
-
-export const choosesCaptureSurface = (
+export const isLinuxApp = (
 	userAgent: string | undefined,
 	nativeShell: boolean,
 ): boolean =>

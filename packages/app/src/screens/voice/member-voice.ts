@@ -126,6 +126,9 @@ export const voiceMemberMenu = (
 			menu.streamVolume = volumes.volume(target.did, "stream");
 			menu.onStreamVolumeChange = (value) =>
 				volumes.setVolume(target.did, "stream", value);
+			menu.streamMuted = volumes.streamMuted(target.did);
+			menu.onStreamMutedChange = (muted) =>
+				volumes.setStreamMuted(target.did, muted);
 		}
 	}
 
@@ -182,6 +185,8 @@ export const streamVolumeMenu = (
 	return {
 		streamVolume: volumes.volume(did, "stream"),
 		onStreamVolumeChange: (value) => volumes.setVolume(did, "stream", value),
+		streamMuted: volumes.streamMuted(did),
+		onStreamMutedChange: (muted) => volumes.setStreamMuted(did, muted),
 	};
 };
 

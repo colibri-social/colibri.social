@@ -9,6 +9,7 @@ import { UserCircleIcon } from "@solar-icons/solid/bold/user-circle";
 import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded";
 import { UsersGroupRoundedIcon } from "@solar-icons/solid/bold/users-group-rounded";
 import { VolumeIcon } from "@solar-icons/solid/bold/volume";
+import { VolumeCrossIcon } from "@solar-icons/solid/bold/volume-cross";
 import { ArrowLeftIcon } from "@solar-icons/solid/linear/arrow-left";
 import {
 	createEffect,
@@ -74,6 +75,7 @@ const hasVoiceSettings = (voice: MemberMenuVoice) =>
 	!!(
 		voice.onVolumeChange ||
 		voice.onStreamVolumeChange ||
+		voice.onStreamMutedChange ||
 		voice.onSelfMutedChange ||
 		voice.onSelfDeafenedChange ||
 		voice.onPreviewCamera ||
@@ -253,6 +255,24 @@ export const MemberDrawer = (props: MemberDrawerProps) => {
 													label="Stream volume"
 													value={voice().streamVolume}
 													onChange={change()}
+												/>
+											)}
+										</Show>
+										<Show when={voice().onStreamMutedChange}>
+											{(change) => (
+												<CheckboxRow
+													leading={
+														<span
+															aria-hidden="true"
+															class="flex size-6 items-center justify-center text-foreground [&>svg]:size-6"
+														>
+															<VolumeCrossIcon />
+														</span>
+													}
+													label={<span class="text-sm">Mute stream</span>}
+													checked={!!voice().streamMuted}
+													onChange={change()}
+													class="min-h-0 gap-2"
 												/>
 											)}
 										</Show>

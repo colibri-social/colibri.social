@@ -1,35 +1,43 @@
 export const DEFAULT_SINK_ID = "default";
 
+export const DEFAULT_CONTEXT_SINK_ID = "";
+
 export interface SinkableMediaElement {
 	sinkId?: string;
 	setSinkId?: (id: string) => Promise<void>;
 }
 
-type RoutableMediaElement = SinkableMediaElement & {
+export interface SinkableOutput {
+	readonly sinkId?: unknown;
+	setSinkId?: (id: string) => Promise<void>;
+}
+
+type RoutableOutput = SinkableOutput & {
 	setSinkId: (id: string) => Promise<void>;
 };
 
-const canRoute = (el: SinkableMediaElement): el is RoutableMediaElement =>
-	typeof el.setSinkId === "function";
+const canRoute = (output: SinkableOutput): output is RoutableOutput =>
+	typeof output.setSinkId === "function";
 
 export const applyAudioSink = async (
-	el: SinkableMediaElement,
+	output: SinkableOutput,
 	preferredDeviceId: string | undefined,
-	options: { force?: boolean } = {},
+	options: { force?: boolean; defaultId?: string } = {},
 ): Promise<string | null> => {
-	if (!canRoute(el)) return null;
+	if (!canRoute(output)) return null;
 
-	const target = preferredDeviceId || DEFAULT_SINK_ID;
+	const fallback = options.defaultId ?? DEFAULT_SINK_ID;
+	const target = preferredDeviceId || fallback;
 
-	if (!options.force && el.sinkId === target) return target;
+	if (!options.force && output.sinkId === target) return target;
 
 	try {
-		await el.setSinkId(target);
+		await output.setSinkId(target);
 		return target;
 	} catch (err) {
-		if (target === DEFAULT_SINK_ID) throw err;
+		if (target === fallback) throw err;
 	}
 
-	await el.setSinkId(DEFAULT_SINK_ID);
-	return DEFAULT_SINK_ID;
+	await output.setSinkId(fallback);
+	return fallback;
 };

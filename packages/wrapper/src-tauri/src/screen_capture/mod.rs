@@ -18,9 +18,14 @@ mod windows;
 #[cfg(target_os = "windows")]
 use self::windows as backend;
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(target_os = "linux")]
+use linux as backend;
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 mod unsupported;
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 use unsupported as backend;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,6 +97,26 @@ pub struct CaptureSource {
     pub has_thumbnail: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioApp {
+    pub id: String,
+    pub name: String,
+    pub process_id: Option<u32>,
+    pub icon_name: Option<String>,
+    pub binary: Option<String>,
+    pub preselected: bool,
+    pub router: bool,
+}
+
+pub fn matches_router(value: &str, prefixes: &[&str]) -> bool {
+    let lowered = value.trim().to_lowercase();
+    !lowered.is_empty()
+        && prefixes
+            .iter()
+            .any(|prefix| lowered.starts_with(&prefix.to_lowercase()))
+}
+
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CaptureQuality {
@@ -110,6 +135,20 @@ impl CaptureQuality {
             max_bitrate: self.max_bitrate.clamp(200_000, 60_000_000),
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PickerKind {
+    Sources,
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+    Portal,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapturePicker {
+    pub kind: PickerKind,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -210,11 +249,64 @@ pub async fn screen_capture_list_sources(
 }
 
 #[tauri::command]
+pub async fn screen_capture_list_audio_apps(
+    source_id: Option<String>,
+) -> Result<Vec<AudioApp>, NativeError> {
+    let source = source_id.as_deref().and_then(SourceId::parse);
+    backend::list_audio_apps(source).await
+}
+
+#[cfg(target_os = "linux")]
+#[tauri::command]
+pub fn screen_capture_picker() -> Result<CapturePicker, NativeError> {
+    Ok(backend::picker())
+}
+
+#[cfg(not(target_os = "linux"))]
+#[tauri::command]
+pub fn screen_capture_picker() -> Result<CapturePicker, NativeError> {
+    Ok(CapturePicker {
+        kind: PickerKind::Sources,
+    })
+}
+
+#[cfg(target_os = "linux")]
+async fn start_backend(
+    _app: &tauri::AppHandle<crate::AppRuntime>,
+    source: &SourceId,
+    quality: CaptureQuality,
+    capture_audio: bool,
+    audio_apps: Option<Vec<String>>,
+    sender: FrameSender,
+) -> Result<backend::Capture, NativeError> {
+    let options = backend::StartOptions {
+        quality,
+        capture_audio,
+        audio_apps,
+    };
+    backend::start(source, options, sender).await
+}
+
+#[cfg(not(target_os = "linux"))]
+async fn start_backend(
+    _app: &tauri::AppHandle<crate::AppRuntime>,
+    source: &SourceId,
+    quality: CaptureQuality,
+    capture_audio: bool,
+    audio_apps: Option<Vec<String>>,
+    sender: FrameSender,
+) -> Result<backend::Capture, NativeError> {
+    backend::start(source, quality, capture_audio, audio_apps, sender)
+}
+
+#[tauri::command]
 pub async fn screen_capture_start(
+    app: tauri::AppHandle<crate::AppRuntime>,
     state: State<'_, CaptureState>,
     source_id: String,
     quality: CaptureQuality,
     capture_audio: bool,
+    audio_apps: Option<Vec<String>>,
 ) -> Result<CaptureSession, NativeError> {
     let source = SourceId::parse(&source_id)
         .ok_or_else(|| NativeError::invalid_request("unrecognised capture source"))?;
@@ -223,7 +315,16 @@ pub async fn screen_capture_start(
 
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
     let server = server::spawn(receiver).await?;
-    let capture = match backend::start(&source, quality.sanitized(), capture_audio, sender) {
+    let capture = match start_backend(
+        &app,
+        &source,
+        quality.sanitized(),
+        capture_audio,
+        audio_apps,
+        sender,
+    )
+    .await
+    {
         Ok(capture) => capture,
         Err(error) => {
             server.handle.stop();
@@ -270,6 +371,15 @@ mod tests {
         for value in ["", "display", "display-", "nonsense-1", "-1"] {
             assert_eq!(SourceId::parse(value), None, "{value}");
         }
+    }
+
+    #[test]
+    fn a_router_matches_by_prefix_and_ignores_case() {
+        let table = ["voicemeeter", "com.rogueamoeba.loopback"];
+        assert!(matches_router("VoiceMeeterPro_x64", &table));
+        assert!(matches_router("com.rogueamoeba.Loopback", &table));
+        assert!(!matches_router("spotify", &table));
+        assert!(!matches_router("  ", &table));
     }
 
     #[test]

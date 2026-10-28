@@ -84,6 +84,15 @@ const button = (scope: ParentNode, name: string) =>
 			element.textContent?.trim() === name,
 	) as HTMLElement;
 
+const turnOnCamera = async () => {
+	const control = () => {
+		const status = document.querySelector<HTMLElement>("[data-voice-status]");
+		return status ? button(status, "Turn on camera") : undefined;
+	};
+	await expect.poll(control).toBeTruthy();
+	(control() as HTMLElement).click();
+};
+
 const header = () =>
 	document.querySelector<HTMLElement>(
 		'[data-outlet="header"] [data-channel-header="desktop"]',
@@ -277,18 +286,18 @@ it("shows the floating window with video away from the call and snaps it to corn
 	await expect.poll(() => voice.connection().state).toBe("connected");
 	await openGeneral(host);
 	expect(floating()).toBeNull();
-	button(
-		document.querySelector("[data-voice-status]") as HTMLElement,
-		"Turn on camera",
-	).click();
+	await turnOnCamera();
 	await expect.poll(() => floating()).not.toBeNull();
 	expect(floating()?.dataset.corner).toBe("br");
-	const surface = floating()?.querySelector(
-		"[data-floating-surface]",
-	) as HTMLElement;
-	surface.focus();
-	await userEvent.keyboard("{ArrowUp}");
-	await expect.poll(() => floating()?.dataset.corner).toBe("tr");
+	const surface = () =>
+		floating()?.querySelector<HTMLElement>("[data-floating-surface]");
+	await expect
+		.poll(async () => {
+			surface()?.focus();
+			await userEvent.keyboard("{ArrowUp}");
+			return floating()?.dataset.corner;
+		})
+		.toBe("tr");
 	expect(localStorage.getItem("colibri:voice-floating-corner")).toBe("tr");
 	await userEvent.keyboard("{ArrowLeft}");
 	await expect.poll(() => floating()?.dataset.corner).toBe("tl");
@@ -318,10 +327,7 @@ it("keeps the floating window hidden without video and after leaving", async () 
 	await openGeneral(host);
 	await new Promise((r) => setTimeout(r, 100));
 	expect(floating()).toBeNull();
-	button(
-		document.querySelector("[data-voice-status]") as HTMLElement,
-		"Turn on camera",
-	).click();
+	await turnOnCamera();
 	await expect.poll(() => floating()).not.toBeNull();
 	button(floating() as HTMLElement, "Disconnect").click();
 	await expect.poll(() => voice.current()).toBeUndefined();
@@ -333,10 +339,7 @@ it("returns to the call when double clicking the floating window", async () => {
 	await userEvent.click(button(stage(), "Join voice"));
 	await expect.poll(() => voice.connection().state).toBe("connected");
 	await openGeneral(host);
-	button(
-		document.querySelector("[data-voice-status]") as HTMLElement,
-		"Turn on camera",
-	).click();
+	await turnOnCamera();
 	await expect.poll(() => floating()).not.toBeNull();
 	const surface = floating()?.querySelector(
 		"[data-floating-surface]",
@@ -375,22 +378,18 @@ it("shares the grid focus with the floating window", async () => {
 	expect(
 		stage().querySelector("[data-voice-grid][data-focused]"),
 	).not.toBeNull();
-	button(
-		document.querySelector("[data-voice-status]") as HTMLElement,
-		"Turn on camera",
-	).click();
+	await turnOnCamera();
 	await openGeneral(host);
 	await expect.poll(() => floatingName()).toContain(otherName);
 
 	(floating()?.querySelector("[data-floating-surface]") as HTMLElement).focus();
 	await userEvent.keyboard("{Enter}");
-	await expect
-		.poll(() => stage()?.querySelector("[data-voice-grid][data-focused]"))
-		.not.toBeNull();
-	const focused = stage().querySelector<HTMLElement>(
-		'button[data-voice-tile][aria-pressed="true"]',
-	) as HTMLElement;
-	focused.click();
+	const focusedTile = () =>
+		stage()?.querySelector<HTMLElement>(
+			'[data-voice-grid][data-focused] button[data-voice-tile][aria-pressed="true"]',
+		);
+	await expect.poll(focusedTile).toBeTruthy();
+	(focusedTile() as HTMLElement).click();
 	await expect.poll(() => voice.focusedKey()).toBeNull();
 	await openGeneral(host);
 	await expect.poll(() => floatingName()).toBeTruthy();

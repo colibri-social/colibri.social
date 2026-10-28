@@ -2,8 +2,10 @@ import "../../app.css";
 import { render } from "solid-js/web";
 import { afterEach, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
+import { DEVICE_KEYS } from "../../data/device-prefs";
 import { createMockSource, setLatency } from "../../data/mock/source";
 import { createDataStore, DataContext } from "../../data/store";
+import { voice } from "../../data/voice";
 import { Providers } from "../../providers";
 import { DesktopShell } from "./DesktopShell";
 
@@ -12,8 +14,11 @@ const HQ = "did:plc:colibrihqspace2a4b6c8d";
 let dispose: (() => void) | undefined;
 
 afterEach(() => {
+	voice.leave();
 	dispose?.();
 	document.body.replaceChildren();
+	localStorage.removeItem(DEVICE_KEYS.lastChannel(HQ));
+	localStorage.removeItem(DEVICE_KEYS.lastSpace);
 });
 
 const mount = async (path: string) => {
@@ -45,6 +50,25 @@ it("opens the last or first text channel of the Space", async () => {
 			new RegExp(`^/app/c/${HQ}/social\\.colibri\\.beta\\.channel\\.text/`),
 		);
 	expect(document.querySelector("[data-app-shell]")).not.toBeNull();
+});
+
+it("reopens the voice stage after switching Spaces and back", async () => {
+	const stagePath = `/app/c/${HQ}/social.colibri.beta.channel.voice/lounge`;
+	await mount(stagePath);
+	await expect
+		.poll(() => document.querySelector("[data-voice-desktop]"))
+		.not.toBeNull();
+	await userEvent.click(
+		page.getByRole("button", { name: /Night Owls/ }).first(),
+	);
+	await expect.poll(() => location.pathname).not.toContain(HQ);
+	await userEvent.click(
+		page.getByRole("button", { name: /Colibri HQ/ }).first(),
+	);
+	await expect.poll(() => location.pathname).toBe(stagePath);
+	await expect
+		.poll(() => document.querySelector("[data-voice-desktop]"))
+		.not.toBeNull();
 });
 
 it("opens settings in a modal over the channel and closes back to it", async () => {

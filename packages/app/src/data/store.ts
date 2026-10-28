@@ -1190,35 +1190,52 @@ export const createDataStore = (
 			return data;
 		};
 
-		const markUnread = (message: MessageView) => {
-			const ref = message.channel;
-			if (viewing() === ref) return;
-			if (message.author.did === viewer.did) return;
+		const markChannelUnread = (ref: SpaceRef, mentions = 0) => {
 			const community = communityOfRef(ref);
 			const slug = skeyOf(ref);
 			const current = unread[community]?.[slug] ?? {
 				hasUnread: false,
 				mentions: 0,
 			};
-			setUnread(community, slug, { ...current, hasUnread: true });
+			setUnread(community, slug, {
+				hasUnread: true,
+				mentions: current.mentions + mentions,
+			});
 			const key = readKey(community, slug);
 			const known = readStates.get(key);
 			if (known) readStates.set(key, { ...known, hasUnread: true });
+		};
+
+		const markUnread = (message: MessageView) => {
+			const ref = message.channel;
+			if (viewing() === ref) return;
+			if (message.author.did === viewer.did) return;
+			markChannelUnread(ref);
 		};
 
 		const countedNotifications = new Set<string>();
 		source.subscribe((event) => {
 			if (event.$type !== "notificationEvent") return;
 			const view = event.notification;
-			if (view.thread || view.seenAt || !isPingNotification(view)) return;
+			if (view.seenAt || view.author?.did === viewer.did) return;
 			if (countedNotifications.has(view.id)) return;
 			countedNotifications.add(view.id);
-			const community = communityOfRef(view.channel);
-			const slug = skeyOf(view.channel);
-			const current = unread[community]?.[slug];
+			const ref = view.channel as SpaceRef;
+			const mentions = !view.thread && isPingNotification(view) ? 1 : 0;
+			const current = viewing();
+			const viewed =
+				current === ref || (!!view.thread && current === view.thread);
+			if (!viewed) {
+				markChannelUnread(ref, mentions);
+				return;
+			}
+			if (!mentions) return;
+			const community = communityOfRef(ref);
+			const slug = skeyOf(ref);
+			const state = unread[community]?.[slug];
 			setUnread(community, slug, {
-				hasUnread: viewing() !== view.channel || !!current?.hasUnread,
-				mentions: (current?.mentions ?? 0) + 1,
+				hasUnread: !!state?.hasUnread,
+				mentions: (state?.mentions ?? 0) + mentions,
 			});
 		});
 

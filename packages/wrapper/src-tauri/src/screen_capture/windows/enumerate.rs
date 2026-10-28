@@ -179,6 +179,11 @@ fn file_description(path: &str) -> Option<String> {
     }
 }
 
+pub fn process_name(process: u32) -> Option<String> {
+    let path = image_path(process)?;
+    Some(file_description(&path).unwrap_or_else(|| stem(&path)))
+}
+
 fn is_cloaked(handle: HWND) -> bool {
     let mut cloaked: u32 = 0;
     let outcome = unsafe {

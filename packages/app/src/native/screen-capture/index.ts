@@ -32,6 +32,20 @@ export type NativeCaptureQuality = {
 	maxBitrate: number;
 };
 
+export type NativeCapturePicker = {
+	kind: "sources" | "portal";
+};
+
+export type NativeAudioApp = {
+	id: string;
+	name: string;
+	processId: number | null;
+	iconName: string | null;
+	binary: string | null;
+	preselected: boolean;
+	router: boolean;
+};
+
 export type NativeCaptureTrack = {
 	track: MediaStreamTrack;
 	audioTrack: MediaStreamTrack | null;
@@ -117,15 +131,27 @@ export const openScreenRecordingSettings = (): Promise<void> =>
 export const listNativeCaptureSources = (): Promise<NativeCaptureSource[]> =>
 	invoke<NativeCaptureSource[]>("screen_capture_list_sources");
 
+export const nativeCapturePicker = (): Promise<NativeCapturePicker> =>
+	invoke<NativeCapturePicker>("screen_capture_picker");
+
+export const listNativeAudioApps = (
+	sourceId?: string,
+): Promise<NativeAudioApp[]> =>
+	invoke<NativeAudioApp[]>("screen_capture_list_audio_apps", {
+		sourceId: sourceId ?? null,
+	});
+
 export const startNativeCapture = (
 	sourceId: string,
 	quality: NativeCaptureQuality,
 	captureAudio: boolean,
+	audioApps?: string[],
 ): Promise<NativeCaptureSession> =>
 	invoke<NativeCaptureSession>("screen_capture_start", {
 		sourceId,
 		quality,
 		captureAudio,
+		audioApps: audioApps ?? null,
 	});
 
 export const stopNativeCapture = async (): Promise<void> => {

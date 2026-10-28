@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
 	applyAudioSink,
+	DEFAULT_CONTEXT_SINK_ID,
 	DEFAULT_SINK_ID,
 	type SinkableMediaElement,
 } from "./audio-sink";
@@ -66,5 +67,16 @@ describe("applyAudioSink", () => {
 
 	it("does nothing on engines without sink selection", async () => {
 		await expect(applyAudioSink({}, "speaker-1")).resolves.toBeNull();
+	});
+
+	it("falls back to the given default id for audio contexts", async () => {
+		const context = routableElement("", (id) => id === "unplugged");
+
+		await expect(
+			applyAudioSink(context, "unplugged", {
+				defaultId: DEFAULT_CONTEXT_SINK_ID,
+			}),
+		).resolves.toBe(DEFAULT_CONTEXT_SINK_ID);
+		expect(context.setSinkId).toHaveBeenLastCalledWith(DEFAULT_CONTEXT_SINK_ID);
 	});
 });

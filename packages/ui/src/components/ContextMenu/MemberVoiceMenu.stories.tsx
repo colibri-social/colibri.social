@@ -25,6 +25,7 @@ const spy = {
 	copyAtUri: fn(),
 	volume: fn(),
 	streamVolume: fn(),
+	streamMuted: fn(),
 	serverMuted: fn(),
 	serverDeafened: fn(),
 	disconnect: fn(),
@@ -40,11 +41,28 @@ const resetSpies = () => {
 	for (const value of Object.values(spy)) value.mockClear();
 };
 
-type VoiceRole = "peer" | "self" | "observer";
+type VoiceRole = "peer" | "self" | "observer" | "stream";
 
 const createVoice = (role: VoiceRole) => {
 	const [volume, setVolume] = createSignal(100);
 	const [streamVolume, setStreamVolume] = createSignal(60);
+	const [streamMuted, setStreamMuted] = createSignal(false);
+	const stream: MemberMenuVoice = {
+		get streamVolume() {
+			return streamVolume();
+		},
+		onStreamVolumeChange: (value: number) => {
+			spy.streamVolume(value);
+			setStreamVolume(value);
+		},
+		get streamMuted() {
+			return streamMuted();
+		},
+		onStreamMutedChange: (muted: boolean) => {
+			spy.streamMuted(muted);
+			setStreamMuted(muted);
+		},
+	};
 	const [serverMuted, setServerMuted] = createSignal(false);
 	const [serverDeafened, setServerDeafened] = createSignal(true);
 	const [selfMuted, setSelfMuted] = createSignal(false);
@@ -74,23 +92,21 @@ const createVoice = (role: VoiceRole) => {
 		onDisconnect: spy.disconnect,
 	};
 	if (role === "observer") return moderation;
+	if (role === "stream") return stream;
 	if (role === "peer") {
-		return mergeProps(moderation, {
-			get volume() {
-				return volume();
-			},
-			onVolumeChange: (value: number) => {
-				spy.volume(value);
-				setVolume(value);
-			},
-			get streamVolume() {
-				return streamVolume();
-			},
-			onStreamVolumeChange: (value: number) => {
-				spy.streamVolume(value);
-				setStreamVolume(value);
-			},
-		} satisfies MemberMenuVoice);
+		return mergeProps(
+			moderation,
+			{
+				get volume() {
+					return volume();
+				},
+				onVolumeChange: (value: number) => {
+					spy.volume(value);
+					setVolume(value);
+				},
+			} satisfies MemberMenuVoice,
+			stream,
+		);
 	}
 	return {
 		get selfMuted() {
@@ -229,6 +245,7 @@ export const PeerInCall: Story = {
 		await expect(entryNames(menu)).toEqual([
 			"slider:100%",
 			"slider:60%",
+			"Mute stream",
 			"Server mute",
 			"Server deafen",
 			"Move to",
@@ -311,6 +328,39 @@ export const SelfInCall: Story = {
 	},
 };
 
+export const ScreenShareTile: Story = {
+	render: () => <DesktopDemo kind="stream" />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const menu = await openMenu(canvasElement);
+		await expectNoLayoutIssues(menu);
+		await expect(entryNames(menu)).toEqual([
+			"slider:60%",
+			"Mute stream",
+			...REGULAR_ENTRIES,
+		]);
+		const slider = within(menu).getByRole("slider", { name: "Stream volume" });
+		const mute = within(menu).getByRole("menuitemcheckbox", {
+			name: "Mute stream",
+		});
+		const sliderBox = slider.getBoundingClientRect();
+		const muteBox = mute.getBoundingClientRect();
+		await expect(muteBox.top).toBeGreaterThanOrEqual(sliderBox.bottom);
+		await expect(mute).toHaveAttribute("aria-checked", "false");
+		await userEvent.click(mute);
+		await expect(spy.streamMuted).toHaveBeenLastCalledWith(true);
+		await waitFor(() => expect(mute).toHaveAttribute("aria-checked", "true"));
+		await expect(screen.getByRole("menu", { name: MENU })).toBe(menu);
+		await expect(slider).toHaveAttribute("aria-valuetext", "60%");
+		await userEvent.click(mute);
+		await expect(spy.streamMuted).toHaveBeenLastCalledWith(false);
+		await waitFor(() => expect(mute).toHaveAttribute("aria-checked", "false"));
+		await expect(slider).toHaveAttribute("aria-valuetext", "60%");
+		await expect(spy.streamVolume).not.toHaveBeenCalled();
+		await closeMenu();
+	},
+};
+
 export const ModeratorOutsideCall: Story = {
 	render: () => <DesktopDemo kind="observer" />,
 	play: async ({ canvasElement }) => {
@@ -376,6 +426,16 @@ export const DrawerPeerInCall: Story = {
 		volume.focus();
 		await userEvent.keyboard("{ArrowLeft}");
 		await waitFor(() => expect(spy.volume).toHaveBeenLastCalledWith(99));
+		const muteStream = within(dialog).getByRole("checkbox", {
+			name: "Mute stream",
+		});
+		await expect(muteStream).not.toBeChecked();
+		await userEvent.click(muteStream);
+		await expect(spy.streamMuted).toHaveBeenLastCalledWith(true);
+		await waitFor(() => expect(muteStream).toBeChecked());
+		await expect(
+			within(dialog).getByRole("slider", { name: "Stream volume" }),
+		).toHaveAttribute("aria-valuetext", "60%");
 		await expect(
 			within(dialog).getByRole("switch", { name: "Server deafen" }),
 		).toBeChecked();

@@ -78,14 +78,68 @@ const stopStream = (stream: MediaStream) => {
 };
 
 export const microphoneConstraints = (input: {
-	microphone?: string;
 	noiseSuppression: boolean;
 }): MediaTrackConstraints => ({
-	...(input.microphone ? { deviceId: { exact: input.microphone } } : {}),
 	noiseSuppression: input.noiseSuppression,
 	echoCancellation: true,
 	autoGainControl: true,
 });
+
+const isMissingDevice = (error: unknown) => {
+	const name = (error as { name?: unknown } | null)?.name;
+	return name === "OverconstrainedError" || name === "NotFoundError";
+};
+
+type GetUserMedia = (
+	constraints: MediaStreamConstraints,
+) => Promise<MediaStream>;
+
+type MediaDeviceKindName = "microphone" | "camera";
+
+const STREAM_KEY: Record<MediaDeviceKindName, "audio" | "video"> = {
+	microphone: "audio",
+	camera: "video",
+};
+
+export const openMediaDevice = async (
+	getUserMedia: GetUserMedia,
+	kind: MediaDeviceKindName,
+	constraints: MediaTrackConstraints,
+	deviceId: string | undefined,
+): Promise<MediaStream> => {
+	const key = STREAM_KEY[kind];
+	if (!deviceId) return getUserMedia({ [key]: constraints });
+	try {
+		return await getUserMedia({
+			[key]: { ...constraints, deviceId: { exact: deviceId } },
+		});
+	} catch (error) {
+		if (!isMissingDevice(error)) throw error;
+		log.info(`saved ${kind} is missing, using the system default`, {
+			code: classifyThrown(error).code,
+		});
+		return getUserMedia({ [key]: constraints });
+	}
+};
+
+export const openMicrophone = (
+	getUserMedia: GetUserMedia,
+	constraints: MediaTrackConstraints,
+	microphone: string | undefined,
+): Promise<MediaStream> =>
+	openMediaDevice(getUserMedia, "microphone", constraints, microphone);
+
+export const CAMERA_FRAME: MediaTrackConstraints = {
+	width: { ideal: 1280 },
+	height: { ideal: 720 },
+	aspectRatio: { ideal: 16 / 9 },
+};
+
+export const openCamera = (
+	getUserMedia: GetUserMedia,
+	camera: string | undefined,
+): Promise<MediaStream> =>
+	openMediaDevice(getUserMedia, "camera", CAMERA_FRAME, camera);
 
 export const levelOf = (samples: Uint8Array, gain = 1) => {
 	if (samples.length === 0) return 0;
@@ -108,9 +162,11 @@ export const startMicTest = async (input: {
 	const devices = mediaDevices();
 	if (!devices?.getUserMedia)
 		throw new ColibriError({ code: "DeviceUnavailable" });
-	const stream = await devices.getUserMedia({
-		audio: microphoneConstraints(input),
-	});
+	const stream = await openMicrophone(
+		(constraints) => devices.getUserMedia(constraints),
+		microphoneConstraints(input),
+		input.microphone,
+	);
 	const context = new AudioContext({ latencyHint: "interactive" });
 	const analyser = context.createAnalyser();
 	analyser.fftSize = 1024;
@@ -138,7 +194,9 @@ export const startCameraPreview = async (camera?: string) => {
 	if (!devices?.getUserMedia)
 		throw new ColibriError({ code: "DeviceUnavailable" });
 	return devices.getUserMedia({
-		video: camera ? { deviceId: { exact: camera } } : true,
+		video: camera
+			? { ...CAMERA_FRAME, deviceId: { exact: camera } }
+			: CAMERA_FRAME,
 	});
 };
 

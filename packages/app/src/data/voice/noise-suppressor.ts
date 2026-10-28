@@ -27,14 +27,11 @@ export interface NoiseSuppressorOptions {
 	onSpeaking?: (speaking: boolean) => void;
 }
 
-export const captureConstraints = (
-	preferredDeviceId?: string,
-): MediaTrackConstraints => ({
+export const captureConstraints = (): MediaTrackConstraints => ({
 	echoCancellation: true,
 	autoGainControl: false,
 	noiseSuppression: false,
 	channelCount: 1,
-	deviceId: preferredDeviceId ? { ideal: preferredDeviceId } : undefined,
 });
 
 const passthrough = (rawTrack: MediaStreamTrack): NoiseSuppressor => ({

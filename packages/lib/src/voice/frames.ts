@@ -47,6 +47,10 @@ export type ConsumeFrame = ReturnType<typeof defs.consume.build>;
 export type ResumeConsumerFrame = ReturnType<typeof defs.resumeConsumer.build>;
 export type SetSelfStateFrame = ReturnType<typeof defs.setSelfState.build>;
 export type VoiceHeartbeatFrame = ReturnType<typeof defs.heartbeat.build>;
+export type SetSpeakingFrame = {
+	$type: "social.colibri.beta.voice.defs#setSpeaking";
+	speaking: boolean;
+};
 
 export type ClientVoiceFrame =
 	| JoinFrame
@@ -59,6 +63,7 @@ export type ClientVoiceFrame =
 	| ConsumeFrame
 	| ResumeConsumerFrame
 	| SetSelfStateFrame
+	| SetSpeakingFrame
 	| VoiceHeartbeatFrame;
 
 export type RtpCapabilitiesFrame = ReturnType<
@@ -161,6 +166,11 @@ export const setSelfStateFrame = (state: {
 	muted?: boolean;
 	deafened?: boolean;
 }): SetSelfStateFrame => defs.setSelfState.build(state);
+
+export const setSpeakingFrame = (speaking: boolean): SetSpeakingFrame => ({
+	$type: "social.colibri.beta.voice.defs#setSpeaking",
+	speaking,
+});
 
 export const voiceHeartbeatFrame = (): VoiceHeartbeatFrame =>
 	defs.heartbeat.build({});

@@ -1,7 +1,7 @@
 {
 	"$schema": "https://schema.tauri.app/config/2",
 	"productName": "Colibri Social",
-	"version": "0.6.0-spaces.14",
+	"version": "0.6.0-spaces.16",
 	"identifier": "social.colibri.app",
 	"build": {
 		"beforeDevCommand": "pnpm dev",
@@ -66,7 +66,7 @@
 	"plugins": {
 		"updater": {
 			"endpoints": [
-				"https://colibri.social/{{target}}/{{arch}}/{{current_version}}"
+				"https://colibri.social/{{target}}/{{arch}}/{{current_version}}?bundle={{bundle_type}}"
 			],
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ3NkY0NTJDMDNDREY5RkYKUldULytjMERMRVZ2MXhOWGlSTHZJbGFFV1lUbFZBQUJSSmN2VTE1clhmWnEyNjRFd0hFK3AvWkoK"
 		},

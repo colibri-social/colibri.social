@@ -1,7 +1,7 @@
 export const AUDIO_SAMPLE_RATE = 48_000;
 export const AUDIO_PROCESSOR = "colibri-capture-audio";
 
-const MAX_QUEUED_CHUNKS = 48;
+const MAX_QUEUED_FRAMES = AUDIO_SAMPLE_RATE / 10;
 
 export const WORKLET_SOURCE = `
 class ColibriCaptureAudio extends AudioWorkletProcessor {
@@ -9,12 +9,14 @@ class ColibriCaptureAudio extends AudioWorkletProcessor {
 		super();
 		this.queue = [];
 		this.offset = 0;
+		this.queued = 0;
 		this.port.onmessage = (event) => {
-			while (this.queue.length >= ${MAX_QUEUED_CHUNKS}) {
-				this.queue.shift();
+			this.queue.push(event.data);
+			this.queued += event.data.frames;
+			while (this.queue.length > 1 && this.queued - this.offset > ${MAX_QUEUED_FRAMES}) {
+				this.queued -= this.queue.shift().frames;
 				this.offset = 0;
 			}
-			this.queue.push(event.data);
 		};
 	}
 
@@ -42,7 +44,7 @@ class ColibriCaptureAudio extends AudioWorkletProcessor {
 			written += take;
 
 			if (this.offset >= chunk.frames) {
-				this.queue.shift();
+				this.queued -= this.queue.shift().frames;
 				this.offset = 0;
 			}
 		}

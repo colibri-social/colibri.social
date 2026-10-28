@@ -3,7 +3,10 @@ import {
 	clampVolume,
 	isParticipantVolumes,
 	playbackGain,
+	playbackVolumeOf,
+	streamMutedOf,
 	volumeOf,
+	withStreamMuted,
 	withVolume,
 } from "./volumes";
 
@@ -24,6 +27,22 @@ describe("participant volumes", () => {
 		});
 	});
 
+	it("mutes a stream without touching its slider volume", () => {
+		const quieter = withVolume({}, PEER, "stream", 60);
+		const muted = withStreamMuted(quieter, PEER, true);
+		expect(muted).toEqual({ [PEER]: { stream: 60, streamMuted: true } });
+		expect(streamMutedOf(muted, PEER)).toBe(true);
+		expect(volumeOf(muted, PEER, "stream")).toBe(60);
+		expect(playbackVolumeOf(muted, PEER, "stream")).toBe(0);
+		expect(playbackVolumeOf(muted, PEER, "voice")).toBe(100);
+		const unmuted = withStreamMuted(muted, PEER, false);
+		expect(unmuted).toEqual({ [PEER]: { stream: 60 } });
+		expect(playbackVolumeOf(unmuted, PEER, "stream")).toBe(60);
+		expect(
+			withStreamMuted(withStreamMuted({}, PEER, true), PEER, false),
+		).toEqual({});
+	});
+
 	it("clamps to the slider range", () => {
 		expect(clampVolume(-4)).toBe(0);
 		expect(clampVolume(250)).toBe(200);
@@ -41,6 +60,10 @@ describe("participant volumes", () => {
 	it("rejects stored values it can't use", () => {
 		expect(isParticipantVolumes({ [PEER]: { voice: 120 } })).toBe(true);
 		expect(isParticipantVolumes({ [PEER]: { voice: 500 } })).toBe(false);
+		expect(isParticipantVolumes({ [PEER]: { streamMuted: true } })).toBe(true);
+		expect(isParticipantVolumes({ [PEER]: { streamMuted: "yes" } })).toBe(
+			false,
+		);
 		expect(isParticipantVolumes({ [PEER]: "loud" })).toBe(false);
 		expect(isParticipantVolumes([])).toBe(false);
 		expect(isParticipantVolumes(null)).toBe(false);

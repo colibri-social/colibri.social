@@ -1,10 +1,12 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { DEVICE_KEYS } from "../../../data/device-prefs";
+import { voiceSettings } from "../../../data/voice-settings";
 import { cleanup, mountPage } from "./page-test-kit";
 import VoiceVideoPage from "./voice-video";
 
 const original = navigator.mediaDevices;
+const deviceListeners = new Set<() => void>();
 
 const fakeStream = (kind: "audio" | "video") => {
 	if (kind === "video") {
@@ -37,8 +39,10 @@ const stubDevices = (options: { cameraDenied?: boolean } = {}) => {
 				{ deviceId: "mic-2", kind: "audioinput", label: "Headset" },
 				{ deviceId: "cam-1", kind: "videoinput", label: "Webcam" },
 			],
-			addEventListener: () => {},
-			removeEventListener: () => {},
+			addEventListener: (_: string, listener: () => void) =>
+				deviceListeners.add(listener),
+			removeEventListener: (_: string, listener: () => void) =>
+				deviceListeners.delete(listener),
 		},
 	});
 	return getUserMedia;
@@ -46,6 +50,8 @@ const stubDevices = (options: { cameraDenied?: boolean } = {}) => {
 
 afterEach(() => {
 	cleanup();
+	deviceListeners.clear();
+	voiceSettings().update({ microphone: undefined });
 	localStorage.removeItem(DEVICE_KEYS.voiceSettings);
 	Object.defineProperty(navigator, "mediaDevices", {
 		configurable: true,
@@ -121,5 +127,32 @@ it("explains a blocked camera", async () => {
 		.toBeVisible();
 	await expect
 		.element(page.getByRole("button", { name: "Try again" }))
+		.toBeVisible();
+});
+
+it("keeps the microphone test running when the device list refreshes", async () => {
+	const getUserMedia = stubDevices();
+	voiceSettings().update({ microphone: "mic-2" });
+	await mountPage(() => <VoiceVideoPage platform="desktop" />);
+	await expect
+		.element(page.getByRole("button", { name: /Microphone/ }).first())
+		.toHaveTextContent("Headset");
+
+	await userEvent.click(page.getByRole("button", { name: "Test microphone" }));
+	await expect
+		.element(page.getByRole("button", { name: "Stop test" }))
+		.toBeVisible();
+	for (const listener of deviceListeners) listener();
+	await new Promise((resolve) => setTimeout(resolve, 300));
+
+	const audioCalls = getUserMedia.mock.calls.filter(
+		([constraints]) => !!constraints.audio,
+	);
+	expect(audioCalls).toHaveLength(1);
+	expect(audioCalls[0]?.[0].audio).toMatchObject({
+		deviceId: { exact: "mic-2" },
+	});
+	await expect
+		.element(page.getByRole("button", { name: "Stop test" }))
 		.toBeVisible();
 });

@@ -1110,9 +1110,22 @@ wrap_app! {
       if let Some(command_line) = command_line {
         for (arg, value) in &self.command_line_args {
           if let Some(value) = value {
+            let name = CefString::from(arg.as_str());
+            let merged = if matches!(arg.as_str(), "disable-features" | "enable-features")
+              && command_line.has_switch(Some(&name)) != 0
+            {
+              let existing = CefString::from(&command_line.switch_value(Some(&name))).to_string();
+              if existing.is_empty() {
+                value.clone()
+              } else {
+                format!("{existing},{value}")
+              }
+            } else {
+              value.clone()
+            };
             command_line.append_switch_with_value(
-              Some(&CefString::from(arg.as_str())),
-              Some(&CefString::from(value.as_str())),
+              Some(&name),
+              Some(&CefString::from(merged.as_str())),
             );
           } else if arg.starts_with("-") {
             command_line.append_switch(Some(&CefString::from(arg.as_str())));

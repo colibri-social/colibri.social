@@ -119,6 +119,55 @@ export const Mobile: Story = {
 	},
 };
 
+const RefreshingSelect = () => {
+	const [options, setOptions] = createSignal(microphones);
+	const [value, setValue] = createSignal("studio");
+	const [changes, setChanges] = createSignal(0);
+	return (
+		<>
+			<Select
+				platform="desktop"
+				label="Input device"
+				options={options()}
+				value={value()}
+				onChange={(next) => {
+					setChanges((count) => count + 1);
+					setValue(next);
+				}}
+			/>
+			<button
+				type="button"
+				onClick={() => setOptions(microphones.map((option) => ({ ...option })))}
+			>
+				Refresh devices
+			</button>
+			<p data-testid="changes">{changes()}</p>
+		</>
+	);
+};
+
+export const RefreshedOptions: Story = {
+	render: () => <RefreshingSelect />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const refresh = canvas.getByRole("button", { name: "Refresh devices" });
+		await userEvent.click(refresh);
+		await userEvent.click(refresh);
+		await expect(canvas.getByTestId("changes")).toHaveTextContent("0");
+		const trigger = canvas.getByRole("button", { name: /Input device/ });
+		await expect(trigger).toHaveTextContent("Studio USB microphone");
+		await userEvent.click(trigger);
+		const listbox = await screen.findByRole("listbox");
+		await userEvent.click(
+			within(listbox).getByRole("option", { name: /Wireless headset/ }),
+		);
+		await expect(canvas.getByTestId("changes")).toHaveTextContent("1");
+		await userEvent.click(refresh);
+		await expect(canvas.getByTestId("changes")).toHaveTextContent("1");
+		await expect(trigger).toHaveTextContent("Wireless headset");
+	},
+};
+
 export const States: Story = {
 	render: () => (
 		<>

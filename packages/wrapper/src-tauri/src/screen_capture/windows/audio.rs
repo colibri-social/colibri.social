@@ -1,8 +1,10 @@
+use std::collections::VecDeque;
 use std::mem::ManuallyDrop;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 
 use windows::core::{implement, Interface, Ref, Result as WindowsResult};
 use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_OBJECT_0};
@@ -35,6 +37,9 @@ const SAMPLE_RATE: u32 = 48_000;
 const BUFFER_DURATION: i64 = 200_000;
 const ACTIVATION_TIMEOUT_MS: u32 = 5_000;
 const WAIT_TIMEOUT_MS: u32 = 200;
+const MIX_TICK: Duration = Duration::from_millis(10);
+const MIX_DELAY: Duration = Duration::from_millis(40);
+const MIX_BACKLOG_FRAMES: usize = SAMPLE_RATE as usize / 5;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Target {
@@ -153,9 +158,28 @@ fn activate(target: Target) -> WindowsResult<IAudioClient> {
         .cast::<IAudioClient>()
 }
 
-fn planar(interleaved: &[u8], frames: u32, float: bool) -> Option<CaptureMessage> {
+fn interleaved_samples(interleaved: &[u8], frames: u32, float: bool) -> Option<Vec<f32>> {
+    let count = frames as usize * usize::from(MAX_CHANNELS);
+    let width = if float { 4 } else { 2 };
+    let bytes = interleaved.get(..count * width)?;
+
+    Some(
+        bytes
+            .chunks_exact(width)
+            .map(|sample| {
+                if float {
+                    f32::from_le_bytes([sample[0], sample[1], sample[2], sample[3]])
+                } else {
+                    f32::from(i16::from_le_bytes([sample[0], sample[1]])) / f32::from(i16::MAX)
+                }
+            })
+            .collect(),
+    )
+}
+
+fn planar_message(samples: &[f32]) -> Option<CaptureMessage> {
     let channels = usize::from(MAX_CHANNELS);
-    let count = frames as usize;
+    let count = samples.len() / channels;
     if count == 0 {
         return None;
     }
@@ -164,25 +188,19 @@ fn planar(interleaved: &[u8], frames: u32, float: bool) -> Option<CaptureMessage
 
     for channel in 0..channels {
         for frame in 0..count {
-            let index = frame * channels + channel;
-            let sample = if float {
-                let offset = index * 4;
-                let bytes = interleaved.get(offset..offset + 4)?;
-                f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])
-            } else {
-                let offset = index * 2;
-                let bytes = interleaved.get(offset..offset + 2)?;
-                f32::from(i16::from_le_bytes([bytes[0], bytes[1]])) / f32::from(i16::MAX)
-            };
-            data.extend_from_slice(&sample.to_le_bytes());
+            data.extend_from_slice(&samples[frame * channels + channel].to_le_bytes());
         }
     }
 
     Some(CaptureMessage::Audio {
         channels: MAX_CHANNELS as u8,
-        frames,
+        frames: count as u32,
         data,
     })
+}
+
+fn planar(interleaved: &[u8], frames: u32, float: bool) -> Option<CaptureMessage> {
+    planar_message(&interleaved_samples(interleaved, frames, float)?)
 }
 
 fn silence(frames: u32) -> CaptureMessage {
@@ -247,7 +265,11 @@ fn open(target: Target) -> WindowsResult<Stream> {
     })
 }
 
-fn pump(stream: &Stream, sender: &FrameSender, running: &AtomicBool) {
+fn pump(
+    stream: &Stream,
+    running: &AtomicBool,
+    mut deliver: impl FnMut(u32, Option<&[u8]>) -> bool,
+) {
     while running.load(Ordering::Acquire) {
         unsafe { WaitForSingleObject(stream.signal.0, WAIT_TIMEOUT_MS) };
 
@@ -274,25 +296,21 @@ fn pump(stream: &Stream, sender: &FrameSender, running: &AtomicBool) {
             }
 
             if frames > 0 {
-                let message = if flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 != 0 || data.is_null()
-                {
-                    Some(silence(frames))
+                let bytes = if flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 != 0 || data.is_null() {
+                    None
                 } else {
                     let width = if stream.float { 4 } else { 2 };
-                    let bytes = unsafe {
+                    Some(unsafe {
                         std::slice::from_raw_parts(
                             data,
                             frames as usize * usize::from(MAX_CHANNELS) * width,
                         )
-                    };
-                    planar(bytes, frames, stream.float)
+                    })
                 };
 
-                if let Some(message) = message {
-                    if sender.send(message).is_err() {
-                        let _ = unsafe { stream.capture.ReleaseBuffer(frames) };
-                        return;
-                    }
+                if !deliver(frames, bytes) {
+                    let _ = unsafe { stream.capture.ReleaseBuffer(frames) };
+                    return;
                 }
             }
 
@@ -303,26 +321,116 @@ fn pump(stream: &Stream, sender: &FrameSender, running: &AtomicBool) {
     }
 }
 
+fn send_packet(sender: &FrameSender, frames: u32, bytes: Option<&[u8]>, float: bool) -> bool {
+    let message = match bytes {
+        None => Some(silence(frames)),
+        Some(bytes) => planar(bytes, frames, float),
+    };
+    match message {
+        Some(message) => sender.send(message).is_ok(),
+        None => true,
+    }
+}
+
+struct Mixer {
+    sources: Vec<Mutex<VecDeque<f32>>>,
+}
+
+impl Mixer {
+    fn with_sources(count: usize) -> Self {
+        Self {
+            sources: (0..count).map(|_| Mutex::default()).collect(),
+        }
+    }
+
+    fn push(&self, source: usize, frames: u32, bytes: Option<&[u8]>, float: bool) {
+        let Some(buffer) = self.sources.get(source) else {
+            return;
+        };
+        let samples = match bytes {
+            None => vec![0.0; frames as usize * usize::from(MAX_CHANNELS)],
+            Some(bytes) => match interleaved_samples(bytes, frames, float) {
+                Some(samples) => samples,
+                None => return,
+            },
+        };
+        let Ok(mut buffer) = buffer.lock() else {
+            return;
+        };
+        buffer.extend(samples);
+        let limit = MIX_BACKLOG_FRAMES * usize::from(MAX_CHANNELS);
+        if buffer.len() > limit {
+            let excess = buffer.len() - limit;
+            buffer.drain(..excess);
+        }
+    }
+
+    fn take(&self, frames: usize) -> Vec<f32> {
+        let wanted = frames * usize::from(MAX_CHANNELS);
+        let mut mixed = vec![0.0f32; wanted];
+        for buffer in &self.sources {
+            let Ok(mut buffer) = buffer.lock() else {
+                continue;
+            };
+            let available = buffer.len().min(wanted);
+            for (slot, sample) in mixed.iter_mut().zip(buffer.drain(..available)) {
+                *slot += sample;
+            }
+        }
+        for sample in &mut mixed {
+            *sample = sample.clamp(-1.0, 1.0);
+        }
+        mixed
+    }
+}
+
+fn frames_due(elapsed: Duration) -> u64 {
+    let delayed = elapsed.saturating_sub(MIX_DELAY);
+    (delayed.as_micros() * u128::from(SAMPLE_RATE) / 1_000_000) as u64
+}
+
+fn run_mixer(mixer: &Mixer, sender: &FrameSender, running: &AtomicBool) {
+    let started = Instant::now();
+    let mut emitted = 0u64;
+    while running.load(Ordering::Acquire) {
+        std::thread::sleep(MIX_TICK);
+        let due = frames_due(started.elapsed());
+        if due <= emitted {
+            continue;
+        }
+        let frames = (due - emitted) as usize;
+        emitted = due;
+        if let Some(message) = planar_message(&mixer.take(frames)) {
+            if sender.send(message).is_err() {
+                return;
+            }
+        }
+    }
+}
+
 pub struct Capture {
     running: Arc<AtomicBool>,
-    worker: Option<JoinHandle<()>>,
+    workers: Vec<JoinHandle<()>>,
 }
 
 impl Capture {
-    pub fn stop(mut self) {
+    pub fn stop(self) {
         self.running.store(false, Ordering::Release);
-        if let Some(worker) = self.worker.take() {
+        for worker in self.workers {
             let _ = worker.join();
         }
     }
 }
 
-pub fn start(target: Target, sender: FrameSender) -> Result<Capture, NativeError> {
-    let running = Arc::new(AtomicBool::new(true));
-    let flag = running.clone();
-    let (ready, started) = mpsc::channel::<Result<(), String>>();
+type Ready = mpsc::Sender<Result<(), String>>;
 
-    let worker = std::thread::Builder::new()
+fn spawn_source(
+    target: Target,
+    running: Arc<AtomicBool>,
+    ready: Ready,
+    deliver: impl FnMut(u32, Option<&[u8]>, bool) -> bool + Send + 'static,
+) -> std::io::Result<JoinHandle<()>> {
+    std::thread::Builder::new()
         .name("colibri-capture-audio".to_string())
         .spawn(move || {
             let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
@@ -338,29 +446,102 @@ pub fn start(target: Target, sender: FrameSender) -> Result<Capture, NativeError
                 }
             };
 
-            pump(&stream, &sender, &flag);
+            let float = stream.float;
+            let mut deliver = deliver;
+            pump(&stream, &running, |frames, bytes| {
+                deliver(frames, bytes, float)
+            });
 
             let _ = unsafe { stream.client.Stop() };
         })
-        .map_err(|error| {
-            NativeError::failed(format!("could not start capturing audio: {error}"))
-        })?;
+}
 
-    match started.recv_timeout(std::time::Duration::from_millis(
-        ACTIVATION_TIMEOUT_MS as u64 + 1_000,
-    )) {
-        Ok(Ok(())) => Ok(Capture {
-            running,
-            worker: Some(worker),
-        }),
-        Ok(Err(message)) => Err(NativeError::failed(format!(
-            "could not capture that audio: {message}"
-        ))),
-        Err(_) => {
-            running.store(false, Ordering::Release);
-            Err(NativeError::failed("the audio capture never started"))
+pub fn start(targets: Vec<Target>, sender: FrameSender) -> Result<Capture, NativeError> {
+    if targets.is_empty() {
+        return Err(NativeError::invalid_request("no app was chosen for sound"));
+    }
+
+    let running = Arc::new(AtomicBool::new(true));
+    let (ready, started) = mpsc::channel::<Result<(), String>>();
+    let mut workers = Vec::new();
+    let spawn_failed = |error: std::io::Error| {
+        NativeError::failed(format!("could not start capturing audio: {error}"))
+    };
+
+    let mixer = if targets.len() == 1 {
+        let sender = sender.clone();
+        workers.push(
+            spawn_source(
+                targets[0],
+                running.clone(),
+                ready,
+                move |frames, bytes, float| send_packet(&sender, frames, bytes, float),
+            )
+            .map_err(spawn_failed)?,
+        );
+        None
+    } else {
+        let mixer = Arc::new(Mixer::with_sources(targets.len()));
+        for (index, target) in targets.iter().enumerate() {
+            let mixer = mixer.clone();
+            let spawned = spawn_source(
+                *target,
+                running.clone(),
+                ready.clone(),
+                move |frames, bytes, float| {
+                    mixer.push(index, frames, bytes, float);
+                    true
+                },
+            );
+            match spawned {
+                Ok(worker) => workers.push(worker),
+                Err(error) => {
+                    running.store(false, Ordering::Release);
+                    return Err(spawn_failed(error));
+                }
+            }
+        }
+        drop(ready);
+        Some(mixer)
+    };
+
+    let deadline = Instant::now() + Duration::from_millis(ACTIVATION_TIMEOUT_MS as u64 + 1_000);
+    let mut opened = 0usize;
+    let mut failure: Option<String> = None;
+    for _ in 0..targets.len() {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        match started.recv_timeout(remaining) {
+            Ok(Ok(())) => opened += 1,
+            Ok(Err(message)) => failure = Some(message),
+            Err(_) => break,
         }
     }
+
+    if opened == 0 {
+        running.store(false, Ordering::Release);
+        return Err(match failure {
+            Some(message) => {
+                NativeError::failed(format!("could not capture that audio: {message}"))
+            }
+            None => NativeError::failed("the audio capture never started"),
+        });
+    }
+
+    if let Some(mixer) = mixer {
+        let flag = running.clone();
+        let spawned = std::thread::Builder::new()
+            .name("colibri-capture-audio-mix".to_string())
+            .spawn(move || run_mixer(&mixer, &sender, &flag));
+        match spawned {
+            Ok(worker) => workers.push(worker),
+            Err(error) => {
+                running.store(false, Ordering::Release);
+                return Err(spawn_failed(error));
+            }
+        }
+    }
+
+    Ok(Capture { running, workers })
 }
 
 #[cfg(test)]
@@ -479,6 +660,50 @@ mod tests {
             PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE
         );
         assert_eq!(loopback.TargetProcessId, 4242);
+    }
+
+    #[test]
+    fn mixed_sources_are_summed_and_clamped() {
+        let mixer = Mixer::with_sources(2);
+        let first: Vec<u8> = [0.25f32, -0.5, 0.75, 0.0]
+            .iter()
+            .flat_map(|sample| sample.to_le_bytes())
+            .collect();
+        let second: Vec<u8> = [0.5f32, -0.75, 0.5, 0.0]
+            .iter()
+            .flat_map(|sample| sample.to_le_bytes())
+            .collect();
+        mixer.push(0, 2, Some(&first), true);
+        mixer.push(1, 2, Some(&second), true);
+
+        assert_eq!(mixer.take(2), vec![0.75, -1.0, 1.0, 0.0]);
+    }
+
+    #[test]
+    fn a_quiet_source_is_filled_with_silence() {
+        let mixer = Mixer::with_sources(2);
+        let first: Vec<u8> = [0.5f32, 0.5]
+            .iter()
+            .flat_map(|sample| sample.to_le_bytes())
+            .collect();
+        mixer.push(0, 1, Some(&first), true);
+
+        assert_eq!(mixer.take(2), vec![0.5, 0.5, 0.0, 0.0]);
+        assert_eq!(mixer.take(1), vec![0.0, 0.0]);
+    }
+
+    #[test]
+    fn a_source_that_runs_ahead_keeps_only_its_newest_audio() {
+        let mixer = Mixer::with_sources(1);
+        mixer.push(0, (MIX_BACKLOG_FRAMES * 2) as u32, None, true);
+        let held = mixer.sources[0].lock().expect("unlocked").len();
+        assert_eq!(held, MIX_BACKLOG_FRAMES * usize::from(MAX_CHANNELS));
+    }
+
+    #[test]
+    fn the_mix_runs_behind_the_clock_by_a_fixed_delay() {
+        assert_eq!(frames_due(Duration::from_millis(10)), 0);
+        assert_eq!(frames_due(MIX_DELAY + Duration::from_millis(10)), 480);
     }
 
     #[test]

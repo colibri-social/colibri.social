@@ -70,6 +70,7 @@ describe("voiceMemberMenu", () => {
 		menu?.onVolumeChange?.(150);
 		expect(participantVolumes().volume(peer, "voice")).toBe(150);
 		expect(menu?.onStreamVolumeChange).toBeUndefined();
+		expect(menu?.onStreamMutedChange).toBeUndefined();
 		participantVolumes().setVolume(peer, "voice", 100);
 	});
 

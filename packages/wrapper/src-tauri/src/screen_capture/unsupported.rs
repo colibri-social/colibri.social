@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{CaptureQuality, CaptureSource, FrameSender, SourceId};
+use super::{AudioApp, CaptureQuality, CaptureSource, FrameSender, SourceId};
 use crate::native_error::NativeError;
 
 pub struct Capture;
@@ -29,10 +29,15 @@ pub async fn list_sources() -> Result<(Vec<CaptureSource>, HashMap<String, Vec<u
     Err(unavailable())
 }
 
+pub async fn list_audio_apps(_source: Option<SourceId>) -> Result<Vec<AudioApp>, NativeError> {
+    Err(unavailable())
+}
+
 pub fn start(
     _source: &SourceId,
     _quality: CaptureQuality,
     _capture_audio: bool,
+    _audio_apps: Option<Vec<String>>,
     _sender: FrameSender,
 ) -> Result<Capture, NativeError> {
     Err(unavailable())

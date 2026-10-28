@@ -51,7 +51,7 @@ export const spaceContextMenuEntries = (
 					onSelect: actions.onOpenSettings,
 				},
 				actions.onOpenNotificationSettings && {
-					label: "Space settings",
+					label: "Notification settings",
 					get icon() {
 						return <BellIcon />;
 					},

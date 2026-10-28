@@ -52,7 +52,7 @@ const SPACE_LEVEL_DESCRIPTION: Record<NotificationLevel, string> = {
 };
 
 export const SPACE_NOTIFICATION_COPY = {
-	title: "Space settings",
+	title: "Notification settings",
 	level: "Notify me about",
 	followDefault: "Follow my default",
 	followDefaultDescription: (level: NotificationLevel) =>

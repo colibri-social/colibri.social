@@ -11,6 +11,7 @@ import {
 	onCleanup,
 } from "solid-js";
 import { useLiveStatus } from "../data/live-context";
+import { watchMediaDevices } from "../data/media-devices";
 import {
 	notificationTarget,
 	shouldAlertNotification,
@@ -25,7 +26,12 @@ import { useData } from "../data/store";
 import type { Did, NotificationView, SpaceRef } from "../data/types";
 import { appVisible } from "../data/visibility";
 import { voice } from "../data/voice";
-import { setSoundEffectsVolume } from "../data/voice-sounds";
+import { voiceSettings } from "../data/voice-settings";
+import {
+	refreshSoundEffectsSink,
+	setSoundEffectsSink,
+	setSoundEffectsVolume,
+} from "../data/voice-sounds";
 import {
 	type DeviceNotifications,
 	deviceNotifications,
@@ -82,6 +88,9 @@ export const NotificationHost = (props: {
 	createEffect(() =>
 		setSoundEffectsVolume(data.preferences.client().soundVolume),
 	);
+
+	createEffect(() => setSoundEffectsSink(voiceSettings().settings().speaker));
+	onCleanup(watchMediaDevices(refreshSoundEffectsSink));
 
 	const settingsOpen = () =>
 		props.stack.root().tab === "settings" ||

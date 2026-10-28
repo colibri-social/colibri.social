@@ -966,6 +966,82 @@ describe("read state", () => {
 		store.dispose();
 	});
 
+	it("marks a channel unread for any unseen notification it isn't viewing", async () => {
+		const { store, emit } = await setupWithEvents();
+		await until(() => store.notifications.status() === "ready");
+		const owls = store.communities
+			.value()
+			?.find((entry) => entry.handle.startsWith("nightowls.")) as NonNullable<
+			ReturnType<typeof store.communities.value>
+		>[number];
+		const space = store.space(owls);
+		await until(() => !!space.channels.value());
+		const critique = space.channelBySlug("critique");
+		if (!critique) throw new Error("critique missing");
+		const feed = store.channel(critique.space);
+		await until(() => feed.ready() && !!feed.threads.value());
+		const hands = feed.threads
+			.value()
+			?.find((thread) => thread.name === "Hands help");
+		const message = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did);
+		if (!hands || !message) throw new Error("fixtures missing");
+		await settle();
+		const reset = () => {
+			store.setViewing(critique.space);
+			feed.markRead();
+			store.setViewing(undefined);
+			expect(space.unread("critique").hasUnread).toBe(false);
+		};
+		const notify = (id: string, kind: string, thread?: SpaceRef) =>
+			emit({
+				$type: "notificationEvent",
+				notification: {
+					id,
+					kind,
+					author: message.author,
+					channel: critique.space,
+					thread,
+					community: owls.did,
+					message,
+					indexedAt: new Date(Date.now() - 1000).toISOString(),
+				} as never,
+			});
+
+		reset();
+		const mentionsBefore = space.unread("critique").mentions;
+		notify("rail-message", "message");
+		expect(space.unread("critique")).toEqual({
+			hasUnread: true,
+			mentions: mentionsBefore,
+		});
+		expect(space.totals().hasUnread).toBe(true);
+
+		reset();
+		notify("rail-thread-reply", "reply", hands.space);
+		expect(space.unread("critique")).toEqual({
+			hasUnread: true,
+			mentions: mentionsBefore,
+		});
+
+		reset();
+		store.setViewing(critique.space);
+		notify("rail-viewed", "message");
+		expect(space.unread("critique").hasUnread).toBe(false);
+		store.setViewing(hands.space);
+		notify("rail-viewed-thread", "message", hands.space);
+		expect(space.unread("critique").hasUnread).toBe(false);
+		store.setViewing(undefined);
+
+		notify("rail-mention", "mention");
+		expect(space.unread("critique")).toEqual({
+			hasUnread: true,
+			mentions: mentionsBefore + 1,
+		});
+		store.dispose();
+	});
+
 	it("clears a channel another device read up to its newest message", async () => {
 		const { store, space, emit } = await setupWithEvents();
 		const general = space.channelBySlug("general");

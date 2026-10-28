@@ -21,6 +21,19 @@ function parseMessage(buffer) {
 	};
 }
 
+function decoderConfig(config) {
+	const settings = {
+		codec: config.codec,
+		codedWidth: config.codedWidth,
+		codedHeight: config.codedHeight,
+		optimizeForLatency: true,
+	};
+	if (config.description) {
+		settings.description = decodeBase64(config.description);
+	}
+	return settings;
+}
+
 function decodeBase64(value) {
 	const binary = atob(value);
 	const bytes = new Uint8Array(binary.length);
@@ -94,17 +107,12 @@ self.onmessage = (event) => {
 		if (typeof message.data === "string") {
 			const config = JSON.parse(message.data);
 			if (config.type !== "config") return;
+			try { decoder?.close(); } catch {}
 			decoder = new VideoDecoder({
 				output: (frame) => emit(frame),
 				error: (error) => fail("decode", error),
 			});
-			decoder.configure({
-				codec: config.codec,
-				description: decodeBase64(config.description),
-				codedWidth: config.codedWidth,
-				codedHeight: config.codedHeight,
-				optimizeForLatency: true,
-			});
+			decoder.configure(decoderConfig(config));
 			return;
 		}
 

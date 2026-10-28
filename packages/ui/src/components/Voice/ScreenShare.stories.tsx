@@ -6,6 +6,7 @@ import { Button } from "../Button/Button";
 import type { ScreenShareSettings } from "../SettingsPages/VoiceVideoSettings";
 import { CallControls } from "./CallControls";
 import {
+	type ScreenShareAudioApp,
 	ScreenSharePicker,
 	type ScreenSharePickerMode,
 	type ScreenShareSource,
@@ -29,6 +30,8 @@ const spy = {
 	retry: fn(),
 	settings: fn(),
 	toggle: fn(),
+	audioApp: fn(),
+	excluded: fn(),
 };
 
 const resetSpies = () => {
@@ -90,14 +93,30 @@ const SOURCES: ScreenShareSource[] = [
 	},
 ];
 
+const AUDIO_APPS: ScreenShareAudioApp[] = [
+	{ id: "process-101", name: "Firefox" },
+	{ id: "process-202", name: "Spotify" },
+];
+
+const ROUTED_AUDIO_APPS: ScreenShareAudioApp[] = [
+	{ id: "process-101", name: "Firefox" },
+	{ id: "process-202", name: "Spotify" },
+	{ id: "process-303", name: "Voicemeeter", router: true },
+];
+
 const PickerDemo = (props: {
 	mode?: ScreenSharePickerMode;
 	sources?: ScreenShareSource[];
 	loading?: boolean;
 	failed?: boolean;
+	audioApps?: ScreenShareAudioApp[];
 }) => {
 	const [open, setOpen] = createSignal(false);
 	const [surface, setSurface] = createSignal<ScreenShareSurface>("screen");
+	const [audioApp, setAudioApp] = createSignal<string>();
+	const [excluded, setExcluded] = createSignal<string[]>(
+		(props.audioApps ?? []).filter((app) => app.router).map((app) => app.id),
+	);
 	const [settings, setSettings] = createSignal<ScreenShareSettings>({
 		resolution: "1080",
 		framerate: 30,
@@ -128,6 +147,17 @@ const PickerDemo = (props: {
 				onShare={(source) => {
 					spy.share(source?.id);
 					setOpen(false);
+				}}
+				audioApps={props.audioApps}
+				audioApp={audioApp()}
+				onAudioAppChange={(id) => {
+					spy.audioApp(id);
+					setAudioApp(id);
+				}}
+				excludedAudioApps={excluded()}
+				onExcludedAudioAppsChange={(ids) => {
+					spy.excluded(ids);
+					setExcluded(ids);
 				}}
 			/>
 		</div>
@@ -276,6 +306,89 @@ export const PickerSystem: Story = {
 			within(dialog).getByRole("button", { name: "Continue" }),
 		);
 		await expect(spy.share).toHaveBeenCalledWith(undefined);
+	},
+};
+
+export const PickerSystemSound: Story = {
+	name: "Picker with window sound",
+	render: () => <PickerDemo mode="system" audioApps={AUDIO_APPS} />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const dialog = await openPicker(canvasElement);
+		await userEvent.click(within(dialog).getByText("One window"));
+		await expectNoLayoutIssues(dialog);
+		await expect(within(dialog).queryByText("Sound from")).toBeNull();
+		await userEvent.click(
+			within(dialog).getByRole("switch", { name: /Share sound/ }),
+		);
+		await expect(within(dialog).getByText("Sound from")).toBeVisible();
+		await expectNoLayoutIssues(dialog);
+	},
+};
+
+export const PickerRouterSound: Story = {
+	name: "Picker with a sound router",
+	render: () => <PickerDemo sources={SOURCES} audioApps={ROUTED_AUDIO_APPS} />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const dialog = await openPicker(canvasElement);
+		await userEvent.click(
+			within(dialog).getByRole("switch", { name: /Share sound/ }),
+		);
+		await userEvent.click(within(dialog).getByRole("tab", { name: "Windows" }));
+		await userEvent.click(
+			dialog.querySelector<HTMLElement>(
+				'[data-screen-source="window:1"]',
+			) as HTMLElement,
+		);
+		await expect(
+			dialog.querySelector("[data-screen-share-audio-apps]"),
+		).toBeNull();
+		await userEvent.click(within(dialog).getByRole("tab", { name: "Screens" }));
+		await userEvent.click(
+			dialog.querySelector<HTMLElement>(
+				'[data-screen-source="display:1"]',
+			) as HTMLElement,
+		);
+		const voicemeeter = within(dialog).getByRole("checkbox", {
+			name: "Voicemeeter",
+		});
+		await expect(voicemeeter).not.toBeChecked();
+		await expect(
+			within(dialog).getByRole("checkbox", { name: "Spotify" }),
+		).toBeChecked();
+		await expect(
+			within(dialog).getByText(/Some apps that route your sound/),
+		).toBeVisible();
+		await expectNoLayoutIssues(dialog);
+		await userEvent.click(
+			within(dialog).getByRole("checkbox", { name: "Spotify" }),
+		);
+		await expect(spy.excluded).toHaveBeenLastCalledWith([
+			"process-303",
+			"process-202",
+		]);
+		await userEvent.click(voicemeeter);
+		await expect(spy.excluded).toHaveBeenLastCalledWith(["process-202"]);
+	},
+};
+
+export const PickerSystemRouterSound: Story = {
+	name: "Picker with a sound router and the system dialog",
+	render: () => <PickerDemo mode="system" audioApps={ROUTED_AUDIO_APPS} />,
+	play: async ({ canvasElement }) => {
+		const dialog = await openPicker(canvasElement);
+		await userEvent.click(
+			within(dialog).getByRole("switch", { name: /Share sound/ }),
+		);
+		await expect(
+			within(dialog).getByRole("checkbox", { name: "Voicemeeter" }),
+		).not.toBeChecked();
+		await expectNoLayoutIssues(dialog);
+		await userEvent.click(within(dialog).getByText("One window"));
+		await expect(
+			dialog.querySelector("[data-screen-share-audio-apps]"),
+		).toBeNull();
 	},
 };
 

@@ -16,6 +16,7 @@ import {
 	produceFrame,
 	resumeConsumerFrame,
 	setSelfStateFrame,
+	setSpeakingFrame,
 	VOICE_SIGNAL_LXM,
 	VOICE_SIGNAL_PATH,
 	voiceHeartbeatFrame,
@@ -141,6 +142,13 @@ describe("client frame round trips", () => {
 
 		const decoded = decodeVoiceFrame(encodeVoiceFrame(frame));
 		expect(decoded).toEqual(frame);
+	});
+
+	it("encodes setSpeaking for the voice signal socket", () => {
+		expect(JSON.parse(encodeVoiceFrame(setSpeakingFrame(true)))).toEqual({
+			$type: "social.colibri.beta.voice.defs#setSpeaking",
+			speaking: true,
+		});
 	});
 
 	it("round-trips heartbeat", () => {

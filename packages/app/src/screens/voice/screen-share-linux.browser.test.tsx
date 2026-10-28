@@ -1,22 +1,57 @@
 import "../../app.css";
+import { ColibriError } from "@colibri-social/lib";
 import { render } from "solid-js/web";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
-import { windowCaptureRequest } from "../../data/screen-share";
 import { Providers } from "../../providers";
+
+const native = vi.hoisted(() => ({
+	start: vi.fn(),
+}));
 
 vi.mock("../../native/screen-capture", () => ({
 	CaptureBridgeError: class extends Error {},
 	createNativeCaptureTrack: vi.fn(),
-	listNativeCaptureSources: async () => [],
+	listNativeAudioApps: async () => [
+		{
+			id: "process-7",
+			name: "Spotify",
+			processId: 7,
+			iconName: null,
+			binary: null,
+			preselected: false,
+			router: false,
+		},
+	],
+	listNativeCaptureSources: async () => [
+		{
+			id: "display-portal",
+			kind: "display",
+			name: "Whole screen",
+			application: null,
+			width: 7680,
+			height: 4320,
+			hasThumbnail: false,
+		},
+		{
+			id: "window-portal",
+			kind: "window",
+			name: "One window",
+			application: null,
+			width: 7680,
+			height: 4320,
+			hasThumbnail: false,
+		},
+	],
 	nativeCapturePermission: async () => true,
+	nativeCapturePicker: async () => ({ kind: "portal" }),
 	nativeCaptureQuality: () => ({}),
 	nativeThumbnailUrl: async () => undefined,
 	openScreenRecordingSettings: async () => {},
 	previewAspectRatio: () => 16 / 9,
-	startNativeCapture: vi.fn(),
+	startNativeCapture: native.start,
 	stopNativeCapture: async () => {},
-	supportsNativeCapture: async () => false,
+	supportsNativeCapture: async () => true,
 }));
 
 vi.mock("../../shell/desktop/window-chrome", async (importOriginal) => ({
@@ -52,11 +87,17 @@ afterEach(() => {
 	dispose?.();
 	dispose = undefined;
 	document.body.replaceChildren();
+	native.start.mockReset();
 	vi.restoreAllMocks();
 });
 
 const cancelled = () =>
-	Promise.reject(new DOMException("cancelled", "NotAllowedError"));
+	Promise.reject(
+		new ColibriError({
+			code: "NativeCancelled",
+			method: "screen_capture_start",
+		}),
+	);
 
 const openPicker = async () => {
 	const root = document.createElement("div");
@@ -69,43 +110,32 @@ const openPicker = async () => {
 		),
 		root,
 	);
-	await new Promise((resolve) => setTimeout(resolve, 0));
+	await new Promise((resolve) => setTimeout(resolve, 50));
 	await toggleScreenShare();
 	await expect
 		.element(page.getByRole("radio", { name: /Whole screen/ }))
 		.toBeInTheDocument();
 };
 
-it("asks the system for a screen when the whole screen is picked", async () => {
-	const display = vi
-		.spyOn(navigator.mediaDevices, "getDisplayMedia")
-		.mockImplementation(cancelled);
-	const user = vi
-		.spyOn(navigator.mediaDevices, "getUserMedia")
-		.mockImplementation(cancelled);
+it("hands the whole screen to the system dialog without using the browser", async () => {
+	native.start.mockImplementation(cancelled);
+	const display = vi.spyOn(navigator.mediaDevices, "getDisplayMedia");
+	const user = vi.spyOn(navigator.mediaDevices, "getUserMedia");
 	await openPicker();
 	await userEvent.click(page.getByRole("button", { name: "Continue" }));
-	await vi.waitFor(() => expect(display).toHaveBeenCalledTimes(1));
+	await vi.waitFor(() => expect(native.start).toHaveBeenCalledTimes(1));
+	expect(native.start.mock.calls[0]?.[0]).toBe("display-portal");
+	expect(native.start.mock.calls[0]?.[3]).toBeUndefined();
+	expect(display).not.toHaveBeenCalled();
 	expect(user).not.toHaveBeenCalled();
 });
 
-it("asks the system for a window when one window is picked", async () => {
-	const display = vi
-		.spyOn(navigator.mediaDevices, "getDisplayMedia")
-		.mockImplementation(cancelled);
-	const user = vi
-		.spyOn(navigator.mediaDevices, "getUserMedia")
-		.mockImplementation(cancelled);
+it("closes quietly when the system dialog is cancelled", async () => {
+	native.start.mockImplementation(cancelled);
 	await openPicker();
 	await userEvent.click(page.getByText("One window"));
 	await userEvent.click(page.getByRole("button", { name: "Continue" }));
-	await vi.waitFor(() => expect(user).toHaveBeenCalledTimes(1));
-	expect(user.mock.calls[0]?.[0]).toEqual(
-		windowCaptureRequest({
-			resolution: "1080",
-			framerate: 30,
-			shareAudio: false,
-		}),
-	);
-	expect(display).not.toHaveBeenCalled();
+	await vi.waitFor(() => expect(native.start).toHaveBeenCalledTimes(1));
+	expect(native.start.mock.calls[0]?.[0]).toBe("window-portal");
+	await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
 });

@@ -150,6 +150,7 @@ export const createUpdater = () => {
 		} catch (error) {
 			log.error("update download failed", {
 				code: classifyThrown(error).code,
+				message: error instanceof Error ? error.message : String(error),
 			});
 			setState({ status: "error" });
 			return;

@@ -5,6 +5,7 @@ import {
 } from "@colibri-social/lib";
 import {
 	ConfirmDialog,
+	type ScreenShareAudioApp,
 	type ScreenShareMenuProps,
 	ScreenSharePicker,
 	type ScreenShareSettings,
@@ -22,21 +23,24 @@ import {
 import { withDeadline } from "../../auth/deadline";
 import { VOICE_NOTICE_COPY } from "../../data/error-copy";
 import {
-	choosesCaptureSurface,
 	displayMediaRequest,
+	isLinuxApp,
 	type ScreenShareOptions,
 	supportsDisplayAudio,
 	supportsDisplayMedia,
-	windowCaptureRequest,
 } from "../../data/screen-share";
 import { voice } from "../../data/voice";
 import { voiceSettings } from "../../data/voice-settings";
 import {
 	CaptureBridgeError,
 	createNativeCaptureTrack,
+	listNativeAudioApps,
 	listNativeCaptureSources,
+	type NativeCapturePicker,
 	type NativeCaptureSource,
+	type NativeSourceKind,
 	nativeCapturePermission,
+	nativeCapturePicker,
 	nativeCaptureQuality,
 	nativeThumbnailUrl,
 	openScreenRecordingSettings,
@@ -63,12 +67,7 @@ const MOBILE_DEVICE = /Android|iPhone|iPad/;
 const [pickerOpen, setPickerOpen] = createSignal(false);
 const [permissionOpen, setPermissionOpen] = createSignal(false);
 const [surface, setSurface] = createSignal<ScreenShareSurface>("screen");
-
-const RAW_AUDIO: MediaTrackConstraints = {
-	echoCancellation: false,
-	noiseSuppression: false,
-	autoGainControl: false,
-};
+const [picker, setPicker] = createSignal<NativeCapturePicker>();
 
 const CANCELLED_CAPTURE = new Set(["NotAllowedError", "AbortError"]);
 
@@ -82,8 +81,14 @@ const native = createRoot(() => {
 const mobileDevice = () =>
 	typeof navigator !== "undefined" && MOBILE_DEVICE.test(navigator.userAgent);
 
+const linuxApp = () =>
+	isLinuxApp(
+		typeof navigator === "undefined" ? undefined : navigator.userAgent,
+		isNativeShell(),
+	);
+
 export const screenShareAvailable = () =>
-	!mobileDevice() && (native() || supportsDisplayMedia());
+	!mobileDevice() && (native() || (supportsDisplayMedia() && !linuxApp()));
 
 const audioSupported = () => native() || supportsDisplayAudio();
 
@@ -111,6 +116,19 @@ export const screenShareMenu = (): ScreenShareMenuProps => ({
 	onSettingsChange: changeScreenShareSettings,
 });
 
+const portal = () => native() && picker()?.kind === "portal";
+
+const loadPicker = async () => {
+	try {
+		setPicker(await nativeCapturePicker());
+	} catch (error) {
+		log.warn("reading the capture picker failed", {
+			code: classifyThrown(error).code,
+		});
+		setPicker({ kind: "sources" });
+	}
+};
+
 export const toggleScreenShare = async () => {
 	if (voice.screenSharing()) {
 		voice.stopScreenShare();
@@ -122,6 +140,7 @@ export const toggleScreenShare = async () => {
 		setPermissionOpen(true);
 		return;
 	}
+	if (native()) await loadPicker();
 	setPickerOpen(true);
 };
 
@@ -130,35 +149,13 @@ const failed = () => {
 	toast(copy.title, { description: copy.description });
 };
 
-export const systemPicker = () =>
-	!native() &&
-	choosesCaptureSurface(
-		typeof navigator === "undefined" ? undefined : navigator.userAgent,
-		isNativeShell(),
-	);
-
-const captureWindow = async (chosen: ScreenShareOptions) => {
-	const stream = await navigator.mediaDevices.getUserMedia(
-		windowCaptureRequest(chosen) as unknown as MediaStreamConstraints,
-	);
-	await Promise.all(
-		stream
-			.getAudioTracks()
-			.map((track) => track.applyConstraints(RAW_AUDIO).catch(() => {})),
-	);
-	return stream;
-};
-
 const shareBrowser = async () => {
 	const chosen = options();
 	let stream: MediaStream;
 	try {
-		stream =
-			systemPicker() && surface() === "window"
-				? await captureWindow(chosen)
-				: await navigator.mediaDevices.getDisplayMedia(
-						displayMediaRequest(chosen) as DisplayMediaStreamOptions,
-					);
+		stream = await navigator.mediaDevices.getDisplayMedia(
+			displayMediaRequest(chosen) as DisplayMediaStreamOptions,
+		);
 	} catch (error) {
 		if (error instanceof DOMException && CANCELLED_CAPTURE.has(error.name)) {
 			return;
@@ -187,20 +184,35 @@ const shareBrowser = async () => {
 
 const NATIVE_CAPTURE_DEADLINE_MS = 15_000;
 
-const shareNative = async (source: NativeCaptureSource) => {
+type NativeShareRequest = {
+	systemDialog: boolean;
+	audioApps?: string[];
+};
+
+const shareNative = async (
+	source: NativeCaptureSource,
+	request: NativeShareRequest = { systemDialog: false },
+) => {
 	const chosen = options();
 	let stage = "start";
 	try {
-		log.debug("starting the native capture", { kind: source.kind });
-		const session = await withDeadline(
-			startNativeCapture(
-				source.id,
-				nativeCaptureQuality(chosen, source.width, source.height),
-				chosen.shareAudio,
-			),
-			NATIVE_CAPTURE_DEADLINE_MS,
-			() => new ColibriError({ code: "Timeout" }),
+		log.debug("starting the native capture", {
+			kind: source.kind,
+			systemDialog: request.systemDialog,
+		});
+		const starting = startNativeCapture(
+			source.id,
+			nativeCaptureQuality(chosen, source.width, source.height),
+			chosen.shareAudio,
+			request.audioApps,
 		);
+		const session = request.systemDialog
+			? await starting
+			: await withDeadline(
+					starting,
+					NATIVE_CAPTURE_DEADLINE_MS,
+					() => new ColibriError({ code: "Timeout" }),
+				);
 		stage = "bridge";
 		log.debug("the native capture started, connecting the bridge");
 		const bridge = await withDeadline(
@@ -227,6 +239,10 @@ const shareNative = async (source: NativeCaptureSource) => {
 	} catch (error) {
 		void stopNativeCapture();
 		const failure = classifyThrown(error);
+		if (failure.code === "NativeCancelled") {
+			log.debug("the system dialog was cancelled");
+			return;
+		}
 		log.warn("native capture failed", {
 			code: failure.code,
 			stage: error instanceof CaptureBridgeError ? error.stage : stage,
@@ -249,8 +265,16 @@ const toPickerSource = async (
 	aspectRatio: previewAspectRatio(source),
 });
 
+const SURFACE_KIND: Record<ScreenShareSurface, NativeSourceKind> = {
+	screen: "display",
+	window: "window",
+};
+
 export const ScreenShareHost = () => {
 	const platform = usePlatform();
+	const [audioApps, setAudioApps] = createSignal<ScreenShareAudioApp[]>();
+	const [audioApp, setAudioApp] = createSignal<string>();
+	const [excludedApps, setExcludedApps] = createSignal<string[]>();
 	const [sources, setSources] = createSignal<NativeCaptureSource[]>([]);
 	const [shown, setShown] = createSignal<ScreenShareSource[]>([]);
 	const [loading, setLoading] = createSignal(false);
@@ -286,10 +310,54 @@ export const ScreenShareHost = () => {
 				setSources([]);
 				setShown([]);
 				setLoading(false);
+				setAudioApps(undefined);
+				setAudioApp(undefined);
+				setExcludedApps(undefined);
 				return;
 			}
 			if (native()) void list();
 		}),
+	);
+
+	let audioListing = 0;
+	createEffect(
+		on(
+			() =>
+				[
+					pickerOpen(),
+					native(),
+					portal(),
+					screenShareSettings().shareAudio,
+				] as const,
+			([open, nativeCapture, systemDialog, shareAudio]) => {
+				const run = ++audioListing;
+				if (!open || !nativeCapture || !shareAudio) return;
+				const windowSource = systemDialog
+					? sources().find((entry) => entry.kind === "window")
+					: undefined;
+				void listNativeAudioApps(windowSource?.id)
+					.then((apps) => {
+						if (run !== audioListing) return;
+						setAudioApps(
+							apps.map(({ id, name, router }) => ({ id, name, router })),
+						);
+						const preselected = apps.find((app) => app.preselected);
+						if (preselected && audioApp() === undefined)
+							setAudioApp(preselected.id);
+						if (excludedApps() === undefined)
+							setExcludedApps(
+								apps.filter((app) => app.router).map((app) => app.id),
+							);
+					})
+					.catch((error) => {
+						if (run !== audioListing) return;
+						log.warn("listing audio apps failed", {
+							code: classifyThrown(error).code,
+						});
+						setAudioApps([]);
+					});
+			},
+		),
 	);
 
 	createEffect(
@@ -303,11 +371,42 @@ export const ScreenShareHost = () => {
 		),
 	);
 
+	const screenAudioApps = (): string[] | undefined => {
+		const apps = audioApps();
+		const excluded = excludedApps() ?? [];
+		if (!apps?.some((app) => app.router) || excluded.length === 0)
+			return undefined;
+		return apps
+			.filter((app) => !excluded.includes(app.id))
+			.map((app) => app.id);
+	};
+
 	const share = (picked?: ScreenShareSource) => {
-		const source = sources().find((entry) => entry.id === picked?.id);
+		const systemDialog = portal();
+		const chosenSurface = surface();
+		const source = systemDialog
+			? sources().find((entry) => entry.kind === SURFACE_KIND[chosenSurface])
+			: sources().find((entry) => entry.id === picked?.id);
+		const chosenApp = audioApp();
+		const wholeScreen = systemDialog
+			? chosenSurface === "screen"
+			: source?.kind === "display";
+		const screenApps = wholeScreen ? screenAudioApps() : undefined;
 		setPickerOpen(false);
 		if (!native()) {
 			void shareBrowser();
+			return;
+		}
+		if (systemDialog && source) {
+			void shareNative(source, {
+				systemDialog: true,
+				audioApps:
+					chosenSurface === "window"
+						? chosenApp
+							? [chosenApp]
+							: []
+						: screenApps,
+			});
 			return;
 		}
 		if (!source) {
@@ -315,7 +414,7 @@ export const ScreenShareHost = () => {
 			failed();
 			return;
 		}
-		void shareNative(source);
+		void shareNative(source, { systemDialog: false, audioApps: screenApps });
 	};
 
 	return (
@@ -323,7 +422,7 @@ export const ScreenShareHost = () => {
 			<ScreenSharePicker
 				open={pickerOpen()}
 				onOpenChange={setPickerOpen}
-				mode={native() ? "native" : systemPicker() ? "system" : "browser"}
+				mode={native() ? (portal() ? "system" : "native") : "browser"}
 				surface={surface()}
 				onSurfaceChange={setSurface}
 				platform={platform()}
@@ -337,6 +436,11 @@ export const ScreenShareHost = () => {
 				settings={screenShareSettings()}
 				onSettingsChange={changeScreenShareSettings}
 				onShare={share}
+				audioApps={audioApps()}
+				audioApp={audioApp()}
+				onAudioAppChange={setAudioApp}
+				excludedAudioApps={excludedApps()}
+				onExcludedAudioAppsChange={setExcludedApps}
 			/>
 			<ConfirmDialog
 				open={permissionOpen()}

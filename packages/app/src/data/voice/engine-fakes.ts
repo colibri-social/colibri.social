@@ -62,6 +62,7 @@ export class FakeStream {
 export class FakeSocket implements VoiceSocket {
 	readyState = 0;
 	sent: Frame[] = [];
+	speaking: boolean[] = [];
 	answered = 0;
 	onopen: VoiceSocket["onopen"] = null;
 	onmessage: VoiceSocket["onmessage"] = null;
@@ -75,7 +76,10 @@ export class FakeSocket implements VoiceSocket {
 	) {}
 
 	send(data: string) {
-		this.sent.push(JSON.parse(data));
+		const frame = JSON.parse(data);
+		if (frame.$type === `${DEFS}setSpeaking`)
+			this.speaking.push(frame.speaking);
+		else this.sent.push(frame);
 	}
 
 	close() {
