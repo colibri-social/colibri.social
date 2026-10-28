@@ -1,0 +1,279 @@
+---
+import { Image } from "astro:assets";
+import PhoneMock from "@/assets/landing/phone-mock.webp";
+
+const phoneSource = `--phone-src: url(${PhoneMock.src})`;
+---
+
+<div class="phone-stage" data-phone-island>
+	<div class="phone" style={phoneSource}>
+		<Image
+			src={PhoneMock}
+			widths={[400, 800, 1200]}
+			sizes="(max-width: 600px) 80vw, (max-width: 900px) 45vw, 380px"
+			alt="The Colibri app on a phone, showing a conversation in a channel called general."
+			class="phone-mock"
+		/>
+		<div class="island" data-island aria-hidden="true">
+			<div class="note">
+				<div class="avatar">
+					<div class="avatar-face"></div>
+					<img
+						class="avatar-app"
+						src="/apple-touch-icon.png"
+						alt=""
+						width="180"
+						height="180"
+						loading="lazy"
+					/>
+				</div>
+				<div class="text">
+					<div class="head">
+						<span class="name">Maya Goldberg</span>
+						<span class="when">now</span>
+					</div>
+					<span class="where">Colibri HQ · general</span>
+					<span class="body">pushed the fix, mind taking a look?</span>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<style>
+	.phone-stage {
+		--spring-open: linear(
+			0, 0.046, 0.159, 0.307, 0.465, 0.618, 0.752, 0.863, 0.95, 1.012, 1.052,
+			1.074, 1.083, 1.082, 1.074, 1.062, 1.049, 1.036, 1.024, 1.014, 1.006, 1,
+			0.997, 0.994, 0.993, 0.993, 0.994, 0.994, 0.996, 0.997, 0.998, 0.999,
+			0.999, 1, 1, 1, 1.001, 1.001, 1.001, 1, 1
+		);
+		--spring-close: linear(
+			0, 0.057, 0.188, 0.344, 0.498, 0.635, 0.749, 0.837, 0.903, 0.949, 0.98,
+			0.999, 1.009, 1.014, 1.015, 1.014, 1.012, 1.01, 1.008, 1.005, 1.004,
+			1.002, 1.001, 1.001, 1
+		);
+		--island: #000;
+		--island-edge: rgb(255 255 255 / 0.07);
+		--island-muted: #9a98a3;
+		position: absolute;
+		inset: 16px 0 0;
+		container-type: size;
+	}
+
+	.phone {
+		position: absolute;
+		left: 50%;
+		bottom: 0;
+		height: min(100cqh, 100cqw * 1.565);
+		aspect-ratio: 1200 / 1878;
+		transform: translateX(-50%);
+		container-type: inline-size;
+		--u: calc(100cqw / 1200);
+	}
+
+	.phone :global(.phone-mock) {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	.island {
+		position: absolute;
+		left: calc(489 * var(--u));
+		top: calc(152 * var(--u));
+		width: calc(222 * var(--u));
+		height: calc(66 * var(--u));
+		border-radius: calc(33 * var(--u));
+		background: var(--island);
+		opacity: 0;
+		overflow: hidden;
+		transition:
+			left 520ms var(--spring-close),
+			width 520ms var(--spring-close),
+			height 520ms var(--spring-close),
+			border-radius 520ms var(--spring-close),
+			box-shadow 300ms ease-out;
+	}
+
+	.island[data-active] {
+		opacity: 1;
+	}
+
+	.island[data-open] {
+		left: calc(260 * var(--u));
+		width: calc(680 * var(--u));
+		height: calc(172 * var(--u));
+		border-radius: calc(78 * var(--u));
+		box-shadow:
+			0 0 0 calc(2 * var(--u)) var(--island-edge),
+			0 calc(18 * var(--u)) calc(48 * var(--u)) rgb(0 0 0 / 0.6);
+		transition:
+			left 700ms var(--spring-open),
+			width 700ms var(--spring-open),
+			height 700ms var(--spring-open),
+			border-radius 700ms var(--spring-open),
+			box-shadow 400ms ease-out 120ms;
+	}
+
+	.note {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: calc(680 * var(--u));
+		height: calc(172 * var(--u));
+		box-sizing: border-box;
+		padding: calc(28 * var(--u)) calc(48 * var(--u)) calc(28 * var(--u))
+			calc(38 * var(--u));
+		display: grid;
+		grid-template-columns: calc(96 * var(--u)) minmax(0, 1fr);
+		column-gap: calc(22 * var(--u));
+		align-items: center;
+		color: #fff;
+		font-family: var(--font-sans);
+		letter-spacing: 0;
+		opacity: 0;
+		filter: blur(calc(6 * var(--u)));
+		transform: scale(0.94);
+		transform-origin: 50% 0%;
+		transition:
+			opacity 120ms ease-in,
+			filter 120ms ease-in,
+			transform 160ms ease-in;
+	}
+
+	.island[data-open] .note {
+		opacity: 1;
+		filter: blur(0);
+		transform: scale(1);
+		transition:
+			opacity 260ms ease-out 170ms,
+			filter 320ms ease-out 170ms,
+			transform 420ms var(--spring-open) 140ms;
+	}
+
+	.avatar {
+		position: relative;
+		width: calc(96 * var(--u));
+		height: calc(96 * var(--u));
+	}
+
+	.avatar-face {
+		width: 100%;
+		height: 100%;
+		border-radius: 50%;
+		background-image: var(--phone-src);
+		background-size: calc(1645 * var(--u)) auto;
+		background-position: calc(-353 * var(--u)) calc(-1795 * var(--u));
+	}
+
+	.avatar-app {
+		position: absolute;
+		right: calc(-6 * var(--u));
+		bottom: calc(-6 * var(--u));
+		width: calc(40 * var(--u));
+		height: calc(40 * var(--u));
+		border-radius: calc(10 * var(--u));
+		box-shadow: 0 0 0 calc(4 * var(--u)) var(--island);
+	}
+
+	.text {
+		display: grid;
+		gap: calc(2 * var(--u));
+		min-width: 0;
+	}
+
+	.head {
+		display: flex;
+		align-items: baseline;
+		gap: calc(12 * var(--u));
+	}
+
+	.name {
+		font-weight: 600;
+		font-size: calc(27 * var(--u));
+		line-height: calc(34 * var(--u));
+	}
+
+	.when {
+		margin-left: auto;
+		color: var(--island-muted);
+		font-weight: 500;
+		font-size: calc(22 * var(--u));
+		line-height: calc(34 * var(--u));
+	}
+
+	.where {
+		color: var(--island-muted);
+		font-weight: 500;
+		font-size: calc(22 * var(--u));
+		line-height: calc(28 * var(--u));
+	}
+
+	.body {
+		margin-top: calc(2 * var(--u));
+		font-weight: 400;
+		font-size: calc(26 * var(--u));
+		line-height: calc(34 * var(--u));
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.island,
+		.island[data-open],
+		.note,
+		.island[data-open] .note {
+			transition-duration: 1ms;
+			transition-delay: 0ms;
+		}
+	}
+</style>
+
+<script>
+	const closeDelay = 560;
+
+	function initPhoneIsland(root: HTMLElement) {
+		const card = root.closest<HTMLElement>(".card");
+		const island = root.querySelector<HTMLElement>("[data-island]");
+		if (!card || !island) return;
+
+		let closing: number | undefined;
+
+		const open = () => {
+			window.clearTimeout(closing);
+			island.setAttribute("data-active", "");
+			requestAnimationFrame(() =>
+				requestAnimationFrame(() => island.setAttribute("data-open", "")),
+			);
+		};
+
+		const close = () => {
+			island.removeAttribute("data-open");
+			window.clearTimeout(closing);
+			closing = window.setTimeout(
+				() => island.removeAttribute("data-active"),
+				closeDelay,
+			);
+		};
+
+		card.addEventListener("pointerenter", (event) => {
+			if (event.pointerType === "mouse") open();
+		});
+		card.addEventListener("pointerleave", (event) => {
+			if (event.pointerType === "mouse") close();
+		});
+		card.addEventListener("pointerup", (event) => {
+			if (event.pointerType === "mouse") return;
+			if (island.hasAttribute("data-open")) close();
+			else open();
+		});
+	}
+
+	for (const root of document.querySelectorAll<HTMLElement>(
+		"[data-phone-island]",
+	)) {
+		initPhoneIsland(root);
+	}
+</script>

@@ -40,7 +40,7 @@ const ENTRIES: readonly ContributorEntry[] = [
 		name: "Kyanoxia",
 		handle: "kyanoxia.com",
 		did: "did:plc:cocpebhxzqhh2vxsp4ivzdbr",
-		role: "Sound Designer",
+		role: "Sounds, Graphics",
 	},
 ];
 

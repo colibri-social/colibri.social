@@ -7,10 +7,12 @@ import Grin from "@/assets/landing/grin.webp";
 import Kira from "@/assets/landing/kira.webp";
 import MilkyWayCard from "@/assets/landing/milkyway-card.webp";
 import MilkyWayWide from "@/assets/landing/milkyway-wide.webp";
-import PhoneMock from "@/assets/landing/phone-mock.webp";
+import AccountMove from "@/components/public/landing/AccountMove.astro";
+import BridgeGraph from "@/components/public/landing/BridgeGraph.astro";
 import ChannelTour from "@/components/public/landing/ChannelTour.astro";
 import EmojiRain from "@/components/public/landing/EmojiRain.astro";
 import MediaStack from "@/components/public/landing/MediaStack.astro";
+import PhoneIsland from "@/components/public/landing/PhoneIsland.astro";
 import MockVoiceCall from "@/components/public/MockVoiceCall.tsx";
 import PetalField from "@/components/public/nature/PetalField.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
@@ -129,7 +131,7 @@ import { ogImageFor } from "@/lib/og/url";
 				<div class="bento">
 					<article class="card card-row c-bridge">
 						<div class="media">
-							<p class="placeholder">Abstract bridge UI / Graph</p>
+							<BridgeGraph />
 						</div>
 						<div class="card-text">
 							<h3 class="card-title">Take your old messages with you</h3>
@@ -163,13 +165,7 @@ import { ogImageFor } from "@/lib/og/url";
 
 					<article class="card c-phone">
 						<div class="media">
-							<Image
-								src={PhoneMock}
-								widths={[400, 800, 1200]}
-								sizes="(max-width: 600px) 80vw, (max-width: 900px) 45vw, 380px"
-								alt="The Colibri app on a phone, showing a conversation in a channel called general."
-								class="phone-mock"
-							/>
+							<PhoneIsland />
 						</div>
 						<div class="card-text">
 							<h3 class="card-title">Made for your phone</h3>
@@ -338,7 +334,7 @@ import { ogImageFor } from "@/lib/og/url";
 		<section class="atproto" aria-labelledby="atproto-title">
 			<div class="site-wrap split">
 				<div class="media">
-					<p class="placeholder">Abstract PDS / ATproto graphic?</p>
+					<AccountMove client:visible />
 				</div>
 				<div class="split-text">
 					<h2 class="h2" id="atproto-title">
@@ -367,7 +363,7 @@ import { ogImageFor } from "@/lib/og/url";
 					<div class="cta-inner">
 						<h2 class="cta-title" id="cta-title">Are you ready to take off?</h2>
 						<p class="cta-sub">
-							Join Colibri today, create a space for you and your friends, and
+							Join Colibri today, create a space, and
 							get chatting on a platform that’s made for you!
 						</p>
 						<div class="cta-row">
@@ -763,15 +759,6 @@ import { ogImageFor } from "@/lib/og/url";
 	.c-phone .media {
 		flex: 1 1 auto;
 		min-height: 200px;
-	}
-
-	.c-phone :global(.phone-mock) {
-		position: absolute;
-		inset: 16px 0 0;
-		width: 100%;
-		height: calc(100% - 16px);
-		object-fit: contain;
-		object-position: center bottom;
 	}
 
 	.c-files {

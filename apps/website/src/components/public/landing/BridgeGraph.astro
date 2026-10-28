@@ -1,0 +1,632 @@
+---
+type Point = { x: number; y: number };
+type Source = {
+	id: "discord" | "matrix" | "minecraft" | "other";
+	color: string;
+	anchor: Point;
+	control: Point;
+	sector: number;
+	nodes: Array<[number, number]>;
+};
+
+const center = { x: 200, y: 131 };
+const ringRadius = 54;
+const sources: Array<Source> = [
+	{
+		id: "discord",
+		color: "#5865f2",
+		anchor: { x: 66, y: 70 },
+		control: { x: 140, y: 72 },
+		sector: -135,
+		nodes: [
+			[24, 44],
+			[22, 96],
+			[60, 112],
+			[104, 34],
+		],
+	},
+	{
+		id: "matrix",
+		color: "#0f0f0f",
+		anchor: { x: 334, y: 70 },
+		control: { x: 260, y: 72 },
+		sector: -45,
+		nodes: [
+			[376, 44],
+			[378, 96],
+			[340, 112],
+			[296, 34],
+		],
+	},
+	{
+		id: "minecraft",
+		color: "#62b47a",
+		anchor: { x: 66, y: 192 },
+		control: { x: 140, y: 190 },
+		sector: 135,
+		nodes: [
+			[30, 152],
+			[96, 154],
+			[28, 236],
+			[110, 232],
+		],
+	},
+	{
+		id: "other",
+		color: "#8d8b96",
+		anchor: { x: 334, y: 192 },
+		control: { x: 260, y: 190 },
+		sector: 45,
+		nodes: [
+			[376, 166],
+			[378, 218],
+			[340, 236],
+			[296, 226],
+		],
+	},
+];
+
+const logos = {
+	discord:
+		"M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z",
+	matrix:
+		"M.632.55v22.9H2.28V24H0V0h2.28v.55zm7.043 7.26v1.157h.033c.309-.443.683-.784 1.117-1.024.433-.245.936-.365 1.5-.365.54 0 1.033.107 1.481.314.448.208.785.582 1.02 1.108.254-.374.6-.706 1.034-.992.434-.287.95-.43 1.546-.43.453 0 .872.056 1.26.167.388.11.716.286.993.53.276.245.489.559.646.951.152.392.23.863.23 1.417v5.728h-2.349V11.52c0-.286-.01-.559-.032-.812a1.755 1.755 0 0 0-.18-.66 1.106 1.106 0 0 0-.438-.448c-.194-.11-.457-.166-.785-.166-.332 0-.6.064-.803.189a1.38 1.38 0 0 0-.48.499 1.946 1.946 0 0 0-.231.696 5.56 5.560 0 0 0-.06.785v4.768h-2.35v-4.8c0-.254-.004-.503-.018-.752a2.074 2.074 0 0 0-.143-.688 1.052 1.052 0 0 0-.415-.503c-.194-.125-.476-.19-.854-.19-.111 0-.259.024-.439.074-.18.051-.36.143-.53.282-.171.138-.319.337-.439.595-.12.259-.18.6-.18 1.020v4.966H5.46V7.81zm15.693 15.64V.55H21.72V0H24v24h-2.28v-.55z",
+	minecraft:
+		"M23.7397 10.0058l-2.4424.0023-.076.1198-.03-.1175h-2.4586l-.0599.136-.023-.136-2.4793.0023-.0438.1613-.0161-.1613-2.5023.0023-.023.265-.007-.265-2.5184.0046-.0092.242-.0254-.242-2.4954.0023-.016.1567-.0439-.1567H7.2673l-.0968.6705-.0553-.1382-.0254-.0024-.2096-.53-1.189.0024-.023.129-.0622-.129H4.431l-.03.1198-.0691-.1198-1.1659.0023-.136.523h-.3156l-.06.2282-.5506-.7512-1.1337.0023L0 13.0403l1.03.954h1.1244l.1774-.6706.0876.0968h.2995l.5.5737h1.1544l.023-.1082.0807.1082h1.1636l.0207-.1175.0737.1175h1.1751l.09-.629.3018.629h1.1889l.0138-.1451.0507.1451H11.03l.0093-.228.0276.228h2.4954l.023-.2511.0093.2511h1.2235l.0392-.175.0115.175h1.2097l.0506-.152.0139.152h1.1958l.0622-.1336.0185.1336h1.1843l.0714-.122.0208.122h1.175l.6798-.9677-.0323-.1544h.3756l.5346-.7396.4562 1.8594h1.152L24 13.0334l-.0184-.0737-.0738-.2535-.069-.2327s-.219-.712-.2466-.8065c-.0346-.1152-.0714-.2327-.1037-.3456l-.0046-.0184.4838-.583zm-2.325.1682h2.2005l.1567.493h-.6383l.0046.0162c.0254.1083.0554.2189.0853.3295.03.1129.0645.2258.0968.3433.0345.1152.069.235.106.3525.0368.1199.0737.2374.1083.3572.023.0737.0438.1451.0668.2189.023.0737.046.1497.0691.2235l.0692.228c.023.0761.0437.1522.0667.2282h-.9976l-.6268-2.2973h-.6405zm-.3548.0023l.1222.493h-1.295l.1175.56h1.3134l.136.553h-1.3342l.2466 1.182-.9954.0023-.5093-2.788zm-2.553.0023l.4816 2.788h-.9954l-.129-.8986h-.3733l.1221.8986h-.9954l-.3064-2.7857zm-2.5484.0023l.1037 1.0322h-.3272l.03.3111h.3272l.1451 1.4424h-.993l-.09-1.1751-.3686-.0092.076 1.1843h-.993l-.1037-2.7834zm-2.546.0023l.0138.493h-1.272l-.0299 1.719h1.3503l.016.5737h-2.364l.0945-2.7834zm-2.5438.0023l-.0208.493H9.56l-.0415.5692 1.3042.0023-.023.5369-1.3296.0023-.0437.6014 1.3456.0045-.0253.5738H8.387l.2926-2.7811zm-2.5392.0023l-.3226 2.781h-.9908l.1245-.8847-.3273-.0092.083-.5737-.3594-.007-.235 1.477H5.311l.5184-2.7811h.917l-.0806.5138.3157.0092-.076.5369.3548.0046L7.41 10.19zm-5.0346.0046h.9171l-.6475 2.7788h-.9884l.2972-1.1797H2.516l-.1543.5737h-.6406l.159-.5737h-.3595l-.3502 1.1797h-.97l.8917-2.7765h.8986l-.1475.5046.3134.0115L2 11.257h.6959l.1451-.5391h.318zm2.182.0046l-.546 2.7811h-.9885l.6175-2.7788zm12.1683.4217l.0391.3248-.341-.0023-.0437-.3202h-.4217l.0438.3525h.387l.0185.129h-.1936l.0715.5461h.2327l-.0184-.1843.3456-.0023.03.1866h.2373l-.083-.5414h-.1935l-.0162-.1314.3963-.0023-.0553-.3548zm-2.9286.0553l.0369.5737h.364l-.0438-.5737zm-1.1958 1.0046l.0184.5484-1.2166-.0023.0115-.4102h1.1774Z",
+	other:
+		"M5 3h14a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4h-7l-5.5 4.2V19H5a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4Z",
+};
+
+const bird = [
+	{
+		d: "M551.639 867.97L499.639 749.97L390.639 770.97L370.639 926.97C370.639 926.97 381.99 989.133 394.639 985.97C398.639 984.97 410.639 916.43 413.639 915.97C416.639 915.511 439.363 976.514 446.639 981.97C450.639 984.97 453.077 987.752 456.639 985.97C460.639 983.97 452.886 909.12 464.639 905.97C466.392 905.501 500.639 965.97 502.639 968.97C504.639 971.97 507.639 973.97 511.639 974.97C515.639 975.97 516.639 965.267 516.639 958.97C516.639 941.97 495.639 853.97 499.639 854.97C506.639 856.72 550.639 917.97 556.639 921.97C560.565 924.588 562.92 926.97 567.639 926.97C570.639 926.97 568.639 920.97 567.639 916.97C567.154 915.03 551.639 867.97 551.639 867.97Z",
+		fill: "#b4b0bd",
+	},
+	{
+		d: "M493.208 443.494C489.754 438.877 431.887 344.475 390.033 280.967C345.594 213.537 306.931 158.796 278.844 125.706C271.872 117.491 225.612 74.0113 223.089 77.4218C222.248 78.5588 234.356 91.9148 234.652 93.8928C235.392 98.8378 232.236 101.166 235.586 106.898C241.021 116.196 253.426 131.53 255.996 135.19C257.28 137.02 257.065 138.29 255.598 139.294C254.582 139.989 248.975 135.92 248.084 136.373C245.265 137.806 244.516 147.833 243.971 156.2C243.539 162.825 244.959 167.773 247.623 173.854C250.579 180.603 252.128 186.498 253.945 189.086C255.23 190.916 258.789 194.429 256.959 195.713C255.041 197.059 251.866 195.464 251.025 196.601C250.183 197.737 250.441 200.356 250.923 202.683C251.703 206.449 257.09 210.112 256.21 210.992C254.553 212.649 252.612 210.459 250.276 211.879C247.941 213.3 250.246 222.561 252.791 228.693C259.114 243.925 274.134 269.99 274.134 269.99C274.134 269.99 278.728 280.425 276.898 281.71C275.636 282.595 264.185 275.559 263.154 277.699C262.122 279.839 262.49 281.473 263.052 283.781C265.668 294.512 286.644 318.292 286.475 318.7C285.728 320.504 286.295 320.132 284.941 321.963C284.1 323.1 266.762 311.006 266.353 312.61C265.431 316.218 266.57 318.612 267.98 323.489C269.39 328.366 288.241 350.792 287.4 351.929C286.559 353.065 276.96 352.212 276.521 353.556C275.828 355.682 275.092 359.301 277.011 363.594C280.551 371.51 291.203 376.19 291.394 378.632C291.585 381.074 288.307 385.537 288.076 390.25C287.827 395.344 368.962 410.509 368.417 413.624C368.032 415.826 342.337 411.023 325.945 406.831C310.717 402.937 285.553 393.661 286.838 395.491C292.316 403.294 301.368 411.519 303.642 413.201C307.096 415.755 303.852 419.982 307.099 422.794C314.069 428.83 396.147 436.777 396.295 437.766C396.817 441.258 301.757 427.638 304.031 429.32C312.754 435.773 320.29 450.144 321.427 450.985C323.225 452.315 344.072 453.665 348.028 453.074C349.421 452.865 349.307 450.86 350.699 450.652C355.644 449.912 362.592 448.895 368.252 453.082C370.526 454.765 310.197 463.788 312.471 465.47C316.933 468.77 319.44 471.505 319.588 472.494C319.884 474.472 319.169 476.451 319.634 479.565C319.93 481.543 397.913 468.869 398.209 470.846C398.653 473.814 333.129 488.669 333.129 488.669C333.129 488.669 317.858 491.964 317.897 494.991C317.906 495.653 327.939 500.981 329.266 503.402C330.594 505.824 329.482 507.601 331.291 510.178C332.576 512.008 354.057 500.706 360.073 499.806C363.04 499.362 365.297 498.543 367.292 500.749C368.903 502.53 361.026 506.518 356.459 509.446C350.634 513.182 343.358 513.889 340.386 516.906C337.261 520.078 334.255 522.879 334.646 525.853C334.822 527.191 352.199 528.284 352.347 529.273C352.879 532.834 346.311 536.243 347.448 537.083C349.712 538.758 351.71 538.477 353.974 540.152C355.111 540.993 349.473 543.859 350.61 544.7C352.874 546.374 354.456 546.9 357.135 547.768C362.092 549.374 364.86 549.23 370.436 548.812C377.091 548.313 384.679 542.638 385.816 543.478C386.953 544.319 377.305 551.255 379.088 552.574C380.225 553.415 394.222 556.015 402.574 554.117C411.341 552.125 413.804 541.315 417.067 542.849C420.947 544.673 416.996 560.767 418.888 561.788C423.049 564.035 423.433 563.892 424.277 564.015C427.378 564.47 432.419 556.032 438.326 549.781C447.93 539.617 453.4 533.955 463.901 524.722C466.668 522.289 469.191 519.531 471.073 518.594C473.896 517.188 478.876 518.208 482.941 516.819C488.713 514.846 495.806 504.71 501.889 494.774C506.018 488.03 509.86 484.231 510.253 476.334C510.405 473.278 505.509 459.932 502.054 455.315L493.208 443.494Z",
+		fill: "#a19dab",
+	},
+	{
+		d: "M338.639 772.97C338.638 852.97 329.984 943.419 331.638 943.97C334.637 944.971 347.638 926.97 348.638 927.97C350.088 929.421 344.638 938.97 345.638 939.97C346.873 941.205 346.891 941.970 348.638 941.97C350.638 941.97 360.638 926.97 361.638 927.97C362.638 928.97 356.028 944.993 357.638 944.97C359.248 944.948 360.203 944.701 361.638 943.97C365.221 942.147 366.638 934.97 366.638 934.97C366.638 934.97 374.693 917.249 381.638 906.97C387.852 897.772 396.048 895.74 399.638 884.97C403.638 872.97 413.809 832.556 416.638 833.97L418.638 834.97C420.638 835.97 417.19 850.222 418.638 850.97C420.748 852.062 421.263 851.918 423.638 851.97C426.013 852.023 434.053 829.873 438.638 814.97C442.638 801.97 445.862 795.624 455.638 783.97C467.283 770.088 475.136 770.027 485.638 760.97C492.96 754.656 501.084 748.154 502.638 746.97C519.354 734.234 527.147 729.466 543.638 714.97C565.208 696.01 581.427 687.28 599.637 663.97C610.443 650.139 618.856 642.661 627.637 626.97C640.346 604.262 645.609 589.423 654.193 565.224L654.637 563.97C664.343 536.613 671.29 521.501 676.637 492.97C679.609 477.116 680.42 469.778 681.637 451.97C682.41 440.672 682.528 430.098 684.637 418.97C686.663 408.282 689.472 402.545 694.637 392.97C698.906 385.058 700.679 379.664 707.637 373.97C718.637 364.97 728.75 359.016 742.637 349.97C757.623 340.21 765.809 334.294 781.637 325.97C798.975 316.853 809.65 313.727 827.638 305.97C841.293 300.082 849.595 298.113 862.638 290.97C871.57 286.079 884.638 276.97 884.638 276.97L866.638 280.97C866.638 280.97 842.598 286.134 827.638 290.97C805.827 298.021 794.577 304.647 773.637 313.97C747.624 325.554 729.637 334.97 707.637 344.97C683.788 355.811 675.706 354.378 649.637 356.97C631.356 358.788 614.637 356.49 602.637 358.97C586.637 362.278 574.384 366.484 557.638 377.97C534.752 393.668 526.661 409.311 510.638 431.97C492.541 457.563 488.572 475.991 469.638 500.97C453.61 522.115 441.563 531.409 423.638 550.97C407.203 568.905 394.847 576.544 381.638 596.97C363.393 625.184 361.308 645.51 352.638 677.97C345.147 706.015 338.639 743.943 338.639 772.97Z",
+		fill: "#ffffff",
+	},
+	{
+		d: "M500.639 447.97C497.905 442.893 454.639 340.97 422.639 271.97C388.662 198.709 358.522 138.851 335.639 101.97C329.958 92.815 290.639 42.9705 287.639 45.9703C286.639 46.9703 296.639 61.9705 296.639 63.9705C296.639 68.9705 293.173 70.8064 295.639 76.9705C299.639 86.9708 309.639 103.971 311.639 107.971C312.639 109.971 312.238 111.195 310.639 111.97C309.531 112.508 304.587 107.654 303.639 107.97C300.639 108.971 298.416 118.776 296.639 126.971C295.232 133.459 295.904 138.562 297.639 144.971C299.564 152.083 300.225 158.142 301.639 160.971C302.639 162.971 305.639 166.971 303.639 167.97C301.543 169.018 298.639 166.971 297.639 167.97C296.639 168.97 296.506 171.598 296.639 173.97C296.853 177.811 301.639 182.231 300.639 182.97C298.755 184.364 297.159 181.911 294.639 182.97C292.119 184.03 293.029 193.53 294.639 199.971C298.639 215.971 309.639 243.971 309.639 243.971C309.639 243.971 312.639 254.971 310.639 255.97C309.26 256.66 298.975 248.006 297.639 249.97C296.302 251.934 296.424 253.605 296.639 255.97C297.639 266.971 314.866 293.592 314.639 293.971C313.633 295.644 314.249 295.36 312.639 296.971C311.639 297.971 296.281 283.446 295.639 284.971C294.194 288.402 294.966 290.939 295.639 295.971C296.311 301.003 311.639 325.971 310.639 326.97C309.639 327.97 300.271 325.706 299.639 326.971C298.639 328.971 297.375 332.441 298.639 336.971C300.968 345.323 310.811 351.527 310.639 353.971C310.467 356.414 306.564 360.343 305.639 364.97C304.639 369.971 382.639 396.97 381.639 399.97C380.932 402.092 356.23 393.541 340.639 386.971C326.154 380.866 302.639 367.971 303.639 369.97C307.903 378.498 315.639 387.971 317.639 389.971C320.676 393.008 316.843 396.709 319.639 399.97C325.639 406.971 405.639 426.971 405.639 427.97C405.639 431.501 313.639 403.971 315.639 405.97C323.312 413.642 328.639 428.971 329.639 429.97C331.22 431.551 351.639 435.971 355.639 435.971C357.047 435.971 357.231 433.97 358.639 433.97C363.639 433.971 370.661 433.992 375.639 438.971C377.639 440.971 316.639 440.971 318.639 442.971C322.564 446.895 324.639 449.971 324.639 450.97C324.639 452.971 323.639 454.822 323.639 457.971C323.639 459.971 402.639 458.971 402.639 460.97C402.639 463.971 335.639 468.97 335.639 468.97C335.639 468.97 320.048 469.971 319.639 472.97C319.549 473.626 328.684 480.379 329.639 482.97C330.593 485.562 329.231 487.154 330.639 489.971C331.639 491.971 354.556 483.971 360.639 483.971C363.639 483.971 365.992 483.494 367.639 485.971C368.969 487.971 360.589 490.749 355.639 492.97C349.325 495.803 342.024 495.427 338.639 497.971C335.079 500.645 331.691 502.971 331.639 505.97C331.615 507.319 348.639 510.971 348.639 511.97C348.639 515.571 341.639 517.971 342.639 518.97C344.63 520.961 346.648 520.979 348.639 522.97C349.639 523.971 343.639 525.971 344.639 526.97C346.63 528.961 348.118 529.715 350.639 530.97C355.303 533.292 358.062 533.559 363.639 533.971C370.294 534.461 378.639 529.971 379.639 530.97C380.639 531.97 370.071 537.402 371.639 538.97C372.639 539.971 386.098 544.612 394.639 543.971C403.604 543.297 407.639 532.971 410.639 534.97C414.206 537.348 407.919 552.68 409.639 553.97C413.422 556.808 413.822 556.723 414.639 556.97C417.639 557.878 423.872 550.279 430.639 544.97C441.64 536.339 447.888 531.549 459.639 523.97C462.735 521.973 465.639 519.619 467.639 518.97C470.639 517.997 475.413 519.743 479.639 518.971C485.639 517.873 494.153 508.897 501.639 499.97C506.72 493.911 511.082 490.723 512.639 482.97C513.241 479.971 510.372 466.047 507.639 460.97L500.639 447.97Z",
+		fill: "#f2f2f2",
+	},
+];
+
+const edgePath = ({ anchor, control }: Source) =>
+	`M${anchor.x} ${anchor.y} Q${control.x} ${control.y} ${center.x} ${center.y}`;
+const colibriColor = "#8e51ff";
+const ringPoint = (angle: number) => ({
+	x: center.x + Math.cos((angle * Math.PI) / 180) * ringRadius,
+	y: center.y + Math.sin((angle * Math.PI) / 180) * ringRadius,
+});
+const geometry = JSON.stringify({
+	center,
+	ringRadius,
+	colibriColor,
+	sources,
+});
+---
+
+<div
+	class="bridge-graph"
+	data-bridge-graph
+	data-geometry={geometry}
+	role="img"
+	aria-label="Messages travel both ways along a graph between Colibri and other chat platforms"
+>
+	<svg viewBox="0 0 400 260" aria-hidden="true">
+		<g>
+			{
+				sources.map((source) => (
+					<path
+						data-edge-rest
+						d={edgePath(source)}
+						fill="none"
+						stroke="#fff"
+						stroke-opacity="0.4"
+						stroke-width="1.2"
+						stroke-dasharray="2 4"
+						stroke-linecap="round"
+					/>
+				))
+			}
+		</g>
+		<g>
+			{
+				sources.map((source) => (
+					<path
+						data-edge-live
+						d={edgePath(source)}
+						fill="none"
+						stroke="#fff"
+						stroke-opacity="0.75"
+						stroke-width="1.6"
+						stroke-linecap="round"
+						pathLength="1"
+						stroke-dasharray="1 1"
+						stroke-dashoffset="1"
+					/>
+				))
+			}
+		</g>
+		<g>
+			{
+				sources.flatMap((source) =>
+					source.nodes.map(([x, y]) => (
+						<line
+							data-spoke
+							x1={source.anchor.x}
+							y1={source.anchor.y}
+							x2={x}
+							y2={y}
+							stroke="#fff"
+							stroke-opacity="0.3"
+							stroke-width="1"
+						/>
+					)),
+				)
+			}
+			{
+				sources.map(({ anchor, nodes: [first] }) => (
+					<line
+						data-outgoing-spoke
+						x1={anchor.x}
+						y1={anchor.y}
+						x2={first?.[0]}
+						y2={first?.[1]}
+						stroke="#fff"
+						stroke-opacity="0"
+						stroke-width="1"
+					/>
+				))
+			}
+		</g>
+		<circle
+			data-halo
+			cx={center.x}
+			cy={center.y}
+			r="38"
+			fill="#fff"
+			opacity="0"></circle>
+		<circle
+			data-ring
+			cx={center.x}
+			cy={center.y}
+			r={ringRadius}
+			fill="none"
+			stroke="#fff"
+			stroke-width="1"
+			stroke-dasharray="1.5 4"
+			opacity="0"></circle>
+		<g>
+			{
+				sources.flatMap((source, index) =>
+					[0, 1, 2].map((dot) => (
+						<circle
+							data-dot={index}
+							r="2.6"
+							fill={dot === 1 ? colibriColor : source.color}
+							stroke="#fff"
+							stroke-width="1"
+							opacity="0"
+						/>
+					)),
+				)
+			}
+		</g>
+		<g>
+			{
+				sources.flatMap((source) =>
+					source.nodes.map(([x, y]) => (
+						<circle
+							data-node
+							cx={x}
+							cy={y}
+							r="5"
+							fill={source.color}
+							stroke="#fff"
+							stroke-width="1.6"
+						/>
+					)),
+				)
+			}
+			{
+				sources.map(({ sector }) => {
+					const { x, y } = ringPoint(sector);
+					return (
+						<circle
+							data-outgoing
+							cx={x}
+							cy={y}
+							r="4.4"
+							fill={colibriColor}
+							stroke="#fff"
+							stroke-width="1.6"
+						/>
+					);
+				})
+			}
+		</g>
+		<g>
+			{
+				sources.map(({ id, anchor: { x, y } }) =>
+					id === "minecraft" ? (
+						<g>
+							<rect
+								x={x - 48}
+								y={y - 17}
+								width="96"
+								height="34"
+								rx="17"
+								fill="#62b47a"
+								stroke="#fff"
+								stroke-width="2.5"
+							/>
+							<path
+								d={logos.minecraft}
+								fill="#0f0f0f"
+								transform={`translate(${x - 38.4} ${y - 38.4}) scale(3.2)`}
+							/>
+						</g>
+					) : id === "other" ? (
+						<g>
+							<circle
+								cx={x}
+								cy={y}
+								r="22"
+								fill="#8d8b96"
+								stroke="#fff"
+								stroke-width="2.5"
+							/>
+							<path
+								d={logos.other}
+								fill="#fff"
+								transform={`translate(${x - 11} ${y - 11}) scale(${22 / 24})`}
+							/>
+							{[-4.6, 0, 4.6].map((offset) => (
+								<circle cx={x + offset} cy={y - 1} r="1.5" fill="#8d8b96" />
+							))}
+						</g>
+					) : (
+						<g>
+							<circle
+								cx={x}
+								cy={y}
+								r="22"
+								fill={id === "discord" ? "#5865f2" : "#fff"}
+								stroke="#fff"
+								stroke-width="2.5"
+							/>
+							<path
+								d={logos[id]}
+								fill={id === "discord" ? "#fff" : "#0f0f0f"}
+								transform={
+									id === "discord"
+										? `translate(${x - 13} ${y - 13}) scale(${26 / 24})`
+										: `translate(${x - 12} ${y - 12})`
+								}
+							/>
+						</g>
+					),
+				)
+			}
+		</g>
+		<g>
+			<circle
+				cx={center.x}
+				cy={center.y}
+				r="30"
+				fill="#0f0f0f"
+				stroke="#fff"
+				stroke-width="2.5"></circle>
+			<g
+				transform={`translate(${center.x + 1} ${center.y}) scale(0.044) translate(-556 -515)`}
+			>
+				{bird.map((part) => <path d={part.d} fill={part.fill} />)}
+			</g>
+		</g>
+	</svg>
+</div>
+
+<style>
+	.bridge-graph {
+		position: absolute;
+		inset: 10px;
+	}
+
+	.bridge-graph svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+</style>
+
+<script>
+	type Point = { x: number; y: number };
+	type Source = {
+		color: string;
+		anchor: Point;
+		control: Point;
+		sector: number;
+		nodes: Array<[number, number]>;
+	};
+	type Geometry = {
+		center: Point;
+		ringRadius: number;
+		colibriColor: string;
+		sources: Array<Source>;
+	};
+	type Edge = {
+		source: Source;
+		index: number;
+		rest: SVGPathElement;
+		live: SVGPathElement;
+		dots: Array<SVGCircleElement>;
+	};
+	type Message = {
+		source: Source;
+		node: SVGCircleElement;
+		spoke: SVGLineElement;
+		start: Point;
+		angle: number;
+		delay: number;
+	};
+	type Outgoing = {
+		source: Source;
+		node: SVGCircleElement;
+		spoke: SVGLineElement;
+		start: Point;
+		end: Point;
+		delay: number;
+	};
+
+	const ringSpeed = 6;
+	const forwardDuration = 1700;
+	const backwardDuration = 1300;
+	const ringSpacing = 22.5;
+	const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+	const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+	const easeInOut = (value: number) =>
+		value < 0.5 ? 4 * value ** 3 : 1 - (-2 * value + 2) ** 3 / 2;
+	const easeOut = (value: number) => 1 - (1 - value) ** 3;
+
+	const quad = (from: Point, control: Point, to: Point, u: number) => {
+		const rest = 1 - u;
+		return {
+			x: rest * rest * from.x + 2 * rest * u * control.x + u * u * to.x,
+			y: rest * rest * from.y + 2 * rest * u * control.y + u * u * to.y,
+		};
+	};
+
+	const toRgb = (hex: string) => {
+		const value = Number.parseInt(hex.slice(1), 16);
+		return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+	};
+
+	const mix = (from: string, to: string, amount: number) => {
+		const a = toRgb(from);
+		const b = toRgb(to);
+		const [r, g, bl] = a.map((value, i) =>
+			Math.round(value + ((b[i] ?? 0) - value) * amount),
+		);
+		return `rgb(${r}, ${g}, ${bl})`;
+	};
+
+	function initBridgeGraph(root: HTMLElement) {
+		const geometry: Geometry = JSON.parse(root.dataset.geometry ?? "null");
+		if (!geometry) return;
+		const { center, ringRadius, colibriColor, sources } = geometry;
+
+		const rests = root.querySelectorAll<SVGPathElement>("[data-edge-rest]");
+		const lives = root.querySelectorAll<SVGPathElement>("[data-edge-live]");
+		const nodes = root.querySelectorAll<SVGCircleElement>("[data-node]");
+		const spokes = root.querySelectorAll<SVGLineElement>("[data-spoke]");
+		const outgoingNodes =
+			root.querySelectorAll<SVGCircleElement>("[data-outgoing]");
+		const outgoingSpokes = root.querySelectorAll<SVGLineElement>(
+			"[data-outgoing-spoke]",
+		);
+		const halo = root.querySelector<SVGCircleElement>("[data-halo]");
+		const ring = root.querySelector<SVGCircleElement>("[data-ring]");
+		if (!halo || !ring) return;
+
+		const edges: Array<Edge> = sources.map((source, index) => ({
+			source,
+			index,
+			rest: rests[index] as SVGPathElement,
+			live: lives[index] as SVGPathElement,
+			dots: [
+				...root.querySelectorAll<SVGCircleElement>(`[data-dot="${index}"]`),
+			],
+		}));
+
+		const total = sources.reduce((sum, source) => sum + source.nodes.length, 0);
+		const messages: Array<Message> = sources.flatMap((source, index) =>
+			source.nodes.map(([x, y], j) => {
+				const order = sources
+					.slice(0, index)
+					.reduce((sum, previous) => sum + previous.nodes.length, j);
+				return {
+					source,
+					node: nodes[order] as SVGCircleElement,
+					spoke: spokes[order] as SVGLineElement,
+					start: { x, y },
+					angle:
+						source.sector + (j - (source.nodes.length - 1) / 2) * ringSpacing,
+					delay: 0.24 + ((j * sources.length + index) / total) * 0.4,
+				};
+			}),
+		);
+
+		const outgoing: Array<Outgoing> = sources.map((source, index) => {
+			const radians = (source.sector * Math.PI) / 180;
+			const [x, y] = source.nodes[0] ?? [source.anchor.x, source.anchor.y];
+			return {
+				source,
+				node: outgoingNodes[index] as SVGCircleElement,
+				spoke: outgoingSpokes[index] as SVGLineElement,
+				start: {
+					x: center.x + Math.cos(radians) * ringRadius,
+					y: center.y + Math.sin(radians) * ringRadius,
+				},
+				end: { x, y },
+				delay: 0.2 + index * 0.05,
+			};
+		});
+
+		const bendFor = (source: Source, start: Point, end: Point) => ({
+			x:
+				(start.x + end.x) / 2 +
+				(source.control.x - (source.anchor.x + center.x) / 2),
+			y:
+				(start.y + end.y) / 2 +
+				(source.control.y - (source.anchor.y + center.y) / 2),
+		});
+
+		const render = (progress: number, time: number) => {
+			const spin = time * ringSpeed;
+
+			for (const edge of edges) {
+				const drawn = easeInOut(clamp01((progress - edge.index * 0.06) / 0.3));
+				edge.live.setAttribute("stroke-dashoffset", (1 - drawn).toFixed(4));
+				edge.rest.setAttribute(
+					"stroke-opacity",
+					(0.4 * (1 - 0.85 * drawn)).toFixed(3),
+				);
+				const dotAlpha = easeOut(clamp01((drawn - 0.6) / 0.4));
+				edge.dots.forEach((dot, i) => {
+					const u = (time / 1.9 + i / 3 + edge.index * 0.21) % 1;
+					const point = quad(
+						edge.source.anchor,
+						edge.source.control,
+						center,
+						i === 1 ? 1 - u : u,
+					);
+					dot.setAttribute("cx", point.x.toFixed(2));
+					dot.setAttribute("cy", point.y.toFixed(2));
+					dot.setAttribute(
+						"opacity",
+						(dotAlpha * Math.sin(Math.PI * u)).toFixed(3),
+					);
+				});
+			}
+
+			for (const message of messages) {
+				const { source, start } = message;
+				const moved = easeInOut(clamp01((progress - message.delay) / 0.36));
+				const radians = ((message.angle + spin) * Math.PI) / 180;
+				const end = {
+					x: center.x + Math.cos(radians) * ringRadius,
+					y: center.y + Math.sin(radians) * ringRadius,
+				};
+				const point = quad(start, bendFor(source, start, end), end, moved);
+				message.node.setAttribute("cx", point.x.toFixed(2));
+				message.node.setAttribute("cy", point.y.toFixed(2));
+				message.node.setAttribute("r", (5 - 0.6 * moved).toFixed(2));
+				message.node.setAttribute("fill", mix(source.color, "#ffffff", moved));
+				message.node.setAttribute("stroke", mix("#ffffff", source.color, moved));
+				message.spoke.setAttribute(
+					"stroke-opacity",
+					(0.3 * (1 - clamp01(moved * 3))).toFixed(3),
+				);
+			}
+
+			for (const message of outgoing) {
+				const { source, start, end } = message;
+				const moved = easeInOut(clamp01((progress - message.delay) / 0.36));
+				const point = quad(start, bendFor(source, start, end), end, moved);
+				message.node.setAttribute("cx", point.x.toFixed(2));
+				message.node.setAttribute("cy", point.y.toFixed(2));
+				message.node.setAttribute("r", (4.4 + 0.6 * moved).toFixed(2));
+				message.node.setAttribute("fill", mix(colibriColor, "#ffffff", moved));
+				message.node.setAttribute("stroke", mix("#ffffff", colibriColor, moved));
+				message.spoke.setAttribute(
+					"stroke-opacity",
+					(0.3 * clamp01((moved - 0.66) * 3)).toFixed(3),
+				);
+			}
+
+			const ringIn = easeInOut(clamp01((progress - 0.5) / 0.5));
+			ring.setAttribute("opacity", (0.35 * ringIn).toFixed(3));
+			halo.setAttribute("r", (37 + 3 * Math.sin(time * 2.4)).toFixed(2));
+			halo.setAttribute(
+				"opacity",
+				(0.14 * easeInOut(clamp01(progress / 0.6))).toFixed(3),
+			);
+		};
+
+		const trigger = root.closest<HTMLElement>("article") ?? root;
+		const state = {
+			active: false,
+			visible: false,
+			progress: 0,
+			time: 0,
+			last: 0,
+			frame: 0,
+		};
+
+		const tick = (now: number) => {
+			const delta = state.last ? Math.min(64, now - state.last) : 16;
+			state.last = now;
+			const step =
+				delta / (state.active ? forwardDuration : backwardDuration);
+			state.progress = state.active
+				? Math.min(1, state.progress + step)
+				: Math.max(0, state.progress - step);
+			state.time += delta / 1000;
+			render(state.progress, state.time);
+			if ((state.active || state.progress > 0) && state.visible) {
+				state.frame = requestAnimationFrame(tick);
+			} else {
+				state.frame = 0;
+				state.last = 0;
+			}
+		};
+
+		const wake = () => {
+			if (!state.frame && state.visible) {
+				state.frame = requestAnimationFrame(tick);
+			}
+		};
+
+		const setActive = (active: boolean) => {
+			state.active = active && !reducedMotion.matches;
+			wake();
+		};
+
+		trigger.addEventListener("pointerenter", () => setActive(true));
+		trigger.addEventListener("pointerleave", () =>
+			setActive(trigger.matches(":focus-within")),
+		);
+		trigger.addEventListener("focusin", () => setActive(true));
+		trigger.addEventListener("focusout", (event) => {
+			if (!trigger.contains(event.relatedTarget as Node | null)) {
+				setActive(trigger.matches(":hover"));
+			}
+		});
+
+		reducedMotion.addEventListener("change", () => {
+			if (!reducedMotion.matches) return;
+			state.active = false;
+			state.progress = 0;
+			render(0, state.time);
+		});
+
+		new IntersectionObserver(([entry]) => {
+			state.visible = entry?.isIntersecting ?? false;
+			if (state.visible) wake();
+		}).observe(root);
+	}
+
+	for (const root of document.querySelectorAll<HTMLElement>(
+		"[data-bridge-graph]",
+	)) {
+		initBridgeGraph(root);
+	}
+</script>

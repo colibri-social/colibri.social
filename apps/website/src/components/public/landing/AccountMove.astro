@@ -1,0 +1,482 @@
+---
+import { Hummingbird } from "@colibri-social/client/hummingbird";
+
+const rows = [160, 223.5, 287];
+const servers = [
+	{ side: "left", x: 20 },
+	{ side: "right", x: 820 },
+];
+const personStart = "transform: translate(130px, 228px)";
+---
+
+<div
+	class="account-move"
+	data-account-move
+	role="img"
+	aria-label="A person moves their account from one server to another, and their Colibri and Bluesky data follow"
+>
+	<svg class="stage" viewBox="0 130 1000 270" aria-hidden="true">
+		<defs>
+			<g id="account-move-person">
+				<circle cx="50" cy="27.778" r="27.778"></circle>
+				<path
+					d="M50,73.582C77.614,73.582 100,95.968 100,123.582C100,129.364 100,134.979 100,140C100,145.304 97.893,150.391 94.142,154.142C90.391,157.893 85.304,160 80,160L20,160C14.696,160 9.609,157.893 5.858,154.142C2.107,150.391 -0,145.304 0,140L0,123.582C-0,95.968 22.386,73.582 50,73.582Z"
+				></path>
+			</g>
+			<mask
+				id="account-move-mask"
+				maskUnits="userSpaceOnUse"
+				x="0"
+				y="130"
+				width="1000"
+				height="270"
+			>
+				<rect x="0" y="130" width="1000" height="270" fill="#fff"></rect>
+				{
+					servers.map((server) =>
+						rows.map((y) => (
+							<rect
+								x={server.x + 11}
+								y={y + 11}
+								width="53"
+								height="17"
+								rx="8.5"
+								fill="#000"
+							/>
+						)),
+					)
+				}
+				<g class="person-move" data-person-move style={personStart}>
+					<g class="person-bump" data-person-bump>
+						<use
+							href="#account-move-person"
+							transform="scale(0.9)"
+							fill="#000"
+							stroke="#000"
+							stroke-width="9"
+						></use>
+					</g>
+				</g>
+			</mask>
+		</defs>
+
+		<g mask="url(#account-move-mask)">
+			<path class="wire" data-wire d="M198,250 H802"></path>
+			{
+				servers.map((server) =>
+					rows.map((y) => (
+						<rect
+							class="server-row"
+							x={server.x}
+							y={y}
+							width="160"
+							height="53"
+							rx="12"
+						/>
+					)),
+				)
+			}
+		</g>
+
+		{
+			servers.map((server) => (
+				<g data-server={server.side}>
+					{rows.map((y) => (
+						<rect
+							class="pill"
+							x={server.x + 11}
+							y={y + 11}
+							width="53"
+							height="17"
+							rx="8.5"
+						/>
+					))}
+				</g>
+			))
+		}
+
+		<g class="person-move" data-person-move style={personStart}>
+			<g class="person-bump" data-person-bump>
+				<use
+					class="person"
+					href="#account-move-person"
+					transform="scale(0.9)"
+				></use>
+			</g>
+		</g>
+	</svg>
+
+	<div class="icons" aria-hidden="true">
+		<div class="icon icon-colibri" data-icon="colibri">
+			<Hummingbird client:only="solid-js" size={160} class="w-full!" />
+		</div>
+		<div class="icon icon-bluesky" data-icon="bluesky">
+			<svg viewBox="0 0 100 88.9">
+				<path
+					d="M49.957,39.426C45.418,30.631 33.106,14.205 21.645,6.12C10.666,-1.624 6.467,-0.291 3.745,0.957C0.567,2.404 0,7.283 0,10.149C0,13.014 1.56,33.695 2.61,37.128C6.014,48.533 18.071,52.391 29.191,51.142C29.759,51.057 30.326,50.972 30.922,50.915C30.354,51.001 29.759,51.086 29.191,51.142C12.907,53.554 -1.588,59.483 17.418,80.618C38.297,102.236 46.042,75.994 50.015,62.661C53.986,75.966 58.554,101.272 82.213,80.618C100.001,62.661 87.093,53.554 70.809,51.142C70.241,51.086 69.646,51.001 69.078,50.915C69.674,51.001 70.241,51.057 70.809,51.142C81.929,52.391 94.014,48.532 97.39,37.128C98.411,33.667 100,13.014 100,10.149C100,7.283 99.433,2.404 96.255,0.957C93.504,-0.291 89.333,-1.624 78.355,6.12C66.809,14.234 54.496,30.631 49.959,39.426L49.957,39.426Z"
+				></path>
+			</svg>
+		</div>
+	</div>
+</div>
+
+<style>
+	.account-move {
+		--am-ink: #fff;
+		--am-person-signal: #8d8b96;
+		--am-bluesky-signal: #1185fe;
+		--am-colibri-signal: var(--primary-hover);
+		position: relative;
+		width: calc(100% - 48px);
+		max-width: 100%;
+		aspect-ratio: 1000 / 270;
+	}
+
+	.stage {
+		display: block;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+
+	.wire {
+		fill: none;
+		stroke: var(--am-ink);
+		stroke-width: 10.4;
+		stroke-linecap: round;
+		stroke-dasharray: 10.8 16.26;
+		opacity: 0;
+	}
+
+	.server-row,
+	.person {
+		fill: var(--am-ink);
+	}
+
+	.pill {
+		opacity: 0;
+	}
+
+	.person-bump {
+		transform-box: fill-box;
+		transform-origin: center;
+	}
+
+	.icons {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+	}
+
+	.icon {
+		position: absolute;
+		transform-origin: 50% 50%;
+		opacity: 0;
+	}
+
+	.icon > svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+
+	.icon-bluesky {
+		left: 12.8%;
+		top: 37.59%;
+		width: 9.8%;
+		aspect-ratio: 100 / 88.9;
+	}
+
+	.icon-bluesky svg {
+		fill: var(--am-bluesky-signal);
+	}
+
+	.icon-colibri {
+		left: 9.24%;
+		top: 33.67%;
+		width: 15.7%;
+		aspect-ratio: 1;
+		transform-origin: 54% 50%;
+	}
+</style>
+
+<script>
+	type Side = "left" | "right";
+	type IconName = "person" | "colibri" | "bluesky";
+	type DataName = Exclude<IconName, "person">;
+	type Slot = { x: number; y: number; width: number; center?: number };
+
+	const view = { x: 0, y: 130, width: 1000, height: 270 };
+	const slots: Record<IconName, Slot> = {
+		person: { x: 130, y: 228, width: 90 },
+		colibri: { x: 92.4, y: 220.9, width: 157, center: 0.5405 },
+		bluesky: { x: 128, y: 231.5, width: 98 },
+	};
+	const order: Array<IconName> = ["person", "colibri", "bluesky"];
+	const dataNames: Array<DataName> = ["colibri", "bluesky"];
+	const signals: Record<IconName, string> = {
+		person: "var(--am-person-signal)",
+		colibri: "var(--am-colibri-signal)",
+		bluesky: "var(--am-bluesky-signal)",
+	};
+	const hopDuration = 1350;
+	const hopLift = 46;
+	const hopSamples = 16;
+	const landingAt = 0.85;
+	const emergeDuration = 320;
+	const absorbDuration = 260;
+	const stepGap = 250;
+	const restDuration = 1400;
+	const startDelay = 600;
+	const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+	const percentX = (x: number) => `${((x - view.x) / view.width) * 100}%`;
+	const percentY = (y: number) => `${((y - view.y) / view.height) * 100}%`;
+	const translate = (x: number, y: number) => `translate(${x}px, ${y}px)`;
+
+	function slotFor(name: IconName, side: Side) {
+		const base = slots[name];
+		if (side === "left") return { x: base.x, y: base.y };
+		const center = base.x + base.width * (base.center ?? 0.5);
+		return { x: base.x + view.width - 2 * center, y: base.y };
+	}
+
+	function isData(name: IconName): name is DataName {
+		return name !== "person";
+	}
+
+	function initAccountMove(root: HTMLElement) {
+		const wire = root.querySelector<SVGPathElement>("[data-wire]");
+		const personMovers = Array.from(
+			root.querySelectorAll<SVGGElement>("[data-person-move]"),
+		);
+		const personBumps = Array.from(
+			root.querySelectorAll<SVGGElement>("[data-person-bump]"),
+		);
+		const icons = Object.fromEntries(
+			dataNames.map((name) => [
+				name,
+				root.querySelector<HTMLElement>(`[data-icon="${name}"]`),
+			]),
+		) as Record<DataName, HTMLElement | null>;
+		if (!wire || dataNames.some((name) => !icons[name])) return;
+
+		let session = 0;
+		let running: Array<Animation> = [];
+		let timers: Array<number> = [];
+		const march = wire.animate(
+			[{ strokeDashoffset: 0 }, { strokeDashoffset: -27.06 }],
+			{ duration: 1100, iterations: Infinity },
+		);
+		march.pause();
+
+		const icon = (name: DataName) => icons[name] as HTMLElement;
+
+		const track = (animation: Animation) => {
+			running.push(animation);
+			return animation;
+		};
+
+		const wait = (ms: number, owner: number) =>
+			new Promise<void>((resolve, reject) => {
+				timers.push(
+					window.setTimeout(
+						() => (owner === session ? resolve() : reject(new Error("stale"))),
+						ms,
+					),
+				);
+			});
+
+		const place = (name: IconName, side: Side) => {
+			const point = slotFor(name, side);
+			if (!isData(name)) {
+				for (const mover of personMovers) {
+					mover.style.transform = translate(point.x, point.y);
+				}
+				return;
+			}
+			icon(name).style.left = percentX(point.x);
+			icon(name).style.top = percentY(point.y);
+		};
+
+		const reset = () => {
+			session += 1;
+			for (const animation of running) animation.cancel();
+			for (const timer of timers) window.clearTimeout(timer);
+			running = [];
+			timers = [];
+			march.pause();
+			wire.style.opacity = "0";
+			place("person", "left");
+			for (const name of dataNames) {
+				place(name, "left");
+				icon(name).style.opacity = "0";
+			}
+		};
+
+		const showWire = (visible: boolean, direction?: Side) => {
+			if (visible) {
+				march.playbackRate = direction === "right" ? 1 : -1;
+				march.play();
+			}
+			const from = getComputedStyle(wire).opacity;
+			wire.style.opacity = visible ? "1" : "0";
+			track(
+				wire.animate([{ opacity: from }, { opacity: visible ? 1 : 0 }], {
+					duration: visible ? 260 : 420,
+					easing: "ease-out",
+				}),
+			);
+		};
+
+		const emerge = (name: DataName) => {
+			icon(name).style.opacity = "1";
+			track(
+				icon(name).animate(
+					[
+						{ opacity: 0, transform: "scale(0.55)" },
+						{ opacity: 1, transform: "scale(1.06)", offset: 0.7 },
+						{ opacity: 1, transform: "scale(1)" },
+					],
+					{ duration: emergeDuration, easing: "cubic-bezier(.2,.8,.2,1)" },
+				),
+			);
+		};
+
+		const absorb = (name: DataName) => {
+			icon(name).style.opacity = "0";
+			track(
+				icon(name).animate(
+					[
+						{ opacity: 1, transform: "scale(1)" },
+						{ opacity: 0, transform: "scale(0.55)" },
+					],
+					{ duration: absorbDuration, easing: "cubic-bezier(.5,0,.75,0)" },
+				),
+			);
+			for (const bump of personBumps) {
+				track(
+					bump.animate(
+						[
+							{ transform: "scale(1)" },
+							{ transform: "scale(1.07)", offset: 0.4 },
+							{ transform: "scale(1)" },
+						],
+						{
+							duration: 420,
+							delay: absorbDuration * 0.6,
+							easing: "cubic-bezier(.3,.7,.4,1)",
+						},
+					),
+				);
+			}
+		};
+
+		const pulse = (side: Side, name: IconName) => {
+			root
+				.querySelectorAll<SVGRectElement>(`[data-server="${side}"] .pill`)
+				.forEach((pill, index) => {
+					pill.style.fill = signals[name];
+					track(
+						pill.animate(
+							[
+								{ opacity: 0 },
+								{ opacity: 1, offset: 0.08 },
+								{ opacity: 1, offset: 0.4 },
+								{ opacity: 0 },
+							],
+							{ duration: 850, delay: index * 60, easing: "ease-out" },
+						),
+					);
+				});
+		};
+
+		const hop = (name: IconName, from: Side, to: Side, owner: number) => {
+			const start = slotFor(name, from);
+			const end = slotFor(name, to);
+			const points = Array.from({ length: hopSamples + 1 }, (_, index) => {
+				const t = index / hopSamples;
+				return {
+					x: start.x + (end.x - start.x) * t,
+					y: start.y - hopLift * 4 * t * (1 - t),
+				};
+			});
+			const timing = {
+				duration: hopDuration,
+				easing: "cubic-bezier(.6,0,.3,1)",
+			};
+			if (isData(name)) {
+				track(
+					icon(name).animate(
+						points.map((point) => ({
+							left: percentX(point.x),
+							top: percentY(point.y),
+						})),
+						timing,
+					),
+				);
+			} else {
+				for (const mover of personMovers) {
+					track(
+						mover.animate(
+							points.map((point) => ({
+								transform: translate(point.x, point.y),
+							})),
+							timing,
+						),
+					);
+				}
+			}
+			place(name, to);
+			wait(hopDuration * landingAt, owner).then(
+				() => pulse(to, name),
+				() => {},
+			);
+		};
+
+		const cross = async (from: Side, to: Side, owner: number) => {
+			showWire(true, to);
+			for (const name of order) {
+				if (isData(name)) {
+					place(name, from);
+					emerge(name);
+					await wait(emergeDuration - 40, owner);
+				}
+				hop(name, from, to, owner);
+				await wait(hopDuration, owner);
+				if (isData(name)) absorb(name);
+				await wait((isData(name) ? absorbDuration : 0) + stepGap, owner);
+			}
+			showWire(false);
+			await wait(restDuration, owner);
+		};
+
+		const run = async () => {
+			reset();
+			const owner = session;
+			try {
+				await wait(startDelay, owner);
+				while (owner === session) {
+					await cross("left", "right", owner);
+					await cross("right", "left", owner);
+				}
+			} catch {}
+		};
+
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				if (entry?.isIntersecting && !reducedMotion.matches) run();
+				else reset();
+			},
+			{ threshold: 0.2 },
+		);
+		observer.observe(root);
+	}
+
+	for (const root of document.querySelectorAll<HTMLElement>(
+		"[data-account-move]",
+	)) {
+		initAccountMove(root);
+	}
+</script>
