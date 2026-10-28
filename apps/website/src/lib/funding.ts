@@ -3,7 +3,8 @@ import { GITHUB_SPONSORS_TOKEN } from "astro:env/server";
 const OPEN_COLLECTIVE_SLUG = "colibri-social";
 const GITHUB_SPONSORS_LOGIN = "colibri-social";
 const CACHE_TTL_MS = 10 * 60 * 1000;
-const REQUEST_TIMEOUT_MS = 3000;
+const REQUEST_TIMEOUT_MS = 8000;
+const PARTIAL_CACHE_TTL_MS = 60 * 1000;
 
 export const MONTHLY_GOAL_CENTS = 100_00;
 
@@ -35,9 +36,12 @@ type GithubSponsorsResponse = {
 	};
 };
 
-let cached: { funding: Funding; fetchedAt: number } | null = null;
+let cached: { funding: Funding; fetchedAt: number; ttl: number } | null = null;
+
+type GraphqlErrors = { errors?: Array<{ type?: string; message?: string }> };
 
 const postGraphql = async <T>(
+	source: string,
 	url: string,
 	query: string,
 	headers: Record<string, string> = {},
@@ -45,19 +49,35 @@ const postGraphql = async <T>(
 	try {
 		const res = await fetch(url, {
 			method: "POST",
-			headers: { "content-type": "application/json", ...headers },
+			headers: {
+				"content-type": "application/json",
+				"user-agent": "colibri.social-website",
+				...headers,
+			},
 			body: JSON.stringify({ query }),
 			signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 		});
-		if (!res.ok) return null;
-		return (await res.json()) as T;
-	} catch {
+		if (!res.ok) {
+			console.warn(`[funding] ${source} responded with HTTP ${res.status}`);
+			return null;
+		}
+		const json = (await res.json()) as T & GraphqlErrors;
+		if (json.errors?.length) {
+			const reasons = json.errors
+				.map((e) => e.type ?? e.message ?? "unknown")
+				.join(", ");
+			console.warn(`[funding] ${source} returned errors: ${reasons}`);
+		}
+		return json;
+	} catch (err) {
+		console.warn(`[funding] ${source} request failed`, err);
 		return null;
 	}
 };
 
 const fetchOpenCollective = async (): Promise<Source | null> => {
 	const json = await postGraphql<OpenCollectiveResponse>(
+		"Open Collective",
 		"https://api.opencollective.com/graphql/v2",
 		`query {
 			orders(account: { slug: "${OPEN_COLLECTIVE_SLUG}" }, filter: INCOMING, status: [ACTIVE], frequency: MONTHLY, limit: 1000) {
@@ -74,8 +94,12 @@ const fetchOpenCollective = async (): Promise<Source | null> => {
 };
 
 const fetchGithubSponsors = async (): Promise<Source | null> => {
-	if (!GITHUB_SPONSORS_TOKEN) return null;
+	if (!GITHUB_SPONSORS_TOKEN) {
+		console.warn("[funding] GITHUB_SPONSORS_TOKEN is not set");
+		return null;
+	}
 	const json = await postGraphql<GithubSponsorsResponse>(
+		"GitHub Sponsors",
 		"https://api.github.com/graphql",
 		`query {
 			organization(login: "${GITHUB_SPONSORS_LOGIN}") {
@@ -99,13 +123,15 @@ const fetchGithubSponsors = async (): Promise<Source | null> => {
 };
 
 export const getFunding = async (): Promise<Funding | null> => {
-	if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+	if (cached && Date.now() - cached.fetchedAt < cached.ttl) {
 		return cached.funding;
 	}
 
-	const sources = (
-		await Promise.all([fetchOpenCollective(), fetchGithubSponsors()])
-	).filter((s): s is Source => s !== null);
+	const results = await Promise.all([
+		fetchOpenCollective(),
+		fetchGithubSponsors(),
+	]);
+	const sources = results.filter((s): s is Source => s !== null);
 
 	const funding =
 		sources.length === 0
@@ -116,6 +142,13 @@ export const getFunding = async (): Promise<Funding | null> => {
 					goalCents: MONTHLY_GOAL_CENTS,
 				};
 
-	if (funding) cached = { funding, fetchedAt: Date.now() };
+	if (funding) {
+		const complete = sources.length === results.length;
+		cached = {
+			funding,
+			fetchedAt: Date.now(),
+			ttl: complete ? CACHE_TTL_MS : PARTIAL_CACHE_TTL_MS,
+		};
+	}
 	return funding;
 };
