@@ -62,7 +62,8 @@ import { ogImageFor } from "@/lib/og/url";
 					data-branch="right"
 					data-branch-src={Branch.src}
 					data-draw-w="800"
-					data-draw-h="519"></canvas>
+					data-draw-h="519"
+				></canvas>
 				<Image
 					src={Branch}
 					width={800}
@@ -85,7 +86,8 @@ import { ogImageFor } from "@/lib/og/url";
 					data-branch="left"
 					data-branch-src={Branch.src}
 					data-draw-w="800"
-					data-draw-h="519"></canvas>
+					data-draw-h="519"
+				></canvas>
 				<Image
 					src={Branch}
 					width={800}
@@ -142,9 +144,9 @@ import { ogImageFor } from "@/lib/og/url";
 							</p>
 							<a class="more-link" href="#">
 								Get bridging
-								<svg viewBox="0 0 24 24" aria-hidden="true"
-									><path d="M9 5L15 12L9 19"></path></svg
-								>
+								<svg viewBox="0 0 24 24" aria-hidden="true">
+									<path d="M9 5L15 12L9 19"></path>
+								</svg>
 							</a>
 						</div>
 					</article>
@@ -168,10 +170,10 @@ import { ogImageFor } from "@/lib/og/url";
 							<PhoneIsland />
 						</div>
 						<div class="card-text">
-							<h3 class="card-title">Made for your phone</h3>
+							<h3 class="card-title">Chat on the go</h3>
 							<p class="card-body">
-								Currently on the go? We’ve got first-party apps for Android and
-								iOS, so you can take your conversations with you.
+								Don't have a PC around? We’ve got first-party apps for Android
+								and iOS, so you can take your conversations with you.
 							</p>
 						</div>
 					</article>
@@ -184,8 +186,9 @@ import { ogImageFor } from "@/lib/og/url";
 							<h3 class="card-title">Share your memes and compilations</h3>
 							<p class="card-body">
 								Upload images, videos, PDFs, and GIFs powered by our GIF picker
-								to add some spice to your conversations.<br />Yes, that doge is
-								very cute.
+								to add some spice to your conversations.
+								<br />
+								Yes, that doge is very cute.
 							</p>
 						</div>
 					</article>
@@ -228,8 +231,8 @@ import { ogImageFor } from "@/lib/og/url";
 			<div class="site-wrap split">
 				<div class="split-text">
 					<h2 class="h2" id="support-title">
-						Colibri is made possible by people <span class="gold">like you</span
-						>.
+						Colibri is made possible by people{" "}
+						<span class="gold">like you</span>.
 					</h2>
 					<p class="lead">
 						Colibri is free, open source software that anyone can use. Your
@@ -237,55 +240,53 @@ import { ogImageFor } from "@/lib/og/url";
 						around the globe. Every amount helps, and you can get an in-app
 						badge for supporting us.
 					</p>
-					{
-						funding && (
-							<div class="progress">
-								<div class="progress-top">
-									<span>{dollars(funding.monthlyCents)} raised per month</span>
-									<span>Goal: {dollars(funding.goalCents)}</span>
-								</div>
-								<div
-									class="progress-bar"
-									role="progressbar"
-									aria-valuemin="0"
-									aria-valuemax={funding.goalCents / 100}
-									aria-valuenow={funding.monthlyCents / 100}
-									aria-label="Monthly funding goal"
-								>
-									<div
-										class="progress-fill"
-										style={`width: ${fundingPercent}%`}
-									/>
-								</div>
-								<span>
-									By {funding.contributors}{" "}
-									{funding.contributors === 1 ? "contributor" : "contributors"}
-								</span>
+					{funding && (
+						<div class="progress">
+							<div class="progress-top">
+								<span>{dollars(funding.monthlyCents)} raised per month</span>
+								<span>Goal: {dollars(funding.goalCents)}</span>
 							</div>
-						)
-					}
+							<div
+								class="progress-bar"
+								role="progressbar"
+								aria-valuemin="0"
+								aria-valuemax={funding.goalCents / 100}
+								aria-valuenow={funding.monthlyCents / 100}
+								aria-label="Monthly funding goal"
+							>
+								<div
+									class="progress-fill"
+									style={`width: ${fundingPercent}%`}
+								/>
+							</div>
+							<span>
+								By {funding.contributors}{" "}
+								{funding.contributors === 1 ? "contributor" : "contributors"}
+							</span>
+						</div>
+					)}
 				</div>
 
 				<div class="support-card" data-support-card>
 					<div class="seg-group">
 						<div class="seg" role="group" aria-label="How often">
-							<button type="button" data-freq="month" aria-pressed="true"
-								>Monthly</button
-							>
-							<button type="button" data-freq="once" aria-pressed="false"
-								>One-time</button
-							>
+							<button type="button" data-freq="month" aria-pressed="true">
+								Monthly
+							</button>
+							<button type="button" data-freq="once" aria-pressed="false">
+								One-time
+							</button>
 						</div>
 						<div class="seg" role="group" aria-label="Amount">
-							<button type="button" data-amount="5" aria-pressed="false"
-								>$5</button
-							>
-							<button type="button" data-amount="10" aria-pressed="true"
-								>$10</button
-							>
-							<button type="button" data-amount="25" aria-pressed="false"
-								>$25</button
-							>
+							<button type="button" data-amount="5" aria-pressed="false">
+								$5
+							</button>
+							<button type="button" data-amount="10" aria-pressed="true">
+								$10
+							</button>
+							<button type="button" data-amount="25" aria-pressed="false">
+								$25
+							</button>
 						</div>
 					</div>
 					<div class="profile" aria-live="polite">
@@ -300,15 +301,19 @@ import { ogImageFor } from "@/lib/og/url";
 						<div class="profile-main">
 							<div class="profile-name">
 								<strong>Kira</strong>
-								<span class="badge" data-support-badge style="background: #e870df"
-									>$10 SUPPORTER</span
+								<span
+									class="badge"
+									data-support-badge
+									style="background: #e870df"
 								>
+									$10 SUPPORTER
+								</span>
 							</div>
 							<div class="profile-status">
 								<Image src={Grin} width={24} height={24} alt="" quality={100} />
-								<span data-support-status
-									>I’m supporting Colibri with $10 per month!</span
-								>
+								<span data-support-status>
+									I’m supporting Colibri with $10 per month!
+								</span>
 							</div>
 						</div>
 					</div>
@@ -318,14 +323,18 @@ import { ogImageFor } from "@/lib/og/url";
 							data-support-link
 							href="https://opencollective.com/colibri-social/donate?interval=month&amount=10"
 							target="_blank"
-							rel="noreferrer">Support on Open Collective</a
+							rel="noreferrer"
 						>
+							Support on Open Collective
+						</a>
 						<a
 							class="site-btn support-secondary"
 							href="https://github.com/sponsors/colibri-social"
 							target="_blank"
-							rel="noreferrer">Support on GitHub Sponsors</a
+							rel="noreferrer"
 						>
+							Support on GitHub Sponsors
+						</a>
 					</div>
 				</div>
 			</div>
@@ -341,15 +350,15 @@ import { ogImageFor } from "@/lib/og/url";
 						Built so your messages <span class="gold">stay with you</span>
 					</h2>
 					<p class="lead">
-						Colibri is built on an emerging technology called the AT Protocol. It
-						allows you to move your account to wherever you want, without losing
-						ownership over the messages you’ve sent.
+						Colibri is built on an emerging technology called the AT Protocol.
+						It allows you to move your account to wherever you want, without
+						losing ownership over the messages you’ve sent.
 					</p>
 					<a class="more-link" href="#">
 						Read our explainer article
-						<svg viewBox="0 0 24 24" aria-hidden="true"
-							><path d="M9 5L15 12L9 19"></path></svg
-						>
+						<svg viewBox="0 0 24 24" aria-hidden="true">
+							<path d="M9 5L15 12L9 19"></path>
+						</svg>
 					</a>
 				</div>
 			</div>
@@ -361,10 +370,12 @@ import { ogImageFor } from "@/lib/og/url";
 					<div class="cta-milkyway" aria-hidden="true"></div>
 					<canvas class="cta-stars" data-cta-stars aria-hidden="true"></canvas>
 					<div class="cta-inner">
-						<h2 class="cta-title" id="cta-title">Are you ready to take off?</h2>
+						<h2 class="cta-title" id="cta-title">
+							Are you ready to take off?
+						</h2>
 						<p class="cta-sub">
-							Join Colibri today, create a space, and
-							get chatting on a platform that’s made for you!
+							Join Colibri today, create a space, and get chatting on a platform
+							that’s made for you!
 						</p>
 						<div class="cta-row">
 							<a class="site-btn site-btn-light" data-download href="/download">
@@ -385,19 +396,17 @@ import { ogImageFor } from "@/lib/og/url";
 					Still got questions? Maybe we can help you!
 				</h2>
 				<div class="faq" data-faq>
-					{
-						faq.map((item, i) => (
-							<details name="faq" open={i === 0}>
-								<summary>
-									{item.data.question}
-									<svg viewBox="0 0 24 24" aria-hidden="true">
-										<path d="M19 9L12 15L5 9" />
-									</svg>
-								</summary>
-								<p class="faq-answer">{item.data.answer}</p>
-							</details>
-						))
-					}
+					{faq.map((item, i) => (
+						<details name="faq" open={i === 0}>
+							<summary>
+								{item.data.question}
+								<svg viewBox="0 0 24 24" aria-hidden="true">
+									<path d="M19 9L12 15L5 9" />
+								</svg>
+							</summary>
+							<p class="faq-answer">{item.data.answer}</p>
+						</details>
+					))}
 				</div>
 			</div>
 		</section>
@@ -455,7 +464,9 @@ import { ogImageFor } from "@/lib/og/url";
 	.hero-milkyway {
 		position: absolute;
 		inset: 0;
-		background: radial-gradient(var(--mw-hero-rx) 100% at 50% 100%, var(--mw-glow)), #d9d9d9;
+		background:
+			radial-gradient(var(--mw-hero-rx) 100% at 50% 100%, var(--mw-glow)),
+			#d9d9d9;
 		-webkit-mask: var(--milkyway-wide) center / cover no-repeat;
 		mask: var(--milkyway-wide) center / cover no-repeat;
 		pointer-events: none;
@@ -897,7 +908,9 @@ import { ogImageFor } from "@/lib/og/url";
 		bottom: 0;
 		height: max(1080px, 100%);
 		transform: scaleY(-1);
-		background: radial-gradient(var(--mw-band-rx) 100% at 50% 100%, var(--mw-glow)), #d9d9d9;
+		background:
+			radial-gradient(var(--mw-band-rx) 100% at 50% 100%, var(--mw-glow)),
+			#d9d9d9;
 		-webkit-mask: var(--milkyway-wide) center / cover no-repeat;
 		mask: var(--milkyway-wide) center / cover no-repeat;
 		pointer-events: none;
@@ -1130,14 +1143,16 @@ import { ogImageFor } from "@/lib/og/url";
 		place-items: center;
 		padding: 48px 24px;
 		border-radius: 24px;
-		background: radial-gradient(var(--mw-card-rx) 100% at 50% 0%, var(--mw)), #171717;
+		background:
+			radial-gradient(var(--mw-card-rx) 100% at 50% 0%, var(--mw)), #171717;
 	}
 
 	.cta-milkyway {
 		position: absolute;
 		inset: 0;
 		transform: scaleY(-1);
-		background: radial-gradient(var(--mw-card-rx) 100% at 50% 0%, var(--mw-soft)), #d9d9d9;
+		background:
+			radial-gradient(var(--mw-card-rx) 100% at 50% 0%, var(--mw-soft)), #d9d9d9;
 		-webkit-mask: var(--milkyway-card) 50% 96% / cover no-repeat;
 		mask: var(--milkyway-card) 50% 96% / cover no-repeat;
 		pointer-events: none;
