@@ -137,23 +137,28 @@ function supportCard() {
 		for (const b of freqButtons) {
 			b.setAttribute("aria-pressed", String(b.dataset.freq === state.freq));
 		}
+
 		for (const b of amountButtons) {
 			b.setAttribute(
 				"aria-pressed",
 				String(Number(b.dataset.amount) === state.amount),
 			);
 		}
+
 		const monthly = state.freq === "month";
 		const tier = MONTHLY_BADGES[state.amount];
+
 		if (badge) {
 			badge.textContent = monthly ? tier.label : "DONATOR";
 			badge.style.background = monthly ? tier.color : ONE_TIME_BADGE_COLOR;
 		}
+
 		if (status) {
 			status.textContent = monthly
 				? `I’m supporting Colibri with $${state.amount} per month!`
 				: `I chipped in $${state.amount} to keep Colibri in the air!`;
 		}
+
 		if (link) {
 			const interval = monthly ? "month" : "oneTime";
 			link.href = `https://opencollective.com/colibri-social/donate?interval=${interval}&amount=${state.amount}`;

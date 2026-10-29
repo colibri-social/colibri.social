@@ -305,7 +305,7 @@ import { ogImageFor } from "@/lib/og/url";
 								>
 							</div>
 							<div class="profile-status">
-								<Image src={Grin} width={18} height={18} alt="" quality={100} />
+								<Image src={Grin} width={24} height={24} alt="" quality={100} />
 								<span data-support-status
 									>I’m supporting Colibri with $10 per month!</span
 								>
@@ -1062,15 +1062,19 @@ import { ogImageFor } from "@/lib/og/url";
 
 	.profile-status {
 		display: flex;
-		align-items: center;
 		gap: 6px;
 		font-size: 13px;
+		align-items: start;
 	}
 
 	.profile-status :global(img) {
 		width: 18px;
 		height: 18px;
 		flex: none;
+	}
+
+	[data-support-status] {
+		line-height: 1.2;
 	}
 
 	.support-actions {
