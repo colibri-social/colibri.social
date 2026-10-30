@@ -4,8 +4,6 @@ export const colibri = social.colibri.beta;
 
 export const space = com.atproto.space;
 
-export const simplespace = com.atproto.simplespace;
-
 export type {
 	ChannelSpaceType,
 	Collection,

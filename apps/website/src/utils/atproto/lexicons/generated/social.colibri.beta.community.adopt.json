@@ -86,7 +86,7 @@
 				},
 				{
 					"name": "SpacesUnsupported",
-					"description": "The account's PDS does not implement com.atproto.simplespace, so it cannot host community spaces."
+					"description": "The account's PDS does not implement the com.atproto.space policy methods, so it cannot host community spaces."
 				},
 				{
 					"name": "UpstreamFailure",

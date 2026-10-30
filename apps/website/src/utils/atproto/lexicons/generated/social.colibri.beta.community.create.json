@@ -74,7 +74,7 @@
 				},
 				{
 					"name": "SpacesUnsupported",
-					"description": "The AppView's PDS does not implement com.atproto.simplespace, so it cannot host community spaces."
+					"description": "The AppView's PDS does not implement the com.atproto.space policy methods, so it cannot host community spaces."
 				},
 				{
 					"name": "UpstreamFailure",

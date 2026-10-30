@@ -81,11 +81,11 @@ describe("createPreferencesGrant", () => {
 			xrpcError(400, "SpaceNotFound"),
 			json({ token: "delegation" }),
 		);
-		fake.on("com.atproto.simplespace.createSpace", json({}));
+		fake.on("com.atproto.space.createSpace", json({}));
 		fake.on(GRANT, json({ expiresAt: inMs(600_000) }));
 
 		await expect(grant.grant()).resolves.toBeDefined();
-		expect(fake.callsTo("com.atproto.simplespace.createSpace")).toHaveLength(1);
+		expect(fake.callsTo("com.atproto.space.createSpace")).toHaveLength(1);
 		expect(fake.callsTo(DELEGATE)).toHaveLength(2);
 	});
 

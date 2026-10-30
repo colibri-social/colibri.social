@@ -22,10 +22,10 @@ const json = (status: number, body: unknown) =>
 	});
 
 describe("checking a server for Spaces support", () => {
-	it("accepts a server that knows the simplespace methods", async () => {
+	it("accepts a server that knows the space policy methods", async () => {
 		const { calls, fetcher } = server({
 			"com.atproto.server.describeServer": json(200, { did: "did:web:pds" }),
-			"com.atproto.simplespace.getSpace": json(400, {
+			"com.atproto.space.getSpace": json(400, {
 				error: "InvalidRequest",
 			}),
 		});
@@ -38,10 +38,10 @@ describe("checking a server for Spaces support", () => {
 		);
 	});
 
-	it("rejects a server without simplespace", async () => {
+	it("rejects a server without space policies", async () => {
 		const { fetcher } = server({
 			"com.atproto.server.describeServer": json(200, { did: "did:web:pds" }),
-			"com.atproto.simplespace.getSpace": json(501, {
+			"com.atproto.space.getSpace": json(501, {
 				error: "MethodNotImplemented",
 			}),
 		});

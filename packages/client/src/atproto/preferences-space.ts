@@ -27,17 +27,15 @@ const isSpaceAlreadyExists = (err: unknown): boolean =>
 
 export const ensurePreferencesSpace = async (agent: Agent): Promise<void> => {
 	try {
-		await agent.com.atproto.simplespace.createSpace({
+		await agent.com.atproto.space.createSpace({
 			spaceType: SPACE_TYPES.actorPreferences,
 			skey: SELF,
-			readPolicy: { $type: "com.atproto.simplespace.defs#memberListPolicy" },
-			writePolicy: { $type: "com.atproto.simplespace.defs#memberListPolicy" },
-			appAccess: { $type: "com.atproto.simplespace.defs#open" },
+			policy: { $type: "com.atproto.memberspace.policy" },
 		});
 	} catch (err) {
 		if (isSpaceAlreadyExists(err)) return;
 		const classified = classifyThrown(err, {
-			method: "com.atproto.simplespace.createSpace",
+			method: "com.atproto.space.createSpace",
 		});
 		log.error("failed to create the preferences space", {
 			code: classified.code,

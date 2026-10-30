@@ -16,7 +16,7 @@ export * from "./logging/redact.js";
 export * from "./markdown.js";
 export * from "./protocol/appview.js";
 export * from "./protocol/client-origin.js";
-export { colibri, simplespace, space } from "./protocol/lexicons.js";
+export { colibri, space } from "./protocol/lexicons.js";
 export * from "./protocol/message-record.js";
 export * from "./protocol/scopes.js";
 export * from "./protocol/space-ref.js";

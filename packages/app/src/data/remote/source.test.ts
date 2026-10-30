@@ -903,20 +903,18 @@ describe("createRemoteSource", () => {
 				xrpcError(400, "SpaceNotFound"),
 				json({ uri: "at://x", cid: "c" }),
 			);
-			fake.on(
-				"com.atproto.simplespace.createSpace",
-				json({ uri: "at://space" }),
-			);
+			fake.on("com.atproto.space.createSpace", json({ uri: "at://space" }));
 		});
 		await withMessages(source, fake, [message("9")]);
 
 		await source.markRead(CHANNEL);
 		await source.flushReadCursors();
 
-		const created = only(fake.callsTo("com.atproto.simplespace.createSpace"));
+		const created = only(fake.callsTo("com.atproto.space.createSpace"));
 		expect(created.body).toMatchObject({
 			spaceType: "social.colibri.beta.actor.preferences",
 			skey: "self",
+			policy: { $type: "com.atproto.memberspace.policy" },
 		});
 		expect(fake.callsTo("com.atproto.space.putRecord")).toHaveLength(2);
 		expect(fake.callsTo(colibri.channel.putReadCursors.main.nsid)).toHaveLength(
@@ -935,7 +933,7 @@ describe("createRemoteSource", () => {
 				xrpcError(400, "SpaceNotFound"),
 				json({ uri: "at://x", cid: "c" }),
 			);
-			fake.on("com.atproto.simplespace.createSpace", async () => {
+			fake.on("com.atproto.space.createSpace", async () => {
 				await new Promise((resolve) => setTimeout(resolve, 20));
 				return json({ uri: "at://space" });
 			});
@@ -948,7 +946,7 @@ describe("createRemoteSource", () => {
 		await Promise.all([source.markRead(CHANNEL), source.markRead(elsewhere)]);
 		await source.flushReadCursors();
 
-		expect(fake.callsTo("com.atproto.simplespace.createSpace")).toHaveLength(1);
+		expect(fake.callsTo("com.atproto.space.createSpace")).toHaveLength(1);
 		expect(fake.callsTo(colibri.channel.putReadCursors.main.nsid)).toHaveLength(
 			2,
 		);
@@ -958,7 +956,7 @@ describe("createRemoteSource", () => {
 		const { fake, source } = await readSetup((fake) => {
 			fake.on("com.atproto.space.putRecord", xrpcError(400, "SpaceNotFound"));
 			fake.on(
-				"com.atproto.simplespace.createSpace",
+				"com.atproto.space.createSpace",
 				xrpcError(500, "InternalServerError"),
 			);
 		});

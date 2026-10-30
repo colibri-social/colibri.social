@@ -8,6 +8,7 @@ import {
 	FakeStream,
 	FakeTrack,
 	type FakeTransport,
+	pending,
 	reply,
 	setup,
 	VIEWER,
@@ -244,5 +245,63 @@ describe("screen share encoding", () => {
 				}),
 			]),
 		);
+	});
+
+	it("sends the screen again in VP8 once a viewer can't decode VP9", async () => {
+		const device = new ChromiumDevice([VP8, VP9]);
+		const harness = setup({
+			createDevice: () => device as unknown as types.Device,
+			probeVideoEncoding: vi.fn(async () => ({
+				supported: true,
+				powerEfficient: false,
+			})),
+		});
+		running.push(harness.engine);
+		const { socket } = await connect(harness);
+
+		const video = new FakeTrack("video");
+		const sharing = harness.engine.shareScreen(
+			{
+				video: video as unknown as MediaStreamTrack,
+				audio: null,
+				release() {},
+			},
+			{ resolution: "1080", framerate: 30 },
+		);
+		await reply(socket, "produce", {
+			$type: `${DEFS}producerInfo`,
+			producerId: "screen-1",
+			did: VIEWER,
+			kind: "video",
+			source: "screen",
+		});
+		expect(await sharing).toBe(true);
+
+		socket.serve({ $type: `${DEFS}codecUnsupported`, producerId: "screen-1" });
+		await reply(socket, "produce", {
+			$type: `${DEFS}producerInfo`,
+			producerId: "screen-2",
+			did: VIEWER,
+			kind: "video",
+			source: "screen",
+		});
+		const closing = await pending(socket, "closeProducer");
+		expect(closing).toEqual(
+			expect.objectContaining({ producerId: "screen-1" }),
+		);
+		const screens = device.produced.filter(
+			(entry) => entry.appData.source === "screen",
+		);
+		expect(screens.map((entry) => entry.codec?.mimeType)).toEqual([
+			"video/VP9",
+			"video/VP8",
+		]);
+		expect(video.stopped).toBe(false);
+
+		socket.serve({ $type: `${DEFS}codecUnsupported`, producerId: "screen-2" });
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(
+			device.produced.filter((entry) => entry.appData.source === "screen"),
+		).toHaveLength(2);
 	});
 });

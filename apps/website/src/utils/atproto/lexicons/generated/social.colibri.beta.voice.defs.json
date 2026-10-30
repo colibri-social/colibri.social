@@ -318,6 +318,19 @@
 				}
 			}
 		},
+		"setSpeaking": {
+			"type": "object",
+			"description": "Reports whether this connection's user is speaking, as detected on their device. Once a connection sends this, the server stops detecting speech from its audio level. The server reports false while the user is muted.",
+			"required": [
+				"speaking"
+			],
+			"properties": {
+				"speaking": {
+					"type": "boolean",
+					"description": "Whether the user is currently speaking."
+				}
+			}
+		},
 		"heartbeat": {
 			"type": "object",
 			"description": "Keeps the connection alive. The server answers with an ack.",
@@ -413,6 +426,19 @@
 					"type": "string",
 					"format": "did",
 					"description": "Whose producer this was."
+				}
+			}
+		},
+		"codecUnsupported": {
+			"type": "object",
+			"description": "A viewer in the voice channel can't decode the video codec of this client's screen share. The client can produce the screen share again with a more widely supported codec. Sent at most once per producer, only to the client that owns it.",
+			"required": [
+				"producerId"
+			],
+			"properties": {
+				"producerId": {
+					"type": "string",
+					"description": "The screen share producer a viewer couldn't consume."
 				}
 			}
 		},

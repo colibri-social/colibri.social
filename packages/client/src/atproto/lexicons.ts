@@ -35,4 +35,4 @@ export {
 	spaceUri,
 	threadSpace,
 } from "@colibri-social/lexicons";
-export { colibri, simplespace, space } from "@colibri-social/lib";
+export { colibri, space } from "@colibri-social/lib";

@@ -47,10 +47,7 @@ export type ConsumeFrame = ReturnType<typeof defs.consume.build>;
 export type ResumeConsumerFrame = ReturnType<typeof defs.resumeConsumer.build>;
 export type SetSelfStateFrame = ReturnType<typeof defs.setSelfState.build>;
 export type VoiceHeartbeatFrame = ReturnType<typeof defs.heartbeat.build>;
-export type SetSpeakingFrame = {
-	$type: "social.colibri.beta.voice.defs#setSpeaking";
-	speaking: boolean;
-};
+export type SetSpeakingFrame = ReturnType<typeof defs.setSpeaking.build>;
 
 export type ClientVoiceFrame =
 	| JoinFrame
@@ -84,6 +81,9 @@ export type PeerLeftFrame = ReturnType<typeof defs.peerLeft.build>;
 export type ProducerRemovedFrame = ReturnType<
 	typeof defs.producerRemoved.build
 >;
+export type CodecUnsupportedFrame = ReturnType<
+	typeof defs.codecUnsupported.build
+>;
 export type SpeakingUpdateFrame = ReturnType<typeof defs.speakingUpdate.build>;
 export type ModerationChangedFrame = ReturnType<
 	typeof defs.moderationChanged.build
@@ -102,6 +102,7 @@ export type ServerVoiceFrame =
 	| PeerJoinedFrame
 	| PeerLeftFrame
 	| ProducerRemovedFrame
+	| CodecUnsupportedFrame
 	| SpeakingUpdateFrame
 	| ModerationChangedFrame
 	| DisconnectedFrame
@@ -167,10 +168,8 @@ export const setSelfStateFrame = (state: {
 	deafened?: boolean;
 }): SetSelfStateFrame => defs.setSelfState.build(state);
 
-export const setSpeakingFrame = (speaking: boolean): SetSpeakingFrame => ({
-	$type: "social.colibri.beta.voice.defs#setSpeaking",
-	speaking,
-});
+export const setSpeakingFrame = (speaking: boolean): SetSpeakingFrame =>
+	defs.setSpeaking.build({ speaking });
 
 export const voiceHeartbeatFrame = (): VoiceHeartbeatFrame =>
 	defs.heartbeat.build({});
@@ -206,6 +205,7 @@ const FRAME_SCHEMAS = [
 	defs.peerJoined,
 	defs.peerLeft,
 	defs.producerRemoved,
+	defs.codecUnsupported,
 	defs.speakingUpdate,
 	defs.moderationChanged,
 	defs.disconnected,
@@ -227,6 +227,7 @@ const SERVER_FRAME_TYPES = new Set<string>([
 	defs.peerJoined.$type,
 	defs.peerLeft.$type,
 	defs.producerRemoved.$type,
+	defs.codecUnsupported.$type,
 	defs.speakingUpdate.$type,
 	defs.moderationChanged.$type,
 	defs.disconnected.$type,

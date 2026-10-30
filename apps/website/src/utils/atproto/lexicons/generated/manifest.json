@@ -67,14 +67,14 @@
 		"social.colibri.beta.channel.thread": "bd322dcc0a3a04cc6d87bd2b8ca167b18a05a7eb91c78a2a1dc2083bf3020071",
 		"social.colibri.beta.channel.update": "74776d90cf96777872ca9fcb63135431d64249d8816ca214b4140de80e85fd6b",
 		"social.colibri.beta.channel.voice": "453a15c3f6345bdf27ef2ed6107429c5f8dca8b7415dab21d6801f60363949d3",
-		"social.colibri.beta.community": "ce9d408564674d4c667d9a38a99733adce0a2337ee96c20b0d1359062b0af079",
-		"social.colibri.beta.community.adopt": "e902574f5e92f59153b265ee1e1ae9740977629090415625612ef34166f7ae8e",
+		"social.colibri.beta.community": "3e9539d4886d3de192afa901b0259bf8b2a2ac1870337a073b39270df287b9c8",
+		"social.colibri.beta.community.adopt": "401532f128707d4445f1d5abb3a9140d360a21f1077c095780645869a367fa8f",
 		"social.colibri.beta.community.applyLabel": "340ce165bc80fe1641f27594ba7ba68fa7b219d98218db10879e63b6f5b51e35",
 		"social.colibri.beta.community.approveApplication": "c9f60f44bb89e437ad1aa844bffe4f86196584cc95c864e1335fcf00f4a894d7",
 		"social.colibri.beta.community.authorizeHost": "d6d9bda23208f38781d95fd1323b0b587736fda0745ebdde18c7e4eb2b2ed49b",
 		"social.colibri.beta.community.ban": "9f28d7be08a6997fe62dc5c61d28ac5106818a46ee44b8913aea5c0077728cf3",
 		"social.colibri.beta.community.configuration": "dd6f51248141de3b8fb755a3609ec44d338890a683d915917f898aa2c52d01ae",
-		"social.colibri.beta.community.create": "b8b25b2fff9271ebd5e1343b87f76abfadf407bbeaffd71a43e6600bbf32d5f5",
+		"social.colibri.beta.community.create": "7f45d60b7f2e33859f2f0d1d46cd14bcc4e3841d47391a08653c737c25bf3e02",
 		"social.colibri.beta.community.createInvitation": "cc80d621346b7744a2936ac1f856642115a31b673ba5fe09f977246e248cdf8f",
 		"social.colibri.beta.community.defs": "f57374dd05ef22572aee9257da6450219f1d024a52f7c13a9f5bad5f8f6a8744",
 		"social.colibri.beta.community.delete": "6d95ff7c42218f8c63865d6a3c8f40d64ee5d718a15277d38100bfa35b7cb594",
@@ -170,7 +170,7 @@
 		"social.colibri.beta.thread.moveMessages": "0d8d867935a6fda38dd81294728c49dbf87dc041738d2619d7984ddf6b8192bd",
 		"social.colibri.beta.thread.repoint": "5a68e6078ece36bac6e90ab33d75fb0da1a97d447d92d1bfcb7bd3887d591ab4",
 		"social.colibri.beta.thread.update": "ece4f609fb316ccd5e54a27e89dca42fca8155564f5de1b6e9eb3ef10cae6b01",
-		"social.colibri.beta.voice.defs": "21e7f7b07df7543179c5d6fca1067292c7ae1a6b6cbd5e4b1bcfbbd6d7025b42",
+		"social.colibri.beta.voice.defs": "aad8bf43f5e56166952676eacebd34d539b77fb18b5cb21d77d964363847f8b3",
 		"social.colibri.beta.voice.moderate": "fe09e348822dabff6adfcaa869a4290d558ac67551d78a793ddb7d836070507e"
 	}
 }

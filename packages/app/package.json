@@ -18,8 +18,8 @@
 	},
 	"dependencies": {
 		"@arborium/arborium": "^2.18.1",
-		"@atproto/api": "0.0.0-spaces-alpha-20261022141228",
-		"@atproto/oauth-client-browser": "0.0.0-spaces-alpha-20261022141228",
+		"@atproto/api": "0.0.0-spaces-alpha-20261029171913",
+		"@atproto/oauth-client-browser": "0.0.0-spaces-alpha-20261029171913",
 		"@colibri-social/assets": "workspace:*",
 		"@colibri-social/lib": "workspace:*",
 		"@colibri-social/ui": "workspace:*",
@@ -36,7 +36,7 @@
 		"solid-js": "^1.9.15"
 	},
 	"devDependencies": {
-		"@colibri-social/lexicons": "^2.34.0",
+		"@colibri-social/lexicons": "^2.35.0",
 		"@sentry/vite-plugin": "^5.3.0",
 		"@tailwindcss/vite": "^4.1.18",
 		"@vitest/browser": "^4.1.10",

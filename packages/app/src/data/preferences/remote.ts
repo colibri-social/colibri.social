@@ -35,17 +35,11 @@ export const createPreferencesSpace = (transport: Transport) => {
 	let ready: Promise<void> | undefined;
 	const ensure = () => {
 		ready ??= transport
-			.pdsProcedure("com.atproto.simplespace.createSpace", {
+			.pdsProcedure("com.atproto.space.createSpace", {
 				body: {
 					spaceType: SPACE_TYPES.actorPreferences,
 					skey: SELF,
-					readPolicy: {
-						$type: "com.atproto.simplespace.defs#memberListPolicy",
-					},
-					writePolicy: {
-						$type: "com.atproto.simplespace.defs#memberListPolicy",
-					},
-					appAccess: { $type: "com.atproto.simplespace.defs#open" },
+					policy: { $type: "com.atproto.memberspace.policy" },
 				},
 			})
 			.then(
@@ -54,7 +48,7 @@ export const createPreferencesSpace = (transport: Transport) => {
 					ready = undefined;
 					log.warn("could not create the preferences space", {
 						code: classifyThrown(error, {
-							method: "com.atproto.simplespace.createSpace",
+							method: "com.atproto.space.createSpace",
 						}).code,
 					});
 				},

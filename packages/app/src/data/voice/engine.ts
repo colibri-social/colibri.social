@@ -386,6 +386,9 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		let screenProducer: types.Producer | null = null;
 		let screenAudioProducer: types.Producer | null = null;
 		let screenCapture: ScreenCapture | null = null;
+		let screenQuality: ScreenShareQuality | null = null;
+		let screenVp8Only = false;
+		let screenMimeType: string | null = null;
 		let screenEndedListener: (() => void) | null = null;
 		let micStream: MediaStream | null = null;
 		let suppressor: NoiseSuppressor | null = null;
@@ -738,6 +741,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		const releaseScreenCapture = () => {
 			const capture = screenCapture;
 			screenCapture = null;
+			screenQuality = null;
 			if (capture && screenEndedListener) {
 				capture.video.removeEventListener("ended", screenEndedListener);
 			}
@@ -819,6 +823,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			reconnectTimer = null;
 			cameraIntent += 1;
 			setCameraOn(false);
+			screenVp8Only = false;
 			teardownMedia();
 			abandonSignaling();
 		};
@@ -1230,6 +1235,9 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				case `${DEFS}peerLeft`:
 					dropPeer(frame.did);
 					return;
+				case `${DEFS}codecUnsupported`:
+					void fallBackToVp8(frame.producerId);
+					return;
 				case `${DEFS}producerRemoved`: {
 					const owner = producers.owner(frame.producerId);
 					removeProducer(frame.producerId);
@@ -1539,6 +1547,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				handlerName: loaded.handlerName,
 				target: screenEncodingTarget(quality, settings),
 				probe: probeVideoEncoding,
+				...(screenVp8Only ? { candidates: ["video/vp8"] } : {}),
 			});
 		};
 
@@ -1561,6 +1570,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			const epoch = mediaEpoch;
 			const live = () => mediaEpoch === epoch && screenCapture === capture;
 			screenCapture = capture;
+			screenQuality = quality;
 			setScreenSharing(true);
 			capture.video.contentHint = screenContentHint(quality);
 			setVideo("self:screen", {
@@ -1582,6 +1592,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 					appData: { source: "screen" },
 					encodings: screenEncodings(quality, choice.scalabilityMode),
 					codecOptions: screenCodecOptions(quality),
+					stopTracks: false,
 					...(choice.codec ? { codec: choice.codec } : {}),
 					onRtpSender: (sender) => presetDegradation(sender, quality),
 				});
@@ -1600,6 +1611,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				return false;
 			}
 			screenProducer = producer;
+			screenMimeType = choice.mimeType.toLowerCase();
 			applyDegradation(producer, quality);
 			screenEndedListener = () => stopScreen();
 			capture.video.addEventListener("ended", screenEndedListener);
@@ -1624,7 +1636,66 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			return true;
 		};
 
+		const fallBackToVp8 = async (producerId: string) => {
+			const previous = screenProducer;
+			const capture = screenCapture;
+			const quality = screenQuality;
+			const transport = sendTransport;
+			if (
+				screenVp8Only ||
+				!previous ||
+				previous.id !== producerId ||
+				!capture ||
+				!quality ||
+				!transport
+			) {
+				return;
+			}
+			screenVp8Only = true;
+			const choice = await chooseScreenCodec(capture.video, quality);
+			if (screenProducer !== previous) return;
+			if (choice.mimeType.toLowerCase() === screenMimeType) return;
+			const epoch = mediaEpoch;
+			log.info("sending the screen again for a viewer", {
+				codec: choice.mimeType,
+				layers: choice.scalabilityMode ?? "none",
+			});
+			let producer: types.Producer;
+			try {
+				producer = await transport.produce({
+					track: capture.video,
+					appData: { source: "screen" },
+					encodings: screenEncodings(quality, choice.scalabilityMode),
+					codecOptions: screenCodecOptions(quality),
+					stopTracks: false,
+					...(choice.codec ? { codec: choice.codec } : {}),
+					onRtpSender: (sender) => presetDegradation(sender, quality),
+				});
+			} catch (error) {
+				log.warn("could not send the screen again", {
+					code: classifyThrown(error).code,
+				});
+				return;
+			}
+			if (mediaEpoch !== epoch || screenProducer !== previous) {
+				producer.close();
+				return;
+			}
+			screenProducer = producer;
+			screenMimeType = choice.mimeType.toLowerCase();
+			applyDegradation(producer, quality);
+			void sendAndWait(closeProducerFrame(previous.id)).catch(
+				(error: unknown) => {
+					log.debug("closeProducer failed", {
+						code: classifyThrown(error).code,
+					});
+				},
+			);
+			previous.close();
+		};
+
 		const applyScreenQuality = (quality: ScreenShareQuality) => {
+			screenQuality = quality;
 			const producer = screenProducer;
 			const track = producer?.track;
 			if (!producer || !track) return;

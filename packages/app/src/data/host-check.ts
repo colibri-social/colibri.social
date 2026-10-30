@@ -14,9 +14,9 @@ export const checkSpacesSupport = async (
 		`${base}/xrpc/com.atproto.server.describeServer`,
 	).catch(() => null);
 	if (!described?.ok) return false;
-	const probe = await fetcher(
-		`${base}/xrpc/com.atproto.simplespace.getSpace`,
-	).catch(() => null);
+	const probe = await fetcher(`${base}/xrpc/com.atproto.space.getSpace`).catch(
+		() => null,
+	);
 	if (!probe) return false;
 	if (probe.status === 404 || probe.status === 501) return false;
 	const body = (await probe.json().catch(() => ({}))) as { error?: string };
