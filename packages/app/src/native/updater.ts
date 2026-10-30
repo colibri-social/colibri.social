@@ -12,6 +12,7 @@ export type UpdateCheckResult =
 			status: "update-available";
 			channel: InstallChannel;
 			version: string;
+			installsOnRestart: boolean;
 			download: () => Promise<void>;
 	  };
 
@@ -52,6 +53,22 @@ export const upgradeCommandFor = (channel: InstallChannel): string | null => {
 	return null;
 };
 
+const invokeNative = async <T>(
+	command: string,
+	args?: Record<string, unknown>,
+) => {
+	const { invoke } = await import("@tauri-apps/api/core");
+	return invoke<T>(command, args);
+};
+
+const updateInstallsOnRestart = async (): Promise<boolean> => {
+	try {
+		return await invokeNative<boolean>("update_installs_on_restart");
+	} catch {
+		return false;
+	}
+};
+
 export const runUpdateCheck = async (): Promise<UpdateCheckResult> => {
 	if (!isTauri()) return { status: "unsupported" };
 
@@ -61,11 +78,15 @@ export const runUpdateCheck = async (): Promise<UpdateCheckResult> => {
 		startedAt = performance.now();
 		const update = await check();
 		if (!update) return { status: "up-to-date" };
+		const installsOnRestart = await updateInstallsOnRestart();
 		return {
 			status: "update-available",
 			channel: await detectInstallChannel(),
 			version: update.version,
-			download: () => update.downloadAndInstall(),
+			installsOnRestart,
+			download: installsOnRestart
+				? () => invokeNative<void>("update_stage", { rid: update.rid })
+				: () => update.downloadAndInstall(),
 		};
 	} catch (error) {
 		if (
@@ -80,8 +101,7 @@ export const runUpdateCheck = async (): Promise<UpdateCheckResult> => {
 
 export const restartToApply = async (): Promise<void> => {
 	try {
-		const { relaunch } = await import("@tauri-apps/plugin-process");
-		await relaunch();
+		await invokeNative<void>("restart_app");
 	} catch (error) {
 		log.error("restart after update failed", {
 			code: classifyThrown(error).code,
@@ -160,7 +180,9 @@ export const createUpdater = () => {
 		if (notify) {
 			notifyOnce(result.version, () =>
 				toast("Update ready", {
-					description: `Colibri ${result.version} is downloaded. Restart to finish updating.`,
+					description: result.installsOnRestart
+						? `Colibri ${result.version} is downloaded. Restart to finish updating. Your computer may ask for your password.`
+						: `Colibri ${result.version} is downloaded. Restart to finish updating.`,
 					duration: Number.POSITIVE_INFINITY,
 					action: { label: "Restart", onClick: () => void restartToApply() },
 				}),

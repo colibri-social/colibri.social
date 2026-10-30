@@ -248,6 +248,7 @@ export const thread = defineContract({
 		};
 		return {
 			...conversation,
+			args,
 			backLabel,
 			unavailable: threadUnavailable,
 			loadFailure,
@@ -282,6 +283,7 @@ export const thread = defineContract({
 											kind: "members",
 											space: m.options.space,
 											channel: m.options.channel,
+											thread: m.args.thread,
 										})
 						}
 						actions={

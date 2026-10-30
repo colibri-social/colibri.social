@@ -638,3 +638,76 @@ export const UnsavedChanges: Story = {
 		);
 	},
 };
+
+const ComposerWithModal = () => {
+	const [open, setOpen] = createSignal(false);
+	return (
+		<div class="flex flex-col gap-3 p-4">
+			<TextField label="Message" placeholder="Message #general" />
+			<Button onClick={() => setOpen(true)}>Delete message</Button>
+			<Modal open={open()} onOpenChange={setOpen}>
+				<ModalContent
+					title="Delete message?"
+					description="This can't be undone."
+					footer={
+						<>
+							<ModalClose>Cancel</ModalClose>
+							<Button variant="destructive">Delete</Button>
+						</>
+					}
+				/>
+			</Modal>
+		</div>
+	);
+};
+
+const openFrom = (button: HTMLElement, pointerType: "touch" | "mouse") => {
+	button.dispatchEvent(
+		new PointerEvent("pointerdown", {
+			bubbles: true,
+			pointerType,
+			isPrimary: true,
+		}),
+	);
+	button.click();
+};
+
+export const DismissesKeyboardOnTouch: Story = {
+	render: () => <ComposerWithModal />,
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const field = canvas.getByRole("textbox", { name: "Message" });
+		field.focus();
+		openFrom(canvas.getByRole("button", { name: "Delete message" }), "touch");
+		await expect(document.activeElement).not.toBe(field);
+		const dialog = await screen.findByRole("dialog", {
+			name: "Delete message?",
+		});
+		await expectNoLayoutIssues(dialog);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+		);
+		await expect(document.activeElement).not.toBe(field);
+	},
+};
+
+export const KeepsFocusForMouse: Story = {
+	render: () => <ComposerWithModal />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const field = canvas.getByRole("textbox", { name: "Message" });
+		field.focus();
+		openFrom(canvas.getByRole("button", { name: "Delete message" }), "mouse");
+		await expect(document.activeElement).toBe(field);
+		const dialog = await screen.findByRole("dialog", {
+			name: "Delete message?",
+		});
+		await expectNoLayoutIssues(dialog);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+		);
+	},
+};

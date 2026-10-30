@@ -5,7 +5,7 @@ import {
 	type ScreenShareQuality,
 	screenMaxBitrate,
 } from "../../data/screen-share";
-import { createNativeAudioBridge } from "./audio";
+import { createNativeAudioBridge, type NativeAudioBridge } from "./audio";
 import { workerSource } from "./worker";
 
 export type NativeSourceKind = "display" | "window" | "application";
@@ -33,8 +33,10 @@ export type NativeCaptureQuality = {
 };
 
 export type NativeCapturePicker = {
-	kind: "sources" | "portal";
+	kind: "sources" | "portal" | "browser";
 };
+
+export type NativeAudioCaptureKind = "display" | "window";
 
 export type NativeAudioApp = {
 	id: string;
@@ -134,6 +136,9 @@ export const listNativeCaptureSources = (): Promise<NativeCaptureSource[]> =>
 export const nativeCapturePicker = (): Promise<NativeCapturePicker> =>
 	invoke<NativeCapturePicker>("screen_capture_picker");
 
+export const prepareDisplayCapture = (): Promise<void> =>
+	invoke<void>("screen_capture_prepare_display");
+
 export const listNativeAudioApps = (
 	sourceId?: string,
 ): Promise<NativeAudioApp[]> =>
@@ -152,6 +157,15 @@ export const startNativeCapture = (
 		quality,
 		captureAudio,
 		audioApps: audioApps ?? null,
+	});
+
+export const startNativeAudioCapture = (
+	kind: NativeAudioCaptureKind,
+	audioApps: string[] | null,
+): Promise<NativeCaptureSession> =>
+	invoke<NativeCaptureSession>("screen_capture_start_audio", {
+		kind,
+		audioApps,
 	});
 
 export const stopNativeCapture = async (): Promise<void> => {
@@ -231,15 +245,21 @@ type WorkerMessage =
 	| { type: "error"; stage: CaptureFailureStage; message: string }
 	| { type: "ended" };
 
-export const createNativeCaptureTrack = async (
-	session: NativeCaptureSession,
-	withAudio: boolean,
-	onFailure?: (stage: CaptureFailureStage) => void,
-): Promise<NativeCaptureTrack> => {
-	const audio = withAudio ? await createNativeAudioBridge() : null;
-	const sink = createMainThreadSink();
+type BridgeMode = "main" | "worker" | "audio";
 
-	return await new Promise<NativeCaptureTrack>((resolve, reject) => {
+type BridgeConnection = {
+	track: MediaStreamTrack | null;
+	stop: () => void;
+};
+
+const connectBridge = (
+	session: NativeCaptureSession,
+	mode: BridgeMode,
+	audio: NativeAudioBridge | null,
+	sink: TrackSink | null,
+	onFailure?: (stage: CaptureFailureStage) => void,
+): Promise<BridgeConnection> =>
+	new Promise<BridgeConnection>((resolve, reject) => {
 		const blob = new Blob([workerSource()], { type: "text/javascript" });
 		const url = URL.createObjectURL(blob);
 		const worker = new Worker(url, { type: "module" });
@@ -253,11 +273,10 @@ export const createNativeCaptureTrack = async (
 			writer,
 		});
 
-		const settle = (track: MediaStreamTrack) => {
+		const settle = (track: MediaStreamTrack | null) => {
 			settled = true;
 			resolve({
 				track,
-				audioTrack: audio?.track ?? null,
 				stop: () => {
 					worker.postMessage({ type: "stop" });
 					cleanup();
@@ -280,6 +299,10 @@ export const createNativeCaptureTrack = async (
 					.write(data.frame)
 					.catch(() => {})
 					.finally(() => data.frame.close());
+				return;
+			}
+			if (data.type === "ready" && mode === "audio") {
+				settle(null);
 				return;
 			}
 			if (data.type === "ready" && sink) {
@@ -313,10 +336,50 @@ export const createNativeCaptureTrack = async (
 			);
 		};
 
-		worker.postMessage({
-			url: session.url,
-			token: session.token,
-			mode: sink ? "main" : "worker",
-		});
+		worker.postMessage({ url: session.url, token: session.token, mode });
 	});
+
+export const createNativeCaptureTrack = async (
+	session: NativeCaptureSession,
+	withAudio: boolean,
+	onFailure?: (stage: CaptureFailureStage) => void,
+): Promise<NativeCaptureTrack> => {
+	const audio = withAudio ? await createNativeAudioBridge() : null;
+	const sink = createMainThreadSink();
+	const connection = await connectBridge(
+		session,
+		sink ? "main" : "worker",
+		audio,
+		sink,
+		onFailure,
+	);
+	if (!connection.track) {
+		connection.stop();
+		throw new CaptureBridgeError("bridge", "the capture bridge sent no video");
+	}
+	return {
+		track: connection.track,
+		audioTrack: audio?.track ?? null,
+		stop: connection.stop,
+	};
+};
+
+export type NativeAudioTrack = {
+	track: MediaStreamTrack;
+	stop: () => void;
+};
+
+export const createNativeAudioTrack = async (
+	session: NativeCaptureSession,
+	onFailure?: (stage: CaptureFailureStage) => void,
+): Promise<NativeAudioTrack> => {
+	const audio = await createNativeAudioBridge();
+	const connection = await connectBridge(
+		session,
+		"audio",
+		audio,
+		null,
+		onFailure,
+	);
+	return { track: audio.track, stop: connection.stop };
 };

@@ -14,6 +14,7 @@ export type ChannelInfoBarProps = {
 	backLabel?: string;
 	muted?: boolean;
 	onMutedChange?: (muted: boolean) => void;
+	muteSubject?: "channel" | "thread";
 	onOpenSettings?: () => void;
 	settingsLabel?: string;
 	safeTop?: boolean;
@@ -55,7 +56,7 @@ export const ChannelInfoBar = (props: ChannelInfoBarProps) => (
 				<IconButton
 					variant="ghost"
 					size="md"
-					label={props.muted ? "Unmute channel" : "Mute channel"}
+					label={`${props.muted ? "Unmute" : "Mute"} ${props.muteSubject ?? "channel"}`}
 					aria-pressed={!!props.muted}
 					data-muted={props.muted ? "" : undefined}
 					icon={<AnimatedBellIcon muted={!!props.muted} />}
@@ -119,6 +120,7 @@ export const ChannelInfoHeader = (props: ChannelInfoHeaderProps) => (
 			backLabel={props.backLabel}
 			muted={props.muted}
 			onMutedChange={props.onMutedChange}
+			muteSubject={props.muteSubject}
 			onOpenSettings={props.onOpenSettings}
 			settingsLabel={props.settingsLabel}
 			safeTop={props.safeTop}

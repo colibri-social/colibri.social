@@ -26,6 +26,8 @@ mod quit_guard;
 mod screen_capture;
 #[cfg(desktop)]
 mod titlebar;
+#[cfg(all(desktop, feature = "updater"))]
+mod update_restart;
 
 #[cfg(target_os = "linux")]
 pub type AppRuntime = tauri_runtime_cef::CefRuntime<tauri::EventLoopMessage>;
@@ -279,9 +281,7 @@ pub fn run() {
             if !updater_disabled() {
                 builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
             }
-            builder = builder
-                .plugin(tauri_plugin_process::init())
-                .plugin(tauri_plugin_fs::init());
+            builder = builder.plugin(tauri_plugin_fs::init());
         }
     }
 
@@ -307,7 +307,7 @@ pub fn run() {
             );
     }
 
-    builder
+    let app = builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
@@ -344,6 +344,8 @@ pub fn run() {
             #[cfg(desktop)]
             screen_capture::screen_capture_start,
             #[cfg(desktop)]
+            screen_capture::screen_capture_start_audio,
+            #[cfg(desktop)]
             screen_capture::screen_capture_stop,
             #[cfg(desktop)]
             screen_capture::screen_capture_permission,
@@ -351,6 +353,8 @@ pub fn run() {
             screen_capture::screen_capture_open_settings,
             #[cfg(desktop)]
             screen_capture::screen_capture_picker,
+            #[cfg(desktop)]
+            screen_capture::screen_capture_prepare_display,
             #[cfg(desktop)]
             screen_capture::screen_capture_list_audio_apps,
             #[cfg(desktop)]
@@ -366,7 +370,13 @@ pub fn run() {
             #[cfg(desktop)]
             notifications::native_notify_clear_all,
             #[cfg(desktop)]
-            quit_guard::ready_to_exit
+            quit_guard::ready_to_exit,
+            #[cfg(all(desktop, feature = "updater"))]
+            update_restart::update_installs_on_restart,
+            #[cfg(all(desktop, feature = "updater"))]
+            update_restart::update_stage,
+            #[cfg(all(desktop, feature = "updater"))]
+            update_restart::restart_app
         ])
         .register_uri_scheme_protocol("capture-thumb", |ctx, request| {
             let not_found = || {
@@ -408,6 +418,8 @@ pub fn run() {
             }
             #[cfg(target_os = "linux")]
             linux_cef::attach(app.handle());
+            #[cfg(all(target_os = "linux", feature = "updater"))]
+            update_restart::discard_stale(app.handle());
 
             #[cfg(desktop)]
             if let Some(window) = app.get_webview_window("main") {
@@ -443,21 +455,30 @@ pub fn run() {
             }
         })
         .build(tauri::generate_context!())
-        .expect("error while building tauri application")
-        .run(|_app, _event| {
-            #[cfg(target_os = "linux")]
-            if let tauri::RunEvent::ExitRequested { code: Some(_), .. } = &_event {
-                use tauri_plugin_window_state::AppHandleExt;
-                if let Err(error) = _app.save_window_state(WINDOW_STATE_FLAGS) {
-                    eprintln!("could not save the window state: {error}");
-                }
+        .expect("error while building tauri application");
+
+    let on_event = |_app: &tauri::AppHandle<AppRuntime>, _event: tauri::RunEvent| {
+        #[cfg(target_os = "linux")]
+        if let tauri::RunEvent::ExitRequested { code: Some(_), .. } = &_event {
+            use tauri_plugin_window_state::AppHandleExt;
+            if let Err(error) = _app.save_window_state(WINDOW_STATE_FLAGS) {
+                eprintln!("could not save the window state: {error}");
             }
-            #[cfg(desktop)]
-            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = &_event {
-                if !quit_guard::released() {
-                    api.prevent_exit();
-                    quit_guard::hold(_app);
-                }
+        }
+        #[cfg(desktop)]
+        if let tauri::RunEvent::ExitRequested { code: None, api, .. } = &_event {
+            if !quit_guard::released() {
+                api.prevent_exit();
+                quit_guard::hold(_app);
             }
-        });
+        }
+    };
+
+    #[cfg(all(target_os = "linux", feature = "updater"))]
+    {
+        app.run_return(on_event);
+        update_restart::after_exit();
+    }
+    #[cfg(not(all(target_os = "linux", feature = "updater")))]
+    app.run(on_event);
 }

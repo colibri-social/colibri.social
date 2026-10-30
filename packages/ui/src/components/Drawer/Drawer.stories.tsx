@@ -676,3 +676,96 @@ export const KeyboardLiftTall: Story = {
 	),
 	play: keyboardLiftPlay,
 };
+
+const touchTap = (element: HTMLElement) => {
+	element.dispatchEvent(
+		new PointerEvent("pointerdown", {
+			bubbles: true,
+			pointerType: "touch",
+			isPrimary: true,
+		}),
+	);
+	element.click();
+};
+
+const ComposerWithSheet = (props: { keepKeyboard?: boolean }) => {
+	const [open, setOpen] = createSignal(false);
+	const [search, setSearch] = createSignal<HTMLInputElement>();
+	return (
+		<div class="flex flex-col gap-3 p-4">
+			<TextField label="Message" placeholder="Message #general" />
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Open sheet
+			</Button>
+			<Drawer
+				open={open()}
+				onOpenChange={setOpen}
+				initialFocus="content"
+				initialFocusEl={props.keepKeyboard ? search() : undefined}
+				keepKeyboard={props.keepKeyboard}
+			>
+				<DrawerContent title="Pick an emoji">
+					<TextField
+						label="Search emoji"
+						placeholder="Search"
+						ref={setSearch}
+					/>
+				</DrawerContent>
+			</Drawer>
+		</div>
+	);
+};
+
+const trackComposerBlur = (field: HTMLElement) => {
+	const record: { blurredTo?: EventTarget | null } = {};
+	field.addEventListener(
+		"focusout",
+		(event) => {
+			record.blurredTo = event.relatedTarget;
+		},
+		{ once: true },
+	);
+	return record;
+};
+
+export const DismissesKeyboard: Story = {
+	render: () => <ComposerWithSheet />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const field = canvas.getByRole("textbox", { name: "Message" });
+		field.focus();
+		await expect(document.activeElement).toBe(field);
+		const blur = trackComposerBlur(field);
+		touchTap(canvas.getByRole("button", { name: "Open sheet" }));
+		await expect(document.activeElement).not.toBe(field);
+		await expect(blur.blurredTo).toBeNull();
+		const drawer = await findSettledDrawer("Pick an emoji");
+		await expectNoLayoutIssues(drawer);
+		const search = within(drawer).getByRole("textbox", {
+			name: "Search emoji",
+		});
+		search.focus();
+		await expect(document.activeElement).toBe(search);
+	},
+};
+
+export const KeepsKeyboard: Story = {
+	render: () => <ComposerWithSheet keepKeyboard />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const field = canvas.getByRole("textbox", { name: "Message" });
+		field.focus();
+		const blur = trackComposerBlur(field);
+		touchTap(canvas.getByRole("button", { name: "Open sheet" }));
+		await expect(document.activeElement).toBe(field);
+		const drawer = await findSettledDrawer("Pick an emoji");
+		await expectNoLayoutIssues(drawer);
+		const search = within(drawer).getByRole("textbox", {
+			name: "Search emoji",
+		});
+		await waitFor(() => expect(document.activeElement).toBe(search), {
+			timeout: 3000,
+		});
+		await expect(blur.blurredTo).toBe(search);
+	},
+};

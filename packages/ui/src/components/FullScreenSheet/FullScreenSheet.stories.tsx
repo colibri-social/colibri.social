@@ -268,3 +268,52 @@ export const AsksBeforeDiscarding: Story = {
 		);
 	},
 };
+
+const ComposerDemo = () => {
+	const [open, setOpen] = createSignal(false);
+	return (
+		<div class="flex min-h-dvh flex-col gap-3 bg-background p-4">
+			<TextField label="Message" placeholder="Message #general" />
+			<Button onClick={() => setOpen(true)}>Open sheet</Button>
+			<FullScreenSheet
+				open={open()}
+				onOpenChange={setOpen}
+				title="Forward message"
+				closeLabel="Cancel forwarding"
+			>
+				<TextField label="Search channels" placeholder="Search" />
+			</FullScreenSheet>
+		</div>
+	);
+};
+
+export const DismissesKeyboard: Story = {
+	render: () => <ComposerDemo />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const field = canvas.getByRole("textbox", { name: "Message" });
+		field.focus();
+		await expect(document.activeElement).toBe(field);
+		const button = canvas.getByRole("button", { name: "Open sheet" });
+		button.dispatchEvent(
+			new PointerEvent("pointerdown", {
+				bubbles: true,
+				pointerType: "touch",
+				isPrimary: true,
+			}),
+		);
+		button.click();
+		await expect(document.activeElement).not.toBe(field);
+		const sheet = await screen.findByRole("dialog", {
+			name: "Forward message",
+		});
+		await wait(500);
+		await expect(sheet.contains(document.activeElement)).toBe(true);
+		await expectNoLayoutIssues(sheet);
+		const search = within(sheet).getByRole("textbox", {
+			name: "Search channels",
+		});
+		search.focus();
+		await expect(document.activeElement).toBe(search);
+	},
+};

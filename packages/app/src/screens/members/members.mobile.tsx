@@ -23,6 +23,7 @@ export default members.view({
 					</div>
 				</Show>
 			</div>
+			<s.Menu />
 		</div>
 	),
 });

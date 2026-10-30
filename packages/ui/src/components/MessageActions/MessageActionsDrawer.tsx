@@ -150,6 +150,7 @@ export type MessageActionsView = "actions" | "reactions";
 
 export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 	const [view, setView] = createSignal<MessageActionsView>("actions");
+	const [restoreFocus, setRestoreFocus] = createSignal(true);
 	let freshInput = false;
 	const markFresh = () => {
 		freshInput = true;
@@ -161,6 +162,7 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 			(open) => {
 				if (open) {
 					freshInput = false;
+					setRestoreFocus(true);
 					setView("actions");
 				}
 			},
@@ -185,6 +187,10 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 		props.onOpenChange(false);
 		handler?.();
 	};
+	const handOff = (handler?: () => void) => () => {
+		setRestoreFocus(false);
+		run(handler)();
+	};
 	const hasPrimary = () =>
 		!!(
 			props.onRetry ||
@@ -198,7 +204,7 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 	const showMore = () => !!props.onMoreReactions || canPickInPlace();
 	const openMore = () => {
 		if (props.onMoreReactions) {
-			run(props.onMoreReactions)();
+			handOff(props.onMoreReactions)();
 			return;
 		}
 		setView("reactions");
@@ -233,6 +239,7 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 			open={props.open}
 			onOpenChange={handleOpenChange}
 			initialFocus="content"
+			restoreFocus={restoreFocus()}
 		>
 			<DrawerContent
 				aria-label={props.label ?? "Message actions"}
@@ -291,28 +298,28 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 								<ActionRow
 									icon={<PenIcon />}
 									label="Edit message"
-									onClick={run(props.onEdit)}
+									onClick={handOff(props.onEdit)}
 								/>
 							</Show>
 							<Show when={props.onReply}>
 								<ActionRow
 									icon={<ReplyIcon />}
 									label="Reply"
-									onClick={run(props.onReply)}
+									onClick={handOff(props.onReply)}
 								/>
 							</Show>
 							<Show when={props.onForward}>
 								<ActionRow
 									icon={<ForwardIcon />}
 									label="Forward"
-									onClick={run(props.onForward)}
+									onClick={handOff(props.onForward)}
 								/>
 							</Show>
 							<Show when={props.onOpenThread}>
 								<ActionRow
 									icon={<ThreadIcon />}
 									label="Open thread"
-									onClick={run(props.onOpenThread)}
+									onClick={handOff(props.onOpenThread)}
 								/>
 							</Show>
 							<Show when={props.onSelect}>
@@ -379,14 +386,14 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 								<ActionRow
 									icon={<LinkIcon />}
 									label="Link previews"
-									onClick={run(props.onLinkPreviews)}
+									onClick={handOff(props.onLinkPreviews)}
 								/>
 							</Show>
 							<Show when={props.onViewReactions}>
 								<ActionRow
 									icon={<HeartIcon />}
 									label="Reactions"
-									onClick={run(props.onViewReactions)}
+									onClick={handOff(props.onViewReactions)}
 								/>
 							</Show>
 						</ListGroup>
@@ -400,7 +407,7 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 										<DestructiveRow
 											icon={<ForbiddenCircleIcon />}
 											label="Hide message"
-											onClick={run(props.onHide)}
+											onClick={handOff(props.onHide)}
 										/>
 									</Show>
 								}
@@ -417,7 +424,7 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 								<DestructiveRow
 									icon={<TrashBinTrashIcon />}
 									label="Delete message"
-									onClick={run(props.onDelete)}
+									onClick={handOff(props.onDelete)}
 								/>
 							</Show>
 						</ListGroup>

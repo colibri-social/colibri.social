@@ -23,7 +23,10 @@ import {
 import { withDeadline } from "../../auth/deadline";
 import { VOICE_NOTICE_COPY } from "../../data/error-copy";
 import {
+	captureSurfaceKind,
+	type DisplaySurfaceHint,
 	displayMediaRequest,
+	displayVideoRequest,
 	isLinuxApp,
 	type ScreenShareOptions,
 	supportsDisplayAudio,
@@ -33,9 +36,11 @@ import { voice } from "../../data/voice";
 import { voiceSettings } from "../../data/voice-settings";
 import {
 	CaptureBridgeError,
+	createNativeAudioTrack,
 	createNativeCaptureTrack,
 	listNativeAudioApps,
 	listNativeCaptureSources,
+	type NativeAudioCaptureKind,
 	type NativeCapturePicker,
 	type NativeCaptureSource,
 	type NativeSourceKind,
@@ -44,7 +49,9 @@ import {
 	nativeCaptureQuality,
 	nativeThumbnailUrl,
 	openScreenRecordingSettings,
+	prepareDisplayCapture,
 	previewAspectRatio,
+	startNativeAudioCapture,
 	startNativeCapture,
 	stopNativeCapture,
 	supportsNativeCapture,
@@ -60,6 +67,9 @@ export const SCREEN_SHARE_COPY = {
 		"Turn on Screen Recording for Colibri in System Settings, then share again.",
 	openSettings: "Open System Settings",
 	notNow: "Not now",
+	soundFailedTitle: "Your screen is shared without sound",
+	soundFailedDescription:
+		"Others can see your screen but can't hear it. Stop sharing and share again to try once more.",
 } as const;
 
 const MOBILE_DEVICE = /Android|iPhone|iPad/;
@@ -117,6 +127,8 @@ export const screenShareMenu = (): ScreenShareMenuProps => ({
 });
 
 const portal = () => native() && picker()?.kind === "portal";
+
+const browserPicker = () => native() && picker()?.kind === "browser";
 
 const loadPicker = async () => {
 	try {
@@ -252,6 +264,143 @@ const shareNative = async (
 	}
 };
 
+type LinuxShareRequest = {
+	surface: ScreenShareSurface;
+	audioApp?: string;
+	screenApps?: string[];
+};
+
+const SURFACE_HINT: Record<ScreenShareSurface, DisplaySurfaceHint> = {
+	screen: "monitor",
+	window: "window",
+};
+
+const soundFailed = () => {
+	toast(SCREEN_SHARE_COPY.soundFailedTitle, {
+		description: SCREEN_SHARE_COPY.soundFailedDescription,
+	});
+};
+
+const startLinuxSound = async (
+	kind: NativeAudioCaptureKind,
+	audioApps: string[] | null,
+) => {
+	let stage = "start";
+	try {
+		log.debug("starting the native sound", { kind });
+		const session = await withDeadline(
+			startNativeAudioCapture(kind, audioApps),
+			NATIVE_CAPTURE_DEADLINE_MS,
+			() => new ColibriError({ code: "Timeout" }),
+		);
+		stage = "bridge";
+		return await withDeadline(
+			createNativeAudioTrack(session, (failedStage) => {
+				log.warn("the screen sound stopped", { stage: failedStage });
+			}),
+			NATIVE_CAPTURE_DEADLINE_MS,
+			() => new ColibriError({ code: "Timeout" }),
+		);
+	} catch (error) {
+		void stopNativeCapture();
+		log.warn("native screen sound failed", {
+			code: classifyThrown(error).code,
+			stage: error instanceof CaptureBridgeError ? error.stage : stage,
+		});
+		soundFailed();
+		return null;
+	}
+};
+
+const FIRST_FRAME_TIMEOUT_MS = 120_000;
+
+const firstFrame = (track: MediaStreamTrack): Promise<boolean> =>
+	new Promise((resolve) => {
+		if (track.readyState === "ended") {
+			resolve(false);
+			return;
+		}
+		const probe = document.createElement("video");
+		probe.muted = true;
+		probe.playsInline = true;
+		probe.srcObject = new MediaStream([track]);
+		let settled = false;
+		const settle = (painted: boolean) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			track.removeEventListener("ended", ended);
+			probe.pause();
+			probe.srcObject = null;
+			resolve(painted);
+		};
+		const ended = () => settle(false);
+		const timer = setTimeout(() => settle(false), FIRST_FRAME_TIMEOUT_MS);
+		track.addEventListener("ended", ended);
+		probe.requestVideoFrameCallback(() => settle(true));
+		void probe.play().catch(() => settle(false));
+	});
+
+const shareLinux = async (request: LinuxShareRequest) => {
+	const chosen = options();
+	let stream: MediaStream;
+	try {
+		if (request.surface === "screen") await prepareDisplayCapture();
+		stream = await navigator.mediaDevices.getDisplayMedia(
+			displayVideoRequest(
+				chosen,
+				SURFACE_HINT[request.surface],
+			) as DisplayMediaStreamOptions,
+		);
+	} catch (error) {
+		if (error instanceof DOMException && CANCELLED_CAPTURE.has(error.name)) {
+			log.debug("the system dialog was cancelled");
+			return;
+		}
+		log.warn("display capture failed", { code: classifyThrown(error).code });
+		failed();
+		return;
+	}
+	const stopStream = () => {
+		for (const track of stream.getTracks()) track.stop();
+	};
+	const video = stream.getVideoTracks()[0];
+	if (!video) {
+		stopStream();
+		failed();
+		return;
+	}
+	if (!(await firstFrame(video))) {
+		log.debug("the shared surface never sent a picture");
+		stopStream();
+		return;
+	}
+	const kind = captureSurfaceKind(video.getSettings().displaySurface);
+	log.debug("the system shared a surface", { kind });
+	const sound = chosen.shareAudio
+		? await startLinuxSound(
+				kind,
+				kind === "window"
+					? request.audioApp
+						? [request.audioApp]
+						: []
+					: (request.screenApps ?? null),
+			)
+		: null;
+	await voice.shareScreen(
+		{
+			video,
+			audio: sound?.track ?? null,
+			release: () => {
+				stopStream();
+				sound?.stop();
+				void stopNativeCapture();
+			},
+		},
+		chosen,
+	);
+};
+
 const toPickerSource = async (
 	source: NativeCaptureSource,
 ): Promise<ScreenShareSource> => ({
@@ -315,7 +464,7 @@ export const ScreenShareHost = () => {
 				setExcludedApps(undefined);
 				return;
 			}
-			if (native()) void list();
+			if (native() && !browserPicker()) void list();
 		}),
 	);
 
@@ -384,6 +533,17 @@ export const ScreenShareHost = () => {
 	const share = (picked?: ScreenShareSource) => {
 		const systemDialog = portal();
 		const chosenSurface = surface();
+		if (browserPicker()) {
+			const chosenApp = audioApp();
+			const screenApps = screenAudioApps();
+			setPickerOpen(false);
+			void shareLinux({
+				surface: chosenSurface,
+				audioApp: chosenApp,
+				screenApps,
+			});
+			return;
+		}
 		const source = systemDialog
 			? sources().find((entry) => entry.kind === SURFACE_KIND[chosenSurface])
 			: sources().find((entry) => entry.id === picked?.id);
@@ -422,7 +582,13 @@ export const ScreenShareHost = () => {
 			<ScreenSharePicker
 				open={pickerOpen()}
 				onOpenChange={setPickerOpen}
-				mode={native() ? (portal() ? "system" : "native") : "browser"}
+				mode={
+					native()
+						? portal() || browserPicker()
+							? "system"
+							: "native"
+						: "browser"
+				}
 				surface={surface()}
 				onSurfaceChange={setSurface}
 				platform={platform()}

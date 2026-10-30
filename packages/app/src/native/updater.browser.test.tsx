@@ -1,11 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createUpdater, detectInstallChannel, runUpdateCheck } from "./updater";
+import {
+	createUpdater,
+	detectInstallChannel,
+	restartToApply,
+	runUpdateCheck,
+} from "./updater";
 
 const plugins = vi.hoisted(() => ({
 	check: vi.fn(),
 	exists: vi.fn(),
 	resourceDir: vi.fn(),
-	relaunch: vi.fn(),
+	invoke: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/plugin-updater", () => ({ check: plugins.check }));
@@ -13,9 +18,7 @@ vi.mock("@tauri-apps/plugin-fs", () => ({ exists: plugins.exists }));
 vi.mock("@tauri-apps/api/path", () => ({
 	resourceDir: plugins.resourceDir,
 }));
-vi.mock("@tauri-apps/plugin-process", () => ({
-	relaunch: plugins.relaunch,
-}));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: plugins.invoke }));
 
 const tauriWindow = window as unknown as { __TAURI_INTERNALS__?: unknown };
 
@@ -42,6 +45,7 @@ beforeEach(() => {
 	tauriWindow.__TAURI_INTERNALS__ = {};
 	plugins.exists.mockResolvedValue(false);
 	plugins.resourceDir.mockResolvedValue("C:\\Program Files\\Colibri");
+	plugins.invoke.mockResolvedValue(false);
 });
 
 afterEach(() => {
@@ -147,6 +151,38 @@ describe("checkForUpdates", () => {
 		expect(updater.state()).toEqual({ status: "idle" });
 	});
 
+	it("stages deb and rpm updates for the restart", async () => {
+		const downloadAndInstall = vi.fn();
+		plugins.invoke.mockImplementation(async (command: string) =>
+			command === "update_installs_on_restart" ? true : undefined,
+		);
+		plugins.check.mockImplementation(
+			slowly(() => ({ version: "0.18.3", rid: 7, downloadAndInstall })),
+		);
+		const updater = createUpdater();
+
+		await updater.check();
+
+		expect(downloadAndInstall).not.toHaveBeenCalled();
+		expect(plugins.invoke).toHaveBeenCalledWith("update_stage", { rid: 7 });
+		expect(updater.state()).toEqual({ status: "ready", version: "0.18.3" });
+	});
+
+	it("installs in the background when the install query fails", async () => {
+		agent(WINDOWS);
+		plugins.invoke.mockRejectedValue(new Error("command not found"));
+		const downloadAndInstall = vi.fn().mockResolvedValue(undefined);
+		plugins.check.mockImplementation(
+			slowly(() => ({ version: "0.18.3", downloadAndInstall })),
+		);
+		const updater = createUpdater();
+
+		await updater.check();
+
+		expect(downloadAndInstall).toHaveBeenCalledOnce();
+		expect(updater.state()).toEqual({ status: "ready", version: "0.18.3" });
+	});
+
 	it("reports a failed download", async () => {
 		agent(WINDOWS);
 		const downloadAndInstall = vi.fn().mockRejectedValue(new Error("disk"));
@@ -158,5 +194,15 @@ describe("checkForUpdates", () => {
 		await updater.check();
 
 		expect(updater.state()).toEqual({ status: "error" });
+	});
+});
+
+describe("restartToApply", () => {
+	it("restarts through the native shell", async () => {
+		plugins.invoke.mockResolvedValue(undefined);
+
+		await restartToApply();
+
+		expect(plugins.invoke).toHaveBeenCalledWith("restart_app", undefined);
 	});
 });

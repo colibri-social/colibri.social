@@ -40,6 +40,13 @@ wrap_permission_handler! {
     ) -> ::std::os::raw::c_int {
       use cef::sys::cef_media_access_permission_types_t as bits;
 
+      if cfg!(target_os = "linux")
+        && policy::desktop_capture_only(requested_permissions)
+        && !policy::take_screen_capture_grant()
+      {
+        return 0;
+      }
+
       let Some(callback) = callback else {
         return 0;
       };

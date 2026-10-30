@@ -4,4 +4,4 @@
 "@colibri-social/ui": minor
 ---
 
-Screen sharing on Linux now starts only after you pick what to share. On X11 the picker shows your windows and screens directly. Sharing a window now sends only that app's sound, and you can choose which app's sound to include.
+Screen sharing on Linux now starts only after you pick what to share. Sharing a window now sends only that app's sound, and you can choose which app's sound to include.

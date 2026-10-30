@@ -5,7 +5,13 @@ export const membersForward = (
 	top: Layer | undefined,
 ): MembersLayer | undefined => {
 	if (top?.kind !== "chat" && top?.kind !== "thread") return undefined;
-	return { kind: "members", space: top.space, channel: top.channel };
+	const members: MembersLayer = {
+		kind: "members",
+		space: top.space,
+		channel: top.channel,
+	};
+	if (top.kind === "thread") members.thread = top.thread;
+	return members;
 };
 
 export const canSwipeForward = (

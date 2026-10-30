@@ -1670,3 +1670,59 @@ export const DrawerQuickReactionRerender: Story = {
 		await expect(bird.textContent).toBe("🐦");
 	},
 };
+
+const ReplyHandoff = () => {
+	const [open, setOpen] = createSignal(false);
+	let composer: HTMLTextAreaElement | undefined;
+	return (
+		<div class="flex min-h-screen flex-col gap-3 bg-background p-4">
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Show actions
+			</Button>
+			<textarea
+				ref={composer}
+				aria-label="Message"
+				class="rounded-control border border-control-border bg-secondary p-2"
+			/>
+			<MessageActionsDrawer
+				open={open()}
+				onOpenChange={setOpen}
+				onReply={() => composer?.focus()}
+				onCopyText={fn()}
+			/>
+		</div>
+	);
+};
+
+export const DrawerReplyKeepsComposerFocus: Story = {
+	render: () => <ReplyHandoff />,
+	parameters: iphone,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const trigger = canvas.getByRole("button", { name: "Show actions" });
+		trigger.focus();
+		trigger.click();
+		const dialog = await screen.findByRole("dialog", {
+			name: "Message actions",
+		});
+		const reply = await within(dialog).findByRole("button", { name: "Reply" });
+		await waitFor(() => expect(reply).toBeVisible());
+		await waitFor(
+			() => expect(dialog.contains(document.activeElement)).toBe(true),
+			{ timeout: 3000 },
+		);
+		await expectNoLayoutIssues(dialog);
+		reply.click();
+		const composer = canvas.getByRole("textbox", { name: "Message" });
+		await expect(document.activeElement).toBe(composer);
+		await waitFor(
+			() =>
+				expect(
+					screen.queryByRole("dialog", { name: "Message actions" }),
+				).toBeNull(),
+			{ timeout: 3000 },
+		);
+		await new Promise((resolve) => setTimeout(resolve, 200));
+		await expect(document.activeElement).toBe(composer);
+	},
+};

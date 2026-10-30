@@ -1,7 +1,7 @@
 import { members } from "./members.contract";
 
 export default members.view({
-	omit: ["Bar", "Info", "Unavailable"],
+	omit: ["Bar", "Info", "Unavailable", "Menu"],
 	render: ({ slots: s }) => (
 		<div
 			data-members-desktop=""

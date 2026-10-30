@@ -6,7 +6,6 @@
   "windows": ["main"],
   "permissions": [
     "updater:default",
-    "process:allow-restart",
     {
       "identifier": "fs:allow-exists",
       "allow": [

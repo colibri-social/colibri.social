@@ -37,6 +37,7 @@ pub enum SourceKind {
 }
 
 impl SourceKind {
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     fn prefix(self) -> &'static str {
         match self {
             SourceKind::Display => "display",
@@ -62,6 +63,7 @@ pub struct SourceId {
 }
 
 impl SourceId {
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     pub fn new(kind: SourceKind, native: impl Into<String>) -> Self {
         Self {
             kind,
@@ -69,6 +71,7 @@ impl SourceId {
         }
     }
 
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     pub fn encode(&self) -> String {
         format!("{}-{}", self.kind.prefix(), self.native)
     }
@@ -140,9 +143,10 @@ impl CaptureQuality {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PickerKind {
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     Sources,
     #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
-    Portal,
+    Browser,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -167,6 +171,7 @@ pub struct EncodedConfig {
 }
 
 #[derive(Debug)]
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 pub enum CaptureMessage {
     Config(EncodedConfig),
     Frame {
@@ -262,6 +267,16 @@ pub fn screen_capture_picker() -> Result<CapturePicker, NativeError> {
     Ok(backend::picker())
 }
 
+#[cfg(target_os = "linux")]
+#[tauri::command]
+pub fn screen_capture_prepare_display() {
+    tauri_runtime_cef::arm_screen_capture_grant();
+}
+
+#[cfg(not(target_os = "linux"))]
+#[tauri::command]
+pub fn screen_capture_prepare_display() {}
+
 #[cfg(not(target_os = "linux"))]
 #[tauri::command]
 pub fn screen_capture_picker() -> Result<CapturePicker, NativeError> {
@@ -270,38 +285,8 @@ pub fn screen_capture_picker() -> Result<CapturePicker, NativeError> {
     })
 }
 
-#[cfg(target_os = "linux")]
-async fn start_backend(
-    _app: &tauri::AppHandle<crate::AppRuntime>,
-    source: &SourceId,
-    quality: CaptureQuality,
-    capture_audio: bool,
-    audio_apps: Option<Vec<String>>,
-    sender: FrameSender,
-) -> Result<backend::Capture, NativeError> {
-    let options = backend::StartOptions {
-        quality,
-        capture_audio,
-        audio_apps,
-    };
-    backend::start(source, options, sender).await
-}
-
-#[cfg(not(target_os = "linux"))]
-async fn start_backend(
-    _app: &tauri::AppHandle<crate::AppRuntime>,
-    source: &SourceId,
-    quality: CaptureQuality,
-    capture_audio: bool,
-    audio_apps: Option<Vec<String>>,
-    sender: FrameSender,
-) -> Result<backend::Capture, NativeError> {
-    backend::start(source, quality, capture_audio, audio_apps, sender)
-}
-
 #[tauri::command]
 pub async fn screen_capture_start(
-    app: tauri::AppHandle<crate::AppRuntime>,
     state: State<'_, CaptureState>,
     source_id: String,
     quality: CaptureQuality,
@@ -310,21 +295,51 @@ pub async fn screen_capture_start(
 ) -> Result<CaptureSession, NativeError> {
     let source = SourceId::parse(&source_id)
         .ok_or_else(|| NativeError::invalid_request("unrecognised capture source"))?;
+    let quality = quality.sanitized();
 
+    activate(&state, |sender| async move {
+        backend::start(&source, quality, capture_audio, audio_apps, sender)
+    })
+    .await
+}
+
+#[cfg(target_os = "linux")]
+async fn start_audio_backend(
+    kind: SourceKind,
+    audio_apps: Option<Vec<String>>,
+    sender: FrameSender,
+) -> Result<backend::Capture, NativeError> {
+    backend::start_audio(kind, audio_apps, sender).await
+}
+
+#[cfg(not(target_os = "linux"))]
+async fn start_audio_backend(
+    _kind: SourceKind,
+    _audio_apps: Option<Vec<String>>,
+    _sender: FrameSender,
+) -> Result<backend::Capture, NativeError> {
+    Err(NativeError::unsupported())
+}
+
+#[tauri::command]
+pub async fn screen_capture_start_audio(
+    state: State<'_, CaptureState>,
+    kind: SourceKind,
+    audio_apps: Option<Vec<String>>,
+) -> Result<CaptureSession, NativeError> {
+    activate(&state, |sender| start_audio_backend(kind, audio_apps, sender)).await
+}
+
+async fn activate<F, Fut>(state: &CaptureState, start: F) -> Result<CaptureSession, NativeError>
+where
+    F: FnOnce(FrameSender) -> Fut,
+    Fut: std::future::Future<Output = Result<backend::Capture, NativeError>>,
+{
     state.stop_active();
 
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
     let server = server::spawn(receiver).await?;
-    let capture = match start_backend(
-        &app,
-        &source,
-        quality.sanitized(),
-        capture_audio,
-        audio_apps,
-        sender,
-    )
-    .await
-    {
+    let capture = match start(sender).await {
         Ok(capture) => capture,
         Err(error) => {
             server.handle.stop();

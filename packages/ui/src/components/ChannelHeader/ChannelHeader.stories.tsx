@@ -3,6 +3,7 @@ import { createSignal, type JSX } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
+import { ThreadIcon } from "../../icons/custom";
 import { ChannelHeader } from "./ChannelHeader";
 import { ChannelHeaderSkeleton } from "./ChannelHeaderSkeleton";
 import { ChannelInfoHeader } from "./ChannelInfoHeader";
@@ -514,5 +515,56 @@ export const ChannelInfoMobile: Story = {
 			canvas.getByRole("button", { name: "Channel settings" }),
 		);
 		await expect(onInfoSettings).toHaveBeenCalledTimes(1);
+	},
+};
+
+const onThreadInfoBack = fn();
+const onThreadInfoSettings = fn();
+
+const ThreadInfoDemo = () => {
+	const [muted, setMuted] = createSignal(false);
+	return (
+		<div class="min-h-screen bg-popover text-foreground">
+			<ChannelInfoHeader
+				name="Spring tuning and a thread name long enough to wrap past the edge"
+				description="in #general"
+				icon={<ThreadIcon />}
+				onBack={onThreadInfoBack}
+				backLabel="Back to Spring tuning"
+				muted={muted()}
+				onMutedChange={setMuted}
+				muteSubject="thread"
+				onOpenSettings={onThreadInfoSettings}
+				settingsLabel="Thread options"
+			/>
+		</div>
+	);
+};
+
+export const ThreadInfoMobile: Story = {
+	render: () => <ThreadInfoDemo />,
+	play: async ({ canvasElement }) => {
+		await expectNoLayoutIssues(canvasElement.firstElementChild as HTMLElement);
+		onThreadInfoBack.mockClear();
+		onThreadInfoSettings.mockClear();
+		const canvas = within(canvasElement);
+		await expect(canvas.getByText("in #general")).toBeVisible();
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Back to Spring tuning" }),
+		);
+		await expect(onThreadInfoBack).toHaveBeenCalledTimes(1);
+		await userEvent.click(canvas.getByRole("button", { name: "Mute thread" }));
+		await waitFor(() =>
+			expect(
+				canvas.getByRole("button", { name: "Unmute thread" }),
+			).toHaveAttribute("aria-pressed", "true"),
+		);
+		await expect(
+			canvas.queryByRole("button", { name: /channel/i }),
+		).not.toBeInTheDocument();
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Thread options" }),
+		);
+		await expect(onThreadInfoSettings).toHaveBeenCalledTimes(1);
 	},
 };

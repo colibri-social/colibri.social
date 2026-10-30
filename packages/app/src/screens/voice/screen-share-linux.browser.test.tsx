@@ -11,6 +11,7 @@ const native = vi.hoisted(() => ({
 
 vi.mock("../../native/screen-capture", () => ({
 	CaptureBridgeError: class extends Error {},
+	createNativeAudioTrack: vi.fn(),
 	createNativeCaptureTrack: vi.fn(),
 	listNativeAudioApps: async () => [
 		{
@@ -49,6 +50,8 @@ vi.mock("../../native/screen-capture", () => ({
 	nativeThumbnailUrl: async () => undefined,
 	openScreenRecordingSettings: async () => {},
 	previewAspectRatio: () => 16 / 9,
+	prepareDisplayCapture: vi.fn(async () => {}),
+	startNativeAudioCapture: vi.fn(),
 	startNativeCapture: native.start,
 	stopNativeCapture: async () => {},
 	supportsNativeCapture: async () => true,

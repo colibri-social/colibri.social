@@ -6,6 +6,7 @@ import {
 	type MemberGroup,
 	MemberList,
 	MemberRowSkeleton,
+	ThreadIcon,
 } from "@colibri-social/ui";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
 import {
@@ -25,18 +26,26 @@ import {
 } from "../../data/category-permissions";
 import { isVoiceChannel, skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
-import type { Did } from "../../data/types";
+import type { Did, ThreadView } from "../../data/types";
 import { defineContract, slot } from "../../screen/define";
 import { LoadErrorState } from "../../shell/load-error";
 import { useStack } from "../../shell/stack";
 import { canInSpace } from "../admin/space-admin";
 import { ConversationUnavailable } from "../channel/conversation";
 import { type ProfileAnchor, useProfileSheet } from "../profile/profile-sheet";
+import { createThreadMenu } from "../threads/thread-menu";
 import { hoistedRoles, toListMember } from "./member-adapter";
 import { useMemberMenu } from "./member-menu";
 
 const voiceIcon = (channel: { type: string } | undefined) =>
 	channel && isVoiceChannel(channel) ? <VolumeSmallIcon /> : undefined;
+
+const managesThread = (view: ThreadView) =>
+	view.viewer.canManage ||
+	view.viewer.canEdit ||
+	view.viewer.canClose ||
+	view.viewer.canLock ||
+	view.viewer.canDelete;
 
 export type MembersArgs = { space: string; channel: string; thread?: string };
 
@@ -72,23 +81,45 @@ export const members = defineContract({
 				void current?.refresh();
 			}),
 		);
-		const unavailable = createMemo<"space" | "channel" | undefined>(() => {
-			if (data.communities.loading()) return undefined;
-			const current = space();
-			if (!current) return "space";
-			if (current.channels.loading() || current.channels.error()) {
-				return undefined;
-			}
-			return channel() ? undefined : "channel";
-		});
+		const unavailable = createMemo<"space" | "channel" | "thread" | undefined>(
+			() => {
+				if (data.communities.loading()) return undefined;
+				const current = space();
+				if (!current) return "space";
+				if (current.channels.loading() || current.channels.error()) {
+					return undefined;
+				}
+				const view = channel();
+				if (!view) return "channel";
+				if (!args.thread) return undefined;
+				const threads = data.channel(view.space).threads;
+				if (threads.loading() || !threads.value()) return undefined;
+				return thread() ? undefined : "thread";
+			},
+		);
+		const muteTarget = () => (args.thread ? thread() : channel())?.space;
 		const muted = () => {
-			const ref = channel()?.space;
+			const ref = muteTarget();
 			return ref ? data.isMuted(ref) : false;
 		};
 		const setMuted = (next: boolean) => {
-			const ref = channel()?.space;
+			const ref = muteTarget();
 			if (ref) data.setMuted(ref, next);
 		};
+		const threadMenu = createThreadMenu({
+			space: args.space,
+			channel: args.channel,
+			channelType: channel()?.type,
+			onDeleted: (deleted) => {
+				const layers = stack.mounted();
+				const index = layers.findIndex(
+					(layer) =>
+						layer.kind === "thread" && layer.thread === skeyOf(deleted.space),
+				);
+				if (index >= 0) stack.popTo(index);
+				else stack.pop();
+			},
+		});
 		const ownerRole = () =>
 			space()
 				?.roles.value()
@@ -152,10 +183,17 @@ export const members = defineContract({
 			args,
 			stack,
 			channel,
+			thread,
+			threadMenu,
 			groups: () => listed.groups,
 			muted,
 			setMuted,
 			openSettings: () => {
+				if (args.thread) {
+					const view = thread();
+					if (!view || !managesThread(view)) return undefined;
+					return () => threadMenu.open(view);
+				}
 				if (!canInSpace(community(), "channel.update")) return undefined;
 				return () =>
 					stack.push({
@@ -178,22 +216,50 @@ export const members = defineContract({
 	},
 	slots: {
 		Bar: slot((m) => (
-			<ChannelInfoBar
-				safeTop
-				onBack={() => m.stack.pop()}
-				backLabel={`Back to #${m.channel()?.name ?? m.args.channel}`}
-				muted={m.muted()}
-				onMutedChange={m.setMuted}
-				onOpenSettings={m.openSettings()}
-			/>
+			<Show
+				when={m.args.thread}
+				fallback={
+					<ChannelInfoBar
+						safeTop
+						onBack={() => m.stack.pop()}
+						backLabel={`Back to #${m.channel()?.name ?? m.args.channel}`}
+						muted={m.muted()}
+						onMutedChange={m.setMuted}
+						onOpenSettings={m.openSettings()}
+					/>
+				}
+			>
+				<ChannelInfoBar
+					safeTop
+					onBack={() => m.stack.pop()}
+					backLabel={`Back to ${m.thread()?.name ?? "thread"}`}
+					muted={m.muted()}
+					onMutedChange={m.thread() ? m.setMuted : undefined}
+					muteSubject="thread"
+					onOpenSettings={m.openSettings()}
+					settingsLabel="Thread options"
+				/>
+			</Show>
 		)),
 		Info: slot((m) => (
-			<ChannelInfoSummary
-				name={m.channel()?.name ?? m.args.channel}
-				description={m.channel()?.description}
-				icon={voiceIcon(m.channel())}
-			/>
+			<Show
+				when={m.args.thread}
+				fallback={
+					<ChannelInfoSummary
+						name={m.channel()?.name ?? m.args.channel}
+						description={m.channel()?.description}
+						icon={voiceIcon(m.channel())}
+					/>
+				}
+			>
+				<ChannelInfoSummary
+					name={m.thread()?.name ?? "Thread"}
+					description={`in #${m.channel()?.name ?? m.args.channel}`}
+					icon={<ThreadIcon />}
+				/>
+			</Show>
 		)),
+		Menu: slot((m) => <m.threadMenu.Overlay />),
 		Unavailable: slot((m) => (
 			<Show when={m.unavailable()}>
 				{(kind) => (

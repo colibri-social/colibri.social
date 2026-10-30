@@ -30,6 +30,12 @@ export type VideoStatsSample = {
 	framesDropped?: number;
 	freezeCount?: number;
 	keyFrames?: number;
+	protocol?: string;
+	candidateType?: string;
+	relayed?: boolean;
+	relayProtocol?: string;
+	rtt?: number;
+	availableBitrate?: number;
 };
 
 export type ByteMark = { bytes: number; timestamp: number };
@@ -78,6 +84,20 @@ const bitrateSince = (
 	return Math.round((sent * 8 * 1_000) / elapsed);
 };
 
+const selectedPair = (
+	byId: ReadonlyMap<string, Stat>,
+	transport: Stat | undefined,
+	pairs: readonly Stat[],
+): Stat | undefined => {
+	const selectedId = str(transport?.selectedCandidatePairId);
+	const fromTransport = selectedId ? byId.get(selectedId) : undefined;
+	if (fromTransport) return fromTransport;
+	return (
+		pairs.find((stat) => stat.selected === true) ??
+		pairs.find((stat) => stat.nominated === true && stat.state === "succeeded")
+	);
+};
+
 const compact = <T extends Record<string, unknown>>(value: T): T =>
 	Object.fromEntries(
 		Object.entries(value).filter(([, entry]) => entry !== undefined),
@@ -92,14 +112,18 @@ export const readVideoStats = (
 ): { sample: VideoStatsSample; mark: ByteMark | undefined } => {
 	const byId = new Map<string, Stat>();
 	const rtp: Stat[] = [];
+	const remotes: Stat[] = [];
+	const pairs: Stat[] = [];
 	let mediaSource: Stat | undefined;
-	let remote: Stat | undefined;
+	let transport: Stat | undefined;
 	const rtpType = base.direction === "send" ? "outbound-rtp" : "inbound-rtp";
 	report.forEach((stat) => {
 		if (stat.id) byId.set(stat.id, stat);
 		if (stat.type === rtpType && isVideo(stat)) rtp.push(stat);
 		if (stat.type === "media-source" && isVideo(stat)) mediaSource = stat;
-		if (stat.type === "remote-inbound-rtp" && isVideo(stat)) remote = stat;
+		if (stat.type === "remote-inbound-rtp" && isVideo(stat)) remotes.push(stat);
+		if (stat.type === "candidate-pair") pairs.push(stat);
+		if (stat.type === "transport") transport = stat;
 	});
 	const main = rtp.reduce<Stat | undefined>(
 		(best, stat) =>
@@ -116,6 +140,13 @@ export const readVideoStats = (
 	const codecId = str(main?.codecId);
 	const codec = codecId ? str(byId.get(codecId)?.mimeType) : undefined;
 	const send = base.direction === "send";
+	const remote =
+		remotes.find((stat) => main?.id && stat.localId === main.id) ?? remotes[0];
+	const pair = send ? selectedPair(byId, transport, pairs) : undefined;
+	const pairLocalId = str(pair?.localCandidateId);
+	const local = pairLocalId ? byId.get(pairLocalId) : undefined;
+	const candidateType = str(local?.candidateType);
+	const rttSeconds = num(pair?.currentRoundTripTime);
 	const sample = compact<VideoStatsSample>({
 		id: base.id,
 		direction: base.direction,
@@ -146,8 +177,43 @@ export const readVideoStats = (
 		framesDropped: send ? undefined : num(main?.framesDropped),
 		freezeCount: send ? undefined : num(main?.freezeCount),
 		keyFrames: num(send ? main?.keyFramesEncoded : main?.keyFramesDecoded),
+		protocol: str(local?.protocol),
+		candidateType,
+		relayed: candidateType ? candidateType === "relay" : undefined,
+		relayProtocol:
+			candidateType === "relay" ? str(local?.relayProtocol) : undefined,
+		rtt: rttSeconds === undefined ? undefined : Math.round(rttSeconds * 1_000),
+		availableBitrate: num(pair?.availableOutgoingBitrate),
 	});
 	return { sample, mark };
+};
+
+const TRANSPORT_STAT_TYPES = new Set([
+	"transport",
+	"candidate-pair",
+	"local-candidate",
+	"remote-candidate",
+]);
+
+export const withTransportStats = async (
+	report: StatsLike,
+	readTransport: (() => Promise<StatsLike>) | undefined,
+): Promise<StatsLike> => {
+	let hasPair = false;
+	report.forEach((stat) => {
+		if (stat.type === "candidate-pair") hasPair = true;
+	});
+	if (hasPair || !readTransport) return report;
+	const extra: Stat[] = [];
+	(await readTransport()).forEach((stat) => {
+		if (stat.type && TRANSPORT_STAT_TYPES.has(stat.type)) extra.push(stat);
+	});
+	return {
+		forEach(callback) {
+			report.forEach(callback);
+			for (const stat of extra) callback(stat);
+		},
+	};
 };
 
 const round = (value: number | undefined) =>
@@ -165,6 +231,27 @@ const shareText = (value: Record<string, number> | undefined) =>
 				.map(([reason, percent]) => `${reason} ${percent}%`)
 				.join(", ")
 		: undefined;
+
+const networkText = (sample: VideoStatsSample): string | undefined => {
+	if (
+		sample.protocol === undefined &&
+		sample.rtt === undefined &&
+		sample.availableBitrate === undefined
+	) {
+		return undefined;
+	}
+	const route =
+		sample.relayed === undefined
+			? "?"
+			: sample.relayed
+				? `relay${sample.relayProtocol ? ` ${sample.relayProtocol}` : ""}`
+				: "direct";
+	const loss =
+		sample.fractionLost === undefined
+			? "?"
+			: `${Math.round(sample.fractionLost * 100)}%`;
+	return `net ${sample.protocol ?? "?"} ${route} rtt ${round(sample.rtt)} ms avail ${mbps(sample.availableBitrate)} loss ${loss}`;
+};
 
 export const formatVideoSample = (sample: VideoStatsSample): string => {
 	const parts = [
@@ -185,6 +272,8 @@ export const formatVideoSample = (sample: VideoStatsSample): string => {
 			`limit ${sample.limitation ?? "?"}${limitShares ? ` (${limitShares})` : ""}`,
 		);
 		if (sample.scalabilityMode) parts.push(sample.scalabilityMode);
+		const network = networkText(sample);
+		if (network) parts.push(network);
 	}
 	parts.push(
 		`${sample.direction === "send" ? "encoder" : "decoder"} ${sample.implementation ?? "?"} hw ${yesNo(sample.powerEfficient)}`,

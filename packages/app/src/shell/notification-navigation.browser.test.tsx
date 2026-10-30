@@ -238,7 +238,7 @@ describe("opening a notification on desktop", () => {
 });
 
 describe("swiping to members", () => {
-	it("pulls in the parent channel's members from a thread", async () => {
+	it("pulls in the thread's members from a thread", async () => {
 		const { stack, root } = mountMobile(`/app/c/${HQ}`);
 		stack.push(thread);
 		await until(settledAt(stack, 1));
@@ -248,6 +248,7 @@ describe("swiping to members", () => {
 			kind: "members",
 			space: HQ,
 			channel: "general",
+			thread: "t1",
 		});
 	});
 

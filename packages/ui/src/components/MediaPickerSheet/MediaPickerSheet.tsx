@@ -32,6 +32,7 @@ export type MediaPickerSheetProps = {
 	gif: GifOptions;
 	onEmoji: (pick: EmojiPick, event: MouseEvent) => void;
 	onGif: (gif: Gif, event: MouseEvent) => void;
+	keepKeyboard?: boolean;
 };
 
 export const MediaPickerSheet = (props: MediaPickerSheetProps) => {
@@ -51,6 +52,7 @@ export const MediaPickerSheet = (props: MediaPickerSheetProps) => {
 			initialFocus="content"
 			initialFocusEl={props.tab === "emoji" ? emojiSearch() : undefined}
 			restoreFocus={!picked()}
+			keepKeyboard={props.keepKeyboard}
 		>
 			<DrawerContent aria-label="Emoji and GIF picker">
 				<Tabs
@@ -103,6 +105,7 @@ export type MediaPickersProps = {
 	gif: GifOptions;
 	onEmoji: (pick: EmojiPick, event: MouseEvent) => void;
 	onGif: (gif: Gif, event: MouseEvent) => void;
+	keepKeyboard?: boolean;
 };
 
 export const MediaPickers = (props: MediaPickersProps) => {
@@ -126,6 +129,7 @@ export const MediaPickers = (props: MediaPickersProps) => {
 					gif={props.gif}
 					onEmoji={props.onEmoji}
 					onGif={props.onGif}
+					keepKeyboard={props.keepKeyboard}
 				/>
 			}
 		>

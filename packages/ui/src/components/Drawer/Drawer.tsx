@@ -19,6 +19,7 @@ import {
 	DirtyGuardContext,
 } from "../../utils/dirty-guard";
 import { createHeightTransition } from "../../utils/height-transition";
+import { dismissKeyboard } from "../../utils/keyboard-dismiss";
 import {
 	revealLayer,
 	topLayerAttrs,
@@ -36,6 +37,7 @@ export type DrawerProps = ParentProps<{
 	initialFocus?: "first-focusable" | "content";
 	initialFocusEl?: HTMLElement;
 	restoreFocus?: boolean;
+	keepKeyboard?: boolean;
 	dirty?: boolean;
 	discardDescription?: JSX.Element;
 }>;
@@ -77,6 +79,10 @@ export const Drawer = (props: DrawerProps) => {
 	let settling = false;
 	let pendingClose = false;
 	let frame = 0;
+	const [contentElement, setContentElement] = createSignal<HTMLElement>();
+	const releaseKeyboard = () => {
+		if (!props.keepKeyboard) dismissKeyboard(contentElement());
+	};
 
 	const settle = (remaining: number) => {
 		frame = requestAnimationFrame(() => {
@@ -97,6 +103,7 @@ export const Drawer = (props: DrawerProps) => {
 		if (next) {
 			pendingClose = false;
 			if (open()) return;
+			releaseKeyboard();
 			setOpen(true);
 			settling = true;
 			if (frame) cancelAnimationFrame(frame);
@@ -111,6 +118,7 @@ export const Drawer = (props: DrawerProps) => {
 	};
 
 	if (open()) {
+		releaseKeyboard();
 		settling = true;
 		settle(OPENING_SETTLE_FRAMES);
 	}
@@ -147,7 +155,6 @@ export const Drawer = (props: DrawerProps) => {
 	);
 	onCleanup(() => releaseLayer?.());
 
-	const [contentElement, setContentElement] = createSignal<HTMLElement>();
 	const initialFocusEl = () =>
 		props.initialFocusEl ??
 		(props.initialFocus === "content" ? contentElement() : undefined);

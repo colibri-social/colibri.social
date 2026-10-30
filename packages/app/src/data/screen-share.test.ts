@@ -4,8 +4,10 @@ import type {
 } from "@colibri-social/ui";
 import { describe, expect, it } from "vitest";
 import {
+	captureSurfaceKind,
 	DEFAULT_SCREEN_SHARE,
 	displayMediaRequest,
+	displayVideoRequest,
 	isLinuxApp,
 	isScreenShareOptions,
 	SCREEN_SHARE_FRAMERATES,
@@ -134,18 +136,18 @@ describe("screenEncodings and screenCodecOptions", () => {
 });
 
 describe("content hint and degradation preference", () => {
-	it("favours detail at 15 fps", () => {
-		const quality = { resolution: "1080", framerate: 15 } as const;
-		expect(screenContentHint(quality)).toBe("detail");
-		expect(screenDegradationPreference(quality)).toBe("maintain-resolution");
+	it("favours detail at 15 and 30 fps", () => {
+		for (const framerate of [15, 30] as const) {
+			const quality = { resolution: "1080", framerate } as const;
+			expect(screenContentHint(quality)).toBe("detail");
+			expect(screenDegradationPreference(quality)).toBe("maintain-resolution");
+		}
 	});
 
-	it("favours motion above 15 fps", () => {
-		for (const framerate of [30, 60] as const) {
-			const quality = { resolution: "1080", framerate } as const;
-			expect(screenContentHint(quality)).toBe("motion");
-			expect(screenDegradationPreference(quality)).toBe("maintain-framerate");
-		}
+	it("favours motion at 60 fps", () => {
+		const quality = { resolution: "1080", framerate: 60 } as const;
+		expect(screenContentHint(quality)).toBe("motion");
+		expect(screenDegradationPreference(quality)).toBe("maintain-framerate");
 	});
 });
 
@@ -242,5 +244,40 @@ describe("supportsDisplayAudio", () => {
 	it("rejects Firefox and a missing user agent", () => {
 		expect(supportsDisplayAudio(FIREFOX)).toBe(false);
 		expect(supportsDisplayAudio(undefined)).toBe(false);
+	});
+});
+
+describe("displayVideoRequest", () => {
+	it("asks for video only, with the quality constraints of the share", () => {
+		const request = displayVideoRequest({ resolution: "720", framerate: 60 });
+		expect(request.audio).toBe(false);
+		expect(request.systemAudio).toBe("exclude");
+		expect(request.video).toEqual({
+			frameRate: { ideal: 60, max: 60 },
+			height: { ideal: 720, max: 720 },
+		});
+	});
+
+	it("passes the surface the person chose as a hint", () => {
+		const request = displayVideoRequest(
+			{ resolution: "source", framerate: 30 },
+			"window",
+		);
+		expect(request.video).toEqual({
+			frameRate: { ideal: 30, max: 30 },
+			displaySurface: "window",
+		});
+	});
+});
+
+describe("captureSurfaceKind", () => {
+	it("maps a monitor to the whole screen", () => {
+		expect(captureSurfaceKind("monitor")).toBe("display");
+	});
+
+	it("treats a window and anything unknown as one window", () => {
+		expect(captureSurfaceKind("window")).toBe("window");
+		expect(captureSurfaceKind("browser")).toBe("window");
+		expect(captureSurfaceKind(undefined)).toBe("window");
 	});
 });

@@ -554,13 +554,6 @@
 			"ecosystem": "npm"
 		},
 		{
-			"name": "@tauri-apps/plugin-process",
-			"version": "2.3.1",
-			"license": "MIT OR Apache-2.0",
-			"href": "https://github.com/tauri-apps/plugins-workspace",
-			"ecosystem": "npm"
-		},
-		{
 			"name": "@tauri-apps/plugin-updater",
 			"version": "2.10.1",
 			"license": "MIT OR Apache-2.0",
@@ -1846,13 +1839,6 @@
 			"version": "1.0.1",
 			"license": "MIT OR Apache-2.0",
 			"href": "https://github.com/psychon/as-raw-xcb-connection",
-			"ecosystem": "rust"
-		},
-		{
-			"name": "ashpd",
-			"version": "0.13.13",
-			"license": "MIT",
-			"href": "https://github.com/bilelmoussaoui/ashpd",
 			"ecosystem": "rust"
 		},
 		{
@@ -5323,13 +5309,6 @@
 		{
 			"name": "tauri-plugin-os",
 			"version": "2.3.2",
-			"license": "Apache-2.0 OR MIT",
-			"href": "https://github.com/tauri-apps/plugins-workspace",
-			"ecosystem": "rust"
-		},
-		{
-			"name": "tauri-plugin-process",
-			"version": "2.3.1",
 			"license": "Apache-2.0 OR MIT",
 			"href": "https://github.com/tauri-apps/plugins-workspace",
 			"ecosystem": "rust"

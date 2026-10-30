@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from "@solar-icons/solid/linear/arrow-left";
 import {
 	createContext,
 	createEffect,
+	createRenderEffect,
 	createSignal,
 	For,
 	type JSX,
@@ -20,6 +21,7 @@ import {
 	DirtyGuardContext,
 } from "../../utils/dirty-guard";
 import { createHeightTransition } from "../../utils/height-transition";
+import { dismissKeyboard } from "../../utils/keyboard-dismiss";
 import {
 	createNestedLayers,
 	isInsideNestedLayer,
@@ -34,6 +36,7 @@ export type ModalProps = ParentProps<{
 	onOpenChange?: (open: boolean) => void;
 	defaultOpen?: boolean;
 	modal?: boolean;
+	keepKeyboard?: boolean;
 	dirty?: boolean;
 	discardDescription?: JSX.Element;
 }>;
@@ -67,6 +70,11 @@ export const Modal = (props: ModalProps) => {
 	createEffect(
 		on(open, (isOpen) => {
 			if (!isOpen) guard.keep();
+		}),
+	);
+	createRenderEffect(
+		on(open, (isOpen) => {
+			if (isOpen && !props.keepKeyboard) dismissKeyboard();
 		}),
 	);
 	return (

@@ -96,6 +96,7 @@ export const createComposerMedia = (
 			open={open()}
 			onOpenChange={setOpen}
 			anchorElement={options.anchor?.()}
+			keepKeyboard
 			emoji={{
 				get usage() {
 					return session.usage();

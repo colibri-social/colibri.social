@@ -30,7 +30,7 @@ pub use config::{CefConfig, LinuxWindowing, configure};
 ))]
 pub use platform::linux::install_x_error_handlers;
 pub use policy::{
-  DEFAULT_PROMPT_TIMEOUT, DeferredResponder, DenyReason, NormalizedOrigin, PermissionAudit,
+  arm_screen_capture_grant, DEFAULT_PROMPT_TIMEOUT, DeferredResponder, DenyReason, NormalizedOrigin, PermissionAudit,
   PermissionKind, PermissionRequest, PermissionResponder, PopupRequest, RequestSource, Verdict,
   set_permission_audit, set_permission_policy, set_popup_policy,
 };

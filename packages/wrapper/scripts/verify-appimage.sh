@@ -20,4 +20,11 @@ if [ -n "$bundled" ]; then
 	exit 1
 fi
 
-echo "No PipeWire libraries bundled in $(basename "$appimage")"
+stale=$(find squashfs-root -name 'libvpx.so*' -print)
+if [ -n "$stale" ]; then
+	echo "The AppImage bundles libvpx, which no Colibri binary links:" >&2
+	echo "$stale" >&2
+	exit 1
+fi
+
+echo "No PipeWire or libvpx libraries bundled in $(basename "$appimage")"

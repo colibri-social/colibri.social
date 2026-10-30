@@ -5,7 +5,11 @@ const log = createLogger("voice");
 
 export const SCREEN_SCALABILITY_MODE = "L1T3";
 
-export const SCREEN_CODEC_CANDIDATES: readonly string[] = ["video/vp8"];
+export const SCREEN_CODEC_CANDIDATES: readonly string[] = [
+	"video/vp9",
+	"video/h264",
+	"video/vp8",
+];
 
 const LAYERED_MIME_TYPES = new Set(["video/vp8", "video/vp9"]);
 

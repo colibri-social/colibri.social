@@ -37,7 +37,7 @@ export const SCREEN_SHARE_FRAMERATES: readonly ScreenShareFramerate[] = [
 	15, 30, 60,
 ];
 
-const DETAIL_FRAMERATE_CEILING = 15;
+const DETAIL_FRAMERATE_CEILING = 30;
 
 export const DISPLAY_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 	echoCancellation: false,
@@ -173,3 +173,24 @@ export const supportsDisplayAudio = (
 	if (!userAgent || /\bFirefox\b/i.test(userAgent)) return false;
 	return /\b(?:Chrome|Chromium|Edg|OPR)\b/i.test(userAgent);
 };
+
+export type DisplaySurfaceHint = "monitor" | "window";
+
+export const displayVideoRequest = (
+	quality: ScreenShareQuality,
+	surface?: DisplaySurfaceHint,
+): DisplayMediaRequest => ({
+	video: {
+		...screenVideoConstraints(quality),
+		...(surface ? { displaySurface: surface } : {}),
+	},
+	audio: false,
+	systemAudio: "exclude",
+	selfBrowserSurface: "exclude",
+	surfaceSwitching: "exclude",
+});
+
+export const captureSurfaceKind = (
+	displaySurface: string | undefined,
+): "display" | "window" =>
+	displaySurface === "monitor" ? "display" : "window";

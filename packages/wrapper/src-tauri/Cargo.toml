@@ -30,7 +30,7 @@ cc = "1"
 # the build entirely for no-track distributions like F-Droid.
 default = ["sentry", "updater"]
 sentry = ["dep:sentry"]
-updater = ["dep:tauri-plugin-updater", "dep:tauri-plugin-process", "dep:tauri-plugin-fs"]
+updater = ["dep:tauri-plugin-updater", "dep:tauri-plugin-fs"]
 
 [dependencies]
 tauri = { version = "2", default-features = false, features = [
@@ -70,7 +70,6 @@ version = "0.3"
 tauri-plugin-single-instance = { version = "2.4.2", features = ["deep-link"] }
 tauri-plugin-updater = { version = "2.10.1", optional = true }
 tauri-plugin-window-state = "2.4.1"
-tauri-plugin-process = { version = "2", optional = true }
 tauri-plugin-fs = { version = "2", optional = true }
 tauri-plugin-dialog = "2"
 
@@ -171,9 +170,8 @@ tauri-runtime-cef = { git = "https://github.com/SableClient/tauri-runtime-cef", 
 gtk = "0.18"
 notify-rust = "4"
 open = "5"
-ashpd = { version = "0.13", default-features = false, features = ["tokio", "screencast"] }
 pipewire = "0.10"
-x11rb = { version = "0.13", features = ["composite", "randr", "xfixes", "shm"] }
+sha2 = "0.10"
 
 [target.'cfg(windows)'.dependencies]
 windows-version = "0.1"

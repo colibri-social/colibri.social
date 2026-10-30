@@ -751,14 +751,6 @@ impl Capture {
     pub fn stop(self) {
         drop(self);
     }
-
-    #[cfg(test)]
-    pub fn idle() -> Self {
-        Self {
-            quit: None,
-            worker: None,
-        }
-    }
 }
 
 impl Drop for Capture {

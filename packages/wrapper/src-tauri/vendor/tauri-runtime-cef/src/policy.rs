@@ -716,6 +716,33 @@ pub(crate) fn media_kinds(mask: u32) -> Vec<PermissionKind> {
   kinds_from_mask(mask, &table)
 }
 
+static SCREEN_CAPTURE_GRANT: std::sync::Mutex<Option<std::time::Instant>> =
+  std::sync::Mutex::new(None);
+
+const SCREEN_CAPTURE_GRANT_WINDOW: std::time::Duration = std::time::Duration::from_secs(15);
+
+pub fn arm_screen_capture_grant() {
+  if let Ok(mut armed) = SCREEN_CAPTURE_GRANT.lock() {
+    *armed = Some(std::time::Instant::now());
+  }
+}
+
+pub(crate) fn take_screen_capture_grant() -> bool {
+  let Ok(mut armed) = SCREEN_CAPTURE_GRANT.lock() else {
+    return false;
+  };
+  armed
+    .take()
+    .is_some_and(|at| at.elapsed() <= SCREEN_CAPTURE_GRANT_WINDOW)
+}
+
+pub(crate) fn desktop_capture_only(mask: u32) -> bool {
+  use cef::sys::cef_media_access_permission_types_t as bits;
+  let desktop = bits::CEF_MEDIA_PERMISSION_DESKTOP_AUDIO_CAPTURE as u32
+    | bits::CEF_MEDIA_PERMISSION_DESKTOP_VIDEO_CAPTURE as u32;
+  mask & desktop != 0 && mask & !desktop == 0
+}
+
 /// Translate a bitmask, deduplicating kinds and turning every bit the table
 /// does not name into [`PermissionKind::Unknown`] — so a policy denying
 /// unknown kinds keeps denying permissions added by a future Chromium.
@@ -950,6 +977,16 @@ mod tests {
       ),
       vec![PermissionKind::ScreenCapture]
     );
+    assert!(desktop_capture_only(
+      media::CEF_MEDIA_PERMISSION_DESKTOP_VIDEO_CAPTURE as u32
+    ));
+    assert!(!desktop_capture_only(
+      media::CEF_MEDIA_PERMISSION_DESKTOP_VIDEO_CAPTURE as u32
+        | media::CEF_MEDIA_PERMISSION_DEVICE_AUDIO_CAPTURE as u32
+    ));
+    assert!(!desktop_capture_only(
+      media::CEF_MEDIA_PERMISSION_DEVICE_VIDEO_CAPTURE as u32
+    ));
 
     assert_eq!(
       prompt_kinds(prompt::CEF_PERMISSION_TYPE_GEOLOCATION as u32),

@@ -65,20 +65,95 @@ describe("layersFor", () => {
 });
 
 describe("pickScreenCodec", () => {
-	it("sends VP8 with temporal layers by default without probing", async () => {
-		const probe = vi.fn<VideoEncodingProbe>();
-		const choice = await pickScreenCodec({
-			codecs: [VP8, VP9, H264],
-			handlerName: "Chrome111",
-			target: TARGET,
-			probe,
+	it("lists VP9 first, H264 next and VP8 last", () => {
+		expect(SCREEN_CODEC_CANDIDATES).toEqual([
+			"video/vp9",
+			"video/h264",
+			"video/vp8",
+		]);
+	});
+
+	it("sends VP9 with temporal layers when no encoder is power efficient", async () => {
+		const probe = vi.fn(
+			probeWith({
+				"video/vp9": { supported: true, powerEfficient: false },
+				"video/h264": { supported: true, powerEfficient: false },
+				"video/vp8": { supported: true, powerEfficient: false },
+			}),
+		);
+		expect(
+			await pickScreenCodec({
+				codecs: [VP8, VP9, H264],
+				handlerName: "Chrome111",
+				target: TARGET,
+				probe,
+			}),
+		).toEqual({
+			codec: VP9,
+			mimeType: "video/vp9",
+			scalabilityMode: "L1T3",
+			powerEfficient: false,
 		});
-		expect(SCREEN_CODEC_CANDIDATES).toEqual(["video/vp8"]);
-		expect(choice).toEqual({
+		expect(probe).toHaveBeenCalledWith("video/vp9", TARGET, "L1T3");
+		expect(probe).toHaveBeenCalledWith("video/h264", TARGET, undefined);
+		expect(probe).toHaveBeenCalledWith("video/vp8", TARGET, "L1T3");
+	});
+
+	it("sends H264 only when its encoder is power efficient", async () => {
+		const hardware = probeWith({
+			"video/vp9": { supported: true, powerEfficient: false },
+			"video/h264": { supported: true, powerEfficient: true },
+			"video/vp8": { supported: true, powerEfficient: false },
+		});
+		expect(
+			await pickScreenCodec({
+				codecs: [VP8, VP9, H264],
+				handlerName: "Chrome111",
+				target: TARGET,
+				probe: hardware,
+			}),
+		).toEqual({ codec: H264, mimeType: "video/h264", powerEfficient: true });
+		const software = probeWith({
+			"video/vp9": { supported: false, powerEfficient: false },
+			"video/h264": { supported: true, powerEfficient: false },
+			"video/vp8": { supported: true, powerEfficient: false },
+		});
+		expect(
+			await pickScreenCodec({
+				codecs: [VP8, VP9, H264],
+				handlerName: "Chrome111",
+				target: TARGET,
+				probe: software,
+			}),
+		).toEqual({
 			codec: VP8,
 			mimeType: "video/vp8",
 			scalabilityMode: "L1T3",
+			powerEfficient: false,
 		});
+	});
+
+	it("falls back to VP8 when the probe cannot confirm VP9", async () => {
+		expect(
+			await pickScreenCodec({
+				codecs: [VP8, VP9, H264],
+				handlerName: "Safari12",
+				target: TARGET,
+				probe: async () => undefined,
+			}),
+		).toEqual({ codec: VP8, mimeType: "video/vp8" });
+	});
+
+	it("sends the only listed codec without probing", async () => {
+		const probe = vi.fn<VideoEncodingProbe>();
+		expect(
+			await pickScreenCodec({
+				codecs: [VP8],
+				handlerName: "Chrome111",
+				target: TARGET,
+				probe,
+			}),
+		).toEqual({ codec: VP8, mimeType: "video/vp8", scalabilityMode: "L1T3" });
 		expect(probe).not.toHaveBeenCalled();
 	});
 

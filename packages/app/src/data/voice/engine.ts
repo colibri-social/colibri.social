@@ -90,6 +90,7 @@ import {
 	VIDEO_STATS_INTERVAL_MS,
 	type VideoStatsSample,
 	type VideoStatsSource,
+	withTransportStats,
 } from "./video-stats";
 import {
 	type ParticipantVolumes,
@@ -611,6 +612,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 
 		const sampleVideo = async (): Promise<VideoStatsSample[]> => {
 			const jobs: Promise<VideoStatsSample | undefined>[] = [];
+			const transport = sendTransport;
 			const own: [types.Producer | null, VideoStatsSource][] = [
 				[camProducer, "cam"],
 				[screenProducer, "screen"],
@@ -618,13 +620,20 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			for (const [producer, source] of own) {
 				if (!producer || producer.closed) continue;
 				jobs.push(
-					readVideoSample(() => producer.getStats(), {
-						id: producer.id,
-						direction: "send",
-						source,
-						did: viewer,
-						trackFps: trackSettings(producer.track).frameRate,
-					}),
+					readVideoSample(
+						async () =>
+							withTransportStats(
+								await producer.getStats(),
+								transport ? () => transport.getStats() : undefined,
+							),
+						{
+							id: producer.id,
+							direction: "send",
+							source,
+							did: viewer,
+							trackFps: trackSettings(producer.track).frameRate,
+						},
+					),
 				);
 			}
 			for (const consumer of consumers.values()) {

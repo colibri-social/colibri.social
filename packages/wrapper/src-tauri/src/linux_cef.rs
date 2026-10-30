@@ -15,6 +15,7 @@ const IDENTIFIER: &str = "social.colibri.app";
 const DEEP_LINK_SCHEMES: [&str; 2] = ["social.colibri", "social.colibri.spaces"];
 const ACTIVATE: &str = "activate";
 const MAIN_WINDOW: &str = "main";
+const PIPEWIRE_CAPTURER: &str = "WebRTCPipeWireCapturer";
 
 static APP: OnceLock<AppHandle<AppRuntime>> = OnceLock::new();
 static PENDING: Mutex<Vec<String>> = Mutex::new(Vec::new());
@@ -73,7 +74,7 @@ pub fn bootstrap() -> Launch {
             "capture-thumb".into(),
         ],
         deep_link_schemes: DEEP_LINK_SCHEMES.map(String::from).to_vec(),
-        command_line_args: chromium_switches(),
+        command_line_args: chromium_switches(wayland_session(|name| std::env::var_os(name))),
         ..Default::default()
     });
 
@@ -205,7 +206,13 @@ fn expose_cef_library_dir() {
     }
 }
 
-fn chromium_switches() -> Vec<(String, Option<String>)> {
+fn wayland_session(var: impl Fn(&str) -> Option<std::ffi::OsString>) -> bool {
+    let set = |name: &str| var(name).is_some_and(|value| !value.is_empty());
+    set("WAYLAND_DISPLAY")
+        || var("XDG_SESSION_TYPE").is_some_and(|value| value.eq_ignore_ascii_case("wayland"))
+}
+
+fn chromium_switches(wayland_session: bool) -> Vec<(String, Option<String>)> {
     let mut switches = vec![
         ("--no-first-run".to_owned(), None),
         ("disable-pinch".to_owned(), None),
@@ -218,6 +225,12 @@ fn chromium_switches() -> Vec<(String, Option<String>)> {
             Some("LocalNetworkAccessChecksWebSockets".to_owned()),
         ),
     ];
+    if wayland_session {
+        switches.push((
+            "enable-features".to_owned(),
+            Some(PIPEWIRE_CAPTURER.to_owned()),
+        ));
+    }
     if let Ok(port) = std::env::var("COLIBRI_DEVTOOLS") {
         let port = port
             .parse::<u16>()
@@ -234,6 +247,10 @@ fn is_deep_link(arg: &str) -> bool {
         arg.strip_prefix(scheme)
             .is_some_and(|rest| rest.starts_with(':'))
     })
+}
+
+pub fn release_instance_socket() {
+    let _ = std::fs::remove_file(socket_path());
 }
 
 fn socket_path() -> PathBuf {
@@ -314,5 +331,63 @@ fn handle(app: &AppHandle<AppRuntime>, message: String) {
         use tauri_plugin_deep_link::DeepLinkExt;
         app.deep_link()
             .handle_cli_arguments([String::new(), message].into_iter());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::OsString;
+
+    fn env(pairs: &'static [(&'static str, &'static str)]) -> impl Fn(&str) -> Option<OsString> {
+        move |name| {
+            pairs
+                .iter()
+                .find(|(key, _)| *key == name)
+                .map(|(_, value)| OsString::from(value))
+        }
+    }
+
+    fn enabled_features(switches: &[(String, Option<String>)]) -> Vec<&str> {
+        switches
+            .iter()
+            .filter(|(name, _)| name == "enable-features")
+            .filter_map(|(_, value)| value.as_deref())
+            .collect()
+    }
+
+    #[test]
+    fn a_wayland_display_marks_a_wayland_session() {
+        assert!(wayland_session(env(&[("WAYLAND_DISPLAY", "wayland-0")])));
+    }
+
+    #[test]
+    fn an_xwayland_launch_still_counts_as_a_wayland_session() {
+        assert!(wayland_session(env(&[
+            ("DISPLAY", ":0"),
+            ("XDG_SESSION_TYPE", "wayland"),
+        ])));
+    }
+
+    #[test]
+    fn a_plain_x11_session_is_not_wayland() {
+        assert!(!wayland_session(env(&[
+            ("DISPLAY", ":0"),
+            ("XDG_SESSION_TYPE", "x11"),
+        ])));
+        assert!(!wayland_session(env(&[("WAYLAND_DISPLAY", "")])));
+    }
+
+    #[test]
+    fn wayland_sessions_enable_the_pipewire_capturer() {
+        assert_eq!(
+            enabled_features(&chromium_switches(true)),
+            [PIPEWIRE_CAPTURER]
+        );
+    }
+
+    #[test]
+    fn x11_sessions_leave_enable_features_alone() {
+        assert!(enabled_features(&chromium_switches(false)).is_empty());
     }
 }

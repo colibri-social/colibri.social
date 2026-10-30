@@ -18,8 +18,7 @@
 					"libxdamage1",
 					"libxrandr2",
 					"libasound2 | libasound2t64",
-					"libpipewire-0.3-0t64 | libpipewire-0.3-0",
-					"libvpx9"
+					"libpipewire-0.3-0t64 | libpipewire-0.3-0"
 				],
 				"files": {
 					"/usr/lib/colibri-social/libcef.so": "target/release/libcef.so",
@@ -52,8 +51,7 @@
 					"libXdamage",
 					"libXrandr",
 					"alsa-lib",
-					"pipewire-libs",
-					"libvpx"
+					"pipewire-libs"
 				],
 				"files": {
 					"/usr/lib/colibri-social/libcef.so": "target/release/libcef.so",

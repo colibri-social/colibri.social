@@ -183,7 +183,11 @@ export const MobileShell = () => {
 				<Match when={layer.kind === "members" && layer}>
 					{(members) => (
 						<MembersScreen
-							args={{ space: members().space, channel: members().channel }}
+							args={{
+								space: members().space,
+								channel: members().channel,
+								thread: members().thread,
+							}}
 						/>
 					)}
 				</Match>

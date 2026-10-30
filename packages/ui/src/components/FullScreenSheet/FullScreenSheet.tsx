@@ -2,6 +2,7 @@ import { Dialog } from "@kobalte/core/dialog";
 import { CloseIcon } from "@solar-icons/solid/bold/close";
 import {
 	createEffect,
+	createRenderEffect,
 	createSignal,
 	type JSX,
 	on,
@@ -11,6 +12,7 @@ import {
 } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createDirtyGuard, DirtyGuardContext } from "../../utils/dirty-guard";
+import { dismissKeyboard } from "../../utils/keyboard-dismiss";
 import {
 	motionScale,
 	prefersReducedMotion,
@@ -40,6 +42,7 @@ export type FullScreenSheetProps = {
 	"aria-label"?: string;
 	dirty?: boolean;
 	discardDescription?: string;
+	keepKeyboard?: boolean;
 };
 
 export const SHEET_CLOSE_RATIO = 0.25;
@@ -157,6 +160,15 @@ export const FullScreenSheet = (props: FullScreenSheetProps) => {
 		}
 		setPresent(false);
 	};
+
+	createRenderEffect(
+		on(
+			() => props.open,
+			(open) => {
+				if (open && !props.keepKeyboard) dismissKeyboard(content);
+			},
+		),
+	);
 
 	createEffect(
 		on(

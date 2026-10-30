@@ -989,7 +989,7 @@ export const createConversation = (options: ConversationOptions) => {
 		onReply: (message) => {
 			setEditing(undefined);
 			setReplyTo(message);
-			if (desktop()) editor?.focus();
+			editor?.focus("end");
 		},
 		onEdit: (message) => {
 			setReplyTo(undefined);

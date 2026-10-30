@@ -74,6 +74,10 @@ self.onmessage = (event) => {
 	};
 
 	const emit = (frame) => {
+		if (mode === "audio") {
+			frame.close();
+			return;
+		}
 		if (mode === "main") {
 			self.postMessage({ type: "frame", frame }, [frame]);
 			return;
@@ -81,7 +85,7 @@ self.onmessage = (event) => {
 		writer.write(frame).catch(() => {}).finally(() => frame.close());
 	};
 
-	if (mode === "main") {
+	if (mode === "main" || mode === "audio") {
 		self.postMessage({ type: "ready" });
 	} else {
 		let generator;

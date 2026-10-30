@@ -1170,7 +1170,10 @@ fn is_other_instance(pid: u32) -> bool {
   let Ok(their_exe) = std::fs::read_link(format!("/proc/{pid}/exe")) else {
     return false;
   };
-  if std::fs::read_link("/proc/self/exe").ok() != Some(their_exe) {
+  let Ok(our_exe) = std::fs::read_link("/proc/self/exe") else {
+    return false;
+  };
+  if !same_executable(&our_exe, &their_exe) {
     return false;
   }
   let mut current = std::process::id();
@@ -1184,6 +1187,16 @@ fn is_other_instance(pid: u32) -> bool {
     }
   }
   true
+}
+
+#[cfg(any(target_os = "linux", all(test, unix)))]
+fn same_executable(ours: &std::path::Path, theirs: &std::path::Path) -> bool {
+  use std::os::unix::ffi::OsStrExt;
+  let live = |path: &std::path::Path| {
+    let bytes = path.as_os_str().as_bytes();
+    bytes.strip_suffix(b" (deleted)").unwrap_or(bytes).to_vec()
+  };
+  live(ours) == live(theirs)
 }
 
 #[cfg(target_os = "linux")]
@@ -1885,6 +1898,44 @@ impl<T: UserEvent> Runtime<T> for CefRuntime<T> {
 
   fn run<F: FnMut(RunEvent<T>) + 'static>(self, callback: F) {
     self.run_return(callback);
+  }
+}
+
+#[cfg(all(test, unix))]
+mod executable_tests {
+  use super::same_executable;
+  use std::path::Path;
+
+  #[test]
+  fn an_executable_replaced_by_a_package_upgrade_is_still_the_same_app() {
+    assert!(same_executable(
+      Path::new("/usr/bin/colibri-social"),
+      Path::new("/usr/bin/colibri-social (deleted)"),
+    ));
+    assert!(same_executable(
+      Path::new("/usr/bin/colibri-social (deleted)"),
+      Path::new("/usr/bin/colibri-social"),
+    ));
+  }
+
+  #[test]
+  fn identical_paths_match() {
+    assert!(same_executable(
+      Path::new("/usr/bin/colibri-social"),
+      Path::new("/usr/bin/colibri-social"),
+    ));
+  }
+
+  #[test]
+  fn a_different_executable_does_not_match() {
+    assert!(!same_executable(
+      Path::new("/usr/bin/colibri-social"),
+      Path::new("/usr/bin/other-app (deleted)"),
+    ));
+    assert!(!same_executable(
+      Path::new("/usr/bin/colibri-social"),
+      Path::new("/usr/bin/colibri-social (deleted) (old)"),
+    ));
   }
 }
 

@@ -13,7 +13,10 @@ export const TEXT_CHANNEL_TYPE = "social.colibri.beta.channel.text";
 type ChannelTarget = { space: string; channel: string; channelType?: string };
 
 export type ChatLayer = ChannelTarget & { kind: "chat"; message?: string };
-export type MembersLayer = ChannelTarget & { kind: "members" };
+export type MembersLayer = ChannelTarget & {
+	kind: "members";
+	thread?: string;
+};
 export type ThreadLayer = ChannelTarget & {
 	kind: "thread";
 	thread: string;
@@ -214,7 +217,11 @@ export const layerPath = (layer: Layer) => {
 	if (layer.kind === "notFound") return layer.path;
 	if (layer.kind === "admin") return adminPath(layer);
 	const chat = channelPath(layer);
-	if (layer.kind === "members") return `${chat}/members`;
+	if (layer.kind === "members") {
+		return layer.thread
+			? `${chat}/t/${segment(layer.thread)}/members`
+			: `${chat}/members`;
+	}
 	if (layer.kind === "threads") return `${chat}/threads`;
 	if (layer.kind === "thread") {
 		const prefix = layer.via === "threads" ? `${chat}/threads` : chat;
@@ -380,6 +387,17 @@ const parseKnownPath = (parts: readonly string[]): Route | undefined => {
 		const draft: ThreadDraftLayer = { kind: "threadDraft", ...target };
 		if (anchor) draft.anchor = anchor;
 		return { root, layers: [chat, draft] };
+	}
+	if (tail === "t" && thread && anchor === "members") {
+		if (length !== 8) return undefined;
+		return {
+			root,
+			layers: [
+				chat,
+				{ kind: "thread", ...target, thread },
+				{ kind: "members", ...target, thread },
+			],
+		};
 	}
 	if (tail === "t" && thread && anchor === MESSAGE_SEGMENT) {
 		if (!rest || length !== 9) return undefined;

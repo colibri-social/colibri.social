@@ -113,6 +113,28 @@ describe("paths", () => {
 		});
 	});
 
+	it("round-trips a thread's members below the thread", () => {
+		const target = { space: DID, channel: "general", channelType: TEXT };
+		const route: Route = {
+			root: { tab: "spaces", space: DID },
+			layers: [
+				{ kind: "chat", ...target },
+				{ kind: "thread", ...target, thread: "abc" },
+				{ kind: "members", ...target, thread: "abc" },
+			],
+		};
+		expect(pathAt(route, 3)).toBe(
+			`/app/c/${DID}/${TEXT}/general/t/abc/members`,
+		);
+		expect(parsePath(pathAt(route, 3))).toEqual(route);
+		expect(parsePath(`${pathAt(route, 3)}/extra`).layers[0]?.kind).toBe(
+			"notFound",
+		);
+		expect(sameLayer(route.layers[2], { kind: "members", ...target })).toBe(
+			false,
+		);
+	});
+
 	it("round-trips thread drafts with and without an anchor", () => {
 		const chat = {
 			kind: "chat" as const,
