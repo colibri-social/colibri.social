@@ -1,12 +1,14 @@
 use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 use tauri::{AppHandle, Manager};
 use tauri_runtime_cef::{CefConfig, DenyReason, LinuxWindowing, PermissionKind, Verdict};
 
+use crate::appimage_env::{self, FORCED_GDK_BACKEND_MARKER, RELAUNCH_GUARD};
 use crate::AppRuntime;
 
 const IDENTIFIER: &str = "social.colibri.app";
@@ -41,10 +43,15 @@ pub fn injected_library_dir() -> Option<&'static Path> {
 }
 
 pub fn bootstrap() -> Launch {
+    relaunch_if_inherited_from_older_appimage();
+    std::env::remove_var(RELAUNCH_GUARD);
+    drop_inherited_gdk_backend();
+
     let wayland = native_wayland();
     let force_x11 = !wayland && std::env::var_os("GDK_BACKEND").is_none();
     if force_x11 {
         std::env::set_var("GDK_BACKEND", "x11");
+        std::env::set_var(FORCED_GDK_BACKEND_MARKER, "x11");
     }
     let _ = FORCED_GDK_BACKEND.set(force_x11);
     if std::env::var_os("APPDIR").is_some_and(|dir| !dir.is_empty()) {
@@ -138,6 +145,40 @@ pub fn attach(app: &AppHandle<AppRuntime>) {
     };
     for message in pending {
         handle(app, message);
+    }
+}
+
+fn relaunch_if_inherited_from_older_appimage() {
+    if std::env::args_os().any(|arg| arg.to_string_lossy().starts_with("--type=")) {
+        return;
+    }
+    let Ok(exe) = std::env::current_exe() else {
+        return;
+    };
+    let vars: Vec<_> = std::env::vars_os().collect();
+    let Some(plan) = appimage_env::relaunch(&vars, &exe) else {
+        return;
+    };
+    let mut command = std::process::Command::new(&plan.program);
+    command
+        .args(std::env::args_os().skip(1))
+        .env_clear()
+        .envs(plan.env);
+    if let Some(dir) = plan.working_dir {
+        command.current_dir(dir);
+    }
+    let error = command.exec();
+    eprintln!("could not relaunch the AppImage with a clean environment: {error}");
+}
+
+fn drop_inherited_gdk_backend() {
+    let Some(marker) = std::env::var_os(FORCED_GDK_BACKEND_MARKER) else {
+        return;
+    };
+    std::env::remove_var(FORCED_GDK_BACKEND_MARKER);
+    let appimage = std::env::var_os("APPDIR").is_some_and(|dir| !dir.is_empty());
+    if !appimage && std::env::var_os("GDK_BACKEND").is_some_and(|value| value == marker) {
+        std::env::remove_var("GDK_BACKEND");
     }
 }
 

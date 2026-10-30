@@ -128,6 +128,27 @@ fn start_audio(
     if !options.capture_audio {
         return None;
     }
-    let target = audio::choose_target(shared, options.audio_apps.as_deref())?;
-    audio::start(target, sender.clone()).ok()
+    let Some(target) = audio::choose_target(shared, options.audio_apps.as_deref()) else {
+        eprintln!("screen share audio: no target for this share");
+        return None;
+    };
+    eprintln!("screen share audio target: {}", target.describe());
+    let began = std::time::Instant::now();
+    match audio::start(target, sender.clone()) {
+        Ok(capture) => {
+            eprintln!(
+                "screen share audio started in {} ms",
+                began.elapsed().as_millis()
+            );
+            Some(capture)
+        }
+        Err(error) => {
+            eprintln!(
+                "screen share audio failed after {} ms: {}",
+                began.elapsed().as_millis(),
+                error.message
+            );
+            None
+        }
+    }
 }

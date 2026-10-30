@@ -6,6 +6,8 @@ mod android_jni;
 mod app_menu;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod apns;
+#[cfg(any(target_os = "linux", all(test, unix)))]
+mod appimage_env;
 #[cfg(target_os = "linux")]
 mod linux_cef;
 #[cfg(target_os = "macos")]
