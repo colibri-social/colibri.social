@@ -260,7 +260,12 @@ export const APP_ERROR_COPY: ErrorCopyCatalog = {
 	},
 	FileTooLarge: {
 		title: "That file is too big",
-		description: "Files can be up to 50 MB.",
+		description: "Files can be up to 75 MB.",
+	},
+	ServerFileTooLarge: {
+		title: "That file is too big for your account",
+		description:
+			"The service that hosts your account doesn't accept files this large. Try a smaller file.",
 	},
 	FileTooSmall: {
 		title: "That file is empty",

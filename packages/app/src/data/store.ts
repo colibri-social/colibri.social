@@ -464,7 +464,7 @@ export type DataStoreOptions = {
 type ReadState = { cursor?: string; hasUnread: boolean };
 
 export type WriteFailure = {
-	kind: "edit" | "delete" | "react";
+	kind: "send" | "edit" | "delete" | "react";
 	code: string;
 };
 
@@ -841,13 +841,16 @@ export const createDataStore = (
 			if (ref) outboxListeners.get(ref)?.(event);
 		});
 		const writeFailureListeners = new Set<(failure: WriteFailure) => void>();
+		const notifyWriteFailure = (failure: WriteFailure) => {
+			for (const listener of [...writeFailureListeners]) listener(failure);
+		};
 		const reportWriteFailure = (
 			kind: WriteFailure["kind"],
 			thrown: unknown,
 		) => {
 			const code = classifyThrown(thrown, { method: `outbox.${kind}` }).code;
-			for (const listener of [...writeFailureListeners])
-				listener({ kind, code });
+
+			notifyWriteFailure({ kind, code });
 		};
 		const reactionKeys = new Map<string, string>();
 		const reactionKeyOf = (ref: SpaceRef, rkey: string, emoji: string) =>
@@ -2701,6 +2704,10 @@ export const createDataStore = (
 				}
 				if (event.type === "failed") {
 					patchPending(nonce, (item) => ({ ...item, state: "failed" }));
+
+					if (event.code === "ServerFileTooLarge")
+						notifyWriteFailure({ kind: "send", code: event.code });
+
 					return;
 				}
 				dropPending(nonce);

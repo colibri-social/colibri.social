@@ -364,6 +364,34 @@ describe("createRemoteSource", () => {
 		expect(record.attachments).toEqual([{ blob, name: "cat.png" }]);
 	});
 
+	it("reports a blob the PDS rejects as too large", async () => {
+		const { source } = await setup((fake) => {
+			fake.on(
+				"com.atproto.repo.uploadBlob",
+				xrpcError(413, "PayloadTooLarge", "request entity too large"),
+			);
+		});
+
+		await expect(
+			source.uploadBlob(new File(["png"], "cat.png", { type: "image/png" })),
+		).rejects.toMatchObject({ code: "ServerFileTooLarge", retryable: false });
+	});
+
+	it("reports a proxy 413 without an envelope as too large", async () => {
+		const { source } = await setup((fake) => {
+			fake.on(
+				"com.atproto.repo.uploadBlob",
+				new Response("<html>413 Request Entity Too Large</html>", {
+					status: 413,
+				}),
+			);
+		});
+
+		await expect(
+			source.uploadBlob(new File(["png"], "cat.png", { type: "image/png" })),
+		).rejects.toMatchObject({ code: "ServerFileTooLarge" });
+	});
+
 	it("writes the alt text of an attachment into the record", async () => {
 		const blob = {
 			$type: "blob",

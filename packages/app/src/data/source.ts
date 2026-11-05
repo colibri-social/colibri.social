@@ -89,7 +89,7 @@ export type ForwardInput = {
 export type Simulation = { slowNetwork: boolean; offline: boolean };
 
 export const MAX_ATTACHMENTS = 10;
-export const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
+export const MAX_ATTACHMENT_BYTES = 75 * 1024 * 1024;
 
 export type LiveEvent =
 	| AccessEvent

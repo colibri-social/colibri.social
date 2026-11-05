@@ -299,6 +299,9 @@ const CATALOG: ErrorCopyCatalog = {
 	FileTooLarge: {
 		title: "That file is too large.",
 	},
+	ServerFileTooLarge: {
+		title: "That file is too large for your account.",
+	},
 	FileTooSmall: {
 		title: "That file is too small.",
 	},

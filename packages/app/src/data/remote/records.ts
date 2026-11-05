@@ -27,6 +27,19 @@ type SpaceTarget = {
 const RECORD_PAGE = 100;
 const RECORD_SCAN_LIMIT = 10;
 
+const TOO_LARGE_ENVELOPE_CODES = new Set(["PayloadTooLarge", "BlobTooLarge"]);
+
+const isBlobRejectedAsTooLarge = (error: unknown): error is ColibriError => {
+	if (!(error instanceof ColibriError)) return false;
+	if (error.status === 413) return true;
+
+	const unknownCode = error.context.unknownCode;
+
+	return (
+		typeof unknownCode === "string" && TOO_LARGE_ENVELOPE_CODES.has(unknownCode)
+	);
+};
+
 export const createRecords = (transport: Transport) => {
 	const repoOf = (target: { repo?: string }) => target.repo ?? transport.did;
 
@@ -182,17 +195,32 @@ export const createRecords = (transport: Transport) => {
 			});
 		},
 		uploadBlob: async (file: Blob, signal?: AbortSignal) => {
-			const result = await transport.pdsProcedure<{ blob: BlobRef }>(
-				"com.atproto.repo.uploadBlob",
-				{
-					raw: {
-						data: file,
-						encoding: file.type || "application/octet-stream",
+			try {
+				const result = await transport.pdsProcedure<{ blob: BlobRef }>(
+					"com.atproto.repo.uploadBlob",
+					{
+						raw: {
+							data: file,
+							encoding: file.type || "application/octet-stream",
+						},
+						signal,
 					},
-					signal,
-				},
-			);
-			return result.blob;
+				);
+
+				return result.blob;
+			} catch (error) {
+				if (isBlobRejectedAsTooLarge(error))
+					throw new ColibriError({
+						code: "ServerFileTooLarge",
+						status: error.status,
+						method: "repo.uploadBlob",
+						serverMessage: error.serverMessage,
+						context: { size: file.size },
+						cause: error,
+					});
+
+				throw error;
+			}
 		},
 	};
 };

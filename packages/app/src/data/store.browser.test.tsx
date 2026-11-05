@@ -1,4 +1,4 @@
-import { createMemoryKvStore } from "@colibri-social/lib";
+import { ColibriError, createMemoryKvStore } from "@colibri-social/lib";
 import { setAppActive } from "@colibri-social/ui";
 import { createEffect, createRoot } from "solid-js";
 import { describe, expect, it } from "vitest";
@@ -1646,6 +1646,46 @@ describe("outbox", () => {
 		expect(
 			channel.messages().find((message) => message.rkey === own.rkey)?.text,
 		).toBe(own.text);
+	});
+
+	it("reports a send whose file the PDS rejects as too large", async () => {
+		const { store, channel, source } = await setup();
+		const failures: WriteFailure[] = [];
+
+		store.onWriteFailed((failure) => failures.push(failure));
+		source.uploadBlob = async () => {
+			throw new ColibriError({
+				code: "ServerFileTooLarge",
+				status: 413,
+				method: "repo.uploadBlob",
+			});
+		};
+
+		const file = new File([new Uint8Array(10)], "huge.mov", {
+			type: "video/quicktime",
+		});
+
+		await channel.send({ text: "", files: [{ file }] });
+		await until(() => failures.length === 1);
+
+		expect(failures[0]).toEqual({ kind: "send", code: "ServerFileTooLarge" });
+		expect(channel.pending()[0]?.state).toBe("failed");
+	});
+
+	it("leaves other failed sends to the message row", async () => {
+		const { store, channel } = await setup();
+		const failures: WriteFailure[] = [];
+
+		store.onWriteFailed((failure) => failures.push(failure));
+
+		const file = new File([new Uint8Array(10)], "fail.txt", {
+			type: "text/plain",
+		});
+
+		await channel.send({ text: "this upload breaks", files: [{ file }] });
+		await until(() => channel.pending()[0]?.state === "failed");
+
+		expect(failures).toEqual([]);
 	});
 
 	it("brings a message back when its delete fails for good", async () => {

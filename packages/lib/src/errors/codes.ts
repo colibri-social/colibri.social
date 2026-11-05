@@ -81,6 +81,7 @@ export type NativeErrorCode =
 export type MediaErrorCode =
 	| "TooManyFiles"
 	| "FileTooLarge"
+	| "ServerFileTooLarge"
 	| "FileTooSmall"
 	| "UnsupportedFileType"
 	| "UploadFailed"
@@ -209,6 +210,7 @@ const DOMAIN_BY_CODE: Partial<Record<ColibriErrorCode, ErrorDomain>> = {
 
 	TooManyFiles: "media",
 	FileTooLarge: "media",
+	ServerFileTooLarge: "media",
 	FileTooSmall: "media",
 	UnsupportedFileType: "media",
 	UploadFailed: "media",
