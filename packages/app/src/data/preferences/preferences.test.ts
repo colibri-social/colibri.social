@@ -303,6 +303,110 @@ describe("left threads", () => {
 	});
 });
 
+describe("blocks", () => {
+	const createAs = (backend: PreferenceBackend) =>
+		createPreferenceStore({
+			backend,
+			controls: DEFAULT_REMOTE_CONTROLS,
+			self: VIEWER as Did,
+			snapshotKey: KEY,
+		});
+
+	it("round trips a block through a record and the full list", async () => {
+		const memory = createMemoryPreferenceBackend({
+			blocks: [
+				{ subject: SPACE, createdAt: "2026-10-01T00:00:00.000Z" as never },
+			],
+		});
+		const putBlocks = vi.spyOn(memory.backend, "putBlocks");
+		const createBlock = vi.spyOn(memory.backend, "createBlock");
+		const deleteBlock = vi.spyOn(memory.backend, "deleteBlock");
+		const store = createAs(memory.backend);
+		await store.refresh();
+
+		const saving = store.setBlocked(OTHER, true);
+		expect(store.isBlocked(OTHER)).toBe(true);
+		await saving;
+
+		expect(createBlock).toHaveBeenCalledOnce();
+		expect(putBlocks.mock.lastCall?.[0].map((block) => block.subject)).toEqual([
+			SPACE,
+			OTHER,
+		]);
+		const rkey = createBlock.mock.lastCall?.[0];
+
+		await store.setBlocked(OTHER, false);
+
+		expect(store.isBlocked(OTHER)).toBe(false);
+		expect(deleteBlock).toHaveBeenCalledWith(rkey);
+		expect(memory.blockRecords().map((record) => record.subject)).toEqual([
+			SPACE,
+		]);
+
+		await store.setBlocked(SPACE, false);
+
+		expect(deleteBlock).toHaveBeenLastCalledWith("seed0");
+		expect(memory.state().blocks).toEqual([]);
+		expect(store.blocks()).toEqual([]);
+	});
+
+	it("never blocks the viewer and skips a block that is already set", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const putBlocks = vi.spyOn(memory.backend, "putBlocks");
+		const store = createAs(memory.backend);
+
+		await store.setBlocked(VIEWER as Did, true);
+		expect(store.isBlocked(VIEWER)).toBe(false);
+
+		await store.setBlocked(OTHER, true);
+		await store.setBlocked(OTHER, true);
+
+		expect(putBlocks).toHaveBeenCalledOnce();
+		expect(memory.blockRecords()).toHaveLength(1);
+	});
+
+	it("keeps blocks in the snapshot", async () => {
+		const store = createAs(createMemoryPreferenceBackend().backend);
+
+		await store.setBlocked(OTHER, true);
+
+		expect(
+			createAs(createMemoryPreferenceBackend().backend).isBlocked(OTHER),
+		).toBe(true);
+	});
+
+	it("reloads the server state after a refused push", async () => {
+		const store = createAs({
+			...createMemoryPreferenceBackend().backend,
+			putBlocks: async () => {
+				throw new ColibriError({ code: "Unexpected" });
+			},
+		});
+
+		expect(await store.setBlocked(OTHER, true)).toBe(false);
+		expect(store.isBlocked(OTHER)).toBe(false);
+	});
+
+	it("reads blocks from the wire and drops malformed or repeated entries", () => {
+		const createdAt = "2026-10-20T10:00:00.000Z";
+		const decoded = fromWire({
+			blocks: [
+				{ subject: OTHER, createdAt },
+				{ subject: OTHER, createdAt },
+				{ subject: "someone", createdAt },
+				{ createdAt },
+				{ subject: SPACE },
+			],
+		} as Parameters<typeof fromWire>[0]);
+
+		expect(decoded.blocks).toEqual([
+			{ subject: OTHER, createdAt },
+			{ subject: SPACE, createdAt: new Date(0).toISOString() },
+		]);
+		expect(fromWire({}).blocks).toEqual([]);
+	});
+});
+
 describe("client preferences", () => {
 	it("resolves defaults and maps controls onto the synced record", async () => {
 		const memory = createMemoryPreferenceBackend();

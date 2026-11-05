@@ -41,6 +41,11 @@
 						"ref": "social.colibri.beta.defs#recordRef",
 						"description": "The message this one replies to."
 					},
+					"parentUri": {
+						"type": "string",
+						"format": "at-uri",
+						"description": "The message this one replies to, as a record URI in the same space. Readers prefer it over `parent` when it is valid."
+					},
 					"attachments": {
 						"type": "array",
 						"items": {

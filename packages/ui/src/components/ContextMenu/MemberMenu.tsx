@@ -4,7 +4,9 @@ import { EndCallRoundedIcon } from "@solar-icons/solid/bold/end-call-rounded";
 import { MonitorCameraIcon } from "@solar-icons/solid/bold/monitor-camera";
 import { ShieldUserIcon } from "@solar-icons/solid/bold/shield-user";
 import { TransferHorizontalIcon } from "@solar-icons/solid/bold/transfer-horizontal";
+import { UserBlockIcon } from "@solar-icons/solid/bold/user-block";
 import { UserBlockRoundedIcon } from "@solar-icons/solid/bold/user-block-rounded";
+import { UserCheckIcon } from "@solar-icons/solid/bold/user-check";
 import { UserCircleIcon } from "@solar-icons/solid/bold/user-circle";
 import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded";
 import { UsersGroupRoundedIcon } from "@solar-icons/solid/bold/users-group-rounded";
@@ -77,6 +79,9 @@ export type MemberMenuActions = DeveloperMenuActions & {
 	onRoleChange?: (id: string, assigned: boolean) => void;
 	onKick?: () => void;
 	onBan?: () => void;
+	blocked?: boolean;
+	onBlock?: () => void;
+	onUnblock?: () => void;
 	onCopyDid?: () => void;
 };
 
@@ -283,6 +288,34 @@ export const memberVoiceEntries = (
 	];
 };
 
+const blockEntry = (
+	name: string,
+	actions: MemberMenuActions,
+): DropdownMenuEntry | undefined => {
+	if (actions.blocked && actions.onUnblock) {
+		return {
+			label: `Unblock ${name}`,
+			get icon() {
+				return <UserCheckIcon />;
+			},
+			onSelect: actions.onUnblock,
+		};
+	}
+
+	if (!actions.blocked && actions.onBlock) {
+		return {
+			label: `Block ${name}`,
+			get icon() {
+				return <UserBlockIcon />;
+			},
+			tone: "destructive",
+			onSelect: actions.onBlock,
+		};
+	}
+
+	return undefined;
+};
+
 export const memberMenuEntries = (
 	name: string,
 	actions: MemberMenuActions,
@@ -331,6 +364,9 @@ export const memberMenuEntries = (
 			],
 		},
 		{
+			items: [blockEntry(name, actions)],
+		},
+		{
 			items: [
 				actions.onCopyDid && {
 					label: "Copy DID",
@@ -355,6 +391,9 @@ const menuShape = (props: MemberMenuActions & { name: string }) =>
 		(props.roles ?? []).map((role) => role.id).join("\n"),
 		!!props.onKick,
 		!!props.onBan,
+		!!props.blocked,
+		!!props.onBlock,
+		!!props.onUnblock,
 		!!props.onCopyDid,
 		!!props.developerMode,
 		!!props.onCopyAtUri,

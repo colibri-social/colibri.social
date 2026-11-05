@@ -1164,10 +1164,19 @@ export const createDataStore = (
 					if (spaceNotifications.isMuted(community.did)) {
 						return { hasUnread: false, mentions: 0 };
 					}
-					const entries = Object.values(unread[community.did] ?? {});
+					const voiceSlugs = new Set(
+						(layout().channels ?? []).filter(isVoiceChannel).map(channelSlug),
+					);
+					const entries = Object.entries(unread[community.did] ?? {});
+
 					return {
-						hasUnread: entries.some((entry) => entry.hasUnread),
-						mentions: entries.reduce((sum, entry) => sum + entry.mentions, 0),
+						hasUnread: entries.some(
+							([slug, entry]) => entry.hasUnread && !voiceSlugs.has(slug),
+						),
+						mentions: entries.reduce(
+							(sum, [, entry]) => sum + entry.mentions,
+							0,
+						),
 					};
 				},
 			};
@@ -1227,6 +1236,7 @@ export const createDataStore = (
 			if (event.$type !== "notificationEvent") return;
 			const view = event.notification;
 			if (view.seenAt || view.author?.did === viewer.did) return;
+			if (view.author && source.preferences.isBlocked(view.author.did)) return;
 			if (countedNotifications.has(view.id)) return;
 			countedNotifications.add(view.id);
 			const ref = view.channel as SpaceRef;
@@ -1599,6 +1609,7 @@ export const createDataStore = (
 			const view = event.notification;
 			if (!view.thread || !isPingNotification(view)) return;
 			if (view.author?.did === viewer.did) return;
+			if (view.author && source.preferences.isBlocked(view.author.did)) return;
 			void source.preferences.setLeft(view.thread, false);
 			autoFollow(view.thread, true);
 		});

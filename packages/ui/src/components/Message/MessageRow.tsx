@@ -63,6 +63,7 @@ export type MessageReply = {
 	text?: JSX.Element;
 	parts?: (string | MessageReplyEmoji)[];
 	unavailable?: boolean;
+	blocked?: boolean;
 	onClick?: () => void;
 };
 
@@ -84,6 +85,7 @@ export type MessageRowProps = Omit<
 	now?: TimeInput;
 	locale?: string;
 	continuation?: boolean;
+	anonymous?: boolean;
 	showTime?: boolean;
 	edited?: boolean;
 	reply?: MessageReply;
@@ -186,7 +188,10 @@ const failedLinkButton =
 const contentText =
 	"text-base leading-message select-text [overflow-wrap:anywhere] [&>[data-rich-text]]:inline [&_a:not([data-chip])]:text-primary-highlight [&_a:not([data-chip])]:underline-offset-2 [&_a:not([data-chip])]:decoration-1 [&_a:not([data-chip]):hover]:underline";
 
+export const REPLY_BLOCKED_TEXT = "Replying to someone you blocked.";
+
 const ReplyLine = (props: { reply: MessageReply }) => {
+	const masked = () => !!props.reply.unavailable || !!props.reply.blocked;
 	const interactive = () => !!props.reply.onClick && !props.reply.unavailable;
 	const replyNameColor = useAuthorNameColor(() => props.reply.author);
 	return (
@@ -200,11 +205,32 @@ const ReplyLine = (props: { reply: MessageReply }) => {
 				class="pointer-events-none absolute top-[7.5px] left-[19.5px] h-4 w-[calc(16px+var(--chat-avatar-gap,12px))] rounded-tl-[8px] border-t border-l border-secondary group-hover/reply:border-muted-foreground"
 			/>
 			<Show
-				when={!props.reply.unavailable}
+				when={!masked()}
 				fallback={
-					<span class="truncate text-xs leading-4 text-muted-foreground italic">
-						This message is no longer available.
-					</span>
+					<Show
+						when={props.reply.blocked && interactive()}
+						fallback={
+							<span
+								data-reply-masked={
+									props.reply.blocked ? "blocked" : "unavailable"
+								}
+								class="truncate text-xs leading-4 text-muted-foreground italic"
+							>
+								{props.reply.blocked
+									? REPLY_BLOCKED_TEXT
+									: "This message is no longer available."}
+							</span>
+						}
+					>
+						<button
+							type="button"
+							data-reply-masked="blocked"
+							onClick={() => props.reply.onClick?.()}
+							class="group/reply min-w-0 cursor-pointer truncate text-left text-xs leading-4 text-muted-foreground italic outline-none hover:text-foreground focus-visible:rounded-control-xs focus-ring"
+						>
+							{REPLY_BLOCKED_TEXT}
+						</button>
+					</Show>
 				}
 			>
 				<button
@@ -289,6 +315,7 @@ export const MessageRow = (props: MessageRowProps) => {
 		"now",
 		"locale",
 		"continuation",
+		"anonymous",
 		"showTime",
 		"edited",
 		"reply",
@@ -508,7 +535,8 @@ export const MessageRow = (props: MessageRowProps) => {
 		setFailedMenuOpen(false);
 		action?.();
 	};
-	const headless = () => !!local.continuation && !local.reply;
+	const grouped = () => !!local.continuation && !local.reply;
+	const headless = () => !!local.anonymous || grouped();
 	const editing = () => (mobile() ? undefined : local.editing);
 
 	const AuthorAvatar = () => (
@@ -537,6 +565,7 @@ export const MessageRow = (props: MessageRowProps) => {
 				aria-setsize={listItem?.setSize()}
 				tabIndex={listItem ? (listItem.active() ? 0 : -1) : rest.tabIndex}
 				data-continuation={headless() || undefined}
+				data-anonymous={local.anonymous || undefined}
 				data-highlight={highlight()}
 				data-editing={editing() ? "" : undefined}
 				data-state={local.state ?? "sent"}
@@ -584,7 +613,7 @@ export const MessageRow = (props: MessageRowProps) => {
 				class={cx(
 					"group/message relative flex flex-col gap-2 pr-(--chat-row-end-padding) pl-(--chat-row-padding)",
 					!mobile() && "rounded-r-[4px]",
-					headless() ? "py-1" : "mt-(--chat-group-gap) py-1",
+					grouped() ? "py-1" : "mt-(--chat-group-gap) py-1",
 					highlight()
 						? highlightClass[highlight() as MessageHighlight]
 						: failed()
@@ -613,19 +642,24 @@ export const MessageRow = (props: MessageRowProps) => {
 					<Show
 						when={!headless()}
 						fallback={
-							<span
-								data-continuation-time=""
-								class={cx(
-									"flex h-(--leading-message) w-10 shrink-0 items-center justify-center text-[11px] leading-none whitespace-nowrap text-muted-foreground tabular-nums select-none",
-									local.showTime
-										? "opacity-100"
-										: "opacity-0 group-hover/message:opacity-100 [@media(hover:hover)]:group-data-keyboard-focus/message:opacity-100",
-								)}
+							<Show
+								when={!local.anonymous}
+								fallback={<span aria-hidden="true" class="w-10 shrink-0" />}
 							>
-								<time datetime={isoTime()} title={fullTime()}>
-									{formatShortTime(local.timestamp, local.locale)}
-								</time>
-							</span>
+								<span
+									data-continuation-time=""
+									class={cx(
+										"flex h-(--leading-message) w-10 shrink-0 items-center justify-center text-[11px] leading-none whitespace-nowrap text-muted-foreground tabular-nums select-none",
+										local.showTime
+											? "opacity-100"
+											: "opacity-0 group-hover/message:opacity-100 [@media(hover:hover)]:group-data-keyboard-focus/message:opacity-100",
+									)}
+								>
+									<time datetime={isoTime()} title={fullTime()}>
+										{formatShortTime(local.timestamp, local.locale)}
+									</time>
+								</span>
+							</Show>
 						}
 					>
 						<Show when={authorInteractive()} fallback={<AuthorAvatar />}>

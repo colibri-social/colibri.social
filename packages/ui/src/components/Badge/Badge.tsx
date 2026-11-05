@@ -312,6 +312,33 @@ export const CountBadge = (props: CountBadgeProps) => {
 	);
 };
 
+export const pendingRequestsLabel = (count: number) => {
+	return `${count} pending ${count === 1 ? "request" : "requests"}`;
+};
+
+export type PendingBadgeProps = {
+	count?: number;
+	label?: string;
+	class?: string;
+};
+
+export const PendingBadge = (props: PendingBadgeProps) => {
+	const count = () => props.count ?? 0;
+
+	return (
+		<Show when={count() > 0}>
+			<CountBadge
+				data-pending-badge=""
+				aria-hidden="true"
+				count={count()}
+				max={9}
+				class={props.class}
+			/>
+			<span class="sr-only">{`, ${props.label ?? pendingRequestsLabel(count())}`}</span>
+		</Show>
+	);
+};
+
 export type ChipProps = Omit<JSX.HTMLAttributes<HTMLSpanElement>, "title"> & {
 	icon?: JSX.Element;
 	tooltip?: string;

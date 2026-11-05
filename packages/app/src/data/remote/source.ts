@@ -211,6 +211,7 @@ export const createRemoteSource = async (
 			space: preferencesSpace,
 		}),
 		controls: { ...DEFAULT_REMOTE_CONTROLS, ...options.controls },
+		self: options.session.did as Did,
 		snapshotKey: preferencesSnapshotKey(options.session.did),
 		onScopesRejected: options.onScopesRejected,
 	});

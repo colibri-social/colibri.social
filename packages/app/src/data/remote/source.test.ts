@@ -1532,6 +1532,54 @@ describe("createRemoteSource", () => {
 		expect(source.preferences.isMuted(space)).toBe(false);
 	});
 
+	it("writes a block record into the preferences space, then pushes blocks", async () => {
+		const blocked = (blocks: unknown[]) =>
+			json({
+				preferences: {
+					notificationLevel: "all",
+					communityOrder: [],
+					mutes: [],
+					gifFavorites: [],
+					blocks,
+				},
+			});
+		const { fake, source } = await setup((fake) => {
+			fake.on("com.atproto.space.listRecords", json({ records: [] }));
+			fake.on("com.atproto.space.createRecord", json({ uri: "x", cid: "c" }));
+			fake.on("com.atproto.space.deleteRecord", json({}));
+			fake.on(
+				"social.colibri.beta.actor.putBlocks",
+				blocked([{ subject: OTHER, createdAt: "2026-11-05T10:00:00.000Z" }]),
+			);
+		});
+
+		await source.preferences.setBlocked(OTHER, true);
+		await source.preferences.setBlocked(VIEWER, true);
+		await source.preferences.settled();
+
+		const created = only(fake.callsTo("com.atproto.space.createRecord"))
+			.body as Record<string, any>;
+		expect(created.collection).toBe("social.colibri.beta.actor.block");
+		expect(created.record.subject).toBe(OTHER);
+		const pushed = only(fake.callsTo("social.colibri.beta.actor.putBlocks"))
+			.body as any;
+		expect(pushed.blocks.map((entry: any) => entry.subject)).toEqual([OTHER]);
+		expect(source.preferences.isBlocked(OTHER)).toBe(true);
+		expect(source.preferences.isBlocked(VIEWER)).toBe(false);
+
+		fake.on("social.colibri.beta.actor.putBlocks", blocked([]));
+		await source.preferences.setBlocked(OTHER, false);
+
+		expect(
+			(only(fake.callsTo("com.atproto.space.deleteRecord")).body as any).rkey,
+		).toBe(created.rkey);
+		expect(
+			(fake.callsTo("social.colibri.beta.actor.putBlocks").at(-1)?.body as any)
+				.blocks,
+		).toEqual([]);
+		expect(source.preferences.blocks()).toEqual([]);
+	});
+
 	it("writes the settings record, then pushes GIF favorites", async () => {
 		const saved = [{ id: "gif-2", url: "https://gif.test/2.gif" }];
 		const { fake, source } = await setup((fake) => {
@@ -1577,6 +1625,7 @@ describe("createRemoteSource", () => {
 				communityOrder: [],
 				shareActivity: false,
 				mutes: [],
+				blocks: [],
 				leftThreads: [],
 				spaceLevels: {},
 				spaceModeration: {},

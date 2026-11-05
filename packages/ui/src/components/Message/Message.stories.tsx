@@ -18,6 +18,10 @@ import {
 import { contrastRatio, NameColorProvider } from "../../utils/name-color";
 import { formatMessageTime } from "../../utils/time";
 import { MESSAGE_LINE_HEIGHT } from "../../utils/typography";
+import {
+	HIDDEN_REASON_TEXT,
+	HiddenMessage,
+} from "../Attachments/HiddenMessage";
 import { defaultAvatarFor } from "../Avatar/default-avatars/default-avatars";
 import { MentionChip, TeamBadge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
@@ -37,7 +41,11 @@ import { RichTextRenderer } from "../RichText/RichText";
 import type { RoleIdentity } from "../Roles/RoleBadge";
 import { CHAT_LAYOUT, type ChatPlatform } from "./layout";
 import { MessagePreview } from "./MessagePreview";
-import { type MessageHighlight, MessageRow } from "./MessageRow";
+import {
+	type MessageHighlight,
+	MessageRow,
+	REPLY_BLOCKED_TEXT,
+} from "./MessageRow";
 import { MessagePreviewSkeleton, MessageRowSkeleton } from "./MessageSkeletons";
 
 const STORY_MEMBERS: Record<string, { did: string; name: string }> = {
@@ -296,6 +304,198 @@ export const Highlights: Story = {
 			</For>
 		</div>
 	),
+};
+
+type BlockedFixture = Fixture & { blocked?: boolean };
+
+const blockedConversation: BlockedFixture[] = [
+	{
+		id: "b1",
+		author: "did:plc:kris",
+		name: "Kris",
+		blocked: true,
+		timestamp: at(9, 2),
+		body: () => (
+			<RichTextRenderer value={{ text: "Anyone else see the heron today?" }} />
+		),
+	},
+	{
+		id: "b2",
+		author: "did:plc:kris",
+		name: "Kris",
+		blocked: true,
+		timestamp: at(9, 3),
+		body: () => (
+			<RichTextRenderer value={{ text: "It was right by the old mill." }} />
+		),
+	},
+	{
+		id: "b3",
+		author: "did:plc:lou",
+		name: "Lou",
+		team: true,
+		timestamp: at(9, 6),
+		body: () => (
+			<RichTextRenderer
+				value={{ text: "The crows have started following me on my run now" }}
+			/>
+		),
+	},
+	{
+		id: "b4",
+		author: "did:plc:username",
+		name: "Username",
+		timestamp: at(9, 8),
+		body: () => (
+			<RichTextRenderer value={{ text: "Wait, which mill do you mean?" }} />
+		),
+	},
+];
+
+const blockedReplies: Record<string, string> = { b4: "b2" };
+
+const jumpedTo = fn();
+
+const BlockedConversation = () => {
+	const [shown, setShown] = createSignal<ReadonlySet<string>>(new Set());
+	const entries = groupMessages(blockedConversation);
+
+	const collapsed = (message: BlockedFixture) => {
+		return !!message.blocked && !shown().has(message.id);
+	};
+
+	const replyFor = (id: string) => {
+		const parentId = blockedReplies[id];
+		const parent = blockedConversation.find((entry) => entry.id === parentId);
+		if (!parent) return undefined;
+		return {
+			author: { name: parent.name },
+			text: "It was right by the old mill.",
+			blocked: collapsed(parent),
+			onClick: () => jumpedTo(parent.id),
+		};
+	};
+
+	const setRevealed = (id: string, revealed: boolean) => {
+		setShown((current) => {
+			const next = new Set(current);
+			if (revealed) next.add(id);
+			else next.delete(id);
+			return next;
+		});
+	};
+
+	return (
+		<div class="flex min-h-dvh flex-col bg-background py-2 text-foreground">
+			<For each={entries}>
+				{(entry, index) => {
+					const message = entry.message as BlockedFixture;
+					const previous = () =>
+						entries[index() - 1]?.message as BlockedFixture | undefined;
+					const continuation = () =>
+						entry.continuation &&
+						!collapsed(message) &&
+						!!previous() &&
+						!collapsed(previous() as BlockedFixture);
+					return (
+						<MessageRow
+							author={{ name: message.name }}
+							badge={message.team ? <TeamBadge /> : undefined}
+							timestamp={message.timestamp}
+							now={NOW}
+							locale="en-GB"
+							anonymous={collapsed(message)}
+							continuation={continuation()}
+							reply={replyFor(message.id)}
+							data-testid={`message-${message.id}`}
+						>
+							<Show when={message.blocked} fallback={message.body()}>
+								<HiddenMessage
+									reason="blocked"
+									shown={shown().has(message.id)}
+									onShownChange={(next) => setRevealed(message.id, next)}
+								>
+									{message.body()}
+								</HiddenMessage>
+							</Show>
+						</MessageRow>
+					);
+				}}
+			</For>
+		</div>
+	);
+};
+
+const messageById = (canvasElement: HTMLElement, id: string) => {
+	return canvasElement.querySelector(
+		`[data-testid="message-${id}"]`,
+	) as HTMLElement;
+};
+
+export const BlockedAuthor: Story = {
+	parameters: mobile,
+	render: () => <BlockedConversation />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expect(canvas.getAllByText(HIDDEN_REASON_TEXT.blocked)).toHaveLength(
+			2,
+		);
+		await expect(canvas.queryByText("Kris")).toBeNull();
+		for (const id of ["b1", "b2"]) {
+			const row = messageById(canvasElement, id);
+			await expect(row).toHaveAttribute("data-anonymous");
+			await expect(row.querySelector("[data-message-header]")).toBeNull();
+			await expect(row.querySelector("[data-continuation-time]")).toBeNull();
+		}
+		await expect(
+			canvas.queryByText("Anyone else see the heron today?"),
+		).toBeNull();
+		await expect(canvas.getByText(REPLY_BLOCKED_TEXT)).toBeVisible();
+		jumpedTo.mockClear();
+		await userEvent.click(
+			canvas.getByRole("button", { name: REPLY_BLOCKED_TEXT }),
+		);
+		await expect(jumpedTo).toHaveBeenCalledWith("b2");
+		await expectNoLayoutIssues(canvasElement);
+
+		const second = messageById(canvasElement, "b2");
+		await userEvent.click(within(second).getByRole("button", { name: "Show" }));
+		await waitFor(() =>
+			expect(
+				within(messageById(canvasElement, "b2")).getByText(
+					"It was right by the old mill.",
+				),
+			).toBeVisible(),
+		);
+		const revealed = messageById(canvasElement, "b2");
+		await expect(revealed).not.toHaveAttribute("data-anonymous");
+		await expect(
+			within(revealed).getByText("Kris", { selector: "[data-author-name]" }),
+		).toBeVisible();
+		await expect(
+			canvas.queryByText("Anyone else see the heron today?"),
+		).toBeNull();
+		const reply = messageById(canvasElement, "b4").querySelector(
+			"[data-message-reply]",
+		) as HTMLElement;
+		await expect(within(reply).queryByText(REPLY_BLOCKED_TEXT)).toBeNull();
+		await expect(within(reply).getByText("Kris")).toBeVisible();
+		await expect(
+			within(reply).getByText("It was right by the old mill."),
+		).toBeVisible();
+		await expectNoLayoutIssues(canvasElement);
+
+		await userEvent.click(
+			within(revealed).getByRole("button", { name: "Hide again" }),
+		);
+		await waitFor(() =>
+			expect(messageById(canvasElement, "b2")).toHaveAttribute(
+				"data-anonymous",
+			),
+		);
+		await expect(canvas.queryByText("Kris")).toBeNull();
+		await expect(canvas.getByText(REPLY_BLOCKED_TEXT)).toBeVisible();
+	},
 };
 
 export const Reply: Story = {

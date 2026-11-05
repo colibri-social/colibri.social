@@ -403,6 +403,7 @@ export const createMockAccess = (options: {
 						applications.set(space.did, list);
 					}
 					setViewer(space, { applicationPending: true });
+					changed(space.did, "applications");
 					emit({
 						$type: "communityEvent",
 						event: "update",

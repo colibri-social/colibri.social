@@ -218,8 +218,8 @@ const pick = (scope: ParentNode, name: string) =>
 	)?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
 const openSpaceMenuEntry = async (root: HTMLElement, entry: string) => {
-	await until(() => !!buttonNamed(root, "Colibri HQ, Space options"));
-	buttonNamed(root, "Colibri HQ, Space options")?.click();
+	await until(() => !!buttonNamed(root, /^Colibri HQ, Space options/));
+	buttonNamed(root, /^Colibri HQ, Space options/)?.click();
 	await until(() => !!dialogNamed("Colibri HQ"));
 	await until(
 		() => !!buttonNamed(dialogNamed("Colibri HQ") as HTMLElement, entry),

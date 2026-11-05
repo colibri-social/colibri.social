@@ -39,6 +39,8 @@ export type MuteSubject =
 
 export type Mute = { subject: MuteSubject; createdAt: Datetime };
 
+export type Block = { subject: Did; createdAt: Datetime };
+
 export type LeftThread = { thread: SpaceRef; leftAt: Datetime };
 
 export const INBOX_PRESENTATIONS = ["popover", "modal"] as const;
@@ -71,6 +73,7 @@ export type Preferences = {
 	shareActivity: boolean;
 	gifFavorites: GifView[];
 	mutes: Mute[];
+	blocks: Block[];
 	leftThreads: LeftThread[];
 	spaceLevels: Readonly<Record<string, NotificationLevel>>;
 	spaceModeration: Readonly<Record<string, boolean>>;
@@ -96,6 +99,8 @@ export type SettingsChange = Partial<
 
 export type MuteRecord = { rkey: string; mute: Mute };
 
+export type BlockRecord = { rkey: string; block: Block };
+
 export type PreferenceBackend = {
 	load: () => Promise<Preferences>;
 	putSettings: (
@@ -114,6 +119,10 @@ export type PreferenceBackend = {
 	createMute: (rkey: string, mute: Mute) => Promise<void>;
 	deleteMute: (rkey: string) => Promise<void>;
 	putMutes: (mutes: Mute[]) => Promise<Preferences>;
+	listBlocks: () => Promise<BlockRecord[]>;
+	createBlock: (rkey: string, block: Block) => Promise<void>;
+	deleteBlock: (rkey: string) => Promise<void>;
+	putBlocks: (blocks: Block[]) => Promise<Preferences>;
 	putLeftThreads: (leftThreads: LeftThread[]) => Promise<Preferences>;
 };
 
@@ -129,6 +138,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
 	shareActivity: false,
 	gifFavorites: [],
 	mutes: [],
+	blocks: [],
 	leftThreads: [],
 	spaceLevels: {},
 	spaceModeration: {},

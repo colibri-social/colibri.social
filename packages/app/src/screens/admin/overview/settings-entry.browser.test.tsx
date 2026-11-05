@@ -29,15 +29,16 @@ it("opens Manage Space from the Space menu and closes back to the list without a
 		host,
 	);
 	await wait(1200);
-	const menu = Array.from(document.querySelectorAll("button")).find(
-		(button) =>
-			button.getAttribute("aria-label") === "Colibri HQ, Space options",
+	const menu = Array.from(document.querySelectorAll("button")).find((button) =>
+		button.getAttribute("aria-label")?.startsWith("Colibri HQ, Space options"),
 	) as HTMLElement;
 	await userEvent.click(menu);
 	await wait(700);
 	const settings = Array.from(
 		document.querySelectorAll('[role="dialog"] button'),
-	).find((button) => button.textContent?.trim() === "Settings") as HTMLElement;
+	).find((button) =>
+		button.textContent?.trim().startsWith("Settings"),
+	) as HTMLElement;
 	await userEvent.click(settings);
 	await wait(1200);
 	expect(short()).toBe("/manage/overview");

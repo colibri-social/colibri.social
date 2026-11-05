@@ -1,3 +1,9 @@
+import {
+	clampStripHeight,
+	DEFAULT_VOICE_STRIP_HEIGHT,
+	MAX_VOICE_STRIP_HEIGHT,
+	MIN_VOICE_STRIP_HEIGHT,
+} from "@colibri-social/lib";
 import { AltArrowDownIcon } from "@solar-icons/solid/bold/alt-arrow-down";
 import { AltArrowUpIcon } from "@solar-icons/solid/bold/alt-arrow-up";
 import { ScreenShareIcon } from "@solar-icons/solid/bold/screen-share";
@@ -328,12 +334,11 @@ export const voiceGridColumns = (count: number, portrait = false) =>
 				? 2
 				: 3;
 
-export const MIN_VOICE_STRIP_HEIGHT = 64;
-export const MAX_VOICE_STRIP_HEIGHT = 240;
-export const DEFAULT_VOICE_STRIP_HEIGHT = 88;
-
-export const clampStripHeight = (value: number) => {
-	return clampPaneWidth(value, MIN_VOICE_STRIP_HEIGHT, MAX_VOICE_STRIP_HEIGHT);
+export {
+	clampStripHeight,
+	DEFAULT_VOICE_STRIP_HEIGHT,
+	MAX_VOICE_STRIP_HEIGHT,
+	MIN_VOICE_STRIP_HEIGHT,
 };
 
 export type VoiceTileView = { height: number; visible: boolean };

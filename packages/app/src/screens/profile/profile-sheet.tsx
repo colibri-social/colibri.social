@@ -1,10 +1,13 @@
 import {
+	type ProfileAction,
 	type ProfileData,
 	ProfileDrawer,
 	ProfilePopover,
 	type ProfilePopoverPlacement,
 	RoleBadge,
 } from "@colibri-social/ui";
+import { UserBlockIcon } from "@solar-icons/solid/bold/user-block";
+import { UserCheckIcon } from "@solar-icons/solid/bold/user-check";
 import {
 	createContext,
 	createMemo,
@@ -23,6 +26,7 @@ import { roleIdentity, rolesOf } from "../../data/roles";
 import { useData } from "../../data/store";
 import type { Did, ProfileView } from "../../data/types";
 import { usePlatform } from "../../screen/platform";
+import { createBlockFlow } from "../members/block-flow";
 import { uiPresence } from "../members/member-adapter";
 import { OwnActivityPrompt } from "./activity-prompt";
 import { createBioRenderer } from "./bio-links";
@@ -57,6 +61,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 	const [anchor, setAnchor] = createSignal<HTMLElement>();
 	const [anchorRect, setAnchorRect] = createSignal<DOMRect>();
 	const [placement, setPlacement] = createSignal<ProfilePopoverPlacement>();
+	const blocking = createBlockFlow();
 	let lastPointer: HTMLElement | undefined;
 	onMount(() => {
 		const track = (event: PointerEvent) => {
@@ -69,6 +74,23 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 		document.addEventListener("pointerdown", track, true);
 		onCleanup(() => document.removeEventListener("pointerdown", track, true));
 	});
+
+	const blockAction = (did: string, name: string): ProfileAction => {
+		if (blocking.isBlocked(did)) {
+			return {
+				label: `Unblock ${name}`,
+				icon: () => <UserCheckIcon />,
+				onSelect: () => void blocking.unblock(did, name),
+			};
+		}
+
+		return {
+			label: `Block ${name}`,
+			icon: () => <UserBlockIcon />,
+			tone: "destructive",
+			onSelect: () => blocking.ask(did, name),
+		};
+	};
 
 	const profile = createMemo((): ProfileData | undefined => {
 		const current = target();
@@ -86,8 +108,10 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 		const roles = space ? rolesOf(member, space.roleByKey) : [];
 		const status = uiStatus(presence?.status, data.emoji);
 		const self = actor.did === data.viewer.did;
+		const name = displayNameOf(actor);
+
 		return {
-			displayName: displayNameOf(actor),
+			displayName: name,
 			nickname: member?.nickname,
 			handle: actor.handle,
 			pronouns: actor.pronouns,
@@ -108,6 +132,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 			nowPlaying: nowPlayingOf(presence, bio.openLink),
 			activityPrompt: self ? <OwnActivityPrompt tone="secondary" /> : undefined,
 			self,
+			actions: self ? undefined : [blockAction(actor.did, name)],
 			roles: roles.map((role) => {
 				const identity = roleIdentity(role);
 				return {
@@ -168,6 +193,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 				/>
 			</Show>
 			<bio.LinkWarningOutlet />
+			<blocking.Dialog />
 		</ProfileSheetContext.Provider>
 	);
 };

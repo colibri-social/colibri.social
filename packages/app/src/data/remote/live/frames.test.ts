@@ -695,6 +695,7 @@ describe("toLiveEvents", () => {
 							createdAt: "2026-10-15T10:00:00.000Z",
 						},
 					],
+					blocks: [],
 					leftThreads: [{ thread: THREAD, leftAt: "2026-10-16T10:00:00.000Z" }],
 					spaceLevels: { [COMMUNITY]: "mentionsAndReplies" },
 					spaceModeration: {},
@@ -712,5 +713,27 @@ describe("toLiveEvents", () => {
 				},
 			},
 		]);
+	});
+
+	it("maps the blocks a preferences frame carries", () => {
+		const events = toLiveEvents(
+			frame("preferencesEvent", {
+				preferences: {
+					notificationLevel: "all",
+					communityOrder: [],
+					mutes: [],
+					gifFavorites: [],
+					blocks: [
+						{ subject: ALICE, createdAt: "2026-10-15T10:00:00.000Z" },
+						{ subject: "not-a-did", createdAt: "2026-10-15T10:00:00.000Z" },
+					],
+				},
+			}),
+		);
+
+		expect(events).toHaveLength(1);
+		expect(
+			events[0]?.$type === "preferencesEvent" && events[0].preferences.blocks,
+		).toEqual([{ subject: ALICE, createdAt: "2026-10-15T10:00:00.000Z" }]);
 	});
 });

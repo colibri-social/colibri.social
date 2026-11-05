@@ -84,6 +84,12 @@
 				}
 			}
 		},
+		"activity": {
+			"type": "object",
+			"description": "Reports that the user is actively using this client, which holds back push notifications to their other devices for a few minutes. Clients send it while visible and focused.",
+			"required": [],
+			"properties": {}
+		},
 		"wroteTo": {
 			"type": "object",
 			"description": "Reports that the user just wrote a record to a space, so the AppView can pull it without waiting for the space host to forward a notification. Honoured only for a space this connection already receives.",
@@ -236,6 +242,11 @@
 					"ref": "social.colibri.beta.defs#recordRef",
 					"description": "Which message, for deletes."
 				},
+				"subjectUri": {
+					"type": "string",
+					"format": "at-uri",
+					"description": "The record URI of the message, for deletes."
+				},
 				"imported": {
 					"type": "boolean",
 					"description": "Set when a bridge imported the message from earlier history. Clients show it without marking the channel unread."
@@ -270,6 +281,16 @@
 					"type": "ref",
 					"ref": "social.colibri.beta.defs#recordRef",
 					"description": "The message reacted to."
+				},
+				"uri": {
+					"type": "string",
+					"format": "at-uri",
+					"description": "The record URI of the message reacted to."
+				},
+				"reaction": {
+					"type": "ref",
+					"ref": "social.colibri.beta.defs#recordRef",
+					"description": "The reaction record itself."
 				},
 				"emoji": {
 					"type": "string",

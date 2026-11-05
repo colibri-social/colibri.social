@@ -56,7 +56,7 @@ it("keeps the Space list on the first app history entry so back goes to the devi
 	at("chat then back");
 	await click(
 		"menu",
-		btn((b) => text(b) === "Colibri HQ, Space options"),
+		btn((b) => text(b).startsWith("Colibri HQ, Space options")),
 	);
 	await wait(700);
 	history.back();
@@ -64,14 +64,14 @@ it("keeps the Space list on the first app history entry so back goes to the devi
 	at("drawer then back");
 	await click(
 		"menu",
-		btn((b) => text(b) === "Colibri HQ, Space options"),
+		btn((b) => text(b).startsWith("Colibri HQ, Space options")),
 	);
 	await wait(700);
 	await click(
 		"settings",
 		Array.from(
 			document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
-		).find((b) => b.textContent?.trim() === "Settings"),
+		).find((b) => b.textContent?.trim().startsWith("Settings")),
 	);
 	await wait(1200);
 	history.back();

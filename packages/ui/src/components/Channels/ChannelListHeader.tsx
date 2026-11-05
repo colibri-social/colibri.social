@@ -10,6 +10,7 @@ import {
 } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
+import { Badge, PendingBadge, pendingRequestsLabel } from "../Badge/Badge";
 import { Banner, hasSpaceBanner } from "../Banner/Banner";
 import { Card } from "../Card/Card";
 import {
@@ -42,6 +43,8 @@ export type ChannelListHeaderProps = {
 	developer?: DeveloperModeCardProps;
 	platform?: ChannelPlatform;
 	attention?: SpaceAttention;
+	badge?: number;
+	badgeLabel?: string;
 	class?: string;
 };
 
@@ -59,6 +62,7 @@ const SpaceNameContent = (props: {
 	desktop: boolean;
 	overlay?: boolean;
 	attention?: boolean;
+	badge?: number;
 }) => (
 	<>
 		<span
@@ -73,6 +77,15 @@ const SpaceNameContent = (props: {
 		</span>
 		<Show when={props.attention}>
 			<SpaceAttentionMark />
+		</Show>
+		<Show when={(props.badge ?? 0) > 0}>
+			<Badge
+				variant="count"
+				data-pending-badge=""
+				data-count={(props.badge ?? 0) > 9 ? "9+" : String(props.badge)}
+				aria-hidden="true"
+				class="before:content-[attr(data-count)]"
+			/>
 		</Show>
 		<span
 			data-space-chevron=""
@@ -97,9 +110,18 @@ const optionsLabel = (props: {
 	name: string;
 	label?: string;
 	attention?: SpaceAttention;
-}) =>
-	props.label ??
-	`${props.name}, Space options${props.attention ? ", needs your attention" : ""}`;
+	badge?: number;
+	badgeLabel?: string;
+}) => {
+	const pending = props.badge
+		? `, ${props.badgeLabel ?? pendingRequestsLabel(props.badge)}`
+		: "";
+
+	return (
+		props.label ??
+		`${props.name}, Space options${props.attention ? ", needs your attention" : ""}${pending}`
+	);
+};
 
 const attentionNotice =
 	(attention: SpaceAttention | undefined) => (close: () => void) =>
@@ -111,6 +133,8 @@ const MobileSpaceButton = (props: {
 	name: string;
 	label?: string;
 	attention?: SpaceAttention;
+	badge?: number;
+	badgeLabel?: string;
 	menu?: SpaceMenuActions;
 	onClick?: () => void;
 	drawer: Omit<SpaceDrawerProps, "open" | "onOpenChange">;
@@ -136,6 +160,7 @@ const MobileSpaceButton = (props: {
 					name={props.name}
 					desktop={false}
 					attention={!!props.attention}
+					badge={props.badge}
 				/>
 			</button>
 			<Show when={props.menu}>
@@ -168,6 +193,8 @@ const DesktopSpaceRow = (props: {
 	name: string;
 	label?: string;
 	attention?: SpaceAttention;
+	badge?: number;
+	badgeLabel?: string;
 	menu?: SpaceMenuActions;
 	onClick?: () => void;
 	overlay: boolean;
@@ -200,6 +227,7 @@ const DesktopSpaceRow = (props: {
 						desktop
 						overlay={props.overlay}
 						attention={!!props.attention}
+						badge={props.badge}
 					/>
 				</button>
 			}
@@ -221,6 +249,7 @@ const DesktopSpaceRow = (props: {
 							desktop
 							overlay={props.overlay}
 							attention={!!props.attention}
+							badge={props.badge}
 						/>
 					}
 				/>
@@ -274,6 +303,8 @@ const DesktopHeader = (props: ChannelListHeaderProps) => {
 				name={props.name}
 				label={props.openLabel}
 				attention={props.attention}
+				badge={props.badge}
+				badgeLabel={props.badgeLabel}
 				menu={props.menu}
 				onClick={props.onOpenSpace}
 				overlay={banner() && !scrolled()}
@@ -353,6 +384,8 @@ export const ChannelListHeader = (props: ChannelListHeaderProps) => {
 						name={props.name}
 						label={props.openLabel}
 						attention={props.attention}
+						badge={props.badge}
+						badgeLabel={props.badgeLabel}
 						menu={props.menu}
 						onClick={props.onOpenSpace}
 						drawer={mergeProps(() => props.menu ?? {}, {
@@ -395,6 +428,8 @@ export const ChannelListHeader = (props: ChannelListHeaderProps) => {
 export type ActionTileProps = {
 	icon: JSX.Element;
 	label: string;
+	badge?: number;
+	badgeLabel?: string;
 	onClick?: () => void;
 	class?: string;
 };
@@ -404,7 +439,7 @@ export const ActionTile = (props: ActionTileProps) => (
 		tone="secondary"
 		onClick={() => props.onClick?.()}
 		class={cx(
-			"flex min-w-0 flex-1 flex-col items-center justify-center gap-2 px-2 py-4",
+			"relative flex min-w-0 flex-1 flex-col items-center justify-center gap-2 px-2 py-4",
 			props.class,
 		)}
 	>
@@ -417,6 +452,11 @@ export const ActionTile = (props: ActionTileProps) => (
 		<span class="w-full truncate text-center text-sm leading-5 text-foreground">
 			{props.label}
 		</span>
+		<PendingBadge
+			count={props.badge}
+			label={props.badgeLabel}
+			class="absolute top-2 right-2"
+		/>
 	</Card>
 );
 

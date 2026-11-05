@@ -303,6 +303,35 @@
 				}
 			}
 		},
+		"setConsumerPreference": {
+			"type": "object",
+			"description": "Sets the highest simulcast or SVC layers a consumer this connection created should receive, and whether it should receive media at all. The server picks layers within the transport's bandwidth estimate and keeps a consumer paused while deafen silences it.",
+			"required": [
+				"consumerId",
+				"spatialLayer",
+				"paused"
+			],
+			"properties": {
+				"consumerId": {
+					"type": "string",
+					"description": "The consumer to update."
+				},
+				"spatialLayer": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "The highest spatial layer to receive, where 0 is the lowest resolution."
+				},
+				"temporalLayer": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "The highest temporal layer to receive. When absent, the server uses the highest one available."
+				},
+				"paused": {
+					"type": "boolean",
+					"description": "Whether the viewer wants this consumer paused, for example while its tile is off screen."
+				}
+			}
+		},
 		"setSelfState": {
 			"type": "object",
 			"description": "Updates this connection's own mute or deafen state. An absent field leaves the current value unchanged.",

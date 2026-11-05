@@ -103,6 +103,8 @@ export const SpaceDrawer = (props: SpaceDrawerProps) => {
 							<ActionTile
 								icon={<SettingsIcon />}
 								label="Settings"
+								badge={props.settingsBadge}
+								badgeLabel={props.settingsBadgeLabel}
 								onClick={run(props.onOpenSettings)}
 							/>
 						</Show>
@@ -121,6 +123,8 @@ export const SpaceDrawer = (props: SpaceDrawerProps) => {
 							<NavRow
 								icon={<SettingsIcon />}
 								label="Manage Space"
+								badge={props.settingsBadge}
+								badgeLabel={props.settingsBadgeLabel}
 								onClick={run(props.onOpenSettings)}
 							/>
 						</Show>

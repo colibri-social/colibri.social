@@ -909,6 +909,41 @@ describe("read state", () => {
 		store.dispose();
 	});
 
+	it("keeps voice channel chat out of the Space unread dot", async () => {
+		const { store, space, hq, emit } = await setupWithEvents();
+		await until(() => (space.channels.value()?.length ?? 0) > 0);
+		const voice = space.channels.value()?.find(isVoiceChannel);
+		const general = space.channelBySlug("general");
+		if (!voice || !general) throw new Error("fixtures missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const author = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did)?.author;
+		const last = feed.messages().at(-1);
+		if (!author || !last) throw new Error("fixtures missing");
+		await store.community.markRead(hq.did);
+		expect(space.totals().hasUnread).toBe(false);
+
+		emit({
+			$type: "messageEvent",
+			event: "create",
+			channel: voice.space,
+			message: {
+				...last,
+				rkey: `${last.rkey}v`,
+				uri: `${last.uri}v`,
+				channel: voice.space,
+				author,
+				text: "from the call",
+			},
+		});
+
+		expect(space.unread(channelSlug(voice)).hasUnread).toBe(true);
+		expect(space.totals().hasUnread).toBe(false);
+		store.dispose();
+	});
+
 	it("applies a seen event from another device to notifications and mention counts", async () => {
 		const { store, space, emit } = await setupWithEvents();
 		await until(() => store.notifications.status() === "ready");
@@ -943,6 +978,42 @@ describe("read state", () => {
 		});
 		expect(store.notifications.unreadCount()).toBe(0);
 		expect(space.unread("general").mentions).toBe(0);
+		store.dispose();
+	});
+
+	it("ignores notifications from a blocked author for channel mentions", async () => {
+		const { store, space, emit, base } = await setupWithEvents();
+		await until(() => store.notifications.status() === "ready");
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const author = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did)?.author;
+		if (!author) throw new Error("author missing");
+		const mentions = space.unread("general").mentions;
+
+		await base.preferences.setBlocked(author.did, true);
+		emit({
+			$type: "notificationEvent",
+			notification: {
+				id: "blocked-mention",
+				kind: "mention",
+				author,
+				channel: general.space,
+				community: space.community.did,
+				message: feed.messages().at(-1),
+				indexedAt: new Date().toISOString(),
+			} as never,
+		});
+
+		expect(space.unread("general").mentions).toBe(mentions);
+		expect(
+			store.notifications
+				.items()
+				.some((entry) => entry.id === "blocked-mention"),
+		).toBe(false);
 		store.dispose();
 	});
 

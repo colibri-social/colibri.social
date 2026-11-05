@@ -82,6 +82,11 @@ export const createAccessStore = (options: {
 		cached(applicationLists, community, () =>
 			source.listApplications({ community, includeDismissed: true }),
 		);
+	const pendingApplications = (community: Did) => {
+		return (applications(community).value() ?? []).filter(
+			(entry) => !entry.dismissed,
+		).length;
+	};
 	const bans = (community: Did) =>
 		cached(banLists, community, () => source.listBans(community));
 	const invitations = (community: Did) =>
@@ -128,6 +133,7 @@ export const createAccessStore = (options: {
 
 	return {
 		applications,
+		pendingApplications,
 		bans,
 		invitations,
 		approve: async (community: Did, subject: Did) => {

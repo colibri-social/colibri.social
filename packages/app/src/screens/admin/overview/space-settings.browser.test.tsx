@@ -126,7 +126,12 @@ describe("space settings hub", () => {
 		const rows = Array.from(
 			topPane(root).querySelectorAll<HTMLElement>("section button"),
 		).map((element) => element.textContent?.trim());
-		expect(rows).toEqual([
+		expect(rows.find((row) => row?.startsWith("Members"))).toContain(
+			"2 pending requests",
+		);
+		expect(
+			rows.map((row) => row?.replace(/\s*\d.*pending requests?$/, "")),
+		).toEqual([
 			"Space profile",
 			"Invite links",
 			"Roles",
@@ -204,7 +209,7 @@ describe("space settings hub", () => {
 	it("opens from the Space drawer's settings tile", async () => {
 		const { root } = await mount(`/app/c/${HQ}`);
 		await holdRail(root, "Colibri HQ");
-		const settings = buttonNamed(dialog() as HTMLElement, "Settings");
+		const settings = buttonNamed(dialog() as HTMLElement, /^Settings/);
 		expect(settings).toBeTruthy();
 		settings?.click();
 		await until(() => location.pathname.endsWith(`/c/${HQ}/manage/overview`));

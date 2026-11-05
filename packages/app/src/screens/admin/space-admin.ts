@@ -22,6 +22,17 @@ export const canInSpace = (
 	return !!viewer?.isOwner || !!viewer?.permissions?.includes(permission);
 };
 
+export const pendingJoinRequests = (
+	data: DataStore,
+	community: CommunityView | undefined,
+) => {
+	if (!community || !canInSpace(community, SPACE_PERMISSIONS.approvals)) {
+		return undefined;
+	}
+
+	return data.access.pendingApplications(community.did) || undefined;
+};
+
 export const useAdminSpace = (space: string) => {
 	const data = useData();
 	const community = createMemo(() => data.spaceByKey(space));

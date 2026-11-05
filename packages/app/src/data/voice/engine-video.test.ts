@@ -235,8 +235,10 @@ describe("screen share encoding", () => {
 		);
 		expect(screen?.codec).toEqual(VP9);
 		expect(screen?.encodings).toEqual([
-			expect.objectContaining({ maxFramerate: 30, scalabilityMode: "L1T3" }),
-			expect.objectContaining({ maxFramerate: 30, scalabilityMode: "L1T3" }),
+			expect.objectContaining({
+				maxFramerate: 30,
+				scalabilityMode: "L2T3_KEY",
+			}),
 		]);
 		const setParameters = vi.fn(async () => {});
 		screen?.onRtpSender?.({

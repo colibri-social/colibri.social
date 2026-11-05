@@ -1,6 +1,7 @@
 import { FileIcon } from "@solar-icons/solid/bold/file";
 import { GalleryMinimalisticIcon } from "@solar-icons/solid/bold/gallery-minimalistic";
 import { LockKeyholeMinimalisticIcon } from "@solar-icons/solid/bold/lock-keyhole-minimalistic";
+import { UserBlockIcon } from "@solar-icons/solid/bold/user-block";
 import { For, type JSX, Match, Show, Switch } from "solid-js";
 import { ThreadIcon } from "../../icons/custom";
 import { cx } from "../../utils/cx";
@@ -12,6 +13,7 @@ import {
 } from "../../utils/name-color";
 import { isStaticSource } from "../../utils/playback";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
+import { HIDDEN_REASON_TEXT } from "../Attachments/HiddenMessage";
 import { CountBadge } from "../Badge/Badge";
 import { Card, type CardTone } from "../Card/Card";
 import type {
@@ -58,6 +60,7 @@ export type ThreadLastMessage = ThreadPerson & {
 	text: string;
 	parts?: (string | ChannelPreviewEmoji)[];
 	attachment?: ChannelAttachment;
+	blocked?: boolean;
 };
 
 type ThreadSize = "compact" | "regular";
@@ -283,6 +286,23 @@ const ThreadSummary = (props: ThreadSummaryProps & { size: ThreadSize }) => {
 							<TypingAvatars people={typing()} size={size().avatar} />
 							<span class="min-w-0 truncate text-muted-foreground">
 								<TypingNames people={typing()} />
+							</span>
+						</span>
+					</Match>
+					<Match when={props.lastMessage?.blocked}>
+						<span
+							data-thread-last=""
+							data-thread-last-blocked=""
+							class={cx(
+								"flex w-full min-w-0 items-center gap-1.5 text-muted-foreground",
+								size().line,
+							)}
+						>
+							<span class="flex shrink-0 [&>svg]:size-4">
+								<UserBlockIcon />
+							</span>
+							<span class="min-w-0 flex-1 truncate">
+								{HIDDEN_REASON_TEXT.blocked}
 							</span>
 						</span>
 					</Match>

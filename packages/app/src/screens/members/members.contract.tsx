@@ -140,15 +140,17 @@ export const members = defineContract({
 			const included = threadMembers
 				? new Set<string>(threadMembers)
 				: undefined;
-			const readers = list.filter((member) =>
-				included
+			const readers = list.filter((member) => {
+				if (data.preferences.isBlocked(member.actor.did)) return false;
+
+				return included
 					? included.has(member.actor.did)
 					: canReadChannel(view, category, {
 							did: member.actor.did,
 							roles: member.roles ?? [],
 							admin: isAdminRoleSet(member.roles ?? [], roles),
-						}),
-			);
+						});
+			});
 			const mapped = readers.map((member) =>
 				toListMember(member, {
 					roleByKey: current.roleByKey,

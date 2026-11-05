@@ -145,4 +145,51 @@ describe("notification store", () => {
 		expect(store.notifications.items()).toHaveLength(0);
 		expect(store.notifications.unreadCount()).toBe(0);
 	});
+
+	it("hides a blocked author's notifications and restores them on unblock", async () => {
+		const { source, store } = await setup();
+		const sample = store.notifications
+			.items()
+			.find((entry) => entry.author.did !== store.viewer.did);
+		if (!sample) throw new Error("no notifications");
+		const blocked = sample.author.did;
+		const fromBlocked = () =>
+			store.notifications
+				.items()
+				.filter((entry) => entry.author.did === blocked);
+		const held = fromBlocked().length;
+		const unread = store.notifications.unreadCount();
+		const heldPings = fromBlocked().filter(
+			(entry) =>
+				!entry.seenAt && (entry.kind === "mention" || entry.kind === "reply"),
+		).length;
+
+		await source.preferences.setBlocked(blocked, true);
+
+		expect(fromBlocked()).toHaveLength(0);
+		expect(store.notifications.unreadCount()).toBe(unread - heldPings);
+
+		const live = {
+			...sample,
+			id: "live:blocked",
+			indexedAt: new Date().toISOString(),
+		};
+		delete (live as { seenAt?: string }).seenAt;
+		source.emit({ $type: "notificationEvent", notification: live as never });
+
+		expect(fromBlocked()).toHaveLength(0);
+
+		await source.preferences.setBlocked(blocked, false);
+
+		expect(fromBlocked()).toHaveLength(held + 1);
+	});
+
+	it("never blocks the viewer", async () => {
+		const { source, store } = await setup();
+
+		await source.preferences.setBlocked(store.viewer.did, true);
+
+		expect(source.preferences.isBlocked(store.viewer.did)).toBe(false);
+		expect(source.preferences.blocks()).toEqual([]);
+	});
 });

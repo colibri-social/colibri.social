@@ -10,6 +10,7 @@ import { MobileShell } from "../../../shell/MobileShell";
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
 const PIXEL = "did:plc:pixelgardenspace5n7p9q";
 const READERS = "did:plc:quietreadersclub6r8s2t";
+const NIGHT = "did:plc:nightowlsartclub3e5f7g9h";
 
 const until = async (check: () => boolean, timeout = 8000) => {
 	const started = performance.now();
@@ -35,10 +36,14 @@ afterEach(() => {
 	history.replaceState(null, "", originalPath);
 });
 
-const mount = async (path: string) => {
+const mount = async (
+	path: string,
+	prepare?: (source: ReturnType<typeof createMockSource>) => void,
+) => {
 	setLatency(0);
 	history.replaceState(null, "", path);
 	const source = createMockSource({ live: false });
+	prepare?.(source);
 	const store = createDataStore(source);
 	host = document.createElement("div");
 	host.style.cssText = "position:fixed;inset:0;width:402px;height:874px";
@@ -119,6 +124,55 @@ const pressConfirm = async (label: string) => {
 };
 
 describe("members page", () => {
+	it("counts pending join requests and follows changes from other devices", async () => {
+		const { root, source } = await mount(`/app/c/${HQ}`);
+		const header = () => buttonNamed(root, /Space options/);
+		await until(
+			() => !!header()?.getAttribute("aria-label")?.includes("2 pending"),
+		);
+		const [first] = await source.listApplications({ community: HQ });
+		if (!first) throw new Error("fixtures missing");
+
+		await source.dismissApplication({
+			community: HQ,
+			subject: first.actor.did,
+		});
+
+		await until(
+			() => !!header()?.getAttribute("aria-label")?.includes("1 pending"),
+		);
+		const [second] = await source.listApplications({ community: HQ });
+		if (!second) throw new Error("fixtures missing");
+
+		await source.approveApplication({
+			community: HQ,
+			subject: second.actor.did,
+		});
+
+		await until(
+			() => !header()?.getAttribute("aria-label")?.includes("pending"),
+		);
+	});
+
+	it("shows no join request count without approval rights", async () => {
+		const calls: string[] = [];
+		const { root } = await mount(`/app/c/${NIGHT}`, (source) => {
+			const original = source.listApplications;
+			source.listApplications = (input) => {
+				calls.push(input.community);
+				return original(input);
+			};
+		});
+		await until(() => !!buttonNamed(root, /Space options/));
+		await wait(200);
+		const label = buttonNamed(root, /Space options/)?.getAttribute(
+			"aria-label",
+		);
+
+		expect(label).not.toContain("pending");
+		expect(calls).toEqual([]);
+	});
+
 	it("reviews join requests, searches members and unbans", async () => {
 		const { root, store } = await mount(`/app/c/${HQ}/manage/members`);
 		await until(() => !!buttonNamed(root, /^Approve /));
@@ -276,6 +330,21 @@ describe("join by invite", () => {
 		await until(() => !!buttonNamed(root, "Request pending"));
 		expect(location.pathname).toBe("/app/invite/quiet-readers");
 		expect(READERS).toContain("quietreaders");
+	});
+
+	it("closes the pending request and opens the Space once approved", async () => {
+		const { root, store, source } = await mount("/app/invite/quiet-readers");
+		await until(() => !!buttonNamed(root, "Request to join"));
+		buttonNamed(root, "Request to join")?.click();
+		await until(() => !!buttonNamed(root, "Request pending"));
+		const view = await source.getCommunity(READERS);
+
+		store.communities.update((list) => [
+			...list,
+			{ ...view, viewer: { ...view.viewer, isMember: true } },
+		]);
+
+		await until(() => location.pathname === `/app/c/${READERS}`);
 	});
 
 	it("explains expired links", async () => {

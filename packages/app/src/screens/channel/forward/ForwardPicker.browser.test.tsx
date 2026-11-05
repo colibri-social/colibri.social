@@ -192,6 +192,7 @@ const mount = (
 			composer: () => ({ emojiUsage: {}, skinTone: 0 }),
 			recordEmoji: vi.fn(),
 			setSkinTone: vi.fn(),
+			isBlocked: () => false,
 		},
 		threadsOf: (channel: SpaceRef) => {
 			if (!threadLists.includes(channel)) threadLists.push(channel);

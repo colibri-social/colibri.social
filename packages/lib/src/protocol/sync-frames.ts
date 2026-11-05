@@ -35,7 +35,10 @@ export type SetPresenceFrame = FrameOf<
 	"setPresence"
 >;
 export type WroteToFrame = FrameOf<typeof colibri.sync.defs.wroteTo, "wroteTo">;
-export type ActivityFrame = { $type: `${typeof SYNC_DEFS_NSID}#activity` };
+export type ActivityFrame = FrameOf<
+	typeof colibri.sync.defs.activity,
+	"activity"
+>;
 
 export type ClientFrame =
 	| SubscribeFrame

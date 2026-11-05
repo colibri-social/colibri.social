@@ -24,6 +24,7 @@ const MAIN_ORDER: SettingsEntryId[] = [
 	"profile",
 	"emojiPacks",
 	"atmosphereAccount",
+	"blockedUsers",
 	"voiceVideo",
 	"appearance",
 	"chat",

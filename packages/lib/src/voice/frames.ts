@@ -45,13 +45,9 @@ export type ProduceFrame = ReturnType<typeof defs.produce.build>;
 export type CloseProducerFrame = ReturnType<typeof defs.closeProducer.build>;
 export type ConsumeFrame = ReturnType<typeof defs.consume.build>;
 export type ResumeConsumerFrame = ReturnType<typeof defs.resumeConsumer.build>;
-export type SetConsumerPreferenceFrame = {
-	$type: "social.colibri.beta.voice.defs#setConsumerPreference";
-	consumerId: string;
-	spatialLayer: number;
-	temporalLayer?: number;
-	paused: boolean;
-};
+export type SetConsumerPreferenceFrame = ReturnType<
+	typeof defs.setConsumerPreference.build
+>;
 export type SetSelfStateFrame = ReturnType<typeof defs.setSelfState.build>;
 export type VoiceHeartbeatFrame = ReturnType<typeof defs.heartbeat.build>;
 export type SetSpeakingFrame = ReturnType<typeof defs.setSpeaking.build>;
@@ -177,15 +173,14 @@ export const setConsumerPreferenceFrame = (preference: {
 	temporalLayer?: number;
 	paused: boolean;
 }): SetConsumerPreferenceFrame => {
-	return {
-		$type: "social.colibri.beta.voice.defs#setConsumerPreference",
+	return defs.setConsumerPreference.build({
 		consumerId: preference.consumerId,
 		spatialLayer: preference.spatialLayer,
 		...(preference.temporalLayer === undefined
 			? {}
 			: { temporalLayer: preference.temporalLayer }),
 		paused: preference.paused,
-	};
+	});
 };
 
 export const setSelfStateFrame = (state: {

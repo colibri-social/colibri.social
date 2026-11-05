@@ -12,6 +12,7 @@ export type NotificationAlertContext = {
 	spaceLevel: SpaceNotificationLevel;
 	channelMuted: boolean;
 	threadMuted: boolean;
+	authorBlocked: boolean;
 	voiceChannel: string | undefined;
 	now: number;
 };
@@ -34,6 +35,7 @@ export const shouldAlertNotification = (
 	if (context.doNotDisturb) return false;
 	if (view.seenAt) return false;
 	if (view.author.did === context.viewer) return false;
+	if (context.authorBlocked) return false;
 	if (context.visible && notificationTarget(view) === context.viewing)
 		return false;
 	const indexedAt = Date.parse(view.indexedAt);

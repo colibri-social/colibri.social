@@ -15,6 +15,7 @@ import { SmileCircleIcon } from "@solar-icons/solid/bold/smile-circle";
 import { StarsIcon } from "@solar-icons/solid/bold/stars";
 import { TestTubeMinimalisticIcon } from "@solar-icons/solid/bold/test-tube-minimalistic";
 import { Tuning2Icon } from "@solar-icons/solid/bold/tuning-2";
+import { UserBlockIcon } from "@solar-icons/solid/bold/user-block";
 import { UserIdIcon } from "@solar-icons/solid/bold/user-id";
 import { createSignal, For, type JSX, Show } from "solid-js";
 import { AtmosphereGlyph, PdslsLogo } from "../../icons/animated/brand";
@@ -36,6 +37,7 @@ export type SettingsEntryId =
 	| "profile"
 	| "emojiPacks"
 	| "atmosphereAccount"
+	| "blockedUsers"
 	| "voiceVideo"
 	| "appearance"
 	| "chat"
@@ -85,6 +87,11 @@ export const SETTINGS_ENTRY_INFO: Record<SettingsEntryId, EntryInfo> = {
 		label: "My Atmosphere Account",
 		icon: () => <AtmosphereGlyph />,
 		keywords: ["password", "email", "handle"],
+	},
+	blockedUsers: {
+		label: "Blocked users",
+		icon: () => <UserBlockIcon />,
+		keywords: ["block", "unblock", "privacy", "people"],
 	},
 	voiceVideo: {
 		label: "Voice & video",
@@ -160,7 +167,7 @@ type EntrySection = { label: string; entries: SettingsEntryId[] };
 const SECTIONS: EntrySection[] = [
 	{
 		label: "Account",
-		entries: ["profile", "emojiPacks", "atmosphereAccount"],
+		entries: ["profile", "emojiPacks", "atmosphereAccount", "blockedUsers"],
 	},
 	{
 		label: "App settings",

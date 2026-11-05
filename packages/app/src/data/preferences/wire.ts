@@ -1,5 +1,6 @@
 import type { Datetime, Did, GifView, SpaceRef } from "../types";
 import {
+	type Block,
 	type ClientPreferences,
 	type ClientPreferencesWire,
 	type ComposerState,
@@ -186,6 +187,44 @@ export const decodeLeftThreads = (entries: unknown): LeftThread[] => {
 	);
 };
 
+const isDid = (value: unknown): value is Did =>
+	typeof value === "string" && value.startsWith("did:");
+
+export const decodeBlock = (value: unknown): Block | undefined => {
+	if (!value || typeof value !== "object") return undefined;
+
+	const { subject, createdAt } = value as {
+		subject?: unknown;
+		createdAt?: unknown;
+	};
+
+	if (!isDid(subject)) return undefined;
+
+	return {
+		subject,
+		createdAt: isDatetime(createdAt)
+			? createdAt
+			: (new Date(0).toISOString() as Datetime),
+	};
+};
+
+export const decodeBlocks = (entries: unknown): Block[] => {
+	if (!Array.isArray(entries)) return [];
+
+	const seen = new Set<string>();
+
+	return entries.flatMap((entry) => {
+		const block = decodeBlock(entry);
+		if (!block || seen.has(block.subject)) return [];
+		seen.add(block.subject);
+		return [block];
+	});
+};
+
+export const encodeBlock = (block: Block) => {
+	return { subject: block.subject, createdAt: block.createdAt };
+};
+
 export const encodeLeftThread = (entry: LeftThread) => ({
 	thread: entry.thread,
 	leftAt: entry.leftAt,
@@ -200,6 +239,7 @@ export const fromWire = (wire: Partial<PreferencesWire>): Preferences => ({
 		const mute = decodeMute(entry);
 		return mute ? [mute] : [];
 	}),
+	blocks: decodeBlocks(wire.blocks),
 	leftThreads: decodeLeftThreads(wire.leftThreads),
 	spaceLevels: decodeSpaceLevels(wire.spaceNotifications),
 	spaceModeration: decodeSpaceModeration(wire.spaceModerations),

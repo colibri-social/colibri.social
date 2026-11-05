@@ -136,6 +136,7 @@ export const createMockSource = (
 	const preferences = createPreferenceStore({
 		backend: preferenceBackend.backend,
 		controls: MOCK_CONTROLS,
+		self: world.viewerDid,
 		snapshotKey: options.preferencesSnapshotKey,
 	});
 	void preferences.refresh();

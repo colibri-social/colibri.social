@@ -717,6 +717,10 @@ describe("voice engine", () => {
 			$type: `${DEFS}error`,
 			error: "InvalidRequest",
 		});
+		await reply(socket, "produce", {
+			$type: `${DEFS}error`,
+			error: "InvalidRequest",
+		});
 		expect(await sharing).toBe(false);
 		expect(harness.notices).toEqual(["screenFailed"]);
 		expect(harness.engine.screenSharing()).toBe(false);

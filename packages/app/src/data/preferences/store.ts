@@ -11,6 +11,7 @@ import {
 	resolveClient,
 } from "./client";
 import {
+	type Block,
 	type ClientPreferences,
 	type ComposerState,
 	DEFAULT_PREFERENCES,
@@ -34,6 +35,7 @@ export const preferencesSnapshotKey = (did: string) =>
 export type PreferenceStoreOptions = {
 	backend: PreferenceBackend;
 	controls: ControlsPreferences;
+	self?: Did;
 	snapshotKey?: string;
 	onScopesRejected?: () => void;
 	composerWriteDelay?: number;
@@ -221,6 +223,73 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 		});
 	};
 
+	let indexedBlocks: readonly Block[] | undefined;
+	let blockedDids = new Set<string>();
+	const blocked = () => {
+		const list = preferences().blocks;
+
+		if (list !== indexedBlocks) {
+			indexedBlocks = list;
+			blockedDids = new Set(list.map((block) => block.subject));
+		}
+
+		return blockedDids;
+	};
+	const isBlocked = (did: string) => {
+		return blocked().has(did);
+	};
+
+	let blockKeys: Promise<Map<string, string>> | undefined;
+	const blockRkeys = () => {
+		blockKeys ??= backend.listBlocks().then(
+			(records) =>
+				new Map(records.map((record) => [record.block.subject, record.rkey])),
+			(error: unknown) => {
+				blockKeys = undefined;
+				throw error;
+			},
+		);
+
+		return blockKeys;
+	};
+
+	const setBlocked = (did: Did, next: boolean) => {
+		if (did === options.self || isBlocked(did) === next)
+			return queue.then(() => true);
+
+		const entry: Block = {
+			subject: did,
+			createdAt: new Date().toISOString() as Datetime,
+		};
+		const current = preferences().blocks;
+
+		commit({
+			...preferences(),
+			blocks: next
+				? [...current, entry]
+				: current.filter((block) => block.subject !== did),
+		});
+
+		return enqueue("blocked users", async () => {
+			const known = await blockRkeys();
+			const rkey = known.get(did);
+
+			if (next && !rkey) {
+				const fresh = nextTid();
+
+				await backend.createBlock(fresh, entry);
+				known.set(did, fresh);
+			}
+
+			if (!next && rkey) {
+				await backend.deleteBlock(rkey);
+				known.delete(did);
+			}
+
+			return backend.putBlocks(preferences().blocks);
+		});
+	};
+
 	let indexedLeft: readonly LeftThread[] | undefined;
 	let leftTimes = new Map<string, number>();
 	const leftIndex = () => {
@@ -349,6 +418,9 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 			update(change, "imported settings"),
 		isMuted,
 		setMuted,
+		blocks: () => preferences().blocks,
+		isBlocked,
+		setBlocked,
 		leftAt,
 		setLeft,
 		adopt,

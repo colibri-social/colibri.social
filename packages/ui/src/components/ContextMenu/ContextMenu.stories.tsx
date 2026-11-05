@@ -355,6 +355,7 @@ const Sidebar = (props: {
 	member?: boolean;
 	developerMode?: boolean;
 	inboxCount?: number;
+	settingsBadge?: number;
 }) => {
 	const admin = () => !props.member;
 	const developerMode = () => props.developerMode ?? true;
@@ -424,6 +425,7 @@ const Sidebar = (props: {
 							class="contents"
 							onInvite={noop}
 							onOpenSettings={manage()}
+							settingsBadge={props.settingsBadge}
 							onOpenNotificationSettings={noop}
 							onMarkAsRead={noop}
 							muted={spaceMuted()}
@@ -763,6 +765,27 @@ export const SpaceMenu: Story = {
 	},
 };
 
+export const SpaceMenuPendingRequests: Story = {
+	render: () => <Sidebar settingsBadge={3} />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const menu = await openMenu(railItem(canvas), SPACE_MENU);
+		const manage = within(menu).getByRole("menuitem", {
+			name: /^Manage Space ?, 3 pending requests$/,
+		});
+		await expect(
+			manage.querySelector("[data-pending-badge]"),
+		).toHaveTextContent("3");
+		await expect(
+			within(menu)
+				.getByRole("menuitem", { name: "Invite people" })
+				.querySelector("[data-pending-badge]"),
+		).toBeNull();
+		await expectNoLayoutIssues(menu);
+		await closeWithEscape();
+	},
+};
+
 export const InboxMenu: Story = {
 	render: () => <Sidebar />,
 	play: async ({ canvasElement }) => {
@@ -994,6 +1017,8 @@ const memberSpy = {
 	roleChange: fn(),
 	kick: fn(),
 	ban: fn(),
+	block: fn(),
+	unblock: fn(),
 	copyDid: fn(),
 	copyAtUri: fn(),
 };
@@ -1032,8 +1057,9 @@ const memberRoles = (): MemberMenuRole[] => [
 	},
 ];
 
-const MemberMenuDemo = (props: { moderator: boolean }) => {
+const MemberMenuDemo = (props: { moderator: boolean; blocked?: boolean }) => {
 	const [roles, setRoles] = createSignal(memberRoles());
+	const [blocked, setBlocked] = createSignal(props.blocked ?? false);
 	return (
 		<div class="min-h-screen bg-background p-8">
 			<div class="w-60 rounded-surface bg-card p-2">
@@ -1055,6 +1081,15 @@ const MemberMenuDemo = (props: { moderator: boolean }) => {
 					}
 					onKick={props.moderator ? memberSpy.kick : undefined}
 					onBan={props.moderator ? memberSpy.ban : undefined}
+					blocked={blocked()}
+					onBlock={() => {
+						memberSpy.block();
+						setBlocked(true);
+					}}
+					onUnblock={() => {
+						memberSpy.unblock();
+						setBlocked(false);
+					}}
 					onCopyDid={memberSpy.copyDid}
 					developerMode
 					onCopyAtUri={memberSpy.copyAtUri}
@@ -1091,10 +1126,11 @@ export const MemberMenu: Story = {
 			"Roles",
 			`Kick ${LONG_MEMBER_NAME}`,
 			`Ban ${LONG_MEMBER_NAME}`,
+			`Block ${LONG_MEMBER_NAME}`,
 			"Copy DID",
 			"Developer mode",
 		]);
-		for (const verb of ["Kick", "Ban"]) {
+		for (const verb of ["Kick", "Ban", "Block"]) {
 			const item = within(menu).getByRole("menuitem", {
 				name: `${verb} ${LONG_MEMBER_NAME}`,
 			});
@@ -1152,10 +1188,38 @@ export const MemberMenuRegularMember: Story = {
 		const menu = await openMenu(memberRow(canvas), MEMBER_MENU);
 		await expect(itemNames(menu)).toEqual([
 			"View profile",
+			`Block ${LONG_MEMBER_NAME}`,
 			"Copy DID",
 			"Developer mode",
 		]);
 		await closeWithEscape();
+	},
+};
+
+export const MemberMenuBlock: Story = {
+	render: () => <MemberMenuDemo moderator={false} />,
+	play: async ({ canvasElement }) => {
+		memberSpy.block.mockClear();
+		memberSpy.unblock.mockClear();
+		const canvas = within(canvasElement);
+		const menu = await openMenu(memberRow(canvas), MEMBER_MENU);
+		await userEvent.click(
+			within(menu).getByRole("menuitem", {
+				name: `Block ${LONG_MEMBER_NAME}`,
+			}),
+		);
+		await expect(memberSpy.block).toHaveBeenCalledTimes(1);
+		await waitForClosed();
+
+		const again = await openMenu(memberRow(canvas), MEMBER_MENU);
+		const unblock = within(again).getByRole("menuitem", {
+			name: `Unblock ${LONG_MEMBER_NAME}`,
+		});
+		await expect(unblock).not.toHaveAttribute("data-tone", "destructive");
+		await expectNoLayoutIssues(again);
+		await userEvent.click(unblock);
+		await expect(memberSpy.unblock).toHaveBeenCalledTimes(1);
+		await waitForClosed();
 	},
 };
 

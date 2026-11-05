@@ -91,6 +91,7 @@ type DemoProps = {
 	name?: string;
 	handle?: string;
 	badge?: boolean;
+	blockable?: boolean;
 };
 
 const STORY_BADGE = FALLBACK_BADGE_DEFINITIONS[0];
@@ -100,7 +101,16 @@ const MemberDrawerDemo = (props: DemoProps) => {
 	const [roles, setRoles] = createSignal(initialRoles());
 	const [action, setAction] = createSignal<"kick" | "ban">("kick");
 	const [actionOpen, setActionOpen] = createSignal(false);
+	const [blocked, setBlocked] = createSignal(false);
 	const name = () => props.name ?? "Lis";
+	const blocking = (): Partial<MemberDrawerProps> =>
+		props.blockable
+			? {
+					blocked: blocked(),
+					onBlock: () => setBlocked(true),
+					onUnblock: () => setBlocked(false),
+				}
+			: {};
 	const moderation = (): Partial<MemberDrawerProps> =>
 		props.moderator
 			? {
@@ -152,6 +162,7 @@ const MemberDrawerDemo = (props: DemoProps) => {
 						"https://pdsls.dev/at://did:plc:lisdrawspixelbirds2b4d6f8h",
 				}}
 				{...moderation()}
+				{...blocking()}
 			/>
 			<MemberActionDialog
 				open={actionOpen()}
@@ -251,6 +262,29 @@ export const Moderator: Story = {
 				).toBeNull(),
 			{ timeout: 3000 },
 		);
+	},
+};
+
+export const BlockAction: Story = {
+	render: () => <MemberDrawerDemo moderator blockable />,
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const dialog = await openDrawer(canvasElement, "Lis");
+		await expectNoLayoutIssues(dialog);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Block Lis" }),
+		);
+		await waitForDrawerClosed("Lis");
+
+		const reopened = await openDrawer(canvasElement, "Lis");
+		await expectNoLayoutIssues(reopened);
+		await expect(
+			within(reopened).queryByRole("button", { name: "Block Lis" }),
+		).toBeNull();
+		await userEvent.click(
+			within(reopened).getByRole("button", { name: "Unblock Lis" }),
+		);
+		await waitForDrawerClosed("Lis");
 	},
 };
 

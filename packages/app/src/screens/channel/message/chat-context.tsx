@@ -114,6 +114,8 @@ export type ChatContextValue = {
 	canModerate?: Accessor<boolean>;
 	onExternalLink?: (href: string, link: RichTextExternalLink) => void;
 	onSetHidden?: (message: ChatMessage, hidden: boolean) => void;
+	blockedShown?: (key: string) => boolean;
+	onBlockedShownChange?: (key: string, shown: boolean) => void;
 	onReact: (message: ChatMessage, emoji: string, add: boolean) => void;
 	onPickReaction?: (message: ChatMessage) => void;
 	onRetry: (message: ChatMessage) => void;

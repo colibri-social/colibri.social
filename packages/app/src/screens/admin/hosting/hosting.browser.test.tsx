@@ -115,7 +115,7 @@ describe("Space hosting", () => {
 		await until(
 			() =>
 				!!Array.from(root.querySelectorAll("button")).find((element) =>
-					(element.getAttribute("aria-label") ?? "").endsWith(
+					(element.getAttribute("aria-label") ?? "").includes(
 						"Space options, needs your attention",
 					),
 				),

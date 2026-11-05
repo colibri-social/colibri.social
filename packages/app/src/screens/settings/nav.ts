@@ -4,6 +4,7 @@ export const SETTINGS_PAGE_IDS = [
 	"profile",
 	"emojiPacks",
 	"emojiPack",
+	"blockedUsers",
 	"deleteAccount",
 	"voiceVideo",
 	"appearance",

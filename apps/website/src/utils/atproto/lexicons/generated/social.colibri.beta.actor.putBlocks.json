@@ -1,0 +1,51 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.putBlocks",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Pushes the requesting user's block list to the AppView, so it takes effect immediately instead of waiting for a sync notification. The client writes the underlying block records to its own personal space first, then calls this. The list replaces the AppView's whole copy.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"blocks"
+					],
+					"properties": {
+						"blocks": {
+							"type": "array",
+							"description": "The complete, replacement block list.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.actor.defs#block"
+							}
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"preferences"
+					],
+					"properties": {
+						"preferences": {
+							"type": "ref",
+							"ref": "social.colibri.beta.actor.defs#preferences",
+							"description": "The requesting user's settings, after the update."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				}
+			]
+		}
+	}
+}

@@ -19,6 +19,8 @@ import {
 export type SpaceContextMenuActions = DeveloperMenuActions & {
 	onInvite?: () => void;
 	onOpenSettings?: () => void;
+	settingsBadge?: number;
+	settingsBadgeLabel?: string;
 	onOpenNotificationSettings?: () => void;
 	onMarkAsRead?: () => void;
 	muted?: boolean;
@@ -48,6 +50,8 @@ export const spaceContextMenuEntries = (
 					get icon() {
 						return <SettingsIcon />;
 					},
+					badge: actions.settingsBadge,
+					badgeLabel: actions.settingsBadgeLabel,
 					onSelect: actions.onOpenSettings,
 				},
 				actions.onOpenNotificationSettings && {

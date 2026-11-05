@@ -388,6 +388,25 @@ export const RowStates: Story = {
 	},
 };
 
+export const BlockedPreview: Story = {
+	render: () => (
+		<Panel>
+			<ChannelRow
+				name="General"
+				preview={{ author: "Kris", text: "Anyone around?", blocked: true }}
+			/>
+		</Panel>
+	),
+	play: async ({ canvasElement }) => {
+		const line = canvasElement.querySelector(
+			"[data-channel-preview]",
+		) as HTMLElement;
+		await expect(line).toHaveTextContent("Message from someone you blocked");
+		await expect(within(canvasElement).queryByText(/Kris/)).toBeNull();
+		await expect(within(canvasElement).queryByText(/Anyone around/)).toBeNull();
+	},
+};
+
 const onToggle = fn();
 
 export const CategoryCollapse: Story = {
@@ -2292,5 +2311,197 @@ export const PendingPreviewEmoji: Story = {
 		await expect(
 			canvasElement.querySelector("[data-channel-preview] img"),
 		).toBeNull();
+	},
+};
+
+const pendingMenu = {
+	onInvite: () => {},
+	onOpenSettings: () => {},
+	settingsBadge: 3,
+	onOpenNotificationSettings: () => {},
+	onMarkAsRead: () => {},
+	onLeave: () => {},
+};
+
+export const HeaderPendingRequests: Story = {
+	name: "Header pending request badge",
+	parameters: desktop,
+	render: () => (
+		<div class="flex flex-wrap gap-6 bg-background p-4 text-foreground">
+			<div data-header-frame="desktop" class="w-72 bg-card">
+				<ChannelListHeader
+					platform="desktop"
+					name="A Space with a rather long name that truncates"
+					iconSrc={storyImages.violetIcon()}
+					memberCount={99}
+					badge={3}
+					menu={pendingMenu}
+				/>
+			</div>
+			<div data-header-frame="attention" class="w-72 bg-card">
+				<ChannelListHeader
+					platform="desktop"
+					name="Colibri Social Flock"
+					iconSrc={storyImages.violetIcon()}
+					memberCount={99}
+					badge={24}
+					attention={{
+						title: "Sign in to your Space host",
+						description: "Your Space host needs you to sign in again.",
+						actionLabel: "Sign in",
+						onAction: () => {},
+					}}
+					onOpenSpace={() => {}}
+				/>
+			</div>
+			<div data-header-frame="none" class="w-72 bg-card">
+				<ChannelListHeader
+					platform="desktop"
+					name="Colibri Social Flock"
+					iconSrc={storyImages.violetIcon()}
+					memberCount={99}
+					badge={0}
+					onOpenSpace={() => {}}
+				/>
+			</div>
+			<div data-header-frame="mobile" class="w-[338px] bg-card">
+				<ChannelListHeader
+					platform="mobile"
+					name="A Space with a rather long name that truncates on phones"
+					iconSrc={storyImages.violetIcon()}
+					memberCount={99}
+					badge={1}
+					onOpenSpace={() => {}}
+				/>
+			</div>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const frame = (id: string) =>
+			canvasElement.querySelector(`[data-header-frame="${id}"]`) as HTMLElement;
+		const trigger = (id: string) =>
+			frame(id).querySelector("[data-space-name-button]") as HTMLElement;
+		for (const id of ["desktop", "mobile"]) {
+			const button = trigger(id);
+			const name = button.querySelector("[data-space-name]") as HTMLElement;
+			const badge = button.querySelector("[data-pending-badge]") as HTMLElement;
+			const chevron = button.querySelector(
+				"[data-space-chevron]",
+			) as HTMLElement;
+			await expect(name.scrollWidth).toBeGreaterThan(name.clientWidth);
+			await expect(badge.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+				name.getBoundingClientRect().right,
+			);
+			await expect(chevron.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+				badge.getBoundingClientRect().right,
+			);
+			await expectNoLayoutIssues(frame(id));
+		}
+		await expect(trigger("desktop")).toHaveAccessibleName(
+			"A Space with a rather long name that truncates, Space options, 3 pending requests",
+		);
+		await expect(trigger("mobile")).toHaveAccessibleName(
+			"A Space with a rather long name that truncates on phones, Space options, 1 pending request",
+		);
+		await expect(
+			trigger("attention").querySelector("[data-pending-badge]"),
+		).toHaveAttribute("data-count", "9+");
+		await expect(
+			getComputedStyle(
+				trigger("attention").querySelector(
+					"[data-pending-badge]",
+				) as HTMLElement,
+				"::before",
+			).content,
+		).toBe('"9+"');
+		await expect(trigger("attention")).toHaveAccessibleName(
+			"Colibri Social Flock, Space options, needs your attention, 24 pending requests",
+		);
+		await expect(
+			trigger("none").querySelector("[data-pending-badge]"),
+		).toBeNull();
+		await expect(trigger("none")).toHaveAccessibleName(
+			"Colibri Social Flock, Space options",
+		);
+		await userEvent.click(trigger("desktop"));
+		const menu = await screen.findByRole("menu", undefined, { timeout: 3000 });
+		await expect(
+			within(menu).getByRole("menuitem", {
+				name: /^Manage Space ?, 3 pending requests$/,
+			}),
+		).toBeInTheDocument();
+		await expectNoLayoutIssues(menu);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull(), {
+			timeout: 3000,
+		});
+	},
+};
+
+export const SpaceDrawerPendingRequests: Story = {
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => {
+		const [tiles, setTiles] = createSignal(false);
+		const [lone, setLone] = createSignal(false);
+		return (
+			<div class="flex min-h-dvh flex-col items-start gap-2 bg-background p-4">
+				<Button variant="secondary" onClick={() => setTiles(true)}>
+					Open tiles
+				</Button>
+				<Button variant="secondary" onClick={() => setLone(true)}>
+					Open rows
+				</Button>
+				<SpaceDrawerComponent
+					open={tiles()}
+					onOpenChange={setTiles}
+					name="Colibri Social Flock"
+					iconSrc={storyImages.violetIcon()}
+					memberCount={99}
+					{...pendingMenu}
+				/>
+				<SpaceDrawerComponent
+					open={lone()}
+					onOpenChange={setLone}
+					name="Colibri Social Flock"
+					iconSrc={storyImages.violetIcon()}
+					memberCount={99}
+					onOpenSettings={() => {}}
+					settingsBadge={12}
+					onMarkAsRead={() => {}}
+				/>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(canvas.getByRole("button", { name: "Open tiles" }));
+		const dialog = await screen.findByRole("dialog");
+		const settings = await within(dialog).findByRole("button", {
+			name: /^Settings ?, 3 pending requests$/,
+		});
+		const invite = within(dialog).getByRole("button", { name: "Invite" });
+		await expect(invite.querySelector("[data-pending-badge]")).toBeNull();
+		const settingsLabel = settings.querySelector(".truncate") as HTMLElement;
+		const inviteLabel = invite.querySelector(".truncate") as HTMLElement;
+		await expect(settingsLabel.getBoundingClientRect().top).toBe(
+			inviteLabel.getBoundingClientRect().top,
+		);
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		await expectNoLayoutIssues(dialog);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+		await userEvent.click(canvas.getByRole("button", { name: "Open rows" }));
+		const rows = await screen.findByRole("dialog");
+		const manage = await within(rows).findByRole("button", {
+			name: /^Manage Space ?, 12 pending requests$/,
+		});
+		await expect(
+			manage.querySelector("[data-pending-badge]"),
+		).toHaveTextContent("9+");
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		await expectNoLayoutIssues(rows);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 	},
 };

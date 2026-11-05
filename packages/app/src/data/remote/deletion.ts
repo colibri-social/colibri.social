@@ -23,6 +23,7 @@ export const PERSONAL_COLLECTIONS = [
 	COLLECTIONS.clientPreferences,
 	COLLECTIONS.composerState,
 	COLLECTIONS.mute,
+	COLLECTIONS.block,
 	COLLECTIONS.spaceNotification,
 	COLLECTIONS.channelRead,
 	COLLECTIONS.threadFollow,

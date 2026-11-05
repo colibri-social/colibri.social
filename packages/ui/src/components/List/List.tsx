@@ -5,6 +5,7 @@ import { Dynamic } from "solid-js/web";
 import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
 import { createSlot } from "../../utils/slot";
+import { PendingBadge } from "../Badge/Badge";
 import { Checkbox } from "../Checkbox/Checkbox";
 import { Radio, RadioGroup } from "../Radio/Radio";
 import { Switch } from "../Switch/Switch";
@@ -127,6 +128,8 @@ export type NavRowProps = {
 	external?: boolean;
 	href?: string;
 	chevron?: boolean;
+	badge?: number;
+	badgeLabel?: string;
 	onClick?: (event: MouseEvent) => void;
 	disabled?: boolean;
 	class?: string;
@@ -140,6 +143,8 @@ export const NavRow = (props: NavRowProps) => {
 		"external",
 		"href",
 		"chevron",
+		"badge",
+		"badgeLabel",
 		"class",
 		"keywords",
 	]);
@@ -189,6 +194,7 @@ export const NavRow = (props: NavRowProps) => {
 					/>
 				)}
 			</Show>
+			<PendingBadge count={local.badge} label={local.badgeLabel} />
 			<Show when={local.chevron !== false || local.external}>
 				<span class="flex size-4 shrink-0 items-center justify-center text-muted-foreground [&>svg]:size-4">
 					<Show when={local.external} fallback={<AltArrowRightIcon />}>
@@ -499,6 +505,8 @@ export type SidebarNavItemProps = {
 	active?: boolean;
 	external?: boolean;
 	href?: string;
+	badge?: number;
+	badgeLabel?: string;
 	onClick?: (event: MouseEvent) => void;
 	class?: string;
 };
@@ -544,6 +552,7 @@ export const SidebarNavItem = (props: SidebarNavItemProps) => {
 			>
 				{label()}
 			</span>
+			<PendingBadge count={props.badge} label={props.badgeLabel} />
 			<Show when={props.external}>
 				<span class="flex size-4 shrink-0 items-center justify-center [&>svg]:size-4">
 					<ArrowRightUpIcon />

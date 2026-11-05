@@ -1,7 +1,7 @@
 import {
 	clampStripHeight,
 	DEFAULT_VOICE_STRIP_HEIGHT,
-} from "@colibri-social/ui";
+} from "@colibri-social/lib";
 import { createRoot, createSignal } from "solid-js";
 import {
 	readStored,

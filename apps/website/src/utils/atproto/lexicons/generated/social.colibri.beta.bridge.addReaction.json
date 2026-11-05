@@ -43,6 +43,11 @@
 							"ref": "social.colibri.beta.defs#recordRef",
 							"description": "The message being reacted to."
 						},
+						"uri": {
+							"type": "string",
+							"format": "at-uri",
+							"description": "The message being reacted to, as a record URI in the channel. Preferred over `target` when it is valid."
+						},
 						"emoji": {
 							"type": "string",
 							"maxLength": 64,

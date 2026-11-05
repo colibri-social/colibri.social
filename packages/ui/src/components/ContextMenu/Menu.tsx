@@ -19,6 +19,7 @@ import { cx } from "../../utils/cx";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { createSlot } from "../../utils/slot";
+import { PendingBadge } from "../Badge/Badge";
 import { claimActiveMenu, releaseActiveMenu } from "./active-menu";
 
 export const menuContentClass =
@@ -43,6 +44,8 @@ export type MenuItemProps = {
 	closeOnSelect?: boolean;
 	onSelect?: () => void;
 	hint?: string;
+	badge?: number;
+	badgeLabel?: string;
 	class?: string;
 };
 
@@ -83,6 +86,7 @@ export const MenuItem = (props: MenuItemProps) => {
 					{props.hint}
 				</span>
 			</Show>
+			<PendingBadge count={props.badge} label={props.badgeLabel} />
 		</KobalteDropdownMenu.Item>
 	);
 };

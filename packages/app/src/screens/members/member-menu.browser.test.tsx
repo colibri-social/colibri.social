@@ -82,6 +82,27 @@ describe("member menu", () => {
 		await until(() => !dialog());
 	});
 
+	it("blocks a member after confirming and unblocks them right away", async () => {
+		const { store, target, open } = await setup();
+		const did = target.actor.did;
+
+		open();
+		await until(() => !!button(/^Block /));
+		button(/^Block /)?.click();
+		await until(() => !!button(/^Block$/));
+
+		expect(dialog()?.textContent).toContain("They won't be told.");
+
+		button(/^Block$/)?.click();
+		await until(() => store.preferences.isBlocked(did));
+		await until(() => !dialog());
+
+		open();
+		await until(() => !!button(/^Unblock /));
+		button(/^Unblock /)?.click();
+		await until(() => !store.preferences.isBlocked(did));
+	});
+
 	it("shows the member's badge next to their name", async () => {
 		const { open } = await setup("noor.haddad.me");
 		open();

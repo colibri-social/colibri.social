@@ -85,7 +85,7 @@ import { newEntryId } from "../admin/channel/channel-target";
 import { createHostSignIn } from "../admin/hosting/host-sign-in";
 import { createInviteDrawer } from "../admin/invites/invite-drawer";
 import { createLeaveSpace } from "../admin/overview/leave-space";
-import { SPACE_PERMISSIONS } from "../admin/space-admin";
+import { pendingJoinRequests, SPACE_PERMISSIONS } from "../admin/space-admin";
 import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 import { useMemberMenu } from "../members/member-menu";
 import { useProfileSheet } from "../profile/profile-sheet";
@@ -582,6 +582,9 @@ export const spaces = defineContract({
 								page: "overview",
 							})
 					: undefined,
+				get settingsBadge() {
+					return pendingJoinRequests(data, target);
+				},
 				onOpenNotificationSettings: () => openNotificationSettings(target),
 				onMarkAsRead: () =>
 					void data.community.markRead(target.did).catch(() => {}),
@@ -785,6 +788,7 @@ export const spaces = defineContract({
 						}
 						menu={m.spaceMenu(community())}
 						attention={m.hostAttention(community())}
+						badge={pendingJoinRequests(m.data, community())}
 					/>
 				)}
 			</Show>
@@ -840,6 +844,12 @@ export const spaces = defineContract({
 					m.data.controls().showMessagePreviews
 						? m.data.lastMessage(channel.space)
 						: undefined;
+
+				const blockedSummary = () => {
+					const current = summary();
+					return !!current && m.data.preferences.isBlocked(current.author);
+				};
+
 				return (
 					<ChannelRow
 						name={channel.name}
@@ -852,6 +862,11 @@ export const spaces = defineContract({
 						muted={m.data.isMuted(channel.space)}
 						preview={(() => {
 							const current = summary();
+
+							if (blockedSummary()) {
+								return { author: "", text: "", blocked: true };
+							}
+
 							return current
 								? {
 										author: m.authorName(current.author),
@@ -862,7 +877,7 @@ export const spaces = defineContract({
 									}
 								: undefined;
 						})()}
-						attachment={summary()?.attachment}
+						attachment={blockedSummary() ? undefined : summary()?.attachment}
 						onClick={() => m.openChannel(channel)}
 						onOpenSettings={
 							desktop() && m.can("channel.update")

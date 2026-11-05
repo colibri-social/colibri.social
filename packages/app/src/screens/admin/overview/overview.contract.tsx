@@ -31,7 +31,12 @@ import type { AdminPage } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { AdminDeveloper } from "../developer";
-import { moveOffSpace, SPACE_PERMISSIONS, useAdminSpace } from "../space-admin";
+import {
+	moveOffSpace,
+	pendingJoinRequests,
+	SPACE_PERMISSIONS,
+	useAdminSpace,
+} from "../space-admin";
 import { createLeaveSpace } from "./leave-space";
 
 type Section = {
@@ -39,6 +44,7 @@ type Section = {
 	label: string;
 	icon: () => JSX.Element;
 	visible: () => boolean;
+	badge?: () => number | undefined;
 };
 
 type SidebarProps = {
@@ -94,6 +100,7 @@ export const overview = defineContract({
 				label: "Members",
 				icon: () => <UsersGroupRoundedIcon />,
 				visible: () => !!community(),
+				badge: () => pendingJoinRequests(data, community()),
 			},
 			{
 				page: "emoji",
@@ -228,6 +235,7 @@ export const overview = defineContract({
 									<SidebarNavItem
 										label={section.label}
 										icon={section.icon()}
+										badge={section.badge?.()}
 										active={p.active === section.page}
 										onClick={() => p.onSelect?.(section.page)}
 									/>
@@ -242,6 +250,7 @@ export const overview = defineContract({
 								<NavRow
 									label={section.label}
 									icon={section.icon()}
+									badge={section.badge?.()}
 									onClick={() => m.open(section.page)}
 								/>
 							)}

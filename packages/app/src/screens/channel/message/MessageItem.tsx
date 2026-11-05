@@ -39,8 +39,10 @@ import {
 	createEffect,
 	createMemo,
 	createSignal,
+	Match,
 	onCleanup,
 	Show,
+	Switch,
 } from "solid-js";
 import {
 	embedSuppression,
@@ -183,6 +185,42 @@ export const MessageItem = (props: MessageItemProps) => {
 		{ equals: sameTextValue },
 	);
 
+	const [localShown, setLocalShown] = createSignal<ReadonlySet<string>>(
+		new Set(),
+	);
+
+	const blockedShown = (key: string) => {
+		return chat.blockedShown?.(key) ?? localShown().has(key);
+	};
+
+	const setBlockedShown = (shown: boolean) => {
+		const key = message().key;
+
+		if (chat.onBlockedShownChange) {
+			chat.onBlockedShownChange(key, shown);
+			return;
+		}
+
+		setLocalShown((current) => {
+			const next = new Set(current);
+			if (shown) next.add(key);
+			else next.delete(key);
+			return next;
+		});
+	};
+
+	const authorBlocked = (did: string) => {
+		return did !== chat.viewer() && data.preferences.isBlocked(did);
+	};
+
+	const blocked = () => {
+		return authorBlocked(message().author);
+	};
+
+	const collapsed = () => {
+		return blocked() && !blockedShown(message().key);
+	};
+
 	const reply = createMemo((): MessageReply | undefined => {
 		const parent = message().parent;
 		if (isVisibleParent(parent)) {
@@ -197,6 +235,7 @@ export const MessageItem = (props: MessageItemProps) => {
 						? "Sent an attachment"
 						: "",
 				parts: parts.length > 0 ? parts : undefined,
+				blocked: authorBlocked(parent.author.did) && !blockedShown(parent.rkey),
 				onClick: () => chat.onJumpTo(parent.rkey),
 			};
 		}
@@ -384,7 +423,7 @@ export const MessageItem = (props: MessageItemProps) => {
 	const highlight = (): MessageHighlight | undefined => {
 		if (drawerOpen()) return "menu";
 		if (props.highlight) return props.highlight;
-		if (own()) return undefined;
+		if (own() || collapsed()) return undefined;
 		const viewer = chat.viewer();
 		const parent = message().parent;
 		if (mentionsDid(message().facets, viewer)) return "mention";
@@ -884,6 +923,7 @@ export const MessageItem = (props: MessageItemProps) => {
 					member: (did) => chat.members().get(did),
 					live: (entry) => data.lastMessage(entry.space),
 					emoji: (feature) => data.emoji.mention(chat.community().did, feature),
+					isBlocked: (did) => data.preferences.isBlocked(did),
 				})
 			: undefined;
 	};
@@ -915,7 +955,9 @@ export const MessageItem = (props: MessageItemProps) => {
 		/>
 	);
 
-	const showAttachments = createMemo(() => !hidden() && !!attachmentContent());
+	const showAttachments = createMemo(
+		() => !hidden() && !blocked() && !!attachmentContent(),
+	);
 
 	const attachmentsView = () => (
 		<MessageAttachments
@@ -945,7 +987,8 @@ export const MessageItem = (props: MessageItemProps) => {
 			timestamp={message().timestamp}
 			now={chat.now?.()}
 			locale={chat.locale}
-			continuation={props.entry().continuation}
+			continuation={props.entry().continuation && !collapsed()}
+			anonymous={collapsed()}
 			edited={!!view()?.updatedAt}
 			reply={reply()}
 			highlight={
@@ -973,7 +1016,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			}
 			attachments={showAttachments() ? attachmentsView() : undefined}
 			reactions={
-				reactions().length > 0 ? (
+				reactions().length > 0 && !collapsed() ? (
 					<ReactionBar
 						reactions={reactions()}
 						renderEmoji={renderReactionEmoji}
@@ -1012,12 +1055,24 @@ export const MessageItem = (props: MessageItemProps) => {
 				) : undefined
 			}
 		>
-			<Show when={hidden()} fallback={body()}>
-				<HiddenMessage reason="moderator">
-					{body()}
-					<Show when={attachmentContent()}>{attachmentsView()}</Show>
-				</HiddenMessage>
-			</Show>
+			<Switch fallback={body()}>
+				<Match when={blocked()}>
+					<HiddenMessage
+						reason="blocked"
+						shown={!collapsed()}
+						onShownChange={setBlockedShown}
+					>
+						{body()}
+						<Show when={attachmentContent()}>{attachmentsView()}</Show>
+					</HiddenMessage>
+				</Match>
+				<Match when={hidden()}>
+					<HiddenMessage reason="moderator">
+						{body()}
+						<Show when={attachmentContent()}>{attachmentsView()}</Show>
+					</HiddenMessage>
+				</Match>
+			</Switch>
 		</MessageRow>
 	);
 

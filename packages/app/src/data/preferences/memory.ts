@@ -1,4 +1,5 @@
 import {
+	type Block,
 	DEFAULT_PREFERENCES,
 	type Mute,
 	type PreferenceBackend,
@@ -12,6 +13,9 @@ export const createMemoryPreferenceBackend = (
 	let state: Preferences = { ...DEFAULT_PREFERENCES, ...initial };
 	const records = new Map<string, Mute>(
 		state.mutes.map((mute, index) => [`seed${index}`, mute]),
+	);
+	const blockRecords = new Map<string, Block>(
+		state.blocks.map((block, index) => [`seed${index}`, block]),
 	);
 	const backend: PreferenceBackend = {
 		load: async () => state,
@@ -49,6 +53,18 @@ export const createMemoryPreferenceBackend = (
 			state = { ...state, mutes: [...mutes] };
 			return state;
 		},
+		listBlocks: async () =>
+			[...blockRecords].map(([rkey, block]) => ({ rkey, block })),
+		createBlock: async (rkey, block) => {
+			blockRecords.set(rkey, block);
+		},
+		deleteBlock: async (rkey) => {
+			blockRecords.delete(rkey);
+		},
+		putBlocks: async (blocks) => {
+			state = { ...state, blocks: [...blocks] };
+			return state;
+		},
 		putLeftThreads: async (leftThreads) => {
 			state = { ...state, leftThreads: [...leftThreads] };
 			return state;
@@ -61,6 +77,11 @@ export const createMemoryPreferenceBackend = (
 			[...records].map(([rkey, mute]) => ({
 				rkey,
 				key: muteKey(mute.subject),
+			})),
+		blockRecords: () =>
+			[...blockRecords].map(([rkey, block]) => ({
+				rkey,
+				subject: block.subject,
 			})),
 	};
 };

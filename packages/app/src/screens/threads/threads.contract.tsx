@@ -183,6 +183,7 @@ export const threads = defineContract({
 				member: (did) => space()?.memberByDid(did),
 				live: (entry) => data.lastMessage(entry.space),
 				emoji: (feature) => data.emoji.mention(community()?.did, feature),
+				isBlocked: (did) => data.preferences.isBlocked(did),
 			});
 		return {
 			args,

@@ -33,6 +33,7 @@ const context = (
 	spaceLevel: "all",
 	channelMuted: false,
 	threadMuted: false,
+	authorBlocked: false,
 	voiceChannel: undefined,
 	now: NOW,
 	...overrides,
@@ -188,5 +189,23 @@ describe("shouldAlertNotification", () => {
 		expect(shouldAlertNotification({ ...threaded, kind: "reply" }, muted)).toBe(
 			true,
 		);
+	});
+
+	it("stays quiet for every kind of notification from a blocked author", () => {
+		const blocked = context({ authorBlocked: true });
+
+		expect(shouldAlertNotification(view(), blocked)).toBe(false);
+		expect(shouldAlertNotification(view({ kind: "mention" }), blocked)).toBe(
+			false,
+		);
+		expect(shouldAlertNotification(view({ kind: "reply" }), blocked)).toBe(
+			false,
+		);
+		expect(
+			shouldAlertNotification(view({ kind: "mention" }), {
+				...blocked,
+				visible: false,
+			}),
+		).toBe(false);
 	});
 });

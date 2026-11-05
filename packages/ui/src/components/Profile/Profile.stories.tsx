@@ -1,6 +1,8 @@
 import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { ShieldUserIcon } from "@solar-icons/solid/bold/shield-user";
 import { SledgehammerIcon } from "@solar-icons/solid/bold/sledgehammer";
+import { UserBlockIcon } from "@solar-icons/solid/bold/user-block";
+import { UserCheckIcon } from "@solar-icons/solid/bold/user-check";
 import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded";
 import { createSignal, For } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
@@ -1759,5 +1761,175 @@ export const PopoverWithoutBody: Story = {
 			),
 		);
 		await expectNoLayoutIssues(popover);
+	},
+};
+
+const blockAction = (blocked: boolean) => {
+	return blocked
+		? { label: "Unblock Lou", icon: () => <UserCheckIcon /> }
+		: {
+				label: "Block Lou",
+				icon: () => <UserBlockIcon />,
+				tone: "destructive" as const,
+			};
+};
+
+const BlockablePopover = (props: { moderator: boolean }) => {
+	const [open, setOpen] = createSignal(false);
+	const [blocked, setBlocked] = createSignal(false);
+	let anchor: HTMLElement | undefined;
+	const moderatorActions = () =>
+		props.moderator
+			? [
+					{
+						label: "Kick Lou",
+						icon: () => <UserMinusRoundedIcon />,
+						tone: "destructive" as const,
+						quick: true,
+					},
+					{
+						label: "Ban Lou",
+						icon: () => <SledgehammerIcon />,
+						tone: "destructive" as const,
+						quick: true,
+					},
+				]
+			: [];
+
+	return (
+		<div class="min-h-[820px] w-[720px] bg-background py-6 pl-[360px]">
+			<MessageRow
+				author={{ name: "Lou", avatarSrc: AVATAR }}
+				timestamp={AT}
+				now={NOW}
+				locale="en-GB"
+				onAuthorClick={(event) => {
+					anchor = event.currentTarget as HTMLElement;
+					setOpen(true);
+				}}
+			>
+				I have walked that path for years and never once have I seen one.
+			</MessageRow>
+			<ProfilePopover
+				profile={lou({
+					actionsLabel: "Actions",
+					actions: [
+						...moderatorActions(),
+						{
+							...blockAction(blocked()),
+							onSelect: () => setBlocked((value) => !value),
+						},
+					],
+				})}
+				anchor={() => anchor}
+				open={open()}
+				onOpenChange={setOpen}
+				placement="left-start"
+				onAction={(action) => onAuthorAction(action.label)}
+			/>
+		</div>
+	);
+};
+
+const openLouPopover = async (canvasElement: HTMLElement) => {
+	const author = within(canvasElement).getAllByRole("button", {
+		name: /Lou/,
+	})[0];
+	if (!author) throw new Error("author trigger missing");
+	await userEvent.click(author);
+	const popover = await screen.findByRole("dialog", { name: "Lou's profile" });
+	await waitFor(() =>
+		expect(within(popover).getByRole("heading", { name: "Lou" })).toBeVisible(),
+	);
+	return popover;
+};
+
+export const PopoverBlockAction: Story = {
+	parameters: desktop,
+	render: () => <BlockablePopover moderator={false} />,
+	play: async ({ canvasElement }) => {
+		onAuthorAction.mockClear();
+		const popover = await openLouPopover(canvasElement);
+		await expect(
+			popover.querySelector("[data-profile-quick-actions]"),
+		).toBeNull();
+		await expectNoLayoutIssues(popover);
+		await userEvent.click(
+			within(popover).getByRole("button", { name: "Block Lou" }),
+		);
+		await expect(onAuthorAction).toHaveBeenCalledWith("Block Lou");
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Lou's profile" }),
+			).toBeNull(),
+		);
+
+		const reopened = await openLouPopover(canvasElement);
+		await expect(
+			within(reopened).getByRole("button", { name: "Unblock Lou" }),
+		).toBeVisible();
+		await expectNoLayoutIssues(reopened);
+	},
+};
+
+export const PopoverBlockActionModerator: Story = {
+	parameters: desktop,
+	render: () => <BlockablePopover moderator />,
+	play: async ({ canvasElement }) => {
+		const popover = await openLouPopover(canvasElement);
+		const quick = popover.querySelector<HTMLElement>(
+			"[data-profile-quick-actions]",
+		);
+		if (!quick) throw new Error("quick actions missing");
+		await expect(
+			within(quick).queryByRole("button", { name: "Block Lou" }),
+		).toBeNull();
+		await expect(
+			within(popover).getAllByRole("button", {
+				name: /^(Kick|Ban|Block) Lou$/,
+			}),
+		).toHaveLength(5);
+		await expectNoLayoutIssues(popover);
+	},
+};
+
+const BlockableDrawer = () => {
+	const [open, setOpen] = createSignal(true);
+	const [blocked, setBlocked] = createSignal(false);
+	return (
+		<>
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Open profile
+			</Button>
+			<ProfileDrawerComponent
+				open={open()}
+				onOpenChange={setOpen}
+				profile={lou({
+					actionsLabel: "Actions",
+					actions: [
+						{
+							...blockAction(blocked()),
+							onSelect: () => setBlocked((value) => !value),
+						},
+					],
+				})}
+			/>
+		</>
+	);
+};
+
+export const ProfileDrawerBlockAction: Story = {
+	render: () => <BlockableDrawer />,
+	play: async () => {
+		const dialog = await screen.findByRole("dialog");
+		const block = await within(dialog).findByRole("button", {
+			name: "Block Lou",
+		});
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		await expectNoLayoutIssues(dialog);
+		await userEvent.click(block);
+		await expect(
+			await within(dialog).findByRole("button", { name: "Unblock Lou" }),
+		).toBeVisible();
 	},
 };

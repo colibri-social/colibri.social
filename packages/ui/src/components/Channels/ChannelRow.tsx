@@ -19,6 +19,7 @@ import { cx } from "../../utils/cx";
 import { createLongPress, createMenuTrigger } from "../../utils/gestures";
 import { KeyedFor } from "../../utils/keyed";
 import { createRipple } from "../../utils/ripple";
+import { HIDDEN_REASON_TEXT } from "../Attachments/HiddenMessage";
 import { Avatar } from "../Avatar/Avatar";
 import { Badge, CountBadge } from "../Badge/Badge";
 import { CustomEmojiGlyph, customEmojiSkeleton } from "../RichText/render";
@@ -38,6 +39,7 @@ export type ChannelPreview = {
 	author: string;
 	text: string;
 	parts?: (string | ChannelPreviewEmoji)[];
+	blocked?: boolean;
 };
 
 export type ChannelAttachment = "image" | "file";
@@ -271,16 +273,24 @@ export const ChannelRow = (props: ChannelRowProps) => {
 								data-channel-preview=""
 								class="min-w-0 flex-1 truncate text-xs leading-4 text-muted-foreground"
 							>
-								<span
-									class={cx(
-										"font-medium",
-										lit() ? "text-foreground" : "text-muted-foreground",
-									)}
+								<Show
+									when={!preview().blocked}
+									fallback={HIDDEN_REASON_TEXT.blocked}
 								>
-									{preview().author}
-								</span>
-								{": "}
-								<Show when={preview().parts} fallback={preview().text}>
+									<span
+										class={cx(
+											"font-medium",
+											lit() ? "text-foreground" : "text-muted-foreground",
+										)}
+									>
+										{preview().author}
+									</span>
+									{": "}
+								</Show>
+								<Show
+									when={!preview().blocked && preview().parts}
+									fallback={preview().blocked ? undefined : preview().text}
+								>
 									{(parts) => (
 										<For each={parts()}>
 											{(part) =>

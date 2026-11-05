@@ -235,6 +235,7 @@ export const createNoteSources = (
 			const needle = query.toLowerCase();
 			const results: MemberSuggestion[] = [];
 			for (const member of members()) {
+				if (data.preferences.isBlocked(member.actor.did)) continue;
 				const name = displayNameOf(member.actor, member);
 				if (
 					name.toLowerCase().includes(needle) ||

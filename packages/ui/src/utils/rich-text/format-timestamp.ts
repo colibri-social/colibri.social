@@ -13,12 +13,16 @@ const RELATIVE_DIVISIONS: Array<{
 	{ amount: Number.POSITIVE_INFINITY, unit: "year" },
 ];
 
-const formatRelative = (date: Date, now: Date = new Date()): string => {
+const formatRelative = (
+	date: Date,
+	now: Date = new Date(),
+	locale?: string,
+): string => {
 	let duration = (date.getTime() - now.getTime()) / 1000;
 
 	for (const division of RELATIVE_DIVISIONS) {
 		if (Math.abs(Math.round(duration)) < division.amount) {
-			return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(
+			return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(
 				Math.round(duration),
 				division.unit,
 			);
@@ -26,7 +30,7 @@ const formatRelative = (date: Date, now: Date = new Date()): string => {
 		duration /= division.amount;
 	}
 
-	return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(
+	return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(
 		Math.round(duration),
 		"year",
 	);
@@ -36,6 +40,7 @@ export const formatTimestamp = (
 	datetime: string,
 	style: TimestampStyle = "relative",
 	now: Date = new Date(),
+	locale?: string,
 ): string => {
 	const date = new Date(datetime);
 	if (Number.isNaN(date.getTime())) return datetime;
@@ -71,7 +76,7 @@ export const formatTimestamp = (
 				timeStyle: "short",
 			}).format(date);
 		default:
-			return formatRelative(date, now);
+			return formatRelative(date, now, locale);
 	}
 };
 

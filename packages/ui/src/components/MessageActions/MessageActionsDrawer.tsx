@@ -28,6 +28,7 @@ import {
 import { ThreadIcon } from "../../icons/custom";
 import { cx } from "../../utils/cx";
 import { createRipple } from "../../utils/ripple";
+import { PendingBadge } from "../Badge/Badge";
 import {
 	hasImageActions,
 	type MessageMenuGif,
@@ -51,6 +52,8 @@ const defaultRenderEmoji: RenderEmoji = (emoji) => (
 export type ActionRowProps = {
 	label: JSX.Element;
 	icon?: JSX.Element;
+	badge?: number;
+	badgeLabel?: string;
 	onClick?: (event: MouseEvent) => void;
 	disabled?: boolean;
 	class?: string;
@@ -79,6 +82,7 @@ export const ActionRow = (props: ActionRowProps) => {
 			<span class="min-w-0 flex-1 truncate text-sm font-semibold">
 				{props.label}
 			</span>
+			<PendingBadge count={props.badge} label={props.badgeLabel} />
 		</button>
 	);
 };

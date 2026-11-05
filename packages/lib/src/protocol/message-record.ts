@@ -1,4 +1,4 @@
-import { asDatetime, asUri, COLLECTIONS } from "./lexicons.js";
+import { asAtUri, asDatetime, asUri, COLLECTIONS } from "./lexicons.js";
 import { spaceRecordUri } from "./space-ref.js";
 import type {
 	Facet,
@@ -21,10 +21,13 @@ export type MessageRecordInput = {
 	suppressedEmbeds?: ReadonlyArray<string>;
 };
 
-const messageUri = (space: string | undefined, ref: RecordRef) =>
-	space
+const messageUri = (space: string | undefined, ref: RecordRef) => {
+	const uri = space
 		? spaceRecordUri(space, ref.did, COLLECTIONS.message, ref.rkey)
 		: undefined;
+
+	return uri ? asAtUri(uri) : undefined;
+};
 
 export const buildMessageRecord = (
 	input: MessageRecordInput,

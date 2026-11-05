@@ -29,6 +29,7 @@ import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 import { useProfileSheet } from "../profile/profile-sheet";
 import { PrimaryBadge } from "../profile/user-badges";
 import { voiceMenuFor, withVoiceMenu } from "../voice/member-voice";
+import { createBlockFlow } from "./block-flow";
 
 type Target = { did: Did; space: string };
 
@@ -72,6 +73,7 @@ export const MemberMenuProvider = (props: ParentProps) => {
 	const [open, setOpen] = createSignal(false);
 	const [moderation, setModeration] = createSignal<Moderation>();
 	const [confirming, setConfirming] = createSignal(false);
+	const blocking = createBlockFlow();
 
 	const resolve = (
 		current: Target | undefined = target(),
@@ -187,6 +189,19 @@ export const MemberMenuProvider = (props: ParentProps) => {
 					? () => moderate("ban")
 					: undefined;
 			},
+			get blocked() {
+				return blocking.isBlocked(target.did);
+			},
+			get onBlock() {
+				return blocking.canBlock(target.did)
+					? () => blocking.ask(target.did, label())
+					: undefined;
+			},
+			get onUnblock() {
+				return blocking.canBlock(target.did)
+					? () => void blocking.unblock(target.did, label())
+					: undefined;
+			},
 			onCopyDid: () =>
 				void copyText(target.did).then(() =>
 					toast.success(`DID for ${label()} copied`),
@@ -243,6 +258,7 @@ export const MemberMenuProvider = (props: ParentProps) => {
 	return (
 		<MemberMenuContext.Provider value={api}>
 			{props.children}
+			<blocking.Dialog />
 			<Show when={state()}>
 				{(current) => (
 					<>
@@ -271,6 +287,18 @@ export const MemberMenuProvider = (props: ParentProps) => {
 							onBan={
 								current().permissions.canBan
 									? () => askModeration("ban")
+									: undefined
+							}
+							blocked={blocking.isBlocked(current().member.actor.did)}
+							onBlock={
+								blocking.canBlock(current().member.actor.did)
+									? () => blocking.ask(current().member.actor.did, name())
+									: undefined
+							}
+							onUnblock={
+								blocking.canBlock(current().member.actor.did)
+									? () =>
+											void blocking.unblock(current().member.actor.did, name())
 									: undefined
 							}
 							onCopyDid={() =>

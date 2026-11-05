@@ -15,7 +15,9 @@ import type { Records } from "../remote/records";
 import type { Transport } from "../remote/transport";
 import { type PreferenceBackend, SETTINGS_FIELDS } from "./types";
 import {
+	decodeBlock,
 	decodeMute,
+	encodeBlock,
 	encodeChange,
 	encodeComposer,
 	encodeLeftThread,
@@ -181,6 +183,40 @@ export const createRemotePreferenceBackend = (input: {
 			const result = await transport.procedure(colibri.actor.putMutes.main, {
 				body: { mutes: mutes.map(encodeMute) },
 			});
+			return fromWire(result.preferences);
+		},
+		listBlocks: async () => {
+			try {
+				const found = await records.listInSpace({
+					space: space.space,
+					collection: COLLECTIONS.block,
+				});
+
+				return found.flatMap((record) => {
+					const block = decodeBlock(record.value);
+					return block ? [{ rkey: record.rkey, block }] : [];
+				});
+			} catch (error) {
+				if (isMissingSpace(error)) return [];
+				throw error;
+			}
+		},
+		createBlock: async (rkey, block) => {
+			await space.write(() =>
+				records.createInSpace(
+					target(COLLECTIONS.block, rkey),
+					encodeBlock(block),
+				),
+			);
+		},
+		deleteBlock: (rkey) => {
+			return records.deleteInSpace(target(COLLECTIONS.block, rkey));
+		},
+		putBlocks: async (blocks) => {
+			const result = await transport.procedure(colibri.actor.putBlocks.main, {
+				body: { blocks: blocks.map(encodeBlock) },
+			});
+
 			return fromWire(result.preferences);
 		},
 		putLeftThreads: async (leftThreads) => {

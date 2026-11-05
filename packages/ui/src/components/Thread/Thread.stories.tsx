@@ -319,6 +319,49 @@ export const LastMessagePreview: Story = {
 	},
 };
 
+export const BlockedLastMessage: Story = {
+	render: () => (
+		<ThreadsPage>
+			<ThreadRow
+				name="Heron spotting"
+				messageCount={8}
+				age="12m"
+				unread
+				lastMessage={{
+					...kris,
+					text: "It was right by the old mill.",
+					blocked: true,
+				}}
+				onOpen={onOpen}
+			/>
+			<ThreadCard
+				name="Mill walk on Sunday"
+				messageCount={3}
+				age="1d"
+				lastMessage={{ ...kris, text: "Bring snacks", blocked: true }}
+				onOpen={onOpen}
+			/>
+		</ThreadsPage>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expect(
+			canvas.queryByText("It was right by the old mill."),
+		).toBeNull();
+		await expect(canvas.queryByText("Kris")).toBeNull();
+		const rows = canvasElement.querySelectorAll<HTMLElement>(
+			"[data-thread-last-blocked]",
+		);
+		await expect(rows).toHaveLength(2);
+		for (const row of rows) {
+			const card = row.closest("[data-thread]")?.getBoundingClientRect();
+			await expect(row.getBoundingClientRect().right).toBeLessThanOrEqual(
+				card?.right ?? 0,
+			);
+		}
+	},
+};
+
 export const PendingPreviewEmoji: Story = {
 	render: () => (
 		<ThreadsPage>

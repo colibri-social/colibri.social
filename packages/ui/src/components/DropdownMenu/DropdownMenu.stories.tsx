@@ -3,6 +3,7 @@ import { BellOffIcon } from "@solar-icons/solid/bold/bell-off";
 import { CopyIcon } from "@solar-icons/solid/bold/copy";
 import { MenuDotsIcon } from "@solar-icons/solid/bold/menu-dots";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
+import { SettingsIcon } from "@solar-icons/solid/bold/settings";
 import { ShareIcon } from "@solar-icons/solid/bold/share";
 import { SortIcon } from "@solar-icons/solid/bold/sort";
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
@@ -10,6 +11,7 @@ import { AltArrowRightIcon } from "@solar-icons/solid/linear/alt-arrow-right";
 import { createSignal } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { IconButton } from "../IconButton/IconButton";
 import {
 	DropdownMenu,
@@ -354,5 +356,96 @@ export const SideFlyout: Story = {
 		await screen.findByRole("menu", { name: /^Online status/ });
 		await userEvent.unhover(trigger);
 		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+	},
+};
+
+const badgeItems = (): DropdownMenuEntry[] => [
+	{
+		label: "Manage a Space with a long name that truncates",
+		icon: <SettingsIcon />,
+		badge: 3,
+		onSelect: fn(),
+	},
+	{ label: "Review requests", icon: <ShareIcon />, badge: 12, onSelect: fn() },
+	{ label: "Single request", icon: <CopyIcon />, badge: 1, onSelect: fn() },
+	{ label: "No requests", icon: <PenIcon />, badge: 0, onSelect: fn() },
+];
+
+const BadgeDemo = (props: { platform: DropdownMenuPlatform }) => (
+	<div class="flex min-h-[560px] justify-end bg-background p-8">
+		<DropdownMenu
+			platform={props.platform}
+			label="Space options"
+			title="Space options"
+			items={badgeItems()}
+			triggerAs={IconButton}
+			triggerProps={{
+				variant: "secondary",
+				label: "Space options",
+				icon: <MenuDotsIcon />,
+			}}
+		/>
+	</div>
+);
+
+export const ItemBadge: Story = {
+	render: () => <BadgeDemo platform="desktop" />,
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Space options" }),
+		);
+		const menu = await screen.findByRole("menu");
+		const manage = within(menu).getByRole("menuitem", {
+			name: /^Manage a Space/,
+		});
+		await expect(manage).toHaveAccessibleName(
+			/^Manage a Space with a long name that truncates ?, 3 pending requests$/,
+		);
+		await expect(
+			within(menu).getByRole("menuitem", { name: /^Review requests/ }),
+		).toHaveTextContent("9+");
+		await expect(
+			within(menu).getByRole("menuitem", { name: /^Single request/ }),
+		).toHaveAccessibleName(/^Single request ?, 1 pending request$/);
+		await expect(
+			within(menu)
+				.getByRole("menuitem", { name: "No requests" })
+				.querySelector("[data-pending-badge]"),
+		).toBeNull();
+		const badge = manage.querySelector("[data-pending-badge]") as HTMLElement;
+		const label = manage.querySelector(".truncate") as HTMLElement;
+		await expect(label.scrollWidth).toBeGreaterThan(label.clientWidth);
+		await expect(badge.getBoundingClientRect().right).toBeLessThanOrEqual(
+			manage.getBoundingClientRect().right,
+		);
+		await expectNoLayoutIssues(menu);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+	},
+};
+
+export const ItemBadgeMobile: Story = {
+	parameters: { viewport: { defaultViewport: "iphone" } },
+	render: () => <BadgeDemo platform="mobile" />,
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Space options" }),
+		);
+		const drawer = await screen.findByRole("dialog");
+		const manage = await within(drawer).findByRole("button", {
+			name: /^Manage a Space/,
+		});
+		await expect(manage).toHaveAccessibleName(
+			/^Manage a Space with a long name that truncates ?, 3 pending requests$/,
+		);
+		await expect(
+			within(drawer)
+				.getByRole("button", { name: "No requests" })
+				.querySelector("[data-pending-badge]"),
+		).toBeNull();
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		await expectNoLayoutIssues(drawer);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 	},
 };

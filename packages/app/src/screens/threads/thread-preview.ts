@@ -25,6 +25,7 @@ export type ThreadPreviewSources = {
 	member: (did: Did) => MemberView | undefined;
 	live: (thread: ThreadView) => ChannelSummary | undefined;
 	emoji: (feature: Facet["features"][number]) => PreviewEmoji | undefined;
+	isBlocked?: (did: Did) => boolean;
 };
 
 const previewEmoji = (
@@ -54,6 +55,11 @@ export const threadPreview = (
 			? displayNameOf(member.actor, member)
 			: "Someone";
 	const avatarSrc = own ? sources.viewer.avatar : member?.actor.avatar;
+
+	if (!own && sources.isBlocked?.(summary.author)) {
+		return { name: "", text: "", blocked: true };
+	}
+
 	return {
 		name,
 		...(avatarSrc ? { avatarSrc } : {}),

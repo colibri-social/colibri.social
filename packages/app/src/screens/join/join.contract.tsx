@@ -111,6 +111,17 @@ export const join = defineContract({
 			}),
 		);
 
+		createEffect(() => {
+			const current = preview();
+			if (!current || viewer() !== "pending") return;
+			const joined = (data.communities.value() ?? []).find(
+				(entry) => entry.did === current.community.did,
+			);
+			if (!joined) return;
+			setViewer("member");
+			openSpace(joined);
+		});
+
 		const space = (): DiscoverySpace | undefined => {
 			const current = preview();
 			if (!current) return undefined;

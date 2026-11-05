@@ -23,6 +23,11 @@
 						"ref": "social.colibri.beta.defs#recordRef",
 						"description": "The message being reacted to."
 					},
+					"uri": {
+						"type": "string",
+						"format": "at-uri",
+						"description": "The message being reacted to, as a record URI in the same space. Readers prefer it over `target` when it is valid."
+					},
 					"customEmoji": {
 						"type": "ref",
 						"ref": "social.colibri.beta.richtext.facet#customEmoji",

@@ -16,6 +16,7 @@ import type { SettingsNav, SettingsPageId } from "./nav";
 import AcknowledgementsPage from "./pages/acknowledgements";
 import AdvancedPage from "./pages/advanced";
 import AppearancePage from "./pages/appearance";
+import BlockedUsersPage from "./pages/blocked-users";
 import ChatPage from "./pages/chat";
 import DebugInformationPage from "./pages/debug-information";
 import DeleteAccountPage from "./pages/delete-account";
@@ -47,6 +48,11 @@ export const SETTINGS_PAGES: Record<SettingsPageId, PageInfo> = {
 		title: "Emoji Pack",
 		entry: "emojiPacks",
 		view: EmojiPackPage,
+	},
+	blockedUsers: {
+		title: SETTINGS_ENTRY_INFO.blockedUsers.label,
+		entry: "blockedUsers",
+		view: BlockedUsersPage,
 	},
 	deleteAccount: {
 		title: "Delete my Colibri data",
@@ -139,6 +145,7 @@ export const settingsEntries = (
 		profile: page("profile"),
 		emojiPacks: page("emojiPacks"),
 		...(accountPage ? { atmosphereAccount: external(accountPage) } : {}),
+		blockedUsers: page("blockedUsers"),
 		voiceVideo: page("voiceVideo"),
 		appearance: page("appearance"),
 		chat: page("chat"),

@@ -100,6 +100,7 @@ import { createCustomEmojiDrawer } from "./message/custom-emoji-drawer";
 import { createLinkOpener } from "./message/link-opener";
 import { DELETE_CONFIRM_COPY, MessageItem } from "./message/MessageItem";
 import {
+	authorGroupKey,
 	type ChatMessage,
 	failChatMessage,
 	isHiddenMessage,
@@ -595,6 +596,32 @@ export const createConversation = (options: ConversationOptions) => {
 		return !!viewer?.isOwner || !!viewer?.permissions?.includes("label.apply");
 	};
 
+	const [shownBlocked, setShownBlocked] = createSignal<ReadonlySet<string>>(
+		new Set(),
+	);
+
+	const blockedShown = (key: string) => {
+		return shownBlocked().has(key);
+	};
+
+	const setBlockedShown = (key: string, shown: boolean) => {
+		setShownBlocked((current) => {
+			const next = new Set(current);
+			if (shown) next.add(key);
+			else next.delete(key);
+			return next;
+		});
+	};
+
+	const groupKeyFor = (message: MessageView, key: string) => {
+		const collapsed =
+			message.author.did !== data.viewer.did &&
+			data.preferences.isBlocked(message.author.did) &&
+			!blockedShown(key);
+
+		return collapsed ? `blocked ${key}` : authorGroupKey(message.author);
+	};
+
 	const cache = new WeakMap<MessageView, ChatMessage>();
 	let settled = new Map<string, MessageView>();
 	const pendingMedia = createPendingMediaUrls();
@@ -626,14 +653,16 @@ export const createConversation = (options: ConversationOptions) => {
 					threadAnchorKey(message.author.did, message.rkey),
 				);
 				const key = data.nonceFor(message.rkey);
+				const groupKey = groupKeyFor(message, key ?? message.rkey);
 				const cached = cache.get(message);
 				if (
 					cached &&
 					cached.thread === thread &&
-					cached.key === (key ?? message.rkey)
+					cached.key === (key ?? message.rkey) &&
+					cached.groupKey === groupKey
 				)
 					return cached;
-				const chat = toChatMessage(message, { key, thread });
+				const chat = { ...toChatMessage(message, { key, thread }), groupKey };
 				cache.set(message, chat);
 				return chat;
 			});
@@ -955,6 +984,8 @@ export const createConversation = (options: ConversationOptions) => {
 			media.setFavorite((saved as GifView | undefined) ?? gif, save);
 			toast.success(save ? "Saved GIF" : "Removed saved GIF");
 		},
+		blockedShown,
+		onBlockedShownChange: setBlockedShown,
 		onSetEmbeds: async (message, uris, as) => {
 			const current = feed();
 			if (!current || !message.rkey) return;
@@ -1122,6 +1153,7 @@ export const createConversation = (options: ConversationOptions) => {
 			const needle = query.toLowerCase();
 			const results = [];
 			for (const member of memberMap().values()) {
+				if (data.preferences.isBlocked(member.actor.did)) continue;
 				const name = displayNameOf(member.actor, member);
 				if (
 					name.toLowerCase().includes(needle) ||
@@ -1260,15 +1292,17 @@ export const createConversation = (options: ConversationOptions) => {
 	};
 
 	const typingUsers = createMemo(() =>
-		(feed()?.typing() ?? []).map((did) => {
-			const author = authorForDid(did, directory());
-			return {
-				name: author?.name ?? nameOf(did),
-				avatarSrc: author?.avatarSrc,
-				seed: did,
-				nameColor: author?.nameColor,
-			};
-		}),
+		(feed()?.typing() ?? [])
+			.filter((did) => !data.preferences.isBlocked(did))
+			.map((did) => {
+				const author = authorForDid(did, directory());
+				return {
+					name: author?.name ?? nameOf(did),
+					avatarSrc: author?.avatarSrc,
+					seed: did,
+					nameColor: author?.nameColor,
+				};
+			}),
 	);
 
 	const editLast = () => {

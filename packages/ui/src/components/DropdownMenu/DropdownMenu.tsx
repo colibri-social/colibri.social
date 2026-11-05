@@ -59,6 +59,8 @@ export type DropdownMenuItemEntry = {
 	tone?: MenuItemTone;
 	disabled?: boolean;
 	hint?: string;
+	badge?: number;
+	badgeLabel?: string;
 	onSelect?: () => void;
 };
 
@@ -274,6 +276,8 @@ const DesktopEntry = (props: { entry: GroupedEntry }) => (
 				tone={(props.entry as DropdownMenuItemEntry).tone}
 				disabled={props.entry.disabled}
 				hint={(props.entry as DropdownMenuItemEntry).hint}
+				badge={(props.entry as DropdownMenuItemEntry).badge}
+				badgeLabel={(props.entry as DropdownMenuItemEntry).badgeLabel}
 				onSelect={(props.entry as DropdownMenuItemEntry).onSelect}
 			/>
 		</Match>
@@ -530,6 +534,10 @@ const MobileGroups = (props: {
 														label={entry.label}
 														icon={(entry as DropdownMenuItemEntry).icon}
 														disabled={entry.disabled}
+														badge={(entry as DropdownMenuItemEntry).badge}
+														badgeLabel={
+															(entry as DropdownMenuItemEntry).badgeLabel
+														}
 														onClick={run(
 															(entry as DropdownMenuItemEntry).onSelect,
 														)}

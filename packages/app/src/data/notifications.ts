@@ -26,12 +26,17 @@ export const createNotificationStore = (
 ) => {
 	const [all, setItems] = createSignal<readonly NotificationView[]>([]);
 	const [clearedAt, setClearedAt] = createSignal<number>();
+	const fromUnblocked = (entry: NotificationView) => {
+		return !source.preferences.isBlocked(entry.author.did);
+	};
 	const items = () => {
 		const cutoff = clearedAt();
-		const current = all();
-		return cutoff === undefined
-			? current
-			: current.filter((entry) => Date.parse(entry.indexedAt) > cutoff);
+
+		return all().filter(
+			(entry) =>
+				fromUnblocked(entry) &&
+				(cutoff === undefined || Date.parse(entry.indexedAt) > cutoff),
+		);
 	};
 	const advanceClear = (at: Datetime) =>
 		setClearedAt((current) => Math.max(current ?? 0, Date.parse(at)));
@@ -91,7 +96,8 @@ export const createNotificationStore = (
 		if (
 			global &&
 			status() === "ready" &&
-			all().filter(isUnreadPing).length !== unread
+			all().filter((entry) => isUnreadPing(entry) && fromUnblocked(entry))
+				.length !== unread
 		) {
 			void load();
 		}

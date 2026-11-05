@@ -11,6 +11,7 @@ import { VolumeLoudIcon } from "@solar-icons/solid/bold/volume-loud";
 import { createSignal, For } from "solid-js";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { Avatar } from "../Avatar/Avatar";
 import {
 	CheckboxRow,
@@ -289,5 +290,83 @@ export const Sidebar: Story = {
 		await userEvent.click(roles);
 		await expect(roles).toHaveAttribute("aria-current", "page");
 		await expect(overview).not.toHaveAttribute("aria-current");
+	},
+};
+
+export const PendingBadges: Story = {
+	render: () => (
+		<div class="flex w-full max-w-sm flex-col gap-6">
+			<div data-frame="nav" class="w-full">
+				<ListGroup>
+					<NavRow
+						icon={<SettingsIcon />}
+						label="Manage a Space with a rather long name that truncates"
+						badge={4}
+					/>
+					<NavRow icon={<ShieldCheckIcon />} label="Requests" badge={14} />
+					<NavRow
+						icon={<BellIcon />}
+						label="Members"
+						value="12"
+						badge={1}
+						badgeLabel="1 member waiting"
+					/>
+					<NavRow icon={<ShareIcon />} label="Invites" badge={0} />
+				</ListGroup>
+			</div>
+			<div data-frame="sidebar" class="w-56 rounded-surface bg-card p-4">
+				<SidebarNav aria-label="Space settings">
+					<SidebarNavSection label="Space">
+						<SidebarNavItem
+							label="Join requests from people who want in"
+							icon={<CrownIcon />}
+							badge={2}
+							active
+						/>
+						<SidebarNavItem
+							label="Roles"
+							icon={<ShieldCheckIcon />}
+							badge={0}
+						/>
+					</SidebarNavSection>
+				</SidebarNav>
+			</div>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const manage = canvas.getByRole("button", { name: /^Manage a Space/ });
+		await expect(manage).toHaveAccessibleName(
+			/^Manage a Space with a rather long name that truncates ?, 4 pending requests$/,
+		);
+		const label = manage.querySelector("[data-search-label]") as HTMLElement;
+		await expect(label.scrollWidth).toBeGreaterThan(label.clientWidth);
+		await expect(
+			canvas.getByRole("button", { name: /^Requests/ }),
+		).toHaveTextContent("9+");
+		await expect(
+			canvas.getByRole("button", { name: /^Members/ }),
+		).toHaveAccessibleName(/^Members ?12 ?, 1 member waiting$/);
+		await expect(
+			canvas
+				.getByRole("button", { name: "Invites" })
+				.querySelector("[data-pending-badge]"),
+		).toBeNull();
+		const join = canvas.getByRole("button", { name: /^Join requests/ });
+		await expect(join).toHaveAccessibleName(
+			/^Join requests from people who want in ?, 2 pending requests$/,
+		);
+		const joinLabel = join.querySelector("[data-search-label]") as HTMLElement;
+		await expect(joinLabel.scrollWidth).toBeGreaterThan(joinLabel.clientWidth);
+		await expect(
+			canvas
+				.getByRole("button", { name: "Roles" })
+				.querySelector("[data-pending-badge]"),
+		).toBeNull();
+		for (const frame of ["nav", "sidebar"]) {
+			await expectNoLayoutIssues(
+				canvasElement.querySelector(`[data-frame="${frame}"]`) as HTMLElement,
+			);
+		}
 	},
 };

@@ -262,6 +262,7 @@ export const NotificationHost = (props: {
 				threadMuted: view.thread
 					? data.isMuted(view.thread as SpaceRef)
 					: false,
+				authorBlocked: data.source.preferences.isBlocked(view.author.did),
 				voiceChannel: voice.current()?.channel,
 				now: Date.now(),
 			});

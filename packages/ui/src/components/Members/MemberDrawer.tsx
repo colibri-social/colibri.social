@@ -4,7 +4,9 @@ import { EndCallRoundedIcon } from "@solar-icons/solid/bold/end-call-rounded";
 import { MonitorCameraIcon } from "@solar-icons/solid/bold/monitor-camera";
 import { ShieldUserIcon } from "@solar-icons/solid/bold/shield-user";
 import { TransferHorizontalIcon } from "@solar-icons/solid/bold/transfer-horizontal";
+import { UserBlockIcon } from "@solar-icons/solid/bold/user-block";
 import { UserBlockRoundedIcon } from "@solar-icons/solid/bold/user-block-rounded";
+import { UserCheckIcon } from "@solar-icons/solid/bold/user-check";
 import { UserCircleIcon } from "@solar-icons/solid/bold/user-circle";
 import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded";
 import { UsersGroupRoundedIcon } from "@solar-icons/solid/bold/users-group-rounded";
@@ -406,6 +408,28 @@ export const MemberDrawer = (props: MemberDrawerProps) => {
 								/>
 							</Show>
 						</ListGroup>
+					</Show>
+					<Show when={props.blocked ? props.onUnblock : props.onBlock} keyed>
+						{(action) => (
+							<ListGroup>
+								<Show
+									when={props.blocked}
+									fallback={
+										<DestructiveRow
+											icon={<UserBlockIcon />}
+											label={`Block ${props.name}`}
+											onClick={run(action)}
+										/>
+									}
+								>
+									<NavRow
+										icon={<UserCheckIcon />}
+										label={`Unblock ${props.name}`}
+										onClick={run(action)}
+									/>
+								</Show>
+							</ListGroup>
+						)}
 					</Show>
 					<Show when={props.onCopyDid && !showDeveloper()}>
 						<ListGroup>
