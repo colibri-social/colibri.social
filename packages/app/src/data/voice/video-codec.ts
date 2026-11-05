@@ -5,6 +5,8 @@ const log = createLogger("voice");
 
 export const SCREEN_SCALABILITY_MODE = "L1T3";
 
+export const SCREEN_SVC_SCALABILITY_MODE = "L2T3_KEY";
+
 export const SCREEN_CODEC_CANDIDATES: readonly string[] = [
 	"video/vp9",
 	"video/h264",
@@ -12,6 +14,13 @@ export const SCREEN_CODEC_CANDIDATES: readonly string[] = [
 ];
 
 const LAYERED_MIME_TYPES = new Set(["video/vp8", "video/vp9"]);
+
+const SVC_MIME_TYPES = new Set(["video/vp9"]);
+
+const SIMULCAST_MIME_TYPES = new Set(["video/vp8", "video/h264"]);
+
+export const supportsSimulcast = (mimeType: string): boolean =>
+	SIMULCAST_MIME_TYPES.has(mimeType.toLowerCase());
 
 const LAYERED_HANDLERS = new Set(["Chrome111"]);
 
@@ -101,7 +110,9 @@ export const layersFor = (
 	handlerName &&
 	LAYERED_HANDLERS.has(handlerName) &&
 	LAYERED_MIME_TYPES.has(mimeType.toLowerCase())
-		? SCREEN_SCALABILITY_MODE
+		? SVC_MIME_TYPES.has(mimeType.toLowerCase())
+			? SCREEN_SVC_SCALABILITY_MODE
+			: SCREEN_SCALABILITY_MODE
 		: undefined;
 
 export const pickScreenCodec = async (input: {

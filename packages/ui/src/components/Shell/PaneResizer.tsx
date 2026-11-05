@@ -16,6 +16,8 @@ export const clampPaneWidth = (
 
 export type PaneResizerEdge = "start" | "end";
 
+export type PaneResizerAxis = "x" | "y";
+
 export type PaneResizerProps = {
 	width: number;
 	onWidthChange: (width: number) => void;
@@ -25,11 +27,12 @@ export type PaneResizerProps = {
 	defaultWidth?: number;
 	availableMax?: () => number;
 	edge?: PaneResizerEdge;
+	axis?: PaneResizerAxis;
 	label?: string;
 	class?: string;
 };
 
-const lockDocument = () => {
+const lockDocument = (cursor: string) => {
 	const style = document.documentElement.style;
 	const previous = {
 		userSelect: style.userSelect,
@@ -38,7 +41,7 @@ const lockDocument = () => {
 	};
 	style.userSelect = "none";
 	style.setProperty("-webkit-user-select", "none");
-	style.cursor = "col-resize";
+	style.cursor = cursor;
 	window.getSelection()?.removeAllRanges();
 	return () => {
 		style.userSelect = previous.userSelect;
@@ -56,13 +59,16 @@ export const PaneResizer = (props: PaneResizerProps) => {
 	let handle: HTMLHRElement | undefined;
 	let activePointer: number | undefined;
 	let unlock: (() => void) | undefined;
-	let startX = 0;
+	let startPosition = 0;
 	let startWidth = 0;
 	let latest = 0;
 
 	const min = () => props.min ?? MIN_THREAD_PANE_WIDTH;
 	const max = () => props.max ?? MAX_THREAD_PANE_WIDTH;
 	const growth = () => (props.edge === "end" ? 1 : -1);
+	const vertical = () => props.axis === "y";
+	const position = (event: PointerEvent) =>
+		vertical() ? event.clientY : event.clientX;
 	const resolve = (raw: number) => {
 		const limit = Math.max(
 			min(),
@@ -121,7 +127,9 @@ export const PaneResizer = (props: PaneResizerProps) => {
 			return;
 		}
 		event.preventDefault();
-		const next = resolve(startWidth + growth() * (event.clientX - startX));
+		const next = resolve(
+			startWidth + growth() * (position(event) - startPosition),
+		);
 		if (next === latest) return;
 		latest = next;
 		props.onWidthChange(latest);
@@ -158,11 +166,11 @@ export const PaneResizer = (props: PaneResizerProps) => {
 		clearHint();
 		setHintReady(true);
 		activePointer = event.pointerId;
-		startX = event.clientX;
+		startPosition = position(event);
 		startWidth = props.width;
 		latest = startWidth;
 		setResizing(true);
-		unlock = lockDocument();
+		unlock = lockDocument(vertical() ? "row-resize" : "col-resize");
 		window.addEventListener("pointermove", onPointerMove, {
 			capture: true,
 			passive: false,
@@ -178,10 +186,12 @@ export const PaneResizer = (props: PaneResizerProps) => {
 	};
 
 	const onKeyDown = (event: KeyboardEvent) => {
+		const forward = vertical() ? "ArrowDown" : "ArrowRight";
+		const backward = vertical() ? "ArrowUp" : "ArrowLeft";
 		const step =
-			event.key === "ArrowRight"
+			event.key === forward
 				? PANE_RESIZE_STEP
-				: event.key === "ArrowLeft"
+				: event.key === backward
 					? -PANE_RESIZE_STEP
 					: 0;
 		if (step !== 0) {
@@ -205,21 +215,30 @@ export const PaneResizer = (props: PaneResizerProps) => {
 				data-pane-resizer-line=""
 				data-visible={visible() || undefined}
 				class={cx(
-					"pointer-events-none absolute top-0 z-40 h-full w-0.5 bg-border opacity-0 data-visible:bg-primary data-visible:opacity-100",
-					props.edge === "end" ? "right-0" : "left-0",
+					"pointer-events-none absolute z-40 bg-border opacity-0 data-visible:bg-primary data-visible:opacity-100",
+					vertical()
+						? cx(
+								"left-0 h-0.5 w-full",
+								props.edge === "end" ? "bottom-0" : "top-0",
+							)
+						: cx(
+								"top-0 h-full w-0.5",
+								props.edge === "end" ? "right-0" : "left-0",
+							),
 					props.class,
 				)}
 			/>
 			<hr
 				ref={handle}
 				aria-label={props.label ?? "Resize thread panel"}
-				aria-orientation="vertical"
+				aria-orientation={vertical() ? "horizontal" : "vertical"}
 				aria-valuenow={props.width}
 				aria-valuemin={min()}
 				aria-valuemax={max()}
 				tabIndex={0}
 				data-pane-resizer=""
 				data-edge={props.edge ?? "start"}
+				data-axis={props.axis ?? "x"}
 				data-resizing={resizing() || undefined}
 				onPointerDown={onPointerDown}
 				onPointerEnter={() => {
@@ -239,10 +258,20 @@ export const PaneResizer = (props: PaneResizerProps) => {
 				}
 				onKeyDown={onKeyDown}
 				class={cx(
-					"absolute top-0 z-40 m-0 h-full w-1.5 cursor-col-resize touch-none border-none bg-transparent outline-hidden",
-					props.edge === "end"
-						? "right-0 translate-x-1/2"
-						: "left-0 -translate-x-1/2",
+					"absolute z-40 m-0 touch-none border-none bg-transparent outline-hidden",
+					vertical()
+						? cx(
+								"left-0 h-1.5 w-full cursor-row-resize",
+								props.edge === "end"
+									? "bottom-0 translate-y-1/2"
+									: "top-0 -translate-y-1/2",
+							)
+						: cx(
+								"top-0 h-full w-1.5 cursor-col-resize",
+								props.edge === "end"
+									? "right-0 translate-x-1/2"
+									: "left-0 -translate-x-1/2",
+							),
 				)}
 			/>
 		</>

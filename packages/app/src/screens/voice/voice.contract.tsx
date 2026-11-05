@@ -4,16 +4,17 @@ import {
 	ChannelHeader,
 	IconButton,
 	MemberContextMenu,
+	VoiceGrid,
 	VoiceJoinActions,
 	VoiceJoinPrompt,
 	VoiceJoinRoster,
 	VoiceSheetHeader,
-	VoiceStage,
 	type VoiceTileData,
 } from "@colibri-social/ui";
 import { ChatRoundDotsIcon } from "@solar-icons/solid/bold/chat-round-dots";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
 import { batch, createMemo, createSignal, type JSX, Show } from "solid-js";
+import { voiceStripPrefs } from "../../data/device-prefs";
 import { skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
 import { VOICE_CHANNEL } from "../../data/types";
@@ -157,6 +158,12 @@ export const voiceScreen = defineContract({
 			close();
 			memberMenu.open(did, space);
 		};
+		const strip = voiceStripPrefs();
+		const [stripHeight, setStripHeight] = createSignal(strip.height());
+		const commitStripHeight = (height: number) => {
+			setStripHeight(height);
+			strip.setHeight(height);
+		};
 		const canManage = () => canInSpace(community(), "channel.update");
 		const profileSheet = useProfileSheet();
 		const openParticipant = (did: string) =>
@@ -226,6 +233,11 @@ export const voiceScreen = defineContract({
 			openMemberMenu,
 			mobile: () => platform() !== "desktop",
 			tiles,
+			stripHeight,
+			setStripHeight,
+			commitStripHeight,
+			stripHidden: strip.hidden,
+			setStripHidden: strip.setHidden,
 			canManage,
 			joinMuted,
 			setJoinMuted,
@@ -307,16 +319,24 @@ export const voiceScreen = defineContract({
 			/>
 		)),
 		Stage: slot((m, p: { portrait?: boolean; shareFocus?: boolean }) => (
-			<VoiceStage
-				tiles={m.tiles()}
-				portrait={p.portrait}
-				focusedKey={p.shareFocus ? voice.focusedKey() : undefined}
-				onFocusChange={p.shareFocus ? voice.setFocusedKey : undefined}
-				tileMenu={m.tileMenuFor}
-				onTileMenu={
-					m.mobile() ? (tile) => m.openMemberMenu(tile.id) : undefined
-				}
-			/>
+			<div data-voice-stage="" class="min-h-0 flex-1">
+				<VoiceGrid
+					tiles={m.tiles()}
+					portrait={p.portrait ?? true}
+					focusedKey={p.shareFocus ? voice.focusedKey() : undefined}
+					onFocusChange={p.shareFocus ? voice.setFocusedKey : undefined}
+					tileMenu={m.tileMenuFor}
+					onTileMenu={
+						m.mobile() ? (tile) => m.openMemberMenu(tile.id) : undefined
+					}
+					stripHeight={m.stripHeight()}
+					onStripHeightChange={m.setStripHeight}
+					onStripHeightCommit={m.commitStripHeight}
+					stripHidden={m.stripHidden()}
+					onStripHiddenChange={m.setStripHidden}
+					onVideoSize={(key, view) => voice.reportTileView(key, view)}
+				/>
+			</div>
 		)),
 		Controls: slot((m, p: { size?: CallControlSize }) => (
 			<CallControls

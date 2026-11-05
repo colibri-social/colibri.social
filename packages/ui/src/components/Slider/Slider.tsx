@@ -1,3 +1,4 @@
+import { useLocale } from "@kobalte/core/i18n";
 import { Slider as KobalteSlider } from "@kobalte/core/slider";
 import {
 	createMemo,
@@ -62,6 +63,68 @@ type Press = {
 	moved: boolean;
 };
 type Tap = { index: number; x: number; y: number; at: number };
+
+const HOVER_STEP_KEYS = new Set([
+	"ArrowLeft",
+	"ArrowRight",
+	"ArrowUp",
+	"ArrowDown",
+	"Home",
+	"End",
+	"PageUp",
+	"PageDown",
+]);
+const NON_TEXT_INPUT_TYPES = new Set([
+	"button",
+	"checkbox",
+	"color",
+	"file",
+	"hidden",
+	"image",
+	"radio",
+	"range",
+	"reset",
+	"submit",
+]);
+
+let hoveredSlider: symbol | undefined;
+
+const isEditing = (element: Element | null) => {
+	if (!(element instanceof HTMLElement)) return false;
+	if (element.isContentEditable) return true;
+	if (element instanceof HTMLInputElement) {
+		return !NON_TEXT_INPUT_TYPES.has(element.type);
+	}
+
+	return (
+		element instanceof HTMLTextAreaElement ||
+		element instanceof HTMLSelectElement
+	);
+};
+
+const ownsArrowKeys = (element: Element | null) => {
+	return Boolean(element?.closest('[role="slider"], input[type="range"]'));
+};
+
+const snapToStep = (value: number, min: number, max: number, step: number) => {
+	const remainder = (value - min) % step;
+	let snapped =
+		Math.abs(remainder) * 2 >= step
+			? value + Math.sign(remainder) * (step - Math.abs(remainder))
+			: value - remainder;
+
+	if (snapped < min) snapped = min;
+	else if (snapped > max) snapped = min + Math.floor((max - min) / step) * step;
+
+	const text = step.toString();
+	const dot = text.indexOf(".");
+	const precision = dot >= 0 ? text.length - dot : 0;
+	if (precision === 0) return snapped;
+
+	const scale = 10 ** precision;
+
+	return Math.round(snapped * scale) / scale;
+};
 
 const motion =
 	"duration-[calc(120ms*var(--motion-scale))] ease-(--ease-out-quick) motion-reduce:transition-none reduced-motion:transition-none";
@@ -256,9 +319,125 @@ export const Slider = (props: SliderProps) => {
 		}
 	};
 
+	const locale = useLocale();
+	const hoverToken = Symbol();
+	let root: HTMLElement | undefined;
+	let pointerX: number | undefined;
+	let hoverDirty = false;
+
+	const step = () => rest.step ?? 1;
+	const thumbGap = () => (rest.minStepsBetweenThumbs ?? 0) * step();
+	const pageSize = () => {
+		const raw = (max() - min()) / 10;
+
+		return Math.max(snapToStep(raw, 0, raw + step(), step()), step());
+	};
+	const thumbMin = (current: number[], index: number) => {
+		return index === 0 ? min() : current[index - 1] + thumbGap();
+	};
+	const thumbMax = (current: number[], index: number) => {
+		return index === current.length - 1
+			? max()
+			: current[index + 1] - thumbGap();
+	};
+
+	const hoveredThumb = () => {
+		const thumbs = root?.querySelectorAll<HTMLElement>("[data-slider-thumb]");
+		if (!thumbs || thumbs.length < 2 || pointerX === undefined) return 0;
+
+		let nearest = 0;
+		let nearestDistance = Number.POSITIVE_INFINITY;
+		thumbs.forEach((thumb, index) => {
+			const rect = thumb.getBoundingClientRect();
+			const distance = Math.abs(rect.left + rect.width / 2 - (pointerX ?? 0));
+			if (distance < nearestDistance) {
+				nearest = index;
+				nearestDistance = distance;
+			}
+		});
+
+		return nearest;
+	};
+
+	const steppedValue = (key: string, shift: boolean, index: number) => {
+		const current = values();
+		const value = current[index];
+		if (value === undefined) return undefined;
+
+		const lower = thumbMin(current, index);
+		const upper = thumbMax(current, index);
+		const arrow = shift ? pageSize() : step();
+		const forward = locale.direction() === "rtl" ? -arrow : arrow;
+		const deltas: Record<string, number> = {
+			ArrowLeft: -forward,
+			ArrowDown: -forward,
+			ArrowRight: forward,
+			ArrowUp: forward,
+			PageUp: pageSize(),
+			PageDown: -pageSize(),
+		};
+
+		let target: number;
+		if (key === "Home") target = lower;
+		else if (key === "End") target = upper;
+		else target = snapToStep(value + (deltas[key] ?? 0), min(), max(), step());
+
+		const next = current.slice();
+		next[index] = snapToStep(target, lower, upper, step());
+
+		return next;
+	};
+
+	const onHoverKeyDown = (event: KeyboardEvent) => {
+		if (hoveredSlider !== hoverToken || local.disabled) return;
+		if (event.defaultPrevented || event.isComposing) return;
+		if (event.ctrlKey || event.altKey || event.metaKey) return;
+		if (!HOVER_STEP_KEYS.has(event.key)) return;
+
+		const active = document.activeElement;
+		if (isEditing(active) || ownsArrowKeys(active)) return;
+
+		event.preventDefault();
+		event.stopPropagation();
+
+		const previous = values();
+		const next = steppedValue(event.key, event.shiftKey, hoveredThumb());
+		if (!next || next.every((value, index) => value === previous[index])) {
+			return;
+		}
+
+		hoverDirty = true;
+		onChange(next);
+	};
+
+	const endHover = () => {
+		if (hoveredSlider === hoverToken) hoveredSlider = undefined;
+		window.removeEventListener("keydown", onHoverKeyDown, true);
+		if (!hoverDirty) return;
+
+		hoverDirty = false;
+		local.onChangeEnd?.(values());
+	};
+	const startHover = (event: PointerEvent) => {
+		if (event.pointerType === "touch") return;
+
+		pointerX = event.clientX;
+		hoveredSlider = hoverToken;
+		window.addEventListener("keydown", onHoverKeyDown, true);
+	};
+	onCleanup(endHover);
+
 	return (
 		<KobalteSlider
 			{...rest}
+			ref={(element: HTMLElement) => {
+				root = element;
+			}}
+			onPointerEnter={startHover}
+			onPointerMove={(event: PointerEvent) => {
+				pointerX = event.clientX;
+			}}
+			onPointerLeave={endHover}
 			value={values()}
 			onChange={onChange}
 			onChangeEnd={(next) => local.onChangeEnd?.(next)}

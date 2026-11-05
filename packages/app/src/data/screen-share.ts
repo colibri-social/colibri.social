@@ -109,16 +109,33 @@ export const screenVideoConstraints = (
 	return constraints;
 };
 
+export const SCREEN_LOW_LAYER_BITRATE_SHARE = 0.3;
+
 export const screenEncodings = (
 	quality: ScreenShareQuality,
 	scalabilityMode?: string,
-): RTCRtpEncodingParameters[] => [
-	{
-		maxBitrate: screenMaxBitrate(quality),
+	simulcast = true,
+): RTCRtpEncodingParameters[] => {
+	const maxBitrate = screenMaxBitrate(quality);
+	const layers = scalabilityMode ? { scalabilityMode } : {};
+	const full: RTCRtpEncodingParameters = {
+		maxBitrate,
 		maxFramerate: quality.framerate,
-		...(scalabilityMode ? { scalabilityMode } : {}),
-	},
-];
+		...layers,
+	};
+
+	if (!simulcast) return [full];
+
+	return [
+		{
+			scaleResolutionDownBy: 2,
+			maxBitrate: Math.round(maxBitrate * SCREEN_LOW_LAYER_BITRATE_SHARE),
+			maxFramerate: quality.framerate,
+			...layers,
+		},
+		{ ...full, scaleResolutionDownBy: 1 },
+	];
+};
 
 export const screenEncodingTarget = (
 	quality: ScreenShareQuality,
@@ -192,5 +209,8 @@ export const displayVideoRequest = (
 
 export const captureSurfaceKind = (
 	displaySurface: string | undefined,
-): "display" | "window" =>
-	displaySurface === "monitor" ? "display" : "window";
+	requested?: DisplaySurfaceHint,
+): "display" | "window" => {
+	if (displaySurface === "window") return "window";
+	return (requested ?? displaySurface) === "monitor" ? "display" : "window";
+};

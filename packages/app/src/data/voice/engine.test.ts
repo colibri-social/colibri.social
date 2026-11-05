@@ -605,6 +605,7 @@ describe("voice engine", () => {
 				width: { ideal: 1280 },
 				height: { ideal: 720 },
 				aspectRatio: { ideal: 16 / 9 },
+				frameRate: { ideal: 30, max: 30 },
 				deviceId: { exact: "cam-2" },
 			},
 		});
@@ -627,6 +628,7 @@ describe("voice engine", () => {
 				width: { ideal: 1280 },
 				height: { ideal: 720 },
 				aspectRatio: { ideal: 16 / 9 },
+				frameRate: { ideal: 30, max: 30 },
 			},
 		});
 		expect(harness.notices).toEqual([]);

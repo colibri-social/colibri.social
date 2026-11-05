@@ -15,6 +15,7 @@ import {
 	leaveFrame,
 	produceFrame,
 	resumeConsumerFrame,
+	setConsumerPreferenceFrame,
 	setSelfStateFrame,
 	setSpeakingFrame,
 	VOICE_SIGNAL_LXM,
@@ -133,6 +134,39 @@ describe("client frame round trips", () => {
 		const frame = resumeConsumerFrame("consumer-1");
 		const decoded = decodeVoiceFrame(encodeVoiceFrame(frame));
 		expect(decoded).toEqual(frame);
+	});
+
+	it("encodes setConsumerPreference with and without a temporal layer", () => {
+		expect(
+			JSON.parse(
+				encodeVoiceFrame(
+					setConsumerPreferenceFrame({
+						consumerId: "consumer-1",
+						spatialLayer: 1,
+						paused: false,
+					}),
+				),
+			),
+		).toEqual({
+			$type: "social.colibri.beta.voice.defs#setConsumerPreference",
+			consumerId: "consumer-1",
+			spatialLayer: 1,
+			paused: false,
+		});
+		expect(
+			setConsumerPreferenceFrame({
+				consumerId: "consumer-1",
+				spatialLayer: 0,
+				temporalLayer: 1,
+				paused: true,
+			}),
+		).toEqual({
+			$type: "social.colibri.beta.voice.defs#setConsumerPreference",
+			consumerId: "consumer-1",
+			spatialLayer: 0,
+			temporalLayer: 1,
+			paused: true,
+		});
 	});
 
 	it("round-trips setSelfState with a partial update", () => {

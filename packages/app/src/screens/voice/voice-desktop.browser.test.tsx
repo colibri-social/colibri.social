@@ -860,3 +860,104 @@ it("keeps the screen share surface mounted while people talk", async () => {
 	expect(await countSurfaceChurn(talk)).toEqual({ mounts: 0, plays: 0 });
 	expect(screenSurface()).toBe(focused);
 });
+
+const tileName = (tile: Element) =>
+	tile.querySelector("[data-tile-label] .truncate")?.textContent?.trim() ?? "";
+
+const slotTile = (slot: string) =>
+	stage().querySelector<HTMLElement>(
+		`button[data-voice-tile][data-voice-slot='${slot}']`,
+	);
+
+it("keeps every camera surface and the right member menu when focus moves", async () => {
+	await mount("lounge");
+	const simulated = createSimulatedConnection({ connectMs: 30, tickMs: 60 });
+	const peers = () => {
+		const channel = voice.current()?.channel;
+		const viewer = lastStore?.viewer.did;
+		return channel
+			? (lastStore?.inVoice(channel) ?? []).filter((did) => did !== viewer)
+			: [];
+	};
+	const streams = [new MediaStream(), new MediaStream()];
+	setVoiceConnectionMonitor({
+		...simulated,
+		videos: () =>
+			peers()
+				.slice(0, 2)
+				.map((did, index) => ({
+					did,
+					source: "cam",
+					stream: streams[index] as MediaStream,
+				})),
+	});
+	await userEvent.click(button(stage(), "Join voice"));
+	const surfaces = () =>
+		Array.from(
+			stage().querySelectorAll<HTMLVideoElement>("[data-video-surface]"),
+		);
+	await expect.poll(() => surfaces().length).toBe(2);
+	const before = surfaces();
+	const tileOf = (stream: MediaStream) =>
+		surfaces()
+			.find((video) => video.srcObject === stream)
+			?.closest<HTMLElement>("button[data-voice-tile]") as HTMLElement;
+	const first = tileOf(streams[0] as MediaStream);
+	const second = tileOf(streams[1] as MediaStream);
+	const secondName = tileName(second);
+
+	const focusFirst = async () => {
+		first.click();
+		await expect.poll(() => slotTile("focused")).toBe(first);
+	};
+	expect(await countSurfaceChurn(focusFirst)).toEqual({ mounts: 0, plays: 0 });
+
+	const focusSecond = async () => {
+		second.click();
+		await expect.poll(() => slotTile("focused")).toBe(second);
+	};
+	expect(await countSurfaceChurn(focusSecond)).toEqual({ mounts: 0, plays: 0 });
+	expect(first.getAttribute("data-voice-slot")).toBe("strip");
+
+	rightClick(slotTile("focused") as HTMLElement);
+	await expect.poll(() => document.querySelector("[role='menu']")).toBeTruthy();
+	expect(
+		document.querySelector("[role='menu']")?.getAttribute("aria-label"),
+	).toBe(`${secondName} options`);
+	await userEvent.keyboard("{Escape}");
+	await expect.poll(() => document.querySelector("[role='menu']")).toBeNull();
+
+	const unfocus = async () => {
+		second.click();
+		await expect.poll(() => voice.focusedKey()).toBeNull();
+		await expect.poll(() => slotTile("grid")).toBeTruthy();
+	};
+	expect(await countSurfaceChurn(unfocus)).toEqual({ mounts: 0, plays: 0 });
+	expect(surfaces()).toEqual(before);
+});
+
+it("stores the strip height and hidden state on the device", async () => {
+	await mount("lounge");
+	await userEvent.click(button(stage(), "Join voice"));
+	await expect
+		.poll(() => stage().querySelectorAll("[data-voice-tile]").length)
+		.toBe(4);
+	(stage().querySelector("button[data-voice-tile]") as HTMLElement).click();
+	const resizer = () =>
+		stage().querySelector<HTMLElement>("[data-pane-resizer][data-axis='y']");
+	await expect.poll(resizer).toBeTruthy();
+	(resizer() as HTMLElement).focus();
+	await userEvent.keyboard("{ArrowUp}");
+	expect(localStorage.getItem("colibri:voice-strip-height")).toBe("104");
+	await userEvent.click(button(stage(), "Hide the row of people"));
+	expect(localStorage.getItem("colibri:voice-strip-hidden")).toBe("true");
+	await expect.poll(resizer).toBeNull();
+	await userEvent.click(button(stage(), "Show the row of people"));
+	expect(localStorage.getItem("colibri:voice-strip-hidden")).toBe("false");
+	await expect.poll(resizer).toBeTruthy();
+	(resizer() as HTMLElement).focus();
+	await userEvent.keyboard("{Home}");
+	expect(localStorage.getItem("colibri:voice-strip-height")).toBe("88");
+	localStorage.removeItem("colibri:voice-strip-height");
+	localStorage.removeItem("colibri:voice-strip-hidden");
+});

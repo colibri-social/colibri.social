@@ -196,6 +196,18 @@ const shareBrowser = async () => {
 
 const NATIVE_CAPTURE_DEADLINE_MS = 15_000;
 
+let nativeCaptureClaim = 0;
+
+const claimNativeCapture = () => {
+	nativeCaptureClaim += 1;
+	return nativeCaptureClaim;
+};
+
+const releaseNativeCapture = (claim: number) => {
+	if (claim !== nativeCaptureClaim) return;
+	void stopNativeCapture();
+};
+
 type NativeShareRequest = {
 	systemDialog: boolean;
 	audioApps?: string[];
@@ -206,6 +218,7 @@ const shareNative = async (
 	request: NativeShareRequest = { systemDialog: false },
 ) => {
 	const chosen = options();
+	const claim = claimNativeCapture();
 	let stage = "start";
 	try {
 		log.debug("starting the native capture", {
@@ -243,13 +256,13 @@ const shareNative = async (
 				audio: bridge.audioTrack,
 				release: () => {
 					bridge.stop();
-					void stopNativeCapture();
+					releaseNativeCapture(claim);
 				},
 			},
 			chosen,
 		);
 	} catch (error) {
-		void stopNativeCapture();
+		releaseNativeCapture(claim);
 		const failure = classifyThrown(error);
 		if (failure.code === "NativeCancelled") {
 			log.debug("the system dialog was cancelled");
@@ -285,6 +298,7 @@ const startLinuxSound = async (
 	kind: NativeAudioCaptureKind,
 	audioApps: string[] | null,
 ) => {
+	const claim = claimNativeCapture();
 	let stage = "start";
 	try {
 		log.debug("starting the native sound", { kind });
@@ -294,15 +308,24 @@ const startLinuxSound = async (
 			() => new ColibriError({ code: "Timeout" }),
 		);
 		stage = "bridge";
-		return await withDeadline(
+
+		const sound = await withDeadline(
 			createNativeAudioTrack(session, (failedStage) => {
 				log.warn("the screen sound stopped", { stage: failedStage });
 			}),
 			NATIVE_CAPTURE_DEADLINE_MS,
 			() => new ColibriError({ code: "Timeout" }),
 		);
+
+		return {
+			track: sound.track,
+			stop: () => {
+				sound.stop();
+				releaseNativeCapture(claim);
+			},
+		};
 	} catch (error) {
-		void stopNativeCapture();
+		releaseNativeCapture(claim);
 		log.warn("native screen sound failed", {
 			code: classifyThrown(error).code,
 			stage: error instanceof CaptureBridgeError ? error.stage : stage,
@@ -375,18 +398,18 @@ const shareLinux = async (request: LinuxShareRequest) => {
 		stopStream();
 		return;
 	}
-	const kind = captureSurfaceKind(video.getSettings().displaySurface);
-	log.debug("the system shared a surface", { kind });
-	const sound = chosen.shareAudio
-		? await startLinuxSound(
-				kind,
-				kind === "window"
-					? request.audioApp
-						? [request.audioApp]
-						: []
-					: (request.screenApps ?? null),
-			)
-		: null;
+	const reported = video.getSettings().displaySurface;
+	const kind = captureSurfaceKind(reported, SURFACE_HINT[request.surface]);
+	log.debug("the system shared a surface", { kind, reported });
+
+	const apps =
+		kind === "window"
+			? request.audioApp
+				? [request.audioApp]
+				: null
+			: (request.screenApps ?? null);
+	const sound = chosen.shareAudio ? await startLinuxSound(kind, apps) : null;
+
 	await voice.shareScreen(
 		{
 			video,
@@ -394,7 +417,6 @@ const shareLinux = async (request: LinuxShareRequest) => {
 			release: () => {
 				stopStream();
 				sound?.stop();
-				void stopNativeCapture();
 			},
 		},
 		chosen,
@@ -605,6 +627,7 @@ export const ScreenShareHost = () => {
 				audioApps={audioApps()}
 				audioApp={audioApp()}
 				onAudioAppChange={setAudioApp}
+				audioAppFallback={browserPicker() ? "everything" : "none"}
 				excludedAudioApps={excludedApps()}
 				onExcludedAudioAppsChange={setExcludedApps}
 			/>

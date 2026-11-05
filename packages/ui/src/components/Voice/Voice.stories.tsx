@@ -15,6 +15,10 @@ import {
 	VoiceFloatingWindow,
 } from "./VoiceFloatingWindow";
 import {
+	DEFAULT_VOICE_STRIP_HEIGHT,
+	MAX_VOICE_STRIP_HEIGHT,
+	MIN_VOICE_STRIP_HEIGHT,
+	VOICE_STRIP_COPY,
 	VoiceGrid,
 	VoiceTile,
 	type VoiceTileData,
@@ -457,12 +461,14 @@ export const FocusTile: Story = {
 		const focused = canvas.getByRole("button", { name: /^Lis\b.*focused/ });
 		await expect(focused).toHaveAttribute("aria-pressed", "true");
 		await expect(
-			canvasElement.querySelector("[data-voice-strip]"),
-		).not.toBeNull();
+			canvasElement.querySelectorAll("[data-voice-slot='strip']").length,
+		).toBe(3);
+		await waitFor(() => expectNoLayoutIssues(focused));
 		await userEvent.click(focused);
 		await expect(
 			canvas.getByRole("button", { name: /^Lis\b(?!.*focused)/ }),
 		).toHaveAttribute("aria-pressed", "false");
+		await expectNoLayoutIssues(canvasElement);
 	},
 };
 
@@ -473,11 +479,352 @@ export const StripFocusRing: Story = {
 		await userEvent.click(
 			canvas.getByRole("button", { name: /^Lis\b(?!.*focused)/ }),
 		);
-		const strip = canvasElement.querySelector(
-			"[data-voice-strip]",
+		const first = canvasElement.querySelector(
+			"[data-voice-slot='strip']",
 		) as HTMLElement;
-		const first = within(strip).getAllByRole("button")[0] as HTMLElement;
 		await expectFocusRingVisible(first);
+		await expectNoLayoutIssues(first);
+		await expectNoLayoutIssues(
+			canvasElement.querySelector("[data-voice-slot='focused']") as HTMLElement,
+		);
+	},
+};
+
+const videoSurfaces = (root: HTMLElement) =>
+	new Map(
+		Array.from(
+			root.querySelectorAll<HTMLVideoElement>("video[data-video-surface]"),
+		).map((video) => [video.srcObject, video]),
+	);
+
+const expectSameSurfaces = async (
+	root: HTMLElement,
+	before: Map<MediaProvider | null, HTMLVideoElement>,
+) => {
+	const after = videoSurfaces(root);
+	await expect(after.size).toBe(before.size);
+	for (const [stream, video] of before) {
+		await expect(after.get(stream)).toBe(video);
+		await expect(video.isConnected).toBe(true);
+	}
+};
+
+const SwitchFocusDemo = () => {
+	const [focused, setFocused] = createSignal<string | null>(null);
+	const tiles: VoiceTileData[] = people.slice(0, 5).map((person, index) => ({
+		...person,
+		stream:
+			index % 2 === 0
+				? fakeCamera(`${person.name} camera`, 40 + index * 60)
+				: undefined,
+	}));
+	return (
+		<Screen>
+			<output data-testid="focused-key">{focused() ?? "none"}</output>
+			<div
+				data-testid="switch-focus"
+				class="h-[300px] w-[360px] overflow-hidden bg-background"
+			>
+				<VoiceGrid
+					tiles={tiles}
+					focusedKey={focused()}
+					onFocusChange={setFocused}
+				/>
+			</div>
+		</Screen>
+	);
+};
+
+export const FocusKeepsVideo: Story = {
+	name: "Focus keeps video",
+	render: () => <SwitchFocusDemo />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const frame = canvas.getByTestId("switch-focus");
+		const focusedKey = canvas.getByTestId("focused-key");
+		const area = frame.querySelector("[data-voice-tiles]") as HTMLElement;
+		const tile = (name: string) =>
+			within(frame).getByRole("button", {
+				name: new RegExp(`^${name}\\b`),
+			});
+		await waitFor(() => expect(videoSurfaces(frame).size).toBe(3));
+		const before = videoSurfaces(frame);
+
+		await userEvent.click(tile("Lou"));
+		await expect(focusedKey).toHaveTextContent("p:lou");
+		await expect(tile("Lou")).toHaveAttribute("data-voice-slot", "focused");
+		await expectSameSurfaces(frame, before);
+
+		await userEvent.click(tile("Tim"));
+		await expect(focusedKey).toHaveTextContent("p:tim");
+		await expect(tile("Lou")).toHaveAttribute("data-voice-slot", "strip");
+		await expect(tile("Tim")).toHaveAttribute("data-voice-slot", "focused");
+		await expectSameSurfaces(frame, before);
+
+		await userEvent.click(tile("Lis"));
+		await expect(focusedKey).toHaveTextContent("p:lis");
+		await expectSameSurfaces(frame, before);
+
+		await waitFor(() =>
+			expect(area.scrollWidth).toBeGreaterThan(area.clientWidth),
+		);
+		const focusedLeft = () => tile("Lis").getBoundingClientRect().left;
+		const firstStripLeft = () => tile("Lou").getBoundingClientRect().left;
+		const pinned = focusedLeft();
+		const stripStart = firstStripLeft();
+		area.scrollLeft = 120;
+		await waitFor(() =>
+			expect(firstStripLeft()).toBeCloseTo(stripStart - 120, 0),
+		);
+		await expect(focusedLeft()).toBeCloseTo(pinned, 0);
+		area.scrollLeft = 0;
+
+		await userEvent.click(tile("Lis"));
+		await expect(focusedKey).toHaveTextContent("none");
+		await expect(frame.querySelector("[data-voice-grid]")).toHaveAttribute(
+			"data-columns",
+		);
+		await expectSameSurfaces(frame, before);
+		await expectNoLayoutIssues(frame);
+	},
+};
+
+const stripCommit = fn();
+const videoSizes = fn();
+
+const lastView = (key: string) =>
+	videoSizes.mock.calls.filter((call) => call[0] === key).at(-1)?.[1];
+
+const FocusResizeDemo = () => {
+	const [focused, setFocused] = createSignal<string | null>("p:lou");
+	const [stripHeight, setStripHeight] = createSignal(
+		DEFAULT_VOICE_STRIP_HEIGHT,
+	);
+	const [stripHidden, setStripHidden] = createSignal(false);
+	const tiles: VoiceTileData[] = people.slice(0, 6).map((person, index) => ({
+		...person,
+		stream:
+			index === 0 || index === 2 || index === 4
+				? fakeCamera(`${person.name} camera`, 20 + index * 50)
+				: undefined,
+	}));
+	return (
+		<Screen class="flex h-dvh flex-col gap-3 bg-popover p-4 text-foreground">
+			<p class="m-0 text-sm text-muted-foreground">
+				Drag the bottom edge of the big tile to resize the row of people.
+				<output data-testid="strip-height" class="ml-2 font-semibold">
+					{stripHidden() ? "Row hidden" : `Row height ${stripHeight()}px`}
+				</output>
+			</p>
+			<div
+				data-testid="focus-resize"
+				class="min-h-0 flex-1 rounded-surface border border-border bg-background p-3"
+			>
+				<VoiceGrid
+					portrait={false}
+					tiles={tiles}
+					focusedKey={focused()}
+					onFocusChange={setFocused}
+					stripHeight={stripHeight()}
+					onStripHeightChange={setStripHeight}
+					onStripHeightCommit={stripCommit}
+					stripHidden={stripHidden()}
+					onStripHiddenChange={setStripHidden}
+					onVideoSize={videoSizes}
+				/>
+			</div>
+		</Screen>
+	);
+};
+
+const dragPointer = (target: EventTarget, type: string, clientY: number) =>
+	target.dispatchEvent(
+		new PointerEvent(type, {
+			bubbles: true,
+			cancelable: true,
+			composed: true,
+			pointerId: 1,
+			pointerType: "mouse",
+			isPrimary: true,
+			button: 0,
+			buttons: type === "pointerup" ? 0 : 1,
+			clientX: 200,
+			clientY,
+		}),
+	);
+
+export const FocusResize: Story = {
+	name: "Focus resize",
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => <FocusResizeDemo />,
+	play: async ({ canvasElement }) => {
+		stripCommit.mockClear();
+		const canvas = within(canvasElement);
+		const frame = canvas.getByTestId("focus-resize");
+		await waitFor(() => {
+			const height = (
+				frame.querySelector("[data-voice-slot='focused']") as HTMLElement
+			).clientHeight;
+			expect(lastView("p:lou")).toEqual({ height, visible: true });
+			expect(lastView("p:tim")?.visible).toBe(true);
+		});
+		await expect(lastView("p:lis")).toBeUndefined();
+		const readout = canvas.getByTestId("strip-height");
+		const area = frame.querySelector("[data-voice-tiles]") as HTMLElement;
+		const resizer = () =>
+			canvas.queryByRole("separator", { name: VOICE_STRIP_COPY.resize });
+		const handle = await waitFor(() => {
+			const found = resizer();
+			if (!found) throw new Error("missing strip resizer");
+			return found;
+		});
+		const focusedTile = () =>
+			frame.querySelector("[data-voice-slot='focused']") as HTMLElement;
+		const stripTiles = () =>
+			Array.from(
+				frame.querySelectorAll<HTMLElement>("[data-voice-slot='strip']"),
+			);
+		const value = () => Number(handle.getAttribute("aria-valuenow"));
+		const root = document.documentElement.style;
+		const padding = Number.parseFloat(getComputedStyle(area).paddingTop);
+		const limit = Math.min(
+			MAX_VOICE_STRIP_HEIGHT,
+			Math.floor((area.clientHeight - padding * 2 - 12) / 2),
+		);
+
+		await expect(handle).toHaveAttribute("aria-orientation", "horizontal");
+		await expect(handle).toHaveAttribute(
+			"aria-valuemin",
+			String(MIN_VOICE_STRIP_HEIGHT),
+		);
+		await expect(handle).toHaveAttribute(
+			"aria-valuemax",
+			String(MAX_VOICE_STRIP_HEIGHT),
+		);
+		await expect(getComputedStyle(handle).cursor).toBe("row-resize");
+		await expect(readout).toHaveTextContent("Row height 88px");
+		await waitFor(() => {
+			const box = handle.getBoundingClientRect();
+			const bottom = focusedTile().getBoundingClientRect().bottom;
+			expect(Math.abs(box.top + box.height / 2 - bottom)).toBeLessThanOrEqual(
+				0.5,
+			);
+		});
+
+		handle.focus();
+		await userEvent.keyboard("{ArrowUp}");
+		await expect(value()).toBe(DEFAULT_VOICE_STRIP_HEIGHT + 16);
+		await expect(stripCommit).toHaveBeenLastCalledWith(
+			DEFAULT_VOICE_STRIP_HEIGHT + 16,
+		);
+		await userEvent.keyboard("{ArrowDown}{ArrowDown}");
+		await expect(value()).toBe(DEFAULT_VOICE_STRIP_HEIGHT - 16);
+		for (let step = 0; step < 4; step++)
+			await userEvent.keyboard("{ArrowDown}");
+		await expect(value()).toBe(MIN_VOICE_STRIP_HEIGHT);
+		for (let step = 0; step < 20; step++) await userEvent.keyboard("{ArrowUp}");
+		await expect(value()).toBe(limit);
+		await userEvent.keyboard("{Home}");
+		await expect(value()).toBe(DEFAULT_VOICE_STRIP_HEIGHT);
+		handle.blur();
+
+		stripCommit.mockClear();
+		const startY = focusedTile().getBoundingClientRect().bottom;
+		dragPointer(handle, "pointerdown", startY);
+		await expect(handle).toHaveAttribute("data-resizing");
+		await expect(root.userSelect).toBe("none");
+		await expect(root.cursor).toBe("row-resize");
+		for (let offset = 1; offset <= 30; offset++)
+			dragPointer(window, "pointermove", startY - offset);
+		await expect(value()).toBe(DEFAULT_VOICE_STRIP_HEIGHT + 30);
+		await expect(stripCommit).not.toHaveBeenCalled();
+		dragPointer(window, "pointermove", startY + 400);
+		await expect(value()).toBe(MIN_VOICE_STRIP_HEIGHT);
+		dragPointer(window, "pointermove", startY - 1000);
+		await expect(value()).toBe(limit);
+		dragPointer(window, "pointermove", startY - 40);
+		dragPointer(window, "pointerup", startY - 40);
+		await expect(stripCommit).toHaveBeenCalledTimes(1);
+		await expect(stripCommit).toHaveBeenLastCalledWith(
+			DEFAULT_VOICE_STRIP_HEIGHT + 40,
+		);
+		await expect(handle).not.toHaveAttribute("data-resizing");
+		await expect(root.userSelect).toBe("");
+		await expect(readout).toHaveTextContent(
+			`Row height ${DEFAULT_VOICE_STRIP_HEIGHT + 40}px`,
+		);
+		await waitFor(() => {
+			const focusedBox = focusedTile().getBoundingClientRect();
+			for (const tile of stripTiles()) {
+				const box = tile.getBoundingClientRect();
+				expect(Math.round(box.height)).toBe(DEFAULT_VOICE_STRIP_HEIGHT + 40);
+				expect(Math.round(box.top - focusedBox.bottom)).toBe(12);
+			}
+		});
+
+		stripCommit.mockClear();
+		const dragFrom = focusedTile().getBoundingClientRect().bottom;
+		dragPointer(handle, "pointerdown", dragFrom);
+		dragPointer(window, "pointermove", dragFrom + 20);
+		await expect(value()).toBe(DEFAULT_VOICE_STRIP_HEIGHT + 20);
+		await userEvent.keyboard("{Escape}");
+		await expect(value()).toBe(DEFAULT_VOICE_STRIP_HEIGHT + 40);
+		await expect(handle).not.toHaveAttribute("data-resizing");
+		await expect(stripCommit).not.toHaveBeenCalled();
+
+		handle.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+		await expect(value()).toBe(DEFAULT_VOICE_STRIP_HEIGHT);
+		await expect(stripCommit).toHaveBeenLastCalledWith(
+			DEFAULT_VOICE_STRIP_HEIGHT,
+		);
+		await expectNoLayoutIssues(frame);
+
+		const shownHeight = focusedTile().getBoundingClientRect().height;
+		await userEvent.click(
+			canvas.getByRole("button", { name: VOICE_STRIP_COPY.hide }),
+		);
+		await expect(readout).toHaveTextContent("Row hidden");
+		await expect(resizer()).toBeNull();
+		await waitFor(() =>
+			expect(lastView("p:tim")).toEqual({ height: 0, visible: false }),
+		);
+		const keys = new Set(videoSizes.mock.calls.map((call) => call[0]));
+		for (const key of keys) {
+			const views = videoSizes.mock.calls
+				.filter((call) => call[0] === key)
+				.map((call) => JSON.stringify(call[1]));
+			for (let index = 1; index < views.length; index++)
+				await expect(views[index]).not.toBe(views[index - 1]);
+		}
+		for (const tile of stripTiles())
+			await expect(tile.getBoundingClientRect().height).toBe(0);
+		await waitFor(() => {
+			const width = area.clientWidth - padding * 2;
+			const height = area.clientHeight - padding * 2;
+			const fullWidth = Math.floor(Math.min(width, (height * 16) / 9));
+			const box = focusedTile().getBoundingClientRect();
+			expect(box.width).toBe(fullWidth);
+			expect(box.height).toBe(Math.floor((fullWidth * 9) / 16));
+			expect(box.height).toBeGreaterThanOrEqual(shownHeight);
+		});
+		const showButton = canvas.getByRole("button", {
+			name: VOICE_STRIP_COPY.show,
+		});
+		const focusedBox = focusedTile().getBoundingClientRect();
+		const toggleBox = showButton.getBoundingClientRect();
+		await expect(toggleBox.right).toBeCloseTo(focusedBox.right - 8, 0);
+		await expect(toggleBox.top).toBeCloseTo(focusedBox.top + 8, 0);
+		await expectNoLayoutIssues(frame);
+		await userEvent.click(showButton);
+		await expect(readout).toHaveTextContent("Row height 88px");
+		await waitFor(() =>
+			expect(focusedTile().getBoundingClientRect().height).toBeCloseTo(
+				shownHeight,
+				0,
+			),
+		);
+		await expect(stripTiles().length).toBe(5);
+		await expect(resizer()).not.toBeNull();
 	},
 };
 
@@ -1082,16 +1429,18 @@ export const TileAvatarFit: Story = {
 				expect(fit.label).toBe(true);
 			}
 		});
-		const strip = canvas
-			.getByTestId("tiny-focus")
-			.querySelector("[data-voice-strip]") as HTMLElement;
+		const strip = canvas.getByTestId("tiny-focus");
 		await waitFor(() => {
-			const tiles = strip.querySelectorAll("[data-voice-tile]");
+			const tiles = strip.querySelectorAll("[data-voice-slot='strip']");
 			expect(tiles.length).toBe(4);
 			for (const tile of tiles) {
 				expect(insideTile(tile, 8).avatar).toBe(true);
 			}
 		});
+		await expectNoLayoutIssues(grid);
+		await expectNoLayoutIssues(
+			strip.querySelector("[data-voice-slot='focused']") as HTMLElement,
+		);
 		const large = canvas
 			.getByTestId("large-tile")
 			.querySelector("[data-tile-avatar-area] > span") as HTMLElement;

@@ -95,17 +95,36 @@ describe("screenMaxBitrate", () => {
 describe("screenEncodings and screenCodecOptions", () => {
 	it("produces a single encoding capped at the ladder bitrate and framerate", () => {
 		const quality = { resolution: "1440", framerate: 30 } as const;
-		expect(screenEncodings(quality)).toEqual([
+		expect(screenEncodings(quality, undefined, false)).toEqual([
 			{ maxBitrate: screenMaxBitrate(quality), maxFramerate: 30 },
 		]);
 	});
 
 	it("adds temporal layers when a scalability mode is given", () => {
 		const quality = { resolution: "1080", framerate: 60 } as const;
-		expect(screenEncodings(quality, "L1T3")).toEqual([
+		expect(screenEncodings(quality, "L1T3", false)).toEqual([
 			{
 				maxBitrate: screenMaxBitrate(quality),
 				maxFramerate: 60,
+				scalabilityMode: "L1T3",
+			},
+		]);
+	});
+
+	it("sends a half resolution layer below the preset by default", () => {
+		const quality = { resolution: "1080", framerate: 30 } as const;
+		const top = screenMaxBitrate(quality);
+		expect(screenEncodings(quality, "L1T3")).toEqual([
+			{
+				scaleResolutionDownBy: 2,
+				maxBitrate: Math.round(top * 0.3),
+				maxFramerate: 30,
+				scalabilityMode: "L1T3",
+			},
+			{
+				scaleResolutionDownBy: 1,
+				maxBitrate: top,
+				maxFramerate: 30,
 				scalabilityMode: "L1T3",
 			},
 		]);

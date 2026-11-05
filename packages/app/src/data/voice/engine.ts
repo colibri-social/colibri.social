@@ -20,6 +20,7 @@ import {
 	produceFrame,
 	resumeConsumerFrame,
 	type ServerVoiceFrame,
+	setConsumerPreferenceFrame,
 	setSelfStateFrame,
 	setSpeakingFrame,
 	type TransportOptionsFrame,
@@ -36,7 +37,12 @@ import {
 	createSignal,
 	on,
 } from "solid-js";
-import { openCamera, openMicrophone } from "../media-devices";
+import {
+	CAMERA_CONTENT_HINT,
+	cameraEncodings,
+	openCamera,
+	openMicrophone,
+} from "../media-devices";
 import type { ServiceAuthAgent } from "../remote/live/connection";
 import {
 	type ScreenShareQuality,
@@ -57,12 +63,28 @@ import {
 	createAudioBoost,
 } from "./gain";
 import {
+	type ConsumerPreference,
+	PREFERENCE_DEBOUNCE_MS,
+	preferredLayers,
+	samePreference,
+	spatialLayersOf,
+	type TileView,
+	tileKeyFor,
+} from "./layers";
+import {
 	captureConstraints,
 	createNoiseSuppressor,
 	type NoiseSuppressor,
 	type NoiseSuppressorOptions,
 } from "./noise-suppressor";
 import { createProducerRegistry } from "./producer-registry";
+import {
+	INITIAL_SENDER_LOAD,
+	type SenderLoad,
+	stepSenderLoad,
+	tunedEncodings,
+	tuningFor,
+} from "./sender-load";
 import {
 	DISCONNECTED,
 	qualityFor,
@@ -78,8 +100,11 @@ import {
 import {
 	browserEncodingProbe,
 	pickScreenCodec,
+	SCREEN_SCALABILITY_MODE,
+	SCREEN_SVC_SCALABILITY_MODE,
 	type ScreenCodecChoice,
 	sendableVideoCodecs,
+	supportsSimulcast,
 	type VideoEncodingProbe,
 } from "./video-codec";
 import {
@@ -180,6 +205,7 @@ export type VoiceEngine = {
 		| "shareScreen"
 		| "stopScreen"
 		| "applyScreenQuality"
+		| "reportTileView"
 		| "screenSharing"
 		| "micAvailable"
 		| "onMicAvailable"
@@ -198,6 +224,14 @@ type ProducerOwner = {
 	did: string;
 	kind: types.MediaKind;
 	source: VoiceMediaSource;
+};
+
+type TunedSender = {
+	source: VideoStatsSource;
+	base: RTCRtpEncodingParameters[];
+	scalabilityMode?: string;
+	degradation?: RTCDegradationPreference;
+	load: SenderLoad;
 };
 
 type AudioEntry = {
@@ -259,6 +293,14 @@ const browserMedia = (): VoiceMedia | undefined => {
 			return () => devices.removeEventListener("devicechange", listener);
 		},
 	};
+};
+
+const documentHidden = () => {
+	return typeof document !== "undefined" && document.hidden;
+};
+
+const pixelRatio = () => {
+	return typeof window === "undefined" ? 1 : window.devicePixelRatio || 1;
 };
 
 const isMissingDevice = (error: unknown): boolean =>
@@ -414,6 +456,11 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		const audioEls = new Map<string, AudioEntry>();
 		const producers = createProducerRegistry<ProducerOwner>();
 		const consumersByProducer = new Map<string, string | null>();
+		const tunedSenders = new Map<string, TunedSender>();
+		const tileViews = new Map<string, TileView>();
+		const sentPreferences = new Map<string, ConsumerPreference>();
+		let preferenceTimer: ReturnType<typeof setTimeout> | null = null;
+		let preferencesSupported = true;
 
 		const patchConnection = (patch: Partial<VoiceConnection>) =>
 			setConnection((current) => ({ ...current, ...patch }));
@@ -661,6 +708,218 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			return samples;
 		};
 
+		const applySenderTuning = (producer: types.Producer) => {
+			const tuned = tunedSenders.get(producer.id);
+			const sender = producer.rtpSender;
+			if (!tuned || !sender) return;
+			const target = tunedEncodings(
+				tuned.base,
+				tuningFor(tuned.load.level, tuned.base.length),
+			);
+
+			try {
+				const params = sender.getParameters() as RTCRtpSendParameters & {
+					degradationPreference?: RTCDegradationPreference;
+				};
+
+				if (tuned.degradation) {
+					params.degradationPreference = tuned.degradation;
+				}
+
+				params.encodings = (params.encodings ?? []).map((encoding, index) => {
+					const wanted = target[index] ?? target.at(-1);
+
+					return wanted
+						? {
+								...encoding,
+								maxBitrate: wanted.maxBitrate,
+								maxFramerate: wanted.maxFramerate,
+								active: wanted.active,
+							}
+						: encoding;
+				});
+
+				void sender.setParameters(params).catch((error: unknown) => {
+					log.debug("video parameters rejected", {
+						source: tuned.source,
+						code: classifyThrown(error).code,
+					});
+				});
+			} catch (error) {
+				log.debug("video parameters unavailable", {
+					source: tuned.source,
+					code: classifyThrown(error).code,
+				});
+			}
+		};
+
+		const tuneSenders = (samples: readonly VideoStatsSample[]) => {
+			const live = new Map<string, types.Producer>();
+
+			for (const producer of [camProducer, screenProducer]) {
+				if (producer && !producer.closed) live.set(producer.id, producer);
+			}
+
+			for (const [id, tuned] of tunedSenders) {
+				const producer = live.get(id);
+
+				if (!producer) {
+					tunedSenders.delete(id);
+					continue;
+				}
+
+				const sample = samples.find(
+					(entry) => entry.id === id && entry.direction === "send",
+				);
+				const next = stepSenderLoad(tuned.load, sample, tuned.base.length);
+				const moved = next.level !== tuned.load.level;
+
+				tuned.load = next;
+				if (!moved) continue;
+
+				log.info("adjusted the video for the encoder load", {
+					source: tuned.source,
+					level: next.level,
+				});
+				applySenderTuning(producer);
+			}
+		};
+
+		const trackSender = (
+			producer: types.Producer,
+			sender: Omit<TunedSender, "load">,
+		) => {
+			tunedSenders.set(producer.id, {
+				...sender,
+				load: { ...INITIAL_SENDER_LOAD },
+			});
+		};
+
+		const produceLayered = async (
+			transport: types.Transport,
+			produce: Omit<types.ProducerOptions, "encodings">,
+			layered: RTCRtpEncodingParameters[],
+			single: RTCRtpEncodingParameters[],
+		): Promise<{
+			producer: types.Producer;
+			encodings: RTCRtpEncodingParameters[];
+		}> => {
+			try {
+				const producer = await transport.produce({
+					...produce,
+					encodings: layered,
+				});
+
+				return { producer, encodings: layered };
+			} catch (error) {
+				const code = classifyThrown(error).code;
+				const sameLayers = JSON.stringify(layered) === JSON.stringify(single);
+
+				if (sameLayers || code === "VoiceConnectionLost") throw error;
+
+				log.info("layered video was rejected, sending one layer", {
+					code,
+				});
+
+				const producer = await transport.produce({
+					...produce,
+					encodings: single,
+				});
+
+				return { producer, encodings: single };
+			}
+		};
+
+		const sendPreference = (
+			consumerId: string,
+			preference: ConsumerPreference,
+		) => {
+			const epoch = mediaEpoch;
+
+			sentPreferences.set(consumerId, preference);
+			void sendAndWait(
+				setConsumerPreferenceFrame({ consumerId, ...preference }),
+			).catch((error: unknown) => {
+				const code = classifyThrown(error).code;
+
+				if (mediaEpoch !== epoch) return;
+				if (sentPreferences.get(consumerId) === preference) {
+					sentPreferences.delete(consumerId);
+				}
+
+				if (code === "InvalidFrame" || code === "InvalidRequest") {
+					if (!preferencesSupported) return;
+					preferencesSupported = false;
+					log.info("the voice server does not take layer preferences", {
+						code,
+					});
+					return;
+				}
+
+				log.debug("setConsumerPreference failed", { code });
+			});
+		};
+
+		const flushPreferences = () => {
+			if (!ready || !preferencesSupported || tileViews.size === 0) return;
+			const hidden = documentHidden();
+			const ratio = pixelRatio();
+
+			for (const consumer of consumers.values()) {
+				if (consumer.kind !== "video" || consumer.closed) continue;
+				const owner = producers.owner(consumer.producerId);
+				if (!owner) continue;
+				const source = owner.source === "screen" ? "screen" : "cam";
+				const view = tileViews.get(tileKeyFor({ did: owner.did, source }));
+				if (!view) continue;
+				const preference = preferredLayers(view, {
+					source,
+					spatialLayers: spatialLayersOf(
+						consumer.rtpParameters?.encodings?.[0]?.scalabilityMode,
+						source,
+					),
+					documentHidden: hidden,
+					pixelRatio: ratio,
+				});
+
+				if (samePreference(sentPreferences.get(consumer.id), preference)) {
+					continue;
+				}
+
+				sendPreference(consumer.id, preference);
+			}
+		};
+
+		const schedulePreferences = () => {
+			if (tileViews.size === 0) return;
+			if (preferenceTimer) clearTimeout(preferenceTimer);
+
+			preferenceTimer = setTimeout(() => {
+				preferenceTimer = null;
+				flushPreferences();
+			}, PREFERENCE_DEBOUNCE_MS);
+		};
+
+		const cancelPreferences = () => {
+			if (preferenceTimer) clearTimeout(preferenceTimer);
+			preferenceTimer = null;
+			sentPreferences.clear();
+		};
+
+		const reportTileView = (key: string, view: TileView) => {
+			const previous = tileViews.get(key);
+
+			if (
+				previous?.height === view.height &&
+				previous.visible === view.visible
+			) {
+				return;
+			}
+
+			tileViews.set(key, { height: view.height, visible: view.visible });
+			schedulePreferences();
+		};
+
 		const stopVideoStats = () => {
 			videoStatsGen += 1;
 			if (videoStatsTimer) clearTimeout(videoStatsTimer);
@@ -677,6 +936,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				const samples = await sampleVideo();
 				if (gen !== videoStatsGen) return;
 				publishVideoStats(samples);
+				tuneSenders(samples);
 				if (isVerboseLogging()) {
 					for (const sample of samples) log.debug("video stats", sample);
 				}
@@ -775,6 +1035,8 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			screenAudioProducer = null;
 			releaseScreenCapture();
 
+			tunedSenders.clear();
+			cancelPreferences();
 			for (const consumer of consumers.values()) consumer.close();
 			consumers.clear();
 			for (const { el, boost } of audioEls.values()) {
@@ -825,6 +1087,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			setCameraOn(false);
 			screenVp8Only = false;
 			teardownMedia();
+			tileViews.clear();
 			abandonSignaling();
 		};
 
@@ -1039,6 +1302,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				source: owner.source === "screen" ? "screen" : "cam",
 				stream: new MediaStream([consumer.track]),
 			});
+			schedulePreferences();
 		};
 
 		const removeProducer = (producerId: string) => {
@@ -1048,6 +1312,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				if (consumer.producerId !== producerId) continue;
 				consumer.close();
 				consumers.delete(id);
+				sentPreferences.delete(id);
 				const entry = audioEls.get(id);
 				if (!entry) continue;
 				entry.boost.dispose();
@@ -1328,6 +1593,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			if (id !== sessionId || !session) return;
 
 			intentionalClose = false;
+			preferencesSupported = true;
 			pendingReplies = [];
 			sendChain = Promise.resolve();
 			abandonSignaling();
@@ -1490,28 +1756,18 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			producer: types.Producer,
 			quality: ScreenShareQuality,
 		) => {
-			const sender = producer.rtpSender;
-			if (!sender) return;
-			try {
-				const params = sender.getParameters() as RTCRtpSendParameters & {
-					degradationPreference?: RTCDegradationPreference;
-				};
-				const maxBitrate = screenEncodings(quality)[0]?.maxBitrate;
-				params.degradationPreference = screenDegradationPreference(quality);
-				for (const encoding of params.encodings ?? []) {
-					encoding.maxBitrate = maxBitrate;
-					encoding.maxFramerate = quality.framerate;
-				}
-				void sender.setParameters(params).catch((error: unknown) => {
-					log.debug("screen parameters rejected", {
-						code: classifyThrown(error).code,
-					});
-				});
-			} catch (error) {
-				log.debug("screen parameters unavailable", {
-					code: classifyThrown(error).code,
-				});
+			const tuned = tunedSenders.get(producer.id);
+
+			if (tuned) {
+				tuned.base = screenEncodings(
+					quality,
+					tuned.scalabilityMode,
+					tuned.base.length > 1,
+				);
+				tuned.degradation = screenDegradationPreference(quality);
 			}
+
+			applySenderTuning(producer);
 		};
 
 		const presetDegradation = (
@@ -1551,6 +1807,37 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			});
 		};
 
+		const produceScreen = (
+			transport: types.Transport,
+			capture: ScreenCapture,
+			quality: ScreenShareQuality,
+			choice: ScreenCodecChoice,
+		) => {
+			return produceLayered(
+				transport,
+				{
+					track: capture.video,
+					appData: { source: "screen" },
+					codecOptions: screenCodecOptions(quality),
+					stopTracks: false,
+					...(choice.codec ? { codec: choice.codec } : {}),
+					onRtpSender: (sender) => presetDegradation(sender, quality),
+				},
+				screenEncodings(
+					quality,
+					choice.scalabilityMode,
+					supportsSimulcast(choice.mimeType),
+				),
+				screenEncodings(
+					quality,
+					choice.scalabilityMode === SCREEN_SVC_SCALABILITY_MODE
+						? SCREEN_SCALABILITY_MODE
+						: choice.scalabilityMode,
+					false,
+				),
+			);
+		};
+
 		const discardCapture = (capture: ScreenCapture) => {
 			capture.video.stop();
 			capture.audio?.stop();
@@ -1586,16 +1873,14 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				powerEfficient: choice.powerEfficient,
 			});
 			let producer: types.Producer;
+			let encodings: RTCRtpEncodingParameters[];
 			try {
-				producer = await transport.produce({
-					track: capture.video,
-					appData: { source: "screen" },
-					encodings: screenEncodings(quality, choice.scalabilityMode),
-					codecOptions: screenCodecOptions(quality),
-					stopTracks: false,
-					...(choice.codec ? { codec: choice.codec } : {}),
-					onRtpSender: (sender) => presetDegradation(sender, quality),
-				});
+				({ producer, encodings } = await produceScreen(
+					transport,
+					capture,
+					quality,
+					choice,
+				));
 			} catch (error) {
 				if (screenCapture === capture) releaseScreenCapture();
 				else discardCapture(capture);
@@ -1612,6 +1897,11 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			}
 			screenProducer = producer;
 			screenMimeType = choice.mimeType.toLowerCase();
+			trackSender(producer, {
+				source: "screen",
+				base: encodings,
+				scalabilityMode: choice.scalabilityMode,
+			});
 			applyDegradation(producer, quality);
 			screenEndedListener = () => stopScreen();
 			capture.video.addEventListener("ended", screenEndedListener);
@@ -1661,16 +1951,14 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				layers: choice.scalabilityMode ?? "none",
 			});
 			let producer: types.Producer;
+			let encodings: RTCRtpEncodingParameters[];
 			try {
-				producer = await transport.produce({
-					track: capture.video,
-					appData: { source: "screen" },
-					encodings: screenEncodings(quality, choice.scalabilityMode),
-					codecOptions: screenCodecOptions(quality),
-					stopTracks: false,
-					...(choice.codec ? { codec: choice.codec } : {}),
-					onRtpSender: (sender) => presetDegradation(sender, quality),
-				});
+				({ producer, encodings } = await produceScreen(
+					transport,
+					capture,
+					quality,
+					choice,
+				));
 			} catch (error) {
 				log.warn("could not send the screen again", {
 					code: classifyThrown(error).code,
@@ -1683,6 +1971,12 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			}
 			screenProducer = producer;
 			screenMimeType = choice.mimeType.toLowerCase();
+			tunedSenders.delete(previous.id);
+			trackSender(producer, {
+				source: "screen",
+				base: encodings,
+				scalabilityMode: choice.scalabilityMode,
+			});
 			applyDegradation(producer, quality);
 			void sendAndWait(closeProducerFrame(previous.id)).catch(
 				(error: unknown) => {
@@ -1738,13 +2032,17 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				return !stale() && !!camProducer;
 			}
 			const preview = new MediaStream([track]);
+			track.contentHint = CAMERA_CONTENT_HINT;
 			setVideo("self:cam", { did: viewer, source: "cam", stream: preview });
 			let producer: types.Producer;
+			let encodings: RTCRtpEncodingParameters[];
 			try {
-				producer = await transport.produce({
-					track,
-					appData: { source: "cam" },
-				});
+				({ producer, encodings } = await produceLayered(
+					transport,
+					{ track, appData: { source: "cam" } },
+					cameraEncodings(true),
+					cameraEncodings(false),
+				));
 			} catch (error) {
 				release();
 				if (stale()) return false;
@@ -1767,6 +2065,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				return false;
 			}
 			camProducer = producer;
+			trackSender(producer, { source: "cam", base: encodings });
 			camEndedListener = () => loseCamera();
 			track.addEventListener("ended", camEndedListener);
 			return true;
@@ -1788,6 +2087,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				}
 				const previous = producer.track;
 				releaseCameraListener();
+				track.contentHint = CAMERA_CONTENT_HINT;
 				await producer.replaceTrack({ track });
 				previous?.stop();
 				camEndedListener = () => loseCamera();
@@ -1887,9 +2187,18 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			reapplyAudioSettings(true),
 		);
 
+		const onVisibilityChange = () => schedulePreferences();
+
+		if (typeof document !== "undefined") {
+			document.addEventListener("visibilitychange", onVisibilityChange);
+		}
+
 		const dispose = () => {
 			stop();
 			stopDeviceWatch?.();
+			if (typeof document !== "undefined") {
+				document.removeEventListener("visibilitychange", onVisibilityChange);
+			}
 			endedListeners.clear();
 			movedListeners.clear();
 			noticeListeners.clear();
@@ -1914,6 +2223,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			shareScreen,
 			stopScreen,
 			applyScreenQuality,
+			reportTileView,
 			screenSharing,
 			micAvailable,
 			speakers,

@@ -61,6 +61,7 @@ export type VoiceController = {
 	): Promise<boolean>;
 	stopScreenShare(): void;
 	applyScreenQuality(quality: ScreenShareQuality): void;
+	reportTileView(key: string, view: { height: number; visible: boolean }): void;
 	expand(): void;
 	collapse(): void;
 	cue(sound: VoiceSound): void;
@@ -437,6 +438,9 @@ export const createVoice = (
 			},
 			stopScreenShare: () => link().stopScreen?.(),
 			applyScreenQuality: (quality) => link().applyScreenQuality?.(quality),
+			reportTileView: (key, view) => {
+				if (current()) link().reportTileView?.(key, view);
+			},
 			expand: () => {
 				if (current()) setExpanded(true);
 			},

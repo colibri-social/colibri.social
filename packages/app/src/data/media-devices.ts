@@ -129,10 +129,42 @@ export const openMicrophone = (
 ): Promise<MediaStream> =>
 	openMediaDevice(getUserMedia, "microphone", constraints, microphone);
 
+export const CAMERA_FRAMERATE = 30;
+
 export const CAMERA_FRAME: MediaTrackConstraints = {
 	width: { ideal: 1280 },
 	height: { ideal: 720 },
 	aspectRatio: { ideal: 16 / 9 },
+	frameRate: { ideal: CAMERA_FRAMERATE, max: CAMERA_FRAMERATE },
+};
+
+export const CAMERA_CONTENT_HINT = "motion";
+
+export const CAMERA_SIMULCAST_ENCODINGS: readonly RTCRtpEncodingParameters[] = [
+	{ scaleResolutionDownBy: 4, maxBitrate: 150_000, maxFramerate: 15 },
+	{
+		scaleResolutionDownBy: 2,
+		maxBitrate: 500_000,
+		maxFramerate: CAMERA_FRAMERATE,
+	},
+	{
+		scaleResolutionDownBy: 1,
+		maxBitrate: 1_500_000,
+		maxFramerate: CAMERA_FRAMERATE,
+	},
+];
+
+export const CAMERA_SINGLE_ENCODING: RTCRtpEncodingParameters = {
+	maxBitrate: 1_200_000,
+	maxFramerate: CAMERA_FRAMERATE,
+};
+
+export const cameraEncodings = (
+	simulcast: boolean,
+): RTCRtpEncodingParameters[] => {
+	return simulcast
+		? CAMERA_SIMULCAST_ENCODINGS.map((encoding) => ({ ...encoding }))
+		: [{ ...CAMERA_SINGLE_ENCODING }];
 };
 
 export const openCamera = (

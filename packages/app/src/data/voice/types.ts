@@ -71,6 +71,10 @@ export type VoiceConnectionMonitor = {
 	) => Promise<boolean>;
 	stopScreen?: () => void;
 	applyScreenQuality?: (quality: ScreenShareQuality) => void;
+	reportTileView?: (
+		key: string,
+		view: { height: number; visible: boolean },
+	) => void;
 	screenSharing?: () => boolean;
 	micAvailable?: () => boolean;
 	onMicAvailable?: (listener: (available: boolean) => void) => () => void;

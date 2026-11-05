@@ -56,7 +56,7 @@ describe("sendableVideoCodecs", () => {
 describe("layersFor", () => {
 	it("adds temporal layers for VP8 and VP9 on Chromium only", () => {
 		expect(layersFor("video/VP8", "Chrome111")).toBe("L1T3");
-		expect(layersFor("video/vp9", "Chrome111")).toBe("L1T3");
+		expect(layersFor("video/vp9", "Chrome111")).toBe("L2T3_KEY");
 		expect(layersFor("video/h264", "Chrome111")).toBeUndefined();
 		expect(layersFor("video/vp8", "Safari12")).toBeUndefined();
 		expect(layersFor("video/vp8", "Firefox120")).toBeUndefined();
@@ -73,7 +73,7 @@ describe("pickScreenCodec", () => {
 		]);
 	});
 
-	it("sends VP9 with temporal layers when no encoder is power efficient", async () => {
+	it("sends VP9 with spatial and temporal layers when no encoder is power efficient", async () => {
 		const probe = vi.fn(
 			probeWith({
 				"video/vp9": { supported: true, powerEfficient: false },
@@ -91,10 +91,10 @@ describe("pickScreenCodec", () => {
 		).toEqual({
 			codec: VP9,
 			mimeType: "video/vp9",
-			scalabilityMode: "L1T3",
+			scalabilityMode: "L2T3_KEY",
 			powerEfficient: false,
 		});
-		expect(probe).toHaveBeenCalledWith("video/vp9", TARGET, "L1T3");
+		expect(probe).toHaveBeenCalledWith("video/vp9", TARGET, "L2T3_KEY");
 		expect(probe).toHaveBeenCalledWith("video/h264", TARGET, undefined);
 		expect(probe).toHaveBeenCalledWith("video/vp8", TARGET, "L1T3");
 	});
@@ -188,7 +188,7 @@ describe("pickScreenCodec", () => {
 			mimeType: "video/h264",
 			powerEfficient: true,
 		});
-		expect(probe).toHaveBeenCalledWith("video/vp9", TARGET, "L1T3");
+		expect(probe).toHaveBeenCalledWith("video/vp9", TARGET, "L2T3_KEY");
 		expect(probe).toHaveBeenCalledWith("video/h264", TARGET, undefined);
 	});
 
@@ -207,7 +207,7 @@ describe("pickScreenCodec", () => {
 				probe: software,
 				candidates,
 			}),
-		).toMatchObject({ codec: VP9, scalabilityMode: "L1T3" });
+		).toMatchObject({ codec: VP9, scalabilityMode: "L2T3_KEY" });
 		expect(
 			await pickScreenCodec({
 				codecs: [VP8, H264],

@@ -1,6 +1,17 @@
 import { createSignal } from "solid-js";
-import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test";
+import {
+	expect,
+	fireEvent,
+	screen,
+	userEvent,
+	waitFor,
+	within,
+} from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import {
+	DropdownMenu,
+	type DropdownMenuEntry,
+} from "../DropdownMenu/DropdownMenu";
 import { Slider } from "./Slider";
 
 const meta = {
@@ -315,5 +326,148 @@ export const SnapOff: Story = {
 		} finally {
 			Element.prototype.setPointerCapture = capture;
 		}
+	},
+};
+
+export const HoverArrowKeys: Story = {
+	render: () => {
+		const [volume, setVolume] = createSignal([50]);
+		const [committed, setCommitted] = createSignal<number>();
+		return (
+			<>
+				<Slider
+					label="Notification volume"
+					showValue
+					value={volume()}
+					onChange={setVolume}
+					onChangeEnd={(values) => setCommitted(values[0])}
+					formatValue={percent}
+				/>
+				<input
+					aria-label="Nickname"
+					class="h-9 rounded-control-sm border border-border bg-input px-3 text-sm text-foreground"
+				/>
+				<p data-testid="value" class="text-sm text-muted-foreground">
+					{volume()[0]}
+				</p>
+				<p data-testid="committed" class="text-sm text-muted-foreground">
+					{committed() ?? ""}
+				</p>
+			</>
+		);
+	},
+	play: async ({ canvasElement, step }) => {
+		const canvas = within(canvasElement);
+		const value = () => canvas.getByTestId("value");
+		const thumb = canvas.getByRole("slider", { name: "Notification volume" });
+		const slider = thumb.closest<HTMLElement>("[role='group']") ?? thumb;
+		const input = canvas.getByRole("textbox", { name: "Nickname" });
+		(document.activeElement as HTMLElement | null)?.blur();
+
+		await step("Arrows step the hovered slider without focus", async () => {
+			await userEvent.hover(slider);
+			await userEvent.keyboard("{ArrowRight}{ArrowRight}{ArrowUp}");
+			await waitFor(() => expect(value()).toHaveTextContent("53"));
+			await expect(thumb).not.toHaveFocus();
+			await userEvent.keyboard("{ArrowLeft}");
+			await waitFor(() => expect(value()).toHaveTextContent("52"));
+			await userEvent.keyboard("{Shift>}{ArrowRight}{/Shift}");
+			await waitFor(() => expect(value()).toHaveTextContent("62"));
+			await userEvent.keyboard("{PageDown}");
+			await waitFor(() => expect(value()).toHaveTextContent("52"));
+			await userEvent.keyboard("{End}");
+			await waitFor(() => expect(value()).toHaveTextContent("100"));
+			await userEvent.keyboard("{Home}");
+			await waitFor(() => expect(value()).toHaveTextContent("0"));
+			await expect(canvas.getByTestId("committed")).toHaveTextContent("");
+		});
+
+		await step("Modifier shortcuts pass through", async () => {
+			await userEvent.keyboard("{Control>}{ArrowRight}{/Control}");
+			await expect(value()).toHaveTextContent("0");
+		});
+
+		await step("Leaving commits and stops stepping", async () => {
+			await userEvent.unhover(slider);
+			await waitFor(() =>
+				expect(canvas.getByTestId("committed")).toHaveTextContent("0"),
+			);
+			await userEvent.keyboard("{ArrowRight}");
+			await expect(value()).toHaveTextContent("0");
+		});
+
+		await step("A focused text input keeps its arrows", async () => {
+			input.focus();
+			await userEvent.hover(slider);
+			await userEvent.keyboard("{ArrowRight}");
+			await expect(value()).toHaveTextContent("0");
+			await userEvent.unhover(slider);
+			input.blur();
+		});
+
+		await step("A focused thumb steps once", async () => {
+			thumb.focus();
+			await userEvent.hover(slider);
+			await userEvent.keyboard("{ArrowRight}");
+			await waitFor(() => expect(value()).toHaveTextContent("1"));
+			await userEvent.unhover(slider);
+		});
+	},
+};
+
+export const HoverArrowKeysInMenu: Story = {
+	render: () => {
+		const [volume, setVolume] = createSignal(60);
+		const items: DropdownMenuEntry[] = [
+			{
+				kind: "slider",
+				label: "Stream volume",
+				get value() {
+					return volume();
+				},
+				max: 200,
+				formatValue: percent,
+				onChange: setVolume,
+			},
+			{ label: "Mute stream" },
+			{ label: "Hide stream" },
+		];
+		return (
+			<div class="flex min-h-[360px] justify-start bg-background p-8">
+				<DropdownMenu
+					platform="desktop"
+					label="Call options"
+					placement="bottom-start"
+					triggerClass="flex h-9 cursor-pointer items-center rounded-control-sm border border-border bg-secondary px-3 text-sm font-semibold text-foreground"
+					trigger="Call options"
+					items={items}
+				/>
+				<span data-testid="value" class="sr-only">
+					{volume()}
+				</span>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(canvas.getByRole("button", { name: "Call options" }));
+		const menu = await screen.findByRole("menu");
+		const thumb = within(menu).getByRole("slider", { name: "Stream volume" });
+		const slider = thumb.closest<HTMLElement>("[role='group']") ?? thumb;
+		const focused = document.activeElement;
+		const highlighted = () => menu.querySelector("[data-highlighted]");
+		const highlightBefore = highlighted();
+
+		await userEvent.hover(slider);
+		await userEvent.keyboard("{ArrowDown}{ArrowDown}");
+		await waitFor(() =>
+			expect(canvas.getByTestId("value")).toHaveTextContent("58"),
+		);
+		await expect(document.activeElement).toBe(focused);
+		await expect(highlighted()).toBe(highlightBefore);
+		await expect(screen.getByRole("menu")).toBeInTheDocument();
+		await userEvent.unhover(slider);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
 	},
 };

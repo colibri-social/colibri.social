@@ -1,4 +1,8 @@
-import { createSignal } from "solid-js";
+import {
+	clampStripHeight,
+	DEFAULT_VOICE_STRIP_HEIGHT,
+} from "@colibri-social/ui";
+import { createRoot, createSignal } from "solid-js";
 import {
 	readStored,
 	readStoredJSON,
@@ -11,6 +15,8 @@ export const DEVICE_KEYS = {
 	lastChannel: (space: string) => `colibri:last-channel:${space}`,
 	voiceSettings: "colibri:voice-settings",
 	voiceVolumes: "colibri:voice-volumes",
+	voiceStripHeight: "colibri:voice-strip-height",
+	voiceStripHidden: "colibri:voice-strip-hidden",
 	reportAttribution: "colibri:report-attribution",
 	systemWindowControls: "colibri:system-window-controls",
 	nativeNotifications: "colibri:native-notifications",
@@ -43,4 +49,36 @@ export const devicePref = <T>(
 		writeStoredJSON(key, next);
 	};
 	return [value, set] as const;
+};
+
+const isFiniteNumber = (value: unknown): value is number =>
+	typeof value === "number" && Number.isFinite(value);
+
+const isBoolean = (value: unknown): value is boolean =>
+	typeof value === "boolean";
+
+const createVoiceStripPrefs = () => {
+	const [height, setHeight] = devicePref(
+		DEVICE_KEYS.voiceStripHeight,
+		DEFAULT_VOICE_STRIP_HEIGHT,
+		isFiniteNumber,
+	);
+	const [hidden, setHidden] = devicePref(
+		DEVICE_KEYS.voiceStripHidden,
+		false,
+		isBoolean,
+	);
+	return {
+		height: () => clampStripHeight(height()),
+		setHeight: (next: number) => setHeight(clampStripHeight(next)),
+		hidden,
+		setHidden,
+	};
+};
+
+let voiceStrip: ReturnType<typeof createVoiceStripPrefs> | undefined;
+
+export const voiceStripPrefs = () => {
+	voiceStrip ??= createRoot(createVoiceStripPrefs);
+	return voiceStrip;
 };

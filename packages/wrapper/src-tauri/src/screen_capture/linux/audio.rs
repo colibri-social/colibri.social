@@ -149,13 +149,15 @@ fn whole_screen(kind: SourceKind) -> bool {
 
 pub fn choose_target(shared: &Shared, chosen: Option<&[String]>) -> Option<Target> {
     let chosen = chosen.filter(|_| !whole_screen(shared.requested) || whole_screen(shared.kind));
-    if let Some(ids) = chosen {
-        return Target::from_ids(ids);
+    if let Some(target) = chosen.and_then(Target::from_ids) {
+        return Some(target);
     }
     match shared.kind {
-        SourceKind::Display => Some(Target::EverythingExceptColibri),
+        SourceKind::Display => chosen.is_none().then_some(Target::EverythingExceptColibri),
         SourceKind::Window | SourceKind::Application => {
-            shared.window_process.map(Target::process_tree)
+            shared.window_process.map(Target::process_tree).or_else(|| {
+                (!whole_screen(shared.requested)).then_some(Target::EverythingExceptColibri)
+            })
         }
     }
 }
@@ -1216,7 +1218,14 @@ mod tests {
             choose_target(&Shared::native(Window, Some(42)), None),
             Some(Target::process_tree(42))
         );
-        assert_eq!(choose_target(&Shared::native(Window, None), None), None);
+        assert_eq!(
+            choose_target(&Shared::native(Window, None), None),
+            Some(Target::EverythingExceptColibri)
+        );
+        assert_eq!(
+            choose_target(&Shared::native(Window, None), Some(&[])),
+            Some(Target::EverythingExceptColibri)
+        );
         assert_eq!(
             choose_target(&Shared::native(Display, None), Some(&[])),
             None
@@ -1247,14 +1256,20 @@ mod tests {
     }
 
     #[test]
-    fn a_portal_window_takes_only_the_chosen_apps_audio() {
+    fn a_portal_window_takes_the_chosen_apps_or_everything_except_colibri() {
         use SourceKind::Window;
-        assert_eq!(choose_target(&portal(Window, Window), None), None);
+        assert_eq!(
+            choose_target(&portal(Window, Window), None),
+            Some(Target::EverythingExceptColibri)
+        );
         assert_eq!(
             choose_target(&portal(Window, Window), Some(&ids(&["name-Spotify"]))),
             Some(Target::Apps(vec![AppKey::Name("Spotify".to_string())]))
         );
-        assert_eq!(choose_target(&portal(Window, Window), Some(&[])), None);
+        assert_eq!(
+            choose_target(&portal(Window, Window), Some(&[])),
+            Some(Target::EverythingExceptColibri)
+        );
     }
 
     #[test]

@@ -80,6 +80,7 @@ export type ScreenSharePickerProps = {
 	audioApps?: readonly ScreenShareAudioApp[];
 	audioApp?: string;
 	onAudioAppChange?: (id: string | undefined) => void;
+	audioAppFallback?: "none" | "everything";
 	excludedAudioApps?: readonly string[];
 	onExcludedAudioAppsChange?: (ids: string[]) => void;
 };
@@ -118,6 +119,7 @@ export const SCREEN_SHARE_PICKER_COPY = {
 	soundDescription: "Others hear what's playing on your screen.",
 	soundFrom: "Sound from",
 	noSound: "No sound",
+	allSound: "All sound except Colibri",
 	routerNote:
 		"Some apps that route your sound are turned off so others don't hear themselves.",
 } as const;
@@ -223,6 +225,7 @@ const QualityFields = (props: {
 	audioApps?: readonly ScreenShareAudioApp[];
 	audioApp?: string;
 	onAudioAppChange?: (id: string | undefined) => void;
+	audioAppFallback?: "none" | "everything";
 	screenAudioApps?: readonly ScreenShareAudioApp[];
 	excludedAudioApps?: readonly string[];
 	onExcludedAudioAppsChange?: (ids: string[]) => void;
@@ -280,7 +283,13 @@ const QualityFields = (props: {
 						platform={props.platform}
 						label={SCREEN_SHARE_PICKER_COPY.soundFrom}
 						options={[
-							{ value: NO_AUDIO_APP, label: SCREEN_SHARE_PICKER_COPY.noSound },
+							{
+								value: NO_AUDIO_APP,
+								label:
+									props.audioAppFallback === "everything"
+										? SCREEN_SHARE_PICKER_COPY.allSound
+										: SCREEN_SHARE_PICKER_COPY.noSound,
+							},
 							...apps().map((app) => ({ value: app.id, label: app.name })),
 						]}
 						value={props.audioApp ?? NO_AUDIO_APP}
@@ -534,6 +543,7 @@ export const ScreenSharePicker = (props: ScreenSharePickerProps) => {
 						audioApps={audioApps()}
 						audioApp={props.audioApp}
 						onAudioAppChange={props.onAudioAppChange}
+						audioAppFallback={props.audioAppFallback}
 						screenAudioApps={screenAudioApps()}
 						excludedAudioApps={props.excludedAudioApps}
 						onExcludedAudioAppsChange={props.onExcludedAudioAppsChange}

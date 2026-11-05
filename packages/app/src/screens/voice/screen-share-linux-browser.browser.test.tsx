@@ -6,20 +6,8 @@ import { page, userEvent } from "vitest/browser";
 import { voice } from "../../data/voice";
 import { Providers } from "../../providers";
 
-const native = vi.hoisted(() => ({
-	start: vi.fn(),
-	startAudio: vi.fn(),
-	audioTrack: vi.fn(),
-	stop: vi.fn(async () => {}),
-	list: vi.fn(async () => []),
-	prepare: vi.fn(async () => {}),
-}));
-
-vi.mock("../../native/screen-capture", () => ({
-	CaptureBridgeError: class extends Error {},
-	createNativeAudioTrack: native.audioTrack,
-	createNativeCaptureTrack: vi.fn(),
-	listNativeAudioApps: async () => [
+const native = vi.hoisted(() => {
+	const audioApps = [
 		{
 			id: "process-7",
 			name: "Spotify",
@@ -38,7 +26,25 @@ vi.mock("../../native/screen-capture", () => ({
 			preselected: false,
 			router: true,
 		},
-	],
+	];
+
+	return {
+		audioApps,
+		apps: vi.fn(async () => audioApps),
+		start: vi.fn(),
+		startAudio: vi.fn(),
+		audioTrack: vi.fn(),
+		stop: vi.fn(async () => {}),
+		list: vi.fn(async () => []),
+		prepare: vi.fn(async () => {}),
+	};
+});
+
+vi.mock("../../native/screen-capture", () => ({
+	CaptureBridgeError: class extends Error {},
+	createNativeAudioTrack: native.audioTrack,
+	createNativeCaptureTrack: vi.fn(),
+	listNativeAudioApps: native.apps,
 	listNativeCaptureSources: native.list,
 	nativeCapturePermission: async () => true,
 	nativeCapturePicker: async () => ({ kind: "browser" }),
@@ -97,11 +103,12 @@ afterEach(() => {
 	native.stop.mockClear();
 	native.list.mockClear();
 	native.prepare.mockClear();
+	native.apps.mockImplementation(async () => native.audioApps);
 	changeScreenShareSettings({ shareAudio: false });
 	vi.restoreAllMocks();
 });
 
-const fakeStream = (displaySurface: string, painting = true) => {
+const fakeStream = (displaySurface: string | undefined, painting = true) => {
 	const canvas = document.createElement("canvas");
 	canvas.width = 64;
 	canvas.height = 36;
@@ -150,7 +157,10 @@ const openPicker = async () => {
 		.toBeInTheDocument();
 };
 
-const shareFrom = async (displaySurface: string, painting = true) => {
+const shareFrom = async (
+	displaySurface: string | undefined,
+	painting = true,
+) => {
 	const { video, stream } = fakeStream(displaySurface, painting);
 	const display = vi
 		.spyOn(navigator.mediaDevices, "getDisplayMedia")
@@ -186,7 +196,7 @@ it("shares the whole screen through the system dialog without a source list", as
 	expect(native.startAudio).not.toHaveBeenCalled();
 	capture.release();
 	expect(video.stop).toHaveBeenCalled();
-	expect(native.stop).toHaveBeenCalled();
+	expect(native.stop).not.toHaveBeenCalled();
 });
 
 it("adds the sound of the whole screen without the routing apps", async () => {
@@ -224,6 +234,54 @@ it("takes the sound of the picked app when the system shares a window", async ()
 	await sharedCapture(share);
 	expect(native.startAudio).toHaveBeenCalledWith("window", ["process-7"]);
 	expect(native.prepare).not.toHaveBeenCalled();
+});
+
+it("keeps a whole screen share when the system reports another surface", async () => {
+	await shareFrom(undefined);
+	const share = stubShare();
+	native.startAudio.mockResolvedValue(SESSION);
+	native.audioTrack.mockResolvedValue(fakeSound());
+	changeScreenShareSettings({ shareAudio: true });
+	await openPicker();
+	await userEvent.click(page.getByText("Whole screen"));
+	await userEvent.click(page.getByRole("button", { name: "Continue" }));
+	await sharedCapture(share);
+	expect(native.startAudio).toHaveBeenCalledWith("display", ["process-7"]);
+});
+
+it("takes everything except Colibri when a window share has no app picked", async () => {
+	await shareFrom("window");
+	native.apps.mockImplementation(async () =>
+		native.audioApps.map((app) => ({ ...app, preselected: false })),
+	);
+	const share = stubShare();
+	native.startAudio.mockResolvedValue(SESSION);
+	native.audioTrack.mockResolvedValue(fakeSound());
+	changeScreenShareSettings({ shareAudio: true });
+	await openPicker();
+	await userEvent.click(page.getByText("One window"));
+	await userEvent.click(page.getByRole("button", { name: "Continue" }));
+	await sharedCapture(share);
+	expect(native.startAudio).toHaveBeenCalledWith("window", null);
+});
+
+it("leaves a newer share's sound running when an older share is released", async () => {
+	await shareFrom("monitor");
+	const share = stubShare();
+	native.startAudio.mockResolvedValue(SESSION);
+	native.audioTrack.mockImplementation(async () => fakeSound());
+	changeScreenShareSettings({ shareAudio: true });
+	await openPicker();
+	await userEvent.click(page.getByRole("button", { name: "Continue" }));
+	await sharedCapture(share);
+	await toggleScreenShare();
+	await userEvent.click(page.getByRole("button", { name: "Continue" }));
+	await vi.waitFor(() => expect(share).toHaveBeenCalledTimes(2));
+	const [older, newer] = share.mock.calls.map((call) => call[0] as Capture);
+	older?.release();
+	expect(native.stop).not.toHaveBeenCalled();
+	newer?.release();
+	expect(native.stop).toHaveBeenCalledTimes(1);
 });
 
 it("follows the surface the system shared, not the one picked in the sheet", async () => {

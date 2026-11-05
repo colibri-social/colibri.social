@@ -125,7 +125,8 @@ export const readVideoStats = (
 		if (stat.type === "candidate-pair") pairs.push(stat);
 		if (stat.type === "transport") transport = stat;
 	});
-	const main = rtp.reduce<Stat | undefined>(
+	const active = rtp.filter((stat) => stat.active !== false);
+	const main = (active.length > 0 ? active : rtp).reduce<Stat | undefined>(
 		(best, stat) =>
 			(num(stat.frameWidth) ?? 0) >= (num(best?.frameWidth) ?? -1)
 				? stat

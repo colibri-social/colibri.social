@@ -171,6 +171,36 @@ describe("readVideoStats", () => {
 		);
 	});
 
+	it("reads the largest active simulcast layer and sums every layer's bytes", () => {
+		const layer = (
+			id: string,
+			frameWidth: number,
+			active: boolean,
+			qualityLimitationReason: string,
+		) => ({
+			id,
+			type: "outbound-rtp",
+			kind: "video",
+			frameWidth,
+			frameHeight: frameWidth / 2,
+			bytesSent: 1_000,
+			timestamp: 1,
+			active,
+			qualityLimitationReason,
+		});
+		const { sample, mark } = readVideoStats(
+			report([
+				layer("low", 320, true, "cpu"),
+				layer("mid", 640, true, "cpu"),
+				layer("high", 1280, false, "none"),
+			]),
+			{ id: "cam-1", direction: "send", source: "cam" },
+			undefined,
+		);
+		expect(sample).toMatchObject({ width: 640, limitation: "cpu" });
+		expect(mark).toEqual({ bytes: 3_000, timestamp: 1 });
+	});
+
 	it("falls back to the nominated pair and reports a direct route", () => {
 		const { sample } = readVideoStats(
 			report([
