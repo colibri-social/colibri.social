@@ -322,6 +322,7 @@ export type DrawerContentProps = {
 	handle?: boolean;
 	fill?: boolean;
 	class?: string;
+	overlayClass?: string;
 	children?: JSX.Element;
 	"aria-label"?: string;
 };
@@ -338,6 +339,7 @@ export const DrawerContent = (props: DrawerContentProps) => {
 		"handle",
 		"fill",
 		"class",
+		"overlayClass",
 		"children",
 	]);
 	const showHandle = () => local.handle ?? true;
@@ -373,7 +375,10 @@ export const DrawerContent = (props: DrawerContentProps) => {
 		<CorvuDrawer.Portal>
 			<CorvuDrawer.Overlay
 				{...topLayerAttrs}
-				class="sheet-motion fixed inset-0 z-50 bg-overlay"
+				class={cx(
+					"sheet-motion fixed inset-0 z-50 bg-overlay",
+					local.overlayClass,
+				)}
 				style={{ opacity: context.openPercentage() }}
 			/>
 			<CorvuDrawer.Content

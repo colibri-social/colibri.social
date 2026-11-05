@@ -381,7 +381,7 @@ export const createConversation = (options: ConversationOptions) => {
 		setActiveFeed(current);
 		onCleanup(() => {
 			setActiveFeed(undefined);
-			data.setViewing(undefined);
+			if (untrack(data.viewing) === current.channel) data.setViewing(undefined);
 		});
 	});
 

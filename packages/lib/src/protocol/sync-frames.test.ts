@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	activityFrame,
 	decodeFrame,
 	encodeFrame,
 	frameIs,
@@ -49,6 +50,12 @@ describe("client frame round-tripping", () => {
 		expect(JSON.parse(encodeFrame(frame))).toEqual({
 			$type: "social.colibri.beta.sync.defs#typing",
 			channel: CHANNEL,
+		});
+	});
+
+	it("round-trips activityFrame", () => {
+		expect(JSON.parse(encodeFrame(activityFrame()))).toEqual({
+			$type: "social.colibri.beta.sync.defs#activity",
 		});
 	});
 

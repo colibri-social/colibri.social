@@ -6,6 +6,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LiveEvent } from "../../source";
 import {
+	ACTIVITY_RESEND_MS,
 	createLiveConnection,
 	HEARTBEAT_MS,
 	type LiveConnectionOptions,
@@ -263,6 +264,27 @@ describe("createLiveConnection", () => {
 		expect(latest().frames("viewChannel")).toEqual([
 			{ $type: "social.colibri.beta.sync.defs#viewChannel", channel: GENERAL },
 		]);
+		live.close();
+	});
+
+	it("repeats recent activity to a new socket and lets old activity lapse", async () => {
+		const live = start();
+		await flush();
+		latest().open();
+		live.send({ $type: "social.colibri.beta.sync.defs#activity" } as never);
+
+		latest().drop();
+		await vi.advanceTimersByTimeAsync(1_000);
+		latest().open();
+		expect(latest().frames("activity")).toEqual([
+			{ $type: "social.colibri.beta.sync.defs#activity" },
+		]);
+
+		await vi.advanceTimersByTimeAsync(ACTIVITY_RESEND_MS);
+		latest().drop();
+		await vi.advanceTimersByTimeAsync(1_000);
+		latest().open();
+		expect(latest().frames("activity")).toEqual([]);
 		live.close();
 	});
 

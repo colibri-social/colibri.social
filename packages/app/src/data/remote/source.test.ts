@@ -551,6 +551,9 @@ describe("createRemoteSource", () => {
 			.callsTo("com.atproto.space.createRecord")
 			.map((call) => call.body as Record<string, any>);
 		expect(reply?.record.parent).toEqual({ did: OTHER, rkey: "4" });
+		expect(reply?.record.parentUri).toBe(
+			`${CHANNEL}/${OTHER}/social.colibri.beta.message/4`,
+		);
 		expect(reaction?.rkey).toBe("r1");
 		expect(reaction?.record.target).toEqual({ did: OTHER, rkey: "4" });
 	});
@@ -594,6 +597,7 @@ describe("createRemoteSource", () => {
 			$type: "social.colibri.beta.reaction",
 			emoji: "🔥",
 			target: { did: OTHER, rkey: "7" },
+			uri: `${CHANNEL}/${OTHER}/social.colibri.beta.message/7`,
 		});
 		const removed = only(fake.callsTo("com.atproto.space.deleteRecord"))
 			.body as Record<string, any>;
@@ -631,6 +635,51 @@ describe("createRemoteSource", () => {
 		expect(
 			(only(fake.callsTo("com.atproto.space.deleteRecord")).body as any).rkey,
 		).toBe("old");
+	});
+
+	it("matches an older reaction record by its uri before its target", async () => {
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				"com.atproto.space.listRecords",
+				json({
+					records: [
+						{
+							collection: "social.colibri.beta.reaction",
+							rkey: "stale",
+							cid: "bafystale",
+							value: {
+								emoji: "🔥",
+								target: { did: OTHER, rkey: "7" },
+								uri: `${CHANNEL}/${VIEWER}/social.colibri.beta.message/7`,
+							},
+						},
+						{
+							collection: "social.colibri.beta.reaction",
+							rkey: "match",
+							cid: "bafymatch",
+							value: {
+								emoji: "🔥",
+								target: { did: VIEWER, rkey: "7" },
+								uri: `${CHANNEL}/${OTHER}/social.colibri.beta.message/7`,
+							},
+						},
+					],
+				}),
+			);
+			fake.on("com.atproto.space.deleteRecord", json({}));
+		});
+		await withMessages(source, fake, [message("7")]);
+
+		await source.react({
+			channel: CHANNEL,
+			rkey: "7",
+			emoji: "🔥",
+			add: false,
+		});
+
+		expect(
+			(only(fake.callsTo("com.atproto.space.deleteRecord")).body as any).rkey,
+		).toBe("match");
 	});
 
 	it("hides and unhides a message with a label", async () => {
@@ -1753,6 +1802,16 @@ describe("createRemoteSource", () => {
 		expect(live.sent).toEqual([
 			{ $type: "social.colibri.beta.sync.defs#viewChannel", channel: CHANNEL },
 			{ $type: "social.colibri.beta.sync.defs#viewChannel" },
+		]);
+	});
+
+	it("reports activity over the live socket", async () => {
+		const { live, source } = await setup();
+
+		source.markActive();
+
+		expect(live.sent).toEqual([
+			{ $type: "social.colibri.beta.sync.defs#activity" },
 		]);
 	});
 

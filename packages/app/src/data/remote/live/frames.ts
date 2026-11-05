@@ -1,7 +1,11 @@
-import { frameIs, type ServerFrame } from "@colibri-social/lib";
+import {
+	frameIs,
+	type ServerFrame,
+	sameSpaceRecordRef,
+} from "@colibri-social/lib";
 import type { BlobLocator } from "../../emoji";
 import { fromWire } from "../../preferences/wire";
-import type { LiveEvent } from "../../source";
+import { type LiveEvent, MESSAGE_COLLECTION } from "../../source";
 import type {
 	CategoryView,
 	ChannelView,
@@ -119,12 +123,20 @@ export const toLiveEvents = (
 	if (frameIs(frame, "reactionEvent")) {
 		const event = known(frame.event, TOGGLE);
 		if (!event) return [];
+		const { uri } = frame as { uri?: unknown };
+		const target = sameSpaceRecordRef(
+			frame.channel,
+			MESSAGE_COLLECTION,
+			typeof uri === "string" ? uri : undefined,
+			frame.target,
+		);
+		if (!target) return [];
 		return [
 			{
 				$type: "reactionEvent",
 				event,
 				channel: asSpace(frame.channel),
-				target: frame.target.rkey,
+				target: { did: asDid(target.did), rkey: target.rkey },
 				emoji: frame.emoji,
 				...(frame.customEmoji ? { customEmoji: frame.customEmoji } : {}),
 				actor: asDid(frame.actor),

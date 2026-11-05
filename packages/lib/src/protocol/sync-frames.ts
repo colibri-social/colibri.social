@@ -35,6 +35,7 @@ export type SetPresenceFrame = FrameOf<
 	"setPresence"
 >;
 export type WroteToFrame = FrameOf<typeof colibri.sync.defs.wroteTo, "wroteTo">;
+export type ActivityFrame = { $type: `${typeof SYNC_DEFS_NSID}#activity` };
 
 export type ClientFrame =
 	| SubscribeFrame
@@ -43,7 +44,8 @@ export type ClientFrame =
 	| TypingFrame
 	| ViewChannelFrame
 	| SetPresenceFrame
-	| WroteToFrame;
+	| WroteToFrame
+	| ActivityFrame;
 
 export type AckFrame = FrameOf<typeof colibri.sync.defs.ack, "ack">;
 export type ErrorFrame = FrameOf<typeof colibri.sync.defs.error, "error">;
@@ -307,6 +309,10 @@ export const viewChannelFrame = (
 	channel === undefined
 		? { $type: "social.colibri.beta.sync.defs#viewChannel" }
 		: { $type: "social.colibri.beta.sync.defs#viewChannel", channel };
+
+export const activityFrame = (): ActivityFrame => ({
+	$type: "social.colibri.beta.sync.defs#activity",
+});
 
 export const wroteToFrame = (
 	space: WroteToFrame["space"],

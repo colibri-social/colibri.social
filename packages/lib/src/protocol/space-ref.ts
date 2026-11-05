@@ -78,6 +78,44 @@ export const spaceRecordUri = (
 	return `${space}/${author}/${collection}/${rkey}`;
 };
 
+export type ParsedSpaceRecord = {
+	space: string;
+	author: string;
+	collection: string;
+	rkey: string;
+};
+
+export const parseSpaceRecordUri = (
+	uri: string,
+): ParsedSpaceRecord | undefined => {
+	if (!uri.startsWith("at://")) return undefined;
+	const parts = uri.slice(5).split("/");
+	if (parts.length !== 7) return undefined;
+	const [authority, marker, type, skey, author, collection, rkey] = parts;
+	if (marker !== "space") return undefined;
+	if (!authority || !type || !skey || !author || !collection || !rkey)
+		return undefined;
+	return {
+		space: `at://${authority}/space/${type}/${skey}`,
+		author,
+		collection,
+		rkey,
+	};
+};
+
+export const sameSpaceRecordRef = (
+	space: string,
+	collection: string,
+	uri: string | undefined,
+	fallback: { did: string; rkey: string } | undefined,
+): { did: string; rkey: string } | undefined => {
+	const parsed = uri ? parseSpaceRecordUri(uri) : undefined;
+	if (parsed && parsed.space === space && parsed.collection === collection) {
+		return { did: parsed.author, rkey: parsed.rkey };
+	}
+	return fallback ? { did: fallback.did, rkey: fallback.rkey } : undefined;
+};
+
 export const channelSpaceCandidates = (
 	community: string,
 	skey: string,

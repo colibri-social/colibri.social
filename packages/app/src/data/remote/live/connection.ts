@@ -89,9 +89,14 @@ export const UNREACHABLE_AFTER = 4;
 const OPEN = 1;
 
 const VIEW_CHANNEL = "social.colibri.beta.sync.defs#viewChannel";
+const ACTIVITY = "social.colibri.beta.sync.defs#activity";
+export const ACTIVITY_RESEND_MS = 60_000;
 
 const isViewChannel = (frame: ClientFrame): boolean =>
 	(frame as { $type?: string }).$type === VIEW_CHANNEL;
+
+const isActivity = (frame: ClientFrame): boolean =>
+	(frame as { $type?: string }).$type === ACTIVITY;
 
 const viewsChannel = (frame: ClientFrame): boolean =>
 	typeof (frame as { channel?: unknown }).channel === "string";
@@ -166,6 +171,7 @@ export const createLiveConnection = (
 	let generation = 0;
 	let connectStartedAt: number | null = null;
 	let viewing: ClientFrame | null = null;
+	let active: { frame: ClientFrame; at: number } | null = null;
 
 	const backoffMs = (n: number): number => {
 		const capped = Math.min(RECONNECT_BASE_MS * 2 ** n, RECONNECT_MAX_MS);
@@ -190,6 +196,7 @@ export const createLiveConnection = (
 
 	const sendFrame = (frame: ClientFrame): boolean => {
 		if (isViewChannel(frame)) viewing = viewsChannel(frame) ? frame : null;
+		if (isActivity(frame)) active = { frame, at: Date.now() };
 		if (ws?.readyState !== OPEN) return false;
 		ws.send(encodeFrame(frame));
 		return true;
@@ -242,6 +249,13 @@ export const createLiveConnection = (
 			);
 		}
 		if (viewing) sendFrame(viewing);
+		if (
+			active &&
+			Date.now() - active.at < ACTIVITY_RESEND_MS &&
+			ws?.readyState === OPEN
+		) {
+			ws.send(encodeFrame(active.frame));
+		}
 	};
 
 	const dispatch = (event: LiveEvent) => {

@@ -1,5 +1,6 @@
 import { COLLECTIONS } from "@colibri-social/lexicons";
 import {
+	activityFrame,
 	type ClientFrame,
 	ColibriError,
 	classifyThrown,
@@ -94,6 +95,7 @@ export type RemoteDataSource = DataSource & {
 	flushReadCursors: () => Promise<void>;
 	watchChannel: (channel: SpaceRef) => () => void;
 	viewChannel: (channel?: SpaceRef) => void;
+	markActive: () => void;
 };
 
 export type RemoteSourceOptions = {
@@ -381,6 +383,9 @@ export const createRemoteSource = async (
 		},
 		viewChannel: (channel) => {
 			options.live.send(viewChannelFrame(channel));
+		},
+		markActive: () => {
+			options.live.send(activityFrame());
 		},
 		getCommunity: async (community) =>
 			(

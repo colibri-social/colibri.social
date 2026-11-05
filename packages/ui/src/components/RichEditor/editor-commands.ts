@@ -1,7 +1,16 @@
-import { facetsToSource, tokenizeMarkdown } from "@colibri-social/lib";
+import {
+	facetsToSource,
+	type MarkdownToken,
+	tokenizeMarkdown,
+} from "@colibri-social/lib";
 import { type Editor, Extension, InputRule } from "@tiptap/core";
 import type { Fragment, Node as ProseMirrorNode } from "prosemirror-model";
-import { Plugin, TextSelection } from "prosemirror-state";
+import {
+	type EditorState,
+	Plugin,
+	TextSelection,
+	type Transaction,
+} from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { TIPTAP_EMOJIS } from "../../utils/emoji-data";
 import { codeContextAt } from "../../utils/rich-text/code-context";
@@ -32,97 +41,196 @@ export const FORMAT_MARKER: Record<FormatKind, string> = {
 type SelectionProjection = {
 	text: string;
 	positions: number[];
+	from: number;
+	to: number;
 	selStart: number;
 	selEnd: number;
 };
 
-const projectSelection = (editor: Editor): SelectionProjection | null => {
-	const { selection } = editor.state;
+type Segment = { start: number; end: number };
+
+const LINE_PREFIX_RE = /^((?: {0,3}> ?)*)(\s*(?:-#|#{1,6}|[-*+]|\d+[.)])\s+)?/;
+
+type SelectionSource = Pick<EditorState, "selection" | "doc">;
+
+const textRange = (state: SelectionSource) => {
+	const { selection, doc } = state;
+	if (selection.$from.parent.isTextblock && selection.$to.parent.isTextblock) {
+		return { from: selection.from, to: selection.to };
+	}
+	const normalized = TextSelection.between(
+		doc.resolve(selection.from),
+		doc.resolve(selection.to),
+	);
 	if (
-		!selection.$from.parent.isTextblock ||
-		!selection.$to.parent.isTextblock
+		!normalized.$from.parent.isTextblock ||
+		!normalized.$to.parent.isTextblock
 	) {
 		return null;
 	}
-	const { text, positions } = projectDoc(editor.state.doc);
-	const selStart = positions.indexOf(selection.from);
-	const selEnd = positions.indexOf(selection.to);
-	if (selStart === -1 || selEnd === -1) return null;
-	return { text, positions, selStart, selEnd };
+	return { from: normalized.from, to: normalized.to };
 };
 
-const containingTokens = (projection: SelectionProjection, kind: FormatKind) =>
-	tokenizeMarkdown(projection.text)
-		.filter(
-			(token) =>
-				token.kind === kind &&
-				token.content[0] <= projection.selStart &&
-				token.content[1] >= projection.selEnd,
-		)
+const projectSelection = (
+	state: SelectionSource,
+): SelectionProjection | null => {
+	const range = textRange(state);
+	if (!range) return null;
+	const { text, positions } = projectDoc(state.doc);
+	const selStart = positions.indexOf(range.from);
+	const selEnd = positions.indexOf(range.to);
+	if (selStart === -1 || selEnd === -1) return null;
+	return { text, positions, ...range, selStart, selEnd };
+};
+
+const trimSegment = (text: string, start: number, end: number): Segment => {
+	let trimmedStart = start;
+	let trimmedEnd = end;
+	while (trimmedStart < trimmedEnd && /\s/.test(text[trimmedStart])) {
+		trimmedStart++;
+	}
+	while (trimmedEnd > trimmedStart && /\s/.test(text[trimmedEnd - 1])) {
+		trimmedEnd--;
+	}
+	return { start: trimmedStart, end: trimmedEnd };
+};
+
+type SegmentLine = Segment & { quoted: boolean; block: boolean };
+
+const formatSegments = ({
+	text,
+	selStart,
+	selEnd,
+}: SelectionProjection): Segment[] => {
+	const segments: Segment[] = [];
+	let previous: SegmentLine | null = null;
+	let lineStart = text.lastIndexOf("\n", selStart - 1) + 1;
+
+	while (lineStart <= selEnd) {
+		const nextBreak = text.indexOf("\n", lineStart);
+		const lineEnd = nextBreak === -1 ? text.length : nextBreak;
+		const prefix = LINE_PREFIX_RE.exec(text.slice(lineStart, lineEnd));
+		const contentStart = lineStart + (prefix?.[0].length ?? 0);
+		const { start, end } = trimSegment(
+			text,
+			Math.max(selStart, contentStart),
+			Math.min(selEnd, lineEnd),
+		);
+		const line: SegmentLine = {
+			start,
+			end,
+			quoted: !!prefix?.[1],
+			block: !!prefix?.[2],
+		};
+
+		if (end <= start || codeContextAt(text, start) === "codeblock") {
+			previous = null;
+		} else if (
+			previous &&
+			!previous.block &&
+			!line.block &&
+			previous.quoted === line.quoted
+		) {
+			segments[segments.length - 1].end = end;
+			previous = line;
+		} else {
+			segments.push({ start, end });
+			previous = line;
+		}
+
+		if (nextBreak === -1) break;
+		lineStart = nextBreak + 1;
+	}
+
+	return segments.length > 0 ? segments : [{ start: selStart, end: selEnd }];
+};
+
+const tokenExtent = (token: MarkdownToken): Segment => ({
+	start: Math.min(token.content[0], ...token.markers.map(([start]) => start)),
+	end: Math.max(token.content[1], ...token.markers.map(([, end]) => end)),
+});
+
+const covers = (token: MarkdownToken, segment: Segment) => {
+	const extent = tokenExtent(token);
+	return (
+		extent.start <= segment.start &&
+		extent.end >= segment.end &&
+		token.content[0] < segment.end &&
+		token.content[1] > segment.start
+	);
+};
+
+const coveringToken = (
+	tokens: MarkdownToken[],
+	kind: FormatKind,
+	segment: Segment,
+) =>
+	tokens
+		.filter((token) => token.kind === kind && covers(token, segment))
 		.sort(
 			(a, b) => a.content[1] - a.content[0] - (b.content[1] - b.content[0]),
-		);
+		)[0];
 
-export const activeFormats = (editor: Editor): Set<FormatKind> => {
+export const activeFormats = (editor: Pick<Editor, "state">) => {
 	const active = new Set<FormatKind>();
 	if (editor.state.selection.empty) return active;
-	const projection = projectSelection(editor);
+	const projection = projectSelection(editor.state);
 	if (!projection) return active;
-	for (const token of tokenizeMarkdown(projection.text)) {
-		if (!(token.kind in FORMAT_MARKER)) continue;
-		if (
-			token.content[0] <= projection.selStart &&
-			token.content[1] >= projection.selEnd
-		) {
-			active.add(token.kind as FormatKind);
+	const segments = formatSegments(projection);
+	const tokens = tokenizeMarkdown(projection.text);
+	for (const kind of Object.keys(FORMAT_MARKER) as FormatKind[]) {
+		if (segments.every((segment) => coveringToken(tokens, kind, segment))) {
+			active.add(kind);
 		}
 	}
 	return active;
 };
 
-export const toggleFormat = (editor: Editor, kind: FormatKind) => {
+export const applyFormatToggle = (tr: Transaction, kind: FormatKind) => {
+	if (tr.selection.empty) return false;
+	const projection = projectSelection({ selection: tr.selection, doc: tr.doc });
+	if (!projection) return false;
+
 	const marker = FORMAT_MARKER[kind];
-	const { from, to } = editor.state.selection;
-	if (from === to) return;
+	const { positions } = projection;
+	const segments = formatSegments(projection);
+	const tokens = tokenizeMarkdown(projection.text);
+	const covering = segments.map((segment) =>
+		coveringToken(tokens, kind, segment),
+	);
 
-	const length = marker.length;
-	const wrap = () => {
-		editor
-			.chain()
-			.focus()
-			.insertContentAt(to, marker)
-			.insertContentAt(from, marker)
-			.setTextSelection({ from: from + length, to: to + length })
-			.run();
-	};
-
-	const projection = projectSelection(editor);
-	if (!projection) {
-		wrap();
-		return;
+	if (covering.every(Boolean)) {
+		const ranges = new Map<number, number>();
+		for (const token of covering) {
+			for (const [start, end] of token?.markers ?? []) {
+				ranges.set(positions[start], positions[end]);
+			}
+		}
+		for (const [from, to] of [...ranges].sort(([a], [b]) => b - a)) {
+			tr.delete(from, to);
+		}
+	} else {
+		const targets = segments.filter((_, index) => !covering[index]).reverse();
+		for (const segment of targets) {
+			tr.insertText(marker, positions[segment.end]);
+			tr.insertText(marker, positions[segment.start]);
+		}
 	}
 
-	const [token] = containingTokens(projection, kind);
-	if (!token) {
-		wrap();
-		return;
-	}
+	const from = tr.mapping.map(projection.from, 1);
+	const to = tr.mapping.map(projection.to, -1);
+	tr.setSelection(
+		TextSelection.create(tr.doc, Math.min(from, to), Math.max(from, to)),
+	);
+	return true;
+};
 
-	const { positions, selStart } = projection;
-	const ranges = token.markers
-		.map(([start, end]) => ({ from: positions[start], to: positions[end] }))
-		.sort((a, b) => b.from - a.from);
-	const removedBefore = token.markers
-		.filter(([, end]) => end <= selStart)
-		.reduce(
-			(sum, [start, end]) => sum + (positions[end] - positions[start]),
-			0,
-		);
-
-	let chain = editor.chain().focus();
-	for (const range of ranges) chain = chain.deleteRange(range);
-	chain
-		.setTextSelection({ from: from - removedBefore, to: to - removedBefore })
+export const toggleFormat = (editor: Editor, kind: FormatKind) => {
+	if (editor.state.selection.empty) return;
+	editor
+		.chain()
+		.focus()
+		.command(({ tr }) => applyFormatToggle(tr, kind))
 		.run();
 };
 

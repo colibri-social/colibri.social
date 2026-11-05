@@ -1,6 +1,8 @@
 import { createSignal, type JSX, onMount, Show } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { findSettledDrawer } from "../../foundations/drawer-test";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { BlueskyPostEmbed } from "../Attachments/BlueskyPostEmbed";
 import { LinkEmbed } from "../Attachments/LinkEmbed";
 import type { MediaItem } from "../Attachments/MediaGrid";
@@ -761,5 +763,112 @@ export const ImageMenuOnRightClick: Story = {
 			within(menu).getByRole("menuitem", { name: "Copy image" }),
 		);
 		await expect(onCopyImage).toHaveBeenCalledWith(0);
+	},
+};
+
+const ImageActionsViewer = () => {
+	const [open, setOpen] = createSignal(true);
+	return (
+		<Lightbox
+			items={[
+				{ src: WHITE_IMAGE, width: 1200, height: 2400, kind: "image" },
+				{ src: WHITE_IMAGE, width: 1200, height: 2400, kind: "image" },
+			]}
+			open={open()}
+			onOpenChange={setOpen}
+			onCopyImage={onCopyImage}
+			onDownloadImage={onDownloadImage}
+		/>
+	);
+};
+
+const openViewerMedia = async () => {
+	const viewer = await dialog();
+	await waitFor(() => expect(viewer).toHaveAttribute("data-phase", "open"));
+	const media = viewer.querySelector<HTMLElement>(
+		'[data-lightbox-slide="0"] [data-lightbox-media]',
+	);
+	if (!media) throw new Error("no media");
+	const box = media.getBoundingClientRect();
+	const x = box.left + box.width / 2;
+	const y = box.top + box.height / 2;
+	const hit = document.elementFromPoint(x, y);
+	if (!hit || !media.contains(hit)) throw new Error("media is not on top");
+	return { viewer, hit, x, y };
+};
+
+export const ImageActionsOnLongPress: Story = {
+	name: "Image actions drawer on long press",
+	parameters: iphone,
+	render: () => <ImageActionsViewer />,
+	play: async () => {
+		onCopyImage.mockClear();
+		const { viewer, hit, x, y } = await openViewerMedia();
+		touch("pointerdown", hit, x, y);
+		const nativeMenu = new MouseEvent("contextmenu", {
+			bubbles: true,
+			cancelable: true,
+			clientX: x,
+			clientY: y,
+		});
+		hit.dispatchEvent(nativeMenu);
+		await expect(nativeMenu.defaultPrevented).toBe(true);
+		await wait(600);
+		touch("pointerup", hit, x, y);
+		const drawer = await findSettledDrawer("Image actions");
+		await expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+		await expect(viewer).toHaveAttribute("data-phase", "open");
+		await expectNoLayoutIssues(drawer);
+		const copy = within(drawer).getByRole("button", { name: "Copy image" });
+		within(drawer).getByRole("button", { name: "Download image" });
+		const copyBox = copy.getBoundingClientRect();
+		const topmost = document.elementFromPoint(
+			copyBox.left + copyBox.width / 2,
+			copyBox.top + copyBox.height / 2,
+		);
+		await expect(!!topmost && copy.contains(topmost)).toBe(true);
+		await userEvent.click(copy);
+		await expect(onCopyImage).toHaveBeenCalledWith(0);
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Image actions" }),
+			).not.toBeInTheDocument(),
+		);
+		await expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+		await expect(viewer).toHaveAttribute("data-phase", "open");
+	},
+};
+
+export const NoImageActionsWhileDragging: Story = {
+	name: "No image actions during swipe or pinch",
+	parameters: iphone,
+	render: () => <ImageActionsViewer />,
+	play: async () => {
+		const { viewer, hit, x, y } = await openViewerMedia();
+		const drawerShown = () =>
+			screen.queryByRole("dialog", { name: "Image actions" });
+
+		touch("pointerdown", hit, x, y);
+		for (let step = 1; step <= 3; step++) {
+			await wait(16);
+			touch("pointermove", hit, x + step * 4, y);
+		}
+		await wait(600);
+		touch("pointerup", hit, x + 12, y);
+		await expect(drawerShown()).not.toBeInTheDocument();
+		await waitFor(() => expect(viewer).toHaveAttribute("data-index", "0"));
+
+		await wait(400);
+		touch("pointerdown", hit, x, y, 1);
+		touch("pointerdown", hit, x + 60, y + 60, 2);
+		await wait(600);
+		touch("pointerup", hit, x + 60, y + 60, 2);
+		await wait(300);
+		touch("pointerup", hit, x, y, 1);
+		await expect(drawerShown()).not.toBeInTheDocument();
+		await expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+		const toolbar = viewer.querySelector<HTMLElement>("[data-lightbox-chrome]");
+		if (!toolbar) throw new Error("missing toolbar");
+		await expectNoLayoutIssues(toolbar);
 	},
 };

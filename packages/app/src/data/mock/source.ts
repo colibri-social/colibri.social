@@ -1319,11 +1319,12 @@ export const createMockSource = (
 						input.customEmoji,
 					);
 					if (!changed) return;
+					const { message } = findMessage(input.channel, input.rkey);
 					emit({
 						$type: "reactionEvent",
 						event: input.add ? "create" : "delete",
 						channel: input.channel,
-						target: input.rkey,
+						target: { did: message.author.did, rkey: input.rkey },
 						emoji: input.emoji,
 						...(input.customEmoji ? { customEmoji: input.customEmoji } : {}),
 						actor: world.viewerDid,

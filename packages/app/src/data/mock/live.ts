@@ -163,7 +163,7 @@ export const startLive = (options: {
 							$type: "reactionEvent",
 							event: "create",
 							channel,
-							target: message.rkey,
+							target: { did: message.author.did, rkey: message.rkey },
 							emoji,
 							actor,
 						});
@@ -265,7 +265,7 @@ export const startLive = (options: {
 						$type: "reactionEvent",
 						event: "create",
 						channel,
-						target: message.rkey,
+						target: { did: message.author.did, rkey: message.rkey },
 						emoji,
 						actor,
 					});
@@ -277,7 +277,7 @@ export const startLive = (options: {
 								$type: "reactionEvent",
 								event: "delete",
 								channel,
-								target: message.rkey,
+								target: { did: message.author.did, rkey: message.rkey },
 								emoji,
 								actor,
 							});

@@ -426,6 +426,7 @@ const setupWithEvents = async () => {
 	const watched: SpaceRef[] = [];
 	const released: SpaceRef[] = [];
 	const viewed: (SpaceRef | undefined)[] = [];
+	const activity = { reports: 0 };
 	const calls = { channels: 0, categories: 0, roles: 0 };
 	const source = {
 		...base,
@@ -458,6 +459,9 @@ const setupWithEvents = async () => {
 		viewChannel: (channel?: SpaceRef) => {
 			viewed.push(channel);
 		},
+		markActive: () => {
+			activity.reports += 1;
+		},
 	};
 	const store = createDataStore(source);
 	await until(() => !!store.communities.value());
@@ -471,7 +475,18 @@ const setupWithEvents = async () => {
 	const emit = (event: LiveEvent) => {
 		for (const listener of listeners) listener(event);
 	};
-	return { store, space, hq, emit, watched, released, viewed, calls, base };
+	return {
+		store,
+		space,
+		hq,
+		emit,
+		watched,
+		released,
+		viewed,
+		activity,
+		calls,
+		base,
+	};
 };
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 200));
@@ -592,6 +607,19 @@ describe("channel watching", () => {
 		setAppActive(true);
 		expect(viewed).toEqual([general.space, undefined, general.space]);
 		expect(watched).toEqual([general.space]);
+		store.dispose();
+	});
+
+	it("reports activity while in front and again when brought back", async () => {
+		const { store, activity } = await setupWithEvents();
+		expect(activity.reports).toBe(1);
+		window.dispatchEvent(new KeyboardEvent("keydown"));
+		expect(activity.reports).toBe(1);
+		setAppActive(false);
+		window.dispatchEvent(new KeyboardEvent("keydown"));
+		expect(activity.reports).toBe(1);
+		setAppActive(true);
+		expect(activity.reports).toBe(2);
 		store.dispose();
 	});
 
@@ -1677,7 +1705,7 @@ describe("outbox", () => {
 		const event = {
 			$type: "reactionEvent" as const,
 			channel: general.space,
-			target: target.rkey,
+			target: { did: target.author.did, rkey: target.rkey },
 			emoji: "🦉",
 			actor: store.viewer.did,
 		};
@@ -1688,6 +1716,28 @@ describe("outbox", () => {
 		expect(owl()?.count).toBe(1);
 		source.emit({ ...event, event: "delete" });
 		expect(owl()).toBeUndefined();
+	});
+
+	it("ignores a reaction aimed at another author's message with the same key", async () => {
+		const source = createMockSource({ live: false });
+		const { store, channel, hq } = await setup({ source });
+		const general = store.space(hq).channelBySlug("general");
+		const target = channel.messages().at(-1);
+		if (!target || !general) throw new Error("no messages");
+		source.emit({
+			$type: "reactionEvent",
+			event: "create",
+			channel: general.space,
+			target: { did: "did:plc:someoneelse" as Did, rkey: target.rkey },
+			emoji: "🦉",
+			actor: store.viewer.did,
+		});
+		expect(
+			channel
+				.messages()
+				.find((message) => message.rkey === target.rkey)
+				?.reactions.some((reaction) => reaction.emoji === "🦉"),
+		).toBe(false);
 	});
 });
 
@@ -1709,7 +1759,7 @@ describe("own reactions", () => {
 				$type: "reactionEvent",
 				event: add ? "create" : "delete",
 				channel: general.space,
-				target: target.rkey,
+				target: { did: target.author.did, rkey: target.rkey },
 				emoji: "🦉",
 				actor: context.store.viewer.did,
 			});

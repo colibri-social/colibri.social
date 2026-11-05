@@ -19,6 +19,12 @@ const ENTRIES: readonly ContributorEntry[] = [
 		role: "Core Maintainer",
 	},
 	{
+		name: "Eli",
+		handle: "clxxiii.dev",
+		did: "did:plc:a45enc3w2mwyupw4ctpqgoh6",
+		role: "AUR Maintainer",
+	},
+	{
 		name: "Felix Schneider",
 		handle: "felixs.dev",
 		did: "did:plc:pbjvqaziagcyv2vqodldn5op",

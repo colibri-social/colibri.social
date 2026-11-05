@@ -18,6 +18,7 @@ export type Tail = {
 
 export type Reaction = {
 	rkey: string;
+	author?: Did;
 	emoji: string;
 	customEmoji?: ReactionEmojiRef;
 	actor: Did;
@@ -44,7 +45,7 @@ export const placeMessage = (
 
 export const reactTo = (
 	message: MessageView,
-	reaction: Omit<Reaction, "rkey">,
+	reaction: Omit<Reaction, "rkey" | "author">,
 ): MessageView => {
 	const { emoji, customEmoji, actor, add, viewer } = reaction;
 	const reactions = message.reactions.slice();
@@ -94,6 +95,8 @@ export const reactIn = (list: readonly MessageView[], reaction: Reaction) => {
 	let changed = false;
 	const next = list.map((message) => {
 		if (message.rkey !== reaction.rkey) return message;
+		if (reaction.author && message.author.did !== reaction.author)
+			return message;
 		const reacted = reactTo(message, reaction);
 		if (reacted !== message) changed = true;
 		return reacted;

@@ -4,6 +4,7 @@ import { toLiveEvents } from "./frames";
 
 const COMMUNITY = "did:plc:colibrihqspace2a4b6c8d";
 const ALICE = "did:plc:alice";
+const BOB = "did:plc:bob";
 const GENERAL = `at://${COMMUNITY}/space/social.colibri.beta.channel.text/general`;
 const THREAD = `at://${COMMUNITY}/space/social.colibri.beta.channel.thread/t1`;
 const PREFIX = "social.colibri.beta.sync.defs#";
@@ -150,11 +151,39 @@ describe("toLiveEvents", () => {
 				$type: "reactionEvent",
 				event: "delete",
 				channel: GENERAL,
-				target: "3kmsg",
+				target: { did: ALICE, rkey: "3kmsg" },
 				emoji: "👍",
 				actor: ALICE,
 			},
 		]);
+	});
+
+	it("prefers a reaction's record uri over its target reference", () => {
+		const [event] = toLiveEvents(
+			frame("reactionEvent", {
+				event: "create",
+				channel: GENERAL,
+				target: { did: ALICE, rkey: "3kold" },
+				uri: `${GENERAL}/${BOB}/social.colibri.beta.message/3kmsg`,
+				emoji: "👍",
+				actor: ALICE,
+			}),
+		);
+		expect(event).toMatchObject({ target: { did: BOB, rkey: "3kmsg" } });
+	});
+
+	it("keeps the target reference when the reaction uri points elsewhere", () => {
+		const [event] = toLiveEvents(
+			frame("reactionEvent", {
+				event: "create",
+				channel: GENERAL,
+				target: { did: ALICE, rkey: "3kmsg" },
+				uri: `at://${ALICE}/space/social.colibri.beta.channel.text/3kother/${BOB}/social.colibri.beta.message/3kelse`,
+				emoji: "👍",
+				actor: ALICE,
+			}),
+		);
+		expect(event).toMatchObject({ target: { did: ALICE, rkey: "3kmsg" } });
 	});
 
 	it("maps speaking voice frames to voice activity", () => {

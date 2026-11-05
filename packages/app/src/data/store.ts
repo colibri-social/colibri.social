@@ -101,7 +101,7 @@ import type {
 	ThreadView,
 	VoiceState,
 } from "./types";
-import { appVisible } from "./visibility";
+import { appVisible, trackActivity } from "./visibility";
 import { connectVoice } from "./voice";
 
 const PAGE_SIZE = 60;
@@ -447,6 +447,11 @@ const watchesChannels = (
 ): source is DataSource & ChannelWatcher =>
 	typeof (source as Partial<ChannelWatcher>).watchChannel === "function" &&
 	typeof (source as Partial<ChannelWatcher>).viewChannel === "function";
+
+const reportsActivity = (
+	source: DataSource,
+): source is DataSource & { markActive: () => void } =>
+	typeof (source as { markActive?: unknown }).markActive === "function";
 
 export type DataStoreOptions = {
 	cache?: MessageCache;
@@ -806,6 +811,7 @@ export const createDataStore = (
 				),
 			);
 		}
+		if (reportsActivity(source)) trackActivity(() => source.markActive());
 		const lastChannels = createRecordStore<string>();
 		const [lastSpace, setLastSpace] = deviceString(DEVICE_KEYS.lastSpace);
 		const lastChannel = (space: string) =>
@@ -2629,7 +2635,7 @@ export const createDataStore = (
 			};
 
 			const applyReaction = (
-				rkey: string,
+				target: { did?: Did; rkey: string },
 				emoji: string,
 				actor: Did,
 				add: boolean,
@@ -2637,7 +2643,8 @@ export const createDataStore = (
 			) => {
 				const react = (list: readonly MessageView[]) =>
 					reactIn(list, {
-						rkey,
+						rkey: target.rkey,
+						...(target.did ? { author: target.did } : {}),
 						emoji,
 						customEmoji,
 						actor,
@@ -3045,7 +3052,13 @@ export const createDataStore = (
 						(message) => message.rkey === rkey,
 					)?.author.did;
 					if (!author) return;
-					applyReaction(rkey, emoji, viewer.did, add, customEmoji);
+					applyReaction(
+						{ did: author, rkey },
+						emoji,
+						viewer.did,
+						add,
+						customEmoji,
+					);
 					const key = reactionKeyOf(ref, rkey, emoji);
 					const previous = reactionKeys.get(key);
 					const reaction = add ? nextTid() : previous;
@@ -3066,7 +3079,13 @@ export const createDataStore = (
 						() => endOwnReaction(key),
 						(thrown: unknown) => {
 							endOwnReaction(key);
-							applyReaction(rkey, emoji, viewer.did, !add, customEmoji);
+							applyReaction(
+								{ did: author, rkey },
+								emoji,
+								viewer.did,
+								!add,
+								customEmoji,
+							);
 							if (reactionKeys.get(key) === (add ? reaction : undefined)) {
 								if (previous) reactionKeys.set(key, previous);
 								else reactionKeys.delete(key);
@@ -3314,13 +3333,14 @@ export const createDataStore = (
 					if (
 						event.actor === viewer.did &&
 						ownReactionOps.has(
-							reactionKeyOf(event.channel, event.target, event.emoji),
+							reactionKeyOf(event.channel, event.target.rkey, event.emoji),
 						)
 					)
 						return;
 					if (!messageListeners.get(event.channel)?.(event))
 						tails.react(event.channel, {
-							rkey: event.target,
+							rkey: event.target.rkey,
+							author: event.target.did,
 							emoji: event.emoji,
 							customEmoji: event.customEmoji,
 							actor: event.actor,

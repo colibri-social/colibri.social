@@ -1,9 +1,11 @@
 import {
 	buildMessageRecord,
+	buildReactionRecord,
 	ColibriError,
 	colibri,
 	createLogger,
 	nextTid,
+	sameSpaceRecordRef,
 	spaceAuthority,
 	spaceRecordUri,
 	spaceSkey,
@@ -31,6 +33,15 @@ import type { BlobRef, Records } from "./records";
 import type { Transport } from "./transport";
 
 const log = createLogger("remote/messages");
+
+const recordRefOf = (
+	value: unknown,
+): { did: string; rkey: string } | undefined => {
+	const ref = value as { did?: unknown; rkey?: unknown } | undefined;
+	return typeof ref?.did === "string" && typeof ref.rkey === "string"
+		? { did: ref.did, rkey: ref.rkey }
+		: undefined;
+};
 
 export const REACTION_COLLECTION = "social.colibri.beta.reaction";
 const HIDDEN_LABEL = "hidden";
@@ -304,6 +315,7 @@ export const createMessageWrites = (deps: {
 					input.parent && parentAuthor
 						? ({ did: parentAuthor, rkey: input.parent } as never)
 						: undefined,
+				space: input.channel,
 				attachments: attached as never,
 				suppressedEmbeds: input.suppressedEmbeds as never,
 			});
@@ -393,11 +405,15 @@ export const createMessageWrites = (deps: {
 			const cacheKey = `${space}\n${input.rkey}\n${input.emoji}`;
 			if (input.add) {
 				const rkey = input.reaction ?? nextTid();
+				const { $type: _type, ...record } = buildReactionRecord(
+					input.emoji,
+					target as never,
+					space,
+				);
 				await records.createInSpace(
 					{ space, collection: REACTION_COLLECTION, rkey },
 					{
-						emoji: input.emoji,
-						target,
+						...record,
 						...(input.customEmoji ? { customEmoji: input.customEmoji } : {}),
 					},
 				);
@@ -409,14 +425,14 @@ export const createMessageWrites = (deps: {
 				const found = await records.findInSpace(
 					{ space, collection: REACTION_COLLECTION },
 					(value) => {
-						const ref = value.target as
-							| { did?: string; rkey?: string }
-							| undefined;
-						return (
-							value.emoji === input.emoji &&
-							ref?.did === target.did &&
-							ref?.rkey === target.rkey
+						if (value.emoji !== input.emoji) return false;
+						const ref = sameSpaceRecordRef(
+							space,
+							MESSAGE_COLLECTION,
+							typeof value.uri === "string" ? value.uri : undefined,
+							recordRefOf(value.target),
 						);
+						return ref?.did === target.did && ref.rkey === target.rkey;
 					},
 				);
 				rkey = found?.rkey;

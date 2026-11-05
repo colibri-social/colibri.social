@@ -1,3 +1,5 @@
+import { ArchiveDownMinimalisticIcon } from "@solar-icons/solid/bold/archive-down-minimalistic";
+import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import { createSignal, For, type JSX } from "solid-js";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
@@ -15,7 +17,7 @@ import type { RichEditorSources } from "../RichEditor/types";
 import { AttachmentTray, type PendingAttachment } from "./AttachmentTray";
 import { CHARACTER_LIMIT, CharacterRing } from "./CharacterRing";
 import { Composer } from "./Composer";
-import { ReplyBar } from "./ComposerBar";
+import { ComposerBar, ReplyBar } from "./ComposerBar";
 import { TypingIndicator, type TypingUser } from "./TypingIndicator";
 
 const meta = {
@@ -619,6 +621,122 @@ export const Replying: Story = {
 };
 
 const onJumpToReply = fn();
+
+const DELETED_PING_NOTICE = "The message that pinged you was deleted.";
+const CLOSED_THREAD_NOTICE =
+	"This thread is closed. Sending a message reopens it.";
+
+export const NoticesWrapOnPhone: Story = {
+	name: "Notices wrap on a narrow phone",
+	render: () => {
+		const [deletedPing, setDeletedPing] = createSignal(true);
+		const [closedThread, setClosedThread] = createSignal(true);
+		return (
+			<div class="flex min-h-screen w-[320px] flex-col justify-end bg-background pt-16 pb-6">
+				<Composer
+					channelName="general"
+					onSend={onSend}
+					top={
+						<>
+							<ComposerBar
+								open={closedThread()}
+								tone="info"
+								kind="closed-thread"
+								icon={<ArchiveDownMinimalisticIcon />}
+								cancelLabel="Dismiss"
+								onCancel={() => setClosedThread(false)}
+							>
+								{CLOSED_THREAD_NOTICE}
+							</ComposerBar>
+							<ComposerBar
+								open={deletedPing()}
+								tone="warning"
+								kind="deleted-ping"
+								icon={<TrashBinTrashIcon />}
+								cancelLabel="Dismiss"
+								onCancel={() => setDeletedPing(false)}
+							>
+								{DELETED_PING_NOTICE}
+							</ComposerBar>
+							<ReplyBar
+								open
+								name="A display name long enough to need truncating in the bar"
+								onClick={onJumpToReply}
+							/>
+						</>
+					}
+				/>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const barOf = (kind: string) => {
+			const bar = canvasElement.querySelector<HTMLElement>(
+				`[data-composer-bar="${kind}"]`,
+			);
+			if (!bar) throw new Error(`Missing ${kind} bar`);
+			return bar;
+		};
+		const rowOf = (bar: HTMLElement) =>
+			bar.firstElementChild?.firstElementChild as HTMLElement;
+		const deleted = barOf("deleted-ping");
+		const closed = barOf("closed-thread");
+		const reply = barOf("reply");
+		await expectNoLayoutIssues(deleted);
+		await expectNoLayoutIssues(closed);
+		await expectNoLayoutIssues(reply);
+		for (const [bar, copy] of [
+			[deleted, DELETED_PING_NOTICE],
+			[closed, CLOSED_THREAD_NOTICE],
+		] as const) {
+			const row = rowOf(bar);
+			await expect(row).toHaveAttribute("data-composer-bar-static");
+			await expect(row).toHaveTextContent(copy);
+			const text = within(row).getByText(copy);
+			await expect(getComputedStyle(text).textOverflow).not.toBe("ellipsis");
+			await expect(text.scrollWidth).toBeLessThanOrEqual(text.clientWidth);
+			const lineHeight = Number.parseFloat(getComputedStyle(text).lineHeight);
+			await expect(text.getBoundingClientRect().height).toBeGreaterThan(
+				lineHeight * 1.5,
+			);
+			await expect(row.getBoundingClientRect().height).toBeGreaterThan(40);
+			const textBox = text.getBoundingClientRect();
+			const firstLine = textBox.top + lineHeight / 2;
+			const icon = row.firstElementChild as HTMLElement;
+			const iconBox = icon.getBoundingClientRect();
+			await expect(
+				Math.abs(iconBox.top + iconBox.height / 2 - firstLine),
+			).toBeLessThanOrEqual(1);
+			const dismiss = within(row).getByRole("button", { name: "Dismiss" });
+			const dismissBox = dismiss.getBoundingClientRect();
+			await expect(
+				Math.abs(dismissBox.top + dismissBox.height / 2 - firstLine),
+			).toBeLessThanOrEqual(1);
+			await expect(dismissBox.bottom).toBeLessThanOrEqual(
+				row.getBoundingClientRect().bottom,
+			);
+		}
+		const replyRow = rowOf(reply);
+		await expect(replyRow).not.toHaveAttribute("data-composer-bar-static");
+		await expect(replyRow.getBoundingClientRect().height).toBe(40);
+		const replyText = replyRow.querySelector<HTMLElement>(
+			"[data-composer-bar-action] > span",
+		);
+		if (!replyText) throw new Error("Missing reply text");
+		await expect(getComputedStyle(replyText).textOverflow).toBe("ellipsis");
+
+		const expanded = deleted.getBoundingClientRect().height;
+		await userEvent.click(
+			within(deleted).getByRole("button", { name: "Dismiss" }),
+		);
+		await expect(deleted).not.toHaveAttribute("data-open");
+		await waitFor(
+			() => expect(deleted.getBoundingClientRect().height).toBe(0),
+			{ timeout: 3000 },
+		);
+		await expect(expanded).toBeGreaterThan(40);
+	},
+};
 
 export const ReplyJump: Story = {
 	render: () => (

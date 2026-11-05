@@ -635,6 +635,86 @@ export const FormattingBubble: Story = {
 	},
 };
 
+const modKey = () =>
+	/Mac|iPhone|iPad/.test(navigator.platform) ? "Meta" : "Control";
+
+const pressMod = (key: string) =>
+	userEvent.keyboard(`{${modKey()}>}${key}{/${modKey()}}`);
+
+const boldFacets = (canvasElement: HTMLElement) =>
+	currentValue(canvasElement)
+		.facets.filter((facet) =>
+			facet.features.some((feature) => feature.$type.endsWith("#bold")),
+		)
+		.map((facet) => [facet.index.byteStart, facet.index.byteEnd]);
+
+export const SelectAllBoldShortcut: Story = {
+	render: () => <Harness platform="desktop" initialValue={"hello\nworld"} />,
+	play: async ({ canvasElement }) => {
+		const editor = field(canvasElement);
+		await userEvent.click(editor);
+		await pressMod("a");
+		await pressMod("b");
+		await waitFor(() => expect(boldFacets(canvasElement)).toEqual([[0, 11]]));
+		await expect(currentValue(canvasElement).text).toBe("hello\nworld");
+		await expect(editor.querySelectorAll("p")).toHaveLength(2);
+		await pressMod("b");
+		await waitFor(() => expect(boldFacets(canvasElement)).toEqual([]));
+		await expect(currentValue(canvasElement).text).toBe("hello\nworld");
+		await expect(editor.querySelectorAll("p")).toHaveLength(2);
+	},
+};
+
+export const SelectAllBoldToolbar: Story = {
+	render: () => <Harness platform="desktop" initialValue={"hello\nworld"} />,
+	play: async ({ canvasElement }) => {
+		const editor = field(canvasElement);
+		await userEvent.click(editor);
+		await pressMod("a");
+		const bubble = await waitFor(() => {
+			const element = document.querySelector<HTMLElement>(
+				"[data-format-bubble]",
+			);
+			if (!element) throw new Error("Bubble missing");
+			return element;
+		});
+		const bold = within(bubble).getByRole("button", { name: "Bold" });
+		await expect(bold).toHaveAttribute("aria-pressed", "false");
+		await userEvent.click(bold);
+		await waitFor(() => expect(boldFacets(canvasElement)).toEqual([[0, 11]]));
+		await expect(currentValue(canvasElement).text).toBe("hello\nworld");
+		await expect(editor.querySelectorAll("p")).toHaveLength(2);
+		await waitFor(() => expect(bold).toHaveAttribute("aria-pressed", "true"));
+		await userEvent.click(bold);
+		await waitFor(() => expect(boldFacets(canvasElement)).toEqual([]));
+		await expect(currentValue(canvasElement).text).toBe("hello\nworld");
+		await waitFor(() => expect(bold).toHaveAttribute("aria-pressed", "false"));
+	},
+};
+
+export const SelectAllBoldAcrossBlankLine: Story = {
+	render: () => (
+		<Harness platform="desktop" initialValue={"one\ntwo\n\nthree"} />
+	),
+	play: async ({ canvasElement }) => {
+		const editor = field(canvasElement);
+		await userEvent.click(editor);
+		await pressMod("a");
+		await pressMod("b");
+		await waitFor(() =>
+			expect(boldFacets(canvasElement)).toEqual([
+				[0, 7],
+				[9, 14],
+			]),
+		);
+		await expect(currentValue(canvasElement).text).toBe("one\ntwo\n\nthree");
+		await expect(editor.querySelectorAll("p")).toHaveLength(4);
+		await pressMod("b");
+		await waitFor(() => expect(boldFacets(canvasElement)).toEqual([]));
+		await expect(currentValue(canvasElement).text).toBe("one\ntwo\n\nthree");
+	},
+};
+
 export const NoBubbleOnMobile: Story = {
 	render: () => <Harness platform="mobile" initialValue="hello world" />,
 	play: async ({ canvasElement }) => {

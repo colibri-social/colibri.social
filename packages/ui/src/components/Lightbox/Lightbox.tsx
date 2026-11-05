@@ -20,6 +20,7 @@ import { Portal } from "solid-js/web";
 import { AnimatedDownloadIcon } from "../../icons/animated/navigation";
 import { copyText } from "../../utils/clipboard";
 import { cx } from "../../utils/cx";
+import { blockTouchScroll, createLongPress } from "../../utils/gestures";
 import {
 	animateSpring,
 	motionScale,
@@ -34,11 +35,14 @@ import { formatMessageTime, type TimeInput } from "../../utils/time";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import type { MediaItem } from "../Attachments/MediaGrid";
 import { ImageContextMenu } from "../ContextMenu/MessageMenu";
+import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { IconButton, iconButtonVariants } from "../IconButton/IconButton";
+import { ListGroup } from "../List/List";
 import { holdLightboxCover } from "../Media/media-cover";
 import { Video } from "../Media/Video";
 import { VideoPlayer } from "../Media/VideoPlayer";
 import { VideoSource } from "../Media/VideoSource";
+import { ActionRow } from "../MessageActions/MessageActionsDrawer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 
 export type LightboxAuthor = {
@@ -214,10 +218,15 @@ export const Lightbox = (props: LightboxProps) => {
 	const index = () => clamp(internalIndex(), 0, props.items.length - 1);
 	const item = () => props.items[index()];
 	const [mediaMenuTarget, setMediaMenuTarget] = createSignal(false);
+	const [pointerKind, setPointerKind] = createSignal("mouse");
+	const [actionsOpen, setActionsOpen] = createSignal(false);
+	let multiTouch = false;
 	const count = () => props.items.length;
 	const mounted = () => phase() !== "closed";
 	const zoomed = () => zoom() > 1.01;
 	const isVideo = (target?: MediaItem) => target?.kind === "video";
+	const hasImageActions = () =>
+		!isVideo(item()) && !!(props.onCopyImage || props.onDownloadImage);
 
 	createEffect(() => {
 		if (mounted()) onCleanup(holdLightboxCover());
@@ -362,6 +371,7 @@ export const Lightbox = (props: LightboxProps) => {
 		stopSpring();
 		batch(() => {
 			setPhase("closed");
+			setActionsOpen(false);
 			setOrigin(undefined);
 			setSwipeX(0);
 			setDismissY(0);
@@ -602,6 +612,7 @@ export const Lightbox = (props: LightboxProps) => {
 		)
 			return;
 		pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+		if (pointers.size > 1) multiTouch = true;
 		pressStart =
 			pointers.size === 1 ? { x: event.clientX, y: event.clientY } : undefined;
 		stopSpring();
@@ -847,6 +858,63 @@ export const Lightbox = (props: LightboxProps) => {
 		}
 	};
 
+	const longPressReady = () =>
+		phase() === "open" &&
+		pointers.size === 1 &&
+		!multiTouch &&
+		(gesture.kind === "pending" || gesture.kind === "pan");
+
+	const openImageActions = () => {
+		if (!longPressReady() || !hasImageActions()) return;
+		gesture = { kind: "idle" };
+		clearTimeout(tapTimer);
+		lastTap = undefined;
+		setActionsOpen(true);
+	};
+
+	const runImageAction = (handler?: (index: number) => void) => () => {
+		const target = index();
+		setActionsOpen(false);
+		handler?.(target);
+	};
+
+	const bindStage = (element: HTMLDivElement) => {
+		stage = element;
+		createLongPress(element, {
+			moveCancel: TAP_SLOP_PX,
+			enabled: () => phase() === "open" && pointerKind() !== "mouse",
+			shouldStart: (event) =>
+				hasImageActions() &&
+				!!(event.target as Element | null)?.closest(
+					'[data-lightbox-slide="0"] [data-lightbox-media]',
+				),
+			onLongPress: openImageActions,
+		});
+		onCleanup(
+			blockTouchScroll(
+				element,
+				() => gesture.kind !== "idle" && gesture.kind !== "pending",
+			),
+		);
+	};
+
+	const bindRoot = (element: HTMLDivElement) => {
+		root = element;
+		const trackPointer = (event: PointerEvent) => {
+			setPointerKind(event.pointerType || "mouse");
+			if (pointers.size === 0) multiTouch = false;
+		};
+		element.addEventListener("pointerdown", trackPointer, {
+			capture: true,
+			passive: true,
+		});
+		onCleanup(() =>
+			element.removeEventListener("pointerdown", trackPointer, {
+				capture: true,
+			}),
+		);
+	};
+
 	const onPointerCancel = (event: PointerEvent) => {
 		pointers.delete(event.pointerId);
 		if (pointers.size > 0) return;
@@ -866,6 +934,7 @@ export const Lightbox = (props: LightboxProps) => {
 		);
 
 	const onKeyDown = (event: KeyboardEvent) => {
+		if (!root?.contains(event.target as Node)) return;
 		if (event.key === "Escape") {
 			event.preventDefault();
 			requestClose();
@@ -1003,7 +1072,7 @@ export const Lightbox = (props: LightboxProps) => {
 		<Show when={mounted() && item()}>
 			<Portal>
 				<div
-					ref={root}
+					ref={bindRoot}
 					role="dialog"
 					aria-modal="true"
 					aria-label={dialogLabel()}
@@ -1024,7 +1093,9 @@ export const Lightbox = (props: LightboxProps) => {
 					/>
 					<ImageContextMenu
 						contentClass="z-[80]"
-						disabled={!mediaMenuTarget() || isVideo(item())}
+						disabled={
+							!mediaMenuTarget() || isVideo(item()) || pointerKind() !== "mouse"
+						}
 						onCopy={
 							props.onCopyImage ? () => props.onCopyImage?.(index()) : undefined
 						}
@@ -1035,7 +1106,7 @@ export const Lightbox = (props: LightboxProps) => {
 						}
 					>
 						<div
-							ref={stage}
+							ref={bindStage}
 							data-lightbox-stage=""
 							onContextMenu={(event) => {
 								const target = event.target as Element | null;
@@ -1356,6 +1427,34 @@ export const Lightbox = (props: LightboxProps) => {
 							</div>
 						)}
 					</Show>
+					<Drawer
+						open={actionsOpen() && hasImageActions()}
+						onOpenChange={setActionsOpen}
+						initialFocus="content"
+					>
+						<DrawerContent
+							aria-label="Image actions"
+							class="z-[80]"
+							overlayClass="z-[80]"
+						>
+							<ListGroup>
+								<Show when={props.onCopyImage}>
+									<ActionRow
+										icon={<CopyAddIcon />}
+										label="Copy image"
+										onClick={runImageAction(props.onCopyImage)}
+									/>
+								</Show>
+								<Show when={props.onDownloadImage}>
+									<ActionRow
+										icon={<GalleryDownloadIcon />}
+										label="Download image"
+										onClick={runImageAction(props.onDownloadImage)}
+									/>
+								</Show>
+							</ListGroup>
+						</DrawerContent>
+					</Drawer>
 				</div>
 			</Portal>
 		</Show>

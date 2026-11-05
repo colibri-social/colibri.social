@@ -52,21 +52,20 @@ export const ComposerBar = (props: ComposerBarProps) => {
 		>
 			<div class="min-h-0 overflow-hidden">
 				<div
+					data-composer-bar-static={props.onClick ? undefined : ""}
 					class={cx(
-						"flex h-10 items-center gap-2 border-b border-border pr-1 pl-3 text-sm",
+						"flex gap-2 border-b border-border pr-1 pl-3 text-sm",
+						props.onClick ? "h-10 items-center" : "min-h-10 items-start py-2.5",
 						toneClass[props.tone],
 					)}
 				>
-					<span class="flex size-4 shrink-0 items-center justify-center text-(--composer-bar-accent) [&>svg]:size-4">
+					<span class="flex h-5 w-4 shrink-0 items-center justify-center text-(--composer-bar-accent) [&>svg]:size-4">
 						{icon()}
 					</span>
 					<Show
 						when={props.onClick}
 						fallback={
-							<span
-								data-layout-clip=""
-								class="min-w-0 flex-1 truncate text-muted-foreground"
-							>
+							<span class="min-w-0 flex-1 leading-5 break-words text-pretty text-muted-foreground">
 								{content()}
 							</span>
 						}
@@ -90,7 +89,10 @@ export const ComposerBar = (props: ComposerBarProps) => {
 						size="sm"
 						label={props.cancelLabel}
 						icon={<CloseIcon />}
-						class="text-muted-foreground not-aria-disabled:hover:text-foreground"
+						class={cx(
+							"text-muted-foreground not-aria-disabled:hover:text-foreground",
+							!props.onClick && "-my-1",
+						)}
 						onClick={() => props.onCancel?.()}
 					/>
 				</div>

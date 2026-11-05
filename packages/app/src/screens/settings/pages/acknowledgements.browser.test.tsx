@@ -1,11 +1,46 @@
-import { afterEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { setBlueskyClient } from "../../../data/bluesky-client";
 import generated from "../acknowledgements.generated.json";
-import AcknowledgementsPage from "./acknowledgements";
+import AcknowledgementsPage, {
+	loadContributorAvatar,
+} from "./acknowledgements";
 import { cleanup, mountPage } from "./page-test-kit";
 
-afterEach(cleanup);
+const LOUIS_DID = "did:plc:w64dlsa4zwjv2wljlvmymldc";
+const LOUIS_PDS = "https://pds.example.com";
+const LOUIS_AVATAR_CID = "bafkreiavatar";
+
+const respond = (body: unknown, status = 200) =>
+	Promise.resolve(new Response(JSON.stringify(body), { status }));
+
+const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+beforeEach(() => {
+	fetchSpy.mockImplementation((input) => {
+		const url = String(input instanceof Request ? input.url : input);
+		if (url === `https://plc.directory/${LOUIS_DID}`)
+			return respond({
+				service: [
+					{
+						id: "#atproto_pds",
+						type: "AtprotoPersonalDataServer",
+						serviceEndpoint: LOUIS_PDS,
+					},
+				],
+			});
+		if (url.startsWith(`${LOUIS_PDS}/xrpc/com.atproto.repo.getRecord?`))
+			return respond({
+				value: { avatar: { ref: { $link: LOUIS_AVATAR_CID } } },
+			});
+		return respond({ error: "NotFound" }, 404);
+	});
+});
+
+afterEach(() => {
+	cleanup();
+	fetchSpy.mockReset();
+});
 
 const LOUIS_PROFILE = "/profile/did:plc:w64dlsa4zwjv2wljlvmymldc";
 
@@ -33,6 +68,7 @@ it("opens contributors in the preferred Bluesky client", async () => {
 			(row) => row.dataset.contributor,
 		),
 	).toEqual([
+		"clxxiii.dev",
 		"felixs.dev",
 		"omixann.me",
 		"kyanoxia.com",
@@ -41,7 +77,24 @@ it("opens contributors in the preferred Bluesky client", async () => {
 		"otterlord.dev",
 		"rman.dev",
 	]);
-	expect(document.querySelectorAll("[data-contributor-role]")).toHaveLength(3);
+	expect(document.querySelectorAll("[data-contributor-role]")).toHaveLength(4);
+});
+
+it("loads contributor avatars from their own server when Colibri has none", async () => {
+	const { store } = await mountPage(() => (
+		<AcknowledgementsPage platform="mobile" />
+	));
+	expect(
+		await loadContributorAvatar(store, { name: "Louis", did: LOUIS_DID }),
+	).toBe(
+		`${LOUIS_PDS}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(LOUIS_DID)}&cid=${LOUIS_AVATAR_CID}`,
+	);
+	expect(
+		await loadContributorAvatar(store, {
+			name: "Felix",
+			did: "did:plc:pbjvqaziagcyv2vqodldn5op",
+		}),
+	).toBeUndefined();
 });
 
 it("virtualizes the generated library list and filters it by search", async () => {

@@ -102,6 +102,23 @@ describe("live tails", () => {
 		expect(rkeys(placeMessage(list, message("0")))).toEqual(["0", "a"]);
 	});
 
+	it("reacts only to the message whose author matches the target", () => {
+		const list = [message("a")];
+		const reaction = {
+			rkey: "a",
+			emoji: "👍",
+			actor: VIEWER,
+			add: true,
+			viewer: VIEWER,
+		};
+		expect(reactIn(list, { ...reaction, author: "did:plc:b" as Did })).toBe(
+			list,
+		);
+		expect(
+			reactIn(list, { ...reaction, author: "did:plc:a" as Did })[0]?.reactions,
+		).toHaveLength(1);
+	});
+
 	it("keeps the emoji record a custom reaction names", () => {
 		const customEmoji = {
 			uri: "at://did:plc:a/social.colibri.beta.emoji/party",

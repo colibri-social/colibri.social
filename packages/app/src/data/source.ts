@@ -108,7 +108,7 @@ export type LiveEvent =
 			$type: "reactionEvent";
 			event: "create" | "delete";
 			channel: SpaceRef;
-			target: string;
+			target: { did: Did; rkey: string };
 			emoji: string;
 			customEmoji?: ReactionEmojiRef;
 			actor: Did;
