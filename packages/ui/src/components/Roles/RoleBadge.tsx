@@ -28,7 +28,7 @@ import { cx } from "../../utils/cx";
 import { themedColor, themedColorStyle } from "../../utils/name-color";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { BadgeInfo } from "../Badge/BadgeInfo";
-import { Emoji } from "../Emoji/Emoji";
+import { createImageRetry, Emoji } from "../Emoji/Emoji";
 
 export const ROLE_BADGE_ICONS = [
 	{ name: "shield-check", label: "Shield with check", icon: ShieldCheckIcon },
@@ -88,6 +88,12 @@ const customEmojiOf = (badge: RoleBadgeValue) =>
 export const shownRoleBadge = (badge: RoleBadgeValue | undefined) =>
 	isRoleBadgeShown(badge) ? badge : undefined;
 
+export const roleBadgeImageSrc = (badge: RoleBadgeValue | undefined) => {
+	if (badge?.kind === "image") return badge.url;
+
+	return badge?.kind === "emoji" ? badge.custom?.src : undefined;
+};
+
 export type RoleIdentity = {
 	id?: string;
 	name: string;
@@ -124,6 +130,8 @@ export type RoleBadgeGlyphProps = {
 	badge: RoleBadgeValue;
 	roleColor?: string;
 	size?: RoleBadgeSize;
+	imageSrc?: string;
+	onImageError?: () => void;
 	class?: string;
 };
 
@@ -152,13 +160,19 @@ export const RoleBadgeGlyph = (props: RoleBadgeGlyphProps) => {
 				>
 					{(entry) => <Dynamic component={entry().icon} />}
 				</Match>
-				<Match when={props.badge.kind === "image" && props.badge.url} keyed>
+				<Match
+					when={
+						props.badge.kind === "image" && (props.imageSrc ?? props.badge.url)
+					}
+					keyed
+				>
 					{(url) => (
 						<AnimatedImage
 							src={url}
 							alt=""
 							draggable={false}
 							decoding="async"
+							onError={() => props.onImageError?.()}
 							class="size-full object-contain"
 						/>
 					)}
@@ -166,13 +180,20 @@ export const RoleBadgeGlyph = (props: RoleBadgeGlyphProps) => {
 				<Match when={props.badge.kind === "emoji" && props.badge.emoji} keyed>
 					{(emoji) => <Emoji emoji={emoji} size={sizePx[size()]} />}
 				</Match>
-				<Match when={customEmojiOf(props.badge)?.src} keyed>
+				<Match
+					when={
+						customEmojiOf(props.badge) &&
+						(props.imageSrc ?? customEmojiOf(props.badge)?.src)
+					}
+					keyed
+				>
 					{(src) => (
 						<AnimatedImage
 							src={src}
 							alt=""
 							draggable={false}
 							decoding="async"
+							onError={() => props.onImageError?.()}
 							class="size-full object-contain"
 						/>
 					)}
@@ -186,21 +207,32 @@ export type RoleBadgeProps = {
 	role: RoleIdentity;
 	size?: RoleBadgeSize;
 	interactive?: boolean;
+	fallback?: JSX.Element;
 	class?: string;
 };
 
 export const RoleBadge = (props: RoleBadgeProps) => {
+	const image = createImageRetry(() => roleBadgeImageSrc(props.role.badge));
 	const label = () => `${props.role.name} role`;
+	const visibleBadge = () => {
+		const badge = shownRoleBadge(props.role.badge);
+
+		return badge && (!roleBadgeImageSrc(badge) || image.src())
+			? badge
+			: undefined;
+	};
 	const glyph = (badge: RoleBadgeValue) => (
 		<RoleBadgeGlyph
 			badge={badge}
 			roleColor={props.role.color}
 			size={props.size}
+			imageSrc={image.src()}
+			onImageError={image.fail}
 		/>
 	);
 
 	return (
-		<Show when={shownRoleBadge(props.role.badge)}>
+		<Show when={visibleBadge()} fallback={props.fallback}>
 			{(badge) => (
 				<Show
 					when={props.interactive ?? true}
@@ -255,14 +287,10 @@ export type RoleMarkProps = {
 };
 
 export const RoleMark = (props: RoleMarkProps): JSX.Element => (
-	<Show
-		when={isRoleBadgeShown(props.role.badge)}
+	<RoleBadge
+		role={props.role}
+		interactive={props.interactive}
 		fallback={<RoleColorDot color={props.role.color} class={props.class} />}
-	>
-		<RoleBadge
-			role={props.role}
-			interactive={props.interactive}
-			class={props.class}
-		/>
-	</Show>
+		class={props.class}
+	/>
 );

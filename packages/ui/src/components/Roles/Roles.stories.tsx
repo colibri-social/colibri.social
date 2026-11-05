@@ -19,6 +19,7 @@ import {
 	RoleBadge,
 	type RoleBadgeValue,
 	type RoleIdentity,
+	RoleMark,
 } from "./RoleBadge";
 import { RoleBadgeSetting } from "./RoleBadgePicker";
 import { RoleRow } from "./RoleRow";
@@ -183,6 +184,50 @@ export const BadgeHint: Story = {
 			await tap(badge);
 			await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 		});
+	},
+};
+
+const brokenImageRole: RoleIdentity = {
+	id: "broken",
+	name: "Broken",
+	color: "#4ade80",
+	badge: { kind: "image", url: "data:image/png;base64,AAAA" },
+};
+
+const brokenEmojiRole: RoleIdentity = {
+	id: "broken-emoji",
+	name: "Broken emoji",
+	color: "#ffd857",
+	badge: {
+		kind: "emoji",
+		custom: { id: "gone", name: "gone", src: "data:image/png;base64,AAAA" },
+	},
+};
+
+export const BrokenImageBadge: Story = {
+	render: () => (
+		<div class="flex flex-col gap-3 p-8 text-sm font-semibold text-foreground">
+			<div data-broken-badge="" class="flex items-center gap-1.5">
+				Lou
+				<RoleBadge role={brokenImageRole} />
+				<RoleBadge role={brokenEmojiRole} />
+			</div>
+			<div data-broken-mark="" class="flex items-center gap-1.5">
+				<RoleMark role={brokenImageRole} />
+				Broken
+			</div>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await waitFor(() =>
+			expect(canvasElement.querySelector("[data-role-badge]")).toBeNull(),
+		);
+		await expect(
+			canvasElement.querySelector("[data-broken-badge] img"),
+		).toBeNull();
+		await expect(
+			canvasElement.querySelector("[data-broken-mark] [data-role-color-dot]"),
+		).not.toBeNull();
 	},
 };
 
