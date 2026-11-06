@@ -141,8 +141,6 @@ export const members = defineContract({
 				? new Set<string>(threadMembers)
 				: undefined;
 			const readers = list.filter((member) => {
-				if (data.preferences.isBlocked(member.actor.did)) return false;
-
 				return included
 					? included.has(member.actor.did)
 					: canReadChannel(view, category, {

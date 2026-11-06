@@ -18,7 +18,7 @@ import type {
 	ReactInput,
 	SendMessageInput,
 } from "../source";
-import { MAX_ATTACHMENT_BYTES, MESSAGE_COLLECTION } from "../source";
+import { MESSAGE_COLLECTION } from "../source";
 import {
 	type AttachmentView,
 	type Datetime,
@@ -145,6 +145,7 @@ export const createMessageWrites = (deps: {
 	index: MessageIndex;
 	uploads: Uploads;
 	viewer: () => ProfileView;
+	uploadLimit: () => number;
 }) => {
 	const { transport, records, index, uploads } = deps;
 	const reactionKeys = new Map<string, string>();
@@ -276,7 +277,7 @@ export const createMessageWrites = (deps: {
 				signal?: AbortSignal;
 			},
 		): Promise<AttachmentView> => {
-			if (file.size > MAX_ATTACHMENT_BYTES)
+			if (file.size > deps.uploadLimit())
 				throw new ColibriError({
 					code: "FileTooLarge",
 					method: "repo.uploadBlob",

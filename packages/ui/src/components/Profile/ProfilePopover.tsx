@@ -11,6 +11,7 @@ import { usePopperOverflowPadding } from "../../utils/safe-area";
 import type { PopoverPlacement } from "../Popover/Popover";
 import { Skeleton, SkeletonText } from "../Skeleton/Skeleton";
 import { ProfileHeaderSkeleton } from "../Skeleton/Skeletons";
+import { BlockedProfileFrame } from "./BlockedProfileFrame";
 import {
 	type ProfileAction,
 	ProfileContent,
@@ -196,17 +197,19 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 							fallback={<ProfilePopoverSkeleton />}
 						>
 							{(profile) => (
-								<ProfileContent
-									profile={profile()}
-									surface="popover"
-									tight
-									avatarPlay={open() && !reducedMotionActive()}
-									footer={props.footer}
-									onAction={(action) => {
-										setOpen(false);
-										props.onAction?.(action);
-									}}
-								/>
+								<BlockedProfileFrame profile={profile()} open={open()}>
+									<ProfileContent
+										profile={profile()}
+										surface="popover"
+										tight
+										avatarPlay={open() && !reducedMotionActive()}
+										footer={props.footer}
+										onAction={(action) => {
+											setOpen(false);
+											props.onAction?.(action);
+										}}
+									/>
+								</BlockedProfileFrame>
 							)}
 						</Show>
 					</div>

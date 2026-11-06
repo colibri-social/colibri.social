@@ -12,6 +12,7 @@ import {
 	typingFrame,
 	viewChannelFrame,
 } from "@colibri-social/lib";
+import { createSignal } from "solid-js";
 import { resolvePdsHost } from "../../auth/identity";
 import { isNativeShell } from "../../auth/native";
 import type { InvitationPreview, JoinResult } from "../access";
@@ -29,13 +30,14 @@ import {
 	createPreferenceStore,
 	preferencesSnapshotKey,
 } from "../preferences/store";
-import type {
-	ControlsPreferences,
-	DataSource,
-	LiveEvent,
-	ProfileSeed,
-	ProfileTheme,
-	Simulation,
+import {
+	type ControlsPreferences,
+	type DataSource,
+	effectiveUploadLimit,
+	type LiveEvent,
+	type ProfileSeed,
+	type ProfileTheme,
+	type Simulation,
 } from "../source";
 import { createSupporterLinkTransport } from "../supporter-link";
 import type {
@@ -151,6 +153,25 @@ export const createRemoteSource = async (
 			return undefined;
 		}
 	};
+	const [blobUploadLimit, setBlobUploadLimit] = createSignal<unknown>();
+	const readUploadLimit = async () => {
+		try {
+			const description = await transport.pdsQuery<{
+				blobUploadLimit?: unknown;
+			}>("com.atproto.server.describeServer");
+			setBlobUploadLimit(description.blobUploadLimit);
+		} catch (thrown) {
+			log.warn("could not read the upload limit", {
+				code: classifyThrown(thrown).code,
+			});
+		}
+	};
+	const uploadLimit = () => {
+		return effectiveUploadLimit(blobUploadLimit());
+	};
+
+	void readUploadLimit();
+
 	const fetchProfile = async () => {
 		const result = await transport.query(colibri.actor.getProfile.main, {
 			params: { actor: options.session.did },
@@ -311,6 +332,7 @@ export const createRemoteSource = async (
 		index,
 		uploads,
 		viewer: () => viewer,
+		uploadLimit,
 	});
 
 	const listMessages: DataSource["listMessages"] = async (params) => {
@@ -674,6 +696,7 @@ export const createRemoteSource = async (
 		setModeratedEmbeds: writes.setModeratedEmbeds,
 		forwardMessage: writes.forwardMessage,
 		uploadBlob: writes.uploadBlob,
+		uploadLimit,
 		markRead: (channel, through) =>
 			writes.markRead(
 				channel,

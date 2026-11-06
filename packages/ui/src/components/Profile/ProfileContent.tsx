@@ -64,6 +64,8 @@ export type ProfileData = {
 	actions?: ProfileAction[];
 	developer?: ProfileDeveloperInfo;
 	self?: boolean;
+	blocked?: boolean;
+	onUnblock?: () => void;
 };
 
 export type ProfileContentPartProps = {

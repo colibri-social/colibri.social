@@ -1,6 +1,7 @@
 import { Show } from "solid-js";
 import { reducedMotionActive } from "../../utils/playback";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
+import { BlockedProfileFrame } from "./BlockedProfileFrame";
 import {
 	type ProfileAction,
 	ProfileContentBody,
@@ -40,21 +41,26 @@ export const ProfileDrawer = (props: ProfileDrawerProps) => {
 						aria-label={`${name()}'s profile`}
 						headerBleed
 						header={
-							<ProfileContentHeader
+							<BlockedProfileFrame
 								profile={profile()}
-								surface="popover"
-								avatarPlay={props.open && !reducedMotionActive()}
-								onAction={props.onAction}
-							/>
+								open={props.open}
+								class="has-[[data-profile-body]]:-mb-6"
+							>
+								<ProfileContentHeader
+									profile={profile()}
+									surface="popover"
+									avatarPlay={props.open && !reducedMotionActive()}
+									onAction={props.onAction}
+								/>
+								<ProfileContentBody
+									profile={profile()}
+									surface="popover"
+									onAction={props.onAction}
+									class="px-4 pt-4"
+								/>
+							</BlockedProfileFrame>
 						}
-					>
-						<ProfileContentBody
-							profile={profile()}
-							surface="popover"
-							onAction={props.onAction}
-							class="-mt-2"
-						/>
-					</DrawerContent>
+					/>
 				)}
 			</Show>
 		</Drawer>

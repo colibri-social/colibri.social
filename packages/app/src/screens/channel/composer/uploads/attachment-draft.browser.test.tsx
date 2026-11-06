@@ -20,7 +20,7 @@ afterEach(() => dispose?.());
 const setup = (
 	options: {
 		max?: number;
-		maxBytes?: number;
+		maxBytes?: () => number;
 		reencode?: (file: File) => Promise<File>;
 	} = {},
 ) => {
@@ -149,10 +149,26 @@ describe("attachment draft", () => {
 	});
 
 	it("rejects files over the size limit", () => {
-		const { draft, notices } = setup({ maxBytes: 100 });
+		const { draft, notices } = setup({ maxBytes: () => 100 });
 		draft.addFiles([file("big.bin", 200), file("small.bin", 50)]);
 		expect(draft.items().map((item) => item.file.name)).toEqual(["small.bin"]);
-		expect(notices).toEqual([tooLargeMessage("big.bin")]);
+		expect(notices).toEqual([tooLargeMessage("big.bin", 100)]);
+	});
+
+	it("rejects a file over the account host's limit and names it", () => {
+		const megabyte = 1024 * 1024;
+		let limit = 75 * megabyte;
+		const { draft, notices } = setup({ maxBytes: () => limit });
+		const video = file("clip.mp4", 10, "video/mp4");
+
+		Object.defineProperty(video, "size", { value: 60 * megabyte });
+		limit = 50 * megabyte;
+		draft.addFiles([video]);
+
+		expect(draft.items()).toHaveLength(0);
+		expect(notices).toEqual([
+			'"clip.mp4" is too large. Files can be up to 50 MB.',
+		]);
 	});
 
 	it("removes a file and frees its preview", () => {

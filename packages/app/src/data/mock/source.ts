@@ -11,6 +11,7 @@ import {
 	type DataSource,
 	type ListMessagesParams,
 	type LiveEvent,
+	MAX_ATTACHMENT_BYTES,
 	MAX_MOVE_SUBJECTS,
 	type MessagePage,
 	TransferOwnershipError,
@@ -1333,6 +1334,7 @@ export const createMockSource = (
 				}),
 			),
 		uploadBlob: (file, options) => whenOnline(() => mockUpload(file, options)),
+		uploadLimit: () => MAX_ATTACHMENT_BYTES,
 		loadProfileSetup: () => withLatency(() => ({ complete: true as const })),
 		defaultCommunity: () => withLatency(() => undefined),
 		putProfile: (input) =>

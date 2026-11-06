@@ -1,4 +1,5 @@
 import type { social } from "@colibri-social/lexicons";
+import { isGifSiteUrl } from "./adapters/attachments";
 import { collapseWhitespace } from "./adapters/facets";
 import type { Did, Facet, MessageView, SpaceRef } from "./types";
 
@@ -38,8 +39,24 @@ type SummaryFields = {
 	createdAt: string;
 };
 
+const isGifText = (text: string) => {
+	return /^\S+$/.test(text) && isGifSiteUrl(text);
+};
+
 const summaryOf = (fields: SummaryFields): ChannelSummary => {
 	const body = collapseWhitespace(fields.text, fields.facets);
+
+	if (isGifText(body.text)) {
+		return {
+			channel: fields.channel as SpaceRef,
+			rkey: fields.rkey,
+			author: fields.author as Did,
+			text: "Sent a GIF",
+			attachment: "image",
+			createdAt: fields.createdAt,
+		};
+	}
+
 	const text =
 		body.text ||
 		fallbackText(fields.attachment, fields.attachmentCount) ||

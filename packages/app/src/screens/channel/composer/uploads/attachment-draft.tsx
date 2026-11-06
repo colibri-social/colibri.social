@@ -1,6 +1,7 @@
 import { classifyThrown, createLogger } from "@colibri-social/lib";
 import {
 	AttachmentTray,
+	formatSizeLimit,
 	type PendingAttachment,
 	toast,
 } from "@colibri-social/ui";
@@ -29,7 +30,7 @@ export type DraftFile = Pick<
 
 export type AttachmentDraftOptions = {
 	max?: number;
-	maxBytes?: number;
+	maxBytes?: () => number;
 	notify?: (message: string) => void;
 	thumbnail?: (file: File) => Promise<string | undefined>;
 	reencode?: (file: File) => Promise<File>;
@@ -53,8 +54,8 @@ export const needsReencode = (file: File) =>
 
 export const tooManyMessage = (max: number) =>
 	`You can attach up to ${max} files per message.`;
-export const tooLargeMessage = (name: string) =>
-	`"${name}" is too large to attach.`;
+export const tooLargeMessage = (name: string, maxBytes: number) =>
+	`"${name}" is too large. Files can be up to ${formatSizeLimit(maxBytes)}.`;
 export const attachedAsFileMessage = (name: string) =>
 	`"${name}" couldn't be turned into a picture, so it will be sent as a file.`;
 
@@ -146,7 +147,7 @@ const revoke = (src: string | undefined) => {
 
 export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 	const max = options.max ?? MAX_ATTACHMENTS;
-	const maxBytes = options.maxBytes ?? MAX_ATTACHMENT_BYTES;
+	const maxBytes = options.maxBytes ?? (() => MAX_ATTACHMENT_BYTES);
 	const notify = options.notify ?? ((message: string) => toast.error(message));
 	const thumbnail = options.thumbnail ?? videoThumbnail;
 	const reencode = options.reencode ?? reencodeAsJpeg;
@@ -175,9 +176,11 @@ export const createAttachmentDraft = (options: AttachmentDraftOptions = {}) => {
 		const room = max - items().length;
 		if (incoming.length > room) notify(tooManyMessage(max));
 		const accepted: DraftItem[] = [];
+		const limit = maxBytes();
+
 		for (const file of incoming.slice(0, Math.max(0, room))) {
-			if (file.size > maxBytes) {
-				notify(tooLargeMessage(file.name));
+			if (file.size > limit) {
+				notify(tooLargeMessage(file.name, limit));
 				continue;
 			}
 			accepted.push({

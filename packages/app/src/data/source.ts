@@ -91,6 +91,14 @@ export type Simulation = { slowNetwork: boolean; offline: boolean };
 export const MAX_ATTACHMENTS = 10;
 export const MAX_ATTACHMENT_BYTES = 75 * 1024 * 1024;
 
+export const effectiveUploadLimit = (blobUploadLimit: unknown) => {
+	return typeof blobUploadLimit === "number" &&
+		Number.isSafeInteger(blobUploadLimit) &&
+		blobUploadLimit > 0
+		? Math.min(blobUploadLimit, MAX_ATTACHMENT_BYTES)
+		: MAX_ATTACHMENT_BYTES;
+};
+
 export type LiveEvent =
 	| AccessEvent
 	| EmojiEvent
@@ -593,6 +601,7 @@ export type DataSource = AccessSource &
 			file: File,
 			options?: UploadOptions,
 		) => Promise<AttachmentView>;
+		uploadLimit: () => number;
 		putProfile: (input: ProfileRecordInput) => Promise<ProfileView>;
 		loadProfileSetup: () => Promise<ProfileSetup>;
 		defaultCommunity: () => Promise<Did | undefined>;

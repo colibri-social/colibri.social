@@ -1933,3 +1933,282 @@ export const ProfileDrawerBlockAction: Story = {
 		).toBeVisible();
 	},
 };
+
+const BlockedPopover = () => {
+	const [open, setOpen] = createSignal(false);
+	const [blocked, setBlocked] = createSignal(true);
+	let anchor: HTMLElement | undefined;
+
+	return (
+		<div class="min-h-[820px] w-[720px] bg-background py-6 pl-[360px]">
+			<MessageRow
+				author={{ name: "Lou", avatarSrc: AVATAR }}
+				timestamp={AT}
+				now={NOW}
+				locale="en-GB"
+				onAuthorClick={(event) => {
+					anchor = event.currentTarget as HTMLElement;
+					setOpen(true);
+				}}
+			>
+				I have walked that path for years and never once have I seen one.
+			</MessageRow>
+			<ProfilePopover
+				profile={lou({
+					blocked: blocked(),
+					onUnblock: () => setBlocked(false),
+					actionsLabel: "Actions",
+					actions: [
+						{
+							...blockAction(blocked()),
+							onSelect: () => setBlocked((value) => !value),
+						},
+					],
+				})}
+				anchor={() => anchor}
+				open={open()}
+				onOpenChange={setOpen}
+				placement="left-start"
+			/>
+		</div>
+	);
+};
+
+const openBlockedPopover = async (canvasElement: HTMLElement) => {
+	const author = within(canvasElement).getAllByRole("button", {
+		name: /Lou/,
+	})[0];
+
+	if (!author) throw new Error("author trigger missing");
+	await userEvent.click(author);
+
+	const popover = await screen.findByRole("dialog", { name: "Lou's profile" });
+
+	await waitFor(() =>
+		expect(
+			within(popover).getByRole("button", { name: "Show profile" }),
+		).toBeVisible(),
+	);
+
+	return popover;
+};
+
+const tabbableLabels = (container: HTMLElement) => {
+	return Array.from(
+		container.querySelectorAll<HTMLElement>(
+			'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+		),
+	)
+		.filter((element) => !element.closest("[inert]") && element.tabIndex >= 0)
+		.map((element) => element.textContent?.trim());
+};
+
+const expectProfileHidden = async (container: HTMLElement) => {
+	const frame = container.querySelector<HTMLElement>(
+		"[data-blocked-profile-hidden]",
+	);
+
+	if (!frame) throw new Error("blocked frame missing");
+
+	const content = frame.firstElementChild as HTMLElement;
+
+	await expect(content).toHaveAttribute("inert");
+	await expect(content).toHaveAttribute("aria-hidden", "true");
+	await expect(within(container).queryByRole("heading")).toBeNull();
+	await expect(
+		within(container).queryByRole("button", { name: "Unblock Lou" }),
+	).toBeNull();
+	await expect(
+		within(container).getByText("You blocked this person"),
+	).toBeVisible();
+
+	const box = frame.getBoundingClientRect();
+	const notice = frame.querySelector<HTMLElement>(
+		"[data-blocked-profile-notice]",
+	);
+
+	if (!notice) throw new Error("notice missing");
+
+	const cover = notice.getBoundingClientRect();
+
+	await expect(Math.abs(cover.top - box.top)).toBeLessThan(1);
+	await expect(Math.abs(cover.bottom - box.bottom)).toBeLessThan(1);
+	await expect(Math.abs(cover.left - box.left)).toBeLessThan(1);
+	await expect(Math.abs(cover.right - box.right)).toBeLessThan(1);
+};
+
+export const BlockedProfilePopover: Story = {
+	parameters: desktop,
+	render: () => <BlockedPopover />,
+	play: async ({ canvasElement }) => {
+		const popover = await openBlockedPopover(canvasElement);
+
+		await expectProfileHidden(popover);
+		await expectNoLayoutIssues(popover);
+		await expect(tabbableLabels(popover)).toEqual(["Show profile", "Unblock"]);
+		await userEvent.click(
+			within(popover).getByRole("button", { name: "Unblock" }),
+		);
+		await waitFor(() =>
+			expect(popover.querySelector("[data-blocked-profile]")).toBeNull(),
+		);
+		await expect(
+			within(popover).getByRole("button", { name: "Block Lou" }),
+		).toBeVisible();
+		await expect(screen.getByRole("dialog", { name: "Lou's profile" })).toBe(
+			popover,
+		);
+		await expect(popover.contains(document.activeElement)).toBe(true);
+		await expectNoLayoutIssues(popover);
+	},
+};
+
+export const BlockedProfilePopoverRevealed: Story = {
+	parameters: desktop,
+	render: () => <BlockedPopover />,
+	play: async ({ canvasElement }) => {
+		const popover = await openBlockedPopover(canvasElement);
+
+		await userEvent.click(
+			within(popover).getByRole("button", { name: "Show profile" }),
+		);
+		await waitFor(() =>
+			expect(
+				within(popover).getByRole("heading", { name: "Lou" }),
+			).toBeVisible(),
+		);
+		await expect(
+			popover.querySelector("[data-blocked-profile-notice]"),
+		).toBeNull();
+		await expect(
+			within(popover).getByRole("button", { name: "Unblock Lou" }),
+		).toBeVisible();
+		await expect(screen.getByRole("dialog", { name: "Lou's profile" })).toBe(
+			popover,
+		);
+		await expect(popover.contains(document.activeElement)).toBe(true);
+		await expectNoLayoutIssues(popover);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Lou's profile" }),
+			).toBeNull(),
+		);
+
+		const reopened = await openBlockedPopover(canvasElement);
+
+		await expectProfileHidden(reopened);
+		await expectNoLayoutIssues(reopened);
+	},
+};
+
+const BlockedDrawer = () => {
+	const [open, setOpen] = createSignal(true);
+	const [blocked, setBlocked] = createSignal(true);
+
+	return (
+		<>
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Open profile
+			</Button>
+			<ProfileDrawerComponent
+				open={open()}
+				onOpenChange={setOpen}
+				profile={lou({
+					bio: BIO,
+					blocked: blocked(),
+					onUnblock: () => setBlocked(false),
+					actionsLabel: "Actions",
+					actions: [
+						{
+							...blockAction(blocked()),
+							onSelect: () => setBlocked((value) => !value),
+						},
+					],
+				})}
+			/>
+		</>
+	);
+};
+
+const drawerBodyGap = (dialog: HTMLElement) => {
+	const header = dialog.querySelector<HTMLElement>("header");
+	const body = dialog.querySelector<HTMLElement>("[data-profile-body]");
+	const scroll = dialog.querySelector<HTMLElement>("[data-drawer-scroll]");
+
+	const first = body?.firstElementChild;
+
+	if (!header || !body || !first || !scroll) {
+		throw new Error("drawer parts missing");
+	}
+
+	const bodyRect = body.getBoundingClientRect();
+	const scrollRect = scroll.getBoundingClientRect();
+
+	return {
+		top: Math.round(
+			first.getBoundingClientRect().top - header.getBoundingClientRect().bottom,
+		),
+		bottom: Math.round(
+			scroll.scrollHeight -
+				(bodyRect.bottom - scrollRect.top + scroll.scrollTop),
+		),
+	};
+};
+
+export const BlockedProfileDrawer: Story = {
+	render: () => <BlockedDrawer />,
+	play: async () => {
+		const dialog = await screen.findByRole("dialog");
+
+		await within(dialog).findByRole("button", { name: "Show profile" });
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		await expectProfileHidden(dialog);
+		await expectNoLayoutIssues(dialog);
+		await expect(tabbableLabels(dialog)).toEqual(["Show profile", "Unblock"]);
+		within(dialog).getByRole("button", { name: "Show profile" }).focus();
+		await userEvent.keyboard("{Enter}");
+		await waitFor(() =>
+			expect(
+				within(dialog).getByRole("heading", { name: "Lou" }),
+			).toBeVisible(),
+		);
+		await expect(dialog.contains(document.activeElement)).toBe(true);
+		await waitFor(() => expectNoLayoutIssues(dialog), { timeout: 3000 });
+
+		await expect(drawerBodyGap(dialog)).toEqual({ top: 16, bottom: 16 });
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Unblock Lou" }),
+		);
+		await waitFor(() =>
+			expect(dialog.querySelector("[data-blocked-profile]")).toBeNull(),
+		);
+		await expect(
+			within(dialog).getByRole("button", { name: "Block Lou" }),
+		).toBeVisible();
+		await expect(drawerBodyGap(dialog)).toEqual({ top: 16, bottom: 16 });
+		await waitFor(() => expectNoLayoutIssues(dialog), { timeout: 3000 });
+	},
+};
+
+export const BlockedProfileDrawerUnblock: Story = {
+	render: () => <BlockedDrawer />,
+	play: async () => {
+		const dialog = await screen.findByRole("dialog");
+		const unblock = await within(dialog).findByRole("button", {
+			name: "Unblock",
+		});
+
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		await expectNoLayoutIssues(dialog);
+		await userEvent.click(unblock);
+		await waitFor(() =>
+			expect(dialog.querySelector("[data-blocked-profile-notice]")).toBeNull(),
+		);
+		await expect(
+			within(dialog).getByRole("heading", { name: "Lou" }),
+		).toBeVisible();
+		await expect(dialog.contains(document.activeElement)).toBe(true);
+		await waitFor(() => expectNoLayoutIssues(dialog), { timeout: 3000 });
+	},
+};

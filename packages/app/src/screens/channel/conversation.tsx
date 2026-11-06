@@ -158,7 +158,7 @@ export const createConversation = (options: ConversationOptions) => {
 	const profileSheet = useProfileSheet();
 	const memberMenu = useMemberMenu();
 	const links = createLinkOpener();
-	const attachments = createAttachmentDraft();
+	const attachments = createAttachmentDraft({ maxBytes: data.uploadLimit });
 	let editor: RichEditorHandle | undefined;
 	let editorFocusRun = 0;
 	const keepEditorFocus = (frames = 12) => {

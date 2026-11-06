@@ -3714,6 +3714,7 @@ export const createDataStore = (
 			preferences: source.preferences,
 			controls: source.preferences.controls,
 			source,
+			uploadLimit: () => source.uploadLimit(),
 			simulation: () => simulation(),
 			setSimulation: (next: Partial<Simulation>) => {
 				source.setSimulation(next);

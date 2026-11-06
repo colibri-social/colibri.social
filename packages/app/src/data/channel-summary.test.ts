@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { linkMessage } from "./adapters/facets";
 import {
 	newerSummary,
 	summarizeChannel,
@@ -7,6 +8,8 @@ import {
 	summaryParts,
 } from "./channel-summary";
 import type { Facet, MessageView } from "./types";
+
+const GIF_URL = "https://static.klipy.com/ii/e7539ef2/abc.gif";
 
 const KEK = "at://did:plc:hq/blue.moji.collection.item/kek";
 
@@ -152,5 +155,64 @@ describe("channel summary", () => {
 		expect(
 			summarizePending({ ...pending, text: "hi\n there" }, "did:plc:me").text,
 		).toBe("hi there");
+	});
+
+	it("describes a GIF message", () => {
+		expect(summarizeMessage(message(linkMessage(GIF_URL)))).toEqual({
+			channel: "at://did:plc:hq/space/c1",
+			rkey: "r1",
+			author: "did:plc:a",
+			text: "Sent a GIF",
+			attachment: "image",
+			createdAt: "2026-10-12T10:00:00.000Z",
+		});
+	});
+
+	it("describes a pending GIF message", () => {
+		const summary = summarizePending(
+			{
+				channel: "at://did:plc:hq/space/c1" as MessageView["channel"],
+				rkey: "r3",
+				...linkMessage(GIF_URL),
+				createdAt: "2026-10-12T10:00:00.000Z",
+			},
+			"did:plc:me",
+		);
+
+		expect(summary).toMatchObject({ text: "Sent a GIF", attachment: "image" });
+		expect(summary.facets).toBeUndefined();
+	});
+
+	it("describes a GIF in an AppView summary", () => {
+		const summary = summarizeChannel({
+			channel: "at://did:plc:hq/space/social.colibri.beta.channel.text/c1",
+			rkey: "r1",
+			author: "did:plc:a",
+			...linkMessage(GIF_URL),
+			attachmentCount: 0,
+			forward: false,
+			createdAt: "2026-10-12T10:00:00.000Z",
+		} as Parameters<typeof summarizeChannel>[0]);
+
+		expect(summary).toMatchObject({ text: "Sent a GIF", attachment: "image" });
+		expect(summary.facets).toBeUndefined();
+		expect(summaryParts(summary, emojiFor)).toEqual(["Sent a GIF"]);
+	});
+
+	it("keeps a GIF URL with extra text as text", () => {
+		const summary = summarizeMessage(message({ text: `lol ${GIF_URL}` }));
+
+		expect(summary.text).toBe(`lol ${GIF_URL}`);
+		expect(summary.attachment).toBeUndefined();
+	});
+
+	it("keeps a non-GIF URL as text", () => {
+		const summary = summarizeMessage(
+			message(linkMessage("https://example.com/a.gif")),
+		);
+
+		expect(summary.text).toBe("https://example.com/a.gif");
+		expect(summary.facets).toHaveLength(1);
+		expect(summary.attachment).toBeUndefined();
 	});
 });

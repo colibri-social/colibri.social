@@ -126,12 +126,15 @@ const memberNamed = (name: string) => {
 	);
 };
 
-it("leaves blocked people out of typing, mention suggestions and the member list", async () => {
+it("leaves blocked people out of typing and mention suggestions but keeps them in the member list", async () => {
 	const { store, source } = await mount();
 
 	await until(() => !!memberNamed(NOOR_NAME));
 	await store.preferences.setBlocked(NOOR, true);
-	await until(() => !memberNamed(NOOR_NAME));
+	await until(() => store.preferences.isBlocked(NOOR));
+	await wait(100);
+
+	expect(memberNamed(NOOR_NAME)).toBeTruthy();
 
 	const community = store.communities
 		.value()
@@ -170,5 +173,7 @@ it("leaves blocked people out of typing, mention suggestions and the member list
 
 	await userEvent.keyboard("{Escape}");
 	await store.preferences.setBlocked(NOOR, false);
-	await until(() => !!memberNamed(NOOR_NAME));
+	await until(() => !store.preferences.isBlocked(NOOR));
+
+	expect(memberNamed(NOOR_NAME)).toBeTruthy();
 });

@@ -1,8 +1,12 @@
 import { type ColibriError, colibri } from "@colibri-social/lib";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { linkMessage } from "../adapters/facets";
 import { DEFAULT_COMPOSER } from "../preferences/types";
-import { type DataSource, TransferOwnershipError } from "../source";
+import {
+	type DataSource,
+	MAX_ATTACHMENT_BYTES,
+	TransferOwnershipError,
+} from "../source";
 import type { MessageView, SpaceRef } from "../types";
 import {
 	createFakeLive,
@@ -22,6 +26,16 @@ const VOICE =
 	`at://${COMMUNITY}/space/social.colibri.beta.channel.voice/lounge` as SpaceRef;
 const THREAD =
 	`at://${COMMUNITY}/space/social.colibri.beta.channel.thread/t1` as SpaceRef;
+
+const MEGABYTE = 1024 * 1024;
+
+const oversized = (name: string, size: number) => {
+	const file = new File(["x"], name, { type: "video/mp4" });
+
+	Object.defineProperty(file, "size", { value: size });
+
+	return file;
+};
 
 const profileOf = (did: string) => ({
 	did,
@@ -124,6 +138,67 @@ describe("createRemoteSource", () => {
 			fake.on(colibri.actor.getPreferences.main.nsid, json({}, 500)),
 		);
 		expect(source.gifFavorites()).toEqual([]);
+	});
+
+	it("limits uploads to the account host's limit when it is below 75 MB", async () => {
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				"com.atproto.server.describeServer",
+				json({ did: "did:web:pds.test", blobUploadLimit: 50 * MEGABYTE }),
+			);
+		});
+
+		await vi.waitFor(() => expect(source.uploadLimit()).toBe(50 * MEGABYTE));
+		expect(fake.callsTo("com.atproto.server.describeServer")).toHaveLength(1);
+		await expect(
+			source.uploadBlob(oversized("clip.mp4", 60 * MEGABYTE)),
+		).rejects.toMatchObject({ code: "FileTooLarge" });
+		expect(fake.callsTo("com.atproto.repo.uploadBlob")).toHaveLength(0);
+	});
+
+	it("caps uploads at 75 MB when the account host allows more", async () => {
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				"com.atproto.server.describeServer",
+				json({ did: "did:web:pds.test", blobUploadLimit: 500 * MEGABYTE }),
+			);
+		});
+
+		await vi.waitFor(() =>
+			expect(fake.callsTo("com.atproto.server.describeServer")).toHaveLength(1),
+		);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(source.uploadLimit()).toBe(MAX_ATTACHMENT_BYTES);
+	});
+
+	it("falls back to 75 MB when the account host names no limit", async () => {
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				"com.atproto.server.describeServer",
+				json({ did: "did:web:pds.test" }),
+			);
+		});
+
+		await vi.waitFor(() =>
+			expect(fake.callsTo("com.atproto.server.describeServer")).toHaveLength(1),
+		);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(source.uploadLimit()).toBe(MAX_ATTACHMENT_BYTES);
+	});
+
+	it("falls back to 75 MB when the account host can't be described", async () => {
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				"com.atproto.server.describeServer",
+				xrpcError(500, "InternalError"),
+			);
+		});
+
+		await vi.waitFor(() =>
+			expect(fake.callsTo("com.atproto.server.describeServer")).toHaveLength(1),
+		);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(source.uploadLimit()).toBe(MAX_ATTACHMENT_BYTES);
 	});
 
 	it("lists communities, channels, categories, roles and members", async () => {

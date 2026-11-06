@@ -132,6 +132,10 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 			nowPlaying: nowPlayingOf(presence, bio.openLink),
 			activityPrompt: self ? <OwnActivityPrompt tone="secondary" /> : undefined,
 			self,
+			blocked: !self && blocking.isBlocked(actor.did),
+			onUnblock: self
+				? undefined
+				: () => void blocking.unblock(actor.did, name),
 			actions: self ? undefined : [blockAction(actor.did, name)],
 			roles: roles.map((role) => {
 				const identity = roleIdentity(role);
