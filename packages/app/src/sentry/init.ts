@@ -107,7 +107,9 @@ export function initSentry(options: InitSentryOptions): void {
 			/^https:\/\/colibri\.social\/api/,
 			/^https:\/\/api\.colibri\.social/,
 			/^https:\/\/appview\.colibri\.social/,
-			new RegExp(`^${DEFAULT_APPVIEW_URL.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}`),
+			new RegExp(
+				`^${DEFAULT_APPVIEW_URL.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}`,
+			),
 			/^https:\/\/[a-z0-9-]+\.nodes\.colibri\.social/,
 		],
 		ignoreErrors: IGNORED_MESSAGES,

@@ -59,7 +59,8 @@
 									"push",
 									"gifs",
 									"embeds",
-									"emoji"
+									"emoji",
+									"nodes"
 								]
 							}
 						},

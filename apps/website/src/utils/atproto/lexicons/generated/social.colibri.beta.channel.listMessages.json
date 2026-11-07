@@ -71,6 +71,14 @@
 								"ref": "social.colibri.beta.thread.defs#threadView",
 								"description": "A thread."
 							}
+						},
+						"unavailableAuthors": {
+							"type": "array",
+							"description": "Authors whose older messages could not be loaded for this page because their PDS did not answer. The page may be missing some of their messages. Absent when the page is complete.",
+							"items": {
+								"type": "string",
+								"format": "did"
+							}
 						}
 					}
 				}

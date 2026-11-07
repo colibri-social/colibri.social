@@ -211,6 +211,11 @@
 					"format": "uri",
 					"description": "URL served by this AppView's blob proxy."
 				},
+				"previewUrl": {
+					"type": "string",
+					"format": "uri",
+					"description": "A smaller rendition of an image for inline display, served by this AppView's blob proxy. Clients fall back to url when it's absent. Lightboxes and downloads use url."
+				},
 				"name": {
 					"type": "string",
 					"description": "The original filename.",

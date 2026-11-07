@@ -67,6 +67,7 @@
 						"social.colibri.beta.emoji.getLibrary",
 						"social.colibri.beta.emoji.putFollow",
 						"social.colibri.beta.server.describeServer",
+						"social.colibri.beta.server.listNodes",
 						"social.colibri.beta.blob.get"
 					]
 				}

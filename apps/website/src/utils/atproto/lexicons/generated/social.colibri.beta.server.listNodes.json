@@ -1,0 +1,75 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.server.listNodes",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists the nodes of this AppView network that currently accept clients. Clients measure the round trip to each probe URL and connect their event socket, voice signaling and media requests to the fastest node.",
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"nodes"
+					],
+					"properties": {
+						"nodes": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "#nodeView"
+							},
+							"description": "Nodes that accept clients, in no particular order."
+						}
+					}
+				}
+			},
+			"errors": []
+		},
+		"nodeView": {
+			"type": "object",
+			"description": "A node that accepts clients.",
+			"required": [
+				"id",
+				"region",
+				"roles",
+				"endpoint",
+				"probeUrl"
+			],
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "Stable node identifier."
+				},
+				"region": {
+					"type": "string",
+					"description": "Region name, such as 'eu-north' or 'us-east'."
+				},
+				"roles": {
+					"type": "array",
+					"description": "What the node serves.",
+					"items": {
+						"type": "string",
+						"knownValues": [
+							"main",
+							"failover",
+							"api",
+							"live",
+							"voice"
+						]
+					}
+				},
+				"endpoint": {
+					"type": "string",
+					"format": "uri",
+					"description": "Base URL of the node. Event sockets, voice signaling, blobs and embeds use it."
+				},
+				"probeUrl": {
+					"type": "string",
+					"format": "uri",
+					"description": "A cheap URL to measure the round trip to this node."
+				}
+			}
+		}
+	}
+}

@@ -51,6 +51,8 @@ export type SetConsumerPreferenceFrame = ReturnType<
 export type SetSelfStateFrame = ReturnType<typeof defs.setSelfState.build>;
 export type VoiceHeartbeatFrame = ReturnType<typeof defs.heartbeat.build>;
 export type SetSpeakingFrame = ReturnType<typeof defs.setSpeaking.build>;
+export type RttReportFrame = ReturnType<typeof defs.rttReport.build>;
+export type MoveNowFrame = ReturnType<typeof defs.moveNow.build>;
 
 export type ClientVoiceFrame =
 	| JoinFrame
@@ -65,7 +67,9 @@ export type ClientVoiceFrame =
 	| SetConsumerPreferenceFrame
 	| SetSelfStateFrame
 	| SetSpeakingFrame
-	| VoiceHeartbeatFrame;
+	| VoiceHeartbeatFrame
+	| RttReportFrame
+	| MoveNowFrame;
 
 export type RtpCapabilitiesFrame = ReturnType<
 	typeof defs.rtpCapabilities.build
@@ -94,6 +98,11 @@ export type ModerationChangedFrame = ReturnType<
 >;
 export type DisconnectedFrame = ReturnType<typeof defs.disconnected.build>;
 export type MovedFrame = ReturnType<typeof defs.moved.build>;
+export type MigrationProposalFrame = ReturnType<
+	typeof defs.migrationProposal.build
+>;
+export type MigrateToFrame = ReturnType<typeof defs.migrateTo.build>;
+export type CallElsewhereFrame = ReturnType<typeof defs.callElsewhere.build>;
 
 export type ServerVoiceFrame =
 	| RtpCapabilitiesFrame
@@ -110,7 +119,10 @@ export type ServerVoiceFrame =
 	| SpeakingUpdateFrame
 	| ModerationChangedFrame
 	| DisconnectedFrame
-	| MovedFrame;
+	| MovedFrame
+	| MigrationProposalFrame
+	| MigrateToFrame
+	| CallElsewhereFrame;
 
 export type VoiceFrame = ClientVoiceFrame | ServerVoiceFrame;
 
@@ -194,6 +206,16 @@ export const setSpeakingFrame = (speaking: boolean): SetSpeakingFrame =>
 export const voiceHeartbeatFrame = (): VoiceHeartbeatFrame =>
 	defs.heartbeat.build({});
 
+export const rttReportFrame = (
+	results: ReadonlyArray<{ nodeId: string; rttMs?: number }>,
+): RttReportFrame => {
+	return defs.rttReport.build({ results: [...results] });
+};
+
+export const moveNowFrame = (): MoveNowFrame => {
+	return defs.moveNow.build({});
+};
+
 export const encodeVoiceFrame = (frame: VoiceFrame): string =>
 	JSON.stringify(frame);
 
@@ -230,6 +252,9 @@ const FRAME_SCHEMAS = [
 	defs.moderationChanged,
 	defs.disconnected,
 	defs.moved,
+	defs.migrationProposal,
+	defs.migrateTo,
+	defs.callElsewhere,
 ] as unknown as ReadonlyArray<AnyFrameSchema>;
 
 const FRAME_SCHEMA_BY_TYPE = new Map<string, AnyFrameSchema>(
@@ -252,6 +277,9 @@ const SERVER_FRAME_TYPES = new Set<string>([
 	defs.moderationChanged.$type,
 	defs.disconnected.$type,
 	defs.moved.$type,
+	defs.migrationProposal.$type,
+	defs.migrateTo.$type,
+	defs.callElsewhere.$type,
 ]);
 
 export const isServerVoiceFrame = (

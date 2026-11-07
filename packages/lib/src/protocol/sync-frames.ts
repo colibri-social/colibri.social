@@ -145,6 +145,15 @@ export type CommunityProgressEventFrame = FrameOf<
 	"communityProgressEvent"
 >;
 
+export type DrainNoticeFrame = FrameOf<
+	typeof colibri.sync.defs.drainNotice,
+	"drainNotice"
+>;
+export type WriteStateFrame = FrameOf<
+	typeof colibri.sync.defs.writeState,
+	"writeState"
+>;
+
 export type ServerFrame =
 	| AckFrame
 	| ErrorFrame
@@ -170,7 +179,9 @@ export type ServerFrame =
 	| VoiceEventFrame
 	| EmojiEventFrame
 	| EmojiLibraryEventFrame
-	| CommunityProgressEventFrame;
+	| CommunityProgressEventFrame
+	| DrainNoticeFrame
+	| WriteStateFrame;
 
 type FrameSchema = {
 	$safeParse: (input: unknown) => { success: boolean; value?: unknown };
@@ -202,6 +213,8 @@ const SERVER_FRAME_NAMES = [
 	"emojiEvent",
 	"emojiLibraryEvent",
 	"communityProgressEvent",
+	"drainNotice",
+	"writeState",
 ] as const;
 
 export type ServerFrameName = (typeof SERVER_FRAME_NAMES)[number];
@@ -232,6 +245,8 @@ const SERVER_FRAME_SCHEMAS: Record<ServerFrameName, FrameSchema> = {
 	emojiEvent: colibri.sync.defs.emojiEvent,
 	emojiLibraryEvent: colibri.sync.defs.emojiLibraryEvent,
 	communityProgressEvent: colibri.sync.defs.communityProgressEvent,
+	drainNotice: colibri.sync.defs.drainNotice,
+	writeState: colibri.sync.defs.writeState,
 };
 
 export const frameIs = <N extends ServerFrameName>(

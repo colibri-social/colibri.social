@@ -173,7 +173,8 @@
 						"InvalidFrame",
 						"Forbidden",
 						"NotFound",
-						"RateLimited"
+						"RateLimited",
+						"ReadOnly"
 					]
 				},
 				"message": {
@@ -920,6 +921,47 @@
 					"type": "string",
 					"format": "tid",
 					"description": "Record key of the registration."
+				}
+			}
+		},
+		"drainNotice": {
+			"type": "object",
+			"description": "This node is going offline. Clients move their event socket to another node from listNodes. When no other node exists, clients warn the user that the connection may drop at the deadline.",
+			"required": [
+				"deadline"
+			],
+			"properties": {
+				"deadline": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the node closes its remaining connections."
+				},
+				"reason": {
+					"type": "string",
+					"description": "Why the node goes offline.",
+					"knownValues": [
+						"update",
+						"maintenance",
+						"retire"
+					]
+				}
+			}
+		},
+		"writeState": {
+			"type": "object",
+			"description": "Whether this node can take writes right now. Sent on connect and whenever it changes.",
+			"required": [
+				"mode"
+			],
+			"properties": {
+				"mode": {
+					"type": "string",
+					"description": "'normal' accepts writes. 'queued' accepts writes and applies them once the network can take them again. 'readOnly' rejects writes with a ReadOnly error.",
+					"knownValues": [
+						"normal",
+						"queued",
+						"readOnly"
+					]
 				}
 			}
 		}

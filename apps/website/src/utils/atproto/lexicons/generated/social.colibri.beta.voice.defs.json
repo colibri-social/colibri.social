@@ -408,6 +408,14 @@
 					"type": "string",
 					"format": "space-ref",
 					"description": "The voice channel now joined."
+				},
+				"nodeId": {
+					"type": "string",
+					"description": "The node hosting the call."
+				},
+				"region": {
+					"type": "string",
+					"description": "The region of the node hosting the call."
 				}
 			}
 		},
@@ -478,12 +486,14 @@
 			"properties": {
 				"reason": {
 					"type": "string",
-					"description": "Why it happened.",
+					"description": "Why it happened. 'nodeClosed' means the node hosting the call shut down before the call could move. 'migrated' means the call moved to another node and this connection is no longer needed.",
 					"knownValues": [
 						"moderator",
 						"superseded",
 						"channelGone",
-						"forbidden"
+						"forbidden",
+						"nodeClosed",
+						"migrated"
 					]
 				}
 			}
@@ -531,6 +541,154 @@
 				"serverDeafened": {
 					"type": "boolean",
 					"description": "Whether a moderator deafened them. When this is true the peer cannot undeafen themselves."
+				}
+			}
+		},
+		"migrationCandidate": {
+			"type": "object",
+			"description": "A voice node a call can move to.",
+			"required": [
+				"nodeId",
+				"region",
+				"signalingUrl",
+				"probeUrl"
+			],
+			"properties": {
+				"nodeId": {
+					"type": "string",
+					"description": "Stable node identifier."
+				},
+				"region": {
+					"type": "string",
+					"description": "Region name."
+				},
+				"signalingUrl": {
+					"type": "string",
+					"format": "uri",
+					"description": "Base URL for voice signaling on that node."
+				},
+				"probeUrl": {
+					"type": "string",
+					"format": "uri",
+					"description": "A cheap URL to measure the round trip to that node."
+				}
+			}
+		},
+		"migrationProposal": {
+			"type": "object",
+			"description": "This node is going offline and the call has to move. Clients measure the round trip to every candidate and answer with rttReport.",
+			"required": [
+				"candidates",
+				"deadline"
+			],
+			"properties": {
+				"candidates": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#migrationCandidate"
+					},
+					"description": "Voice nodes the call can move to."
+				},
+				"deadline": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the call moves without further notice."
+				}
+			}
+		},
+		"rttReport": {
+			"type": "object",
+			"description": "Round trips this client measured to the candidates of a migrationProposal.",
+			"required": [
+				"results"
+			],
+			"properties": {
+				"results": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#rttResult"
+					},
+					"description": "One result per candidate."
+				}
+			}
+		},
+		"rttResult": {
+			"type": "object",
+			"description": "One measured round trip.",
+			"required": [
+				"nodeId"
+			],
+			"properties": {
+				"nodeId": {
+					"type": "string",
+					"description": "The candidate measured."
+				},
+				"rttMs": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "Round trip in milliseconds. Absent when the node could not be reached."
+				}
+			}
+		},
+		"migrateTo": {
+			"type": "object",
+			"description": "The call moves to another node. Clients join the same channel there, switch their media over, and then leave this node.",
+			"required": [
+				"nodeId",
+				"signalingUrl",
+				"channel"
+			],
+			"properties": {
+				"nodeId": {
+					"type": "string",
+					"description": "The node the call moves to."
+				},
+				"signalingUrl": {
+					"type": "string",
+					"format": "uri",
+					"description": "Base URL for voice signaling on that node."
+				},
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The voice channel."
+				},
+				"now": {
+					"type": "boolean",
+					"description": "True when a participant asked to move right away."
+				}
+			}
+		},
+		"moveNow": {
+			"type": "object",
+			"description": "Asks the node to move the call to the chosen node right away, without waiting for the deadline.",
+			"required": [],
+			"properties": {}
+		},
+		"callElsewhere": {
+			"type": "object",
+			"description": "The call in the requested channel runs on another node. Clients join it there.",
+			"required": [
+				"nodeId",
+				"signalingUrl",
+				"channel"
+			],
+			"properties": {
+				"nodeId": {
+					"type": "string",
+					"description": "The node hosting the call."
+				},
+				"signalingUrl": {
+					"type": "string",
+					"format": "uri",
+					"description": "Base URL for voice signaling on that node."
+				},
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The voice channel."
 				}
 			}
 		}
