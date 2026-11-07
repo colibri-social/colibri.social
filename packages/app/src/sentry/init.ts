@@ -1,4 +1,5 @@
 import {
+	DEFAULT_APPVIEW_URL,
 	type LogEntry,
 	markReportDelivered,
 	redactText,
@@ -106,7 +107,8 @@ export function initSentry(options: InitSentryOptions): void {
 			/^https:\/\/colibri\.social\/api/,
 			/^https:\/\/api\.colibri\.social/,
 			/^https:\/\/appview\.colibri\.social/,
-			/^https:\/\/spaces-api\.colibri\.social/,
+			new RegExp(`^${DEFAULT_APPVIEW_URL.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}`),
+			/^https:\/\/[a-z0-9-]+\.nodes\.colibri\.social/,
 		],
 		ignoreErrors: IGNORED_MESSAGES,
 		beforeBreadcrumb: (breadcrumb) => {

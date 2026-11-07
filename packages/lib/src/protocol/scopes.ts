@@ -1,3 +1,4 @@
+import { DEFAULT_APPVIEW_URL, didWebForHost } from "./appview.js";
 import { colibri } from "./lexicons.js";
 
 const PERMISSION_SETS = [
@@ -34,7 +35,9 @@ export const buildScopes = (appViewDid: string) => [
 	`include:${PUSH_PERMISSION_SET}?aud=${appViewDid}#colibri_notifs`,
 ];
 
-export const scopes = buildScopes("did:web:spaces-api.colibri.social");
+export const scopes = buildScopes(
+	didWebForHost(new URL(DEFAULT_APPVIEW_URL).host),
+);
 
 export const PERMISSION_SET_LABELS: Record<string, string> = {
 	"social.colibri.beta.permissionAccount": "Account & profile",
