@@ -116,7 +116,7 @@ export const SignInScreen = (props: SignInScreenProps) => {
 			<EntranceText
 				group={1}
 				class={descriptionClass}
-				lines="Sign in with the Atmosphere account you already have, for example your Bluesky, Semble or Tangled account."
+				lines="Sign in with the Atmosphere account you already have, for example your Bluesky, Semble or Tangled account. We never see your password."
 			/>
 			<Entrance group={2} class="w-full">
 				<HandleField
