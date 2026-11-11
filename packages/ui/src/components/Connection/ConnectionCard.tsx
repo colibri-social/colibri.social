@@ -1,4 +1,6 @@
 import { CloudCrossIcon } from "@solar-icons/solid/bold/cloud-cross";
+import { CloudUploadIcon } from "@solar-icons/solid/bold/cloud-upload";
+import { RestartIcon } from "@solar-icons/solid/bold/restart";
 import { WiFiOffIcon } from "@solar-icons/solid/bold/wi-fi-off";
 import {
 	createEffect,
@@ -14,7 +16,12 @@ import { cx } from "../../utils/cx";
 import type { ChatPlatform } from "../Message/layout";
 import { Spinner } from "../Spinner/Spinner";
 
-export type ConnectionCardState = "reconnecting" | "unreachable" | "offline";
+export type ConnectionCardState =
+	| "reconnecting"
+	| "unreachable"
+	| "offline"
+	| "restarting"
+	| "readOnly";
 
 export type ConnectionCardProps = {
 	state: ConnectionCardState;
@@ -22,6 +29,7 @@ export type ConnectionCardProps = {
 	visible: boolean;
 	animate?: boolean;
 	retryAt?: number;
+	deadline?: number;
 	onRetry?: () => void;
 	retrying?: boolean;
 	title?: string;
@@ -38,8 +46,23 @@ export const CONNECTION_CARD_INSET: Record<
 	desktop: { top: 32, side: 16 },
 };
 
-export const connectionCardTitle = (state: ConnectionCardState) => {
+const minutesLeft = (secondsLeft: number | undefined) => {
+	return secondsLeft === undefined ? undefined : Math.ceil(secondsLeft / 60);
+};
+
+export const connectionCardTitle = (
+	state: ConnectionCardState,
+	secondsLeft?: number,
+) => {
 	if (state === "offline") return "You're offline";
+	if (state === "restarting") {
+		const minutes = minutesLeft(secondsLeft);
+
+		return minutes === undefined || minutes <= 1
+			? "Restarting for an update in under a minute"
+			: `Restarting for an update in ${minutes} min`;
+	}
+	if (state === "readOnly") return "Changes are on hold";
 	if (state === "unreachable") return "Can't connect right now";
 	return "Reconnecting";
 };
@@ -49,6 +72,10 @@ export const connectionCardDescription = (
 	secondsLeft: number | undefined,
 ) => {
 	if (state === "offline") return "Colibri picks up when you're back";
+	if (state === "readOnly")
+		return "You can still read. Your changes go out once Colibri can save them again";
+	if (state === "restarting")
+		return "You may lose the connection for a few seconds";
 	if (state === "reconnecting")
 		return "New messages show up once you're connected";
 	if (secondsLeft === undefined || secondsLeft <= 0) return "Trying again now";
@@ -86,10 +113,12 @@ export const ConnectionCard = (props: ConnectionCardProps) => {
 	});
 	const unreachable = () => shown() === "unreachable";
 	const secondsLeft = createSecondsLeft(
-		() => props.retryAt,
-		() => props.visible && unreachable(),
+		() => (shown() === "restarting" ? props.deadline : props.retryAt),
+		() => props.visible && (unreachable() || shown() === "restarting"),
 	);
-	const title = createMemo(() => props.title ?? connectionCardTitle(shown()));
+	const title = createMemo(
+		() => props.title ?? connectionCardTitle(shown(), secondsLeft()),
+	);
 	const description = createMemo(
 		() =>
 			props.description ?? connectionCardDescription(shown(), secondsLeft()),
@@ -134,6 +163,12 @@ export const ConnectionCard = (props: ConnectionCardProps) => {
 						</Match>
 						<Match when={unreachable()}>
 							<CloudCrossIcon />
+						</Match>
+						<Match when={shown() === "restarting"}>
+							<RestartIcon />
+						</Match>
+						<Match when={shown() === "readOnly"}>
+							<CloudUploadIcon />
 						</Match>
 					</Switch>
 				</span>

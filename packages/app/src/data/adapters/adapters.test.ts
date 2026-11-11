@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { setMediaOrigins } from "../remote/media-origin";
 import { isVisibleRole, rolesOf, topHoistedRole, visibleRoles } from "../roles";
 import type {
 	AttachmentView,
@@ -385,6 +386,49 @@ describe("attachments", () => {
 			mimeType,
 			...extra,
 		}) as AttachmentView;
+
+	it("shows the preview in the message and keeps the original for downloads", () => {
+		const [image] = splitAttachments([
+			attachment("image/png", {
+				previewUrl: "https://example.com/files/image.png?variant=timeline",
+			}),
+		]).media;
+		const [plain] = splitAttachments([attachment("image/png")]).media;
+
+		expect(image).toMatchObject({
+			src: "https://example.com/files/image.png",
+			previewSrc: "https://example.com/files/image.png?variant=timeline",
+			downloadHref: "https://example.com/files/image.png",
+		});
+		expect(plain?.previewSrc).toBeUndefined();
+	});
+
+	it("loads media from the picked node instead of the main one", () => {
+		setMediaOrigins("https://example.com", "https://eu-2.nodes.example.com");
+
+		try {
+			const [image] = splitAttachments([
+				attachment("image/png", {
+					previewUrl:
+						"https://example.com/files/image.png?variant=timeline&sig=x",
+				}),
+			]).media;
+			const [elsewhere] = splitAttachments([
+				{
+					url: "https://cdn.other.test/a.png",
+					mimeType: "image/png",
+				} as AttachmentView,
+			]).media;
+
+			expect(image?.src).toBe("https://eu-2.nodes.example.com/files/image.png");
+			expect(image?.previewSrc).toBe(
+				"https://eu-2.nodes.example.com/files/image.png?variant=timeline&sig=x",
+			);
+			expect(elsewhere?.src).toBe("https://cdn.other.test/a.png");
+		} finally {
+			setMediaOrigins(null, null);
+		}
+	});
 
 	it("splits by mime type and keeps dimensions", () => {
 		const result = splitAttachments([

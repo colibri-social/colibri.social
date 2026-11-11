@@ -10,7 +10,11 @@ import {
 	on,
 	onCleanup,
 } from "solid-js";
-import type { LiveStatus } from "../../data/remote/live";
+import type {
+	DrainNotice,
+	LiveStatus,
+	WriteMode,
+} from "../../data/remote/live";
 
 export const CONNECTION_GRACE_MS = 2_500;
 export const RETRY_FEEDBACK_MS = 4_000;
@@ -53,6 +57,8 @@ export type ConnectionStatusProps = {
 	online?: boolean;
 	onRetry: () => void;
 	retryAt?: number;
+	writeMode?: WriteMode;
+	drain?: DrainNotice;
 	platform: ConnectionCardProps["platform"];
 };
 
@@ -90,9 +96,10 @@ export const ConnectionStatus = (props: ConnectionStatusProps) => {
 
 	const state = (): ConnectionCardState | undefined => {
 		if (!online()) return "offline";
-		if (!settled()) return undefined;
-		if (props.status === "unreachable") return "unreachable";
-		if (props.status === "reconnecting") return "reconnecting";
+		if (settled() && props.status === "unreachable") return "unreachable";
+		if (settled() && props.status === "reconnecting") return "reconnecting";
+		if (props.writeMode === "readOnly") return "readOnly";
+		if (props.drain && props.drain.deadline > Date.now()) return "restarting";
 		return undefined;
 	};
 
@@ -108,6 +115,7 @@ export const ConnectionStatus = (props: ConnectionStatusProps) => {
 			visible={state() !== undefined}
 			platform={props.platform}
 			retryAt={props.retryAt}
+			deadline={props.drain?.deadline}
 			retrying={retrying()}
 			onRetry={retry}
 		/>

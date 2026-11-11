@@ -521,3 +521,149 @@ describe("createLiveConnection", () => {
 		expect(latest().frames("heartbeat")).toHaveLength(0);
 	});
 });
+
+describe("node handover", () => {
+	const OTHER = "https://eu-2.nodes.colibri.test";
+	const typing = (did: string) => ({
+		$type: "social.colibri.beta.sync.defs#typingEvent",
+		did,
+		channel: GENERAL,
+	});
+	const subscribed = {
+		$type: "social.colibri.beta.sync.defs#subscribed",
+		communities: [COMMUNITY],
+		channels: [],
+	};
+
+	it("tracks the node's write state", async () => {
+		const live = start();
+		await flush();
+		latest().open();
+
+		expect(live.writeMode()).toBe("normal");
+
+		latest().receive({
+			$type: "social.colibri.beta.sync.defs#writeState",
+			mode: "queued",
+		});
+		expect(live.writeMode()).toBe("queued");
+
+		latest().receive({
+			$type: "social.colibri.beta.sync.defs#writeState",
+			mode: "readOnly",
+		});
+		expect(live.writeMode()).toBe("readOnly");
+		live.close();
+	});
+
+	it("moves to another node on a drain notice and keeps events flowing until it's subscribed", async () => {
+		const pickHost = vi.fn((avoid: ReadonlySet<string>) =>
+			avoid.has(HOST) ? OTHER : HOST,
+		);
+		const live = start({ pickHost });
+		const received: LiveEvent[] = [];
+
+		live.subscribe((event) => received.push(event));
+		live.watch({ communities: [COMMUNITY] });
+		await flush();
+
+		const first = latest();
+
+		first.open();
+		first.receive(subscribed);
+		first.receive({
+			$type: "social.colibri.beta.sync.defs#drainNotice",
+			deadline: new Date(Date.now() + 60 * 60_000).toISOString(),
+			reason: "update",
+		});
+		await flush();
+
+		const second = latest();
+
+		expect(second).not.toBe(first);
+		expect(second.url).toBe(socketUrl(OTHER));
+		expect(first.readyState).not.toBe(3);
+
+		first.receive(typing("did:plc:before"));
+		second.open();
+		expect(second.frames("subscribe")).toHaveLength(1);
+
+		first.receive(typing("did:plc:between"));
+		second.receive(subscribed);
+
+		expect(first.readyState).toBe(3);
+		expect(live.status()).toBe("open");
+		expect(live.drain()).toBeUndefined();
+		expect(live.host()).toBe(socketUrl(OTHER));
+
+		second.receive(typing("did:plc:after"));
+		expect(received.map((event) => (event as { did?: string }).did)).toEqual([
+			"did:plc:before",
+			"did:plc:between",
+			"did:plc:after",
+		]);
+		live.close();
+	});
+
+	it("warns about the restart when no other node can take the socket", async () => {
+		const live = start({ pickHost: () => null });
+		await flush();
+		latest().open();
+
+		const deadline = Date.now() + 20 * 60_000;
+
+		latest().receive({
+			$type: "social.colibri.beta.sync.defs#drainNotice",
+			deadline: new Date(deadline).toISOString(),
+			reason: "update",
+		});
+		await flush();
+
+		expect(sockets).toHaveLength(1);
+		expect(live.drain()).toMatchObject({ deadline, reason: "update" });
+		live.close();
+	});
+
+	it("doesn't go back to a draining node when it reconnects", async () => {
+		let others: string[] = [OTHER];
+		const live = start({
+			pickHost: (avoid) =>
+				[HOST, ...others].find((host) => !avoid.has(host)) ?? null,
+		});
+
+		await flush();
+		latest().open();
+		others = [];
+		latest().receive({
+			$type: "social.colibri.beta.sync.defs#drainNotice",
+			deadline: new Date(Date.now() + 60 * 60_000).toISOString(),
+		});
+		await flush();
+
+		expect(live.drain()).toBeDefined();
+
+		others = [OTHER];
+		latest().drop();
+		await vi.advanceTimersByTimeAsync(1_000);
+
+		expect(latest().url).toBe(socketUrl(OTHER));
+		live.close();
+	});
+
+	it("moves to a faster node on request", async () => {
+		const live = start();
+		await flush();
+
+		const first = latest();
+
+		first.open();
+		live.moveTo(OTHER);
+		await flush();
+		latest().open();
+		latest().receive(subscribed);
+
+		expect(first.readyState).toBe(3);
+		expect(live.host()).toBe(socketUrl(OTHER));
+		live.close();
+	});
+});

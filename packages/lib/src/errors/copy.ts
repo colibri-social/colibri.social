@@ -207,6 +207,10 @@ const CATALOG: ErrorCopyCatalog = {
 		title: "That sign-in has expired.",
 		description: "Start again from the Space.",
 	},
+	ReadOnly: {
+		title: "Colibri can't save changes right now.",
+		description: "We'll send them once it can again. Reading still works.",
+	},
 	PdsUnavailable: {
 		title: "Your data server isn't reachable.",
 		description: "Reads still work, but changes can't be saved right now.",

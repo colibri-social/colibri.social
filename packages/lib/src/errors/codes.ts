@@ -37,6 +37,7 @@ export type AppViewErrorCode =
 	| "PushNotConfigured"
 	| "RateLimited"
 	| "RequestNotFound"
+	| "ReadOnly"
 	| "RoleHierarchy"
 	| "RoleNotFound"
 	| "RoleProtected"
@@ -162,6 +163,7 @@ const APPVIEW_CODES = new Set<string>([
 	"PushNotConfigured",
 	"RateLimited",
 	"RequestNotFound",
+	"ReadOnly",
 	"RoleHierarchy",
 	"RoleNotFound",
 	"RoleProtected",
@@ -253,6 +255,7 @@ const RETRYABLE_CODES = new Set<ColibriErrorCode>([
 	"NetworkFailed",
 	"RateLimited",
 	"UpstreamFailure",
+	"ReadOnly",
 	"PdsUnavailable",
 	"InternalError",
 	"VoiceConnectionLost",

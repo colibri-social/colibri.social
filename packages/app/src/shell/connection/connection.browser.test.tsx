@@ -4,7 +4,11 @@ import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
-import type { LiveStatus } from "../../data/remote/live";
+import type {
+	DrainNotice,
+	LiveStatus,
+	WriteMode,
+} from "../../data/remote/live";
 import { Providers } from "../../providers";
 import {
 	CONNECTION_GRACE_MS,
@@ -37,6 +41,8 @@ const mount = (
 		online?: boolean;
 		retryAt?: number;
 		platform?: "mobile" | "desktop";
+		writeMode?: WriteMode;
+		drain?: DrainNotice;
 	} = {},
 ) => {
 	const [status, setStatus] = createSignal<LiveStatus>(initial);
@@ -52,6 +58,8 @@ const mount = (
 					status={status()}
 					online={online()}
 					retryAt={options.retryAt}
+					writeMode={options.writeMode}
+					drain={options.drain}
 					onRetry={onRetry}
 					platform={options.platform ?? "mobile"}
 				/>
@@ -160,4 +168,44 @@ it("sits at the card inset inside its pane", async () => {
 	expect(Math.abs(box.top - pane.top - inset.top)).toBeLessThan(1);
 	expect(Math.abs(box.left - pane.left - inset.side)).toBeLessThan(1);
 	expect(Math.abs(pane.right - box.right - inset.side)).toBeLessThan(1);
+});
+
+it("says when changes are on hold", () => {
+	mount("open", { online: true, writeMode: "readOnly" });
+
+	expect(visible()).toBe(true);
+	expect(card()?.dataset.connectionCard).toBe("readOnly");
+	expect(card()?.textContent).toContain("Changes are on hold");
+	expect(card()?.textContent).not.toMatch(JARGON);
+	expect(retryButton()).toBeNull();
+});
+
+it("warns about a restart with the minutes left", () => {
+	mount("open", {
+		online: true,
+		drain: {
+			deadline: Date.now() + 9 * 60_000 + 30_000,
+			reason: "update",
+			host: "wss://hel-1",
+		},
+	});
+
+	expect(card()?.dataset.connectionCard).toBe("restarting");
+	expect(
+		card()?.querySelector("[data-connection-card-title]")?.textContent,
+	).toBe("Restarting for an update in 10 min");
+	expect(
+		card()?.querySelector("[data-connection-card-description]")?.textContent,
+	).toBe("You may lose the connection for a few seconds");
+	expect(card()?.textContent).not.toMatch(JARGON);
+});
+
+it("puts a lost connection ahead of the write notices", () => {
+	vi.useFakeTimers();
+	const { setStatus } = mount("open", { online: true, writeMode: "readOnly" });
+
+	setStatus("reconnecting");
+	vi.advanceTimersByTime(CONNECTION_GRACE_MS);
+
+	expect(card()?.dataset.connectionCard).toBe("reconnecting");
 });

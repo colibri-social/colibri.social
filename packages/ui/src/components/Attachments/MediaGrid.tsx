@@ -42,6 +42,7 @@ export type MediaItem = {
 	poster?: string;
 	duration?: string;
 	spoiler?: boolean;
+	previewSrc?: string;
 	downloadHref?: string;
 	progress?: number;
 };
@@ -250,15 +251,19 @@ export const MediaTile = (props: MediaTileProps) => {
 	const [playing, setPlaying] = createSignal(false);
 	const [status, setStatus] = createSignal<MediaStatus>("ok");
 	const [attempt, setAttempt] = createSignal(1);
-	const [heldSrc, setHeldSrc] = createSignal(props.item.src);
+	const tileSrc = () =>
+		props.item.kind === "video"
+			? props.item.src
+			: (props.item.previewSrc ?? props.item.src);
+	const [heldSrc, setHeldSrc] = createSignal(tileSrc());
 	const [heldPoster, setHeldPoster] = createSignal(props.item.poster);
 	const adoptLatest = () => {
-		setHeldSrc(props.item.src);
+		setHeldSrc(tileSrc());
 		setHeldPoster(props.item.poster);
 	};
 	createEffect(
 		on(
-			() => [props.item.src, props.item.poster] as const,
+			() => [tileSrc(), props.item.poster] as const,
 			([src, poster]) => {
 				const replace = status() !== "ok";
 				if (replace || !sameMediaSource(heldSrc(), src)) setHeldSrc(src);
@@ -283,20 +288,20 @@ export const MediaTile = (props: MediaTileProps) => {
 	);
 	const failMedia = async () => {
 		if (props.loading || status() !== "ok") return;
-		if (props.item.src !== heldSrc() || props.item.poster !== heldPoster()) {
+		if (tileSrc() !== heldSrc() || props.item.poster !== heldPoster()) {
 			adoptLatest();
 			setLoaded(false);
 			setAttempt((value) => value + 1);
 			return;
 		}
-		const failedSrc = props.item.src;
+		const failedSrc = tileSrc();
 		const failedAttempt = attempt();
 		setStatus("refreshing");
 		await Promise.resolve(props.onMediaError?.(props.index)).catch(
 			() => undefined,
 		);
 		if (
-			props.item.src === failedSrc &&
+			tileSrc() === failedSrc &&
 			attempt() === failedAttempt &&
 			status() === "refreshing"
 		)

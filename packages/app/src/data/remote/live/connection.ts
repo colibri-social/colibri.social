@@ -31,6 +31,14 @@ const log = createLogger("live");
 
 export type LiveStatus = "connecting" | "open" | "reconnecting" | "unreachable";
 
+export type WriteMode = "normal" | "queued" | "readOnly";
+
+export type DrainNotice = {
+	deadline: number;
+	reason: string | undefined;
+	host: string;
+};
+
 export type ServiceAuthAgent = {
 	com: {
 		atproto: {
@@ -64,6 +72,7 @@ export type LiveConnectionOptions = {
 	createSocket?: (url: string, protocols: string[]) => LiveSocket;
 	environment?: LiveEnvironment | null;
 	random?: () => number;
+	pickHost?: (avoid: ReadonlySet<string>) => string | null;
 };
 
 export type LiveConnection = {
@@ -77,6 +86,10 @@ export type LiveConnection = {
 	send: (frame: ClientFrame) => boolean;
 	granted: Accessor<SubscriptionSets>;
 	denied: Accessor<SubscriptionSets>;
+	host: Accessor<string>;
+	writeMode: Accessor<WriteMode>;
+	drain: Accessor<DrainNotice | undefined>;
+	moveTo: (host: string) => void;
 };
 
 export const RECONNECT_BASE_MS = 1_000;
@@ -100,6 +113,9 @@ const isActivity = (frame: ClientFrame): boolean =>
 
 const viewsChannel = (frame: ClientFrame): boolean =>
 	typeof (frame as { channel?: unknown }).channel === "string";
+
+const asWriteMode = (mode: string): WriteMode =>
+	mode === "queued" || mode === "readOnly" ? mode : "normal";
 
 const isRejection = (code: number): boolean =>
 	code === 1008 || (code >= 4400 && code <= 4499);
@@ -148,7 +164,10 @@ export const createLiveConnection = (
 		((url: string, protocols: string[]) => new WebSocket(url, protocols));
 	const random = options.random ?? Math.random;
 	const sessionDead = () => options.isSessionDead?.() ?? false;
-	const url = socketUrl(options.appViewHost);
+	const [host, setHost] = createSignal(socketUrl(options.appViewHost));
+	const [writeMode, setWriteMode] = createSignal<WriteMode>("normal");
+	const [drain, setDrain] = createSignal<DrainNotice>();
+	const draining = new Map<string, number>();
 
 	const listeners = new Set<(event: LiveEvent) => void>();
 	const [status, setStatus] = createSignal<LiveStatus>("connecting");
@@ -171,6 +190,8 @@ export const createLiveConnection = (
 	let generation = 0;
 	let connectStartedAt: number | null = null;
 	let viewing: ClientFrame | null = null;
+	let previous: LiveSocket | null = null;
+	let pendingHost: string | null = null;
 	let active: { frame: ClientFrame; at: number } | null = null;
 
 	const backoffMs = (n: number): number => {
@@ -294,9 +315,53 @@ export const createLiveConnection = (
 		options.onAuthFailure?.(error);
 	};
 
+	const avoided = (): Set<string> => {
+		const at = Date.now();
+
+		for (const [url, until] of draining) {
+			if (until <= at) draining.delete(url);
+		}
+
+		return new Set(draining.keys());
+	};
+
+	const nextUrl = (): string => {
+		if (pendingHost) {
+			const target = socketUrl(pendingHost);
+
+			pendingHost = null;
+
+			return target;
+		}
+
+		const avoid = avoided();
+		const current = host();
+
+		if (!avoid.has(current) && !options.pickHost) return current;
+
+		const picked = options.pickHost?.(
+			new Set(
+				[...avoid].map((url) => new URL(url).origin.replace(/^ws/, "http")),
+			),
+		);
+
+		return picked ? socketUrl(picked) : current;
+	};
+
+	const retirePrevious = () => {
+		const stale = previous;
+
+		previous = null;
+		stale?.close();
+	};
+
 	async function connect(): Promise<void> {
 		if (closed || sessionDead()) return;
 		clearReconnect();
+
+		const url = nextUrl();
+
+		setHost(url);
 
 		const myGeneration = ++generation;
 		connectStartedAt = Date.now();
@@ -354,7 +419,7 @@ export const createLiveConnection = (
 		});
 
 		socket.addEventListener("message", (message) => {
-			if (closed || ws !== socket) {
+			if (closed || (ws !== socket && previous !== socket)) {
 				socket.close();
 				return;
 			}
@@ -363,7 +428,18 @@ export const createLiveConnection = (
 			const frame = decodeFrame(raw);
 			if (!frame) return;
 
+			if (frameIs(frame, "writeState")) {
+				if (ws === socket) setWriteMode(asWriteMode(frame.mode));
+				return;
+			}
+
+			if (frameIs(frame, "drainNotice")) {
+				if (ws === socket) handleDrain(socket, frame.deadline, frame.reason);
+				return;
+			}
+
 			if (frameIs(frame, "subscribed")) {
+				if (ws === socket && previous) retirePrevious();
 				setGranted({
 					communities: new Set(frame.communities),
 					channels: new Set(frame.channels),
@@ -384,6 +460,10 @@ export const createLiveConnection = (
 		});
 
 		socket.addEventListener("close", (event) => {
+			if (previous === socket) {
+				previous = null;
+				return;
+			}
 			clearProbe();
 			if (ws !== socket) return;
 			stopHeartbeat();
@@ -410,6 +490,47 @@ export const createLiveConnection = (
 		socket.addEventListener("error", () => {
 			log.error("live socket errored");
 		});
+	}
+
+	function handleDrain(
+		socket: LiveSocket,
+		deadline: string,
+		reason: string | undefined,
+	): void {
+		const at = Date.parse(deadline);
+		const until = Number.isFinite(at) ? at : Date.now() + 60_000;
+		const current = host();
+
+		draining.set(current, until);
+
+		const alternative = options.pickHost?.(
+			new Set(
+				[...avoided()].map((url) => new URL(url).origin.replace(/^ws/, "http")),
+			),
+		);
+
+		if (!alternative || socketUrl(alternative) === current) {
+			setDrain({ deadline: until, reason, host: current });
+			log.info("the node is going offline and no other node is available", {
+				reason,
+			});
+			return;
+		}
+
+		log.info("moving the event socket to another node", { reason });
+		handOver(socket, alternative);
+	}
+
+	function handOver(socket: LiveSocket, target: string): void {
+		if (closed || sessionDead()) return;
+		retirePrevious();
+		previous = socket;
+		ws = null;
+		stopHeartbeat();
+		clearProbe();
+		pendingHost = target;
+		setDrain(undefined);
+		void connect();
 	}
 
 	function forceReconnect(): void {
@@ -479,6 +600,7 @@ export const createLiveConnection = (
 			const socket = ws;
 			ws = null;
 			socket?.close();
+			retirePrevious();
 			listeners.clear();
 		},
 		retry: () => {
@@ -504,6 +626,18 @@ export const createLiveConnection = (
 			};
 		},
 		send: sendFrame,
+		host,
+		writeMode,
+		drain,
+		moveTo: (target) => {
+			if (closed || socketUrl(target) === host()) return;
+			if (ws?.readyState === OPEN) {
+				handOver(ws, target);
+				return;
+			}
+			pendingHost = target;
+			forceReconnect();
+		},
 		granted,
 		denied: () => (confirmed() ? ledger.missing(granted()) : NOTHING),
 	};

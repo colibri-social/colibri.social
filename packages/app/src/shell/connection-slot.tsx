@@ -10,6 +10,8 @@ export const ConnectionSlot = (props: { platform: "mobile" | "desktop" }) => {
 				<ConnectionStatus
 					status={source().status()}
 					retryAt={source().retryAt()}
+					writeMode={source().writeMode?.()}
+					drain={source().drain?.()}
 					onRetry={source().retry}
 					platform={props.platform}
 				/>

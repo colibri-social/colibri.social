@@ -42,6 +42,7 @@ const Pane = (props: {
 	width: number;
 	height: number;
 	retrying?: boolean;
+	deadline?: number;
 }) => {
 	const channel = createChannel();
 	const retry = createRetryAt(12);
@@ -71,6 +72,7 @@ const Pane = (props: {
 					platform={props.platform}
 					visible={props.visible}
 					retryAt={retry.retryAt()}
+					deadline={props.deadline}
 					retrying={props.retrying}
 					onRetry={() => {
 						onRetry();
@@ -260,6 +262,80 @@ export const States: Story = {
 		for (const card of cards) {
 			await expect(card.getAttribute("role")).toBe("status");
 			await expect(card.getAttribute("aria-live")).toBe("polite");
+		}
+	},
+};
+
+export const NetworkNotices: Story = {
+	name: "Network notices",
+	render: () => {
+		const deadline = Date.now() + 14 * 60_000;
+
+		return (
+			<Gallery>
+				<For each={["restarting", "readOnly"] as const}>
+					{(state) => (
+						<div class="flex flex-wrap items-start gap-6">
+							<Pane
+								platform="mobile"
+								state={state}
+								visible
+								deadline={deadline}
+								width={402}
+								height={300}
+							/>
+							<Pane
+								platform="desktop"
+								state={state}
+								visible
+								deadline={deadline}
+								width={900}
+								height={300}
+							/>
+						</div>
+					)}
+				</For>
+			</Gallery>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const panes = canvasElement.querySelectorAll<HTMLElement>("[data-pane]");
+
+		await expect(panes.length).toBe(4);
+
+		const [restartMobile, restartDesktop, readOnlyMobile, readOnlyDesktop] = [
+			...panes,
+		];
+
+		if (
+			!restartMobile ||
+			!restartDesktop ||
+			!readOnlyMobile ||
+			!readOnlyDesktop
+		) {
+			throw new Error("missing panes");
+		}
+
+		await expect(part(restartMobile, "title")?.textContent).toMatch(
+			/^Restarting for an update in 1[45] min$/,
+		);
+		await expect(part(restartMobile, "description")?.textContent).toBe(
+			"You may lose the connection for a few seconds",
+		);
+		await expect(part(readOnlyDesktop, "title")?.textContent).toBe(
+			"Changes are on hold",
+		);
+		await expect(
+			canvasElement.querySelectorAll("[data-connection-card-retry]").length,
+		).toBe(0);
+
+		for (const pane of panes) {
+			await expectGeometry(
+				pane,
+				pane.dataset.pane === "mobile" ? "mobile" : "desktop",
+			);
+			await expectText(pane);
+			await expectNoLayoutIssues(pane);
 		}
 	},
 };

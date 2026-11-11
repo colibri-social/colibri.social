@@ -191,6 +191,11 @@ export const APP_ERROR_COPY: ErrorCopyCatalog = {
 		title: "Slow down a little",
 		description: "Wait a few seconds, then try again.",
 	},
+	ReadOnly: {
+		title: "Changes are on hold",
+		description:
+			"Colibri can't save changes for a moment. You can still read, and your changes go out once it can again.",
+	},
 	RequestNotFound: {
 		title: "That sign-in expired",
 		description: "Start again and sign in within a few minutes.",

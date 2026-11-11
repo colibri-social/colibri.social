@@ -1656,6 +1656,55 @@ export const MediaSingleContains: Story = {
 	},
 };
 
+export const MediaPreviewSource: Story = {
+	parameters: mobile,
+	render: () => {
+		const full = fixtureImage(1, 2400, 1600);
+		const preview = fixtureImage(2, 1200, 800);
+
+		return (
+			<Screen>
+				<div data-testid="preview-host">
+					<Message
+						text="A large photo"
+						attachments={
+							<MediaGrid
+								items={[
+									{ ...full, previewSrc: preview.src, downloadHref: full.src },
+								]}
+							/>
+						}
+					/>
+				</div>
+			</Screen>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const host = canvas.getByTestId("preview-host");
+		const tile = await waitFor(() => {
+			const found = host.querySelector<HTMLElement>("[data-media-tile]");
+
+			expect(found).not.toBeNull();
+
+			return found as HTMLElement;
+		});
+		const image = await waitFor(() => {
+			const found = tile.querySelector<HTMLImageElement>("img");
+
+			expect(found?.className).toContain("opacity-100");
+
+			return found as HTMLImageElement;
+		});
+		const preview = fixtureImage(2, 1200, 800).src;
+		const full = fixtureImage(1, 2400, 1600).src;
+
+		await expect(image.getAttribute("src")).toBe(preview);
+		await expect(tile.dataset.imageSrc).toBe(full);
+		await expectNoLayoutIssues(host);
+	},
+};
+
 const MISSING_EMBED_IMAGE = "/colibri-missing-embed-image.png";
 
 export const LinkEmbedImageFallback: Story = {

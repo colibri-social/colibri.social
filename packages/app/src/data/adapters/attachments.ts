@@ -8,6 +8,7 @@ import type {
 	SocialPostAuthor,
 	SocialPostEmbedProps,
 } from "@colibri-social/ui";
+import { mediaUrl } from "../remote/media-origin";
 import {
 	type AttachmentView,
 	EMBEDS_SUPPRESSED_LABEL,
@@ -58,14 +59,17 @@ export const splitAttachments = (
 		const spoiler = attachment.spoiler === true ? { spoiler: true } : {};
 		if (kind) {
 			result.media.push({
-				src: attachment.url,
+				src: mediaUrl(attachment.url),
+				...(attachment.previewUrl
+					? { previewSrc: mediaUrl(attachment.previewUrl) }
+					: {}),
 				width: attachment.width,
 				height: attachment.height,
 				name,
 				alt: attachment.alt,
 				kind,
 				mimeType: attachment.mimeType,
-				downloadHref: attachment.url,
+				downloadHref: mediaUrl(attachment.url),
 				progress: uploading,
 				...spoiler,
 			});
@@ -75,8 +79,8 @@ export const splitAttachments = (
 			result.audio.push({
 				name,
 				size: attachment.size ?? 0,
-				src: attachment.url,
-				href: attachment.url,
+				src: mediaUrl(attachment.url),
+				href: mediaUrl(attachment.url),
 				...spoiler,
 			});
 			continue;
@@ -85,7 +89,7 @@ export const splitAttachments = (
 			name,
 			size: attachment.size ?? 0,
 			mimeType: attachment.mimeType,
-			href: attachment.url,
+			href: mediaUrl(attachment.url),
 			progress: uploading,
 			...spoiler,
 		});

@@ -13,7 +13,13 @@ import {
 	runWithOwner,
 	untrack,
 } from "solid-js";
-import { type Auth, appViewDid, appViewHost, appViewServiceRef } from "./auth";
+import {
+	type Auth,
+	appViewDid,
+	appViewHost,
+	appViewServiceRef,
+	appViewUrl,
+} from "./auth";
 import { withDeadline } from "./auth/deadline";
 import {
 	cacheNamespace,
@@ -23,6 +29,8 @@ import {
 import { createOutboxQueue } from "./data/outbox/queue";
 import { appViewOrigin, emojiBlobLocator } from "./data/remote/emoji";
 import { createLiveConnection, type LiveConnection } from "./data/remote/live";
+import { setMediaOrigins } from "./data/remote/media-origin";
+import { createNodeDirectory, type NodeDirectory } from "./data/remote/nodes";
 import { createRemoteSource } from "./data/remote/source";
 import { installResumeSync } from "./data/resume";
 import { createSpaceCache } from "./data/space-cache";
@@ -51,6 +59,26 @@ import { reportError } from "./sentry/report";
 const log = createLogger("session");
 
 export const SESSION_START_TIMEOUT_MS = 30_000;
+
+export const MOVE_MIN_GAIN = 0.7;
+
+export const betterNode = (
+	nodes: NodeDirectory,
+	currentSocket: string,
+	candidate: string,
+): boolean => {
+	const origin = new URL(currentSocket.replace(/^ws/, "http")).origin;
+
+	if (origin === new URL(candidate).origin) return false;
+
+	const current = nodes.nodeAt(origin);
+	const next = nodes.nodeAt(candidate);
+
+	if (!current || current.rttMs === null) return true;
+	if (!next || next.rttMs === null) return false;
+
+	return next.rttMs < current.rttMs * MOVE_MIN_GAIN;
+};
 export const SIGN_OUT_DRAIN_MS = 2_500;
 
 export type SignedInSession = {
@@ -91,9 +119,11 @@ export const createSignedInSession = (
 			let uninstallBadge: (() => void) | undefined;
 			let uninstallPush: (() => void) | undefined;
 			let stopPreferencesGrant: (() => void) | undefined;
+			const nodes = createNodeDirectory({ mainUrl: appViewUrl() });
 			const live = createLiveConnection({
 				agent,
-				appViewHost: appViewHost("ws"),
+				appViewHost: nodes.endpointFor("live") ?? appViewHost("ws"),
+				pickHost: (avoid) => nodes.endpointFor("live", avoid),
 				serviceRef: appViewServiceRef(),
 				emojiBlobUrl: emojiBlobLocator(appViewOrigin(appViewDid())),
 				onAuthFailure: (error) => {
@@ -102,6 +132,14 @@ export const createSignedInSession = (
 				},
 				isSessionDead: () => auth.health.dead(),
 			});
+			const adoptNodes = () => {
+				setMediaOrigins(appViewUrl(), nodes.endpointFor("api"));
+
+				const best = nodes.endpointFor("live");
+
+				if (best && betterNode(nodes, live.host(), best)) live.moveTo(best);
+			};
+			void nodes.refresh().then(adoptNodes);
 			setState({ kind: "loading" });
 			const namespace = cacheNamespace(appViewDid(), did);
 			const spaces = createSpaceCache({ namespace });
@@ -137,7 +175,7 @@ export const createSignedInSession = (
 						spaces,
 						outbox: {
 							queue: createOutboxQueue({ owner: namespace }),
-							held: () => auth.health.dead(),
+							held: () => auth.health.dead() || live.writeMode() === "readOnly",
 						},
 						live,
 					});
@@ -151,9 +189,10 @@ export const createSignedInSession = (
 					runWithOwner(owner, () => {
 						createEffect(
 							on(
-								[live.status, auth.health.dead],
-								([status, dead]) => {
-									if (status === "open" && !dead) store.outbox.flush();
+								[live.status, auth.health.dead, live.writeMode],
+								([status, dead, mode]) => {
+									if (status === "open" && !dead && mode !== "readOnly")
+										store.outbox.flush();
 								},
 								{ defer: true },
 							),
@@ -179,6 +218,7 @@ export const createSignedInSession = (
 					uninstallResume = installResumeSync(
 						{
 							catchUp: () => {
+								void nodes.refreshIfStale().then(adoptNodes);
 								store.catchUp();
 								store.outbox.flush();
 								sweep.schedule();
