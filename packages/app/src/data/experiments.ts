@@ -7,7 +7,16 @@ export type ExperimentDefinition = {
 	description: string;
 };
 
-export const EXPERIMENTS: readonly ExperimentDefinition[] = [];
+export const VOICE_RELAY_EXPERIMENT = "voice-relay-only-v1";
+
+export const EXPERIMENTS: readonly ExperimentDefinition[] = [
+	{
+		id: VOICE_RELAY_EXPERIMENT,
+		name: "Route calls through the relay",
+		description:
+			"Sends call audio and video through Cloudflare's relay instead of directly, to test calls on strict networks.",
+	},
+];
 
 export const experimentViews = (
 	enabled: readonly string[],

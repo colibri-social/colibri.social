@@ -5,9 +5,9 @@ import { cleanup, mountPage } from "./page-test-kit";
 
 afterEach(cleanup);
 
-it("shows the empty state while no experiment is offered", async () => {
+it("offers routing calls through the relay", async () => {
 	await mountPage(() => <ExperimentsPage platform="mobile" />);
 	await expect
-		.element(page.getByText("No experiments right now.", { exact: false }))
+		.element(page.getByText("Route calls through the relay", { exact: false }))
 		.toBeVisible();
 });

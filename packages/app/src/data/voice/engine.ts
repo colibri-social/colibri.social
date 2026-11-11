@@ -17,8 +17,10 @@ import {
 	isServerVoiceFrame,
 	isVerboseLogging,
 	joinFrame,
+	moveNowFrame,
 	produceFrame,
 	resumeConsumerFrame,
+	rttReportFrame,
 	type ServerVoiceFrame,
 	setConsumerPreferenceFrame,
 	setSelfStateFrame,
@@ -93,6 +95,7 @@ import {
 	type VoiceConnectionMonitor,
 	type VoiceEndReason,
 	type VoiceModeration,
+	type VoiceMoveNotice,
 	type VoiceNotice,
 	type VoiceSession,
 	type VoiceVideo,
@@ -188,11 +191,18 @@ export type VoiceEngineOptions = {
 	webRtc?: () => boolean;
 	handlerName?: () => types.BuiltinHandlerName | undefined;
 	probeVideoEncoding?: VideoEncodingProbe;
+	pickHost?: () => string | null;
+	probe?: (url: string) => Promise<number | null>;
+	forceRelay?: () => boolean;
 };
+
+export type VoiceMove = VoiceMoveNotice;
 
 export type VoiceEngine = {
 	camera: () => boolean;
 	onCameraOff: (listener: () => void) => () => void;
+	onMove: (listener: (move: VoiceMove | null) => void) => () => void;
+	host: () => string;
 } & Required<
 	Pick<
 		VoiceConnectionMonitor,
@@ -338,11 +348,42 @@ const readRtt = async (
 	}
 };
 
+export const PROBE_TIMEOUT_MS = 3_000;
+
+export const MAX_ELSEWHERE_HOPS = 2;
+
+const probeRoundTrip = async (url: string): Promise<number | null> => {
+	let best: number | null = null;
+
+	for (let round = 0; round < 2; round += 1) {
+		const started = performance.now();
+
+		try {
+			const response = await fetch(url, {
+				cache: "no-store",
+				signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+			});
+
+			if (!response.ok) return null;
+
+			const elapsed = Math.round(performance.now() - started);
+
+			best = best === null ? elapsed : Math.min(best, elapsed);
+		} catch {
+			return null;
+		}
+	}
+
+	return best;
+};
+
 const toTransportOptions = (
 	frame: TransportOptionsFrame,
+	relayOnly = false,
 ): types.TransportOptions => {
 	const iceServers = frame.iceServers ?? [];
 	return {
+		...(relayOnly ? { iceTransportPolicy: "relay" as const } : {}),
 		id: frame.id,
 		iceParameters: frame.iceParameters as unknown as types.IceParameters,
 		iceCandidates: frame.iceCandidates as unknown as types.IceCandidate[],
@@ -411,6 +452,17 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 
 		let session: VoiceSession | null = null;
 		let ws: VoiceSocket | null = null;
+		let hostOverride: string | null = null;
+		let elsewhereHops = 0;
+		let switching = false;
+		const moveListeners = new Set<(move: VoiceMove | null) => void>();
+		const probe = options.probe ?? probeRoundTrip;
+		const relayOnly = () => options.forceRelay?.() ?? false;
+		const signalingHost = () =>
+			hostOverride ?? options.pickHost?.() ?? options.appViewHost;
+		const emitMove = (move: VoiceMove | null) => {
+			for (const listener of [...moveListeners]) listener(move);
+		};
 		let device: types.Device | null = null;
 		let sendTransport: types.Transport | null = null;
 		let recvTransport: types.Transport | null = null;
@@ -1094,6 +1146,8 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		const finish = (reason: VoiceEndReason) => {
 			intentionalClose = true;
 			session = null;
+			hostOverride = null;
+			emitMove(null);
 			teardown();
 			setModeration({});
 			setConnection(DISCONNECTED);
@@ -1385,7 +1439,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			);
 			if (stale()) return;
 			sendTransport = loaded.createSendTransport(
-				toTransportOptions(sendOptions),
+				toTransportOptions(sendOptions, relayOnly()),
 			);
 			wireSendTransport(sendTransport);
 
@@ -1395,7 +1449,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			);
 			if (stale()) return;
 			recvTransport = loaded.createRecvTransport(
-				toTransportOptions(recvOptions),
+				toTransportOptions(recvOptions, relayOnly()),
 			);
 			wireTransport("recvTransport", recvTransport);
 
@@ -1539,6 +1593,19 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 					log.info("the server ended the call", { reason: frame.reason });
 					finish(endReasonOf(frame.reason));
 					return;
+				case `${DEFS}callElsewhere`:
+					pendingReplies.shift()?.resolve(frame);
+					return;
+				case `${DEFS}migrationProposal`:
+					void answerProposal(frame);
+					return;
+				case `${DEFS}migrateTo`:
+					emitMove(null);
+					log.info("the call moves to another node", {
+						now: frame.now === true,
+					});
+					void openSignaling({ host: frame.signalingUrl, keepCurrent: true });
+					return;
 				case `${DEFS}moved`:
 					log.info("a moderator moved this client to another channel");
 					for (const listener of [...movedListeners]) listener(frame.channel);
@@ -1570,9 +1637,45 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			}, reconnectDelay(reconnectAttempts));
 		};
 
-		const openSignaling = async () => {
+		const answerProposal = async (
+			frame: FrameOf<"migrationProposal">,
+		): Promise<void> => {
+			const socket = ws;
+			const deadline = Date.parse(frame.deadline);
+			const results = await Promise.all(
+				frame.candidates.map(async (candidate) => {
+					const rttMs = await probe(candidate.probeUrl).catch(() => null);
+
+					return rttMs === null
+						? { nodeId: candidate.nodeId }
+						: {
+								nodeId: candidate.nodeId,
+								rttMs: Math.max(0, Math.round(rttMs)),
+							};
+				}),
+			);
+
+			if (ws !== socket || !session) return;
+
+			send(rttReportFrame(results));
+			emitMove({
+				deadline: Number.isFinite(deadline) ? deadline : Date.now() + 60_000,
+				moveNow: () => {
+					if (ws === socket) send(moveNowFrame());
+				},
+			});
+		};
+
+		const openSignaling = async (
+			move: { host: string; keepCurrent: boolean } | null = null,
+		) => {
 			const current = session;
 			if (!current) return;
+			if (move) {
+				if (switching) return;
+				switching = move.keepCurrent;
+				hostOverride = move.host;
+			}
 			const id = sessionId;
 			let token: string;
 			try {
@@ -1583,6 +1686,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				});
 				token = data.token;
 			} catch (error) {
+				switching = false;
 				if (id !== sessionId) return;
 				log.warn("could not authorize the voice connection", {
 					code: classifyThrown(error).code,
@@ -1590,23 +1694,76 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				scheduleReconnect();
 				return;
 			}
-			if (id !== sessionId || !session) return;
+			if (id !== sessionId || !session) {
+				switching = false;
+				return;
+			}
 
-			intentionalClose = false;
-			preferencesSupported = true;
-			pendingReplies = [];
-			sendChain = Promise.resolve();
-			abandonSignaling();
-			const socket = createSocket(voiceSocketUrl(options.appViewHost), [
+			const keepCurrent = move?.keepCurrent === true && ws !== null;
+
+			if (!keepCurrent) {
+				intentionalClose = false;
+				preferencesSupported = true;
+				pendingReplies = [];
+				sendChain = Promise.resolve();
+				abandonSignaling();
+			}
+
+			const socket = createSocket(voiceSocketUrl(signalingHost()), [
 				AUTH_SUBPROTOCOL,
 				token,
 			]);
-			ws = socket;
+
+			if (!keepCurrent) ws = socket;
+
+			const adopt = () => {
+				if (ws === socket) return;
+				if (screenProducer) {
+					notice("screenStoppedByMove");
+					emitScreenShare(false);
+				}
+				abandonSignaling();
+				teardownMedia();
+				patchConnection({ state: "connecting" });
+				intentionalClose = false;
+				preferencesSupported = true;
+				pendingReplies = [];
+				sendChain = Promise.resolve();
+				ws = socket;
+			};
 
 			socket.onopen = () => {
+				if (id !== sessionId || !session) {
+					socket.close();
+					return;
+				}
+				if (keepCurrent) adopt();
+				switching = false;
 				sendAndWait(joinFrame(current.channel))
 					.then((frame) => {
+						if (frame.$type === `${DEFS}callElsewhere`) {
+							const elsewhere = frame as FrameOf<"callElsewhere">;
+
+							if (elsewhereHops >= MAX_ELSEWHERE_HOPS) {
+								throw new ColibriError({
+									code: "VoiceUnavailable",
+									message: "the call kept pointing at other nodes",
+								});
+							}
+
+							elsewhereHops += 1;
+							log.info("the call runs on another node", {
+								node: elsewhere.nodeId,
+							});
+							void openSignaling({
+								host: elsewhere.signalingUrl,
+								keepCurrent: false,
+							});
+							return;
+						}
+
 						expectFrame(frame, "joined");
+						elsewhereHops = 0;
 						return performHandshake();
 					})
 					.catch((error: unknown) => {
@@ -1627,7 +1784,16 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				log.warn("voice signaling socket errored");
 			};
 			socket.onclose = (event) => {
-				if (ws !== socket || intentionalClose) return;
+				if (ws !== socket) {
+					if (keepCurrent && switching) {
+						switching = false;
+						log.warn("couldn't reach the node the call moves to", {
+							code: event.code,
+						});
+					}
+					return;
+				}
+				if (intentionalClose) return;
 				log.info("voice signaling socket closed", { code: event.code });
 				teardownMedia();
 				scheduleReconnect();
@@ -1644,6 +1810,9 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			if (session) stop();
 			sessionId += 1;
 			session = { ...next };
+			hostOverride = null;
+			elsewhereHops = 0;
+			switching = false;
 			reconnectAttempts = 0;
 			setModeration({});
 			setConnection({ state: "connecting", quality: "unknown", latency: null });
@@ -1658,6 +1827,8 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		const stop = () => {
 			intentionalClose = true;
 			session = null;
+			hostOverride = null;
+			emitMove(null);
 			sessionId += 1;
 			cameraIntent += 1;
 			setCameraOn(false);
@@ -2202,6 +2373,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			endedListeners.clear();
 			movedListeners.clear();
 			noticeListeners.clear();
+			moveListeners.clear();
 			screenShareListeners.clear();
 			micListeners.clear();
 			cameraOffListeners.clear();
@@ -2241,6 +2413,11 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				noticeListeners.add(listener);
 				return () => noticeListeners.delete(listener);
 			},
+			onMove: (listener) => {
+				moveListeners.add(listener);
+				return () => moveListeners.delete(listener);
+			},
+			host: signalingHost,
 			onScreenShare: (listener) => {
 				screenShareListeners.add(listener);
 				return () => screenShareListeners.delete(listener);

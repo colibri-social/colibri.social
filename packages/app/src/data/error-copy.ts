@@ -331,7 +331,21 @@ export type VoiceNoticeKey =
 	| "serverMuted"
 	| "serverDeafened";
 
+export const VOICE_MOVE_COPY = {
+	title: "Your call is about to move",
+	description: (seconds: number) =>
+		seconds > 5
+			? `Colibri moves it in ${seconds} s so it keeps running. You may hear a short gap.`
+			: "Colibri moves it now so it keeps running. You may hear a short gap.",
+	action: "Move now",
+};
+
 export const VOICE_NOTICE_COPY: Record<VoiceNoticeKey, ErrorCopy> = {
+	screenStoppedByMove: {
+		title: "Your screen share stopped",
+		description:
+			"The call moved so it keeps running. Share your screen again to continue.",
+	},
 	moderator: {
 		title: "A moderator removed you from the call",
 		description: "You can join again if they allow it.",

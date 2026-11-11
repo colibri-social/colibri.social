@@ -20,6 +20,7 @@ import type {
 	VoiceConnection,
 	VoiceConnectionMonitor,
 	VoiceModeration,
+	VoiceMoveNotice,
 	VoiceVideo,
 } from "./voice/types";
 import {
@@ -84,6 +85,8 @@ const NO_VIDEOS: readonly VoiceVideo[] = [];
 
 export type VoiceNotifier = (key: VoiceNoticeKey) => void;
 
+export type VoiceMoveNotifier = (move: VoiceMoveNotice | null) => void;
+
 export const createVoice = (
 	player: VoiceSoundPlayer = createVoiceSoundPlayer(),
 	monitor: () => VoiceConnectionMonitor = createSimulatedConnection,
@@ -92,6 +95,7 @@ export const createVoice = (
 	createRoot(() => {
 		let playSound = player;
 		let notifyWith = notifier;
+		let notifyMove: VoiceMoveNotifier = () => {};
 		const notify = (key: VoiceNoticeKey) => notifyWith(key);
 		const [link, setLink] = createSignal<VoiceConnectionMonitor>(monitor());
 		const [floatingDismissed, setFloatingDismissed] = createSignal(false);
@@ -296,6 +300,7 @@ export const createVoice = (
 			});
 			const releaseMoved = active.onMoved?.(moved);
 			const releaseNotice = active.onNotice?.(notify);
+			const releaseMove = active.onMove?.((move) => notifyMove(move));
 			const releaseScreenShare = active.onScreenShare?.((sharing) => {
 				if (current()) play(sharing ? "screenShared" : "screenUnshared");
 			});
@@ -313,6 +318,7 @@ export const createVoice = (
 				releaseEnded?.();
 				releaseMoved?.();
 				releaseNotice?.();
+				releaseMove?.();
 				releaseScreenShare?.();
 				releaseMic?.();
 				releaseCameraOff?.();
@@ -470,7 +476,18 @@ export const createVoice = (
 			notifyWith = next;
 		};
 
-		return { controller, connect, setPlayer, setMonitor, setNotifier };
+		const setMoveNotifier = (next: VoiceMoveNotifier) => {
+			notifyMove = next;
+		};
+
+		return {
+			controller,
+			connect,
+			setPlayer,
+			setMonitor,
+			setNotifier,
+			setMoveNotifier,
+		};
 	});
 
 const instance = createVoice();
@@ -484,3 +501,5 @@ export const setVoiceSoundPlayer = instance.setPlayer;
 export const setVoiceConnectionMonitor = instance.setMonitor;
 
 export const setVoiceNotifier = instance.setNotifier;
+
+export const setVoiceMoveNotifier = instance.setMoveNotifier;

@@ -21,6 +21,7 @@ import {
 	appViewUrl,
 } from "./auth";
 import { withDeadline } from "./auth/deadline";
+import { isExperimentOn, VOICE_RELAY_EXPERIMENT } from "./data/experiments";
 import {
 	cacheNamespace,
 	clearDeviceCache,
@@ -231,6 +232,9 @@ export const createSignedInSession = (
 					uninstallVoice = installVoiceEngine({
 						agent,
 						appViewHost: appViewHost("ws"),
+						pickHost: () => nodes.endpointFor("voice"),
+						forceRelay: () =>
+							isExperimentOn(store.preferences, VOICE_RELAY_EXPERIMENT),
 						serviceRef: appViewServiceRef(),
 						viewerDid: did,
 					});

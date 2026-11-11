@@ -45,7 +45,13 @@ export type VoiceModeration = {
 	serverDeafened: boolean;
 };
 
+export type VoiceMoveNotice = {
+	deadline: number;
+	moveNow: () => void;
+};
+
 export type VoiceNotice =
+	| "screenStoppedByMove"
 	| "moved"
 	| "noMicrophone"
 	| "streamFailed"
@@ -85,6 +91,7 @@ export type VoiceConnectionMonitor = {
 	onEnded?: (listener: (reason: VoiceEndReason) => void) => () => void;
 	onMoved?: (listener: (channel: string) => void) => () => void;
 	onNotice?: (listener: (notice: VoiceNotice) => void) => () => void;
+	onMove?: (listener: (move: VoiceMoveNotice | null) => void) => () => void;
 	onCameraOff?: (listener: () => void) => () => void;
 	dispose?: () => void;
 };

@@ -8,6 +8,7 @@ import type {
 	VoiceConnectionMonitor,
 	VoiceEndReason,
 	VoiceModeration,
+	VoiceMoveNotice,
 	VoiceSession,
 	VoiceVideo,
 } from "./voice/types";
@@ -571,5 +572,38 @@ describe("voice with a media engine", () => {
 		voice.leave();
 		expect(voice.screenSharing()).toBe(false);
 		expect(played).toEqual(["leave"]);
+	});
+});
+
+describe("call move notices", () => {
+	it("passes call move notices from the connection to the app", () => {
+		let emit: ((move: VoiceMoveNotice | null) => void) | undefined;
+		const monitor = {
+			connection: () => ({
+				state: "disconnected",
+				quality: "unknown",
+				latency: null,
+			}),
+			start: () => {},
+			stop: () => {},
+			onMove: (listener: (move: VoiceMoveNotice | null) => void) => {
+				emit = listener;
+				return () => {
+					emit = undefined;
+				};
+			},
+		} as unknown as VoiceConnectionMonitor;
+		const voice = createVoice(
+			() => {},
+			() => monitor,
+		);
+		const seen: (VoiceMoveNotice | null)[] = [];
+		const moveNow = vi.fn();
+
+		voice.setMoveNotifier((move) => seen.push(move));
+		emit?.({ deadline: 1_000, moveNow });
+		emit?.(null);
+
+		expect(seen).toEqual([{ deadline: 1_000, moveNow }, null]);
 	});
 });

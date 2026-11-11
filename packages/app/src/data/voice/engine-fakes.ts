@@ -193,11 +193,13 @@ export class FakeTransport {
 }
 
 export class FakeDevice {
+	sendOptions: { id: string; iceTransportPolicy?: string } | null = null;
 	rtpCapabilities = { codecs: [] };
 	send?: FakeTransport;
 	recv?: FakeTransport;
 	async load() {}
-	createSendTransport(options: { id: string }) {
+	createSendTransport(options: { id: string; iceTransportPolicy?: string }) {
+		this.sendOptions = options;
 		this.send = new FakeTransport(options.id);
 		return this.send;
 	}
