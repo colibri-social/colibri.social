@@ -60,10 +60,17 @@ import {
 	setBeforeExit,
 } from "./native/quit-guard";
 import { reportError } from "./sentry/report";
+import { isNativeShell } from "./shell/desktop/window-chrome";
 
 const log = createLogger("session");
 
 export const SESSION_START_TIMEOUT_MS = 30_000;
+
+const nativeFetch: typeof fetch = async (input, init) => {
+	const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
+
+	return tauriFetch(input, init);
+};
 
 export const MOVE_MIN_GAIN = 0.7;
 
@@ -125,7 +132,10 @@ export const createSignedInSession = (
 			let uninstallBadge: (() => void) | undefined;
 			let uninstallPush: (() => void) | undefined;
 			let stopPreferencesGrant: (() => void) | undefined;
-			const nodes = createNodeDirectory({ mainUrl: appViewUrl() });
+			const nodes = createNodeDirectory({
+				mainUrl: appViewUrl(),
+				fetch: isNativeShell() ? nativeFetch : undefined,
+			});
 			const live = createLiveConnection({
 				agent,
 				appViewHost: nodes.endpointFor("live") ?? appViewHost("ws"),

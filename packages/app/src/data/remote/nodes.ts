@@ -154,7 +154,9 @@ export const createNodeDirectory = (
 				const elapsed = now() - started;
 
 				best = best === null ? elapsed : Math.min(best, elapsed);
-			} catch {
+			} catch (err) {
+				log.debug("couldn't probe a node", { code: classifyThrown(err).code });
+
 				return null;
 			}
 		}

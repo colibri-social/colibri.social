@@ -115,6 +115,33 @@ describe("createNodeDirectory", () => {
 		).toBe("hel-1");
 	});
 
+	it("sends the listing and every probe through the injected fetch", async () => {
+		const globalFetch = vi.spyOn(globalThis, "fetch");
+		const network = fakeNetwork({
+			"hel-1.nodes.colibri.test": 5,
+			"us-1.nodes.colibri.test": 9,
+		});
+
+		await createNodeDirectory({
+			mainUrl: MAIN,
+			fetch: network.request,
+			now: network.now,
+			storage: null,
+		}).refresh();
+
+		const requested = network.calls.mock.calls.map(([url]) => String(url));
+
+		expect(requested).toContain(`${MAIN}${LIST_NODES_PATH}`);
+
+		for (const node of listing) {
+			expect(requested).toContain(node.probeUrl);
+		}
+
+		expect(globalFetch).not.toHaveBeenCalled();
+
+		globalFetch.mockRestore();
+	});
+
 	it("remembers the measurement for the next start", async () => {
 		const storage = memoryStorage();
 		const network = fakeNetwork({

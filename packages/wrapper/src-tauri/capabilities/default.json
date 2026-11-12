@@ -16,6 +16,12 @@
           "url": "https://spaces-api.colibri.social/xrpc/social.colibri.beta.blob.get?*"
         },
         {
+          "url": "https://spaces-api.colibri.social/xrpc/social.colibri.beta.server.listNodes*"
+        },
+        {
+          "url": "https://*.nodes.colibri.social/health*"
+        },
+        {
           "url": "https://cdn.bsky.app/img/*"
         },
         {
