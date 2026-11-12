@@ -1,21 +1,33 @@
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { initBranchWind } from "@/scripts/branchWind";
 import { initAmbientPetals, initHeroPetals } from "@/scripts/heroPetals";
 import { initCardStars, initSkyTwinkle } from "@/scripts/sky";
-
-gsap.registerPlugin(ScrollTrigger);
-
-if (import.meta.env.DEV) {
-	(window as unknown as { __gsap: typeof gsap }).__gsap = gsap;
-}
 
 const reduceMotion = window.matchMedia(
 	"(prefers-reduced-motion: reduce)",
 ).matches;
 
-function parallax() {
-	for (const el of gsap.utils.toArray<HTMLElement>("[data-parallax]")) {
+const canHover = window.matchMedia(
+	"(hover: hover) and (pointer: fine)",
+).matches;
+
+async function parallax() {
+	const targets = Array.from(
+		document.querySelectorAll<HTMLElement>("[data-parallax]"),
+	).filter((el) => el.getClientRects().length > 0);
+
+	if (!targets.length) return;
+
+	const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
+		import("gsap"),
+		import("gsap/ScrollTrigger"),
+	]);
+
+	gsap.registerPlugin(ScrollTrigger);
+
+	if (import.meta.env.DEV) {
+		(window as unknown as { __gsap: typeof gsap }).__gsap = gsap;
+	}
+
+	for (const el of targets) {
 		const speed = Number.parseFloat(el.dataset.parallax || "0.1");
 		gsap.to(el, {
 			yPercent: -speed * 100,
@@ -30,22 +42,20 @@ function parallax() {
 	}
 }
 
-function branchInteractions() {
-	const wind = initBranchWind();
-	const canHover = window.matchMedia(
-		"(hover: hover) and (pointer: fine)",
-	).matches;
+async function branchInteractions() {
 	if (!canHover) return;
 
+	const { initBranchWind } = await import("@/scripts/branchWind");
+	const wind = initBranchWind();
 	const petalsApi = initHeroPetals();
 
-	const regions = gsap.utils
-		.toArray<HTMLElement>("[data-branch-hit]")
-		.map((el) => ({
-			el,
-			side: (el.dataset.branchHit ?? "right") as "left" | "right",
-			inside: false,
-		}));
+	const regions = Array.from(
+		document.querySelectorAll<HTMLElement>("[data-branch-hit]"),
+	).map((el) => ({
+		el,
+		side: (el.dataset.branchHit ?? "right") as "left" | "right",
+		inside: false,
+	}));
 
 	let pointerVX = 0;
 	let pointerVY = 0;
@@ -210,14 +220,52 @@ function extendPetalsOverFooter() {
 
 extendPetalsOverFooter();
 
-const sky = document.querySelector<HTMLCanvasElement>("#sky");
-if (sky?.dataset.tile) initSkyTwinkle(sky.dataset.tile, reduceMotion);
+function revealMilkyWay() {
+	const landing = document.querySelector<HTMLElement>(".landing");
+	const src = landing?.dataset.milkywaySrc;
 
-const ctaStars = document.querySelector<HTMLCanvasElement>("[data-cta-stars]");
-if (ctaStars) initCardStars(ctaStars, reduceMotion);
+	if (!landing || !src) return;
 
-if (!reduceMotion) {
-	initAmbientPetals();
-	parallax();
-	branchInteractions();
+	const image = new Image();
+
+	image.crossOrigin = "anonymous";
+	image.src = src;
+
+	image
+		.decode()
+		.catch(() => undefined)
+		.then(() => landing.setAttribute("data-milkyway-ready", ""));
 }
+
+function startEffects() {
+	initSkyTwinkle(reduceMotion);
+
+	const ctaStars =
+		document.querySelector<HTMLCanvasElement>("[data-cta-stars]");
+
+	if (ctaStars) initCardStars(ctaStars, reduceMotion);
+
+	if (reduceMotion) return;
+
+	initAmbientPetals();
+	void parallax();
+	void branchInteractions();
+}
+
+function whenIdle(callback: () => void) {
+	const schedule = () => {
+		if ("requestIdleCallback" in window) {
+			requestIdleCallback(callback, { timeout: 2000 });
+		} else {
+			setTimeout(callback, 200);
+		}
+	};
+
+	if (document.readyState === "complete") schedule();
+	else window.addEventListener("load", schedule, { once: true });
+}
+
+if (document.readyState === "complete") revealMilkyWay();
+else window.addEventListener("load", revealMilkyWay, { once: true });
+
+whenIdle(startEffects);

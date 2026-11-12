@@ -1,5 +1,5 @@
 ---
-import { Image } from "astro:assets";
+import { getImage, Image } from "astro:assets";
 import { getCollection } from "astro:content";
 import AppMock from "@/assets/landing/app-mock.png";
 import Branch from "@/assets/landing/branch.webp";
@@ -17,6 +17,7 @@ import MockVoiceCall from "@/components/public/MockVoiceCall.tsx";
 import PetalField from "@/components/public/nature/PetalField.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
 import { getFunding } from "@/lib/funding";
+import { ogImageFor } from "@/lib/og/url";
 
 const faq = (await getCollection("faq")).sort((a, b) =>
 	a.id.localeCompare(b.id),
@@ -32,7 +33,16 @@ const fundingPercent = funding
 
 const milkyWayVars = `--milkyway-wide: url(${MilkyWayWide.src}); --milkyway-card: url(${MilkyWayCard.src});`;
 
-import { ogImageFor } from "@/lib/og/url";
+const branchImage = await getImage({
+	src: Branch,
+	width: 800,
+	height: 519,
+	quality: 100,
+	format: "webp",
+});
+
+const blankPixel =
+	"data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
 ---
 
 <PublicLayout
@@ -42,7 +52,11 @@ import { ogImageFor } from "@/lib/og/url";
 	image={ogImageFor({ kind: "home" }, Astro.site)}
 	home
 >
-	<div class="landing" style={milkyWayVars}>
+	<div
+		class="landing"
+		style={milkyWayVars}
+		data-milkyway-src={MilkyWayWide.src}
+	>
 		<div class="petal-layer" aria-hidden="true">
 			<PetalField count={70} />
 		</div>
@@ -64,15 +78,17 @@ import { ogImageFor } from "@/lib/og/url";
 					data-draw-w="800"
 					data-draw-h="519"
 				></canvas>
-				<Image
-					src={Branch}
-					width={800}
-					height={519}
-					quality={100}
-					alt=""
-					class="branch-fallback"
-					loading="eager"
-				/>
+				<picture>
+					<source media="(max-width: 1023px)" srcset={blankPixel} />
+					<img
+						src={branchImage.src}
+						width="800"
+						height="519"
+						alt=""
+						class="branch-fallback"
+						fetchpriority="high"
+					/>
+				</picture>
 				<div class="branch-hit" data-branch-hit="right"></div>
 			</div>
 			<div
@@ -88,15 +104,17 @@ import { ogImageFor } from "@/lib/og/url";
 					data-draw-w="800"
 					data-draw-h="519"
 				></canvas>
-				<Image
-					src={Branch}
-					width={800}
-					height={519}
-					quality={100}
-					alt=""
-					class="branch-fallback"
-					loading="eager"
-				/>
+				<picture>
+					<source media="(max-width: 639px)" srcset={blankPixel} />
+					<img
+						src={branchImage.src}
+						width="800"
+						height="519"
+						alt=""
+						class="branch-fallback"
+						fetchpriority="high"
+					/>
+				</picture>
 				<div class="branch-hit" data-branch-hit="left"></div>
 			</div>
 
@@ -115,20 +133,23 @@ import { ogImageFor } from "@/lib/og/url";
 				</div>
 			</div>
 
-			<div class="app-mock">
+			<picture class="app-mock">
+				<source media="(max-width: 600px)" srcset={blankPixel} />
 				<Image
 					src={AppMock}
 					width={1290}
 					height={726}
-					densities={[1, 2]}
+					widths={[800, 1290, 1940, 2580]}
+					sizes="min(1290px, calc(100vw - 32px))"
 					quality={100}
 					loading="eager"
 					alt="The Colibri desktop app showing the general channel of a space called Colibri HQ, with messages, reactions and a member list."
 				/>
-			</div>
+			</picture>
 		</section>
 
-		<section class="bento-section" aria-label="Features">
+		<section class="bento-section" aria-labelledby="features-title">
+			<h2 class="sr-only" id="features-title">Features</h2>
 			<div class="site-wrap">
 				<div class="bento">
 					<article class="card card-row c-bridge">
@@ -467,9 +488,22 @@ import { ogImageFor } from "@/lib/og/url";
 		background:
 			radial-gradient(var(--mw-hero-rx) 100% at 50% 100%, var(--mw-glow)),
 			#d9d9d9;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 4800ms ease;
+	}
+
+	.landing[data-milkyway-ready] :is(.hero-milkyway, .support-milkyway) {
 		-webkit-mask: var(--milkyway-wide) center / cover no-repeat;
 		mask: var(--milkyway-wide) center / cover no-repeat;
-		pointer-events: none;
+		opacity: 1;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.hero-milkyway,
+		.support-milkyway {
+			transition: none;
+		}
 	}
 
 	.hero-petals {
@@ -611,6 +645,7 @@ import { ogImageFor } from "@/lib/og/url";
 	}
 
 	.app-mock {
+		display: block;
 		position: relative;
 		z-index: 5;
 		width: var(--mock-w);
@@ -911,9 +946,9 @@ import { ogImageFor } from "@/lib/og/url";
 		background:
 			radial-gradient(var(--mw-band-rx) 100% at 50% 100%, var(--mw-glow)),
 			#d9d9d9;
-		-webkit-mask: var(--milkyway-wide) center / cover no-repeat;
-		mask: var(--milkyway-wide) center / cover no-repeat;
 		pointer-events: none;
+		opacity: 0;
+		transition: opacity 4800ms ease;
 	}
 
 	.split {

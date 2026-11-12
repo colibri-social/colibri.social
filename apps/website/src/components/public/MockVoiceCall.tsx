@@ -336,7 +336,7 @@ const MockVoiceCall: Component = () => {
 			</div>
 
 			<div class="flex flex-col py-4 px-3">
-				<div class="flex items-center gap-2 px-1 pb-1.5 text-xs text-neutral-500 *:first:text-neutral-400 *:first:size-4 *:first:-translate-y-0.25">
+				<div class="flex items-center gap-2 px-1 pb-1.5 text-xs text-neutral-400 *:first:text-neutral-400 *:first:size-4 *:first:-translate-y-0.25">
 					<ChevronDown />
 					<span>Text Channels</span>
 				</div>
@@ -354,7 +354,7 @@ const MockVoiceCall: Component = () => {
 			</div>
 
 			<div class="flex flex-col px-3">
-				<div class="flex items-center gap-2 px-1 pb-1.5 text-xs text-neutral-500 *:first:text-neutral-400 *:first:size-4 *:first:-translate-y-0.25">
+				<div class="flex items-center gap-2 px-1 pb-1.5 text-xs text-neutral-400 *:first:text-neutral-400 *:first:size-4 *:first:-translate-y-0.25">
 					<ChevronDown />
 					<span>Voice Channels</span>
 				</div>
@@ -390,7 +390,7 @@ const MockVoiceCall: Component = () => {
 						<span
 							class="transition-colors duration-300"
 							classList={{
-								"text-neutral-500": !youJoined(),
+								"text-neutral-400": !youJoined(),
 								"text-white": youJoined(),
 							}}
 						>

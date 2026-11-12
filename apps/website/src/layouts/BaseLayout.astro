@@ -56,8 +56,8 @@ const {
 		<meta name="twitter:title" content={title} />
 		<meta name="twitter:description" content={description} />
 		{image !== undefined && <meta name="twitter:image" content={image} />}
-		<Font cssVariable="--font-hanken-grotesk" preload />
-		<Font cssVariable="--font-geist-mono" preload />
+		<Font cssVariable="--font-hanken-grotesk" preload={[{ style: "normal" }]} />
+		<Font cssVariable="--font-geist-mono" />
 		<slot name="head" />
 	</head>
 	<body

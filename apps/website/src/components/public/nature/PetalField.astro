@@ -99,6 +99,12 @@ const petals = Array.from({ length: count }, () => ({
 		}
 	}
 
+	@media (hover: none), (pointer: coarse) {
+		.petal:nth-of-type(n + 21) {
+			display: none;
+		}
+	}
+
 	@media (prefers-reduced-motion: reduce) {
 		.petal-field {
 			display: none;

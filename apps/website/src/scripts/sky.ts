@@ -1,3 +1,5 @@
+import peaks from "@/assets/landing/stars-peaks.json";
+
 const TAU = Math.PI * 2;
 const TILE = 512;
 const FRAME_MS = 33;
@@ -22,6 +24,8 @@ type CardStar = {
 	flare: boolean;
 };
 
+const starPeaks = peaks as Array<[number, number, number]>;
+
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
 const makeGlowSprite = () => {
@@ -40,51 +44,16 @@ const makeGlowSprite = () => {
 	return canvas;
 };
 
-const findTileStars = (img: HTMLImageElement): Twinkle[] => {
-	const canvas = document.createElement("canvas");
-	canvas.width = TILE;
-	canvas.height = TILE;
-	const ctx = canvas.getContext("2d", { willReadFrequently: true });
-	if (!ctx) return [];
-	ctx.drawImage(img, 0, 0, TILE, TILE);
-	const data = ctx.getImageData(0, 0, TILE, TILE).data;
-	const lum = (x: number, y: number) => {
-		const i = (y * TILE + x) * 4;
-		return (
-			(data[i] * 0.3 + data[i + 1] * 0.59 + data[i + 2] * 0.11) *
-			(data[i + 3] / 255)
-		);
-	};
-
-	const found: Array<{ x: number; y: number; l: number }> = [];
-	for (let y = 2; y < TILE - 2; y++) {
-		for (let x = 2; x < TILE - 2; x++) {
-			const l = lum(x, y);
-			if (l < 150) continue;
-			let peak = true;
-			for (let dy = -2; dy <= 2 && peak; dy++) {
-				for (let dx = -2; dx <= 2; dx++) {
-					if ((dx || dy) && lum(x + dx, y + dy) > l) {
-						peak = false;
-						break;
-					}
-				}
-			}
-			if (peak) found.push({ x, y, l });
-		}
-	}
-
-	found.sort((a, b) => b.l - a.l);
-	return found
-		.slice(0, 260)
+const tileTwinkles = (): Twinkle[] => {
+	return starPeaks
 		.filter(() => Math.random() < 0.42)
-		.map((s) => ({
-			x: s.x + 0.5,
-			y: s.y + 0.5,
+		.map(([x, y, l]) => ({
+			x: x + 0.5,
+			y: y + 0.5,
 			phase: rand(0, TAU),
 			speed: rand(1.2, 2.8),
-			size: s.l > 220 ? rand(5, 8) : rand(3.5, 5.5),
-			flare: s.l > 225 && Math.random() < 0.35,
+			size: l > 220 ? rand(5, 8) : rand(3.5, 5.5),
+			flare: l > 225 && Math.random() < 0.35,
 		}));
 };
 
@@ -100,13 +69,16 @@ const startLoop = (draw: (t: number) => void, isActive: () => boolean) => {
 	requestAnimationFrame(loop);
 };
 
-export function initSkyTwinkle(tileSrc: string, reduceMotion: boolean) {
+export function initSkyTwinkle(reduceMotion: boolean) {
+	const twinkles = tileTwinkles();
+
+	if (!twinkles.length) return;
+
 	const sky = document.querySelector<HTMLCanvasElement>("#sky");
 	const ctx = sky?.getContext("2d");
 	if (!sky || !ctx) return;
 
 	const glow = makeGlowSprite();
-	let twinkles: Twinkle[] = [];
 	let width = 0;
 	let height = 0;
 
@@ -154,21 +126,13 @@ export function initSkyTwinkle(tileSrc: string, reduceMotion: boolean) {
 	resize();
 	window.addEventListener("resize", resize);
 
-	const img = new Image();
-	img.onload = () => {
-		try {
-			twinkles = findTileStars(img);
-		} catch {
-			twinkles = [];
-		}
-		if (reduceMotion) {
-			draw(1.2);
-			window.addEventListener("scroll", () => draw(1.2), { passive: true });
-			return;
-		}
-		startLoop(draw, () => !document.hidden);
-	};
-	img.src = tileSrc;
+	if (reduceMotion) {
+		draw(1.2);
+		window.addEventListener("scroll", () => draw(1.2), { passive: true });
+		return;
+	}
+
+	startLoop(draw, () => !document.hidden);
 }
 
 export function initCardStars(

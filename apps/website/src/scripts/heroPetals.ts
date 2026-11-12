@@ -27,6 +27,7 @@ interface FieldOpts {
 }
 
 const TAU = Math.PI * 2;
+const TOUCH_PETALS = 20;
 
 export const PETAL_VIEW_BOX = "0 0 60 90";
 
@@ -85,10 +86,16 @@ function createField(layer: HTMLElement, opts: FieldOpts) {
 	let lastT = 0;
 	let rect = layer.getBoundingClientRect();
 
+	const measure = () => {
+		rect = layer.getBoundingClientRect();
+	};
+
+	new ResizeObserver(measure).observe(layer);
+	window.addEventListener("scroll", measure, { passive: true });
+
 	function step(t: number) {
 		const dt = Math.min((t - lastT) / 1000, 0.032);
 		lastT = t;
-		rect = layer.getBoundingClientRect();
 		const W = rect.width;
 		const H = rect.height;
 		const moving = performance.now() - pointer.t < 80;
@@ -213,7 +220,9 @@ export function initHeroPetals(target?: HTMLElement | null) {
 export function initAmbientPetals(target?: HTMLElement | null) {
 	const layer = target ?? document.querySelector<HTMLElement>(".petal-field");
 	if (!layer) return;
-	const nodes = layer.querySelectorAll<HTMLElement>(".petal");
+	const coarse = window.matchMedia("(hover: none), (pointer: coarse)").matches;
+	const allNodes = Array.from(layer.querySelectorAll<HTMLElement>(".petal"));
+	const nodes = coarse ? allNodes.slice(0, TOUCH_PETALS) : allNodes;
 	if (!nodes.length) return;
 	const rect = layer.getBoundingClientRect();
 	const field = createField(layer, {
