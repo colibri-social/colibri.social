@@ -233,6 +233,7 @@ export const SettingsIndex = (props: SettingsIndexProps) => {
 	const [copiedId, setCopiedId] = createSignal<SettingsEntryId>();
 	const select = (id: SettingsEntryId) => (event?: MouseEvent) => {
 		const entry = props.entries[id];
+		if (entry?.href && entry.onSelect) event?.preventDefault();
 		if (entry?.copyValue === undefined) {
 			entry?.onSelect?.();
 			return;

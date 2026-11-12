@@ -513,6 +513,23 @@ describe("createRemoteSource", () => {
 		expect(await source.accountHost()).toBe("pds.example.com");
 	});
 
+	it("reads the account issuer from the session", async () => {
+		const fake = createFakeSession(VIEWER);
+		fake.on(
+			colibri.actor.getProfile.main.nsid,
+			json({ profile: profileOf(VIEWER) }),
+		);
+		const source = await createRemoteSource({
+			session: {
+				...fake.session,
+				accountIssuer: () => "https://bsky.social",
+			},
+			appViewDid: "did:web:spaces-api.colibri.social",
+			live: createFakeLive().live,
+		});
+		expect(await source.accountIssuer()).toBe("https://bsky.social");
+	});
+
 	it("writes the spoiler flag of an attachment into the record", async () => {
 		const blob = {
 			$type: "blob",

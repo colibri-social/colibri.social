@@ -41,6 +41,7 @@ export type ReactionsViewerProps = {
 	onRemove?: (emoji: string) => void;
 	onOpenProfile?: (reactor: Reactor) => void;
 	onEmojiError?: (emoji: string, src: string) => Promise<boolean> | undefined;
+	onCustomEmojiOpen?: (reaction: ReactionGroup, anchor: HTMLElement) => void;
 	platform?: ReactionsViewerPlatform;
 };
 
@@ -80,8 +81,48 @@ const ReactionGlyph = (props: {
 	</Show>
 );
 
+const shortcodeOf = (reaction: ReactionGroup) => {
+	return reaction.name ? `:${reaction.name}:` : reaction.emoji;
+};
+
+const CustomEmojiOpenRow = (props: {
+	reaction: ReactionGroup;
+	platform: ReactionsViewerPlatform;
+	onEmojiError?: (emoji: string, src: string) => Promise<boolean> | undefined;
+	onOpen: (reaction: ReactionGroup, anchor: HTMLElement) => void;
+}) => {
+	const desktop = () => props.platform === "desktop";
+
+	return (
+		<button
+			type="button"
+			data-reaction-emoji-open=""
+			onClick={(event) => props.onOpen(props.reaction, event.currentTarget)}
+			class={cx(
+				"flex w-full min-w-0 shrink-0 cursor-pointer items-center gap-3 text-left outline-none",
+				"hover:bg-secondary focus-ring-inset",
+				desktop()
+					? "h-11 rounded-control-lg py-1.5 pr-2 pl-1.5"
+					: "h-14 rounded-control p-2",
+			)}
+		>
+			<ReactionGlyph
+				reaction={props.reaction}
+				onEmojiError={props.onEmojiError}
+				class={cx(
+					"flex shrink-0 items-center justify-center",
+					desktop() ? "size-8" : "size-10",
+				)}
+			/>
+			<span class="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
+				{shortcodeOf(props.reaction)}
+			</span>
+		</button>
+	);
+};
+
 const tabLabel = (reaction: ReactionGroup) =>
-	`${reaction.name ? `:${reaction.name}:` : reaction.emoji}, ${reaction.count} ${reaction.count === 1 ? "reaction" : "reactions"}`;
+	`${shortcodeOf(reaction)}, ${reaction.count} ${reaction.count === 1 ? "reaction" : "reactions"}`;
 
 const ReactorRow = (props: {
 	reactor: Reactor;
@@ -279,6 +320,16 @@ export const ReactionsViewer = (props: ReactionsViewerProps) => {
 								: undefined
 						}
 					>
+						<Show when={isCustomReaction(reaction) && props.onCustomEmojiOpen}>
+							{(open) => (
+								<CustomEmojiOpenRow
+									reaction={reaction}
+									platform={platform()}
+									onEmojiError={props.onEmojiError}
+									onOpen={open()}
+								/>
+							)}
+						</Show>
 						<ReactorList
 							reaction={reaction}
 							platform={platform()}

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { parseSignupPdsUrl, signupHostLabel, supportsSignup } from "./signup";
+import {
+	parseSignupPdsUrl,
+	resolveAuthorizationServer,
+	signupHostLabel,
+	supportsSignup,
+} from "./signup";
 
 const respond = (routes: Record<string, unknown>) =>
 	vi.fn(async (input: string) => {
@@ -30,6 +35,28 @@ describe("parseSignupPdsUrl", () => {
 describe("signupHostLabel", () => {
 	it("shows the host without the scheme", () => {
 		expect(signupHostLabel("https://pds.example")).toBe("pds.example");
+	});
+});
+
+describe("resolveAuthorizationServer", () => {
+	it("reads the authorization server from the PDS metadata", async () => {
+		const fetchImpl = respond({
+			"https://pds.example/.well-known/oauth-protected-resource": {
+				authorization_servers: ["https://auth.example"],
+			},
+		});
+		await expect(
+			resolveAuthorizationServer("https://pds.example", fetchImpl),
+		).resolves.toBe("https://auth.example");
+	});
+
+	it("falls back to the PDS when the metadata names no server", async () => {
+		const fetchImpl = respond({
+			"https://pds.example/.well-known/oauth-protected-resource": {},
+		});
+		await expect(
+			resolveAuthorizationServer("https://pds.example", fetchImpl),
+		).resolves.toBe("https://pds.example");
 	});
 });
 

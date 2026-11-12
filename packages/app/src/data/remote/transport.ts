@@ -15,6 +15,7 @@ const log = createLogger("remote");
 export type RemoteSession = {
 	did: string;
 	accountHost?: () => string | undefined;
+	accountIssuer?: () => string | undefined;
 	fetchHandler: (path: string, init?: RequestInit) => Promise<Response>;
 };
 

@@ -9,6 +9,7 @@ import {
 	isInsideNestedLayer,
 	MessageList,
 	type MessageListHandle,
+	NameColorProvider,
 	NESTED_LAYER_ATTR,
 	ReplyBar,
 	type RichEditorHandle,
@@ -1301,6 +1302,7 @@ export const createConversation = (options: ConversationOptions) => {
 					avatarSrc: author?.avatarSrc,
 					seed: did,
 					nameColor: author?.nameColor,
+					roleColor: author?.role?.color,
 				};
 			}),
 	);
@@ -1606,7 +1608,15 @@ export const ConversationComposer = (props: {
 								? "You can't post in this thread."
 								: "You can't post in this channel."
 					}
-					typing={<TypingIndicator size="sm" users={m.typingUsers()} />}
+					typing={
+						<NameColorProvider
+							overrideUserColors={
+								m.community()?.overrideUserNameColors ?? false
+							}
+						>
+							<TypingIndicator size="sm" users={m.typingUsers()} />
+						</NameColorProvider>
+					}
 					top={
 						<>
 							<m.attachments.Tray />

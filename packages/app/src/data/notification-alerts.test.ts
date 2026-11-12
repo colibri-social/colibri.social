@@ -26,6 +26,7 @@ const context = (
 	overrides: Partial<NotificationAlertContext> = {},
 ): NotificationAlertContext => ({
 	viewer: "did:plc:me",
+	preferencesLoaded: true,
 	viewing: undefined,
 	visible: true,
 	doNotDisturb: false,
@@ -42,6 +43,15 @@ const context = (
 const VOICE = "at://did:plc:hq/space/social.colibri.beta.channel.voice/lounge";
 
 describe("shouldAlertNotification", () => {
+	it("stays quiet until preferences have loaded", () => {
+		expect(
+			shouldAlertNotification(
+				view({ kind: "mention" }),
+				context({ preferencesLoaded: false }),
+			),
+		).toBe(false);
+	});
+
 	it("stays quiet for a voice channel message while the viewer isn't in that call", () => {
 		expect(shouldAlertNotification(view({ channel: VOICE }), context())).toBe(
 			false,

@@ -1,3 +1,4 @@
+import { type Accessor, createSignal } from "solid-js";
 import type { Member, MemberGroup } from "./MemberList";
 
 export type MemberListRow =
@@ -10,6 +11,13 @@ export type MemberListRow =
 			first: boolean;
 			last: boolean;
 	  };
+
+export type StableMemberRow = {
+	key: string;
+	row: Accessor<MemberListRow>;
+	current: MemberListRow;
+	set: (row: MemberListRow) => void;
+};
 
 export const flattenMemberGroups = (
 	groups: readonly MemberGroup[],
@@ -59,3 +67,39 @@ export const sameMemberRow = (a: MemberListRow, b: MemberListRow) => {
 
 export const sameKeys = (a: readonly string[], b: readonly string[]) =>
 	a.length === b.length && a.every((key, index) => key === b[index]);
+
+export const createStableMemberRows = () => {
+	const rowsByKey = new Map<string, StableMemberRow>();
+
+	return (flat: readonly MemberListRow[]) => {
+		const present = new Set<string>();
+		const rows = flat.map((row) => {
+			present.add(row.key);
+			const existing = rowsByKey.get(row.key);
+			if (existing) {
+				if (!sameMemberRow(existing.current, row)) {
+					existing.current = row;
+					existing.set(row);
+				}
+				return existing;
+			}
+
+			const [read, write] = createSignal(row, { equals: sameMemberRow });
+			const stable: StableMemberRow = {
+				key: row.key,
+				row: read,
+				current: row,
+				set: write,
+			};
+
+			rowsByKey.set(row.key, stable);
+			return stable;
+		});
+
+		for (const key of rowsByKey.keys()) {
+			if (!present.has(key)) rowsByKey.delete(key);
+		}
+
+		return rows;
+	};
+};

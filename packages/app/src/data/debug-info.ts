@@ -85,15 +85,45 @@ export type AccountInput = {
 	did: string;
 	handle: string;
 	liveStatus?: string;
+	liveNode?: string;
 	resolvePds?: (did: string) => Promise<string | undefined>;
+	resolveNode?: (origin: string) => Promise<string | undefined>;
+};
+
+export const NODE_PROBE_TIMEOUT_MS = 3_000;
+
+export const nodeNameAt = async (
+	origin: string,
+	fetchImpl: typeof fetch = fetch,
+): Promise<string | undefined> => {
+	const response = await fetchImpl(new URL("/health", origin), {
+		signal: AbortSignal.timeout(NODE_PROBE_TIMEOUT_MS),
+	});
+	const id = response.headers.get("colibri-node");
+	const region = response.headers.get("colibri-node-region");
+
+	if (!id) return undefined;
+
+	return region ? `${id} (${region})` : id;
+};
+
+const liveNodeOf = async (input: AccountInput): Promise<string> => {
+	if (!input.liveNode) return "unknown";
+
+	const name = await (input.resolveNode ?? nodeNameAt)(input.liveNode).catch(
+		() => undefined,
+	);
+
+	return name ? `${name} via ${input.liveNode}` : input.liveNode;
 };
 
 export const accountSection = async (
 	input: AccountInput,
 ): Promise<DiagnosticsSection> => {
-	const pds = await (input.resolvePds ?? resolvePdsHost)(input.did).catch(
-		() => undefined,
-	);
+	const [pds, liveNode] = await Promise.all([
+		(input.resolvePds ?? resolvePdsHost)(input.did).catch(() => undefined),
+		liveNodeOf(input),
+	]);
 	return {
 		title: "Account and services",
 		fields: [
@@ -102,6 +132,7 @@ export const accountSection = async (
 			value("PDS host", pds ?? "unknown"),
 			value("AppView", appViewUrl()),
 			value("Live connection", input.liveStatus ?? "unknown"),
+			value("Live node", liveNode),
 		],
 	};
 };

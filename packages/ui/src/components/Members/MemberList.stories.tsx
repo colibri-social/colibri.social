@@ -1,6 +1,7 @@
 import { createMemo, createSignal } from "solid-js";
 import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import {
 	type BadgeDefinition,
 	FALLBACK_BADGE_DEFINITIONS,
@@ -457,6 +458,141 @@ export const RightClickMenu: Story = {
 				name,
 			),
 		);
+	},
+};
+
+const OFFLINE_WITH_ROLE = (): Member[] =>
+	fixtureMembers().map((member) =>
+		member.id === "lis" ? { ...member, presence: "offline" } : member,
+	);
+
+export const OfflineKeepsRoleColor: Story = {
+	render: () => (
+		<div class="w-72 border-l border-border bg-card text-foreground">
+			<MemberList groups={groupMembers(OFFLINE_WITH_ROLE(), fixtureRoles)} />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const rows = rowsOf(canvasElement);
+		const row = (name: string) =>
+			rows.find((entry) => nameOf(entry) === name) as HTMLElement;
+		const nameElement = (name: string) =>
+			row(name).querySelector<HTMLElement>("[data-member-name]") as HTMLElement;
+
+		await expect(row("Lis")).toHaveAttribute("data-offline");
+		await expect(getComputedStyle(nameElement("Lis")).color).toBe(
+			"rgb(196, 167, 255)",
+		);
+		await expect(row("Ola")).toHaveAttribute("data-offline");
+		await expect(nameElement("Ola")).toHaveClass("text-muted-foreground");
+		await expect(nameElement("Lis")).not.toHaveClass("text-muted-foreground");
+	},
+};
+
+const ROLE_TOGGLE_MEMBERS = (): Member[] =>
+	fixtureMembers().filter((member) => !member.bot);
+
+export const RoleToggleKeepsMenuOpen: Story = {
+	render: () => {
+		const [members, setMembers] = createSignal(ROLE_TOGGLE_MEMBERS());
+		const groups = createMemo(() => groupMembers(members(), fixtureRoles));
+		const moderator = (id: string) =>
+			members().find((member) => member.id === id)?.hoistedRoleId ===
+			moderatorRole.id;
+		const toggle = (id: string, assigned: boolean) =>
+			setMembers((list) =>
+				list.map((member) =>
+					member.id === id
+						? {
+								...member,
+								hoistedRoleId: assigned ? moderatorRole.id : undefined,
+								role: assigned ? moderatorRole : undefined,
+							}
+						: member,
+				),
+			);
+		return (
+			<div class="h-[800px] w-72 overflow-y-auto border-l border-border bg-card text-foreground">
+				<MemberList
+					groups={groups()}
+					virtualizeAfter={Number.POSITIVE_INFINITY}
+					wrapMember={(member, row) => (
+						<MemberContextMenu
+							name={member.name}
+							roles={[
+								{
+									id: moderatorRole.id,
+									name: moderatorRole.name,
+									color: moderatorRole.color,
+									assigned: moderator(member.id),
+									manageable: true,
+								},
+							]}
+							onRoleChange={(_, assigned) => toggle(member.id, assigned)}
+						>
+							{row}
+						</MemberContextMenu>
+					)}
+				/>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const kris = rowsOf(canvasElement).find(
+			(entry) => nameOf(entry) === "Kris",
+		) as HTMLElement;
+		const rect = kris.getBoundingClientRect();
+		kris.dispatchEvent(
+			new MouseEvent("contextmenu", {
+				bubbles: true,
+				cancelable: true,
+				button: 2,
+				clientX: rect.left + 24,
+				clientY: rect.top + 12,
+			}),
+		);
+		const menu = await screen.findByRole("menu", { name: "Kris options" });
+		await expectNoLayoutIssues(menu);
+		await userEvent.hover(
+			within(menu).getByRole("menuitem", { name: "Roles" }),
+		);
+		const submenu = await screen.findByRole("menu", { name: "Roles" });
+		await expectNoLayoutIssues(submenu);
+		await userEvent.click(
+			within(submenu).getByRole("menuitemcheckbox", { name: "Moderators" }),
+		);
+		await waitFor(() =>
+			expect(
+				within(screen.getByRole("menu", { name: "Roles" })).getByRole(
+					"menuitemcheckbox",
+					{ name: "Moderators" },
+				),
+			).toHaveAttribute("aria-checked", "true"),
+		);
+		const moved = rowsOf(canvasElement).find(
+			(entry) => nameOf(entry) === "Kris",
+		) as HTMLElement;
+		await expect(moved).toBe(kris);
+		await expect(
+			canvasElement
+				.querySelector('[data-member-group-header="role"]')
+				?.compareDocumentPosition(kris) ?? 0,
+		).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+		await expect(
+			kris.compareDocumentPosition(
+				canvasElement.querySelector(
+					'[data-member-group-header="online"]',
+				) as Node,
+			) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		await expect(screen.getByRole("menu", { name: "Kris options" })).toBe(menu);
+		await expect(screen.getByRole("menu", { name: "Roles" })).toBe(submenu);
+		await expectNoLayoutIssues(submenu);
+		await userEvent.keyboard("{Escape}");
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull(), {
+			timeout: 3000,
+		});
 	},
 };
 

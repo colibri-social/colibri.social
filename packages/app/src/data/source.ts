@@ -492,6 +492,7 @@ export type DataSource = AccessSource &
 		deleteCommunity: (input: { community: Did }) => Promise<void>;
 		leaveCommunity: (input: { community: Did }) => Promise<void>;
 		accountHost: () => Promise<string | undefined>;
+		accountIssuer: () => Promise<string | undefined>;
 		getDeletionStatus: () => Promise<DeletionStatus>;
 		deleteColibriData: (
 			onProgress?: (progress: DeletionProgress) => void,

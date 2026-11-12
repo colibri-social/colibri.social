@@ -540,6 +540,7 @@ export const createMockSource = (
 				});
 			}),
 		accountHost: async () => "pds.example.com",
+		accountIssuer: async () => "https://pds.example.com",
 		getDeletionStatus: () =>
 			withLatency(() => ({
 				soleOwned: world.spaces

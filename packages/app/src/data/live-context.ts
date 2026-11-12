@@ -7,6 +7,7 @@ export type LiveStatusSource = {
 	retry: () => void;
 	writeMode?: Accessor<WriteMode>;
 	drain?: Accessor<DrainNotice | undefined>;
+	node?: Accessor<string>;
 };
 
 export const LiveStatusContext = createContext<LiveStatusSource>();

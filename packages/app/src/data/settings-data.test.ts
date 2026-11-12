@@ -1,6 +1,11 @@
 import type { LogEntry, ReleaseNote } from "@colibri-social/lib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { accountSection, formatDiagnostics, logSection } from "./debug-info";
+import {
+	accountSection,
+	formatDiagnostics,
+	logSection,
+	nodeNameAt,
+} from "./debug-info";
 import { DEVICE_KEYS } from "./device-prefs";
 import {
 	type ExperimentDefinition,
@@ -240,6 +245,8 @@ describe("logs and diagnostics", () => {
 			did: "did:plc:viewer",
 			handle: "lou.gg",
 			liveStatus: "open",
+			liveNode: "https://spaces-api.colibri.test",
+			resolveNode: async () => "hel-1 (eu-north)",
 			resolvePds: async () => "pds.example",
 		});
 		expect(account.fields).toContainEqual({
@@ -256,6 +263,10 @@ describe("logs and diagnostics", () => {
 		]);
 		expect(text).toContain("## Account and services");
 		expect(text).toContain("PDS host:");
+		expect(text).toContain("Live node:");
+		expect(text).toContain(
+			"hel-1 (eu-north) via https://spaces-api.colibri.test",
+		);
 		expect(text).toContain("Experiments:\n  - None");
 	});
 });
@@ -351,5 +362,32 @@ describe("supporter link", () => {
 		});
 		expect(account).toBeNull();
 		expect(parseAttestation({ platform: "opencollective" })).toBeNull();
+	});
+});
+
+describe("nodeNameAt", () => {
+	const answering = (headers: Record<string, string>) =>
+		vi.fn(
+			async () => new Response("{}", { headers }),
+		) as unknown as typeof fetch;
+
+	it("reads the node and region a response names", async () => {
+		const fetchImpl = answering({
+			"colibri-node": "hel-1",
+			"colibri-node-region": "eu-north",
+		});
+		await expect(
+			nodeNameAt("https://spaces-api.colibri.test", fetchImpl),
+		).resolves.toBe("hel-1 (eu-north)");
+		expect(fetchImpl).toHaveBeenCalledWith(
+			new URL("https://spaces-api.colibri.test/health"),
+			expect.anything(),
+		);
+	});
+
+	it("returns nothing for an unclustered AppView", async () => {
+		await expect(
+			nodeNameAt("https://spaces-api.colibri.test", answering({})),
+		).resolves.toBeUndefined();
 	});
 });

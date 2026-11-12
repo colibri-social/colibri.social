@@ -241,6 +241,57 @@ describe("createPreferenceStore", () => {
 		expect(memory.records()).toHaveLength(1);
 		expect(store.isMuted(subject)).toBe(true);
 	});
+
+	it("takes mutes from another session while a settings write is in flight", () => {
+		const memory = createMemoryPreferenceBackend();
+		const put = deferred<Preferences>();
+		const store = create({
+			...memory.backend,
+			putSettings: () => put.promise,
+		});
+		const subject = { kind: "actor", did: SPACE } as const;
+
+		void store.setNotificationLevel("nothing");
+		store.adopt(
+			prefs({
+				notificationLevel: "all",
+				mutes: [{ subject, createdAt: "2026-10-01T00:00:00.000Z" as never }],
+			}),
+		);
+
+		expect(store.isMuted(subject)).toBe(true);
+		expect(store.notificationLevel()).toBe("nothing");
+	});
+
+	it("keeps a local mute while its own write is in flight", () => {
+		const memory = createMemoryPreferenceBackend();
+		const put = deferred<Preferences>();
+		const store = create({
+			...memory.backend,
+			putMutes: () => put.promise,
+		});
+		const subject = { kind: "actor", did: SPACE } as const;
+
+		void store.setMuted(subject, true);
+		store.adopt(prefs());
+
+		expect(store.isMuted(subject)).toBe(true);
+	});
+
+	it("reports loaded once the first refresh settles", async () => {
+		const load = deferred<Preferences>();
+		const store = create({
+			...createMemoryPreferenceBackend().backend,
+			load: () => load.promise,
+		});
+
+		const refreshing = store.refresh();
+		expect(store.loaded()).toBe(false);
+
+		load.reject(new Error("offline"));
+		await refreshing;
+		expect(store.loaded()).toBe(true);
+	});
 });
 
 describe("left threads", () => {

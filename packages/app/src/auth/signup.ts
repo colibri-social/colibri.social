@@ -46,6 +46,19 @@ const authorizationServerOf = (
 	return pdsUrl;
 };
 
+export const resolveAuthorizationServer = async (
+	pdsUrl: string,
+	fetchImpl: typeof fetch = fetch,
+): Promise<string> => {
+	const resource = await readJson(
+		fetchImpl,
+		new URL(PROTECTED_RESOURCE_PATH, pdsUrl),
+		AbortSignal.timeout(METADATA_TIMEOUT_MS),
+	);
+
+	return authorizationServerOf(resource, pdsUrl);
+};
+
 export const supportsSignup = async (
 	pdsUrl: string,
 	fetchImpl: typeof fetch = fetch,

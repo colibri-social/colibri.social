@@ -15,6 +15,7 @@ import {
 import { createSignal } from "solid-js";
 import { resolvePdsHost } from "../../auth/identity";
 import { isNativeShell } from "../../auth/native";
+import { resolveAuthorizationServer } from "../../auth/signup";
 import type { InvitationPreview, JoinResult } from "../access";
 import { createActivitySourceDetector } from "../activity-source";
 import { createNetworkLabeler } from "../badges/labeler";
@@ -139,6 +140,9 @@ export const createRemoteSource = async (
 	const records = createRecords(transport);
 	const index = createMessageIndex();
 	const uploads = createUploads();
+
+	const accountHost = async () =>
+		options.session.accountHost?.() ?? resolvePdsHost(options.session.did);
 
 	const sessionHandle = async () => {
 		try {
@@ -487,8 +491,21 @@ export const createRemoteSource = async (
 		leaveCommunity: async (input) => {
 			await transport.procedure(colibri.community.leave.main, { body: input });
 		},
-		accountHost: async () =>
-			options.session.accountHost?.() ?? resolvePdsHost(options.session.did),
+		accountHost,
+		accountIssuer: async () => {
+			const known = options.session.accountIssuer?.();
+			if (known) return known;
+			const host = await accountHost();
+			if (!host) return undefined;
+			try {
+				return await resolveAuthorizationServer(`https://${host}`);
+			} catch (error) {
+				log.warn("could not resolve the account's authorization server", {
+					code: classifyThrown(error).code,
+				});
+				return undefined;
+			}
+		},
 		getDeletionStatus: deletion.getDeletionStatus,
 		deleteColibriData: deletion.deleteColibriData,
 		transferOwnership: createTransferOwnership(transport),

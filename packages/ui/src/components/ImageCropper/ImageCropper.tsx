@@ -27,9 +27,10 @@ import {
 	fitFrame,
 	type ImageCropShape,
 	MAX_ZOOM,
-	MIN_ZOOM,
+	minZoomFor,
 	type Size,
 	sourceRect,
+	targetRect,
 	zoomAround,
 } from "./crop-math";
 import { encodeCrop, loadWorkingBitmap } from "./encode-crop";
@@ -91,6 +92,9 @@ const CropStage = (props: {
 	const [failed, setFailed] = createSignal(false);
 	const [frameSize, setFrameSize] = createSignal<Size>(frame);
 	const [zoom, setZoom] = createSignal(1);
+	const [minZoom, setMinZoom] = createSignal(1);
+
+	const lowest = () => minZoomFor(props.shape, image, frame);
 
 	const paint = () => {
 		if (!img) return;
@@ -116,7 +120,7 @@ const CropStage = (props: {
 	const settle = () => {
 		stopSettle();
 		const from = view;
-		const to = clampView(view, image, frame);
+		const to = clampView(view, image, frame, lowest());
 		if (from.x === to.x && from.y === to.y && from.zoom === to.zoom) {
 			return;
 		}
@@ -183,6 +187,7 @@ const CropStage = (props: {
 					},
 					image,
 					frame,
+					lowest(),
 				),
 			);
 			return;
@@ -201,9 +206,15 @@ const CropStage = (props: {
 		};
 		setView(
 			bandView(
-				zoomAround(panned, gesture.base.zoom * (distance / startDistance), mid),
+				zoomAround(
+					panned,
+					gesture.base.zoom * (distance / startDistance),
+					mid,
+					lowest(),
+				),
 				image,
 				frame,
+				lowest(),
 			),
 		);
 	};
@@ -227,8 +238,9 @@ const CropStage = (props: {
 			view,
 			view.zoom * Math.exp(-event.deltaY * WHEEL_RATE),
 			point,
+			lowest(),
 		);
-		setView(clampView(next, image, frame));
+		setView(clampView(next, image, frame, lowest()));
 	};
 
 	const onKeyDown = (event: KeyboardEvent) => {
@@ -245,19 +257,21 @@ const CropStage = (props: {
 		if (move) {
 			next = { ...view, x: view.x + move[0], y: view.y + move[1] };
 		} else if (event.key === "+" || event.key === "=") {
-			next = zoomAround(view, view.zoom * KEY_ZOOM, { x: 0, y: 0 });
+			next = zoomAround(view, view.zoom * KEY_ZOOM, { x: 0, y: 0 }, lowest());
 		} else if (event.key === "-" || event.key === "_") {
-			next = zoomAround(view, view.zoom / KEY_ZOOM, { x: 0, y: 0 });
+			next = zoomAround(view, view.zoom / KEY_ZOOM, { x: 0, y: 0 }, lowest());
 		}
 		if (!next) return;
 		event.preventDefault();
 		stopSettle();
-		setView(clampView(next, image, frame));
+		setView(clampView(next, image, frame, lowest()));
 	};
 
 	const setZoomLevel = (value: number) => {
 		stopSettle();
-		setView(clampView(zoomAround(view, value, { x: 0, y: 0 }), image, frame));
+		const next = zoomAround(view, value, { x: 0, y: 0 }, lowest());
+
+		setView(clampView(next, image, frame, lowest()));
 	};
 
 	const measure = () => {
@@ -270,21 +284,25 @@ const CropStage = (props: {
 		const ratio = frame.width > 1 ? next.width / frame.width : 1;
 		frame = next;
 		setFrameSize(next);
+		setMinZoom(lowest());
 		view = clampView(
 			{ zoom: view.zoom, x: view.x * ratio, y: view.y * ratio },
 			image,
 			frame,
+			lowest(),
 		);
 		paint();
 	};
 
 	const crop = async () => {
 		if (!bitmap) throw new Error("The image isn't ready");
-		const settled = clampView(view, image, frame);
+		const settled = clampView(view, image, frame, lowest());
+		const output = CROP_OUTPUT[props.shape];
 		return encodeCrop({
 			bitmap,
 			rect: sourceRect(settled, image, frame),
-			output: CROP_OUTPUT[props.shape],
+			output,
+			target: targetRect(settled, image, frame, output),
 			name: props.file.name,
 			maxBytes: props.maxBytes,
 			fallbackType: CROP_FALLBACK_TYPE[props.shape],
@@ -414,7 +432,7 @@ const CropStage = (props: {
 				<Slider
 					aria-label="Zoom"
 					class="min-w-0 flex-1"
-					minValue={MIN_ZOOM}
+					minValue={minZoom()}
 					maxValue={MAX_ZOOM}
 					step={0.01}
 					value={[zoom()]}

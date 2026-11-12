@@ -1,4 +1,5 @@
-import { type JSX, Show } from "solid-js";
+import { type Accessor, type JSX, Show } from "solid-js";
+import { cx } from "../../utils/cx";
 import { type BadgeDefinition, UserBadge } from "../Badge/Badge";
 import { SectionLabel } from "../List/List";
 import { ActivityIcon } from "../Profile/ActivityIcon";
@@ -6,6 +7,14 @@ import { RoleBadge } from "../Roles/RoleBadge";
 import { hasStatusContent, StatusText } from "../StatusField/StatusText";
 import type { Member, MemberGroup } from "./MemberList";
 import { MemberRow, type MemberRowVariant } from "./MemberRow";
+import type {
+	MemberListRow as FlatMemberRow,
+	StableMemberRow,
+} from "./member-list-model";
+
+type HeaderRow = Extract<FlatMemberRow, { kind: "header" }>;
+
+type MemberEntry = Extract<FlatMemberRow, { kind: "member" }>;
 
 export const memberGroupHeaderClass =
 	"min-h-[18px] px-2 [&_*]:leading-[18px] [&_*]:font-normal";
@@ -151,3 +160,80 @@ export const MemberListEntry = (
 		</Show>
 	);
 };
+
+const MemberGroupHeaderRow = (props: {
+	row: Accessor<HeaderRow>;
+	variant: MemberRowVariant;
+}) => (
+	<div
+		data-member-group-header={props.row().group.kind}
+		class={cx(
+			"pb-2",
+			!props.row().first && (props.variant === "mobile" ? "pt-6" : "pt-4"),
+		)}
+	>
+		{/* biome-ignore lint/a11y/useSemanticElements: SectionLabel renders block content, which a heading element may not contain */}
+		<div
+			role="heading"
+			aria-level={2}
+			aria-label={`${props.row().group.label}, ${props.row().group.members.length}`}
+		>
+			<MemberGroupLabel group={props.row().group} variant={props.variant} />
+		</div>
+	</div>
+);
+
+const MemberEntryRow = (
+	props: MemberListHandlers & {
+		row: Accessor<MemberEntry>;
+		variant: MemberRowVariant;
+	},
+) => {
+	const mobile = () => props.variant === "mobile";
+	return (
+		<div
+			class={cx(
+				mobile() && "overflow-hidden bg-popover-highlight",
+				mobile() && props.row().first && "rounded-t-surface",
+				mobile() && props.row().last && "rounded-b-surface",
+			)}
+		>
+			<MemberListEntry
+				member={props.row().member}
+				offline={props.row().group.kind === "offline"}
+				variant={props.variant}
+				onOpen={props.onOpen}
+				onMemberContextMenu={props.onMemberContextMenu}
+				onMemberMenu={props.onMemberMenu}
+				wrapMember={props.wrapMember}
+				badgeOf={props.badgeOf}
+			/>
+		</div>
+	);
+};
+
+export const MemberListFlatRow = (
+	props: MemberListHandlers & {
+		stable: StableMemberRow;
+		variant: MemberRowVariant;
+	},
+) => (
+	<div data-member-key={props.stable.key}>
+		{props.stable.current.kind === "header" ? (
+			<MemberGroupHeaderRow
+				row={props.stable.row as Accessor<HeaderRow>}
+				variant={props.variant}
+			/>
+		) : (
+			<MemberEntryRow
+				row={props.stable.row as Accessor<MemberEntry>}
+				variant={props.variant}
+				onOpen={props.onOpen}
+				onMemberContextMenu={props.onMemberContextMenu}
+				onMemberMenu={props.onMemberMenu}
+				wrapMember={props.wrapMember}
+				badgeOf={props.badgeOf}
+			/>
+		)}
+	</div>
+);

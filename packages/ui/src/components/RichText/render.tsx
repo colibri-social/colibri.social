@@ -14,6 +14,10 @@ import {
 	normalizeFacets,
 } from "../../utils/rich-text/normalize-facets";
 import { createImageRetry } from "../Emoji/Emoji";
+import {
+	createSyncedAnimation,
+	SyncedAnimationCanvas,
+} from "../Emoji/SyncedAnimation";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import type {
 	RichTextCustomEmoji,
@@ -103,6 +107,7 @@ export const CustomEmojiGlyph = (
 	const [local, attributes] = splitProps(props, ["emoji", "class"]);
 	const [loaded, setLoaded] = createSignal(false);
 	const image = createImageRetry(() => local.emoji.src);
+	const synced = createSyncedAnimation(image.src);
 	const alt = () => local.emoji.alt ?? `:${local.emoji.name}:`;
 	return (
 		<Show
@@ -119,21 +124,42 @@ export const CustomEmojiGlyph = (
 			}
 		>
 			{(src) => (
-				<img
-					{...attributes}
-					data-custom-emoji={local.emoji.name}
-					data-skeleton={loaded() ? undefined : ""}
-					src={src()}
-					alt={alt()}
-					draggable={false}
-					onLoad={() => setLoaded(true)}
-					onError={() => {
-						setLoaded(false);
-						image.fail();
-					}}
-					class={cx(local.class ?? GLYPH_SIZE, !loaded() && "rounded-[4px]")}
-					style={{ display: "inline-block" }}
-				/>
+				<Show
+					when={synced()}
+					fallback={
+						<img
+							{...attributes}
+							data-custom-emoji={local.emoji.name}
+							data-skeleton={loaded() ? undefined : ""}
+							src={src()}
+							alt={alt()}
+							draggable={false}
+							onLoad={() => setLoaded(true)}
+							onError={() => {
+								setLoaded(false);
+								image.fail();
+							}}
+							class={cx(
+								local.class ?? GLYPH_SIZE,
+								!loaded() && "rounded-[4px]",
+							)}
+							style={{ display: "inline-block" }}
+						/>
+					}
+				>
+					{(animation) => (
+						<SyncedAnimationCanvas
+							{...attributes}
+							animation={animation()}
+							role="img"
+							aria-label={alt()}
+							data-custom-emoji={local.emoji.name}
+							data-custom-emoji-synced=""
+							class={cx(local.class ?? GLYPH_SIZE, "object-contain")}
+							style={{ display: "inline-block" }}
+						/>
+					)}
+				</Show>
 			)}
 		</Show>
 	);

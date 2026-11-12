@@ -17,6 +17,7 @@ type Story = StoryObj<typeof meta>;
 const iphone = { viewport: { defaultViewport: "iphone" } };
 const onRemove = fn();
 const onOpenProfile = fn();
+const onCustomEmojiOpen = fn();
 
 const fixtureReactions = (): ReactionGroup[] => [
 	{
@@ -66,6 +67,7 @@ const Harness = (props: { platform: "mobile" | "desktop" }) => {
 				onActiveChange={setActive}
 				onRemove={onRemove}
 				onOpenProfile={onOpenProfile}
+				onCustomEmojiOpen={onCustomEmojiOpen}
 			/>
 		</>
 	);
@@ -108,6 +110,20 @@ export const Desktop: Story = {
 			within(dialog).getByRole("tab", { name: ":tux:, 3 reactions" }),
 		);
 		await expect(within(dialog).getByText("2 more people")).toBeVisible();
+		onCustomEmojiOpen.mockClear();
+		const emojiOpen = within(dialog).getByRole("button", { name: ":tux:" });
+		await expect(Math.round(emojiOpen.getBoundingClientRect().height)).toBe(44);
+		await userEvent.click(emojiOpen);
+		await expect(onCustomEmojiOpen).toHaveBeenCalledWith(
+			expect.objectContaining({ emoji: "tux", name: "tux" }),
+			emojiOpen,
+		);
+		await expect(
+			within(dialog)
+				.getByRole("tabpanel")
+				.querySelectorAll("[data-reaction-emoji-open]"),
+		).toHaveLength(1);
+		await expectNoLayoutIssues(dialog);
 	},
 };
 
@@ -123,6 +139,11 @@ export const Mobile: Story = {
 		await expect(tabs).toHaveAttribute("aria-orientation", "horizontal");
 		const row = dialog.querySelector("[data-reactor='ana']") as HTMLElement;
 		await expect(row.getBoundingClientRect().height).toBe(56);
+		await expect(
+			within(dialog)
+				.getByRole("tabpanel")
+				.querySelector("[data-reaction-emoji-open]"),
+		).toBeNull();
 		const remove = within(dialog).getByRole("button", {
 			name: "Remove your reaction",
 		});

@@ -420,6 +420,25 @@ export const MessageItem = (props: MessageItemProps) => {
 		setReactorsEmoji(emoji);
 	};
 
+	const openReactionEmoji = (key: string, fallback: HTMLElement) => {
+		const open = chat.onCustomEmojiOpen;
+		const reaction = reactionOf(key);
+		const custom = resolveReactionEmoji(reaction);
+		const id = reaction.customEmoji?.uri ?? custom?.id;
+
+		if (!open || !id || !custom) return;
+
+		setReactorsEmoji(undefined);
+
+		void whenOverlaysClosed().then(() => {
+			const chip = seenTarget?.querySelector<HTMLElement>(
+				`[data-reaction="${CSS.escape(key)}"]`,
+			);
+
+			open({ id, name: custom.name, src: custom.src }, chip ?? fallback);
+		});
+	};
+
 	const highlight = (): MessageHighlight | undefined => {
 		if (drawerOpen()) return "menu";
 		if (props.highlight) return props.highlight;
@@ -1280,6 +1299,11 @@ export const MessageItem = (props: MessageItemProps) => {
 					active={reactorsEmoji()}
 					onActiveChange={setReactorsEmoji}
 					onRemove={(emoji) => react(emoji, false)}
+					onCustomEmojiOpen={
+						chat.onCustomEmojiOpen
+							? (reaction, anchor) => openReactionEmoji(reaction.emoji, anchor)
+							: undefined
+					}
 					onOpenProfile={(reactor) => {
 						setReactorsEmoji(undefined);
 						chat.onOpenProfile(reactor.id);

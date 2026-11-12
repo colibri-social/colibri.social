@@ -13,17 +13,14 @@ export type CustomEmojiDrawerProps = {
 	handle?: string;
 	packName?: string;
 	followed?: boolean;
-	packFollowed?: boolean;
 	onFollowChange?: (follow: boolean) => Promise<void> | void;
-	onPackFollowChange?: (follow: boolean) => Promise<void> | void;
+	onShowPack?: () => void;
 	platform?: "mobile" | "desktop";
 	anchorElement?: HTMLElement;
 };
 
-type Pending = "emoji" | "pack" | undefined;
-
 export const CustomEmojiDrawer = (props: CustomEmojiDrawerProps) => {
-	const [pending, setPending] = createSignal<Pending>();
+	const [pending, setPending] = createSignal(false);
 	const [failed, setFailed] = createSignal(false);
 
 	createEffect(
@@ -31,26 +28,26 @@ export const CustomEmojiDrawer = (props: CustomEmojiDrawerProps) => {
 			() => props.open,
 			(open) => {
 				if (!open) return;
-				setPending(undefined);
+				setPending(false);
 				setFailed(false);
 			},
 		),
 	);
 
-	const run = async (
-		kind: Exclude<Pending, undefined>,
-		action: ((follow: boolean) => Promise<void> | void) | undefined,
-		follow: boolean,
-	) => {
+	const run = async (follow: boolean) => {
+		const action = props.onFollowChange;
+
 		if (!action || pending()) return;
-		setPending(kind);
+
+		setPending(true);
 		setFailed(false);
+
 		try {
 			await action(follow);
 		} catch {
 			setFailed(true);
 		} finally {
-			setPending(undefined);
+			setPending(false);
 		}
 	};
 
@@ -96,34 +93,27 @@ export const CustomEmojiDrawer = (props: CustomEmojiDrawerProps) => {
 					</Show>
 				</div>
 			</div>
-			<Show when={props.onFollowChange || props.onPackFollowChange}>
+			<Show when={props.onFollowChange || (props.packName && props.onShowPack)}>
 				<div class="flex gap-2">
 					<Show when={props.onFollowChange}>
 						<Button
 							block
 							class="h-8 px-3 text-xs"
 							variant={props.followed ? "secondary" : "primary"}
-							loading={pending() === "emoji"}
-							disabled={!!pending() && pending() !== "emoji"}
-							onClick={() =>
-								void run("emoji", props.onFollowChange, !props.followed)
-							}
+							loading={pending()}
+							onClick={() => void run(!props.followed)}
 						>
 							{props.followed ? "Unfollow emoji" : "Follow emoji"}
 						</Button>
 					</Show>
-					<Show when={props.packName && props.onPackFollowChange}>
+					<Show when={props.packName && props.onShowPack}>
 						<Button
 							block
 							class="h-8 px-3 text-xs"
 							variant="secondary"
-							loading={pending() === "pack"}
-							disabled={!!pending() && pending() !== "pack"}
-							onClick={() =>
-								void run("pack", props.onPackFollowChange, !props.packFollowed)
-							}
+							onClick={() => props.onShowPack?.()}
 						>
-							{props.packFollowed ? "Unfollow pack" : "Follow pack"}
+							Show pack
 						</Button>
 					</Show>
 				</div>

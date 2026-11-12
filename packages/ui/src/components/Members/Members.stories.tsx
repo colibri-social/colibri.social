@@ -27,6 +27,33 @@ type Story = StoryObj<typeof meta>;
 const iphone = { viewport: { defaultViewport: "iphone" } };
 const onOpen = fn();
 
+const groupHeader = (canvas: HTMLElement, kind: string) =>
+	canvas.querySelector<HTMLElement>(
+		`[data-member-group-header="${kind}"]`,
+	) as HTMLElement;
+
+const groupRows = (canvas: HTMLElement, kind: string) => {
+	const rows: HTMLElement[] = [];
+	let inside = false;
+
+	for (const entry of canvas.querySelectorAll<HTMLElement>(
+		"[data-member-key]",
+	)) {
+		const header = entry.querySelector<HTMLElement>(
+			"[data-member-group-header]",
+		);
+		if (header) {
+			inside = header.dataset.memberGroupHeader === kind;
+			continue;
+		}
+
+		const row = entry.querySelector<HTMLElement>("[data-member-row]");
+		if (inside && row) rows.push(row);
+	}
+
+	return rows;
+};
+
 export const MobileScreen: Story = {
 	parameters: iphone,
 	render: () => (
@@ -76,10 +103,10 @@ export const MobileScreen: Story = {
 		onOpen.mockClear();
 		const canvas = within(canvasElement);
 		await expect(canvas.getByText("Online")).toBeInTheDocument();
-		const online = canvasElement.querySelector(
-			'[data-member-group="online"]',
-		) as HTMLElement;
-		await expect(online.getAttribute("aria-label")).toBe("Online, 3");
+		const online = groupHeader(canvasElement, "online");
+		await expect(within(online).getByRole("heading")).toHaveAccessibleName(
+			"Online, 3",
+		);
 		await expect(within(online).getByText("· 3")).toBeInTheDocument();
 		await userEvent.click(canvas.getByRole("button", { name: /^Kris/ }));
 		await expect(onOpen).toHaveBeenCalledTimes(1);
@@ -98,13 +125,10 @@ export const DesktopSidebar: Story = {
 	),
 	play: async ({ canvasElement }) => {
 		const groups = Array.from(
-			canvasElement.querySelectorAll<HTMLElement>("[data-member-group]"),
-		).map((group) => group.dataset.memberGroup);
+			canvasElement.querySelectorAll<HTMLElement>("[data-member-group-header]"),
+		).map((group) => group.dataset.memberGroupHeader);
 		await expect(groups).toEqual(["role", "online", "bots", "offline"]);
-		const offline = canvasElement.querySelector(
-			'[data-member-group="offline"]',
-		) as HTMLElement;
-		const rows = offline.querySelectorAll<HTMLElement>("[data-member-row]");
+		const rows = groupRows(canvasElement, "offline");
 		await expect(rows.length).toBe(2);
 		for (const row of rows) {
 			await expect(row).toHaveAttribute("data-offline");
@@ -114,23 +138,22 @@ export const DesktopSidebar: Story = {
 				within(row).getByRole("img", { name: /Offline$/ }),
 			).toBeInTheDocument();
 		}
-		const bots = canvasElement.querySelector(
-			'[data-member-group="bots"]',
-		) as HTMLElement;
-		await expect(within(bots).getAllByText("BOT").length).toBe(2);
+		const bots = groupRows(canvasElement, "bots");
+		await expect(bots.length).toBe(2);
+		for (const bot of bots)
+			await expect(within(bot).getByText("BOT")).toBeInTheDocument();
 
 		const list = canvasElement.querySelector<HTMLElement>("[data-member-list]");
 		const listStyle = getComputedStyle(list as HTMLElement);
 		await expect(listStyle.paddingTop).toBe("16px");
 		await expect(listStyle.paddingLeft).toBe("8px");
-		await expect(listStyle.rowGap).toBe("16px");
-		const firstGroup = canvasElement.querySelector<HTMLElement>(
-			"[data-member-group]",
-		);
-		await expect(getComputedStyle(firstGroup as HTMLElement).rowGap).toBe(
-			"8px",
-		);
-		const header = (firstGroup as HTMLElement).firstElementChild as HTMLElement;
+		const firstGroup = groupHeader(canvasElement, "role");
+		await expect(getComputedStyle(firstGroup).paddingTop).toBe("0px");
+		await expect(getComputedStyle(firstGroup).paddingBottom).toBe("8px");
+		await expect(
+			getComputedStyle(groupHeader(canvasElement, "online")).paddingTop,
+		).toBe("16px");
+		const header = within(firstGroup).getByRole("heading");
 		const headerText = header.querySelector("span") as HTMLElement;
 		await expect(getComputedStyle(headerText).fontWeight).toBe("400");
 		await expect(getComputedStyle(headerText).fontSize).toBe("14px");
@@ -283,10 +306,9 @@ export const RoleColorsAndBadges: Story = {
 		});
 
 		await step("The role group header shows the role badge", async () => {
-			const group = canvasElement.querySelector(
-				'[data-member-group="role"]',
-			) as HTMLElement;
-			const header = group.firstElementChild as HTMLElement;
+			const header = within(groupHeader(canvasElement, "role")).getByRole(
+				"heading",
+			);
 			const badge = within(header).getByRole("button", {
 				name: "Moderators role",
 			});

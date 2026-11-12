@@ -28,8 +28,17 @@ const RUBBER_BAND = 0.35;
 export const coverScale = (image: Size, frame: Size) =>
 	Math.max(frame.width / image.width, frame.height / image.height);
 
-export const clampZoom = (zoom: number) =>
-	Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
+export const minZoomFor = (shape: ImageCropShape, image: Size, frame: Size) => {
+	if (shape !== "emoji") return MIN_ZOOM;
+	const containScale = Math.min(
+		frame.width / image.width,
+		frame.height / image.height,
+	);
+	return containScale / coverScale(image, frame);
+};
+
+export const clampZoom = (zoom: number, minZoom = MIN_ZOOM) =>
+	Math.min(MAX_ZOOM, Math.max(minZoom, zoom));
 
 export const panLimits = (image: Size, frame: Size, zoom: number) => {
 	const scale = coverScale(image, frame) * zoom;
@@ -53,8 +62,9 @@ export const clampView = (
 	view: CropView,
 	image: Size,
 	frame: Size,
+	minZoom = MIN_ZOOM,
 ): CropView => {
-	const zoom = clampZoom(view.zoom);
+	const zoom = clampZoom(view.zoom, minZoom);
 	const limits = panLimits(image, frame, zoom);
 	return {
 		zoom,
@@ -67,8 +77,9 @@ export const bandView = (
 	view: CropView,
 	image: Size,
 	frame: Size,
+	minZoom = MIN_ZOOM,
 ): CropView => {
-	const zoom = clampZoom(view.zoom);
+	const zoom = clampZoom(view.zoom, minZoom);
 	const limits = panLimits(image, frame, zoom);
 	return {
 		zoom,
@@ -81,8 +92,9 @@ export const zoomAround = (
 	view: CropView,
 	nextZoom: number,
 	point: { x: number; y: number },
+	minZoom = MIN_ZOOM,
 ): CropView => {
-	const zoom = clampZoom(nextZoom);
+	const zoom = clampZoom(nextZoom, minZoom);
 	const ratio = zoom / view.zoom;
 	return {
 		zoom,
@@ -106,6 +118,31 @@ export const sourceRect = (
 		y: Math.min(image.height - height, Math.max(0, y)),
 		width,
 		height,
+	};
+};
+
+export const targetRect = (
+	view: CropView,
+	image: Size,
+	frame: Size,
+	output: Size,
+): CropRect => {
+	const scale = coverScale(image, frame) * view.zoom;
+	const rect = sourceRect(view, image, frame);
+	const left = frame.width / 2 + view.x - (image.width * scale) / 2;
+	const top = frame.height / 2 + view.y - (image.height * scale) / 2;
+	const ratioX = output.width / frame.width;
+	const ratioY = output.height / frame.height;
+	const x = Math.max(0, Math.round((left + rect.x * scale) * ratioX));
+	const y = Math.max(0, Math.round((top + rect.y * scale) * ratioY));
+	return {
+		x,
+		y,
+		width: Math.min(output.width - x, Math.round(rect.width * scale * ratioX)),
+		height: Math.min(
+			output.height - y,
+			Math.round(rect.height * scale * ratioY),
+		),
 	};
 };
 

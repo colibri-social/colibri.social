@@ -68,13 +68,17 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 			} satisfies Snapshot);
 	};
 
+	const [loaded, setLoaded] = createSignal(false);
+
 	let writes = 0;
+	let muteWrites = 0;
 	let failed = false;
 	let settled: Preferences | undefined;
 	let queue: Promise<void> = Promise.resolve();
 
 	const adopt = (next: Preferences) => {
-		if (writes === 0) commit(next);
+		if (writes === 0) return commit(next);
+		if (muteWrites === 0) commit({ ...preferences(), mutes: next.mutes });
 	};
 
 	const refresh = async () => {
@@ -86,6 +90,8 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 				code: classifyThrown(error).code,
 			});
 			return false;
+		} finally {
+			setLoaded(true);
 		}
 	};
 
@@ -207,7 +213,9 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 				? [...current, entry]
 				: current.filter((mute) => muteKey(mute.subject) !== key),
 		});
-		return enqueue("mutes", async () => {
+		muteWrites += 1;
+
+		const written = enqueue("mutes", async () => {
 			const known = await muteRkeys();
 			const rkey = known.get(key);
 			if (next && !rkey) {
@@ -220,6 +228,10 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 				known.delete(key);
 			}
 			return backend.putMutes(preferences().mutes);
+		});
+
+		return written.finally(() => {
+			muteWrites -= 1;
 		});
 	};
 
@@ -357,6 +369,7 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 
 	return {
 		preferences,
+		loaded,
 		client,
 		controls,
 		composer: () => preferences().composer,

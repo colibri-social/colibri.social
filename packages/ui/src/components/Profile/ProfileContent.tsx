@@ -56,6 +56,7 @@ export type ProfileData = {
 	statusEditable?: boolean;
 	statusShowWhileOffline?: boolean;
 	onStatusClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
+	onStatusCustomEmojiClick?: (emoji: CustomEmoji, anchor: HTMLElement) => void;
 	nowPlaying?: Omit<NowPlayingCardProps, "tone" | "class">[];
 	activityPrompt?: JSX.Element;
 	bio?: JSX.Element;
@@ -121,6 +122,7 @@ export const ProfileContentHeader = (props: ProfileContentPartProps) => {
 			statusEditable={props.profile.statusEditable}
 			statusShowWhileOffline={props.profile.statusShowWhileOffline}
 			onStatusClick={props.profile.onStatusClick}
+			onStatusCustomEmojiClick={props.profile.onStatusCustomEmojiClick}
 			avatarPlay={props.avatarPlay}
 			surface={props.surface ?? "popover"}
 			tight={props.tight}

@@ -5,6 +5,7 @@ export const STALE_ALERT_MS = 5000;
 
 export type NotificationAlertContext = {
 	viewer: string;
+	preferencesLoaded: boolean;
 	viewing: string | undefined;
 	visible: boolean;
 	doNotDisturb: boolean;
@@ -32,6 +33,7 @@ export const shouldAlertNotification = (
 	view: NotificationView,
 	context: NotificationAlertContext,
 ): boolean => {
+	if (!context.preferencesLoaded) return false;
 	if (context.doNotDisturb) return false;
 	if (view.seenAt) return false;
 	if (view.author.did === context.viewer) return false;

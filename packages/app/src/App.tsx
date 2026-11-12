@@ -84,7 +84,9 @@ const SignedInApp = (props: {
 				keyed
 			>
 				{(session) => (
-					<LiveStatusContext.Provider value={session.live}>
+					<LiveStatusContext.Provider
+						value={{ ...session.live, node: session.node }}
+					>
 						<ProfileGate store={session.store}>
 							<Show
 								when={session.warm}

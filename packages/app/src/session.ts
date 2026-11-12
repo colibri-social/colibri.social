@@ -31,7 +31,11 @@ import { createOutboxQueue } from "./data/outbox/queue";
 import { appViewOrigin, emojiBlobLocator } from "./data/remote/emoji";
 import { createLiveConnection, type LiveConnection } from "./data/remote/live";
 import { setMediaOrigins } from "./data/remote/media-origin";
-import { createNodeDirectory, type NodeDirectory } from "./data/remote/nodes";
+import {
+	createNodeDirectory,
+	type NodeDirectory,
+	socketOrigin,
+} from "./data/remote/nodes";
 import { createRemoteSource } from "./data/remote/source";
 import { installResumeSync } from "./data/resume";
 import { createSpaceCache } from "./data/space-cache";
@@ -68,7 +72,7 @@ export const betterNode = (
 	currentSocket: string,
 	candidate: string,
 ): boolean => {
-	const origin = new URL(currentSocket.replace(/^ws/, "http")).origin;
+	const origin = socketOrigin(currentSocket);
 
 	if (origin === new URL(candidate).origin) return false;
 
@@ -85,6 +89,7 @@ export const SIGN_OUT_DRAIN_MS = 2_500;
 export type SignedInSession = {
 	store: DataStore;
 	live: LiveConnection;
+	node: Accessor<string>;
 	warm: boolean;
 };
 
@@ -152,6 +157,7 @@ export const createSignedInSession = (
 						session: {
 							did,
 							accountHost: auth.accountHost,
+							accountIssuer: auth.accountIssuer,
 							fetchHandler: (path, init) =>
 								agent.fetchHandler(path, init ?? {}),
 						},
@@ -238,7 +244,12 @@ export const createSignedInSession = (
 						serviceRef: appViewServiceRef(),
 						viewerDid: did,
 					});
-					session = { store, live, warm };
+					session = {
+						store,
+						live,
+						node: () => socketOrigin(live.host()),
+						warm,
+					};
 					setState({ kind: "ready", session });
 				},
 				(thrown: unknown) => {

@@ -66,6 +66,7 @@ const BIO =
 const onStatusClick = fn();
 const onAvatarClick = fn();
 const onBubbleClick = fn();
+const onStatusEmojiClick = fn();
 const onAuthorAction = fn();
 
 const meta = {
@@ -749,6 +750,55 @@ export const EmojiOnlyStatus: Story = {
 		await expect(
 			bubbles[2]?.querySelector("[data-status-text]"),
 		).toHaveTextContent("Compiling kernels");
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
+export const StatusEmojiOpensInfo: Story = {
+	render: () => (
+		<div class="flex w-[266px] flex-col gap-3">
+			<StatusBubble
+				customEmoji={fixturePacks[0].emojis[0]}
+				onCustomEmojiClick={(emoji, anchor) =>
+					onStatusEmojiClick(emoji, anchor)
+				}
+			>
+				Compiling kernels
+			</StatusBubble>
+			<StatusBubble
+				editable
+				customEmoji={fixturePacks[0].emojis[2]}
+				onClick={() => onBubbleClick()}
+				onCustomEmojiClick={(emoji, anchor) =>
+					onStatusEmojiClick(emoji, anchor)
+				}
+			>
+				Building a nest!
+			</StatusBubble>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		onStatusEmojiClick.mockClear();
+		onBubbleClick.mockClear();
+		const canvas = within(canvasElement);
+		const emoji = fixturePacks[0].emojis[0];
+		const button = canvas.getByRole("button", { name: `:${emoji.name}:` });
+		await userEvent.click(button);
+		await expect(onStatusEmojiClick).toHaveBeenCalledWith(emoji, button);
+		await expect(
+			canvasElement.querySelectorAll("button button, button [role=button]"),
+		).toHaveLength(0);
+		await userEvent.click(
+			canvas.getByRole("button", { name: /Edit status: Building a nest!/ }),
+		);
+		await expect(onBubbleClick).toHaveBeenCalledOnce();
+		await expect(onStatusEmojiClick).toHaveBeenCalledOnce();
+		const bubble = button.closest<HTMLElement>("[data-status-bubble]");
+		await expect(bubble?.getBoundingClientRect().height).toBe(
+			canvasElement
+				.querySelectorAll<HTMLElement>("[data-status-bubble]")[1]
+				?.getBoundingClientRect().height,
+		);
 		await expectNoLayoutIssues(canvasElement);
 	},
 };

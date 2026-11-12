@@ -1,5 +1,4 @@
 import {
-	type Accessor,
 	batch,
 	createEffect,
 	createMemo,
@@ -27,33 +26,18 @@ import {
 	resolveVirtualAnchor,
 } from "../../utils/virtual-anchor";
 import type { MemberGroup } from "./MemberList";
-import {
-	MemberGroupLabel,
-	MemberListEntry,
-	type MemberListHandlers,
-} from "./MemberListParts";
+import { MemberListFlatRow, type MemberListHandlers } from "./MemberListParts";
 import type { MemberRowVariant } from "./MemberRow";
 import {
+	createStableMemberRows,
 	flattenMemberGroups,
-	type MemberListRow,
+	type StableMemberRow,
 	sameKeys,
-	sameMemberRow,
 } from "./member-list-model";
 
 const BUFFER_PX = 400;
 
-type StableRow = {
-	key: string;
-	row: Accessor<MemberListRow>;
-	current: MemberListRow;
-	set: (row: MemberListRow) => void;
-};
-
 type ScrollTarget = { element: HTMLElement } | { element: null };
-
-type HeaderRow = Extract<MemberListRow, { kind: "header" }>;
-
-type MemberEntry = Extract<MemberListRow, { kind: "member" }>;
 
 export type VirtualMemberListProps = MemberListHandlers & {
 	groups: MemberGroup[];
@@ -74,7 +58,7 @@ export const VirtualMemberList = (props: VirtualMemberListProps) => {
 	const [focusedKey, setFocusedKey] = createSignal<string>();
 	const [touchedKey, setTouchedKey] = createSignal<string>();
 	const retainFocus = createFocusRetention();
-	const rowsByKey = new Map<string, StableRow>();
+	const stableRows = createStableMemberRows();
 	let keys: string[] = [];
 
 	const container = () =>
@@ -127,28 +111,7 @@ export const VirtualMemberList = (props: VirtualMemberListProps) => {
 			const previous = keys;
 			untrack(() => preserveAnchor(previous));
 		}
-		const rows = flat.map((row) => {
-			const existing = rowsByKey.get(row.key);
-			if (existing) {
-				if (!sameMemberRow(existing.current, row)) {
-					existing.current = row;
-					existing.set(row);
-				}
-				return existing;
-			}
-			const [read, write] = createSignal(row, { equals: sameMemberRow });
-			const stable: StableRow = {
-				key: row.key,
-				row: read,
-				current: row,
-				set: write,
-			};
-			rowsByKey.set(row.key, stable);
-			return stable;
-		});
-		for (const key of rowsByKey.keys()) {
-			if (!indexOf.has(key)) rowsByKey.delete(key);
-		}
+		const rows = stableRows(flat);
 		keys = nextKeys;
 		return { rows, indexOf };
 	});
@@ -238,60 +201,16 @@ export const VirtualMemberList = (props: VirtualMemberListProps) => {
 		</div>
 	);
 
-	const HeaderRow = (rowProps: { row: Accessor<HeaderRow> }) => (
-		<div
-			data-member-group-header={rowProps.row().group.kind}
-			class={cx(
-				"pb-2",
-				!rowProps.row().first && (props.variant === "mobile" ? "pt-6" : "pt-4"),
-			)}
-		>
-			{/* biome-ignore lint/a11y/useSemanticElements: SectionLabel renders block content, which a heading element may not contain */}
-			<div
-				role="heading"
-				aria-level={3}
-				aria-label={`${rowProps.row().group.label}, ${rowProps.row().group.members.length}`}
-			>
-				<MemberGroupLabel
-					group={rowProps.row().group}
-					variant={props.variant}
-				/>
-			</div>
-		</div>
-	);
-
-	const MemberEntryRow = (rowProps: { row: Accessor<MemberEntry> }) => {
-		const mobile = () => props.variant === "mobile";
-		return (
-			<div
-				class={cx(
-					mobile() && "overflow-hidden bg-popover-highlight",
-					mobile() && rowProps.row().first && "rounded-t-surface",
-					mobile() && rowProps.row().last && "rounded-b-surface",
-				)}
-			>
-				<MemberListEntry
-					member={rowProps.row().member}
-					offline={rowProps.row().group.kind === "offline"}
-					variant={props.variant}
-					onOpen={props.onOpen}
-					onMemberContextMenu={props.onMemberContextMenu}
-					onMemberMenu={props.onMemberMenu}
-					wrapMember={props.wrapMember}
-					badgeOf={props.badgeOf}
-				/>
-			</div>
-		);
-	};
-
-	const renderRow = (stable: StableRow): JSX.Element => (
-		<div data-member-key={stable.key}>
-			{stable.current.kind === "header" ? (
-				<HeaderRow row={stable.row as Accessor<HeaderRow>} />
-			) : (
-				<MemberEntryRow row={stable.row as Accessor<MemberEntry>} />
-			)}
-		</div>
+	const renderRow = (stable: StableMemberRow): JSX.Element => (
+		<MemberListFlatRow
+			stable={stable}
+			variant={props.variant}
+			onOpen={props.onOpen}
+			onMemberContextMenu={props.onMemberContextMenu}
+			onMemberMenu={props.onMemberMenu}
+			wrapMember={props.wrapMember}
+			badgeOf={props.badgeOf}
+		/>
 	);
 
 	return (

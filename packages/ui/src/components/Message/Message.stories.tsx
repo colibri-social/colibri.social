@@ -1576,10 +1576,23 @@ export const DesktopToolbarAboveRow: Story = {
 			"data-toolbar-layer",
 			"top",
 		);
-		const top = await expectToolbarAboveRow(first);
-		await expect(top.barRect.top).toBeLessThan(
-			scroller.getBoundingClientRect().top,
+		const { layer, bar } = toolbarParts(first);
+		await waitFor(() => expect(layer.matches(":popover-open")).toBe(true));
+		const scrollerTop = scroller.getBoundingClientRect().top;
+		const rowRect = first.getBoundingClientRect();
+		const barRect = bar.getBoundingClientRect();
+		const clampedTop = scrollerTop + layer.offsetHeight * 0.25;
+		await expect(Math.abs(barRect.top - clampedTop)).toBeLessThanOrEqual(0.5);
+		await expect(barRect.top).toBeGreaterThanOrEqual(scrollerTop - 0.5);
+		await expect(barRect.bottom).toBeLessThanOrEqual(rowRect.bottom + 0.5);
+		await expect(
+			Math.abs(rowRect.right - 12 - barRect.right),
+		).toBeLessThanOrEqual(0.5);
+		const hit = document.elementFromPoint(
+			barRect.left + barRect.width / 2,
+			barRect.top + barRect.height / 2,
 		);
+		await expect(hit && bar.contains(hit)).toBe(true);
 		await expectNoLayoutIssues(frame);
 		first.blur();
 		await showToolbarFromKeyboard(grouped);

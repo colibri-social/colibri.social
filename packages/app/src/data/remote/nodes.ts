@@ -51,6 +51,10 @@ const originOf = (url: string): string => {
 	return new URL(url).origin;
 };
 
+export const socketOrigin = (socket: string): string => {
+	return new URL(socket.replace(/^ws/, "http")).origin;
+};
+
 const browserStorage = (): NodeStorage | null => {
 	try {
 		return typeof localStorage === "undefined" ? null : localStorage;

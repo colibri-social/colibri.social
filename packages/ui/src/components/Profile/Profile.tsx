@@ -33,6 +33,7 @@ export type StatusBubbleProps = {
 	customEmoji?: CustomEmoji;
 	editable?: boolean;
 	onClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
+	onCustomEmojiClick?: (emoji: CustomEmoji, anchor: HTMLElement) => void;
 	actionLabel?: string;
 	play?: boolean;
 	class?: string;
@@ -46,6 +47,16 @@ export const StatusBubble = (props: StatusBubbleProps) => {
 		return value !== undefined && value !== null && value !== "";
 	};
 	const interactive = () => !!props.onClick;
+	const emojiClick = () =>
+		!interactive() && props.customEmoji ? props.onCustomEmojiClick : undefined;
+	const emoji = () => (
+		<StatusEmoji
+			emoji={props.emoji}
+			customEmoji={props.customEmoji}
+			size={18}
+			play={props.play}
+		/>
+	);
 
 	return (
 		<Dynamic
@@ -62,17 +73,33 @@ export const StatusBubble = (props: StatusBubbleProps) => {
 			)}
 		>
 			<Show when={props.customEmoji || props.emoji}>
-				<span
-					data-status-emoji=""
-					class="flex h-[18px] shrink-0 items-center text-sm"
+				<Show
+					when={emojiClick()}
+					fallback={
+						<span
+							data-status-emoji=""
+							class="flex h-[18px] shrink-0 items-center text-sm"
+						>
+							{emoji()}
+						</span>
+					}
 				>
-					<StatusEmoji
-						emoji={props.emoji}
-						customEmoji={props.customEmoji}
-						size={18}
-						play={props.play}
-					/>
-				</span>
+					{(click) => (
+						<button
+							type="button"
+							data-status-emoji=""
+							aria-label={`:${props.customEmoji?.name}:`}
+							onClick={(event) => {
+								const custom = props.customEmoji;
+
+								if (custom) click()(custom, event.currentTarget);
+							}}
+							class="-m-0.5 flex h-[22px] shrink-0 cursor-pointer items-center rounded-control-sm p-0.5 text-sm outline-none hover:bg-secondary-highlight focus-ring"
+						>
+							{emoji()}
+						</button>
+					)}
+				</Show>
 			</Show>
 			<span
 				data-status-text=""
@@ -145,6 +172,7 @@ export type ProfileHeaderProps = {
 	statusEditable?: boolean;
 	statusShowWhileOffline?: boolean;
 	onStatusClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
+	onStatusCustomEmojiClick?: (emoji: CustomEmoji, anchor: HTMLElement) => void;
 	onAvatarClick?: JSX.EventHandler<HTMLButtonElement, MouseEvent>;
 	avatarLabel?: string;
 	avatarPlay?: boolean;
@@ -219,6 +247,9 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 						customEmoji={props.statusCustomEmoji}
 						editable={props.statusEditable}
 						onClick={props.onStatusClick}
+						onCustomEmojiClick={
+							props.statusEditable ? undefined : props.onStatusCustomEmojiClick
+						}
 						play={props.avatarPlay}
 					>
 						{status()}

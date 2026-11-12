@@ -138,11 +138,12 @@ export const MemberRow = (props: MemberRowProps) => {
 						data-member-name=""
 						class={cx(
 							"truncate text-base leading-5 font-semibold",
-							local.offline
-								? "text-muted-foreground"
-								: nameColor() && nameColorClass,
+							nameColor()
+								? nameColorClass
+								: local.offline && "text-muted-foreground",
+							nameColor() && local.offline && "opacity-70",
 						)}
-						style={local.offline ? undefined : nameColorStyle(nameColor())}
+						style={nameColorStyle(nameColor())}
 					>
 						{local.name}
 					</span>

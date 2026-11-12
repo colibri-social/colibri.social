@@ -4,9 +4,13 @@ import type { Presence } from "../Avatar/Avatar";
 import type { BadgeDefinition } from "../Badge/Badge";
 import type { CustomEmoji } from "../EmojiPicker/EmojiPicker";
 import type { RoleIdentity } from "../Roles/RoleBadge";
-import { MemberGroupLabel, MemberListEntry } from "./MemberListParts";
+import { MemberListFlatRow } from "./MemberListParts";
 import type { MemberRowVariant } from "./MemberRow";
-import { countMemberRows } from "./member-list-model";
+import {
+	countMemberRows,
+	createStableMemberRows,
+	flattenMemberGroups,
+} from "./member-list-model";
 import { VirtualMemberList } from "./VirtualMemberList";
 
 export type Member = {
@@ -117,51 +121,32 @@ export type MemberListProps = {
 
 const StaticMemberList = (
 	props: Omit<MemberListProps, "variant"> & { variant: MemberRowVariant },
-) => (
-	<div
-		data-member-list=""
-		data-variant={props.variant}
-		class={cx(
-			"flex flex-col",
-			props.variant === "mobile" ? "gap-6" : "gap-4 px-2 py-4",
-			props.class,
-		)}
-	>
-		<For each={props.groups}>
-			{(group) => (
-				<section
-					aria-label={`${group.label}, ${group.members.length}`}
-					data-member-group={group.kind}
-					class="flex flex-col gap-2"
-				>
-					<MemberGroupLabel group={group} variant={props.variant} />
-					<div
-						class={cx(
-							"flex flex-col",
-							props.variant === "mobile" &&
-								"overflow-hidden rounded-surface bg-popover-highlight",
-						)}
-					>
-						<For each={group.members}>
-							{(member) => (
-								<MemberListEntry
-									member={member}
-									offline={group.kind === "offline"}
-									variant={props.variant}
-									onOpen={props.onOpen}
-									onMemberContextMenu={props.onMemberContextMenu}
-									onMemberMenu={props.onMemberMenu}
-									wrapMember={props.wrapMember}
-									badgeOf={props.badgeOf}
-								/>
-							)}
-						</For>
-					</div>
-				</section>
-			)}
-		</For>
-	</div>
-);
+) => {
+	const stableRows = createStableMemberRows();
+	const rows = createMemo(() => stableRows(flattenMemberGroups(props.groups)));
+
+	return (
+		<div
+			data-member-list=""
+			data-variant={props.variant}
+			class={cx(props.variant === "desktop" && "px-2 py-4", props.class)}
+		>
+			<For each={rows()}>
+				{(stable) => (
+					<MemberListFlatRow
+						stable={stable}
+						variant={props.variant}
+						onOpen={props.onOpen}
+						onMemberContextMenu={props.onMemberContextMenu}
+						onMemberMenu={props.onMemberMenu}
+						wrapMember={props.wrapMember}
+						badgeOf={props.badgeOf}
+					/>
+				)}
+			</For>
+		</div>
+	);
+};
 
 export const MemberList = (props: MemberListProps) => {
 	const variant = () => props.variant ?? "desktop";

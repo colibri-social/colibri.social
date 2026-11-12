@@ -5,6 +5,7 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 import type { EmojiFollowView } from "../../../data/emoji";
 import { emojiOwnerName } from "../../../data/emoji-store";
 import type { DataStore } from "../../../data/store";
+import { copyPackLink } from "../../admin/emoji/emoji-shared";
 
 const log = createLogger("followed-emoji");
 
@@ -12,6 +13,7 @@ export const FOLLOWED_EMOJI_COPY = {
 	packs: "Followed packs",
 	emoji: "Followed emoji",
 	remove: "Remove",
+	copyLink: "Copy Pack Link",
 	removeFailed: "Couldn't remove it. Try again.",
 	missingPack: "Deleted pack",
 	missingEmoji: "Deleted emoji",
@@ -50,6 +52,8 @@ const FollowRow = (props: { data: DataStore; follow: EmojiFollowView }) => {
 	const preview = () =>
 		props.follow.state === "available" ? props.follow.emojis.slice(0, 3) : [];
 	const single = () => props.follow.kind === "emoji";
+	const shareable = () =>
+		props.follow.kind === "pack" && props.follow.state === "available";
 	const previewSize = () => (single() ? 32 : 18);
 	const previewClass = () => (single() ? "size-8" : "size-[18px]");
 	const remove = async () => {
@@ -95,15 +99,27 @@ const FollowRow = (props: { data: DataStore; follow: EmojiFollowView }) => {
 					{detailOf(props.follow)}
 				</span>
 			</span>
-			<Button
-				variant="secondary"
-				class="h-8 px-3 text-xs"
-				aria-label={`${FOLLOWED_EMOJI_COPY.remove} ${title()}`}
-				loading={busy()}
-				onClick={() => void remove()}
-			>
-				{FOLLOWED_EMOJI_COPY.remove}
-			</Button>
+			<span class="flex shrink-0 gap-2">
+				<Show when={shareable()}>
+					<Button
+						variant="secondary"
+						class="h-8 px-3 text-xs"
+						aria-label={`Copy link to ${title()}`}
+						onClick={() => void copyPackLink(props.follow.subject)}
+					>
+						{FOLLOWED_EMOJI_COPY.copyLink}
+					</Button>
+				</Show>
+				<Button
+					variant="secondary"
+					class="h-8 px-3 text-xs"
+					aria-label={`${FOLLOWED_EMOJI_COPY.remove} ${title()}`}
+					loading={busy()}
+					onClick={() => void remove()}
+				>
+					{FOLLOWED_EMOJI_COPY.remove}
+				</Button>
+			</span>
 		</div>
 	);
 };

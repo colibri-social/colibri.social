@@ -23,7 +23,12 @@ export const loadWorkingBitmap = async (file: File) => {
 const toBlob = (canvas: HTMLCanvasElement, type: string, quality: number) =>
 	new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
 
-const drawCrop = (bitmap: ImageBitmap, rect: CropRect, output: Size) => {
+const drawCrop = (
+	bitmap: ImageBitmap,
+	rect: CropRect,
+	output: Size,
+	target: CropRect,
+) => {
 	const canvas = document.createElement("canvas");
 	canvas.width = output.width;
 	canvas.height = output.height;
@@ -37,10 +42,10 @@ const drawCrop = (bitmap: ImageBitmap, rect: CropRect, output: Size) => {
 		rect.y,
 		rect.width,
 		rect.height,
-		0,
-		0,
-		output.width,
-		output.height,
+		target.x,
+		target.y,
+		target.width,
+		target.height,
 	);
 	return canvas;
 };
@@ -49,11 +54,17 @@ export const encodeCrop = async (options: {
 	bitmap: ImageBitmap;
 	rect: CropRect;
 	output: Size;
+	target?: CropRect;
 	name: string;
 	maxBytes?: number;
 	fallbackType?: string;
 }): Promise<File> => {
-	const canvas = drawCrop(options.bitmap, options.rect, options.output);
+	const canvas = drawCrop(
+		options.bitmap,
+		options.rect,
+		options.output,
+		options.target ?? { x: 0, y: 0, ...options.output },
+	);
 	let blob: Blob | null = null;
 	for (const quality of QUALITIES) {
 		blob = await toBlob(canvas, "image/webp", quality);

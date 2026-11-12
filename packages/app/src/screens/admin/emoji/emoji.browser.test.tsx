@@ -353,7 +353,7 @@ describe("Space emoji", () => {
 		expect(image?.getAttribute("src")).toBe(owl.image);
 	});
 
-	it("follows an emoji and its pack from the message drawer", async () => {
+	it("follows an emoji and shows its pack from the message drawer", async () => {
 		const { root, store } = await mount(`/app/c/${HQ}/${TEXT}/general`);
 		await until(() => !!store.emoji.catalog(HQ).value());
 		await until(() => !!activeScreen(root).querySelector("[contenteditable]"));
@@ -396,20 +396,21 @@ describe("Space emoji", () => {
 						follow.kind === "emoji" && follow.emojis[0]?.name === "shipit",
 				),
 		);
-		await pressButton(drawer, "Follow pack");
-		await until(() => drawer.textContent?.includes("Unfollow pack") ?? false);
-		const packFollow = store.emoji
-			.follows()
-			.find((follow) => follow.kind === "pack");
-		expect(packFollow?.emojis.map((emoji) => emoji.name).sort()).toEqual([
-			"lgtm",
-			"party_bird",
-			"shipit",
-		]);
+		const release = store.emoji
+			.catalog(HQ)
+			.value()
+			?.packs.find((pack) => pack.name === "Release day");
+		if (!release) throw new Error("Release day missing");
+		await pressButton(drawer, "Show pack");
+		await until(
+			() =>
+				location.pathname ===
+				`/app/emoji/${HQ}/${release.id.split("/").at(-1)}`,
+		);
 		expect(store.emoji.own().value()?.emojis ?? []).toEqual([]);
 	});
 
-	it("offers Unfollow pack for an emoji its followed pack covers", async () => {
+	it("offers Show pack for an emoji its followed pack covers", async () => {
 		const { root, store } = await mount(`/app/c/${HQ}/${TEXT}/general`);
 		await until(() => (store.emoji.catalog(HQ).value()?.packs.length ?? 0) > 0);
 		const release = store.emoji
@@ -445,7 +446,7 @@ describe("Space emoji", () => {
 			?.click();
 		await until(() => !!dialogNamed(":lgtm:"));
 		const drawer = dialogNamed(":lgtm:") as HTMLElement;
-		await until(() => drawer.textContent?.includes("Unfollow pack") ?? false);
+		await until(() => drawer.textContent?.includes("Show pack") ?? false);
 		expect(drawer.textContent).not.toContain("Follow emoji");
 		expect(drawer.textContent).not.toContain("Unfollow emoji");
 	});

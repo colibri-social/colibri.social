@@ -149,6 +149,7 @@ export type Auth = {
 	agent: Accessor<Agent | undefined>;
 	did: Accessor<string | undefined>;
 	accountHost: Accessor<string | undefined>;
+	accountIssuer: Accessor<string | undefined>;
 	phase: Accessor<SignInPhase | undefined>;
 	error: Accessor<ColibriError | undefined>;
 	startupError: Accessor<ColibriError | undefined>;
@@ -322,6 +323,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 	const [agent, setAgent] = createSignal<Agent>();
 	const [grantedScope, setGrantedScope] = createSignal<string>();
 	const [accountHost, setAccountHost] = createSignal<string>();
+	const [accountIssuer, setAccountIssuer] = createSignal<string>();
 	const [phase, setPhase] = createSignal<SignInPhase>();
 	const [error, setError] = createSignal<ColibriError>();
 	const [startupError, setStartupError] = createSignal<ColibriError>();
@@ -390,6 +392,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 			setAgent(undefined);
 			setGrantedScope(undefined);
 			setAccountHost(undefined);
+			setAccountIssuer(undefined);
 		});
 	};
 
@@ -446,10 +449,12 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		});
 		let scope: string | undefined;
 		let host: string | undefined;
+		let issuer: string | undefined;
 		try {
 			const info = await oauth.getTokenInfo(false);
 			scope = info.scope;
 			host = hostOf(info.aud);
+			issuer = info.iss;
 		} catch {}
 		local.set(SUB_KEY, oauth.sub);
 		health.reset();
@@ -459,6 +464,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 			setAgent(next);
 			setGrantedScope(scope);
 			setAccountHost(host);
+			setAccountIssuer(issuer);
 			setDismissedMethods(new Set<string>());
 			setBase("signedIn");
 		});
@@ -834,6 +840,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		agent,
 		did: () => agent()?.did,
 		accountHost,
+		accountIssuer,
 		phase,
 		error,
 		startupError,

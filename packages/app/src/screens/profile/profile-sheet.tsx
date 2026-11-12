@@ -26,6 +26,7 @@ import { roleIdentity, rolesOf } from "../../data/roles";
 import { useData } from "../../data/store";
 import type { Did, ProfileView } from "../../data/types";
 import { usePlatform } from "../../screen/platform";
+import { createCustomEmojiDrawer } from "../channel/message/custom-emoji-drawer";
 import { createBlockFlow } from "../members/block-flow";
 import { uiPresence } from "../members/member-adapter";
 import { OwnActivityPrompt } from "./activity-prompt";
@@ -62,6 +63,14 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 	const [anchorRect, setAnchorRect] = createSignal<DOMRect>();
 	const [placement, setPlacement] = createSignal<ProfilePopoverPlacement>();
 	const blocking = createBlockFlow();
+	const emojiDrawer = createCustomEmojiDrawer({
+		data,
+		community: () => {
+			const space = target()?.space;
+
+			return space ? data.spaceByKey(space)?.did : undefined;
+		},
+	});
 	let lastPointer: HTMLElement | undefined;
 	onMount(() => {
 		const track = (event: PointerEvent) => {
@@ -128,6 +137,9 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 			statusEmoji: status?.emoji,
 			statusCustomEmoji: status?.customEmoji,
 			statusShowWhileOffline: status?.showWhileOffline,
+			onStatusCustomEmojiClick: self
+				? undefined
+				: (emoji, element) => emojiDrawer.open(emoji, element),
 			bio: bioOf(actor.description),
 			nowPlaying: nowPlayingOf(presence, bio.openLink),
 			activityPrompt: self ? <OwnActivityPrompt tone="secondary" /> : undefined,
@@ -196,6 +208,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 					loading={open() && !profile()}
 				/>
 			</Show>
+			<emojiDrawer.Overlay />
 			<bio.LinkWarningOutlet />
 			<blocking.Dialog />
 		</ProfileSheetContext.Provider>

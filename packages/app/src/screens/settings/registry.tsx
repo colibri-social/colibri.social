@@ -10,6 +10,7 @@ import type { Component } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import type { DataStore } from "../../data/store";
 import { sellsThroughAppStore } from "../../native/app-store";
+import { openExternalUrl } from "../../native/open-external";
 import type { Platform } from "../../screen/platform";
 import { accountPageOf } from "./account-page";
 import type { SettingsNav, SettingsPageId } from "./nav";
@@ -138,7 +139,11 @@ export const settingsEntries = (
 	nav: SettingsNav,
 ): SettingsEntries => {
 	const page = (id: SettingsPageId) => ({ onSelect: () => nav.open(id) });
-	const external = (href: string) => ({ href, external: true });
+	const external = (href: string) => ({
+		href,
+		external: true,
+		onSelect: () => openExternalUrl(href),
+	});
 	const developer = data.preferences.client().developerMode;
 	const accountPage = accountPageOf(data);
 	return {

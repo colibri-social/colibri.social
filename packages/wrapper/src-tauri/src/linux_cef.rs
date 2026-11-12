@@ -322,7 +322,9 @@ fn deliver(message: String) {
 
 fn handle(app: &AppHandle<AppRuntime>, message: String) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
-        let _ = window.unminimize();
+        if window.is_minimized().unwrap_or(false) {
+            let _ = window.unminimize();
+        }
         let _ = window.show();
         let _ = window.set_focus();
     }

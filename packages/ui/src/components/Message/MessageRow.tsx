@@ -480,10 +480,11 @@ export const MessageRow = (props: MessageRowProps) => {
 		const placeInTopLayer = () => {
 			const rect = row.getBoundingClientRect();
 			const clipTop = clipTopOf(clippers);
-			const anchor = Math.max(rect.top, Math.min(clipTop, rect.bottom));
+			const lifted = Math.max(rect.top + 1, clipTop + layer.offsetHeight);
+			const anchor = Math.min(lifted, rect.bottom);
 			const end =
 				document.documentElement.clientWidth - rect.right + TOOLBAR_END_INSET;
-			layer.style.top = `max(${anchor + 1}px, calc(var(--overlay-top, 0px) + ${layer.offsetHeight}px))`;
+			layer.style.top = `max(${anchor}px, calc(var(--overlay-top, 0px) + ${layer.offsetHeight}px))`;
 			layer.style.right = `${end}px`;
 		};
 		const placeInRow = () => {

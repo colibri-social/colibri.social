@@ -4,6 +4,7 @@ import {
 	LIST_NODES_PATH,
 	REFRESH_AFTER_MS,
 	STORAGE_KEY,
+	socketOrigin,
 } from "./nodes";
 
 const MAIN = "https://spaces-api.colibri.test";
@@ -185,5 +186,13 @@ describe("createNodeDirectory", () => {
 		clock += REFRESH_AFTER_MS;
 		await directory.refreshIfStale();
 		expect(listed()).toBe(2);
+	});
+});
+
+describe("socketOrigin", () => {
+	it("turns a socket url into the http origin of its host", () => {
+		expect(socketOrigin("wss://eu-1.colibri.test/xrpc/subscribe")).toBe(
+			"https://eu-1.colibri.test",
+		);
 	});
 });

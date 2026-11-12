@@ -1,10 +1,11 @@
+import { clientOrigin } from "@colibri-social/lib";
 import {
 	CustomEmojiDrawer,
 	type RichTextCustomEmoji,
 	toast,
 } from "@colibri-social/ui";
 import { createMemo, createSignal, Show } from "solid-js";
-import { repoOfUri } from "../../../data/emoji";
+import { repoOfUri, rkeyOfUri } from "../../../data/emoji";
 import {
 	createFetchedOwner,
 	knownOwner,
@@ -12,7 +13,9 @@ import {
 import { emojiOwnerName, OWN_EMOJI_LABEL } from "../../../data/emoji-store";
 import type { DataStore } from "../../../data/store";
 import type { Did } from "../../../data/types";
+import { openAppLink } from "../../../native/deep-links";
 import { usePlatform } from "../../../screen/platform";
+import { packPath } from "../../../shell/layers";
 
 export const createCustomEmojiDrawer = (options: {
 	data: DataStore;
@@ -55,7 +58,6 @@ export const createCustomEmojiDrawer = (options: {
 			pack,
 			coveredByPack: !direct && !!packFollow,
 			followed: !!direct || !!packFollow,
-			packFollowed: pack ? !!data.emoji.followOf(pack.id) : false,
 		};
 	});
 
@@ -80,6 +82,13 @@ export const createCustomEmojiDrawer = (options: {
 		throw error;
 	};
 
+	const showPack = (id: string) => {
+		setOpen(false);
+		openAppLink(
+			`${clientOrigin()}${packPath({ did: repoOfUri(id), rkey: rkeyOfUri(id) })}`,
+		);
+	};
+
 	const Overlay = () => (
 		<Show when={target()}>
 			{(emoji) => (
@@ -95,7 +104,6 @@ export const createCustomEmojiDrawer = (options: {
 					handle={ownerHandle()}
 					packName={details()?.pack?.name}
 					followed={details()?.followed}
-					packFollowed={details()?.packFollowed}
 					onFollowChange={
 						details() && !details()?.own && !details()?.coveredByPack
 							? async (follow) => {
@@ -108,18 +116,11 @@ export const createCustomEmojiDrawer = (options: {
 								}
 							: undefined
 					}
-					onPackFollowChange={
-						details()?.pack && !details()?.own
-							? async (follow) => {
-									const pack = details()?.pack;
-									if (!pack) return;
-									await (follow
-										? data.emoji.follow(pack.id)
-										: data.emoji.unfollow(pack.id)
-									).catch(fail("Couldn't update your emoji"));
-								}
-							: undefined
-					}
+					onShowPack={() => {
+						const pack = details()?.pack;
+
+						if (pack) showPack(pack.id);
+					}}
 				/>
 			)}
 		</Show>

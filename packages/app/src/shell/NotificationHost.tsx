@@ -252,6 +252,7 @@ export const NotificationHost = (props: {
 			const visible = appVisible();
 			const alert = shouldAlertNotification(view, {
 				viewer: data.viewer.did,
+				preferencesLoaded: data.source.preferences.loaded(),
 				viewing: data.viewing(),
 				visible,
 				doNotDisturb:

@@ -18,6 +18,7 @@ export default function DebugInformationPage(_props: { platform: Platform }) {
 			did: data.viewer.did,
 			handle: data.viewer.handle || displayNameOf(data.viewer),
 			liveStatus: live?.status(),
+			liveNode: live?.node?.(),
 			experiments: data.preferences.client().experiments,
 		}).then(setSections);
 	});

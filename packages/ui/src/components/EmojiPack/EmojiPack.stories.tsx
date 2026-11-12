@@ -38,6 +38,7 @@ const spy = {
 	remove: fn(),
 	delete: fn(),
 	select: fn(),
+	showPack: fn(),
 };
 
 const resetSpies = () => {
@@ -504,7 +505,6 @@ export const SelectForPack: Story = {
 const FollowDemo = (props: { fail?: boolean; withPack?: boolean }) => {
 	const [open, setOpen] = createSignal(false);
 	const [followed, setFollowed] = createSignal(false);
-	const [packFollowed, setPackFollowed] = createSignal(false);
 	const settle = async () => {
 		await new Promise((resolve) => setTimeout(resolve, 80));
 		if (props.fail) throw new Error("offline");
@@ -524,15 +524,14 @@ const FollowDemo = (props: { fail?: boolean; withPack?: boolean }) => {
 				handle={LONG_HANDLE}
 				packName={props.withPack === false ? undefined : LONG_PACK}
 				followed={followed()}
-				packFollowed={packFollowed()}
 				onFollowChange={async (next) => {
 					spy.select(next);
 					await settle();
 					setFollowed(next);
 				}}
-				onPackFollowChange={async (next) => {
-					await settle();
-					setPackFollowed(next);
+				onShowPack={() => {
+					spy.showPack();
+					setOpen(false);
 				}}
 			/>
 		</div>
@@ -557,9 +556,9 @@ export const FollowEmoji: Story = {
 		await within(dialog).findByRole("button", { name: "Unfollow emoji" });
 		await expect(spy.select).toHaveBeenCalledWith(true);
 		await userEvent.click(
-			within(dialog).getByRole("button", { name: "Follow pack" }),
+			within(dialog).getByRole("button", { name: "Show pack" }),
 		);
-		await within(dialog).findByRole("button", { name: "Unfollow pack" });
+		await expect(spy.showPack).toHaveBeenCalledTimes(1);
 	},
 };
 
@@ -568,7 +567,7 @@ export const FollowEmojiWithoutPack: Story = {
 	play: async ({ canvasElement }) => {
 		const dialog = await openDrawer(canvasElement, `:${LONG_NAME}:`);
 		await expect(
-			within(dialog).queryByRole("button", { name: "Follow pack" }),
+			within(dialog).queryByRole("button", { name: "Show pack" }),
 		).toBeNull();
 		await userEvent.click(
 			within(dialog).getByRole("button", { name: "Follow emoji" }),
@@ -611,12 +610,11 @@ const DesktopEmojiInfo = () => {
 				handle="nightowls.example.social"
 				packName={LONG_PACK}
 				followed={followed()}
-				packFollowed={false}
 				onFollowChange={(next) => {
 					spy.select(next);
 					setFollowed(next);
 				}}
-				onPackFollowChange={() => {}}
+				onShowPack={spy.showPack}
 			/>
 		</div>
 	);

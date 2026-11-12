@@ -3,9 +3,12 @@ import {
 	bandView,
 	clampView,
 	fitFrame,
+	MIN_ZOOM,
+	minZoomFor,
 	outputName,
 	panLimits,
 	sourceRect,
+	targetRect,
 	workingSize,
 	zoomAround,
 } from "./crop-math";
@@ -48,6 +51,72 @@ describe("crop math", () => {
 		const zoomed = sourceRect({ zoom: 2, x: 0, y: 0 }, image, frame);
 		expect(zoomed.width).toBe(1500);
 		expect(zoomed.x).toBe(1250);
+	});
+
+	it("lets only the emoji shape zoom out to fit a wide image whole", () => {
+		const wide = { width: 2000, height: 1000 };
+		expect(minZoomFor("emoji", wide, frame)).toBe(0.5);
+		expect(minZoomFor("emoji", frame, frame)).toBe(1);
+		expect(minZoomFor("avatar", wide, frame)).toBe(MIN_ZOOM);
+		expect(minZoomFor("banner", wide, frame)).toBe(MIN_ZOOM);
+		expect(clampView({ zoom: 0.2, x: 0, y: 0 }, wide, frame).zoom).toBe(1);
+		expect(clampView({ zoom: 0.2, x: 0, y: 0 }, wide, frame, 0.5).zoom).toBe(
+			0.5,
+		);
+		expect(bandView({ zoom: 0.2, x: 0, y: 0 }, wide, frame, 0.5).zoom).toBe(
+			0.5,
+		);
+		expect(
+			zoomAround(
+				{ zoom: 1, x: 0, y: 0 },
+				0.1,
+				{
+					x: 0,
+					y: 0,
+				},
+				0.5,
+			).zoom,
+		).toBe(0.5);
+	});
+
+	it("centres a contained image vertically with no pan slack", () => {
+		const wide = { width: 2000, height: 1000 };
+		const view = clampView({ zoom: 0.5, x: 40, y: 60 }, wide, frame, 0.5);
+		expect(view).toEqual({ zoom: 0.5, x: 0, y: 0 });
+		expect(sourceRect(view, wide, frame)).toEqual({
+			x: 0,
+			y: 0,
+			width: 2000,
+			height: 1000,
+		});
+	});
+
+	it("letterboxes the contained image in the middle of the output", () => {
+		const wide = { width: 2000, height: 1000 };
+		const output = { width: 128, height: 128 };
+		const contained = { zoom: 0.5, x: 0, y: 0 };
+		expect(targetRect(contained, wide, frame, output)).toEqual({
+			x: 0,
+			y: 32,
+			width: 128,
+			height: 64,
+		});
+		const between = clampView({ zoom: 0.75, x: 30, y: 0 }, wide, frame, 0.5);
+		const target = targetRect(between, wide, frame, output);
+		expect(target.x).toBe(0);
+		expect(target.width).toBe(128);
+		expect(target.y).toBe(16);
+		expect(target.height).toBe(96);
+	});
+
+	it("fills the whole output when the image covers the frame", () => {
+		const output = { width: 512, height: 512 };
+		expect(targetRect({ zoom: 1, x: 50, y: 0 }, image, frame, output)).toEqual({
+			x: 0,
+			y: 0,
+			width: 512,
+			height: 512,
+		});
 	});
 
 	it("fits a banner frame inside the stage", () => {
