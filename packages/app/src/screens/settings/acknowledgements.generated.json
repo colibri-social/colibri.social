@@ -575,13 +575,6 @@
 			"ecosystem": "npm"
 		},
 		{
-			"name": "@tiptap/extension-bubble-menu",
-			"version": "3.31.3",
-			"license": "MIT",
-			"href": "https://github.com/ueberdosis/tiptap",
-			"ecosystem": "npm"
-		},
-		{
 			"name": "@tiptap/extension-document",
 			"version": "3.31.3",
 			"license": "MIT",
@@ -904,6 +897,13 @@
 			"ecosystem": "npm"
 		},
 		{
+			"name": "gifuct-js",
+			"version": "2.1.2",
+			"license": "MIT",
+			"href": "https://github.com/matt-way/gifuct-js",
+			"ecosystem": "npm"
+		},
+		{
 			"name": "h264-profile-level-id",
 			"version": "2.3.3",
 			"license": "ISC",
@@ -929,6 +929,13 @@
 			"version": "5.10.0",
 			"license": "MIT",
 			"href": "https://github.com/panva/jose",
+			"ecosystem": "npm"
+		},
+		{
+			"name": "js-binary-schema-parser",
+			"version": "2.0.3",
+			"license": "MIT",
+			"href": "https://github.com/matt-way/jsBinarySchemaParser",
 			"ecosystem": "npm"
 		},
 		{
@@ -1184,6 +1191,13 @@
 			"ecosystem": "npm"
 		},
 		{
+			"name": "pako",
+			"version": "1.0.11",
+			"license": "(MIT AND Zlib)",
+			"href": "https://github.com/nodeca/pako",
+			"ecosystem": "npm"
+		},
+		{
 			"name": "path-browserify",
 			"version": "1.0.1",
 			"license": "MIT",
@@ -1422,13 +1436,6 @@
 			"ecosystem": "npm"
 		},
 		{
-			"name": "solid-tiptap",
-			"version": "0.8.0",
-			"license": "MIT",
-			"href": "https://github.com/lxsmnsyc/solid-tiptap",
-			"ecosystem": "npm"
-		},
-		{
 			"name": "solid-transition-size",
 			"version": "0.1.4",
 			"license": "MIT",
@@ -1573,6 +1580,13 @@
 			"version": "6.0.2",
 			"license": "MIT",
 			"href": "https://github.com/syntax-tree/unist-util-visit-parents",
+			"ecosystem": "npm"
+		},
+		{
+			"name": "upng-js",
+			"version": "2.1.0",
+			"license": "MIT",
+			"href": "https://github.com/photopea/UPNG.js",
 			"ecosystem": "npm"
 		},
 		{

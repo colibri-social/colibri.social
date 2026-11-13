@@ -91,6 +91,7 @@ import { useMemberMenu } from "../members/member-menu";
 import { useProfileSheet } from "../profile/profile-sheet";
 import { createThreadMenu } from "../threads/thread-menu";
 import { canModerateVoiceMember, moderateVoice } from "../voice/member-voice";
+import { voiceChatAvailable } from "../voice/voice-chat";
 import { canJoinVoice, clickVoiceChannel } from "../voice/voice-click";
 import { openVoicePrompt } from "../voice/voice-prompt";
 import { createCategoryCollapse } from "./category-collapse";
@@ -400,9 +401,11 @@ export const spaces = defineContract({
 			const call = voiceCallFor(channel);
 			if (call) voice.join(call);
 		};
+		const canOpenVoiceChat = (channel: ChannelView) =>
+			voiceChatAvailable(data, community(), channel);
 		const openVoiceChat = (channel: ChannelView) => {
 			const current = community();
-			if (!current) return;
+			if (!current || !canOpenVoiceChat(channel)) return;
 			void whenOverlaysClosed().then(() =>
 				stack.push({
 					kind: "chat",
@@ -414,7 +417,7 @@ export const spaces = defineContract({
 		};
 		const openVoiceChatPane = (channel: ChannelView) => {
 			const current = community();
-			if (!current) return;
+			if (!current || !canOpenVoiceChat(channel)) return;
 			stack.push({
 				kind: "chat",
 				channelType: VOICE_CHANNEL,
@@ -628,6 +631,7 @@ export const spaces = defineContract({
 			can,
 			holdChannel,
 			joinVoice,
+			canOpenVoiceChat,
 			openVoiceChat,
 			openVoiceChatPane,
 			copyChannelLink,
@@ -825,7 +829,7 @@ export const spaces = defineContract({
 					canMoveParticipant={m.canMoveParticipant}
 					onClick={() => m.openChannel(channel)}
 					onOpenChat={
-						desktop() && channel.viewer.canRead
+						desktop() && channel.viewer.canRead && m.canOpenVoiceChat(channel)
 							? () => m.openVoiceChatPane(channel)
 							: undefined
 					}
@@ -900,7 +904,11 @@ export const spaces = defineContract({
 									}
 								: undefined
 						}
-						onOpenChat={() => m.openVoiceChatPane(channel)}
+						onOpenChat={
+							m.canOpenVoiceChat(channel)
+								? () => m.openVoiceChatPane(channel)
+								: undefined
+						}
 						onCopyLink={() => m.copyChannelLink(channel)}
 						onDuplicate={
 							m.can("channel.create")
@@ -1164,7 +1172,7 @@ export const spaces = defineContract({
 										: undefined
 								}
 								onOpenChat={
-									isVoiceChannel(channel())
+									isVoiceChannel(channel()) && m.canOpenVoiceChat(channel())
 										? () => m.openVoiceChat(channel())
 										: undefined
 								}

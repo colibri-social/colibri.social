@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { channelSlug } from "../ids";
 import type { LiveEvent } from "../source";
-import type { MessageView, SpaceRef } from "../types";
+import type { ChannelView, MessageView, SpaceRef } from "../types";
 import { createMockSource, setLatency } from "./source";
 
 const NOW = Date.UTC(2026, 9, 10, 12, 0, 0);
@@ -37,6 +37,10 @@ const allMessages = async (
 	} while (cursor && out.length < max);
 	return out;
 };
+
+const chatHidden = (channel: ChannelView) =>
+	channel.type === "social.colibri.beta.channel.voice" &&
+	channel.viewer.permissions?.includes("voice.chat") === false;
 
 const channelBySlug = async (
 	mock: ReturnType<typeof source>,
@@ -87,6 +91,7 @@ describe("mock source", () => {
 		const mock = source();
 		for (const community of await mock.listCommunities()) {
 			for (const channel of await mock.listChannels(community.did)) {
+				if (chatHidden(channel)) continue;
 				const max =
 					channelSlug(channel) === "archive" ? 500 : Number.POSITIVE_INFINITY;
 				for (const message of await allMessages(mock, channel.space, max)) {
@@ -99,6 +104,21 @@ describe("mock source", () => {
 				}
 			}
 		}
+	});
+
+	it("refuses the chat of a voice channel the viewer can't see", async () => {
+		const mock = source();
+		const channels = await mock.listChannels(
+			"did:plc:nightowlsartclub3e5f7g9h" as never,
+		);
+		const waiting = channels.find(
+			(entry) => channelSlug(entry) === "waiting-room",
+		) as ChannelView;
+		expect(chatHidden(waiting)).toBe(true);
+		await expect(
+			mock.listMessages({ channel: waiting.space, limit: 10 }),
+		).rejects.toMatchObject({ code: "Forbidden" });
+		expect(channels.map(channelSlug)).not.toContain("critique-booth");
 	});
 
 	it("pages without duplicates in both directions", async () => {

@@ -1,7 +1,22 @@
+import { VOICE_PERMISSIONS, type VoicePermission } from "@colibri-social/lib";
+import { createSignal } from "solid-js";
+import { sameChannel } from "../channel-layout";
 import { skeyOf } from "../ids";
 import type { LiveEvent } from "../source";
 import type { Did, Presence, SpaceRef, VoiceState } from "../types";
+import {
+	ALL_VOICE_PERMISSIONS,
+	type VoiceConnectionMonitor,
+	type VoiceMoveDestination,
+	type VoiceMovedListener,
+	type VoicePermissions,
+	type VoiceSession,
+} from "../voice/types";
 import { createRandom } from "./seed";
+import {
+	createSimulatedConnection,
+	type SimulatedConnectionOptions,
+} from "./voice-connection";
 import type { World } from "./world";
 
 const SEEDED_ROOMS: {
@@ -18,6 +33,7 @@ const SEEDED_ROOMS: {
 		sharing: { 0: "screen", 3: "camera" },
 	},
 	{ space: "owls", skey: "quiet-studio", count: 1 },
+	{ space: "owls", skey: "critique-booth", count: 1 },
 ];
 
 const VOICE_TICK_MS = 1_400;
@@ -136,4 +152,109 @@ export const startVoiceActivity = (options: {
 	};
 
 	later(VOICE_TICK_MS, tick);
+};
+
+const WAITING_ROOM = "waiting-room";
+const CRITIQUE_BOOTH = "critique-booth";
+const BOOTH_GRANT: readonly VoicePermission[] = [
+	"voice.speak",
+	"voice.listen",
+	"voice.camera",
+];
+
+export type MockVoiceOptions = SimulatedConnectionOptions & {
+	moveMs?: number;
+	grantMs?: number;
+};
+
+export const createMockVoiceConnection = (
+	world: World,
+	options: MockVoiceOptions = {},
+): VoiceConnectionMonitor => {
+	const base = createSimulatedConnection(options);
+	const [permissions, setPermissions] = createSignal<VoicePermissions>(
+		ALL_VOICE_PERMISSIONS,
+	);
+	const movedListeners = new Set<VoiceMovedListener>();
+	let timer: ReturnType<typeof setTimeout> | undefined;
+
+	const locate = (find: (ref: SpaceRef) => boolean) => {
+		for (const space of world.spaces) {
+			const record = space.channels.find((entry) => find(entry.view.space));
+			if (record) return { space, record };
+		}
+		return undefined;
+	};
+
+	const permissionsOf = (channel: string): VoicePermissions => {
+		const found = locate((ref) => sameChannel(ref, channel));
+		const granted = found?.record.view.viewer.permissions;
+		if (!found || found.space.view.viewer.isOwner || !granted) {
+			return ALL_VOICE_PERMISSIONS;
+		}
+
+		return new Set(VOICE_PERMISSIONS.filter((key) => granted.includes(key)));
+	};
+
+	const destinationOf = (ref: SpaceRef): VoiceMoveDestination | undefined => {
+		const found = locate((entry) => entry === ref);
+		if (!found) return undefined;
+		const { space, record } = found;
+		const view = world.channelViewIn(space, record.view);
+		const before = space.channels
+			.slice(0, space.channels.indexOf(record))
+			.filter((entry) => !entry.hidden && entry.view.category === view.category)
+			.at(-1);
+
+		return before ? { view, after: before.view.space } : { view };
+	};
+
+	const later = (ms: number, run: () => void) => {
+		timer = setTimeout(run, ms);
+	};
+
+	const script = (channel: string) => {
+		const skey = skeyOf(channel);
+		if (skey === WAITING_ROOM) {
+			const booth = locate((ref) => skeyOf(ref) === CRITIQUE_BOOTH);
+			if (!booth) return;
+			const ref = booth.record.view.space;
+			later(options.moveMs ?? 4_000, () => {
+				for (const listener of [...movedListeners]) {
+					listener(ref, destinationOf(ref));
+				}
+			});
+			return;
+		}
+		if (skey === CRITIQUE_BOOTH) {
+			later(options.grantMs ?? 8_000, () =>
+				setPermissions(new Set(BOOTH_GRANT)),
+			);
+		}
+	};
+
+	const start = (session?: VoiceSession) => {
+		clearTimeout(timer);
+		base.start(session);
+		if (!session) return;
+		setPermissions(permissionsOf(session.channel));
+		script(session.channel);
+	};
+
+	const stop = () => {
+		clearTimeout(timer);
+		base.stop();
+		setPermissions(ALL_VOICE_PERMISSIONS);
+	};
+
+	return {
+		...base,
+		start,
+		stop,
+		permissions,
+		onMoved: (listener) => {
+			movedListeners.add(listener);
+			return () => movedListeners.delete(listener);
+		},
+	};
 };

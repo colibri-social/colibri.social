@@ -1,14 +1,16 @@
 import { createSignal } from "solid-js";
 import { describe, expect, it, vi } from "vitest";
 import type { ProfileTheme } from "./source";
-import type { Did, Presence, VoiceState } from "./types";
+import type { ChannelView, Did, Presence, VoiceState } from "./types";
 import { createVoice } from "./voice";
 import type {
 	VoiceConnection,
 	VoiceConnectionMonitor,
 	VoiceEndReason,
 	VoiceModeration,
+	VoiceMoveDestination,
 	VoiceMoveNotice,
+	VoicePermissions,
 	VoiceSession,
 	VoiceVideo,
 } from "./voice/types";
@@ -249,8 +251,19 @@ const fakeMonitor = () => {
 		Record<string, VoiceModeration>
 	>({});
 	let endedListener: ((reason: VoiceEndReason) => void) | undefined;
-	let movedListener: ((channel: string) => void) | undefined;
+	let movedListener:
+		| ((channel: string, destination?: VoiceMoveDestination) => void)
+		| undefined;
 	let cameraResult = true;
+	const [permissions, setPermissions] = createSignal<VoicePermissions>(
+		new Set([
+			"voice.speak",
+			"voice.listen",
+			"voice.camera",
+			"voice.screenshare",
+			"voice.chat",
+		]),
+	);
 	const [screenSharing, setScreenSharing] = createSignal(false);
 	const [micAvailable, setMicAvailable] = createSignal(true);
 	let screenShareListener: ((sharing: boolean) => void) | undefined;
@@ -291,13 +304,16 @@ const fakeMonitor = () => {
 		speakers,
 		videos,
 		moderation,
+		permissions,
 		onEnded: (listener: (reason: VoiceEndReason) => void) => {
 			endedListener = listener;
 			return () => {
 				endedListener = undefined;
 			};
 		},
-		onMoved: (listener: (channel: string) => void) => {
+		onMoved: (
+			listener: (channel: string, destination?: VoiceMoveDestination) => void,
+		) => {
 			movedListener = listener;
 			return () => {
 				movedListener = undefined;
@@ -314,7 +330,10 @@ const fakeMonitor = () => {
 		setVideos,
 		setModeration,
 		end: (reason: VoiceEndReason) => endedListener?.(reason),
-		move: (channel: string) => movedListener?.(channel),
+		move: (channel: string, destination?: VoiceMoveDestination) =>
+			movedListener?.(channel, destination),
+		setPermissions: (keys: string[]) =>
+			setPermissions(new Set(keys) as VoicePermissions),
 		peerScreen: (sharing: boolean) => screenShareListener?.(sharing),
 		failCamera: () => {
 			cameraResult = false;
@@ -633,5 +652,86 @@ describe("call move notices", () => {
 		emit?.(null);
 
 		expect(seen).toEqual([{ deadline: 1_000, moveNow }, null]);
+	});
+});
+
+const HIDDEN = `at://${SPACE}/space/social.colibri.beta.channel.voice/office`;
+
+const hiddenView = (): ChannelView => ({
+	space: HIDDEN as ChannelView["space"],
+	type: "social.colibri.beta.channel.voice",
+	name: "Mod office",
+	private: true,
+	viewer: { canRead: false, canPost: false },
+});
+
+describe("voice permissions", () => {
+	it("treats every permission as granted outside a call", () => {
+		const { voice, fake } = setupWithMonitor();
+		fake.setPermissions([]);
+		expect(voice.micDenied()).toBe(false);
+		expect(voice.cameraDenied()).toBe(false);
+	});
+
+	it("refuses denied controls with a notice and produces nothing", async () => {
+		const { voice, fake, notices } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		fake.setPermissions(["voice.chat"]);
+		expect(voice.micDenied()).toBe(true);
+		expect(voice.listenDenied()).toBe(true);
+		expect(voice.muted()).toBe(true);
+		notices.length = 0;
+
+		voice.toggleMute();
+		voice.toggleDeafen();
+		voice.toggleCamera();
+		const shared = await voice.shareScreen(
+			{
+				video: { stop: vi.fn() } as unknown as MediaStreamTrack,
+				audio: null,
+				release: vi.fn(),
+			},
+			{ resolution: "1080", framerate: 30 },
+		);
+
+		expect(shared).toBe(false);
+		expect(voice.camera()).toBe(false);
+		expect(fake.monitor.setCamera).not.toHaveBeenCalled();
+		expect(fake.monitor.shareScreen).not.toHaveBeenCalled();
+		expect(notices).toEqual([
+			"speakDenied",
+			"listenDenied",
+			"cameraDenied",
+			"screenshareDenied",
+		]);
+	});
+
+	it("keeps a moved-into channel as the guest channel until the call ends", () => {
+		const { voice, fake, notices } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		fake.move(HIDDEN, { view: hiddenView(), after: LOUNGE });
+		expect(voice.guestChannel()).toMatchObject({
+			community: SPACE,
+			after: LOUNGE,
+			view: { name: "Mod office" },
+		});
+		expect(notices.at(-1)).toBe("movedPrivate");
+		voice.leave();
+		expect(voice.guestChannel()).toBeUndefined();
+	});
+
+	it("drops the guest channel when the call moves or ends elsewhere", () => {
+		const { voice, fake } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		fake.move(HIDDEN, { view: hiddenView() });
+		fake.move(STANDUP);
+		expect(voice.guestChannel()).toBeUndefined();
+		fake.move(HIDDEN, { view: hiddenView() });
+		fake.end("lost");
+		expect(voice.guestChannel()).toBeUndefined();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		fake.move(HIDDEN, { view: hiddenView() });
+		voice.join({ space: SPACE, channel: STANDUP });
+		expect(voice.guestChannel()).toBeUndefined();
 	});
 });

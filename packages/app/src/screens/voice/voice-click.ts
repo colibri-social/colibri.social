@@ -17,7 +17,8 @@ export const clickVoiceChannel = (options: {
 	confirmJoin: boolean;
 }) => {
 	const { space, channel, stack } = options;
-	if (!channel.viewer.canRead) return;
+	const inCall = voice.current()?.channel === channel.space;
+	if (!channel.viewer.canRead && !inCall) return;
 	if (
 		!isConnectedHere(channel.space) &&
 		!options.confirmJoin &&

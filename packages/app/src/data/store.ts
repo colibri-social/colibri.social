@@ -27,7 +27,12 @@ import {
 import { createStore, reconcile } from "solid-js/store";
 import { createAccessStore } from "./access-store";
 import { mentionedDids } from "./adapters/facets";
-import { normalizeChannelLayout, sameChannel } from "./channel-layout";
+import {
+	type GuestChannel,
+	normalizeChannelLayout,
+	sameChannel,
+	withGuestChannel,
+} from "./channel-layout";
 import {
 	type ChannelSummary,
 	newerSummary,
@@ -102,7 +107,7 @@ import type {
 	VoiceState,
 } from "./types";
 import { appVisible, trackActivity } from "./visibility";
-import { connectVoice } from "./voice";
+import { connectVoice, voice } from "./voice";
 
 const PAGE_SIZE = 60;
 const STALE_OPEN_MS = 15_000;
@@ -216,6 +221,7 @@ export type SpaceData = {
 	kick: (did: Did) => Promise<void>;
 	ban: (did: Did) => Promise<void>;
 	channelBySlug: (slug: string) => ChannelView | undefined;
+	isGuestChannel: (space: string) => boolean;
 	unread: (slug: string) => UnreadState;
 	totals: Accessor<UnreadState>;
 } & RoleActions;
@@ -1126,22 +1132,52 @@ export const createDataStore = (
 				syncViewer: () => syncViewer(community.did),
 			});
 
+			const guestView = () => {
+				const guest = voice.guestChannel();
+
+				return guest?.community === community.did ? guest : undefined;
+			};
 			let layoutInput:
-				| [CategoryView[] | undefined, ChannelView[] | undefined]
+				| [
+						CategoryView[] | undefined,
+						ChannelView[] | undefined,
+						GuestChannel | undefined,
+				  ]
 				| undefined;
 			let layoutOutput: ReturnType<typeof normalizeChannelLayout> | undefined;
 			const layout = () => {
 				const nextCategories = categories.value();
 				const nextChannels = channelList.value();
+				const nextGuest = guestView();
 				if (
 					!layoutOutput ||
 					layoutInput?.[0] !== nextCategories ||
-					layoutInput?.[1] !== nextChannels
+					layoutInput?.[1] !== nextChannels ||
+					layoutInput?.[2] !== nextGuest
 				) {
-					layoutInput = [nextCategories, nextChannels];
-					layoutOutput = normalizeChannelLayout(nextCategories, nextChannels);
+					layoutInput = [nextCategories, nextChannels, nextGuest];
+					const merged = withGuestChannel(
+						nextCategories,
+						nextChannels,
+						nextGuest,
+					);
+					layoutOutput = normalizeChannelLayout(
+						merged.categories,
+						merged.channels,
+					);
 				}
 				return layoutOutput;
+			};
+			const isGuestChannel = (space: string) => {
+				const guest = guestView();
+				const listed = channelList.value();
+
+				return (
+					!!guest &&
+					!!listed &&
+					sameChannel(guest.view.space, space) &&
+					!listed.some((channel) => sameChannel(channel.space, space))
+				);
 			};
 
 			const data: SpaceData = {
@@ -1158,6 +1194,7 @@ export const createDataStore = (
 				ban: removeWith(source.banMember),
 				channelBySlug: (slug) =>
 					layout().channels?.find((channel) => channelSlug(channel) === slug),
+				isGuestChannel,
 				unread: (slug) =>
 					unread[community.did]?.[slug] ?? { hasUnread: false, mentions: 0 },
 				totals: () => {

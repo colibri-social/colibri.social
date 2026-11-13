@@ -13,7 +13,15 @@ import {
 } from "@colibri-social/ui";
 import { ChatRoundDotsIcon } from "@solar-icons/solid/bold/chat-round-dots";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
-import { batch, createMemo, createSignal, type JSX, Show } from "solid-js";
+import {
+	batch,
+	createEffect,
+	createMemo,
+	createSignal,
+	type JSX,
+	Show,
+	untrack,
+} from "solid-js";
 import { voiceStripPrefs } from "../../data/device-prefs";
 import { skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
@@ -34,6 +42,7 @@ import {
 	toggleScreenShare,
 } from "./screen-share";
 import { callTiles } from "./tiles";
+import { voiceChatAvailable } from "./voice-chat";
 import { canJoinVoice } from "./voice-click";
 import { closeVoicePrompt, voicePrompt } from "./voice-prompt";
 
@@ -110,6 +119,8 @@ export const voiceScreen = defineContract({
 			return data.space(space).channelBySlug(skeyOf(current.channel));
 		});
 		const name = () => channel()?.name ?? VOICE_COPY.fallbackName;
+		const chatAvailable = () =>
+			voiceChatAvailable(data, community(), channel());
 		const canJoin = () => {
 			const current = channel();
 			return !current || canJoinVoice(current);
@@ -165,6 +176,42 @@ export const voiceScreen = defineContract({
 			strip.setHeight(height);
 		};
 		const canManage = () => canInSpace(community(), "channel.update");
+
+		const guestTarget = () => {
+			const current = liveTarget();
+			const space = current ? data.spaceByKey(current.space) : undefined;
+			if (!current || !space) return undefined;
+			return data.space(space).isGuestChannel(current.channel)
+				? current
+				: undefined;
+		};
+		let lastGuest: VoiceCall | undefined;
+		createEffect(() => {
+			const guest = guestTarget();
+			if (guest) {
+				lastGuest = guest;
+				return;
+			}
+			const gone = lastGuest;
+			if (!gone) return;
+			lastGuest = undefined;
+			const space = data.spaceByKey(gone.space);
+			const listed =
+				!!space && !!data.space(space).channelBySlug(skeyOf(gone.channel));
+			if (listed) return;
+			untrack(() => {
+				if (voicePrompt()?.channel === gone.channel) closeVoicePrompt();
+				const top = stack.top();
+				if (
+					isPinned() &&
+					top?.kind === "chat" &&
+					top.space === gone.space &&
+					top.channel === skeyOf(gone.channel)
+				) {
+					stack.pop();
+				}
+			});
+		});
 		const profileSheet = useProfileSheet();
 		const openParticipant = (did: string) =>
 			profileSheet.open(did, target()?.space);
@@ -194,8 +241,10 @@ export const voiceScreen = defineContract({
 			void whenOverlaysClosed().then(() => run(current));
 		};
 
-		const chatOpen = () => (desktop ? desktop.voiceChatOpen() : undefined);
+		const chatOpen = () =>
+			desktop ? desktop.voiceChatOpen() && chatAvailable() : undefined;
 		const openChat = () => {
+			if (!chatAvailable()) return;
 			if (isPinned() && desktop) {
 				desktop.setVoiceChatOpen(!desktop.voiceChatOpen());
 				return;
@@ -224,6 +273,7 @@ export const voiceScreen = defineContract({
 			open,
 			pinned,
 			chatOpen,
+			chatAvailable,
 			joined,
 			name,
 			participants,
@@ -270,14 +320,16 @@ export const voiceScreen = defineContract({
 					name={m.name()}
 					icon={<VolumeSmallIcon />}
 					actions={
-						<IconButton
-							variant="ghost"
-							size="md"
-							label={m.chatOpen() ? "Close chat" : "Open chat"}
-							aria-pressed={!!m.chatOpen()}
-							icon={<ChatRoundDotsIcon />}
-							onClick={m.openChat}
-						/>
+						<Show when={m.chatAvailable()}>
+							<IconButton
+								variant="ghost"
+								size="md"
+								label={m.chatOpen() ? "Close chat" : "Open chat"}
+								aria-pressed={!!m.chatOpen()}
+								icon={<ChatRoundDotsIcon />}
+								onClick={m.openChat}
+							/>
+						</Show>
 					}
 				/>
 			</Show>
@@ -315,6 +367,7 @@ export const voiceScreen = defineContract({
 				joinDisabled={!m.canJoin()}
 				joinDisabledReason={VOICE_COPY.cannotJoin}
 				onOpenChat={m.openChat}
+				chatAvailable={m.chatAvailable()}
 				chatOpen={m.pinned() ? m.chatOpen() : undefined}
 			/>
 		)),
@@ -343,6 +396,10 @@ export const voiceScreen = defineContract({
 				size={p.size}
 				muted={voice.muted()}
 				micMissing={voice.micMissing()}
+				micDenied={voice.micDenied()}
+				listenDenied={voice.listenDenied()}
+				cameraDenied={voice.cameraDenied()}
+				screenshareDenied={voice.screenshareDenied()}
 				deafened={voice.deafened()}
 				cameraOn={voice.camera()}
 				cameraPending={voice.cameraPending()}
@@ -355,6 +412,7 @@ export const voiceScreen = defineContract({
 				onToggleMute={voice.toggleMute}
 				onToggleDeafen={voice.toggleDeafen}
 				onOpenChat={m.openChat}
+				chatAvailable={m.chatAvailable()}
 				chatOpen={m.pinned() ? m.chatOpen() : undefined}
 				onLeave={m.leave}
 			/>

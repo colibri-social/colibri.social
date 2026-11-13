@@ -24,6 +24,7 @@ import { MemberMenuProvider } from "../../screens/members/member-menu";
 import { ProfileSheetProvider } from "../../screens/profile/profile-sheet";
 import SpacesScreen from "../../screens/spaces/spaces.screen";
 import VoiceScreen from "../../screens/voice/voice.screen";
+import { voiceChatAvailable } from "../../screens/voice/voice-chat";
 import { AppLinkHost } from "../AppLinkHost";
 import { lastViewedSpace } from "../cold-start";
 import { HostReturnHost } from "../HostReturnHost";
@@ -183,9 +184,23 @@ export const DesktopShell = () => {
 		equals: sameValue,
 	});
 
+	const chatTarget = () => {
+		const current = chat();
+		const community = current ? data.spaceByKey(current.space) : undefined;
+		const view =
+			current && community
+				? data.space(community).channelBySlug(current.channel)
+				: undefined;
+		return { community, view };
+	};
+
 	createEffect(() => {
 		const current = chat();
 		if (current?.channelType !== VOICE_CHANNEL) return;
+		const { community, view } = chatTarget();
+		if (community && view && data.space(community).isGuestChannel(view.space)) {
+			return;
+		}
 		untrack(() => data.setLastChannel(current.space, current.channel));
 	});
 
@@ -331,7 +346,13 @@ export const DesktopShell = () => {
 
 	const pane = (): JSX.Element | undefined => {
 		const current = splitPane();
-		const voiceChat = isVoice() && voiceChatOpen() ? chat() : undefined;
+		const target = chatTarget();
+		const voiceChat =
+			isVoice() &&
+			voiceChatOpen() &&
+			voiceChatAvailable(data, target.community, target.view)
+				? chat()
+				: undefined;
 		if (!current && !voiceChat) return undefined;
 		return (
 			<PlacementContext.Provider value="pane">

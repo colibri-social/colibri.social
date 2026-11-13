@@ -69,7 +69,7 @@ export const CameraPreviewHost = () => {
 			error={error()}
 			cameraOn={voice.camera()}
 			onTurnOnCamera={
-				voice.current()
+				voice.current() && !voice.cameraDenied()
 					? () => {
 							closeCameraPreview();
 							if (!voice.camera()) voice.toggleCamera();

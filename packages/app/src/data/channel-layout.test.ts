@@ -3,6 +3,7 @@ import {
 	channelIdentity,
 	normalizeChannelLayout,
 	sameChannel,
+	withGuestChannel,
 } from "./channel-layout";
 import type { CategoryView, ChannelView, SpaceRef } from "./types";
 
@@ -94,5 +95,50 @@ describe("normalizeChannelLayout", () => {
 		const layout = normalizeChannelLayout([work], [dev]);
 		expect(layout.categories?.[0]).toBe(work);
 		expect(layout.channels?.[0]).toBe(dev);
+	});
+});
+
+describe("withGuestChannel", () => {
+	const lounge = channel(voice("lounge"), { category: "voice" });
+	const birdwatch = channel(voice("birdwatch"), { category: "voice" });
+	const office = channel(voice("office"), { category: "voice", private: true });
+	const merged = (after?: string) => {
+		const guest = withGuestChannel(
+			[category("voice", [lounge, birdwatch])],
+			[lounge, birdwatch],
+			{ view: office, ...(after ? { after } : {}) },
+		);
+
+		return normalizeChannelLayout(guest.categories, guest.channels);
+	};
+
+	it("places the channel right after the one the server names", () => {
+		const layout = merged(lounge.space);
+
+		expect(ids(layout.categories?.[0]?.channels)).toEqual(
+			ids([lounge, office, birdwatch]),
+		);
+		expect(ids(layout.channels)).toContain(channelIdentity(office.space));
+	});
+
+	it("puts the channel first in its category without an anchor", () => {
+		expect(ids(merged().categories?.[0]?.channels)).toEqual(
+			ids([office, lounge, birdwatch]),
+		);
+	});
+
+	it("leaves the layout alone when the channel is already listed", () => {
+		const categories = [category("voice", [lounge])];
+		const channels = [lounge];
+		const guest = withGuestChannel(categories, channels, { view: lounge });
+
+		expect(guest.categories).toBe(categories);
+		expect(guest.channels).toBe(channels);
+	});
+
+	it("waits for the channel list before merging", () => {
+		expect(
+			withGuestChannel(undefined, undefined, { view: office }).channels,
+		).toBeUndefined();
 	});
 });

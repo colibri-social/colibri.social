@@ -1,5 +1,7 @@
-import { asSpaceRef } from "@colibri-social/lexicons";
+import { l } from "@atproto/lex";
+import { asSpaceRef, type social } from "@colibri-social/lexicons";
 import { colibri } from "../protocol/lexicons.js";
+import { parseSpace } from "../protocol/space-ref.js";
 
 const defs: typeof colibri.voice.defs = colibri.voice.defs;
 
@@ -7,6 +9,19 @@ export const VOICE_SIGNAL_LXM = "social.colibri.beta.voice.subscribeSignals";
 export const VOICE_SIGNAL_PATH = `/xrpc/${VOICE_SIGNAL_LXM}`;
 
 export type VoiceMediaSource = "mic" | "cam" | "screen";
+
+export const VOICE_PERMISSIONS = [
+	"voice.speak",
+	"voice.listen",
+	"voice.camera",
+	"voice.screenshare",
+	"voice.chat",
+] as const;
+
+export type VoicePermission = (typeof VOICE_PERMISSIONS)[number];
+
+const PERMISSIONS_CHANGED_TYPE =
+	"social.colibri.beta.voice.defs#permissionsChanged" as const;
 
 export type VoiceMediaKind = "audio" | "video";
 
@@ -103,6 +118,11 @@ export type MigrationProposalFrame = ReturnType<
 >;
 export type MigrateToFrame = ReturnType<typeof defs.migrateTo.build>;
 export type CallElsewhereFrame = ReturnType<typeof defs.callElsewhere.build>;
+export type PermissionsChangedFrame = {
+	$type: typeof PERMISSIONS_CHANGED_TYPE;
+	channel: string;
+	permissions: string[];
+};
 
 export type ServerVoiceFrame =
 	| RtpCapabilitiesFrame
@@ -122,7 +142,8 @@ export type ServerVoiceFrame =
 	| MovedFrame
 	| MigrationProposalFrame
 	| MigrateToFrame
-	| CallElsewhereFrame;
+	| CallElsewhereFrame
+	| PermissionsChangedFrame;
 
 export type VoiceFrame = ClientVoiceFrame | ServerVoiceFrame;
 
@@ -257,8 +278,38 @@ const FRAME_SCHEMAS = [
 	defs.callElsewhere,
 ] as unknown as ReadonlyArray<AnyFrameSchema>;
 
+const isStringList = (value: unknown): value is string[] =>
+	Array.isArray(value) && value.every((entry) => typeof entry === "string");
+
+const permissionsChangedSchema: AnyFrameSchema = {
+	$type: PERMISSIONS_CHANGED_TYPE,
+	safeParse: (input) => {
+		const { channel, permissions } = input as {
+			channel?: unknown;
+			permissions?: unknown;
+		};
+		if (typeof channel !== "string" || !l.isSpaceRefString(channel)) {
+			return { success: false };
+		}
+		if (!isStringList(permissions)) return { success: false };
+
+		return {
+			success: true,
+			value: {
+				$type: PERMISSIONS_CHANGED_TYPE,
+				channel,
+				permissions: [...permissions],
+			},
+		};
+	},
+	build: (input) => input,
+};
+
 const FRAME_SCHEMA_BY_TYPE = new Map<string, AnyFrameSchema>(
-	FRAME_SCHEMAS.map((schema) => [schema.$type, schema]),
+	[...FRAME_SCHEMAS, permissionsChangedSchema].map((schema) => [
+		schema.$type,
+		schema,
+	]),
 );
 
 const SERVER_FRAME_TYPES = new Set<string>([
@@ -280,6 +331,7 @@ const SERVER_FRAME_TYPES = new Set<string>([
 	defs.migrationProposal.$type,
 	defs.migrateTo.$type,
 	defs.callElsewhere.$type,
+	PERMISSIONS_CHANGED_TYPE,
 ]);
 
 export const isServerVoiceFrame = (
@@ -308,4 +360,49 @@ export const decodeVoiceFrame = (raw: string): VoiceFrame | null => {
 	if (!result.success) return null;
 
 	return schema.build(result.value) as VoiceFrame;
+};
+
+export const voiceFramePermissions = (
+	frame: JoinedFrame | PermissionsChangedFrame,
+): VoicePermission[] | undefined => {
+	const granted = (frame as { permissions?: unknown }).permissions;
+	if (!isStringList(granted)) return undefined;
+
+	return VOICE_PERMISSIONS.filter((key) => granted.includes(key));
+};
+
+export type MovedChannelView = social.colibri.beta.community.defs.ChannelView;
+
+const sameSpace = (a: string, b: string) => {
+	const left = parseSpace(a);
+	const right = parseSpace(b);
+
+	return (
+		!!left &&
+		!!right &&
+		left.authority === right.authority &&
+		left.skey === right.skey
+	);
+};
+
+export const movedChannelView = (
+	frame: MovedFrame,
+): MovedChannelView | undefined => {
+	const view = (frame as { view?: unknown }).view;
+	if (view === undefined) return undefined;
+
+	const parsed = colibri.community.defs.channelView.safeParse(view);
+	if (!parsed.success) return undefined;
+
+	return sameSpace(parsed.value.space, frame.channel)
+		? parsed.value
+		: undefined;
+};
+
+export const movedAfter = (frame: MovedFrame): string | undefined => {
+	const after = (frame as { after?: unknown }).after;
+
+	return typeof after === "string" && l.isSpaceRefString(after)
+		? after
+		: undefined;
 };

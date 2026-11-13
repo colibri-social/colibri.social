@@ -58,6 +58,7 @@ import {
 import { asDatetime, messageUri, tidFor } from "./refs";
 import { createRoleOps } from "./roles";
 import { createRandom } from "./seed";
+import { MEMBER_VOICE_PERMISSIONS } from "./spaces";
 import { mockThreadLastMessage } from "./thread-last-message";
 import { mockThreadRights } from "./thread-rights";
 import { mockUpload } from "./uploads";
@@ -220,6 +221,13 @@ export const createMockSource = (
 			if (channel) return channel;
 		}
 		return undefined;
+	};
+
+	const refuseHiddenVoiceChat = (ref: SpaceRef) => {
+		const view = channelRecord(ref)?.view;
+		if (view?.type !== "social.colibri.beta.channel.voice") return;
+		if (view.viewer.permissions?.includes("voice.chat") !== false) return;
+		throw new ColibriError({ code: "Forbidden", method: "mock" });
 	};
 
 	const threadRecord = (ref: SpaceRef) => {
@@ -600,11 +608,12 @@ export const createMockSource = (
 						isOwner: false,
 						roles: viewerRoles,
 						permissions: [
-							...new Set(
-								space.roles
+							...new Set([
+								...MEMBER_VOICE_PERMISSIONS,
+								...space.roles
 									.filter((role) => viewerRoles.includes(role.rkey))
 									.flatMap((role) => role.permissions),
-							),
+							]),
 						],
 					},
 				};
@@ -733,7 +742,11 @@ export const createMockSource = (
 				removeMember(input);
 				access.recordBan(input);
 			}),
-		listMessages: (params) => withLatency(() => page(params)),
+		listMessages: (params) =>
+			withLatency(() => {
+				refuseHiddenVoiceChat(params.channel);
+				return page(params);
+			}),
 		listThreads: (channel) =>
 			withLatency(() =>
 				world.spaces
@@ -1246,6 +1259,7 @@ export const createMockSource = (
 				const forced = /\bfail\b/i.test(input.text);
 				const fails = forced || (sendCount > 1 && failures.chance(1 / 15));
 				return withLatency(() => {
+					refuseHiddenVoiceChat(input.channel);
 					if (fails) throw new Error("Message could not be sent");
 					const view = createMessage({ ...input, author: world.viewerDid });
 					if (input.suppressedEmbeds?.length)

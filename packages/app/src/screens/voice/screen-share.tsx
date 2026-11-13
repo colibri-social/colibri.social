@@ -146,6 +146,11 @@ export const toggleScreenShare = async () => {
 		voice.stopScreenShare();
 		return;
 	}
+	if (voice.screenshareDenied()) {
+		const copy = VOICE_NOTICE_COPY.screenshareDenied;
+		toast(copy.title, { description: copy.description });
+		return;
+	}
 	log.debug("screen share requested", { native: native() });
 	if (native() && !(await nativeCapturePermission(true))) {
 		log.debug("screen share needs permission");

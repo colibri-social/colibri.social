@@ -12,8 +12,10 @@ import { createAuth } from "./auth";
 import { AccountActionsContext } from "./auth/account-actions";
 import { LiveStatusContext } from "./data/live-context";
 import { createMockSource } from "./data/mock/source";
+import { createMockVoiceConnection } from "./data/mock/voice";
 import { reportAttribution } from "./data/report-attribution";
 import { createDataStore, DataContext, type DataStore } from "./data/store";
+import { setVoiceConnectionMonitor } from "./data/voice";
 import { installNativeCall } from "./native/call";
 import { Providers } from "./providers";
 import { usePlatform } from "./screen/platform";
@@ -55,7 +57,9 @@ const Shells = (props: { store: DataStore }) => {
 };
 
 const MockApp = () => {
-	const store = createDataStore(createMockSource());
+	const source = createMockSource();
+	const store = createDataStore(source);
+	setVoiceConnectionMonitor(createMockVoiceConnection(source.world));
 	installNativeCall(store);
 	return <Shells store={store} />;
 };

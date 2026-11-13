@@ -214,7 +214,7 @@ export const thread = defineContract({
 			return undefined;
 		});
 		const threadUnavailable = createMemo<
-			"space" | "channel" | "thread" | undefined
+			ReturnType<typeof conversation.unavailable>
 		>(() => {
 			if (loadFailure()) return undefined;
 			const base = conversation.unavailable();

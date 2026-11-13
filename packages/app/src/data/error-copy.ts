@@ -329,7 +329,12 @@ export type VoiceNoticeKey =
 	| VoiceEndReason
 	| VoiceNotice
 	| "serverMuted"
-	| "serverDeafened";
+	| "serverDeafened"
+	| "movedPrivate"
+	| "speakDenied"
+	| "listenDenied"
+	| "cameraDenied"
+	| "screenshareDenied";
 
 export const VOICE_MOVE_COPY = {
 	title: "Your call is about to move",
@@ -415,6 +420,37 @@ export const VOICE_NOTICE_COPY: Record<VoiceNoticeKey, VoiceNoticeCopy> = {
 		title: "A moderator deafened you",
 		description: "You can hear the call again once they undeafen you.",
 	},
+	movedPrivate: {
+		title: "A moderator moved you to a private voice channel",
+		description:
+			"You can stay as long as you like. Once you leave, you can't come back on your own.",
+	},
+	speakDenied: {
+		title: "You can't speak in this channel",
+		description:
+			"Your role in this Space doesn't allow it. Ask a moderator if you need it.",
+	},
+	listenDenied: {
+		title: "You can't listen in this channel",
+		description:
+			"Your role in this Space doesn't allow it. Ask a moderator if you need it.",
+	},
+	cameraDenied: {
+		title: "You can't turn on your camera here",
+		description:
+			"Your role in this Space doesn't allow it. Ask a moderator if you need it.",
+	},
+	screenshareDenied: {
+		title: "You can't share your screen here",
+		description:
+			"Your role in this Space doesn't allow it. Ask a moderator if you need it.",
+	},
+};
+
+export const VOICE_CHAT_UNAVAILABLE: ErrorCopy = {
+	title: "This chat isn't available to you",
+	description:
+		"Your role doesn't include this voice channel's chat. Ask a moderator if you need it.",
 };
 
 export const SPACE_ORDER_NOT_SAVED: ErrorCopy = {

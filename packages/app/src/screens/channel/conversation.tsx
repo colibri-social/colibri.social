@@ -43,7 +43,7 @@ import {
 	reactionFor,
 	reactionShortcode,
 } from "../../data/adapters/reactions";
-import { describeError } from "../../data/error-copy";
+import { describeError, VOICE_CHAT_UNAVAILABLE } from "../../data/error-copy";
 import { channelSlug, skeyOf, spaceKey } from "../../data/ids";
 import {
 	createMediaLinkRefresher,
@@ -120,6 +120,7 @@ export type ConversationOptions = {
 	label: () => string;
 	isActive: () => boolean;
 	thread?: () => ThreadView | undefined;
+	locked?: () => boolean;
 };
 
 const JUMP_FRAMES = 12;
@@ -246,17 +247,18 @@ export const createConversation = (options: ConversationOptions) => {
 	const writable = () =>
 		view()?.viewer.canPost !== false &&
 		options.thread?.()?.viewer.canPost !== false;
-	const unavailable = createMemo<"space" | "channel" | "thread" | undefined>(
-		() => {
-			if (data.communities.loading()) return undefined;
-			const current = space();
-			if (!current) return "space";
-			if (current.channels.loading() || current.channels.error()) {
-				return undefined;
-			}
-			return view() ? undefined : "channel";
-		},
-	);
+	const unavailable = createMemo<
+		"space" | "channel" | "thread" | "voiceChat" | undefined
+	>(() => {
+		if (data.communities.loading()) return undefined;
+		const current = space();
+		if (!current) return "space";
+		if (current.channels.loading() || current.channels.error()) {
+			return undefined;
+		}
+		if (!view()) return "channel";
+		return options.locked?.() ? "voiceChat" : undefined;
+	});
 	const feed = createMemo(() => {
 		const ref = options.target();
 		return ref ? data.channel(ref) : undefined;
@@ -1687,6 +1689,7 @@ export const UNAVAILABLE_COPY = {
 		title: "This thread doesn't exist anymore",
 		description: "It may have been deleted or moved.",
 	},
+	voiceChat: VOICE_CHAT_UNAVAILABLE,
 } as const;
 
 export const ConversationUnavailable = (props: {

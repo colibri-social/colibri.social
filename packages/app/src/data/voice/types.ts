@@ -1,8 +1,10 @@
+import { VOICE_PERMISSIONS, type VoicePermission } from "@colibri-social/lib";
 import type {
 	VoiceConnectionQuality,
 	VoiceConnectionState,
 } from "@colibri-social/ui";
 import type { ScreenShareQuality } from "../screen-share";
+import type { ChannelView } from "../types";
 import type { VoiceDebugSnapshot } from "./debug-stats";
 
 export type VoiceConnection = {
@@ -47,6 +49,22 @@ export type VoiceModeration = {
 	serverDeafened: boolean;
 };
 
+export type VoicePermissions = ReadonlySet<VoicePermission>;
+
+export const ALL_VOICE_PERMISSIONS: VoicePermissions = new Set(
+	VOICE_PERMISSIONS,
+);
+
+export type VoiceMoveDestination = {
+	view: ChannelView;
+	after?: string;
+};
+
+export type VoiceMovedListener = (
+	channel: string,
+	destination?: VoiceMoveDestination,
+) => void;
+
 export type VoiceMoveNotice = {
 	deadline: number;
 	moveNow: () => void;
@@ -90,8 +108,9 @@ export type VoiceConnectionMonitor = {
 	speakers?: () => ReadonlySet<string>;
 	videos?: () => readonly VoiceVideo[];
 	moderation?: () => Readonly<Record<string, VoiceModeration>>;
+	permissions?: () => VoicePermissions;
 	onEnded?: (listener: (reason: VoiceEndReason) => void) => () => void;
-	onMoved?: (listener: (channel: string) => void) => () => void;
+	onMoved?: (listener: VoiceMovedListener) => () => void;
 	onNotice?: (listener: (notice: VoiceNotice) => void) => () => void;
 	onMove?: (listener: (move: VoiceMoveNotice | null) => void) => () => void;
 	onCameraOff?: (listener: () => void) => () => void;

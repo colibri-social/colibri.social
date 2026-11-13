@@ -1,3 +1,4 @@
+import { VOICE_PERMISSIONS } from "@colibri-social/lib";
 import { NAMED_PEOPLE, VIEWER_KEY } from "./people";
 
 type ChannelSeed = {
@@ -7,6 +8,8 @@ type ChannelSeed = {
 	description?: string;
 	category?: string;
 	private?: boolean;
+	hidden?: boolean;
+	voiceDenied?: string[];
 };
 
 type RoleSeed = {
@@ -66,7 +69,10 @@ const ALL_PERMISSIONS = [
 	"thread.create",
 	"thread.manage",
 	"thread.move",
+	...VOICE_PERMISSIONS,
 ];
+
+export const MEMBER_VOICE_PERMISSIONS: readonly string[] = VOICE_PERMISSIONS;
 
 const MOD_PERMISSIONS = [
 	"label.apply",
@@ -378,12 +384,34 @@ export const SPACES: readonly SpaceSeed[] = [
 				name: "Draw along",
 				kind: "voice",
 				category: "voice",
+				voiceDenied: ["voice.camera", "voice.screenshare"],
 			},
 			{
 				skey: "quiet-studio",
 				name: "Quiet studio",
 				kind: "voice",
 				category: "voice",
+			},
+			{
+				skey: "waiting-room",
+				name: "Waiting room",
+				kind: "voice",
+				category: "voice",
+				voiceDenied: ["voice.speak", "voice.chat"],
+			},
+			{
+				skey: "critique-booth",
+				name: "Critique booth",
+				kind: "voice",
+				category: "voice",
+				private: true,
+				hidden: true,
+				voiceDenied: [
+					"voice.listen",
+					"voice.camera",
+					"voice.screenshare",
+					"voice.chat",
+				],
 			},
 		],
 	},

@@ -17,6 +17,8 @@ import {
 	isServerVoiceFrame,
 	isVerboseLogging,
 	joinFrame,
+	movedAfter,
+	movedChannelView,
 	moveNowFrame,
 	produceFrame,
 	resumeConsumerFrame,
@@ -29,6 +31,8 @@ import {
 	VOICE_SIGNAL_LXM,
 	VOICE_SIGNAL_PATH,
 	type VoiceMediaSource,
+	type VoicePermission,
+	voiceFramePermissions,
 	voiceHeartbeatFrame,
 } from "@colibri-social/lib";
 import { Device, type types } from "mediasoup-client";
@@ -39,6 +43,7 @@ import {
 	createSignal,
 	on,
 } from "solid-js";
+import { sameChannel } from "../channel-layout";
 import {
 	CAMERA_CONTENT_HINT,
 	cameraEncodings,
@@ -96,6 +101,7 @@ import {
 	tuningFor,
 } from "./sender-load";
 import {
+	ALL_VOICE_PERMISSIONS,
 	DISCONNECTED,
 	qualityFor,
 	type ScreenCapture,
@@ -103,8 +109,10 @@ import {
 	type VoiceConnectionMonitor,
 	type VoiceEndReason,
 	type VoiceModeration,
+	type VoiceMovedListener,
 	type VoiceMoveNotice,
 	type VoiceNotice,
+	type VoicePermissions,
 	type VoiceSession,
 	type VoiceVideo,
 } from "./types";
@@ -241,6 +249,7 @@ export type VoiceEngine = {
 		| "speakers"
 		| "videos"
 		| "moderation"
+		| "permissions"
 		| "onEnded"
 		| "onMoved"
 		| "onNotice"
@@ -453,6 +462,10 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		const [moderation, setModeration] = createSignal<
 			Record<string, VoiceModeration>
 		>({});
+		const [permissions, setPermissions] = createSignal<VoicePermissions>(
+			ALL_VOICE_PERMISSIONS,
+		);
+		const granted = (key: VoicePermission) => permissions().has(key);
 		const [screenSharing, setScreenSharing] = createSignal(false);
 		const [camera, setCameraOn] = createSignal(false);
 		const cameraOffListeners = new Set<() => void>();
@@ -465,7 +478,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		};
 
 		const endedListeners = new Set<(reason: VoiceEndReason) => void>();
-		const movedListeners = new Set<(channel: string) => void>();
+		const movedListeners = new Set<VoiceMovedListener>();
 		const noticeListeners = new Set<(notice: VoiceNotice) => void>();
 		const screenShareListeners = new Set<(sharing: boolean) => void>();
 
@@ -1212,6 +1225,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			emitMove(null);
 			teardown();
 			setModeration({});
+			setPermissions(ALL_VOICE_PERMISSIONS);
 			setConnection(DISCONNECTED);
 			emitEnded(reason);
 		};
@@ -1273,7 +1287,15 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 
 		let recoveringMic = false;
 		const recoverMicrophone = async () => {
-			if (!ready || !session || micAvailable() || recoveringMic) return;
+			if (
+				!ready ||
+				!session ||
+				micProducer ||
+				!granted("voice.speak") ||
+				recoveringMic
+			) {
+				return;
+			}
 			recoveringMic = true;
 			const epoch = mediaEpoch;
 			try {
@@ -1540,19 +1562,21 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			);
 			wireTransport("recvTransport", recvTransport);
 
-			try {
-				await startMic();
+			if (granted("voice.speak")) {
+				try {
+					await startMic();
+					if (stale()) return;
+					setMicAvailable(true);
+				} catch (error) {
+					if (stale()) return;
+					setMicAvailable(false);
+					log.warn("microphone unavailable, joining listen-only", {
+						code: classifyThrown(error).code,
+					});
+					if (!isMissingDevice(error)) notice("noMicrophone");
+				}
 				if (stale()) return;
-				setMicAvailable(true);
-			} catch (error) {
-				if (stale()) return;
-				setMicAvailable(false);
-				log.warn("microphone unavailable, joining listen-only", {
-					code: classifyThrown(error).code,
-				});
-				if (!isMissingDevice(error)) notice("noMicrophone");
 			}
-			if (stale()) return;
 
 			ready = true;
 			reconnectAttempts = 0;
@@ -1564,7 +1588,8 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			for (const producerId of producers.drain()) {
 				void consumeProducer(producerId);
 			}
-			if (camera()) void resumeCamera();
+			if (camera() && granted("voice.camera")) void resumeCamera();
+			else if (camera()) loseCamera();
 		};
 
 		const failNode = (
@@ -1744,9 +1769,22 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 					});
 					void openSignaling({ host: frame.signalingUrl, keepCurrent: true });
 					return;
-				case `${DEFS}moved`:
+				case `${DEFS}moved`: {
 					log.info("a moderator moved this client to another channel");
-					for (const listener of [...movedListeners]) listener(frame.channel);
+					const view = movedChannelView(frame);
+					const after = movedAfter(frame);
+					const destination = view
+						? { view, ...(after ? { after } : {}) }
+						: undefined;
+					for (const listener of [...movedListeners]) {
+						listener(frame.channel, destination);
+					}
+					return;
+				}
+				case `${DEFS}permissionsChanged`:
+					if (!session || !sameChannel(frame.channel, session.channel)) return;
+					log.info("the voice permissions for this call changed");
+					applyPermissions(voiceFramePermissions(frame));
 					return;
 			}
 		};
@@ -1914,7 +1952,9 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 							return;
 						}
 
-						expectFrame(frame, "joined");
+						applyPermissions(
+							voiceFramePermissions(expectFrame(frame, "joined")),
+						);
 						joinedHops = elsewhereHops;
 						elsewhereHops = 0;
 						return performHandshake();
@@ -1977,6 +2017,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			switching = false;
 			reconnectAttempts = 0;
 			setModeration({});
+			setPermissions(ALL_VOICE_PERMISSIONS);
 			setConnection({ state: "connecting", quality: "unknown", latency: null });
 			if (!webRtc()) {
 				log.warn("this system has no WebRTC");
@@ -1997,6 +2038,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			const close = () => {
 				teardown();
 				setModeration({});
+				setPermissions(ALL_VOICE_PERMISSIONS);
 				setConnection(DISCONNECTED);
 			};
 			const wait = pendingVideoTeardown;
@@ -2038,14 +2080,16 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			sendSelfState();
 		};
 
-		const closeProducer = (producer: types.Producer) => {
-			void sendAndWait(closeProducerFrame(producer.id)).catch(
-				(error: unknown) => {
-					log.debug("closeProducer failed", {
-						code: classifyThrown(error).code,
-					});
-				},
-			);
+		const closeProducer = (producer: types.Producer, tellServer = true) => {
+			if (tellServer) {
+				void sendAndWait(closeProducerFrame(producer.id)).catch(
+					(error: unknown) => {
+						log.debug("closeProducer failed", {
+							code: classifyThrown(error).code,
+						});
+					},
+				);
+			}
 			producer.track?.stop();
 			producer.close();
 		};
@@ -2060,25 +2104,25 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			});
 		};
 
-		const stopCamera = () => {
+		const stopCamera = (tellServer = true) => {
 			cameraGeneration += 1;
 			pendingCameraStart = null;
 			setVideo("self:cam", undefined);
 			const producer = camProducer;
 			if (!producer) return;
 			releaseCameraListener();
-			closeProducer(producer);
+			closeProducer(producer, tellServer);
 			camProducer = null;
 			settleVideoTeardown();
 		};
 
-		const stopScreen = () => {
+		const stopScreen = (tellServer = true) => {
 			const video = screenProducer;
 			const audio = screenAudioProducer;
 			screenProducer = null;
 			screenAudioProducer = null;
-			if (audio) closeProducer(audio);
-			if (video) closeProducer(video);
+			if (audio) closeProducer(audio, tellServer);
+			if (video) closeProducer(video, tellServer);
 			const sharing = screenSharing();
 			releaseScreenCapture();
 			if (video) settleVideoTeardown();
@@ -2182,7 +2226,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			quality: ScreenShareQuality,
 		): Promise<boolean> => {
 			const transport = sendTransport;
-			if (!transport || !ready) {
+			if (!transport || !ready || !granted("voice.screenshare")) {
 				discardCapture(capture);
 				return false;
 			}
@@ -2448,12 +2492,37 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			return starting;
 		};
 
-		const loseCamera = () => {
+		const loseCamera = (tellServer = true) => {
 			cameraIntent += 1;
-			stopCamera();
+			stopCamera(tellServer);
 			if (!camera()) return;
 			setCameraOn(false);
 			for (const listener of [...cameraOffListeners]) listener();
+		};
+
+		const releaseMic = () => {
+			const producer = micProducer;
+			micProducer = null;
+			if (producer) closeProducer(producer, false);
+			suppressor?.destroy();
+			suppressor = null;
+			for (const track of micStream?.getTracks() ?? []) track.stop();
+			micStream = null;
+			setLocalSpeaking(false);
+		};
+
+		const applyPermissions = (keys: readonly VoicePermission[] | undefined) => {
+			const next: VoicePermissions = keys
+				? new Set(keys)
+				: ALL_VOICE_PERMISSIONS;
+			setPermissions(next);
+			if (!ready) return;
+			if (!next.has("voice.speak")) releaseMic();
+			else void recoverMicrophone();
+			if (!next.has("voice.camera") && camera()) loseCamera(false);
+			if (!next.has("voice.screenshare") && screenSharing()) {
+				stopScreen(false);
+			}
 		};
 
 		const resumeCamera = async () => {
@@ -2469,6 +2538,11 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				cameraIntent += 1;
 				setCameraOn(false);
 				stopCamera();
+				return false;
+			}
+			if (!granted("voice.camera")) {
+				cameraIntent += 1;
+				setCameraOn(false);
 				return false;
 			}
 			setCameraOn(true);
@@ -2683,6 +2757,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			speakers,
 			videos: () => Object.values(videoMap()),
 			moderation,
+			permissions,
 			onEnded: (listener) => {
 				endedListeners.add(listener);
 				return () => endedListeners.delete(listener);

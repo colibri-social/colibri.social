@@ -17,6 +17,7 @@ import {
 } from "../../shell/desktop/context";
 import { LoadErrorState } from "../../shell/load-error";
 import { useStack } from "../../shell/stack";
+import { voiceChatAvailable } from "../voice/voice-chat";
 import {
 	type Conversation,
 	ConversationComposer,
@@ -147,10 +148,12 @@ export const channel = defineContract({
 				? data.space(current).channelBySlug(args.channel)
 				: undefined;
 		});
+		const locked = () => !voiceChatAvailable(data, community(), view());
 		const conversation = createConversation({
 			space: args.space,
 			channel: args.channel,
-			target: () => view()?.space,
+			locked,
+			target: () => (locked() ? undefined : view()?.space),
 			label: () => view()?.name ?? args.channel,
 			isActive: () =>
 				stack.isVisible(

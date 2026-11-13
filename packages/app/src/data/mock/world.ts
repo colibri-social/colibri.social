@@ -36,7 +36,7 @@ import { threadSeeds } from "./script-threads";
 import { trailScripts } from "./script-trail";
 import type { ScriptContext, ScriptEntry } from "./script-types";
 import { createRandom } from "./seed";
-import { SPACES, type SpaceSeed } from "./spaces";
+import { MEMBER_VOICE_PERMISSIONS, SPACES, type SpaceSeed } from "./spaces";
 import { mockThreadLastMessage } from "./thread-last-message";
 import { mockThreadRights } from "./thread-rights";
 
@@ -114,6 +114,7 @@ export type ChannelRecord = {
 	messages: MessageView[] | undefined;
 	build: () => MessageView[];
 	readCursor?: string;
+	hidden?: boolean;
 };
 
 type ThreadRecord = {
@@ -399,11 +400,12 @@ export const createWorld = (now: number) => {
 		});
 		const viewerRoles = sortRoles(seed.memberRoles[VIEWER_KEY] ?? []);
 		const viewerPermissions = [
-			...new Set(
-				seed.roles
+			...new Set([
+				...MEMBER_VOICE_PERMISSIONS,
+				...seed.roles
 					.filter((role) => viewerRoles.includes(role.rkey))
 					.flatMap((role) => role.permissions),
-			),
+			]),
 		];
 		const isOwner = seed.owner === VIEWER_KEY;
 		const view: CommunityView = {
@@ -441,7 +443,9 @@ export const createWorld = (now: number) => {
 				viewer: {
 					canRead: true,
 					canPost: !readOnly,
-					permissions: viewerPermissions,
+					permissions: viewerPermissions.filter(
+						(key) => !channel.voiceDenied?.includes(key),
+					),
 				},
 			};
 			if (channel.description) channelView.description = channel.description;
@@ -475,6 +479,7 @@ export const createWorld = (now: number) => {
 				spaceKey: seed.key,
 				messages: undefined,
 				build,
+				...(channel.hidden ? { hidden: true } : {}),
 			};
 		});
 		return {
@@ -588,8 +593,11 @@ export const createWorld = (now: number) => {
 			{ did: didOf(VIEWER_KEY), community: space.view, roles: space.roles },
 		);
 
+	const listed = (space: SpaceRecord) =>
+		space.channels.filter((channel) => !channel.hidden);
+
 	const channelsOf = (space: SpaceRecord): ChannelView[] =>
-		space.channels.map((channel) => channelViewIn(space, channel.view));
+		listed(space).map((channel) => channelViewIn(space, channel.view));
 
 	const categoriesOf = (space: SpaceRecord): CategoryView[] =>
 		space.categories.map((category) => {
@@ -597,7 +605,7 @@ export const createWorld = (now: number) => {
 				...permissionsOf(category),
 				rkey: category.rkey,
 				name: category.name,
-				channels: space.channels
+				channels: listed(space)
 					.filter((channel) => channel.view.category === category.rkey)
 					.map((channel) => channelViewIn(space, channel.view)),
 			};

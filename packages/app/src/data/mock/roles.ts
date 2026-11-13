@@ -11,6 +11,7 @@ import type {
 import type { Did, RoleView } from "../types";
 import { withLatency } from "./latency";
 import { tidFor } from "./refs";
+import { MEMBER_VOICE_PERMISSIONS } from "./spaces";
 import type { SpaceRecord } from "./world";
 
 const ICON_BADGE = "social.colibri.beta.community.defs#roleIconBadge";
@@ -101,11 +102,12 @@ export const createRoleOps = (options: {
 		const permissions = viewer.isOwner
 			? (viewer.permissions ?? [])
 			: [
-					...new Set(
-						space.roles
+					...new Set([
+						...MEMBER_VOICE_PERMISSIONS,
+						...space.roles
 							.filter((role) => roles.includes(role.rkey))
 							.flatMap((role) => role.permissions),
-					),
+					]),
 				];
 		space.view = {
 			...space.view,

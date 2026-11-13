@@ -125,6 +125,10 @@ export default function VoiceDock() {
 						spaceName={current().community?.name}
 						muted={voice.muted()}
 						micMissing={voice.micMissing()}
+						micDenied={voice.micDenied()}
+						listenDenied={voice.listenDenied()}
+						cameraDenied={voice.cameraDenied()}
+						screenshareDenied={voice.screenshareDenied()}
 						deafened={voice.deafened()}
 						cameraOn={voice.camera()}
 						cameraPending={voice.cameraPending()}

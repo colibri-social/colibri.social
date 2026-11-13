@@ -11,8 +11,13 @@ import {
 	encodeVoiceFrame,
 	getRtpCapabilitiesFrame,
 	isServerVoiceFrame,
+	type JoinedFrame,
 	joinFrame,
 	leaveFrame,
+	type MovedFrame,
+	movedAfter,
+	movedChannelView,
+	type PermissionsChangedFrame,
 	produceFrame,
 	resumeConsumerFrame,
 	setConsumerPreferenceFrame,
@@ -20,6 +25,7 @@ import {
 	setSpeakingFrame,
 	VOICE_SIGNAL_LXM,
 	VOICE_SIGNAL_PATH,
+	voiceFramePermissions,
 	voiceHeartbeatFrame,
 } from "./frames.js";
 
@@ -493,5 +499,123 @@ describe("moved", () => {
 				}),
 			),
 		).toBeNull();
+	});
+});
+
+describe("voice permissions", () => {
+	it("keeps the effective voice keys a joined frame carries", () => {
+		const frame = decodeVoiceFrame(
+			JSON.stringify({
+				$type: "social.colibri.beta.voice.defs#joined",
+				channel: CHANNEL,
+				permissions: ["voice.speak", "voice.chat", "thread.create"],
+			}),
+		);
+
+		expect(voiceFramePermissions(frame as JoinedFrame)).toEqual([
+			"voice.speak",
+			"voice.chat",
+		]);
+	});
+
+	it("reports no list when a joined frame names none", () => {
+		const frame = decodeVoiceFrame(
+			JSON.stringify({
+				$type: "social.colibri.beta.voice.defs#joined",
+				channel: CHANNEL,
+			}),
+		);
+
+		expect(voiceFramePermissions(frame as JoinedFrame)).toBeUndefined();
+	});
+
+	it("decodes a permissionsChanged frame as a server frame", () => {
+		const frame = decodeVoiceFrame(
+			JSON.stringify({
+				$type: "social.colibri.beta.voice.defs#permissionsChanged",
+				channel: CHANNEL,
+				permissions: ["voice.listen"],
+			}),
+		);
+
+		expect(frame).toEqual({
+			$type: "social.colibri.beta.voice.defs#permissionsChanged",
+			channel: CHANNEL,
+			permissions: ["voice.listen"],
+		});
+		expect(frame && isServerVoiceFrame(frame)).toBe(true);
+		expect(voiceFramePermissions(frame as PermissionsChangedFrame)).toEqual([
+			"voice.listen",
+		]);
+	});
+
+	it("rejects a permissionsChanged frame with a bad channel or list", () => {
+		const decode = (body: object) =>
+			decodeVoiceFrame(
+				JSON.stringify({
+					$type: "social.colibri.beta.voice.defs#permissionsChanged",
+					...body,
+				}),
+			);
+
+		expect(decode({ channel: "nope", permissions: [] })).toBeNull();
+		expect(decode({ channel: CHANNEL, permissions: [1] })).toBeNull();
+		expect(decode({ channel: CHANNEL })).toBeNull();
+	});
+});
+
+describe("movedChannelView", () => {
+	const view = {
+		space: CHANNEL,
+		type: "social.colibri.beta.channel.voice",
+		name: "Mod office",
+		category: "3lz4x5y6z7a8c",
+		private: true,
+		viewer: { canRead: false, canPost: false },
+	};
+	const moved = (body: object) =>
+		decodeVoiceFrame(
+			JSON.stringify({
+				$type: "social.colibri.beta.voice.defs#moved",
+				channel: CHANNEL,
+				...body,
+			}),
+		) as MovedFrame;
+
+	it("reads the destination view a moved frame carries", () => {
+		expect(movedChannelView(moved({ view }))).toMatchObject({
+			space: CHANNEL,
+			name: "Mod office",
+			category: "3lz4x5y6z7a8c",
+		});
+	});
+
+	it("ignores a missing or malformed view", () => {
+		expect(movedChannelView(moved({}))).toBeUndefined();
+		expect(movedChannelView(moved({ view: { name: 1 } }))).toBeUndefined();
+	});
+
+	it("reads the channel the destination sits after", () => {
+		const before = channelSpace(
+			"did:plc:examplecommunityauthority01",
+			"social.colibri.beta.channel.voice",
+			"3lz4x5y6z7a8e",
+		);
+
+		expect(movedAfter(moved({ view, after: before }))).toBe(before);
+		expect(movedAfter(moved({ view }))).toBeUndefined();
+		expect(movedAfter(moved({ view, after: "nope" }))).toBeUndefined();
+	});
+
+	it("ignores a view of another channel", () => {
+		const other = channelSpace(
+			"did:plc:examplecommunityauthority01",
+			"social.colibri.beta.channel.voice",
+			"3lz4x5y6z7a8d",
+		);
+
+		expect(
+			movedChannelView(moved({ view: { ...view, space: other } })),
+		).toBeUndefined();
 	});
 });

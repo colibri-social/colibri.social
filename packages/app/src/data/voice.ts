@@ -6,6 +6,7 @@ import {
 	createRoot,
 	createSignal,
 	on,
+	untrack,
 } from "solid-js";
 import { displayNameOf } from "./adapters/display-name";
 import { uiPresence } from "./adapters/presence";
@@ -16,13 +17,16 @@ import type { ScreenShareQuality } from "./screen-share";
 import type { DataStore } from "./store";
 import type { Did, SpaceRef } from "./types";
 import type { VoiceDebugSnapshot } from "./voice/debug-stats";
-import type {
-	ScreenCapture,
-	VoiceConnection,
-	VoiceConnectionMonitor,
-	VoiceModeration,
-	VoiceMoveNotice,
-	VoiceVideo,
+import {
+	ALL_VOICE_PERMISSIONS,
+	type ScreenCapture,
+	type VoiceConnection,
+	type VoiceConnectionMonitor,
+	type VoiceModeration,
+	type VoiceMoveDestination,
+	type VoiceMoveNotice,
+	type VoicePermissions,
+	type VoiceVideo,
 } from "./voice/types";
 import {
 	createVoiceSoundPlayer,
@@ -31,6 +35,8 @@ import {
 } from "./voice-sounds";
 
 export type VoiceCall = { space: string; channel: string };
+
+export type VoiceGuestChannel = { community: string } & VoiceMoveDestination;
 
 export type VoiceController = {
 	current: Accessor<VoiceCall | undefined>;
@@ -41,6 +47,12 @@ export type VoiceController = {
 	cameraPending: Accessor<boolean>;
 	screenSharing: Accessor<boolean>;
 	micMissing: Accessor<boolean>;
+	permissions: Accessor<VoicePermissions>;
+	micDenied: Accessor<boolean>;
+	listenDenied: Accessor<boolean>;
+	cameraDenied: Accessor<boolean>;
+	screenshareDenied: Accessor<boolean>;
+	guestChannel: Accessor<VoiceGuestChannel | undefined>;
 	expanded: Accessor<boolean>;
 	startedAt: Accessor<number | undefined>;
 	connection: Accessor<VoiceConnection>;
@@ -113,9 +125,17 @@ export const createVoice = (
 		let cameraRequest = 0;
 		const [expanded, setExpanded] = createSignal(false);
 		const [startedAt, setStartedAt] = createSignal<number>();
+		const [guestChannel, setGuestChannel] = createSignal<VoiceGuestChannel>();
 
 		const micMissing = () => !!current() && link().micAvailable?.() === false;
-		const muted = () => selfMuted() || deafened() || micMissing();
+		const permissions = (): VoicePermissions =>
+			(current() ? link().permissions?.() : undefined) ?? ALL_VOICE_PERMISSIONS;
+		const micDenied = () => !permissions().has("voice.speak");
+		const listenDenied = () => !permissions().has("voice.listen");
+		const cameraDenied = () => !permissions().has("voice.camera");
+		const screenshareDenied = () => !permissions().has("voice.screenshare");
+		const muted = () =>
+			selfMuted() || deafened() || micMissing() || micDenied();
 
 		const moderationOf = (did: string): VoiceModeration => {
 			const live = current() ? link().moderation?.()[did] : undefined;
@@ -174,6 +194,7 @@ export const createVoice = (
 				setStartedAt(undefined);
 				setFloatingDismissed(false);
 				setFocusedKey(null);
+				setGuestChannel(undefined);
 				link().stop();
 			});
 
@@ -276,10 +297,15 @@ export const createVoice = (
 			publish();
 		};
 
-		const moved = (channel: string) => {
+		const moved = (channel: string, destination?: VoiceMoveDestination) => {
 			const active = current();
 			if (!active || active.channel === channel) return;
 			batch(() => {
+				setGuestChannel(
+					destination
+						? { community: communityOf(channel), ...destination }
+						: undefined,
+				);
 				setCurrent({ ...active, channel });
 				setCamera(false);
 				cameraRequest += 1;
@@ -289,9 +315,41 @@ export const createVoice = (
 			});
 			link().start(session());
 			play("join");
-			notify("moved");
+			notify(
+				destination?.view.viewer.canRead === false ? "movedPrivate" : "moved",
+			);
 			publish();
 		};
+
+		createEffect(
+			on(
+				() => [current()?.channel, permissions()] as const,
+				([channel, next], previous) => {
+					if (!channel || previous?.[0] !== channel) return;
+					const before = previous[1];
+					if (before === next) return;
+					const lost = (key: Parameters<VoicePermissions["has"]>[0]) =>
+						before.has(key) && !next.has(key);
+					syncLink();
+					publish();
+					if (lost("voice.speak")) notify("speakDenied");
+					if (lost("voice.listen")) notify("listenDenied");
+					if (lost("voice.camera") && untrack(camera)) {
+						notify("cameraDenied");
+						batch(() => {
+							setCamera(false);
+							cameraRequest += 1;
+							setCameraPending(false);
+						});
+					}
+					if (lost("voice.screenshare") && untrack(screenSharing)) {
+						notify("screenshareDenied");
+						link().stopScreen?.();
+					}
+				},
+				{ defer: true },
+			),
+		);
 
 		let detach: (() => void) | undefined;
 		const attach = (active: VoiceConnectionMonitor) => {
@@ -336,14 +394,14 @@ export const createVoice = (
 		};
 		attach(link());
 
-		const screenSharing = () => !!current() && !!link().screenSharing?.();
-
 		const selfModeration = () => {
 			const did = viewerDid();
 			return did
 				? moderationOf(did)
 				: { serverMuted: false, serverDeafened: false };
 		};
+
+		const screenSharing = () => !!current() && !!link().screenSharing?.();
 
 		const controller: VoiceController = {
 			current,
@@ -354,6 +412,12 @@ export const createVoice = (
 			cameraPending,
 			screenSharing,
 			micMissing,
+			permissions,
+			micDenied,
+			listenDenied,
+			cameraDenied,
+			screenshareDenied,
+			guestChannel,
 			expanded,
 			startedAt,
 			connection: () => link().connection(),
@@ -377,6 +441,7 @@ export const createVoice = (
 				if (active) play("leave");
 				batch(() => {
 					setCurrent({ ...call });
+					setGuestChannel(undefined);
 					if (opts?.muted !== undefined) setSelfMuted(opts.muted);
 					setCamera(false);
 					cameraRequest += 1;
@@ -397,6 +462,10 @@ export const createVoice = (
 				publish();
 			},
 			toggleMute: () => {
+				if (current() && micDenied()) {
+					notify("speakDenied");
+					return;
+				}
 				if (current() && selfModeration().serverMuted) {
 					notify("serverMuted");
 					return;
@@ -415,6 +484,10 @@ export const createVoice = (
 				if (current()) publish();
 			},
 			toggleDeafen: () => {
+				if (current() && listenDenied()) {
+					notify("listenDenied");
+					return;
+				}
 				if (current() && selfModeration().serverDeafened) {
 					notify("serverDeafened");
 					return;
@@ -427,6 +500,10 @@ export const createVoice = (
 			toggleCamera: () => {
 				const call = current();
 				if (!call || cameraPending()) return;
+				if (!camera() && cameraDenied()) {
+					notify("cameraDenied");
+					return;
+				}
 				const next = !camera();
 				setCamera(next);
 				play(next ? "camOn" : "camOff");
@@ -444,7 +521,9 @@ export const createVoice = (
 			},
 			shareScreen: async (capture, quality) => {
 				const share = link().shareScreen;
-				if (!current() || !share) {
+				const denied = !!current() && screenshareDenied();
+				if (denied) notify("screenshareDenied");
+				if (!current() || !share || denied) {
 					capture.video.stop();
 					capture.audio?.stop();
 					capture.release();

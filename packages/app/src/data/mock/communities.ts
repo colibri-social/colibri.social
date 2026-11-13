@@ -9,7 +9,7 @@ import { avatarUrl, bannerUrl } from "./media";
 import { VIEWER_KEY } from "./people";
 import { asDatetime, asDid, asHandle, spaceRef, tidFor } from "./refs";
 import { createRandom } from "./seed";
-import type { SpaceSeed } from "./spaces";
+import { MEMBER_VOICE_PERMISSIONS, type SpaceSeed } from "./spaces";
 import type { ChannelRecord, SpaceRecord, World } from "./world";
 import { MANAGING_APP } from "./world";
 
@@ -38,9 +38,14 @@ const OWNER_PERMISSIONS = [
 	"thread.create",
 	"thread.manage",
 	"thread.move",
+	...MEMBER_VOICE_PERMISSIONS,
 ];
 
-const MEMBER_PERMISSIONS = ["thread.create", "invitation.create"];
+const MEMBER_PERMISSIONS = [
+	"thread.create",
+	"invitation.create",
+	...MEMBER_VOICE_PERMISSIONS,
+];
 
 type StarterLayout = {
 	text: string;

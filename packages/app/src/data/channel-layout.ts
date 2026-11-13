@@ -14,6 +14,39 @@ export type ChannelLayout = {
 	channels: ChannelView[] | undefined;
 };
 
+export type GuestChannel = { view: ChannelView; after?: string };
+
+const placeGuest = (category: CategoryView, guest: GuestChannel) => {
+	const after = guest.after;
+	const anchor = after
+		? category.channels.findIndex((entry) => sameChannel(entry.space, after))
+		: -1;
+	const channels = [...category.channels];
+
+	channels.splice(anchor + 1, 0, guest.view);
+
+	return { ...category, channels };
+};
+
+export const withGuestChannel = (
+	categories: readonly CategoryView[] | undefined,
+	channels: readonly ChannelView[] | undefined,
+	guest: GuestChannel | undefined,
+) => {
+	const view = guest?.view;
+	if (!guest || !view || !channels) return { categories, channels };
+	if (channels.some((channel) => sameChannel(channel.space, view.space))) {
+		return { categories, channels };
+	}
+
+	return {
+		categories: categories?.map((category) =>
+			category.rkey === view.category ? placeGuest(category, guest) : category,
+		),
+		channels: [...channels, view],
+	};
+};
+
 const uniqueChannels = (channels: readonly ChannelView[]) => {
 	const seen = new Set<string>();
 	const unique: ChannelView[] = [];
