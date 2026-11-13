@@ -129,14 +129,14 @@ import {
 
 const log = createLogger("voice");
 
-export const MAX_RECONNECT_ATTEMPTS = 6;
-export const STATS_INTERVAL_MS = 3_000;
-export const STATS_FAST_MS = 400;
-export const HEARTBEAT_INTERVAL_MS = 20_000;
-export const ICE_WATCHDOG_MS = 8_000;
-export const REPLY_TIMEOUT_MS = 15_000;
-export const VIDEO_SETTLE_MS = 300;
-export const TOKEN_TTL_S = 60;
+const MAX_RECONNECT_ATTEMPTS = 6;
+const STATS_INTERVAL_MS = 3_000;
+const STATS_FAST_MS = 400;
+const HEARTBEAT_INTERVAL_MS = 20_000;
+const ICE_WATCHDOG_MS = 8_000;
+const REPLY_TIMEOUT_MS = 15_000;
+const VIDEO_SETTLE_MS = 300;
+const TOKEN_TTL_S = 60;
 
 const MIC_CODEC_OPTIONS = {
 	opusStereo: false,
@@ -167,7 +167,7 @@ export type AudioOutput = SinkableMediaElement & {
 	pause(): void;
 };
 
-export type VoiceMedia = {
+type VoiceMedia = {
 	getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
 	onDeviceChange?(listener: () => void): () => void;
 };
@@ -286,7 +286,7 @@ export const endReasonOf = (reason: string | undefined): VoiceEndReason => {
 export const reconnectDelay = (attempt: number) =>
 	Math.min(1_000 * 2 ** (attempt - 1), 10_000);
 
-export const syncGroupFor = (owner: {
+const syncGroupFor = (owner: {
 	did: string;
 	source: VoiceMediaSource;
 }): string => `${owner.did}|${owner.source === "screen" ? "screen" : "live"}`;
@@ -348,9 +348,9 @@ const readRtt = async (
 	}
 };
 
-export const PROBE_TIMEOUT_MS = 3_000;
+const PROBE_TIMEOUT_MS = 3_000;
 
-export const MAX_ELSEWHERE_HOPS = 2;
+const MAX_ELSEWHERE_HOPS = 2;
 
 const probeRoundTrip = async (url: string): Promise<number | null> => {
 	let best: number | null = null;

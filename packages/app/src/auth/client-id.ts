@@ -8,7 +8,7 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
 export type ClientLocation = Pick<Location, "hostname" | "host" | "port">;
 
-export const isLoopback = (location: ClientLocation): boolean =>
+const isLoopback = (location: ClientLocation): boolean =>
 	LOOPBACK_HOSTS.has(location.hostname);
 
 export const makeClientId = (input: {

@@ -16,7 +16,7 @@ const log = createLogger("blocked-users");
 
 const INVALID_HANDLE = "handle.invalid";
 
-export const BLOCKED_USERS_PAGE_COPY = {
+const BLOCKED_USERS_PAGE_COPY = {
 	detail: (createdAt: string) => {
 		return `Blocked ${formatTimestamp(createdAt, "relative", new Date(), "en")}`;
 	},

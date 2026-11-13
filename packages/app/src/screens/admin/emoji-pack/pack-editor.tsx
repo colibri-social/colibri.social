@@ -27,7 +27,7 @@ export type EmojiCatalogOwner = EmojiOwner & {
 
 export type SelectSection = { id: string; label: string; emojis: EmojiView[] };
 
-export const packNameError = (value: string) => {
+const packNameError = (value: string) => {
 	const name = value.trim();
 	if (!name) return "Give the pack a name.";
 	if (name.length > EMOJI_PACK_NAME_MAX)

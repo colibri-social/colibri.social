@@ -9,7 +9,6 @@ import {
 	type EmojiView,
 	type ProviderRecord,
 	repoOfUri,
-	rkeyOfUri,
 	type StoredBlob,
 	shortcodeOf,
 } from "../model";
@@ -24,7 +23,7 @@ export const BLUEMOJI = {
 	itemFormatsV1: "blue.moji.collection.item#formats_v1",
 } as const;
 
-export type BlobRef = {
+type BlobRef = {
 	$type?: "blob";
 	ref?: { $link: string };
 	cid?: string;
@@ -34,12 +33,12 @@ export type BlobRef = {
 
 type FormatKey = "png_128" | "webp_128" | "gif_128" | "apng_128" | "lottie";
 
-export type BluemojiItemFormats = {
+type BluemojiItemFormats = {
 	$type?: string;
 	original?: BlobRef;
 } & Partial<Record<FormatKey, BlobRef | Uint8Array | string>>;
 
-export type BluemojiItem = {
+type BluemojiItem = {
 	$type?: typeof BLUEMOJI.item;
 	name: string;
 	alt?: string;
@@ -49,7 +48,7 @@ export type BluemojiItem = {
 	fallbackText?: string;
 };
 
-export type BluemojiPack = {
+type BluemojiPack = {
 	$type?: typeof BLUEMOJI.pack;
 	name: string;
 	description?: string;
@@ -57,7 +56,7 @@ export type BluemojiPack = {
 	adultOnly?: boolean;
 };
 
-export type BluemojiPackItem = {
+type BluemojiPackItem = {
 	$type?: typeof BLUEMOJI.packItem;
 	subject: string;
 	pack: string;
@@ -88,7 +87,7 @@ const cidOf = (value: unknown) => {
 	return undefined;
 };
 
-export const bluemojiRkey = (name: string) => {
+const bluemojiRkey = (name: string) => {
 	const bare = bareName(name);
 	if (!NAME_RKEY.test(bare)) {
 		throw new Error(`Unsupported Bluemoji alias ${name}`);
@@ -285,9 +284,3 @@ export const bluemojiProvider: EmojiProvider = {
 	fallbackText,
 	altText,
 };
-
-export const bluemojiItemUri = (owner: Did, name: string) =>
-	`at://${owner}/${BLUEMOJI.item}/${bluemojiRkey(name)}`;
-
-export const isBluemojiItemUri = (uri: string) =>
-	uri.includes(`/${BLUEMOJI.item}/`) && rkeyOfUri(uri).length > 0;

@@ -2,7 +2,7 @@ import type { CustomEmojiPolicy, Did, Facet } from "../types";
 import { repoOfUri } from "./model";
 import { isEmojiFeature } from "./references";
 
-export const DEFAULT_EMOJI_POLICY: CustomEmojiPolicy = "all";
+const DEFAULT_EMOJI_POLICY: CustomEmojiPolicy = "all";
 
 export const emojiPolicy = (value: string | undefined): CustomEmojiPolicy =>
 	value === "local" || value === "none" ? value : DEFAULT_EMOJI_POLICY;

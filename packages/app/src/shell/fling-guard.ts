@@ -22,11 +22,7 @@ const ownsGesture = (target: Element) =>
 		'input, textarea, select, [contenteditable=""], [contenteditable="true"], [data-gesture="own"]',
 	);
 
-export const hasNativeScroll = (
-	target: Element,
-	axis: "x" | "y",
-	delta: number,
-) => {
+const hasNativeScroll = (target: Element, axis: "x" | "y", delta: number) => {
 	if (ownsGesture(target)) return true;
 	for (
 		let element: Element | null = target;

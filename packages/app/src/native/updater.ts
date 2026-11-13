@@ -47,7 +47,7 @@ export const detectInstallChannel = async (): Promise<InstallChannel> => {
 	return "direct";
 };
 
-export const upgradeCommandFor = (channel: InstallChannel): string | null => {
+const upgradeCommandFor = (channel: InstallChannel): string | null => {
 	if (channel === "homebrew") return "brew upgrade --cask colibri-social";
 	if (channel === "scoop") return "scoop update colibri-social";
 	return null;

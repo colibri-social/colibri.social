@@ -1,4 +1,4 @@
-export const DECELERATION_RATE = 0.998;
+const DECELERATION_RATE = 0.998;
 
 export const projectDistance = (
 	velocityPerSecond: number,

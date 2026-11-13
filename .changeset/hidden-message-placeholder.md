@@ -1,5 +1,5 @@
 ---
-"@colibri-social/client": patch
+"@colibri-social/wrapper": patch
 ---
 
 Show hidden messages as hidden instead of letting them reappear

@@ -25,7 +25,6 @@ jobs:
               - 'packages/wrapper/**'
               - 'packages/app/**'
               - 'packages/ui/**'
-              - 'packages/client/**'
               - 'packages/assets/**'
               - 'packages/lib/**'
 
@@ -140,7 +139,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/assets/files/twemoji
-          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/assets/package.json') }}
           restore-keys: twemoji-${{ runner.os }}-
 
       - name: Fetch twemoji assets

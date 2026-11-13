@@ -33,7 +33,7 @@ export const projectBlock = (
 	return { text, positions };
 };
 
-export interface ProjectedBlock {
+interface ProjectedBlock {
 	node: ProseMirrorNode;
 	pos: number;
 	start: number;

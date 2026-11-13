@@ -36,7 +36,7 @@ const badgeOf = (identifier: string, size: "xs" | "sm" = "sm") => (
 
 const CHECKOUT = "https://opencollective.com/colibri-social";
 
-export const SUPPORT_TIERS: SupportTier[] = [
+const SUPPORT_TIERS: SupportTier[] = [
 	{
 		id: "backer-five",
 		badge: badgeOf("backer-five"),

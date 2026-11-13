@@ -13,23 +13,13 @@ export const asDatetime = (time: number) =>
 export const asUri = (value: string) =>
 	value as NonNullable<CommunityView["picture"]>;
 
-export const TEXT_TYPE = "social.colibri.beta.channel.text";
-export const VOICE_TYPE = "social.colibri.beta.channel.voice";
+const TEXT_TYPE = "social.colibri.beta.channel.text";
+const VOICE_TYPE = "social.colibri.beta.channel.voice";
 
 export type ChannelKind = "text" | "voice";
 
 export const spaceRef = (community: Did, kind: ChannelKind, skey: string) =>
 	`at://${community}/space/${kind === "voice" ? VOICE_TYPE : TEXT_TYPE}/${skey}` as SpaceRef;
-
-export const parseSpaceRef = (ref: string) => {
-	const match = /^at:\/\/([^/]+)\/space\/([^/]+)\/([^/]+)$/.exec(ref);
-	if (!match) return undefined;
-	return {
-		community: match[1] as Did,
-		type: match[2] as string,
-		skey: match[3] as string,
-	};
-};
 
 const TID_ALPHABET = "234567abcdefghijklmnopqrstuvwxyz";
 

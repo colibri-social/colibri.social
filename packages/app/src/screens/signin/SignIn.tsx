@@ -82,7 +82,7 @@ const stepItems = (step: SignedOutStep): OnboardingStepItem[] =>
 				: item,
 		);
 
-export const createAccountSearch = (
+const createAccountSearch = (
 	search: (query: string, signal: AbortSignal) => Promise<AccountSuggestion[]>,
 	peek: (query: string) => AccountSuggestion[] | undefined = (value) =>
 		cachedAccounts(value) ?? cachedPrefixAccounts(value),

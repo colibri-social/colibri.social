@@ -27,11 +27,11 @@ import type {
 	ThreadView,
 } from "./types";
 
-export type CachedUnread = { hasUnread: boolean; mentions: number };
+type CachedUnread = { hasUnread: boolean; mentions: number };
 
-export type CachedRead = { cursor?: string; hasUnread: boolean };
+type CachedRead = { cursor?: string; hasUnread: boolean };
 
-export type SpaceEntry = {
+type SpaceEntry = {
 	categories?: CategoryView[];
 	channels?: ChannelView[];
 	roles?: RoleView[];
@@ -44,7 +44,7 @@ export type SpaceEntry = {
 	ts: number;
 };
 
-export type EmojiSnapshot = {
+type EmojiSnapshot = {
 	library?: EmojiLibraryView;
 	catalogs?: Record<string, EmojiCatalogView>;
 	emojis?: Record<string, EmojiView>;
@@ -59,15 +59,13 @@ export type SpaceSnapshot = {
 	ts: number;
 };
 
-export type SpacePatch = Partial<
-	Omit<SpaceEntry, "ts" | "threads" | "threadMembers">
->;
+type SpacePatch = Partial<Omit<SpaceEntry, "ts" | "threads" | "threadMembers">>;
 
-export const PRESENCE_LIMIT = 2_000;
+const PRESENCE_LIMIT = 2_000;
 
-export const EMOJI_CATALOG_LIMIT = 40;
+const EMOJI_CATALOG_LIMIT = 40;
 
-export const EMOJI_SIGHTING_LIMIT = 500;
+const EMOJI_SIGHTING_LIMIT = 500;
 
 const lastEntries = <T>(record: Record<string, T>, limit: number) =>
 	Object.fromEntries(Object.entries(record).slice(-limit));

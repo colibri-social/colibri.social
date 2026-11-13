@@ -117,7 +117,7 @@ import {
 
 const DEFAULT_QUICK_REACTIONS = ["👍", "❤️", "😂", "😮"];
 
-export const HIDE_CONFIRM_COPY = {
+const HIDE_CONFIRM_COPY = {
 	title: "Hide message?",
 	description:
 		"Members won't see this message anymore. You and other moderators can still see and unhide it. Hold Shift while hiding to skip this confirmation.",

@@ -13,10 +13,7 @@ import {
 } from "./anchor-scroll";
 import { findScrollParent } from "./virtual-anchor";
 
-export const ANCHOR_ROOT_ATTRIBUTES = [
-	"data-message-key",
-	"data-member-key",
-] as const;
+const ANCHOR_ROOT_ATTRIBUTES = ["data-message-key", "data-member-key"] as const;
 
 export const ANCHOR_HOLD_EVENT = "anchor-hold";
 
@@ -24,7 +21,7 @@ export type AnchorHoldDetail = {
 	release: (callback: () => void) => void;
 };
 
-export type AnchorPathStep = { tag: string; index: number };
+type AnchorPathStep = { tag: string; index: number };
 
 type Offset = { x: number; y: number; width: number; height: number };
 
@@ -39,10 +36,10 @@ const ROOT_SELECTOR = ANCHOR_ROOT_ATTRIBUTES.map((name) => `[${name}]`).join(
 	", ",
 );
 
-export const anchorRootOf = (element: Element) =>
+const anchorRootOf = (element: Element) =>
 	element.closest<HTMLElement>(ROOT_SELECTOR) ?? undefined;
 
-export const anchorRootSelector = (root: Element) => {
+const anchorRootSelector = (root: Element) => {
 	for (const name of ANCHOR_ROOT_ATTRIBUTES) {
 		const value = root.getAttribute(name);
 		if (value !== null) return `[${name}="${CSS.escape(value)}"]`;
@@ -60,7 +57,7 @@ const sameTagIndex = (node: Element) => {
 	return index;
 };
 
-export const anchorPath = (root: Element, element: Element) => {
+const anchorPath = (root: Element, element: Element) => {
 	const steps: AnchorPathStep[] = [];
 	let node: Element | null = element;
 	while (node && node !== root) {
@@ -70,10 +67,7 @@ export const anchorPath = (root: Element, element: Element) => {
 	return node === root ? steps : undefined;
 };
 
-export const resolveAnchorPath = (
-	root: Element,
-	path: readonly AnchorPathStep[],
-) => {
+const resolveAnchorPath = (root: Element, path: readonly AnchorPathStep[]) => {
 	let node: Element = root;
 	for (const step of path) {
 		let seen = 0;

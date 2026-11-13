@@ -19,7 +19,7 @@ import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 
 export type DiscoverArgs = Record<string, string>;
 
-export const toDiscoverySpace = (community: CommunityView): DiscoverySpace => {
+const toDiscoverySpace = (community: CommunityView): DiscoverySpace => {
 	const space: DiscoverySpace = {
 		id: community.did,
 		name: community.name,
@@ -38,7 +38,7 @@ export const toDiscoverySpace = (community: CommunityView): DiscoverySpace => {
 	return space;
 };
 
-export const JOIN_ERRORS: Record<string, string> = {
+const JOIN_ERRORS: Record<string, string> = {
 	Banned: "You're banned from this Space.",
 	AlreadyMember: "You're already a member of this Space.",
 	CommunityNotFound: "This Space isn't available anymore.",

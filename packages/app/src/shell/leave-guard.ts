@@ -33,5 +33,3 @@ export const createLeaveGuard = (top: () => number) => {
 		},
 	};
 };
-
-export type LeaveGuard = ReturnType<typeof createLeaveGuard>;

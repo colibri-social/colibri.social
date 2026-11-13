@@ -1,4 +1,4 @@
-export const EMOJI_FREQUENCY: readonly string[] = [
+const EMOJI_FREQUENCY: readonly string[] = [
 	"😂",
 	"❤️",
 	"🤣",

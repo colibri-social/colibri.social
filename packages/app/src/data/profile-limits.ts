@@ -2,10 +2,10 @@ const encoder = new TextEncoder();
 
 const utf8Length = (text: string) => encoder.encode(text).length;
 
-export const DISPLAY_NAME_MAX_GRAPHEMES = 64;
-export const DISPLAY_NAME_MAX_BYTES = 640;
-export const BIO_MAX_GRAPHEMES = 256;
-export const BIO_MAX_BYTES = 2560;
+const DISPLAY_NAME_MAX_GRAPHEMES = 64;
+const DISPLAY_NAME_MAX_BYTES = 640;
+const BIO_MAX_GRAPHEMES = 256;
+const BIO_MAX_BYTES = 2560;
 
 const segmenter =
 	typeof Intl !== "undefined" && "Segmenter" in Intl
@@ -40,8 +40,8 @@ export const bioError = (value: string) => {
 	return undefined;
 };
 
-export const PRONOUNS_MAX_GRAPHEMES = 64;
-export const PRONOUNS_MAX_BYTES = 640;
+const PRONOUNS_MAX_GRAPHEMES = 64;
+const PRONOUNS_MAX_BYTES = 640;
 
 export const pronounsError = (value: string) => {
 	const pronouns = value.trim();

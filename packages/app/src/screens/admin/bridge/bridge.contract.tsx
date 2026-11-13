@@ -53,7 +53,7 @@ const sortLinks = (links: readonly BridgeLink[]) =>
 		.map(({ backfill: _backfill, ...rest }) => rest)
 		.sort((a, b) => a.channel.localeCompare(b.channel));
 
-export const historyLabel = (status: BridgeBackfillStatus) => {
+const historyLabel = (status: BridgeBackfillStatus) => {
 	const count = numberFormat.format(status.imported);
 	if (status.state === "done") return `Imported ${count} earlier messages.`;
 	if (status.state === "failed")

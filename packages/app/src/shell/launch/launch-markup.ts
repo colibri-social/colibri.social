@@ -4,13 +4,13 @@ export const LAUNCH_STYLE_ID = "launch-screen-style";
 
 export const LAUNCH_SCREEN_LABEL = "Starting Colibri";
 
-export const LAUNCH_MARK_SIZE = 288;
+const LAUNCH_MARK_SIZE = 288;
 
 const LAUNCH_ART_SCALE = 0.59;
 
 export const LAUNCH_BIRD_SIZE = LAUNCH_MARK_SIZE * LAUNCH_ART_SCALE;
 
-export const LAUNCH_STALL_MS = 20_000;
+const LAUNCH_STALL_MS = 20_000;
 
 const MARK_PARTS = [
 	{
@@ -39,7 +39,7 @@ const MARK_PARTS = [
 	},
 ] as const;
 
-export const launchMarkSvg = (idPrefix: string) => {
+const launchMarkSvg = (idPrefix: string) => {
 	const gradients = MARK_PARTS.map(
 		(part, index) =>
 			`<linearGradient id="${idPrefix}-${index}" gradientUnits="userSpaceOnUse" x1="${part.gradient[0]}" y1="${part.gradient[1]}" x2="${part.gradient[2]}" y2="${part.gradient[3]}"><stop style="stop-color:var(--launch-${part.from})"/><stop offset="1" style="stop-color:var(--launch-${part.to})"/></linearGradient>`,
@@ -61,9 +61,9 @@ export const LAUNCH_SCREEN_STYLE = [
 	"[data-launch-stalled] button{margin-top:16px;height:40px;padding:0 20px;border:0;border-radius:10px;background:var(--launch-button);color:var(--launch-button-text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}",
 ].join("");
 
-export const LAUNCH_STALL_TITLE = "Colibri is taking a while to start";
+const LAUNCH_STALL_TITLE = "Colibri is taking a while to start";
 
-export const LAUNCH_STALL_DESCRIPTION =
+const LAUNCH_STALL_DESCRIPTION =
 	"Check your internet connection, then reload. Your messages and Spaces are safe.";
 
 const stallScript = () =>

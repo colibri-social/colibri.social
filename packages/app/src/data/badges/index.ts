@@ -13,7 +13,6 @@ import {
 	type DefinitionSnapshot,
 } from "./store";
 
-export type { LabelerTransport } from "./labeler";
 export type { BadgeProfile, BadgeStore } from "./store";
 
 const SNAPSHOT_KEY = "colibri:badge-definitions:v1";

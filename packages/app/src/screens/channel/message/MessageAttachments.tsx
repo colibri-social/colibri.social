@@ -189,7 +189,7 @@ const embedMedia = (embed: LinkEmbedView): MediaItem[] => {
 	];
 };
 
-export const EmbedWithLightbox = (props: {
+const EmbedWithLightbox = (props: {
 	embed: LinkEmbedView;
 	author?: LightboxAuthor;
 	timestamp?: string;

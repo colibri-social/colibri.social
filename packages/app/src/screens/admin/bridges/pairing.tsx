@@ -14,7 +14,7 @@ export const DISCONNECT_COPY = {
 		"The bridge stops relaying straight away. Messages it already relayed stay where they are. To reconnect, pair it again with a new code.",
 } as const;
 
-export const BRIDGES_UNAVAILABLE = {
+const BRIDGES_UNAVAILABLE = {
 	missing: {
 		title: "This Space isn't available",
 		description: "It may have been deleted, or you're no longer a member.",
@@ -48,11 +48,7 @@ export const useBridgeAdmin = (args: AdminArgs) => {
 	};
 };
 
-export const showBridge = (
-	stack: Navigator,
-	space: string,
-	registration: string,
-) => {
+const showBridge = (stack: Navigator, space: string, registration: string) => {
 	const layers = stack.mounted().slice(0, stack.depth());
 	const index = layers.findIndex(
 		(layer) =>

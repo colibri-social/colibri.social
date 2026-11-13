@@ -12,7 +12,7 @@ import type { Did, LegacyCommunityView, MigrationProgressView } from "./types";
 
 const log = createLogger("legacy-communities");
 
-export const LEGACY_POLL_MS = 15_000;
+const LEGACY_POLL_MS = 15_000;
 
 export const isLegacyBlocked = (community: LegacyCommunityView) =>
 	community.state === "blocked";
@@ -175,5 +175,3 @@ const startingProgress = (
 	completed: entry.progress?.completed ?? 0,
 	total: entry.progress?.total ?? 11,
 });
-
-export type LegacyCommunities = ReturnType<typeof createLegacyCommunities>;

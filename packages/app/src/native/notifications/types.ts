@@ -17,7 +17,7 @@ export type OsActivation = {
 	rkey?: string;
 };
 
-export type OsNotifierKind = "web" | "native" | "plugin" | "none";
+type OsNotifierKind = "web" | "native" | "plugin" | "none";
 
 export type OsNotifier = {
 	kind: OsNotifierKind;

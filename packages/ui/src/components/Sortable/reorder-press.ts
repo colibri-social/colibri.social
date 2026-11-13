@@ -16,10 +16,10 @@ export type ReorderPress = {
 	cancel: () => void;
 };
 
-export const HOLD_DELAY_MS = 400;
-export const HOLD_SLOP = 10;
-export const POINTER_ACTIVATION_DISTANCE = 4;
-export const HOLD_MOVE_DISTANCE = 6;
+const HOLD_DELAY_MS = 400;
+const HOLD_SLOP = 10;
+const POINTER_ACTIVATION_DISTANCE = 4;
+const HOLD_MOVE_DISTANCE = 6;
 const CLICK_SUPPRESS_MS = 700;
 
 export const isHoldPointer = (pointerType: string) =>

@@ -19,7 +19,7 @@ import type {
 export const CONNECTION_GRACE_MS = 2_500;
 export const RETRY_FEEDBACK_MS = 4_000;
 
-export const createOnline = (): Accessor<boolean> => {
+const createOnline = (): Accessor<boolean> => {
 	const [online, setOnline] = createSignal(
 		typeof navigator === "undefined" || navigator.onLine !== false,
 	);

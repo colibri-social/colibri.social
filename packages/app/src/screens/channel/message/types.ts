@@ -1,4 +1,3 @@
-import type { PendingMessage } from "../../../data/store";
 import type {
 	AttachmentView,
 	DeletedMessageView,
@@ -10,7 +9,7 @@ import type {
 
 export type MessageParent = NonNullable<MessageView["parent"]>;
 
-export type ChatMessageState = "sent" | "pending" | "failed";
+type ChatMessageState = "sent" | "pending" | "failed";
 
 export type ChatMessage = {
 	key: string;
@@ -96,23 +95,6 @@ export const failChatMessage = (message: ChatMessage): ChatMessage => ({
 	state: "failed",
 	failed: true,
 });
-
-export const pendingToChatMessage = (
-	pending: PendingMessage,
-	viewer: ProfileView,
-	findMessage?: (rkey: string) => MessageView | undefined,
-): ChatMessage => {
-	const parent = pending.parent ? findMessage?.(pending.parent) : undefined;
-	const message = pendingChatMessage({
-		nonce: pending.nonce,
-		author: viewer.did,
-		text: pending.text,
-		facets: pending.facets,
-		parent,
-		createdAt: pending.createdAt,
-	});
-	return pending.state === "failed" ? failChatMessage(message) : message;
-};
 
 export const isHiddenMessage = (message: Pick<MessageView, "labels">) =>
 	message.labels.some((label) => label.val === "hidden");

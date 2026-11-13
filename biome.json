@@ -11,7 +11,6 @@
 		"includes": [
 			"apps/website/**",
 			"packages/lib/**",
-			"packages/client/**",
 			"packages/assets/**",
 			"packages/ui/**",
 			"packages/app/**",
@@ -20,8 +19,7 @@
 			"!**/.astro",
 			"!apps/website/public",
 			"!apps/website/src/utils/atproto/lexicons/generated",
-			"!packages/assets/files",
-			"!packages/client/src/hooks/rnnoise-assets.generated.ts"
+			"!packages/assets/files"
 		]
 	},
 	"formatter": {
@@ -111,33 +109,6 @@
 					"correctness": {
 						"noUnusedVariables": "off",
 						"noUnusedImports": "off"
-					}
-				}
-			}
-		},
-		{
-			"includes": ["packages/client/**/*.ts", "packages/client/**/*.tsx"],
-			"linter": {
-				"rules": {
-					"suspicious": {
-						"noConsole": "error"
-					}
-				}
-			}
-		},
-		{
-			"includes": [
-				"packages/client/src/atproto/session-debug.ts",
-				"packages/client/src/utils/logger.ts",
-				"packages/client/src/utils/dev-diagnostics.ts",
-				"packages/client/src/utils/perf.ts",
-				"packages/client/src/utils/scroll-probe.ts",
-				"packages/client/**/*.test.ts"
-			],
-			"linter": {
-				"rules": {
-					"suspicious": {
-						"noConsole": "off"
 					}
 				}
 			}

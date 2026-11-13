@@ -14,7 +14,7 @@ const STEP_SECONDS = 1 / 240;
 const REST_POSITION = 0.0005;
 const REST_VELOCITY = 0.01;
 
-export const springCoefficients = (params: SpringParams) => {
+const springCoefficients = (params: SpringParams) => {
 	const omega = (2 * Math.PI) / params.response;
 	return {
 		stiffness: omega * omega,

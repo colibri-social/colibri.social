@@ -22,7 +22,7 @@ import { SpaceMissing, toInviteSummary } from "../access-shared";
 import { AdminNavHeader } from "../desktop/page-header";
 import { SPACE_PERMISSIONS, useAdminSpace } from "../space-admin";
 
-export const INVITE_COPY = {
+const INVITE_COPY = {
 	newTitle: "Create invite link",
 	intro: "Choose how long the link works and how often it can be used.",
 	created: "Give this link to anyone you want to join this Space!",

@@ -36,7 +36,7 @@ import { LoadFailed, SpaceMissing, toInviteSummary } from "../access-shared";
 import { AdminNavHeader } from "../desktop/page-header";
 import { SPACE_PERMISSIONS, useAdminSpace } from "../space-admin";
 
-export const INVITES_COPY = {
+const INVITES_COPY = {
 	title: "Invite links",
 	emptyTitle: "No invite links yet",
 	emptyBody:

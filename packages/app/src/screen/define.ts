@@ -25,7 +25,7 @@ type SlotProps<F> = F extends (model: never, props: infer P) => JSX.Element
 		: P
 	: never;
 
-export type BoundSlots<M, S extends Record<string, AnySlot<M>>> = {
+type BoundSlots<M, S extends Record<string, AnySlot<M>>> = {
 	[K in keyof S]: Component<SlotProps<S[K]>>;
 };
 

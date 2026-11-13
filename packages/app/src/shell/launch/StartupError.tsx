@@ -27,7 +27,7 @@ const STARTUP_COPY: Partial<Record<ColibriErrorCode, ErrorCopy>> = {
 	NetworkFailed: CANT_CONNECT,
 };
 
-export const startupCopy = (error: ColibriError): ErrorCopy =>
+const startupCopy = (error: ColibriError): ErrorCopy =>
 	STARTUP_COPY[error.code] ?? describeError(error);
 
 export const StartupError = (props: {

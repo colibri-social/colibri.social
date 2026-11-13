@@ -1,7 +1,7 @@
 export type Axis = "horizontal" | "vertical";
 
-export const LOCK_DISTANCE = 10;
-export const HORIZONTAL_MAX_ANGLE = 30;
+const LOCK_DISTANCE = 10;
+const HORIZONTAL_MAX_ANGLE = 30;
 
 const tangent = Math.tan((HORIZONTAL_MAX_ANGLE * Math.PI) / 180);
 

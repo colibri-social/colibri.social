@@ -45,16 +45,13 @@ const FILTERS: { value: ThreadFilter; label: string }[] = [
 	{ value: "following", label: "Following" },
 ];
 
-export const matchesThreadFilter = (
-	thread: ThreadView,
-	filter: ThreadFilter,
-) => {
+const matchesThreadFilter = (thread: ThreadView, filter: ThreadFilter) => {
 	if (filter === "unread") return !!thread.viewer.hasUnread;
 	if (filter === "following") return !!thread.viewer.following;
 	return true;
 };
 
-export const newestActivityFirst = (threads: readonly ThreadView[]) =>
+const newestActivityFirst = (threads: readonly ThreadView[]) =>
 	[...threads].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
 
 type ThreadListModel = {

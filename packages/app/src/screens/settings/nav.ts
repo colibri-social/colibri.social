@@ -1,6 +1,6 @@
 import { createContext, useContext } from "solid-js";
 
-export const SETTINGS_PAGE_IDS = [
+const SETTINGS_PAGE_IDS = [
 	"profile",
 	"emojiPacks",
 	"emojiPack",
@@ -21,7 +21,7 @@ export const SETTINGS_PAGE_IDS = [
 
 export type SettingsPageId = (typeof SETTINGS_PAGE_IDS)[number];
 
-export const isSettingsPage = (page: unknown): page is SettingsPageId =>
+const isSettingsPage = (page: unknown): page is SettingsPageId =>
 	(SETTINGS_PAGE_IDS as readonly unknown[]).includes(page);
 
 export type SettingsNav = {

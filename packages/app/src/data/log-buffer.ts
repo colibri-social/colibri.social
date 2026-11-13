@@ -8,7 +8,7 @@ import {
 import type { LogLine } from "@colibri-social/ui";
 import { createSignal, onCleanup } from "solid-js";
 
-export const LOG_REFRESH_MS = 1000;
+const LOG_REFRESH_MS = 1000;
 
 const timeOf = (atMs: number) =>
 	new Date(atMs).toLocaleTimeString(undefined, {

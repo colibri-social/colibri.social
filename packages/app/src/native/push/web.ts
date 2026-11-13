@@ -8,7 +8,7 @@ import {
 	storedValue,
 } from "./types";
 
-export const PUSH_WORKER_URL = "/push-sw.js";
+const PUSH_WORKER_URL = "/push-sw.js";
 
 export type PushWorkers = Pick<
 	ServiceWorkerContainer,
@@ -32,7 +32,7 @@ export const webPushEnvironment = (): WebPushEnvironment | undefined => {
 	return { workers: navigator.serviceWorker, vapidKey };
 };
 
-export const decodeVapidKey = (base64: string): Uint8Array<ArrayBuffer> => {
+const decodeVapidKey = (base64: string): Uint8Array<ArrayBuffer> => {
 	const padding = "=".repeat((4 - (base64.length % 4)) % 4);
 	const normalized = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
 	const raw = atob(normalized);

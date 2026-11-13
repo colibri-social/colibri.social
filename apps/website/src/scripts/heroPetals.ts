@@ -42,13 +42,6 @@ export const PETAL_GRADIENT_STOPS: Array<{ offset: string; color: string }> = [
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
-export const randomPetalStyle = () => ({
-	size: rand(9, 20),
-	opacity: rand(0.18, 0.5),
-	blur: rand(0, 1),
-	swayDur: rand(3, 6),
-});
-
 const pointer = { cx: -1e5, cy: -1e5, vx: 0, vy: 0, t: 0 };
 let pointerBound = false;
 function ensurePointer() {

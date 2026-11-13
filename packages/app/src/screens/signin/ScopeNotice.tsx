@@ -13,9 +13,9 @@ const featureList = new Intl.ListFormat("en", {
 const inSentence = (label: string) =>
 	label.charAt(0).toLowerCase() + label.slice(1);
 
-export const SCOPE_NOTICE_DESCRIPTION = "Review it to keep everything working.";
+const SCOPE_NOTICE_DESCRIPTION = "Review it to keep everything working.";
 
-export const scopeNoticeTitle = (notice: ScopeNoticeState): string => {
+const scopeNoticeTitle = (notice: ScopeNoticeState): string => {
 	if (notice.features.length === 0) {
 		return "Colibri needs another permission.";
 	}

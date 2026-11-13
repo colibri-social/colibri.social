@@ -10,11 +10,11 @@ if (typeof document !== "undefined") {
 	document.addEventListener("visibilitychange", () => setVisible(visibleNow()));
 }
 
-export const documentVisible = visible;
+const documentVisible = visible;
 
 export const appVisible = () => documentVisible() && appActive();
 
-export const ACTIVITY_THROTTLE_MS = 60_000;
+const ACTIVITY_THROTTLE_MS = 60_000;
 
 const ACTIVITY_INPUTS = [
 	"pointerdown",

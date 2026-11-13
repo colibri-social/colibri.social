@@ -28,11 +28,11 @@ import type { MessageListEntry } from "./message-list-model";
 
 export const iphone = { viewport: { defaultViewport: "iphone" } };
 
-export const ALL = createListMessages(10_000);
-export const LAST_TIME = (ALL[ALL.length - 1]?.timestamp as Date).getTime();
-export const NOW = new Date(LAST_TIME + 3_600_000);
+const ALL = createListMessages(10_000);
+const LAST_TIME = (ALL[ALL.length - 1]?.timestamp as Date).getTime();
+const NOW = new Date(LAST_TIME + 3_600_000);
 
-export const DelayedImage = (props: {
+const DelayedImage = (props: {
 	width: number;
 	height: number;
 	delay: number;
@@ -54,7 +54,7 @@ export const DelayedImage = (props: {
 	);
 };
 
-export const Reactions = (props: { count: number }) => (
+const Reactions = (props: { count: number }) => (
 	<div class="flex gap-1">
 		<For each={Array.from({ length: props.count }, (_, index) => index)}>
 			{(index) => (

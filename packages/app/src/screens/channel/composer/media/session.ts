@@ -12,6 +12,4 @@ export const createMediaSession = (preferences: PreferenceStore) => ({
 	recordGif: (gif: Gif) => preferences.recordGif(gif as GifView),
 });
 
-export type MediaSession = ReturnType<typeof createMediaSession>;
-
 export const mediaSession = () => createMediaSession(useData().preferences);

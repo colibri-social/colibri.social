@@ -6,8 +6,8 @@ import {
 	WhatsNewError,
 } from "../packages/lib/src/release-notes.ts";
 import {
-	CLIENT_PACKAGE,
-	clientBump,
+	RELEASE_PACKAGE,
+	releaseBump,
 	listPendingChangesetFiles,
 	readChangeset,
 } from "./lib/changesets.ts";
@@ -95,7 +95,7 @@ const suggestionFor = (summary: string, bump: string): string => {
 
 	return serializeWhatsNewBlock({
 		title: shorten(firstLine),
-		icon: guess ?? "sparkle-fill",
+		icon: guess ?? "stars",
 		body: firstSentence,
 		platforms: ["all"],
 		kind: kindForBump(bump),
@@ -132,7 +132,7 @@ const main = async () => {
 			throw error;
 		}
 
-		const bump = clientBump(changeset);
+		const bump = releaseBump(changeset);
 		if (!bump) continue;
 
 		if (changeset.block) {
@@ -149,7 +149,7 @@ const main = async () => {
 
 		const problem: Problem = {
 			file,
-			message: `declares a ${bump} bump for ${CLIENT_PACKAGE} but has no What's New block`,
+			message: `declares a ${bump} bump for ${RELEASE_PACKAGE} but has no What's New block`,
 			suggestion: suggestionFor(changeset.summary, bump),
 		};
 

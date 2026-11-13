@@ -6,14 +6,6 @@ import type {
 	RoleView,
 } from "./types";
 
-export const PERMISSION_FIELDS = [
-	"ownerOnly",
-	"allowedRoles",
-	"allowedMembers",
-	"visibleToRoles",
-	"visibleToMembers",
-] as const;
-
 const restrictsReading = (value: CategoryPermissions) =>
 	!!value.visibleToRoles?.length || !!value.visibleToMembers?.length;
 

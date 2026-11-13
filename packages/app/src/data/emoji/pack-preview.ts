@@ -68,7 +68,7 @@ const fetchOwner = async (
 	}
 };
 
-export const loadOwner = (data: DataStore, did: Did) => {
+const loadOwner = (data: DataStore, did: Did) => {
 	let cache = owners.get(data);
 	if (!cache) {
 		cache = new Map();

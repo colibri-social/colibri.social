@@ -6,8 +6,8 @@ import type { MessageView } from "./types";
 
 const log = createLogger("media-link");
 
-export const MEDIA_REFRESH_PAGE_SIZE = 20;
-export const MEDIA_REFRESH_TIMEOUT_MS = 15_000;
+const MEDIA_REFRESH_PAGE_SIZE = 20;
+const MEDIA_REFRESH_TIMEOUT_MS = 15_000;
 
 const SIGNATURE_PARAMS = ["exp", "sig"];
 

@@ -9,7 +9,7 @@ import {
 import { createEffect, createSignal, For, on, Show } from "solid-js";
 import { embedHost } from "../../../data/adapters/attachments";
 
-export const LINK_PREVIEWS_COPY = {
+const LINK_PREVIEWS_COPY = {
 	title: "Link previews",
 	description:
 		"Choose which link previews show on this message, then save. Previews you hide can only be brought back by you, and previews a moderator hides can only be brought back by a moderator.",

@@ -3,7 +3,6 @@
 	"references": [
 		{ "path": "./tsconfig.scripts.json" },
 		{ "path": "./apps/website" },
-		{ "path": "./packages/client" },
 		{ "path": "./packages/lib" },
 		{ "path": "./packages/standard-renderer" },
 		{ "path": "./packages/ui" },

@@ -50,7 +50,7 @@ const glyph = (fill: string, face: string) =>
 		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="${fill}"/><text x="24" y="29" font-size="13" text-anchor="middle" font-family="sans-serif" font-weight="700" fill="#111">${face}</text></svg>`,
 	)}`;
 
-export const fixtureEmoji = (index: number): EmojiPackCardEmoji => ({
+const fixtureEmoji = (index: number): EmojiPackCardEmoji => ({
 	id: `at://did:plc:lou/social.colibri.emoji/${index}`,
 	name: `${WORDS[index % WORDS.length]}_${Math.floor(index / WORDS.length) + 1}`,
 	src: glyph(
@@ -68,7 +68,7 @@ export const LOU = {
 	handle: "lou.gg",
 };
 
-export const LONG_OWNER = {
+const LONG_OWNER = {
 	did: "did:plc:longownername",
 	name: "Someone with a remarkably long display name",
 	handle: "someone.with.a.really.long.handle.example.social",

@@ -12,7 +12,7 @@ export type EmojiImage = {
 	pixels?: number;
 };
 
-export type EmojiRef = {
+type EmojiRef = {
 	provider: string;
 	uri: string;
 	owner: Did;
@@ -56,7 +56,7 @@ export type EmojiOwner = {
 	avatar?: string;
 };
 
-export type EmojiFollowKind = "pack" | "emoji";
+type EmojiFollowKind = "pack" | "emoji";
 
 export type EmojiFollowState = "available" | "missing" | "unreachable";
 
@@ -101,7 +101,7 @@ export type WrittenRecord = {
 	value: Record<string, unknown>;
 };
 
-export const IMAGE_PREFERENCE: readonly EmojiFormat[] = [
+const IMAGE_PREFERENCE: readonly EmojiFormat[] = [
 	"webp",
 	"png",
 	"apng",

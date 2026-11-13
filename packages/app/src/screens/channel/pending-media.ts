@@ -1,6 +1,6 @@
 import type { PendingUpload } from "../../data/store";
 
-export const PENDING_MEDIA_RELEASE_MS = 10_000;
+const PENDING_MEDIA_RELEASE_MS = 10_000;
 
 const playsInline = (file: File) => file.type.startsWith("video/");
 

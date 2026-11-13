@@ -266,7 +266,7 @@ const IMAGE_STYLES: Record<string, LinkEmbedImageStyle> = {
 	player: "large",
 };
 
-export const embedMediaItem = (media: EmbedMedia): MediaItem | undefined => {
+const embedMediaItem = (media: EmbedMedia): MediaItem | undefined => {
 	const sized = {
 		width: media.width,
 		height: media.height,
@@ -382,9 +382,6 @@ const formatPublished = (value: string, locale?: string) => {
 		return date.toLocaleString();
 	}
 };
-
-export const isSocialPostEmbed = (embed: LinkEmbed) =>
-	!!embed.post && !!embed.author;
 
 export const toSocialPostProps = (
 	embed: LinkEmbed,

@@ -33,7 +33,7 @@ import {
 } from "../channel/message/types";
 import { createAnchorLinkRefresher } from "./anchor-links";
 
-export const ANCHOR_KEY_PREFIX = "anchor:";
+const ANCHOR_KEY_PREFIX = "anchor:";
 
 const log = createLogger("thread-intro");
 

@@ -33,7 +33,7 @@ import {
 } from "./layers";
 import { createLeaveGuard } from "./leave-guard";
 
-export const SCRIM_OPACITY = 0.42;
+const SCRIM_OPACITY = 0.42;
 const MAX_FRAME_SECONDS = 1 / 30;
 const REDUCED_FADE_MS = 160;
 

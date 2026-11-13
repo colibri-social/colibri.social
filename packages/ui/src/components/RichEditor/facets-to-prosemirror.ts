@@ -19,9 +19,9 @@ type Feature = ColibriRichTextFacet["features"][number];
 type DocJSON = ReturnType<Editor["getJSON"]>;
 type DocNode = DocJSON["content"][number];
 
-export const UNKNOWN_USER_LABEL = "Unknown user";
-export const UNKNOWN_ROLE_LABEL = "Unknown role";
-export const UNRESOLVED_CHANNEL_LABEL = "unknown-channel";
+const UNKNOWN_USER_LABEL = "Unknown user";
+const UNKNOWN_ROLE_LABEL = "Unknown role";
+const UNRESOLVED_CHANNEL_LABEL = "unknown-channel";
 
 export type FacetResolvers = Pick<
 	RichEditorSources,

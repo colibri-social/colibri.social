@@ -21,7 +21,7 @@ const TRANSFER_CODES: ReadonlySet<string> = new Set<TransferOwnershipErrorCode>(
 const isTransferCode = (code: unknown): code is TransferOwnershipErrorCode =>
 	typeof code === "string" && TRANSFER_CODES.has(code);
 
-export const transferOwnershipFailure = (error: unknown) => {
+const transferOwnershipFailure = (error: unknown) => {
 	const failure = classifyThrown(error, {
 		method: colibri.community.transferOwnership.main.nsid,
 	});

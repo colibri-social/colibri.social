@@ -53,7 +53,7 @@ type SidebarProps = {
 	onSelect?: (page: AdminPage) => void;
 };
 
-export const DELETE_SPACE_COPY = {
+const DELETE_SPACE_COPY = {
 	title: (name: string) => `Delete ${name}?`,
 	description:
 		"To delete this Space and all associated data, type in the name of the Space below. This action cannot be undone.",

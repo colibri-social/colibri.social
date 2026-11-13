@@ -43,7 +43,7 @@ const unicodeName = (emoji: string) => {
 	return slug ? (aliasesForSlug(slug)[0] ?? slug) : undefined;
 };
 
-export const reactionName = (
+const reactionName = (
 	reaction: ReactionEmoji,
 	resolve?: ResolveReactionEmoji,
 ) =>

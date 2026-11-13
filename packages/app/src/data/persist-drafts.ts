@@ -231,5 +231,3 @@ export const createComposerDraft = (options: ComposerDraftOptions) => {
 		},
 	};
 };
-
-export type ComposerDraft = ReturnType<typeof createComposerDraft>;

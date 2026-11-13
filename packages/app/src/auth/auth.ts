@@ -78,10 +78,10 @@ const SCOPE_REAPPROVAL_KEY = "colibri:scope-reapproval";
 export const GRANT_REFRESH_AFTER_MS = 15 * 60_000;
 export const NEAR_EXPIRY_MS = 5 * 60_000;
 const SIGN_IN_TIMEOUT_MS = 75_000;
-export const STARTUP_TIMEOUT_MS = 30_000;
-export const BEFORE_SIGN_OUT_TIMEOUT_MS = 3_000;
+const STARTUP_TIMEOUT_MS = 30_000;
+const BEFORE_SIGN_OUT_TIMEOUT_MS = 3_000;
 
-export type SignOutOptions = {
+type SignOutOptions = {
 	beforeSignOut?: () => Promise<unknown>;
 };
 
@@ -108,7 +108,7 @@ export type LoadOAuthClient = (options: {
 	onSessionDeleted: (sub: string, cause: unknown) => void;
 }) => Promise<OAuthClientLike>;
 
-export type AuthStatus =
+type AuthStatus =
 	| "loading"
 	| "failed"
 	| "signedOut"
@@ -116,7 +116,7 @@ export type AuthStatus =
 	| "signedIn"
 	| "expired";
 
-export type SignInPhase = "checking" | "redirecting" | "browser";
+type SignInPhase = "checking" | "redirecting" | "browser";
 
 export type ScopeNotice = {
 	methods: string[];
@@ -217,7 +217,7 @@ const hostOf = (url: string): string | undefined => {
 	}
 };
 
-export const asSignInError = (err: unknown): ColibriError => {
+const asSignInError = (err: unknown): ColibriError => {
 	if (isColibriError(err)) return err;
 	const fromProvider = classifyOAuthError(err);
 	if (fromProvider) return fromProvider;

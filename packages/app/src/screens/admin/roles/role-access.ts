@@ -4,7 +4,7 @@ import { isDefaultRole, roleIdentity } from "../../../data/roles";
 import { useData } from "../../../data/store";
 import type { RoleView } from "../../../data/types";
 
-export const ROLE_MANAGE = "role.manage";
+const ROLE_MANAGE = "role.manage";
 
 export const useRoleAccess = (spaceKey: () => string) => {
 	const data = useData();

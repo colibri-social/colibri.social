@@ -20,7 +20,7 @@ export type JumpCardProps = {
 const motion =
 	"transition-[opacity,translate,filter] ease-out motion-reduce:transition-none reduced-motion:transition-none data-[visible]:duration-200 not-data-[visible]:duration-150 not-data-[visible]:blur-[4px]";
 
-export const newMessagesLabel = (count: number) =>
+const newMessagesLabel = (count: number) =>
 	count === 1 ? "1 new message" : `${count} new messages`;
 
 const statusText = (mode: JumpCardMode, count: number) => {

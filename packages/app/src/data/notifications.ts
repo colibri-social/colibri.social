@@ -207,11 +207,9 @@ export const createNotificationStore = (
 	};
 };
 
-export type NotificationStore = ReturnType<typeof createNotificationStore>;
-
 export type SpaceNotificationLevel = NotificationLevel;
 
-export const DEFAULT_SPACE_NOTIFICATION_LEVEL: SpaceNotificationLevel = "all";
+const DEFAULT_SPACE_NOTIFICATION_LEVEL: SpaceNotificationLevel = "all";
 
 type SpaceMuteSource = Pick<
 	PreferenceStore,
@@ -264,9 +262,7 @@ export const createSpaceNotificationPrefs = (
 	},
 });
 
-export type SpaceNotificationPrefs = ReturnType<
-	typeof createSpaceNotificationPrefs
->;
+type SpaceNotificationPrefs = ReturnType<typeof createSpaceNotificationPrefs>;
 
 const spacePrefsByOwner = new WeakMap<object, SpaceNotificationPrefs>();
 

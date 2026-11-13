@@ -2,7 +2,7 @@ import { toast } from "@colibri-social/ui";
 import { VOICE_MOVE_COPY, VOICE_NOTICE_COPY } from "../../data/error-copy";
 import { setVoiceMoveNotifier, setVoiceNotifier } from "../../data/voice";
 
-export const MOVE_TOAST_ID = "voice-move";
+const MOVE_TOAST_ID = "voice-move";
 
 export const installVoiceNotices = () => {
 	setVoiceNotifier((key) => {

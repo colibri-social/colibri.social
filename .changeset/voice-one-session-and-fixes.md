@@ -1,5 +1,5 @@
 ---
-"@colibri-social/client": patch
+"@colibri-social/wrapper": patch
 ---
 
 Show everyone who is actually in a voice channel, and keep one account to one call.

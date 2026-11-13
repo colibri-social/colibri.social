@@ -1,6 +1,5 @@
 ---
 "@colibri-social/app": minor
-"@colibri-social/preview": minor
 "@colibri-social/ui": patch
 "@colibri-social/lib": patch
 ---

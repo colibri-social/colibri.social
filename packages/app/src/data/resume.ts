@@ -1,8 +1,8 @@
 import { type Accessor, createEffect, createRoot, on } from "solid-js";
 import type { LiveStatus } from "./remote/live";
 
-export const RESUME_AFTER_MS = 5_000;
-export const CATCH_UP_CONCURRENCY = 2;
+const RESUME_AFTER_MS = 5_000;
+const CATCH_UP_CONCURRENCY = 2;
 export const CLOCK_TICK_MS = 5_000;
 export const CLOCK_JUMP_MS = 15_000;
 

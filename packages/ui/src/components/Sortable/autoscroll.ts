@@ -59,7 +59,7 @@ export const scrollParent = (element: Element): HTMLElement => {
 const isDocumentScroller = (element: Element) =>
 	element === document.scrollingElement || element === document.documentElement;
 
-export const scrollerViewport = (scroller: HTMLElement): AutoscrollEdges => {
+const scrollerViewport = (scroller: HTMLElement): AutoscrollEdges => {
 	if (isDocumentScroller(scroller))
 		return {
 			start: 0,

@@ -3,7 +3,7 @@ import { createSignal } from "solid-js";
 import type { DeviceNotifications } from "../native/notifications/device";
 import type { OsNotifier } from "../native/notifications/index";
 
-export const NOTIFICATION_PROMPT_COPY = {
+const NOTIFICATION_PROMPT_COPY = {
 	title: "Turn on notifications?",
 	description:
 		"Colibri can let you know about new messages, replies and mentions while it's in the background. You can change this anytime in Settings.",

@@ -24,7 +24,7 @@ export type Params = Record<
 	string | number | boolean | ReadonlyArray<string> | undefined
 >;
 
-export type RawBody = { data: Blob; encoding: string };
+type RawBody = { data: Blob; encoding: string };
 
 export type CallInit = {
 	params?: Params;

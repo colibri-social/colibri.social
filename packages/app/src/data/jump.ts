@@ -20,5 +20,3 @@ export const createJumpRequests = () => {
 		},
 	};
 };
-
-export type JumpRequests = ReturnType<typeof createJumpRequests>;

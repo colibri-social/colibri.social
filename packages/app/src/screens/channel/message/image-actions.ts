@@ -69,7 +69,7 @@ const toPng = async (blob: Blob): Promise<Blob> => {
 	);
 };
 
-export const imageFileName = (target: ImageTarget, type?: string) => {
+const imageFileName = (target: ImageTarget, type?: string) => {
 	const named = target.name?.trim();
 	if (named) return named;
 	const fromUrl = (() => {

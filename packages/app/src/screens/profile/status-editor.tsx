@@ -58,7 +58,7 @@ export const statusInputFrom = (
 	return input;
 };
 
-export const CLEARED_STATUS: StatusInput = {
+const CLEARED_STATUS: StatusInput = {
 	text: "",
 	emoji: "",
 	removeCustomEmoji: true,

@@ -9,7 +9,7 @@ export type ExperimentDefinition = {
 
 export const VOICE_RELAY_EXPERIMENT = "voice-relay-only-v1";
 
-export const EXPERIMENTS: readonly ExperimentDefinition[] = [
+const EXPERIMENTS: readonly ExperimentDefinition[] = [
 	{
 		id: VOICE_RELAY_EXPERIMENT,
 		name: "Route calls through the relay",

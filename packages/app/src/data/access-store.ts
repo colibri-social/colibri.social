@@ -189,5 +189,3 @@ export const createAccessStore = (options: {
 			source.joinCommunity({ community, invitation }),
 	};
 };
-
-export type AccessStore = ReturnType<typeof createAccessStore>;

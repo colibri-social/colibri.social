@@ -5,7 +5,7 @@ import { withLatency } from "./latency";
 import { asDatetime } from "./refs";
 import type { World } from "./world";
 
-export const MOCK_MIGRATION_STEPS = [
+const MOCK_MIGRATION_STEPS = [
 	"readingLegacyRepo",
 	"creatingSpaces",
 	"writingProfile",

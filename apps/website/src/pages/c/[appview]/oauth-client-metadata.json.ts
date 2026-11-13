@@ -15,7 +15,7 @@ import { buildScopes } from "@/utils/atproto/scopes";
  * origin has no required relationship to the AppView domain.
  *
  * `params.appview` is the AppView host (e.g. `api.example.com`); the client
- * builds the matching `client_id` in `makeClientId` (packages/client auth.ts).
+ * builds the matching `client_id` in packages/app/src/auth/client-id.ts.
  */
 
 /** Reject anything that isn't a plausible bare hostname before minting a DID. */

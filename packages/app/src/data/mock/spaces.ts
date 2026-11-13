@@ -1,6 +1,6 @@
 import { NAMED_PEOPLE, VIEWER_KEY } from "./people";
 
-export type ChannelSeed = {
+type ChannelSeed = {
 	skey: string;
 	name: string;
 	kind: "text" | "voice";
@@ -9,7 +9,7 @@ export type ChannelSeed = {
 	private?: boolean;
 };
 
-export type RoleSeed = {
+type RoleSeed = {
 	rkey: string;
 	name: string;
 	color?: string;
@@ -21,7 +21,7 @@ export type RoleSeed = {
 	permissions: string[];
 };
 
-export type CategorySeed = { rkey: string; name: string };
+type CategorySeed = { rkey: string; name: string };
 
 export type SpaceSeed = {
 	key: string;

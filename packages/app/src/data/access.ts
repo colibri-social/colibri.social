@@ -13,11 +13,11 @@ export type InvitationPreview = {
 	community: CommunityView;
 };
 
-export type JoinStatus = "joined" | "pending";
+type JoinStatus = "joined" | "pending";
 
 export type JoinResult = { status: JoinStatus; member?: MemberView };
 
-export type AccessSubjectInput = { community: Did; subject: Did };
+type AccessSubjectInput = { community: Did; subject: Did };
 
 export type CreateInvitationInput = {
 	community: Did;

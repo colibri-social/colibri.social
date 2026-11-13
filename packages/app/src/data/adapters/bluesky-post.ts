@@ -13,7 +13,7 @@ const POST_PATH = /^\/profile\/([^/]+)\/post\/([^/]+)\/?$/;
 
 const KNOWN_HOSTS = new Set(BSKY_ALTERNATIVES.map((entry) => entry.base));
 
-export const isBlueskyHost = (host: string, extra?: string) =>
+const isBlueskyHost = (host: string, extra?: string) =>
 	KNOWN_HOSTS.has(host) || (!!extra && host === extra);
 
 export const parseBlueskyPostUrl = (
@@ -33,7 +33,7 @@ export const parseBlueskyPostUrl = (
 	return { authority: decodeURIComponent(match[1]), rkey: match[2] };
 };
 
-export const blueskyPostUrl = (
+const blueskyPostUrl = (
 	client: Pick<ResolvedBlueskyClient, "base">,
 	authority: string,
 	rkey: string,

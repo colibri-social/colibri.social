@@ -15,7 +15,7 @@ import { MANAGING_APP } from "./world";
 
 const DAY = 24 * 60 * 60_000;
 
-export const OWNER_PERMISSIONS = [
+const OWNER_PERMISSIONS = [
 	"community.manage",
 	"community.delete",
 	"category.create",
@@ -42,14 +42,14 @@ export const OWNER_PERMISSIONS = [
 
 const MEMBER_PERMISSIONS = ["thread.create", "invitation.create"];
 
-export type StarterLayout = {
+type StarterLayout = {
 	text: string;
 	voice: string;
 	textCategory: string;
 	voiceCategory: string;
 };
 
-export const STARTER_LAYOUT: StarterLayout = {
+const STARTER_LAYOUT: StarterLayout = {
 	text: "general",
 	voice: "General",
 	textCategory: "Text channels",
@@ -127,7 +127,7 @@ export const DISCOVERABLE: DiscoverableSeed[] = [
 	},
 ];
 
-export const randomDid = (salt: number) => {
+const randomDid = (salt: number) => {
 	const random = createRandom(salt);
 	const alphabet = "abcdefghijklmnopqrstuvwxyz234567";
 	let out = "";
@@ -280,7 +280,7 @@ export const createCommunityRecord = (
 	};
 };
 
-export const discoverableView = (
+const discoverableView = (
 	seed: DiscoverableSeed,
 	viewer: CommunityView["viewer"],
 ): CommunityView => {

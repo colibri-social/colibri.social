@@ -58,7 +58,7 @@ export type LiveSocket = Pick<
 	"readyState" | "send" | "close" | "addEventListener"
 >;
 
-export type LiveEnvironment = {
+type LiveEnvironment = {
 	onWake: (wake: () => void) => () => void;
 };
 
@@ -92,10 +92,10 @@ export type LiveConnection = {
 	moveTo: (host: string) => void;
 };
 
-export const RECONNECT_BASE_MS = 1_000;
-export const RECONNECT_MAX_MS = 30_000;
+const RECONNECT_BASE_MS = 1_000;
+const RECONNECT_MAX_MS = 30_000;
 export const HEARTBEAT_MS = 20_000;
-export const STALE_MS = 30_000;
+const STALE_MS = 30_000;
 export const PROBE_TIMEOUT_MS = 5_000;
 export const UNREACHABLE_AFTER = 4;
 

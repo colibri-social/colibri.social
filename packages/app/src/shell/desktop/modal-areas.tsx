@@ -57,7 +57,7 @@ const STANDALONE: readonly string[] = [
 	"category-audience",
 ];
 
-export const areaOf = (layer: Layer | undefined): Area | undefined => {
+const areaOf = (layer: Layer | undefined): Area | undefined => {
 	if (!layer) return undefined;
 	if (layer.kind === "admin") {
 		if (CREATABLE.includes(layer.page) && parseEntryId(layer.id).creating) {

@@ -23,12 +23,12 @@ import type {
 
 const log = createLogger("outbox");
 
-export const OUTBOX_MAX_ATTEMPTS = 8;
-export const OUTBOX_RETRY_BASE_MS = 2_000;
-export const OUTBOX_RETRY_MAX_MS = 60_000;
+const OUTBOX_MAX_ATTEMPTS = 8;
+const OUTBOX_RETRY_BASE_MS = 2_000;
+const OUTBOX_RETRY_MAX_MS = 60_000;
 export const OUTBOX_MAX_QUEUED_BYTES = 256 * 1024 * 1024;
 export const OUTBOX_BLOB_REF_TTL_MS = 10 * 60 * 1000;
-export const OUTBOX_SEND_KEY_MAX_AGE_MS = 23 * 60 * 60 * 1000;
+const OUTBOX_SEND_KEY_MAX_AGE_MS = 23 * 60 * 60 * 1000;
 const UPLOAD_CONCURRENCY = 3;
 
 type SendOp = Extract<OutboxOp, { t: "send" }>;
@@ -56,7 +56,7 @@ export type OutboxOptions = {
 	watch?: boolean;
 };
 
-export const outboxBackoff = (attempts: number, random: () => number) =>
+const outboxBackoff = (attempts: number, random: () => number) =>
 	Math.min(OUTBOX_RETRY_BASE_MS * 2 ** (attempts - 1), OUTBOX_RETRY_MAX_MS) *
 	(0.8 + random() * 0.4);
 
@@ -681,5 +681,3 @@ export const createOutbox = (options: OutboxOptions) => {
 		},
 	};
 };
-
-export type Outbox = ReturnType<typeof createOutbox>;

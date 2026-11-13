@@ -150,7 +150,7 @@ export const emojiBlobLocator =
 		return `${origin ?? ""}/xrpc/${colibri.blob.get.main.nsid}?${query}`;
 	};
 
-export const emojiFromWire = (
+const emojiFromWire = (
 	wire: WireEmoji,
 	locate: BlobLocator,
 ): EmojiView | undefined => {
@@ -214,7 +214,7 @@ const ownerFromWire = (wire: WireOwner): EmojiOwner => ({
 	avatar: wire.avatar,
 });
 
-export const followFromWire = (
+const followFromWire = (
 	wire: WireFollow,
 	locate: BlobLocator,
 ): EmojiFollowView => ({

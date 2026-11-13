@@ -9,7 +9,7 @@ import { copyPackLink } from "../../admin/emoji/emoji-shared";
 
 const log = createLogger("followed-emoji");
 
-export const FOLLOWED_EMOJI_COPY = {
+const FOLLOWED_EMOJI_COPY = {
 	packs: "Followed packs",
 	emoji: "Followed emoji",
 	remove: "Remove",

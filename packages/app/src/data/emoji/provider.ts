@@ -10,7 +10,7 @@ import {
 	type WrittenRecord,
 } from "./model";
 
-export type EmojiItemDraft = {
+type EmojiItemDraft = {
 	owner: Did;
 	name: string;
 	alt?: string;
@@ -19,7 +19,7 @@ export type EmojiItemDraft = {
 	createdAt: Datetime;
 };
 
-export type EmojiPackDraft = {
+type EmojiPackDraft = {
 	owner: Did;
 	rkey: string;
 	name: string;

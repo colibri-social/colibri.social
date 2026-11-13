@@ -15,7 +15,7 @@ const CODE_MAP: Record<NativeErrorCode, ColibriErrorCode> = {
 	Failed: "NativeFailed",
 };
 
-export const DEEP_LINK_EVENT = "deep-link://new-url";
+const DEEP_LINK_EVENT = "deep-link://new-url";
 
 export const isNativeShell = (): boolean =>
 	typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;

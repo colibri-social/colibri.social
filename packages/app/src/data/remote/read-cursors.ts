@@ -10,7 +10,7 @@ import {
 const log = createLogger("remote/read-cursors");
 
 export const READ_CURSOR_DEBOUNCE_MS = 1_000;
-export const READ_CURSOR_MAX_INTERVAL_MS = 5_000;
+const READ_CURSOR_MAX_INTERVAL_MS = 5_000;
 
 export type ChannelCursor = { channel: string; cursor: string };
 
@@ -136,5 +136,3 @@ export const createReadCursorWriter = <H = ReturnType<typeof setTimeout>>(
 		},
 	};
 };
-
-export type ReadCursorWriter = ReturnType<typeof createReadCursorWriter>;

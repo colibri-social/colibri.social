@@ -12,7 +12,7 @@ const METHOD = "com.atproto.repo.listRecords";
 
 export type ActivityProvider = "teal.fm" | "rocksky.app" | "atradio.fm";
 
-export const ACTIVITY_PROVIDERS: ReadonlyArray<{
+const ACTIVITY_PROVIDERS: ReadonlyArray<{
 	id: ActivityProvider;
 	collections: readonly string[];
 }> = [
@@ -35,7 +35,7 @@ export const ACTIVITY_PROVIDERS: ReadonlyArray<{
 	},
 ];
 
-export const PRESENT_TTL_MS = 6 * 60 * 60 * 1000;
+const PRESENT_TTL_MS = 6 * 60 * 60 * 1000;
 export const ABSENT_TTL_MS = 60_000;
 export const FAILURE_TTL_MS = 30_000;
 const REQUEST_TIMEOUT_MS = 8000;
@@ -145,7 +145,3 @@ export const createActivitySourceDetector = (
 
 	return { detect, peek, invalidate };
 };
-
-export type ActivitySourceDetector = ReturnType<
-	typeof createActivitySourceDetector
->;

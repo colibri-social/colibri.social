@@ -2,7 +2,7 @@ import { isThreadSpace, parseSpace } from "@colibri-social/lib";
 import { createActivationBus } from "../notifications/activation";
 import type { OsActivation } from "../notifications/types";
 
-export const NOTIFICATION_LINK_PATH = "/notification";
+const NOTIFICATION_LINK_PATH = "/notification";
 
 const text = (value: unknown): string | undefined =>
 	typeof value === "string" && value.length > 0 ? value : undefined;
@@ -63,12 +63,6 @@ export const parseNotificationLink = (
 };
 
 export const pushActivations = createActivationBus();
-
-export const openPushActivation = (data: unknown): boolean => {
-	const activation = parsePushActivation(data);
-	if (activation) pushActivations.emit(activation);
-	return !!activation;
-};
 
 export const openNotificationLink = (url: string): boolean => {
 	if (!isNotificationLink(url)) return false;

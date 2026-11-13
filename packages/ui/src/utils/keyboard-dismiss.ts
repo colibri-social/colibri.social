@@ -11,9 +11,7 @@ const TEXT_INPUT_TYPES = new Set([
 	"number",
 ]);
 
-export const isEditableElement = (
-	element: Element | null,
-): element is HTMLElement => {
+const isEditableElement = (element: Element | null): element is HTMLElement => {
 	if (!(element instanceof HTMLElement)) return false;
 	if (element.isContentEditable) return true;
 	if (element instanceof HTMLTextAreaElement)
@@ -34,7 +32,7 @@ const hasCoarsePointer = () =>
 	typeof window.matchMedia === "function" &&
 	window.matchMedia("(pointer: coarse)").matches;
 
-export const usesOnScreenKeyboard = () => hasCoarsePointer() || touchModality();
+const usesOnScreenKeyboard = () => hasCoarsePointer() || touchModality();
 
 export const dismissKeyboard = (inside?: Element | null) => {
 	if (typeof document === "undefined" || !usesOnScreenKeyboard()) return;

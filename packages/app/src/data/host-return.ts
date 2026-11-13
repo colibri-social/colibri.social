@@ -44,7 +44,7 @@ export const readHostReturn = (
 const handlers = new Set<(outcome: HostReturn) => void>();
 let pending: HostReturn | undefined;
 
-export const deliverHostReturn = (outcome: HostReturn) => {
+const deliverHostReturn = (outcome: HostReturn) => {
 	if (handlers.size === 0) {
 		pending = outcome;
 		return;

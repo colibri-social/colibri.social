@@ -19,9 +19,9 @@ import type { MessageView, SpaceRef } from "./types";
 
 const log = createLogger("message-cache");
 
-export const CACHE_DB_NAME = "colibri-app-cache";
-export const CACHE_DB_VERSION = 2;
-export const CACHE_SCHEMA_VERSION = 2;
+const CACHE_DB_NAME = "colibri-app-cache";
+const CACHE_DB_VERSION = 2;
+const CACHE_SCHEMA_VERSION = 2;
 const META = "meta";
 const MESSAGES = "messages";
 export const SPACES_STORE = "spaces";
@@ -46,8 +46,7 @@ export type MessageCache = {
 export const cacheNamespace = (appViewDid: string, did: string) =>
 	`${appViewDid}:${did}`;
 
-export const windowKey = (namespace: string, space: string) =>
-	`${namespace}:${space}`;
+const windowKey = (namespace: string, space: string) => `${namespace}:${space}`;
 
 let shared: KvStore | undefined;
 export const sharedStore = () => {

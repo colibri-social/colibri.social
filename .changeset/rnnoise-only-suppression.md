@@ -1,7 +1,6 @@
 ---
 "@colibri-social/assets": patch
-"@colibri-social/client": minor
-"@colibri-social/wrapper": patch
+"@colibri-social/wrapper": minor
 "@colibri-social/website": patch
 ---
 

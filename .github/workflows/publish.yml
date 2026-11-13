@@ -124,7 +124,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/assets/files/twemoji
-          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/assets/package.json') }}
           restore-keys: twemoji-${{ runner.os }}-
 
       - name: Fetch twemoji assets
@@ -366,7 +366,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/assets/files/twemoji
-          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/assets/package.json') }}
           restore-keys: twemoji-${{ runner.os }}-
 
       - name: Fetch twemoji assets
@@ -491,7 +491,7 @@ jobs:
         if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
         run: |
           set -euo pipefail
-          NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
+          NOTES_VERSION=$(node -p "require('./packages/wrapper/package.json').version")
           node --experimental-strip-types scripts/render-release-notes.ts \
             --version="$NOTES_VERSION" --platform=macos --max=4000 \
             --out="$RUNNER_TEMP/whats-new.txt"
@@ -582,7 +582,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/assets/files/twemoji
-          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/assets/package.json') }}
           restore-keys: twemoji-${{ runner.os }}-
 
       - name: Fetch twemoji assets
@@ -706,7 +706,7 @@ jobs:
         if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
         run: |
           set -euo pipefail
-          NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
+          NOTES_VERSION=$(node -p "require('./packages/wrapper/package.json').version")
           node --experimental-strip-types scripts/render-release-notes.ts \
             --version="$NOTES_VERSION" --platform=ios --max=4000 \
             --out="$RUNNER_TEMP/whats-new.txt"
@@ -939,7 +939,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p whatsnew
-          NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
+          NOTES_VERSION=$(node -p "require('./packages/wrapper/package.json').version")
           node --experimental-strip-types scripts/render-release-notes.ts \
             --version="$NOTES_VERSION" --platform=android --max=500 \
             ${{ inputs.channel == 'stable' && inputs.play_track == 'production' && '--strict' || '' }} \
@@ -1018,7 +1018,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/assets/files/twemoji
-          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/assets/package.json') }}
           restore-keys: twemoji-${{ runner.os }}-
 
       - name: Fetch twemoji assets

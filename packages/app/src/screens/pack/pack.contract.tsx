@@ -17,7 +17,7 @@ import { useStack } from "../../shell/stack";
 
 export type PackArgs = { did: string; rkey: string };
 
-export const PACK_COPY = {
+const PACK_COPY = {
 	title: "Emoji pack",
 } as const;
 

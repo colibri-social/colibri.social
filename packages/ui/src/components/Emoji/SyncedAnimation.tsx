@@ -41,7 +41,7 @@ const observed = new Map<Element, Drawer>();
 let observer: IntersectionObserver | undefined;
 let tick = 0;
 
-export const canSyncAnimation = () => {
+const canSyncAnimation = () => {
 	return (
 		typeof ImageDecoder !== "undefined" &&
 		typeof createImageBitmap !== "undefined" &&

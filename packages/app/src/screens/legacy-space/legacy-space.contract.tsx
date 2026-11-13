@@ -22,14 +22,14 @@ const log = createLogger("legacy-space");
 
 export type LegacySpaceArgs = { did: string };
 
-export const movedFrom = (
+const movedFrom = (
 	community: Pick<CommunityView, "did" | "migratedFrom">,
 	legacy: string,
 ) =>
 	community.did === legacy ||
 	community.migratedFrom?.startsWith(`at://${legacy}/`) === true;
 
-export const variantOf = (
+const variantOf = (
 	entry: LegacyCommunityView,
 	reviewing: boolean,
 ): LegacySpaceVariant => {

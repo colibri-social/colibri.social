@@ -5,17 +5,17 @@ const log = createLogger("nodes");
 
 export const LIST_NODES_PATH = "/xrpc/social.colibri.beta.server.listNodes";
 
-export const PROBE_TIMEOUT_MS = 3_000;
+const PROBE_TIMEOUT_MS = 3_000;
 
-export const PROBE_ROUNDS = 2;
+const PROBE_ROUNDS = 2;
 
 export const REFRESH_AFTER_MS = 10 * 60_000;
 
 export const STORAGE_KEY = "colibri.nodes.v1";
 
-export type NodeRole = "main" | "failover" | "api" | "live" | "voice";
+type NodeRole = "main" | "failover" | "api" | "live" | "voice";
 
-export type NetworkNode = {
+type NetworkNode = {
 	id: string;
 	region: string;
 	roles: string[];
@@ -24,7 +24,7 @@ export type NetworkNode = {
 	rttMs: number | null;
 };
 
-export type NodeStorage = Pick<Storage, "getItem" | "setItem">;
+type NodeStorage = Pick<Storage, "getItem" | "setItem">;
 
 export type NodeDirectoryOptions = {
 	mainUrl: string;
@@ -100,7 +100,7 @@ const parseNodes = (body: unknown): Omit<NetworkNode, "rttMs">[] => {
 	});
 };
 
-export const byLatency = (nodes: readonly NetworkNode[]): NetworkNode[] => {
+const byLatency = (nodes: readonly NetworkNode[]): NetworkNode[] => {
 	return [...nodes].sort(
 		(a, b) =>
 			(a.rttMs ?? Number.POSITIVE_INFINITY) -

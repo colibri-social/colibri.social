@@ -4,7 +4,7 @@ export const FIRST_FRAME_FRAGMENT = "#t=0.001";
 
 const SIGNATURE_PARAMS = ["exp", "sig"];
 
-export const firstFrameSrc = (src: string) => {
+const firstFrameSrc = (src: string) => {
 	if (!src || src.includes("#") || src.startsWith("data:")) return src;
 	return `${src}${FIRST_FRAME_FRAGMENT}`;
 };
@@ -32,7 +32,7 @@ export const sameMediaSource = (
 
 let probe: HTMLVideoElement | undefined;
 
-export const playableType = (mimeType: string | undefined) => {
+const playableType = (mimeType: string | undefined) => {
 	if (!mimeType || typeof document === "undefined") return undefined;
 	probe ??= document.createElement("video");
 	return probe.canPlayType(mimeType) ? mimeType : undefined;

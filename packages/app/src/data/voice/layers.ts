@@ -20,9 +20,9 @@ export type ConsumerPreference = {
 
 export const PREFERENCE_DEBOUNCE_MS = 300;
 
-export const THUMBNAIL_HEIGHT = 160;
+const THUMBNAIL_HEIGHT = 160;
 
-export const THUMBNAIL_TEMPORAL_LAYER = 1;
+const THUMBNAIL_TEMPORAL_LAYER = 1;
 
 const TOP_LAYER_HEIGHT: Record<VoiceVideoSource, number> = {
 	cam: 720,

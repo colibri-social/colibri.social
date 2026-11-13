@@ -32,13 +32,13 @@ export const normalizeHex = (input: string): string | undefined => {
 	return `#${full}`;
 };
 
-export const hexToRgb = (hex: string): [number, number, number] => {
+const hexToRgb = (hex: string): [number, number, number] => {
 	const normalized = normalizeHex(hex) ?? "#000000";
 	const value = Number.parseInt(normalized.slice(1), 16);
 	return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 };
 
-export const rgbToHex = (red: number, green: number, blue: number) =>
+const rgbToHex = (red: number, green: number, blue: number) =>
 	`#${[red, green, blue]
 		.map((channel) =>
 			Math.round(clamp(channel, 0, 255))

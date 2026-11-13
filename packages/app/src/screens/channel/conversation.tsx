@@ -128,12 +128,12 @@ export const DELETED_PING_COPY = "The message that pinged you was deleted.";
 export const MISSING_LINKED_MESSAGE_COPY =
 	"That message isn't here anymore. It may have been deleted.";
 const FOCUS_FRAMES = 30;
-export const CLOSED_THREAD_COPY =
+const CLOSED_THREAD_COPY =
 	"This thread is closed. Sending a message reopens it.";
-export const LOCKED_THREAD_COPY =
+const LOCKED_THREAD_COPY =
 	"This thread is locked. Only moderators can post here.";
 const QUICK_REACTION_COUNT = 4;
-export const HIDE_FAILED_COPY = {
+const HIDE_FAILED_COPY = {
 	hide: "Couldn't hide the message",
 	unhide: "Couldn't unhide the message",
 } as const;
@@ -144,7 +144,7 @@ const blueskyPosts = new Map<string, Promise<BlueskyPostView | undefined>>();
 const SEEN_RATIO = 0.6;
 const SEEN_THRESHOLDS = [0, 0.25, 0.5, SEEN_RATIO, 0.8, 1];
 
-export const laterRound = (label: string) => () =>
+const laterRound = (label: string) => () =>
 	toast.info(`${label} arrives in a later round`);
 
 export const createConversation = (options: ConversationOptions) => {

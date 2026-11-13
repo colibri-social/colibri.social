@@ -101,14 +101,14 @@ export const fetchSupporterAccount = async (
 
 export const LINK_METHOD = "social.colibri.labeler.linkExternalAccount";
 export const UNLINK_METHOD = "social.colibri.labeler.unlinkExternalAccount";
-export const OPEN_COLLECTIVE_PLATFORM = "opencollective";
+const OPEN_COLLECTIVE_PLATFORM = "opencollective";
 
 const TOKEN_LIFETIME_S = 60;
 const LINK_TIMEOUT_MS = 15_000;
 
 export type ServiceAuthRequest = { aud: string; lxm: string; exp: number };
 
-export type UnlinkResult = {
+type UnlinkResult = {
 	unlinked: boolean;
 	negatedLabelVals: string[];
 };

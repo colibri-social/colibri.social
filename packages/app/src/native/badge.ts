@@ -5,7 +5,7 @@ import type { DataStore } from "../data/store";
 import type { NotificationView } from "../data/types";
 import { resolveChromeMode } from "../shell/desktop/window-chrome";
 
-export const BADGE_DELAY_MS = 250;
+const BADGE_DELAY_MS = 250;
 
 export const badgeCount = (
 	items: readonly NotificationView[],

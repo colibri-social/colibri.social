@@ -42,7 +42,7 @@ export const copyPackLink = async (packId: string) => {
 	else toast.error("The pack link couldn't be copied");
 };
 
-export const EMOJI_MAX_BYTES =
+const EMOJI_MAX_BYTES =
 	emojiRegistry.get(DEFAULT_EMOJI_PROVIDER)?.maxImageBytes ?? 0;
 
 export const emojiFailure = (error: unknown, fallback: string) => {
@@ -95,8 +95,6 @@ export const useEmojiAdmin = (space: string) => {
 		uploaderOf,
 	};
 };
-
-export type EmojiAdmin = ReturnType<typeof useEmojiAdmin>;
 
 export type EmojiOwner = {
 	owner: () => Did | undefined;

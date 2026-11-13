@@ -136,9 +136,7 @@ export const openAppLink = (
 	return true;
 };
 
-export const takePendingLink = (
-	now: () => number = Date.now,
-): Route | undefined => {
+const takePendingLink = (now: () => number = Date.now): Route | undefined => {
 	const pending = readStoredJSON(DEVICE_KEYS.pendingLink, isPendingLink);
 	if (!pending) return undefined;
 	writeStoredJSON(DEVICE_KEYS.pendingLink, undefined);

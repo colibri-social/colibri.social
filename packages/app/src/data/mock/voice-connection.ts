@@ -6,8 +6,8 @@ import {
 	type VoiceConnectionMonitor,
 } from "../voice/types";
 
-export type { VoiceConnection, VoiceConnectionMonitor } from "../voice/types";
-export { DISCONNECTED, qualityFor } from "../voice/types";
+export type { VoiceConnectionMonitor } from "../voice/types";
+export { qualityFor } from "../voice/types";
 
 export type SimulatedConnectionOptions = {
 	random?: () => number;

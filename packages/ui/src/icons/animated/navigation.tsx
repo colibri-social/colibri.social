@@ -12,11 +12,9 @@ import {
 	navUpload0,
 	navUpload1,
 } from "../solar/navigation";
-import type { SolarPath } from "../solar/paths";
 import {
 	AnimatedIcon,
 	type AnimatedIconProps,
-	type HoverEffect,
 	LinearShape,
 	SolarShape,
 	Turn,
@@ -24,50 +22,6 @@ import {
 
 const nudge = (x: string, y: string) => ({ "--fx-x": x, "--fx-y": y });
 const delay = (ms: number) => ({ "--fx-delay": `${ms}ms` });
-
-const _NudgeIcon = (
-	props: AnimatedIconProps & {
-		iconName: string;
-		path: SolarPath;
-		x: string;
-		y: string;
-	},
-) => {
-	const [local, rest] = splitProps(props, ["iconName", "path", "x", "y"]);
-	return (
-		<AnimatedIcon {...rest} name={local.iconName}>
-			<SolarShape
-				path={local.path}
-				name="glyph"
-				hover="nudge"
-				attention="nudge"
-				vars={nudge(local.x, local.y)}
-			/>
-		</AnimatedIcon>
-	);
-};
-
-const _LinearNudgeIcon = (
-	props: AnimatedIconProps & {
-		iconName: string;
-		d: string;
-		x: string;
-		y: string;
-	},
-) => {
-	const [local, rest] = splitProps(props, ["iconName", "d", "x", "y"]);
-	return (
-		<AnimatedIcon {...rest} name={local.iconName}>
-			<LinearShape
-				d={local.d}
-				name="glyph"
-				hover="nudge"
-				attention="nudge"
-				vars={nudge(local.x, local.y)}
-			/>
-		</AnimatedIcon>
-	);
-};
 
 const CHEVRON_RIGHT = "M9 5L15 12L9 19";
 
@@ -100,23 +54,6 @@ export const AnimatedAddIcon = (props: AnimatedIconProps) => (
 		/>
 	</AnimatedIcon>
 );
-
-const _dotParts = (
-	paths: SolarPath[],
-	origins: string[],
-	effect: HoverEffect,
-	extra: Record<`--fx-${string}`, string>,
-) =>
-	paths.map((path, index) => (
-		<SolarShape
-			path={path}
-			name={`dot-${index}`}
-			hover={effect}
-			attention={effect}
-			origin={origins[index]}
-			vars={{ ...extra, ...delay(index * 60) }}
-		/>
-	));
 
 export const AnimatedMaximizeIcon = (props: AnimatedIconProps) => (
 	<AnimatedIcon {...props} name="maximize">

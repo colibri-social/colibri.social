@@ -1,7 +1,7 @@
 import { classifyThrown, createLogger } from "@colibri-social/lib";
 import { messageRecord } from "./activation";
 
-export const PENDING_MARK_READ_EVENT = "colibri-mark-read-pending";
+const PENDING_MARK_READ_EVENT = "colibri-mark-read-pending";
 
 export type PendingMarkRead = {
 	channelUri: string;
@@ -21,7 +21,7 @@ type Listenable = Pick<EventTarget, "addEventListener" | "removeEventListener">;
 
 const log = createLogger("push");
 
-export const markReadBridge = (): MarkReadBridge | undefined =>
+const markReadBridge = (): MarkReadBridge | undefined =>
 	typeof window === "undefined"
 		? undefined
 		: (window as { __colibriNotificationActions?: MarkReadBridge })
@@ -43,7 +43,7 @@ const isEntry = (value: unknown): value is PendingMarkRead => {
 	);
 };
 
-export const readPendingMarkRead = (
+const readPendingMarkRead = (
 	bridge: MarkReadBridge | undefined,
 ): PendingMarkRead[] => {
 	if (!bridge) return [];
@@ -55,7 +55,7 @@ export const readPendingMarkRead = (
 	}
 };
 
-export const markReadTarget = (entry: PendingMarkRead): MarkReadTarget => {
+const markReadTarget = (entry: PendingMarkRead): MarkReadTarget => {
 	const record = messageRecord(entry.messageUri ?? undefined);
 	const space = entry.threadUri || record?.space || entry.channelUri;
 	return record && record.space === space

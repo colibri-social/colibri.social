@@ -9,7 +9,7 @@ export const moderatorRole: HoistedRole = {
 	badge: { kind: "icon", name: "shield-check", color: "#76c4e5" },
 };
 
-export const artistRole: RoleIdentity = {
+const artistRole: RoleIdentity = {
 	id: "artists",
 	name: "Artists",
 	color: "#ffd857",

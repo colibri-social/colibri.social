@@ -43,7 +43,7 @@ export type RichTextValue = { text: string; facets?: Facet[] };
 
 const encoder = new TextEncoder();
 
-export const byteLength = (value: string) => encoder.encode(value).length;
+const byteLength = (value: string) => encoder.encode(value).length;
 
 export const rich = (...parts: Part[]): RichTextValue => {
 	let text = "";

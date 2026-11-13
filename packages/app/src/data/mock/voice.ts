@@ -20,7 +20,7 @@ const SEEDED_ROOMS: {
 	{ space: "owls", skey: "quiet-studio", count: 1 },
 ];
 
-export const VOICE_TICK_MS = 1_400;
+const VOICE_TICK_MS = 1_400;
 
 const voiceRef = (world: World, spaceKey: string, skey: string) =>
 	world.spaces

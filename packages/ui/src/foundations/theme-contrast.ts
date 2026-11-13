@@ -4,7 +4,7 @@ export type Rgba = [number, number, number, number];
 
 export type ThemeTokens = Record<string, string>;
 
-export type ContrastKind = "text" | "ui";
+type ContrastKind = "text" | "ui";
 
 export type ContrastPair = {
 	id: string;
@@ -24,8 +24,8 @@ export type ParityPair = {
 
 export const THEMES: readonly Theme[] = ["dark", "light"];
 
-export const TEXT_MINIMUM = 4.5;
-export const UI_MINIMUM = 3;
+const TEXT_MINIMUM = 4.5;
+const UI_MINIMUM = 3;
 export const PARITY_TOLERANCE = 0.95;
 
 export const SURFACES = [
@@ -269,11 +269,10 @@ const declarations = (body: string): ThemeTokens => {
 const escapeRegExp = (value: string) =>
 	value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-export const DARK_SELECTOR = ':root,\n[data-theme="dark"]';
-export const LIGHT_SELECTOR =
-	':root[data-theme="light"],\n[data-theme="light"]';
+const DARK_SELECTOR = ':root,\n[data-theme="dark"]';
+const LIGHT_SELECTOR = ':root[data-theme="light"],\n[data-theme="light"]';
 
-export const readThemeBlock = (css: string, selector: string) => {
+const readThemeBlock = (css: string, selector: string) => {
 	const pattern = selector
 		.split("\n")
 		.map((line) => escapeRegExp(line.trim()))

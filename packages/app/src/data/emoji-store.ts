@@ -59,7 +59,7 @@ export type EmojiCatalog = EmojiLoad<EmojiCatalogView>;
 
 export type EmojiAvailability = "loading" | "unavailable";
 
-export type EmojiLibrary = EmojiLoad<EmojiLibraryView>;
+type EmojiLibrary = EmojiLoad<EmojiLibraryView>;
 
 type LoadHooks = {
 	onChange?: () => void;
@@ -188,7 +188,7 @@ type Sighting =
 	| { kind: "failed"; failures: number }
 	| { kind: "catalog" };
 
-export const EMOJI_SEED_LIMIT = 500;
+const EMOJI_SEED_LIMIT = 500;
 
 export type EmojiSeed = {
 	library?: EmojiLibraryView;
@@ -229,17 +229,17 @@ export const OWN_EMOJI_LABEL = "Your emoji";
 export const emojiOwnerName = (owner: EmojiOwner) =>
 	owner.displayName || owner.handle || "Someone on Colibri";
 
-export const emojiAuthorName = (owner: EmojiOwner) =>
+const emojiAuthorName = (owner: EmojiOwner) =>
 	owner.displayName ||
 	(owner.handle ? `@${owner.handle}` : emojiOwnerName(owner));
 
-export type FollowOrigin = {
+type FollowOrigin = {
 	listed: (owner: Did) => boolean;
 	packOf: (emoji: EmojiView) => EmojiPackView | undefined;
 	ownerLabel: (owner: EmojiOwner) => string;
 };
 
-export const followedScope = (
+const followedScope = (
 	follows: readonly EmojiFollowView[],
 	origin: FollowOrigin,
 ): EmojiScopeEntry[] => {
@@ -998,5 +998,3 @@ export const createEmojiStore = (
 		},
 	};
 };
-
-export type EmojiStore = ReturnType<typeof createEmojiStore>;

@@ -3,7 +3,7 @@ import { type Accessor, createRoot } from "solid-js";
 
 export type Platform = "mobile" | "desktop";
 
-export const DESKTOP_QUERY = "(min-width: 768px)";
+const DESKTOP_QUERY = "(min-width: 768px)";
 
 const isTauri = () =>
 	typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;

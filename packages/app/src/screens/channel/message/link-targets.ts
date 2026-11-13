@@ -17,7 +17,7 @@ import { channelPath, type Layer, packPath } from "../../../shell/layers";
 
 const MOJI_BLUE_HOSTS = new Set(["moji.blue", "www.moji.blue"]);
 
-export type PackSummary = { name?: string };
+type PackSummary = { name?: string };
 
 export type PackLinkTarget = { did: string; rkey: string };
 
@@ -148,7 +148,7 @@ const atUriRecord = (
 	};
 };
 
-export const recordPath = (record: ChannelRecord) => {
+const recordPath = (record: ChannelRecord) => {
 	const channel = channelPath({
 		space: record.space,
 		channel: record.channel,

@@ -2,7 +2,7 @@ import { channelSlug } from "../../data/ids";
 import { isUnread } from "../../data/notifications";
 import type { DataStore } from "../../data/store";
 
-export const READ_SWEEP_DELAY_MS = 3_000;
+const READ_SWEEP_DELAY_MS = 3_000;
 
 export type ReadSweepStore = Pick<
 	DataStore,

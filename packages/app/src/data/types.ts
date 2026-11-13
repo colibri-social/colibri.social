@@ -5,7 +5,7 @@ export type Presence = social.colibri.beta.actor.defs.Presence;
 export type Status = social.colibri.beta.actor.defs.Status;
 export type VoiceState = social.colibri.beta.actor.defs.VoiceState;
 
-export const CUSTOM_EMOJI_POLICIES = ["all", "local", "none"] as const;
+const CUSTOM_EMOJI_POLICIES = ["all", "local", "none"] as const;
 export type CustomEmojiPolicy = (typeof CUSTOM_EMOJI_POLICIES)[number];
 export type MigrationInfo = social.colibri.beta.community.defs.MigrationInfo;
 export type CommunityView = social.colibri.beta.community.defs.CommunityView & {
@@ -50,7 +50,7 @@ export type ThreadView = social.colibri.beta.thread.defs.ThreadView;
 export type NotificationView =
 	social.colibri.beta.notification.defs.NotificationView;
 export type RecordRef = social.colibri.beta.defs.RecordRef;
-export type EmbedRichSpan = {
+type EmbedRichSpan = {
 	text: string;
 	bold?: boolean;
 	italic?: boolean;
@@ -75,13 +75,13 @@ export type EmbedMedia = {
 	height?: number;
 	alt?: string;
 };
-export type EmbedStats = {
+type EmbedStats = {
 	replies?: number;
 	reposts?: number;
 	likes?: number;
 	views?: number;
 };
-export type EmbedQuote = {
+type EmbedQuote = {
 	uri: string;
 	author: EmbedAuthor;
 	body: EmbedRichBlock[];
@@ -89,7 +89,7 @@ export type EmbedQuote = {
 	publishedAt?: string;
 	translatedFrom?: string;
 };
-export type EmbedPost = {
+type EmbedPost = {
 	body: EmbedRichBlock[];
 	sensitive?: boolean;
 	contentWarning?: string;

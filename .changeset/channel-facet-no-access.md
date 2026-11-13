@@ -1,5 +1,5 @@
 ---
-"@colibri-social/client": patch
+"@colibri-social/wrapper": patch
 ---
 
 Show "No access" on a channel mention you cannot open

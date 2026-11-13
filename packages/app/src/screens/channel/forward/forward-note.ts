@@ -46,18 +46,18 @@ const labelOf = (text: string, facet: Facet) =>
 		encoder.encode(text).slice(facet.index.byteStart, facet.index.byteEnd),
 	);
 
-export const spacesOf = (targets: readonly ForwardTarget[]) => {
+const spacesOf = (targets: readonly ForwardTarget[]) => {
 	const seen = new Map<string, CommunityView>();
 	for (const target of targets) seen.set(target.space.did, target.space);
 	return [...seen.values()];
 };
 
-export const singleSpaceOf = (targets: readonly ForwardTarget[]) => {
+const singleSpaceOf = (targets: readonly ForwardTarget[]) => {
 	const spaces = spacesOf(targets);
 	return spaces.length === 1 ? spaces[0] : undefined;
 };
 
-export const readersOf = (target: ForwardTarget, space: NoteSpace) => {
+const readersOf = (target: ForwardTarget, space: NoteSpace) => {
 	if (!space.members) return undefined;
 	const roles = space.roles ?? [];
 	const category = target.channel.category
@@ -76,7 +76,7 @@ export const readersOf = (target: ForwardTarget, space: NoteSpace) => {
 	);
 };
 
-export const mentionableMembers = (
+const mentionableMembers = (
 	targets: readonly ForwardTarget[],
 	spaceOf: (target: ForwardTarget) => NoteSpace,
 ): MemberView[] => {

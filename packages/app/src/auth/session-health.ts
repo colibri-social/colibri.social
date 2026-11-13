@@ -12,7 +12,7 @@ import { reportError } from "../sentry/report";
 const log = createLogger("session");
 
 export const FAILURE_WINDOW_MS = 60_000;
-export const FAILURES_UNTIL_DEAD = 3;
+const FAILURES_UNTIL_DEAD = 3;
 export const RESUME_GRACE_MS = 30_000;
 const HARD_CODES = new Set<ColibriErrorCode>(["ExpiredToken", "InvalidToken"]);
 const SOFT_CODES = new Set<ColibriErrorCode>(["AuthRequired"]);

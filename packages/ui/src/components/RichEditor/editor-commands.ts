@@ -29,7 +29,7 @@ export type FormatKind =
 	| "code"
 	| "spoiler";
 
-export const FORMAT_MARKER: Record<FormatKind, string> = {
+const FORMAT_MARKER: Record<FormatKind, string> = {
 	bold: "**",
 	italic: "*",
 	underline: "__",
@@ -623,7 +623,7 @@ export const wrapSelectionAsMarkdownLink = (view: EditorView, url: string) => {
 	return true;
 };
 
-export const extractImageFiles = (data: DataTransfer | null): File[] => {
+const extractImageFiles = (data: DataTransfer | null): File[] => {
 	if (!data) return [];
 
 	const files: File[] = [];

@@ -212,7 +212,7 @@ const renderWeb = (): void => {
 	);
 };
 
-const NATIVE_SHELLS = ["packages/wrapper", "packages/preview"];
+const NATIVE_SHELLS = ["packages/wrapper"];
 
 const renderWindows = (): void => {
 	const tile = compose({ source: "background-rounded" });

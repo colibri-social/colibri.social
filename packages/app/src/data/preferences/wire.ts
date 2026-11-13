@@ -29,7 +29,7 @@ export const muteKey = (subject: MuteSubject): string => {
 	return `channel:${subject.channel}`;
 };
 
-export const encodeMuteSubject = (subject: MuteSubject) => {
+const encodeMuteSubject = (subject: MuteSubject) => {
 	if (subject.kind === "actor") return { $type: MUTED_ACTOR, did: subject.did };
 	if (subject.kind === "thread")
 		return { $type: MUTED_THREAD, thread: subject.thread };
@@ -41,7 +41,7 @@ export const encodeMute = (mute: Mute) => ({
 	createdAt: mute.createdAt,
 });
 
-export const decodeMuteSubject = (
+const decodeMuteSubject = (
 	subject: { $type?: string } & Record<string, unknown>,
 ): MuteSubject | undefined => {
 	if (subject.$type === MUTED_ACTOR && typeof subject.did === "string")
@@ -67,7 +67,7 @@ export const decodeMute = (
 	};
 };
 
-export const MAX_EMOJI_USAGE = 50;
+const MAX_EMOJI_USAGE = 50;
 export const MAX_RECENT_GIFS = 24;
 
 const isLevel = (value: unknown): value is NotificationLevel =>
@@ -83,7 +83,7 @@ const withoutType = <T extends { $type?: string }>(
 	return rest;
 };
 
-export const decodeClient = (
+const decodeClient = (
 	wire: ClientPreferencesWire | undefined,
 ): ClientPreferences => {
 	if (!wire || typeof wire !== "object") return {};
@@ -116,9 +116,7 @@ const asSkinTone = (value: unknown) =>
 		? value
 		: DEFAULT_COMPOSER.skinTone;
 
-export const decodeComposer = (
-	wire: ComposerStateWire | undefined,
-): ComposerState => {
+const decodeComposer = (wire: ComposerStateWire | undefined): ComposerState => {
 	if (!wire || typeof wire !== "object") return DEFAULT_COMPOSER;
 	const emojiUsage: Record<string, EmojiUse> = {};
 	for (const entry of wire.emojiUsage ?? []) {
@@ -178,7 +176,7 @@ const decodeSpaceModeration = (
 const isDatetime = (value: unknown): value is Datetime =>
 	typeof value === "string" && !Number.isNaN(Date.parse(value));
 
-export const decodeLeftThreads = (entries: unknown): LeftThread[] => {
+const decodeLeftThreads = (entries: unknown): LeftThread[] => {
 	if (!Array.isArray(entries)) return [];
 	return entries.flatMap((entry: { thread?: unknown; leftAt?: unknown }) =>
 		entry && typeof entry.thread === "string" && isDatetime(entry.leftAt)
@@ -208,7 +206,7 @@ export const decodeBlock = (value: unknown): Block | undefined => {
 	};
 };
 
-export const decodeBlocks = (entries: unknown): Block[] => {
+const decodeBlocks = (entries: unknown): Block[] => {
 	if (!Array.isArray(entries)) return [];
 
 	const seen = new Set<string>();

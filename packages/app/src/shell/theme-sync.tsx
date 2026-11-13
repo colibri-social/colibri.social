@@ -4,13 +4,13 @@ import { writeStored } from "../data/persist";
 import type { Theme } from "../data/preferences/types";
 import { useData } from "../data/store";
 
-export const THEME_KEY = "colibri:theme";
+const THEME_KEY = "colibri:theme";
 
 const THEME_COLORS = { dark: "#080808", light: "#f7f7f8" } as const;
 
 const LIGHT_QUERY = "(prefers-color-scheme: light)";
 
-export const resolveTheme = (theme: Theme, prefersLight: boolean) =>
+const resolveTheme = (theme: Theme, prefersLight: boolean) =>
 	theme === "system" ? (prefersLight ? "light" : "dark") : theme;
 
 const usePrefersLight = () => {

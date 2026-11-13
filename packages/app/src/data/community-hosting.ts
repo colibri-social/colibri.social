@@ -33,9 +33,7 @@ export type CommunityHosting = {
 	}) => Promise<HandOverResult>;
 };
 
-export const createCommunityHosting = (
-	source: HostingSource,
-): CommunityHosting => {
+const createCommunityHosting = (source: HostingSource): CommunityHosting => {
 	const entries = new Map<Did, Entry>();
 
 	const entryOf = (community: Did): Entry => {

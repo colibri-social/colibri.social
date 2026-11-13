@@ -54,7 +54,7 @@ const SEEDS: GifSeed[] = [
 	},
 ];
 
-export const gifView = (seed: GifSeed): GifView => ({
+const gifView = (seed: GifSeed): GifView => ({
 	id: seed.id,
 	url: asUri(`https://media.giphy.com/media/${seed.id}/giphy.gif`),
 	previewUrl: asUri(`https://media.giphy.com/media/${seed.id}/200w.gif`),

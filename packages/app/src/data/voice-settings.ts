@@ -71,7 +71,7 @@ export const createVoiceSettings = () => {
 	return { settings, update, updateScreen };
 };
 
-export type VoiceSettingsStore = ReturnType<typeof createVoiceSettings>;
+type VoiceSettingsStore = ReturnType<typeof createVoiceSettings>;
 
 let shared: VoiceSettingsStore | undefined;
 

@@ -4,7 +4,7 @@ import {
 	type ReleasePlatform,
 } from "@colibri-social/lib";
 
-export type ReleaseNoteEntryView = {
+type ReleaseNoteEntryView = {
 	title: string;
 	body: string;
 	kind: "feature" | "fix";

@@ -1,7 +1,7 @@
 import type { AttachmentView, Did, LinkEmbed } from "../types";
 import type { RichTextValue } from "./rich";
 
-export type ForwardSeed = {
+type ForwardSeed = {
 	space: string;
 	channel: string;
 	channelName: string;

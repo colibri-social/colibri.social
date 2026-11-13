@@ -57,8 +57,8 @@ import { useOptionalDesktopShell } from "./desktop/context";
 import { NotificationPrompt } from "./NotificationPrompt";
 import type { Navigator } from "./stack";
 
-export const MESSAGE_TOAST_ID = "message-notification";
-export const MESSAGE_TOAST_DURATION = 5000;
+const MESSAGE_TOAST_ID = "message-notification";
+const MESSAGE_TOAST_DURATION = 5000;
 
 const communityOfRef = (ref: string) =>
 	ref.slice("at://".length, ref.indexOf("/space/"));

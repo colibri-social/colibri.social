@@ -40,7 +40,7 @@ type Feature = ColibriRichTextFacet["features"][number];
 
 const SKIN_TONE = /[\u{1F3FB}-\u{1F3FF}]/gu;
 
-export const emojiSlug = (emoji: string) =>
+const emojiSlug = (emoji: string) =>
 	slugForEmoji(emoji) ?? slugForEmoji(emoji.replace(SKIN_TONE, ""));
 
 export const emojiShortcode = (slug: string) => aliasesForSlug(slug)[0] ?? slug;

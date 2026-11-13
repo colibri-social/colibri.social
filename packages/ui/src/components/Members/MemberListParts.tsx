@@ -27,7 +27,7 @@ export type MemberListHandlers = {
 	badgeOf?: (member: Member) => BadgeDefinition | undefined;
 };
 
-export const MemberGroupLabel = (props: {
+const MemberGroupLabel = (props: {
 	group: MemberGroup;
 	variant: MemberRowVariant;
 }) => (
@@ -45,7 +45,7 @@ export const MemberGroupLabel = (props: {
 	/>
 );
 
-export const MemberStatusLine = (props: {
+const MemberStatusLine = (props: {
 	activity: NonNullable<Member["activity"]>;
 	status?: JSX.Element;
 }) => (
@@ -146,7 +146,7 @@ const MemberListRow = (
 	/>
 );
 
-export const MemberListEntry = (
+const MemberListEntry = (
 	props: MemberListHandlers & {
 		member: Member;
 		offline: boolean;

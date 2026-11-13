@@ -76,7 +76,7 @@ export const createActivityClock = (
 	};
 };
 
-export const activityNow = createActivityClock();
+const activityNow = createActivityClock();
 
 const startedAt = (activity: Activity) => {
 	const value = activity.startedAt ? Date.parse(activity.startedAt) : 0;
@@ -99,7 +99,7 @@ export const activitySummary = (activity: Activity) => {
 
 export type NowPlaying = Omit<NowPlayingCardProps, "tone" | "class">;
 
-export const toNowPlaying = (
+const toNowPlaying = (
 	activity: Activity,
 	onOpen?: (href: string, label: string) => void,
 ): NowPlaying => {

@@ -10,8 +10,7 @@ const [pending, setPending] = createSignal<MessageTarget>();
 
 export const pendingMessageJump = pending;
 
-export const requestMessageJump = (target: MessageTarget) =>
-	setPending({ ...target });
+const requestMessageJump = (target: MessageTarget) => setPending({ ...target });
 
 export const requestRouteJump = (route: Route) => {
 	const target = messageTargetOf(route);

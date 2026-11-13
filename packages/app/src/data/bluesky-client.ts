@@ -48,14 +48,14 @@ export const BSKY_ALTERNATIVES: Array<BlueskyAlternative> = [
 	{ name: "Witchsky", base: "witchsky.app", color: "#ed5345", id: "witchsky" },
 ];
 
-export const CUSTOM_BLUESKY_CLIENT: BlueskyAlternative = {
+const CUSTOM_BLUESKY_CLIENT: BlueskyAlternative = {
 	name: "Custom",
 	base: "",
 	color: "var(--primary)",
 	id: "custom",
 };
 
-export const BSKY_CLIENT_OPTIONS: Array<BlueskyAlternative> = [
+const BSKY_CLIENT_OPTIONS: Array<BlueskyAlternative> = [
 	...BSKY_ALTERNATIVES,
 	CUSTOM_BLUESKY_CLIENT,
 ];
@@ -72,7 +72,7 @@ export type ResolvedBlueskyClient = {
 	accentColor: string;
 };
 
-export const DEFAULT_BLUESKY_CLIENT_PREFERENCE: BlueskyClientPreference = {
+const DEFAULT_BLUESKY_CLIENT_PREFERENCE: BlueskyClientPreference = {
 	preferredBlueskyClient: "bluesky",
 	customBlueskyClientBase: "",
 };

@@ -1,6 +1,6 @@
 ---
 "@colibri-social/lib": patch
-"@colibri-social/client": patch
+"@colibri-social/wrapper": patch
 "@colibri-social/website": patch
 ---
 

@@ -17,7 +17,7 @@ type Updatable<T> = {
 	update: (change: (current: T) => T) => void;
 };
 
-export const sortRoles = (roles: readonly RoleView[]) =>
+const sortRoles = (roles: readonly RoleView[]) =>
 	[...roles].sort((a, b) => b.position - a.position);
 
 export const upsertRole = (roles: readonly RoleView[], next: RoleView) => {

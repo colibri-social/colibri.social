@@ -3,7 +3,7 @@ import { createRnnoiseNode, type RnnoiseNode } from "./rnnoise";
 
 const log = createLogger("voice/noise");
 
-export const CAPTURE_SAMPLE_RATE = 48000;
+const CAPTURE_SAMPLE_RATE = 48000;
 
 const LEVELER_THRESHOLD_DB = -24;
 const LEVELER_KNEE_DB = 12;

@@ -38,7 +38,7 @@ import type {
 	VoiceState,
 } from "./types";
 
-export type Page<T> = { items: T[]; cursor?: string };
+type Page<T> = { items: T[]; cursor?: string };
 
 export type MessagePage = Page<MessageView> & { forwardCursor?: string };
 
@@ -219,29 +219,29 @@ export type ControlsPreferences = {
 
 export type ThreadAnchor = { space: SpaceRef; did: Did; rkey: string };
 
-export type CreateThreadInput = {
+type CreateThreadInput = {
 	community: Did;
 	channel: SpaceRef;
 	name: string;
 	anchor?: ThreadAnchor;
 };
 
-export type MoveSubject = {
+type MoveSubject = {
 	did: Did;
 	collection: string;
 	rkey: string;
 };
 
-export type MoveMessagesInput = {
+type MoveMessagesInput = {
 	source: SpaceRef;
 	destination: SpaceRef;
 	subjects: MoveSubject[];
 	reason?: string;
 };
 
-export type MoveMessagesResult = { batch: string; count: number };
+type MoveMessagesResult = { batch: string; count: number };
 
-export type RepointInput = {
+type RepointInput = {
 	thread: SpaceRef;
 	channel: SpaceRef;
 	anchor?: ThreadAnchor;
@@ -256,7 +256,7 @@ export type MemberRolesInput = {
 	roles: string[];
 };
 
-export type RoleIconBadgeInput = { icon: string; color?: string };
+type RoleIconBadgeInput = { icon: string; color?: string };
 
 export type RoleEmojiBadgeInput = {
 	emoji?: string;
@@ -289,7 +289,7 @@ export type UpdateRoleInput = {
 	mentionable?: boolean;
 };
 
-export type VoiceModerationInput = {
+type VoiceModerationInput = {
 	channel: SpaceRef;
 	subject: Did;
 	muted?: boolean;
@@ -298,7 +298,7 @@ export type VoiceModerationInput = {
 	moveTo?: SpaceRef;
 };
 
-export type MemberModerationInput = {
+type MemberModerationInput = {
 	community: Did;
 	subject: Did;
 	reason?: string;
@@ -306,7 +306,7 @@ export type MemberModerationInput = {
 
 export type ProfileTheme = NonNullable<ProfileView["theme"]>;
 
-export type ProfileRecordInput = {
+type ProfileRecordInput = {
 	displayName?: string;
 	description?: string;
 	pronouns?: string | null;
@@ -341,7 +341,7 @@ export type StatusInput = {
 	onlineState?: Presence["onlineState"];
 };
 
-export type UpdateThreadInput = {
+type UpdateThreadInput = {
 	thread: SpaceRef;
 	name?: string;
 	visibleToRoles?: string[];
@@ -378,7 +378,7 @@ export type UpdateChannelInput = {
 	visibleToMembers?: Did[];
 };
 
-export type CategoryTarget = { community: Did; category: string };
+type CategoryTarget = { community: Did; category: string };
 
 export type TransferOwnershipInput = { community: Did; subject: Did };
 
@@ -414,7 +414,7 @@ export type UpdateCommunityInput = {
 
 export type CommunityImageKind = "picture" | "banner";
 
-export type PutCommunityImageInput = {
+type PutCommunityImageInput = {
 	community: Did;
 	kind: CommunityImageKind;
 	file: File;
@@ -430,9 +430,9 @@ export type CreateCommunityInput = {
 	requiresApprovalToJoin?: boolean;
 };
 
-export type BridgeTarget = { community: Did; registration: string };
+type BridgeTarget = { community: Did; registration: string };
 
-export type UpdateBridgeInput = BridgeTarget & {
+type UpdateBridgeInput = BridgeTarget & {
 	links?: BridgeLink[];
 	enabled?: boolean;
 	mirrorModeration?: boolean;

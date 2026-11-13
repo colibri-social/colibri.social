@@ -1,5 +1,5 @@
 ---
-"@colibri-social/client": minor
+"@colibri-social/wrapper": minor
 ---
 
 Channel loading / switching improvements

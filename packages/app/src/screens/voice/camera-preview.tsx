@@ -15,9 +15,7 @@ const [previewOpen, setPreviewOpen] = createSignal(false);
 
 export const openCameraPreview = () => setPreviewOpen(true);
 
-export const closeCameraPreview = () => setPreviewOpen(false);
-
-export const cameraPreviewOpen = previewOpen;
+const closeCameraPreview = () => setPreviewOpen(false);
 
 export const CameraPreviewHost = () => {
 	const [stream, setStream] = createSignal<MediaStream>();

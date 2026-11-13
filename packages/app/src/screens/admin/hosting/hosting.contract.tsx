@@ -29,7 +29,7 @@ const serverName = (server: string) => {
 	}
 };
 
-export const hostingStateOf = (view: HostingView): HostingState =>
+const hostingStateOf = (view: HostingView): HostingState =>
 	view.needsSignIn
 		? "needsSignIn"
 		: view.kind === "colibri"

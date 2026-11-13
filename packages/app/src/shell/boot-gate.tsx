@@ -11,8 +11,8 @@ import { LaunchScreen } from "./launch/LaunchScreen";
 
 const SKELETON_SELECTOR =
 	"[data-skeleton],[data-skeleton-group],[data-skeleton-text],[data-session-loading]";
-export const SETTLED_FRAMES = 2;
-export const CROSSFADE_MS = 150;
+const SETTLED_FRAMES = 2;
+const CROSSFADE_MS = 150;
 
 export const ColdStart = (props: {
 	store: DataStore;

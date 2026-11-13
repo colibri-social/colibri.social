@@ -34,10 +34,10 @@ import type { RichTextLinkTarget, RichTextResolvers } from "./context";
 
 type PackLinkTarget = Extract<RichTextLinkTarget, { kind: "pack" }>;
 
-export const PACK_CHIP_FALLBACK_LABEL = "Emoji pack";
-export const MESSAGE_CHIP_LABEL = "Message";
+const PACK_CHIP_FALLBACK_LABEL = "Emoji pack";
+const MESSAGE_CHIP_LABEL = "Message";
 
-export const LINK_CLASS =
+const LINK_CLASS =
 	"font-medium text-primary-highlight underline-offset-2 decoration-1 outline-none hover:underline focus-visible:underline focus-ring rounded-[2px]";
 
 const CHIP_CLASS =
@@ -402,7 +402,7 @@ export const ChannelChip = (props: {
 	);
 };
 
-export const PackChip = (props: {
+const PackChip = (props: {
 	target: PackLinkTarget;
 	ctx: RichTextResolvers;
 }) => (

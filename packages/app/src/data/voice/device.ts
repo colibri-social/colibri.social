@@ -15,10 +15,10 @@ export const webKitFallbackHandler = (
 	return "Safari12";
 };
 
-export const currentUserAgent = (): string | undefined =>
+const currentUserAgent = (): string | undefined =>
 	typeof navigator === "undefined" ? undefined : navigator.userAgent;
 
-export const currentUserAgentData = (): types.NavigatorUAData | undefined =>
+const currentUserAgentData = (): types.NavigatorUAData | undefined =>
 	typeof navigator === "undefined"
 		? undefined
 		: (navigator as Navigator & { userAgentData?: types.NavigatorUAData })

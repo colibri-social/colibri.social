@@ -22,10 +22,10 @@ const log = createLogger("badges");
 
 export const LABELS_TTL_MS = 15 * 60 * 1000;
 export const FAILURE_TTL_MS = 30_000;
-export const TRUNCATED_TTL_MS = 60_000;
-export const DEFINITIONS_TTL_MS = 60 * 60 * 1000;
+const TRUNCATED_TTL_MS = 60_000;
+const DEFINITIONS_TTL_MS = 60 * 60 * 1000;
 export const FLUSH_WINDOW_MS = 48;
-export const MAX_FLUSH_DELAY_MS = 150;
+const MAX_FLUSH_DELAY_MS = 150;
 
 export type DefinitionSnapshot = { definitions: BadgeDefinition[]; ts: number };
 

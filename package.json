@@ -1,7 +1,6 @@
 {
   "scripts": {
-    "dev:client": "pnpm --filter @colibri-social/client dev",
-    "dev:sandbox": "pnpm --filter @colibri-social/client sandbox",
+    "dev:app": "pnpm --filter @colibri-social/app dev",
     "dev:web": "pnpm --filter @colibri-social/website dev",
     "dev:tauri": "pnpm --filter @colibri-social/wrapper tauri dev",
     "dev:tauri:android": "pnpm --filter @colibri-social/wrapper tauri android dev",
@@ -15,6 +14,7 @@
     "whats-new:generate": "node --experimental-strip-types scripts/collect-release-notes.ts generate",
     "whats-new:preview": "node --experimental-strip-types scripts/collect-release-notes.ts preview",
     "typecheck:scripts": "tsc --build tsconfig.scripts.json",
+    "knip": "knip",
     "lint": "biome check .",
     "lint:fix": "biome check . --write",
     "format": "biome format . --write",
@@ -27,12 +27,12 @@
     "@clack/prompts": "^1.7.0",
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^25.6.0",
-    "pkg-pr-new": "^0.0.86"
+    "knip": "^6.45.1"
   },
   "type": "module",
   "packageManager": "pnpm@11.17.0+sha512.cca3cea332ad254bb84145f966d19f4879615210346fc92c79a047f23a0d7b3cca3c3792f0076ba1f1831d277efbcf0a9119b31a9a60eca7fb3d6231f331ef72",
   "dependencies": {
-    "typescript": "^6.0.3",
-    "node-gyp": "^13.0.2"
+    "node-gyp": "^13.0.2",
+    "typescript": "^6.0.3"
   }
 }

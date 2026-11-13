@@ -16,7 +16,7 @@ Colibri is split across two repositories, and local development normally involve
 | Repository | Contains | Runs as |
 | --- | --- | --- |
 | [colibri-social/api](https://github.com/colibri-social/api) | The AppView, a Node 24 and TypeScript pnpm workspace, and the compose files for its dependencies | `pnpm dev` on `127.0.0.1:3000` |
-| [colibri-social/colibri.social](https://github.com/colibri-social/colibri.social) | The client library, the website that hosts it, the native shell, and this documentation | `pnpm dev:client` on `127.0.0.1:4321` |
+| [colibri-social/colibri.social](https://github.com/colibri-social/colibri.social) | The client, its component library, the website that hosts it, the native shell, and this documentation | `pnpm dev:app` on `127.0.0.1:5173` |
 
 The AppView needs no service running alongside it by default: it stores its
 data in a libSQL file and syncs member repos directly from their PDS rather
@@ -36,7 +36,7 @@ Your own account is *not* part of the local stack. You log in with a real Atmosp
 
 - **Node.js `>=24.13.0`** (`.node-version` pins `24.13.1`) and **pnpm `10.33.3`**: run `corepack enable` and the right pnpm is used for you.
 - **Docker** and **Docker Compose**, for Postgres and the local PDS overlays.
-- An **Atmosphere account**. If the client's early-access allowlist is switched on, your DID has to be in it (see [Client development](/docs/development/client#logging-in-locally)).
+- An **Atmosphere account**.
 
 ## The short path
 
@@ -64,10 +64,10 @@ Your own account is *not* part of the local stack. You log in with a real Atmosp
    cd colibri.social
    pnpm install
    cp .env.example .env
-   pnpm dev:client
+   VITE_COLIBRI_APPVIEW_URL=http://127.0.0.1:3000 pnpm dev:app
    ```
 
-3. Open **`http://127.0.0.1:4321`** (not `localhost`, see [below](#dev-mode-is-not-production)) and log in with your Atmosphere account.
+3. Open **`http://127.0.0.1:5173`** (not `localhost`, see [below](#dev-mode-is-not-production)) and log in with your Atmosphere account.
 
 </Steps>
 
@@ -77,12 +77,10 @@ overlay works and where its limits are.
 
 ## Dev mode is not production
 
-The client takes several shortcuts when Vite is in dev mode. They change how requests flow, and they hide a few classes of bug until you build for production:
+Two things differ when the client runs on a loopback address:
 
-- **Requests bypass your PDS.** In production every XRPC call is proxied through the user's PDS with an `atproto-proxy` header, and the PDS mints the service-auth token. In dev the client calls `http://127.0.0.1:3000/xrpc/...` directly and mints the service-auth token itself with `com.atproto.server.getServiceAuth`. Proxy-only breakage therefore doesn't show up locally.
-- **The AppView origin is pinned.** `getAppViewHost()` returns `127.0.0.1:3000` whenever `import.meta.env.DEV` is set, so the AppView switcher in settings has no effect locally and the AppView has to listen on that port.
+- **The AppView comes from the environment.** `VITE_COLIBRI_APPVIEW_URL` sets the AppView the client talks to. Without it, the client uses the production AppView.
 - **The OAuth client is a localhost client.** Per the [AT Protocol localhost client rules](https://atproto.com/specs/oauth#localhost-client-development), the client id is `http://localhost?...` with a `redirect_uri` of `http://127.0.0.1:<port>/app/login`. That redirect URI is why you must browse to `127.0.0.1`, not `localhost`.
-- **Early access is enforced the same way.** The allowlist in `packages/client/src/atproto/allowlist.ts` is compiled into the client, and dev mode gets no exemption from it.
 
 ## Where to go next
 

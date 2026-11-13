@@ -7,13 +7,9 @@ sidebar:
 
 import { Steps } from "@astrojs/starlight/components";
 
-This page is about testing the **native shell**: things like windowing, notifications, deep links, the updater, or anything else that only exists once the client is running inside Tauri. If you're testing an AppView change, you don't need any of this. Run [the web client](/docs/development/client) with `pnpm dev:client` against your local AppView instead. That loop is much faster than getting a native build to talk to a local AppView, and it's the only supported way to test AppView-level changes.
+This page is about testing the **native shell**: things like windowing, notifications, deep links, the updater, or anything else that only exists once the client is running inside Tauri. If you're testing an AppView change, you don't need any of this. Run [the web client](/docs/development/client) with `pnpm dev:app` against your local AppView instead. That loop is much faster than getting a native build to talk to a local AppView, and it's the only supported way to test AppView-level changes.
 
-The shell renders the client's built output, so build the client first:
-
-```sh
-pnpm --filter @colibri-social/client build
-```
+The shell renders the client's built output. Its build commands build `packages/app` for you, so there is nothing to build first.
 
 Run every Tauri command through `pnpm --filter @colibri-social/wrapper tauri ...`, not the raw `@tauri-apps/cli`. It's wrapped by `packages/wrapper/scripts/tauri.mjs`, which handles the `DISABLE_SENTRY` flag documented in `packages/wrapper/README.md`.
 

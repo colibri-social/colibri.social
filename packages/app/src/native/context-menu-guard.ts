@@ -9,7 +9,7 @@ const isTauri = () =>
 const insideNativeTarget = (element: Element | null) =>
 	!!element?.closest(NATIVE_MENU_TARGETS);
 
-export const resolveContextTarget = (event: MouseEvent): Element | null => {
+const resolveContextTarget = (event: MouseEvent): Element | null => {
 	if (
 		event.clientX === 0 &&
 		event.clientY === 0 &&

@@ -31,7 +31,7 @@ const ACTION_EVENT = "colibri-call-action";
 const isAction = (value: unknown): value is NativeCallAction =>
 	value === "mute" || value === "leave" || value === "open";
 
-export const androidCallPort = (): NativeCallPort | undefined => {
+const androidCallPort = (): NativeCallPort | undefined => {
 	if (typeof window === "undefined") return undefined;
 	const bridge = (window as unknown as { __colibriCall?: AndroidCallBridge })
 		.__colibriCall;

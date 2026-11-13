@@ -12,23 +12,7 @@ export type Audience = { roles: string[]; members: string[] };
 
 export type AudienceKind = "visible" | "post";
 
-export const AUDIENCE_COPY: Record<
-	AudienceKind,
-	{ title: string; empty: string }
-> = {
-	visible: {
-		title: "Who can see it",
-		empty:
-			"No roles or members specified. Every member will be able to see this channel!",
-	},
-	post: {
-		title: "Who can post in it",
-		empty:
-			"No roles or members specified. Everyone will be allowed to chat here!",
-	},
-};
-
-export const sameSet = (a: readonly string[], b: readonly string[]) =>
+const sameSet = (a: readonly string[], b: readonly string[]) =>
 	a.length === b.length && a.every((entry) => b.includes(entry));
 
 export const sameAudience = (a: Audience, b: Audience) =>

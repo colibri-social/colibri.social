@@ -52,9 +52,6 @@ export default defineConfig({
 				},
 			}),
 		],
-		optimizeDeps: {
-			exclude: ["solid-phosphor"], // Vite thinks the JSX here is React
-		},
 	},
 	integrations: [
 		solidJs(),

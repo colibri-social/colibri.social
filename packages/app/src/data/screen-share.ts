@@ -39,7 +39,7 @@ export const SCREEN_SHARE_FRAMERATES: readonly ScreenShareFramerate[] = [
 
 const DETAIL_FRAMERATE_CEILING = 30;
 
-export const DISPLAY_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+const DISPLAY_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 	echoCancellation: false,
 	noiseSuppression: false,
 	autoGainControl: false,
@@ -109,7 +109,7 @@ export const screenVideoConstraints = (
 	return constraints;
 };
 
-export const SCREEN_LOW_LAYER_BITRATE_SHARE = 0.3;
+const SCREEN_LOW_LAYER_BITRATE_SHARE = 0.3;
 
 export const screenEncodings = (
 	quality: ScreenShareQuality,

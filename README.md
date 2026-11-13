@@ -10,12 +10,14 @@ Visit us at [colibri.social](https://colibri.social). You can learn more on our 
 
 This is a [pnpm](https://pnpm.io) monorepo. The deployable app lives in `apps/`, and the code it shares lives in `packages/`.
 
-| Package                                               | Path              | Description                                                             |
-| ----------------------------------------------------- | ----------------- | ----------------------------------------------------------------------- |
-| [`@colibri-social/website`](apps/website/README.md)   | `apps/website`    | Marketing site, docs, and host for the web client.                      |
-| [`@colibri-social/client`](packages/client/README.md) | `packages/client` | The SolidJS client                                                      |
-| [`@colibri-social/lib`](packages/lib/README.md)       | `packages/lib`    | Shared code: helpers, XRPC types, events, facets, and markdown          |
-| [`@colibri-social/assets`](packages/assets/README.md) | `packages/assets` | Shared static assets (fonts, sounds, logos, emoji) and their manifests. |
+| Package                                               | Path               | Description                                                             |
+| ----------------------------------------------------- | ------------------ | ----------------------------------------------------------------------- |
+| [`@colibri-social/website`](apps/website/README.md)   | `apps/website`     | Marketing site, docs, and host for the web client.                      |
+| `@colibri-social/app`                                 | `packages/app`     | The SolidJS client, built on the component library.                     |
+| `@colibri-social/ui`                                  | `packages/ui`      | The component library.                                                  |
+| [`@colibri-social/wrapper`](packages/wrapper/README.md) | `packages/wrapper` | The native app shell, built with Tauri.                                 |
+| [`@colibri-social/lib`](packages/lib/README.md)       | `packages/lib`     | Shared code: helpers, XRPC types, events, facets, and markdown          |
+| [`@colibri-social/assets`](packages/assets/README.md) | `packages/assets`  | Shared static assets (fonts, sounds, logos, emoji) and their manifests. |
 
 ## Getting started
 
@@ -38,10 +40,10 @@ This is a [pnpm](https://pnpm.io) monorepo. The deployable app lives in `apps/`,
 3. Start the client dev server:
 
    ```bash
-   pnpm dev:client
+   pnpm dev:app
    ```
 
-   The app will be available at `http://127.0.0.1:4321`. You must also run the AppView development server alondside this, please see the [AppView repository](https://github.com/colibri-social/appview) for more information.
+   The app will be available at `http://127.0.0.1:5173`. You must also run the AppView development server alondside this, please see the [AppView repository](https://github.com/colibri-social/appview) for more information.
 
 ## Common scripts
 

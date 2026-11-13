@@ -11,7 +11,7 @@ import { cx } from "../../utils/cx";
 import { Button } from "../Button/Button";
 import type { ProfileData } from "./ProfileContent";
 
-export const BLOCKED_PROFILE_COPY = {
+const BLOCKED_PROFILE_COPY = {
 	notice: "You blocked this person",
 	show: "Show profile",
 	unblock: "Unblock",

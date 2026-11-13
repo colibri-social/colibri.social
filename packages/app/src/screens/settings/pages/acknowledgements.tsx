@@ -32,7 +32,7 @@ type ProfileRecord = { value?: { avatar?: BlobRef } };
 
 const contributorKey = (entry: ContributorEntry) => entry.did ?? entry.handle;
 
-export const contributorsWithLinks = (
+const contributorsWithLinks = (
 	entries: readonly ContributorEntry[],
 	profileUrl: (identifier: string) => string,
 ): Contributor[] =>

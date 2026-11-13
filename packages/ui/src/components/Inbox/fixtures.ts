@@ -13,7 +13,7 @@ export const INBOX_NOW = new Date(2026, 9, 9, 14, 20);
 const at = (hours: number, minutes: number, dayOffset = 0) =>
 	new Date(2026, 9, 9 + dayOffset, hours, minutes);
 
-export const inboxSpaces = (): InboxSpace[] => [
+const inboxSpaces = (): InboxSpace[] => [
 	{
 		id: "flock",
 		name: "Colibri Social Flock",

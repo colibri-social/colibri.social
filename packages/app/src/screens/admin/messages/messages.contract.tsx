@@ -16,13 +16,13 @@ import { useStack } from "../../../shell/stack";
 import { AdminNavHeader } from "../desktop/page-header";
 import { useAdminSpace } from "../space-admin";
 
-export const LINK_PREVIEW_COPY = {
+const LINK_PREVIEW_COPY = {
 	title: "Show link previews",
 	description:
 		"Whether messages show a preview card for the links they contain. Individual channels can override this, and authors can always hide previews on their own messages.",
 } as const;
 
-export const CUSTOM_EMOJI_COPY = {
+const CUSTOM_EMOJI_COPY = {
 	label: "Custom emoji",
 	options: [
 		{

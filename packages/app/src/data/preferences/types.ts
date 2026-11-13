@@ -88,18 +88,15 @@ export const SETTINGS_FIELDS = [
 	"gifFavorites",
 ] as const;
 
-export type SettingsRecord = Pick<
-	Preferences,
-	(typeof SETTINGS_FIELDS)[number]
->;
+type SettingsRecord = Pick<Preferences, (typeof SETTINGS_FIELDS)[number]>;
 
 export type SettingsChange = Partial<
 	SettingsRecord & Pick<Preferences, "client" | "composer">
 >;
 
-export type MuteRecord = { rkey: string; mute: Mute };
+type MuteRecord = { rkey: string; mute: Mute };
 
-export type BlockRecord = { rkey: string; block: Block };
+type BlockRecord = { rkey: string; block: Block };
 
 export type PreferenceBackend = {
 	load: () => Promise<Preferences>;

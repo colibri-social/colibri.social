@@ -41,7 +41,7 @@ export type VoiceArgs = { space?: string; channel?: string };
 
 export type VoiceMode = "prompt" | "call";
 
-export const VOICE_COPY = {
+const VOICE_COPY = {
 	fallbackName: "Voice",
 	empty: "This voice channel is empty. Join to get the conversation started!",
 	emptyLocked: "This voice channel is empty.",

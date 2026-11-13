@@ -12,7 +12,7 @@ import type { CategoryView, ChannelView, Did } from "../../data/types";
 import { CHANNEL_NAME_MAX } from "../admin/channel/channel.contract";
 import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 
-export const DELETE_COPY = {
+const DELETE_COPY = {
 	channelTitle: (name: string) => `Delete #${name}?`,
 	channelDescription:
 		"Type the channel's name to confirm. Messages members wrote here stay in their own repos, but nobody except their authors can read them afterward. This can't be undone.",

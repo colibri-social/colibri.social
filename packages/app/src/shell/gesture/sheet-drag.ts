@@ -8,7 +8,7 @@ export type SheetDragHandlers = {
 	onEnd: (dy: number, velocity: number) => void;
 };
 
-export const SHEET_HANDLE_ZONE = 72;
+const SHEET_HANDLE_ZONE = 72;
 const CLAIM_PX = 8;
 const AXIS_RATIO = 1.2;
 

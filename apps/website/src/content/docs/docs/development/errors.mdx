@@ -15,15 +15,15 @@ a catalog keyed by the code, so the same failure reads the same way everywhere a
 
 <FileTree>
 
-- packages/client/src/errors/
+- packages/lib/src/errors/
   - codes.ts every code, its domain, and whether it is retryable
-  - error.ts the client's `ColibriError` class
+  - error.ts the `ColibriError` class
   - classify.ts wire and thrown values → `ColibriError`
   - copy.ts code → what the user reads
-  - report.ts `reportError`, and the account opt-in
-  - show-error.ts `showError`, the toast surface
+  - delivery.ts how a failure reaches the user
   - oauth.ts what a data server reports while signing in
-  - native.ts Tauri `invoke` failures
+- packages/app/src/sentry/
+  - report.ts `reportError`, and the account opt-in
 
 </FileTree>
 
@@ -36,7 +36,7 @@ code the client handles, its domain, and whether it is retryable.
 ## The path a failure takes
 
 An AppView error arrives as `{error, message}` with an HTTP status. `call()` in
-`packages/client/src/atproto/xrpc/request.ts` turns that into a `ColibriError`
+`packages/lib/src/xrpc/request.ts` turns that into a `ColibriError`
 and hands callers an `XrpcResult<T>`:
 
 ```ts
@@ -158,8 +158,7 @@ log.warn("microphone unavailable, joining listen-only", {
 ```
 
 Put detail in the second argument rather than interpolating it into the message, so entries
-stay groupable. `console.*` is rejected by Biome in `packages/client`, and only the logger
-and the two dev-only diagnostic sinks may use it.
+stay groupable.
 
 Log the classified `code`, never the raw error. The ring buffer is serialised with
 `JSON.stringify`, and an `Error` has no enumerable own properties, so `{ error: err }` is
@@ -173,13 +172,3 @@ log.warn("resolving the PDS host failed", { code: classifyThrown(err).code, did 
 
 If you need the full error preserved rather than summarised, that is what `reportError` and
 `showError` are for. They send the cause to Sentry.
-
-## Seeing all of it
-
-`pnpm --filter @colibri-social/client sandbox` and pick **Errors** from the gallery. It
-lists every code with its copy, retryability and domain, fires each surface, contains a real
-render crash, and emits one log line per level. It runs without a Sentry DSN, so nothing
-leaves your machine.
-
-At runtime, `window.__colibriLog` exposes `dump()`, `entries()`, `setLevel()` and
-`setVerbose()`.

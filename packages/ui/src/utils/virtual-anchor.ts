@@ -3,11 +3,11 @@ export type VirtualMeasure = {
 	getItemOffset(index: number): number;
 };
 
-export type VirtualAnchorCandidate = { key: string; top: number };
+type VirtualAnchorCandidate = { key: string; top: number };
 
 export type VirtualAnchor = { candidates: VirtualAnchorCandidate[] };
 
-export const ANCHOR_CANDIDATE_LIMIT = 6;
+const ANCHOR_CANDIDATE_LIMIT = 6;
 
 export const captureVirtualAnchor = (
 	measure: VirtualMeasure,

@@ -31,7 +31,7 @@ export type VideoEncodingTarget = {
 	bitrate: number;
 };
 
-export type VideoEncodingSupport = {
+type VideoEncodingSupport = {
 	supported: boolean;
 	powerEfficient: boolean;
 };

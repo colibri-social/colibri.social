@@ -18,18 +18,12 @@ import {
 	webPushEnvironment,
 } from "./web";
 
-export {
-	openNotificationLink,
-	openPushActivation,
-	parseNotificationLink,
-	parsePushActivation,
-	pushActivations,
-} from "./activation";
+export { pushActivations } from "./activation";
 export { installMarkReadDrain } from "./mark-read";
 export { createReadSweep, readTargets } from "./read-sweep";
 export type { PushApi, PushProvider } from "./types";
 
-export const PUSH_REASSERT_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const PUSH_REASSERT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 const log = createLogger("push");
 
@@ -50,7 +44,7 @@ export type Push = {
 	dismissRead: (channels: string[]) => Promise<void>;
 };
 
-export const pushPort = (): PushPort => ({
+const pushPort = (): PushPort => ({
 	...tauriPort(),
 	pluginListener: async (plugin, event, handler) => {
 		const { addPluginListener } = await import("@tauri-apps/api/core");
@@ -61,7 +55,7 @@ export const pushPort = (): PushPort => ({
 	},
 });
 
-export const resolvePushProvider = (
+const resolvePushProvider = (
 	port: PushPort = pushPort(),
 ): PushProvider | undefined => {
 	const platform = currentReleasePlatform();

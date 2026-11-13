@@ -120,7 +120,7 @@ export const DEFAULT_REMOTE_CONTROLS: ControlsPreferences = {
 	confirmVoiceJoin: false,
 };
 
-export const notEnabled = (method: string) =>
+const notEnabled = (method: string) =>
 	new ColibriError({ code: "NotEnabled", method });
 
 export const isNotEnabled = (error: unknown) =>

@@ -24,7 +24,7 @@ const hostOf = (input: FetchInput): string => {
 	}
 };
 
-export const methodOf = (input: FetchInput, init?: RequestInit): string =>
+const methodOf = (input: FetchInput, init?: RequestInit): string =>
 	(
 		init?.method ??
 		(typeof Request !== "undefined" && input instanceof Request
@@ -32,7 +32,7 @@ export const methodOf = (input: FetchInput, init?: RequestInit): string =>
 			: "GET")
 	).toUpperCase();
 
-export const isRepeatable = (input: FetchInput, init?: RequestInit): boolean =>
+const isRepeatable = (input: FetchInput, init?: RequestInit): boolean =>
 	(typeof input === "string" || input instanceof URL) &&
 	init?.body == null &&
 	SAFE_METHODS.has(methodOf(input, init));

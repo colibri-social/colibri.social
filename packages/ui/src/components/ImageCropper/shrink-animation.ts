@@ -5,20 +5,20 @@ import type { Size } from "./crop-math";
 const MAX_FRAMES = 300;
 const DEFAULT_DELAY_MS = 100;
 
-export type AnimationFrame = { rgba: Uint8ClampedArray; delay: number };
+type AnimationFrame = { rgba: Uint8ClampedArray; delay: number };
 
-export type DecodedAnimation = {
+type DecodedAnimation = {
 	width: number;
 	height: number;
 	source: Size;
 	frames: AnimationFrame[];
 };
 
-export type AnimationQuality = { step: number; colors: number };
+type AnimationQuality = { step: number; colors: number };
 
-export const FULL_QUALITY: AnimationQuality = { step: 1, colors: 256 };
+const FULL_QUALITY: AnimationQuality = { step: 1, colors: 256 };
 
-export const REDUCED_QUALITIES: readonly AnimationQuality[] = [
+const REDUCED_QUALITIES: readonly AnimationQuality[] = [
 	{ step: 1, colors: 128 },
 	{ step: 2, colors: 128 },
 	{ step: 2, colors: 64 },
@@ -26,7 +26,7 @@ export const REDUCED_QUALITIES: readonly AnimationQuality[] = [
 	{ step: 4, colors: 32 },
 ];
 
-export const canDecodeAnimation = () => typeof ImageDecoder !== "undefined";
+const canDecodeAnimation = () => typeof ImageDecoder !== "undefined";
 
 const openDecoder = async (file: File) => {
 	const decoder = new ImageDecoder({
@@ -50,7 +50,7 @@ export const frameCountOf = async (file: File) => {
 	}
 };
 
-export const fitInside = (size: Size, box: Size): Size => {
+const fitInside = (size: Size, box: Size): Size => {
 	const scale = Math.min(1, box.width / size.width, box.height / size.height);
 	return {
 		width: Math.max(1, Math.round(size.width * scale)),
@@ -58,7 +58,7 @@ export const fitInside = (size: Size, box: Size): Size => {
 	};
 };
 
-export const decodeAnimation = async (
+const decodeAnimation = async (
 	file: File,
 	box: Size,
 ): Promise<DecodedAnimation> => {
@@ -118,7 +118,7 @@ const thinFrames = (frames: readonly AnimationFrame[], step: number) => {
 
 const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
-export const encodeAnimation = async (
+const encodeAnimation = async (
 	animation: DecodedAnimation,
 	quality: AnimationQuality,
 ) => {

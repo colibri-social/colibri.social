@@ -13,7 +13,7 @@ import {
 	type VideoStatsSample,
 } from "./voice/video-stats";
 
-export const RECENT_LOG_LINES = 60;
+const RECENT_LOG_LINES = 60;
 
 const value = (label: string, text: string): DiagnosticsField => ({
 	kind: "value",
@@ -48,7 +48,7 @@ const nativeFields = async (): Promise<DiagnosticsField[]> => {
 	}
 };
 
-export const appSection = async (
+const appSection = async (
 	native = isNative(),
 ): Promise<DiagnosticsSection> => ({
 	title: "App",
@@ -69,7 +69,7 @@ const viewportOf = () =>
 		? "unknown"
 		: `${window.innerWidth}x${window.innerHeight}`;
 
-export const deviceSection = (): DiagnosticsSection => ({
+const deviceSection = (): DiagnosticsSection => ({
 	title: "Device",
 	fields: [
 		value("Locale", navigator.language || "unknown"),
@@ -90,7 +90,7 @@ export type AccountInput = {
 	resolveNode?: (origin: string) => Promise<string | undefined>;
 };
 
-export const NODE_PROBE_TIMEOUT_MS = 3_000;
+const NODE_PROBE_TIMEOUT_MS = 3_000;
 
 export const nodeNameAt = async (
 	origin: string,
@@ -144,7 +144,7 @@ const connectionType = () =>
 const notificationPermission = () =>
 	typeof Notification === "undefined" ? "unsupported" : Notification.permission;
 
-export const runtimeSection = (experiments: string[]): DiagnosticsSection => ({
+const runtimeSection = (experiments: string[]): DiagnosticsSection => ({
 	title: "Runtime",
 	fields: [
 		value("Online", String(navigator.onLine)),

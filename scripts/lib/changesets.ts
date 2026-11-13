@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import type { ParsedChangeset } from "../../packages/lib/src/release-notes.ts";
 import { parseChangesetFile } from "../../packages/lib/src/release-notes.ts";
 
-export const CLIENT_PACKAGE = "@colibri-social/client";
+export const RELEASE_PACKAGE = "@colibri-social/wrapper";
 export const CHANGESET_DIR = new URL("../../.changeset/", import.meta.url);
 
 const PRE_FILE = new URL("pre.json", CHANGESET_DIR);
@@ -51,7 +51,7 @@ export const readChangeset = async (file: string): Promise<LoadedChangeset> => {
 	return { file, ...parseChangesetFile(contents) };
 };
 
-export const clientBump = (
+export const releaseBump = (
 	changeset: ParsedChangeset,
 ): string | undefined =>
-	changeset.releases.find((release) => release.name === CLIENT_PACKAGE)?.type;
+	changeset.releases.find((release) => release.name === RELEASE_PACKAGE)?.type;

@@ -26,7 +26,7 @@ export const notificationTarget = (
 	view: Pick<NotificationView, "channel" | "thread">,
 ): string => view.thread ?? view.channel;
 
-export const isVoiceChannelRef = (ref: string): boolean =>
+const isVoiceChannelRef = (ref: string): boolean =>
 	ref.includes(`/${VOICE_CHANNEL}/`);
 
 export const shouldAlertNotification = (

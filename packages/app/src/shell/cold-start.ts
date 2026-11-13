@@ -12,7 +12,7 @@ export const lastViewedSpace = (
 	return key ? list.find((entry) => spaceKey(entry) === key) : undefined;
 };
 
-export const lastViewedChannel = (
+const lastViewedChannel = (
 	data: DataStore,
 	community: CommunityView,
 	channels: readonly ChannelView[],

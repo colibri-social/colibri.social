@@ -25,15 +25,17 @@ const EXCLUDED_FROM_RANGE = new Set([0x20, 0xa9, 0xae, 0x2122]);
 const root = dirname(
 	fileURLToPath(new URL("../package.json", import.meta.url)),
 );
-const clientPackage = JSON.parse(
-	await readFile(join(root, "..", "client", "package.json"), "utf8"),
+const assetsPackage = JSON.parse(
+	await readFile(join(root, "..", "assets", "package.json"), "utf8"),
 );
-const version = (clientPackage.dependencies["@twemoji/api"] ?? "").replace(
+const version = (assetsPackage.devDependencies["@twemoji/api"] ?? "").replace(
 	/^[^0-9]*/,
 	"",
 );
 if (!version) {
-	console.error("Could not resolve the @twemoji/api version from the client.");
+	console.error(
+		"Could not resolve the @twemoji/api version from packages/assets.",
+	);
 	process.exit(1);
 }
 

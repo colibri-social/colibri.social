@@ -19,6 +19,7 @@
 		"@shiguredo/rnnoise-wasm": "2025.1.5"
 	},
 	"devDependencies": {
+		"@twemoji/api": "^17.0.3",
 		"rolldown": "^1.2.0"
 	}
 }

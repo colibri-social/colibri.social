@@ -15,7 +15,7 @@ const PREVIEW_VERSION = "0.0.0-preview";
 const GENERIC_NOTE = "Bug fixes and improvements.";
 
 const DATA_FILE = new URL(
-	"../packages/client/src/release-notes/data.ts",
+	"../packages/app/src/data/release-notes/data.ts",
 	import.meta.url,
 );
 

@@ -61,7 +61,7 @@ import { isNativeShell } from "../../shell/desktop/window-chrome";
 
 const log = createLogger("voice/screen-share");
 
-export const SCREEN_SHARE_COPY = {
+const SCREEN_SHARE_COPY = {
 	permissionTitle: "Colibri needs permission to record your screen",
 	permissionDescription:
 		"Turn on Screen Recording for Colibri in System Settings, then share again.",

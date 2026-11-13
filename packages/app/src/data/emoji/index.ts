@@ -16,7 +16,7 @@ export * from "./registry";
 
 export const EMOJI_PERMISSION = "community.manage";
 
-export type UploadEmojiInput = {
+type UploadEmojiInput = {
 	community: Did;
 	name: string;
 	file: File;

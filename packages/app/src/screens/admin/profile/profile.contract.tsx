@@ -40,7 +40,7 @@ import { createUnsavedForm, UnsavedBar } from "../../settings/unsaved-form";
 import { AdminNavHeader } from "../desktop/page-header";
 import { useAdminSpace } from "../space-admin";
 
-export const spaceNameError = (name: string) => {
+const spaceNameError = (name: string) => {
 	const trimmed = name.trim();
 	if (trimmed.length === 0) return "Give your Space a name.";
 	if (trimmed.length > COMMUNITY_NAME_MAX) {
@@ -49,7 +49,7 @@ export const spaceNameError = (name: string) => {
 	return undefined;
 };
 
-export const spaceDescriptionError = (description: string) =>
+const spaceDescriptionError = (description: string) =>
 	description.trim().length > COMMUNITY_DESCRIPTION_MAX
 		? `Descriptions can be up to ${COMMUNITY_DESCRIPTION_MAX} characters.`
 		: undefined;

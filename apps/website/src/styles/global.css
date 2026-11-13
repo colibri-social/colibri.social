@@ -1,9 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@colibri-social/client/hummingbird.css";
+@import "../components/hummingbird/hummingbird.css";
 @plugin "@tailwindcss/typography";
 
-@source "../../../../packages/client/src/components/hummingbird";
+@source "../components/hummingbird";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -362,8 +362,7 @@
 	}
 }
 
-.prose a,
-[data-accordion] a {
+.prose a {
 	@apply hover:underline!;
 	color: var(--primary-hover) !important;
 	text-decoration: none;

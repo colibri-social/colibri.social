@@ -1,5 +1,5 @@
 ---
-"@colibri-social/client": minor
+"@colibri-social/wrapper": minor
 "@colibri-social/lib": patch
 "@colibri-social/website": patch
 ---

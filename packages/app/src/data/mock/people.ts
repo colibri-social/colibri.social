@@ -398,7 +398,7 @@ const STATES: readonly OnlineState[] = [
 	"offline",
 ];
 
-export const generatedPeople = (count: number): PersonSeed[] => {
+const generatedPeople = (count: number): PersonSeed[] => {
 	const random = createRandom(0x0715);
 	const people: PersonSeed[] = [];
 	for (let index = 0; index < count; index++) {
@@ -433,7 +433,7 @@ export const didFor = (key: string) => {
 	return asDid(`did:plc:${out.slice(0, 24)}`);
 };
 
-export type PersonRecord = PersonSeed & { did: Did };
+type PersonRecord = PersonSeed & { did: Did };
 
 export type ProfileEdit = {
 	displayName?: string;
@@ -557,5 +557,3 @@ export const createPeople = (generatedCount: number, now: number) => {
 		didOf: (key: string) => (byKey.get(key) as PersonRecord).did,
 	};
 };
-
-export type People = ReturnType<typeof createPeople>;

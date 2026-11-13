@@ -42,7 +42,7 @@ import {
 import { useAdminSpace } from "../space-admin";
 import { isRestricted } from "./category-audience";
 
-export const CATEGORY_NAME_MAX = 32;
+const CATEGORY_NAME_MAX = 32;
 
 const NO_AUDIENCE: Audience = { roles: [], members: [] };
 

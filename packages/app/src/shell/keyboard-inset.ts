@@ -6,7 +6,7 @@ import {
 
 export const KEYBOARD_INSET_VAR = "--keyboard-inset";
 export const KEYBOARD_PROGRESS_EVENT = "colibri-keyboard-progress";
-export const KEYBOARD_FOLLOW_ATTRIBUTE = "data-keyboard-follow";
+const KEYBOARD_FOLLOW_ATTRIBUTE = "data-keyboard-follow";
 export const SHELL_INSET_VAR = "--shell-keyboard-inset";
 
 const MAX_INSET_RATIO = 0.7;

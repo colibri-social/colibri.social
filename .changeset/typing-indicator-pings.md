@@ -1,5 +1,5 @@
 ---
-"@colibri-social/client": patch
+"@colibri-social/wrapper": patch
 ---
 
 Show typing indicators again

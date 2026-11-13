@@ -16,7 +16,7 @@ import { openCameraPreview } from "./camera-preview";
 
 const log = createLogger("voice/members");
 
-export const VOICE_MODERATION_COPY = {
+const VOICE_MODERATION_COPY = {
 	muteFailed: "Couldn't change their microphone",
 	deafenFailed: "Couldn't change what they hear",
 	disconnectFailed: "Couldn't disconnect them",

@@ -5,7 +5,6 @@ import {
 } from "../category-permissions";
 import { skeyOf } from "../ids";
 import type {
-	AttachmentView,
 	CategoryPermissions,
 	CategoryView,
 	ChannelView,
@@ -48,7 +47,7 @@ const MESSAGE_VIEW = "social.colibri.beta.channel.defs#messageView";
 const DELETED_VIEW = "social.colibri.beta.channel.defs#deletedMessageView";
 const ICON_BADGE = "social.colibri.beta.community.defs#roleIconBadge";
 const IMAGE_BADGE = "social.colibri.beta.community.defs#roleImageBadgeView";
-export const ARCHIVE_SIZE = 10_000;
+const ARCHIVE_SIZE = 10_000;
 
 const END_AGO: Record<string, number> = {
 	"hq:welcome": 60 * 24 * 30,
@@ -117,7 +116,7 @@ export type ChannelRecord = {
 	readCursor?: string;
 };
 
-export type ThreadRecord = {
+type ThreadRecord = {
 	view: ThreadView;
 	messages: MessageView[];
 };
@@ -619,4 +618,3 @@ export const createWorld = (now: number) => {
 };
 
 export type World = ReturnType<typeof createWorld>;
-export type { AttachmentView };

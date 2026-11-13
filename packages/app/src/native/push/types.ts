@@ -4,7 +4,7 @@ import type { TauriPort } from "../notifications/tauri-port";
 
 export type PushApi = Pick<DataSource, "registerPush" | "unregisterPush">;
 
-export type PushProviderKind = "apns" | "fcm" | "web";
+type PushProviderKind = "apns" | "fcm" | "web";
 
 export type PushProvider = {
 	kind: PushProviderKind;

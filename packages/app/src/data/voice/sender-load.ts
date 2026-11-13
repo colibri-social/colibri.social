@@ -13,15 +13,15 @@ export type SenderTuning = {
 	maxSpatialLayer: number;
 };
 
-export const CPU_STREAK_TO_STEP_DOWN = 2;
+const CPU_STREAK_TO_STEP_DOWN = 2;
 
 export const BASE_RECOVERY_POLLS = 8;
 
 export const MAX_RECOVERY_POLLS = 60;
 
-export const REDUCED_FRAMERATE_SCALE = 0.5;
+const REDUCED_FRAMERATE_SCALE = 0.5;
 
-export const MIN_REDUCED_FRAMERATE = 8;
+const MIN_REDUCED_FRAMERATE = 8;
 
 export const INITIAL_SENDER_LOAD: SenderLoad = {
 	level: 0,
@@ -31,7 +31,7 @@ export const INITIAL_SENDER_LOAD: SenderLoad = {
 	lastMove: null,
 };
 
-export const maxLoadLevel = (spatialLayers: number): number => {
+const maxLoadLevel = (spatialLayers: number): number => {
 	return spatialLayers > 1 ? 2 : 1;
 };
 

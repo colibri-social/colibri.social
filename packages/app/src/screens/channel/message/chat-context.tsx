@@ -51,7 +51,7 @@ import type { ChatMessage } from "./types";
 
 export type EmbedEditor = "author" | "moderator";
 
-export type ChatPlatform = "mobile" | "desktop";
+type ChatPlatform = "mobile" | "desktop";
 
 export type ChatContextValue = {
 	viewer: Accessor<string>;

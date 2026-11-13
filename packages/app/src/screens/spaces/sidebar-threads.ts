@@ -97,7 +97,7 @@ export const threadPingsAfter = (
 			Date.parse(entry.indexedAt) > after,
 	);
 
-export const sidebarThreads = (data: DataStore, channel: SpaceRef) =>
+const sidebarThreads = (data: DataStore, channel: SpaceRef) =>
 	(data.threadsOf(channel).value() ?? []).map(
 		(thread) => data.threads.find(thread.space) ?? thread,
 	);

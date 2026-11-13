@@ -93,7 +93,7 @@ const SEEDS: Record<string, CatalogSeed> = {
 	},
 };
 
-export const emojiImage = (glyph: string, fill: string) =>
+const emojiImage = (glyph: string, fill: string) =>
 	`data:image/svg+xml,${encodeURIComponent(
 		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="${fill}"/><text x="32" y="44" font-size="34" text-anchor="middle">${glyph}</text></svg>`,
 	)}`;

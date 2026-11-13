@@ -2,7 +2,7 @@ import { createSignal } from "solid-js";
 
 export const VIDEO_STATS_INTERVAL_MS = 2_000;
 
-export type VideoStatsDirection = "send" | "recv";
+type VideoStatsDirection = "send" | "recv";
 
 export type VideoStatsSource = "cam" | "screen";
 

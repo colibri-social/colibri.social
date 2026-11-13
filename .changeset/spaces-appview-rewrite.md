@@ -1,5 +1,4 @@
 ---
-"@colibri-social/client": major
 "@colibri-social/wrapper": major
 ---
 
@@ -46,7 +45,7 @@ you.
 
 <!-- whatsnew
 title: Private communities
-icon: lock-key-fill
+icon: lock-keyhole
 body: Your messages now live in your own repository and Colibri indexes them
   rather than holding them. Channels can be private, with reading gated
   separately from posting. Hiding a message is reversible, and banning someone

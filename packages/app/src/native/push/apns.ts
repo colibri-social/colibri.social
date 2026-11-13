@@ -11,9 +11,9 @@ import {
 	storedValue,
 } from "./types";
 
-export const APNS_ACTIVATION_EVENT = "colibri-notification-activated";
+const APNS_ACTIVATION_EVENT = "colibri-notification-activated";
 
-export type ApnsEnvironment = "sandbox" | "production";
+type ApnsEnvironment = "sandbox" | "production";
 
 type ApnsRegistration = { token: string; environment: ApnsEnvironment };
 

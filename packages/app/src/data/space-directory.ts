@@ -263,5 +263,3 @@ export const createSpaceDirectory = (
 			bridges,
 		};
 	});
-
-export type SpaceDirectory = ReturnType<typeof createSpaceDirectory>;

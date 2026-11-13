@@ -12,9 +12,9 @@ import { createCommunityRecord } from "./communities";
 import { withLatency } from "./latency";
 import type { World } from "./world";
 
-export const MOCK_SIGN_IN_MS = 1_500;
-export const MOCK_HAND_OVER_MS = 60 * 60 * 1000;
-export const MOCK_COLIBRI_SERVER = "https://spaces-alpha.colibri.social";
+const MOCK_SIGN_IN_MS = 1_500;
+const MOCK_HAND_OVER_MS = 60 * 60 * 1000;
+const MOCK_COLIBRI_SERVER = "https://spaces-alpha.colibri.social";
 
 const slug = (name: string) =>
 	name

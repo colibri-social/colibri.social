@@ -1,26 +1,27 @@
 ---
 title: Client development
-description: "Work on the SolidJS client, the Astro website that hosts it, and the native Tauri shell."
+description: "Work on the SolidJS client, its component library, the Astro website that hosts it, and the native Tauri shell."
 sidebar:
   order: 3
 ---
 
 import { Steps, FileTree } from "@astrojs/starlight/components";
 
-Everything a user sees lives in the [colibri-social/colibri.social](https://github.com/colibri-social/colibri.social) monorepo: the client library, the website that embeds it, the native shell, and these docs. It's a [pnpm](https://pnpm.io) workspace.
+Everything a user sees lives in the [colibri-social/colibri.social](https://github.com/colibri-social/colibri.social) monorepo: the client, its component library, the website that hosts it, the native shell, and these docs. It's a [pnpm](https://pnpm.io) workspace.
 
 <FileTree>
 - apps
   - website Astro app: marketing site, docs, hosted web client
 - packages
-  - client the SolidJS UI
+  - app the SolidJS client
+  - ui the component library, with its Storybook
   - wrapper the Tauri v2 desktop/mobile shell around the client
   - lib shared helpers, XRPC types, events, facets, markdown
   - assets fonts, sounds, logos, emoji, and their manifests
   - standard-renderer renderer for [standard.site](https://standard.site) documents
 </FileTree>
 
-The client is packaged as a library because more than one shell consumes it. The website and the native app both mount the same `App`. See the [client architecture page](/docs/architecture/client) for the design behind that.
+The website serves the client's Vite build at `/app`, and the native shell bundles the same build. See the [client architecture page](/docs/architecture/client) for how the client talks to an AppView.
 
 ## Setup
 
@@ -39,68 +40,35 @@ The client is packaged as a library because more than one shell consumes it. The
 3. Start the client dev server:
 
    ```sh
-   pnpm dev:client
+   pnpm dev:app
    ```
 
-   Then open **`http://127.0.0.1:4321`**. Vite binds `0.0.0.0:4321`, but the OAuth redirect URI is registered against `127.0.0.1`, so `localhost` will fail at login.
+   Then open **`http://127.0.0.1:5173`**. Vite binds every interface on port `5173`, but the OAuth redirect URI is registered against `127.0.0.1`, so `localhost` will fail at login.
 
 </Steps>
 
-You also need [the AppView running](/docs/development/appview) on `127.0.0.1:3000`, with `APPVIEW_DID=did:web:localhost%3A3000` rather than the matching bare IP, which a PDS refuses as a service-auth audience. In dev mode the client talks to it directly instead of proxying through your PDS, and mints its own service-auth tokens, so a local AppView isn't optional, and the AppView switcher in settings is ignored.
+The client talks to the AppView set in `VITE_COLIBRI_APPVIEW_URL`, and to the production AppView when it's unset. To work against [a local AppView](/docs/development/appview), set it to `http://127.0.0.1:3000`.
 
 ## Logging in locally
 
-Login uses a real Atmosphere account through OAuth, against whatever PDS that account lives on. Two details trip people up:
-
-- **The early-access allowlist.** `packages/client/src/atproto/allowlist.ts` holds an `ALLOWLIST_ENABLED` flag and a hardcoded set of DIDs, compiled into the client and enforced in dev as it is in production. While the flag is on, a session for a DID outside the set is cleared and you land on the waitlist screen, so add your own DID before you sign in.
-- **Localhost OAuth clients.** In dev the client id is the [localhost development form](https://atproto.com/specs/oauth#localhost-client-development), `http://localhost?scope=...&redirect_uri=http://127.0.0.1:<port>/app/login`, instead of a hosted client metadata document. Scopes are built from the AppView's `did:web`, so they're derived from what your local install points at.
-
-### Faking a logout
-
-A dead session is difficult to reproduce, so the client adds `window.__colibriSession`
-in every build. Run `__colibriSession.help()` for the list.
-
-```js
-__colibriSession.expire()               // end the session and watch the redirect to sign-in
-__colibriSession.expire("InvalidToken") // any ColibriErrorCode works
-__colibriSession.fail()                 // one AuthRequired, three inside 60s end the session
-__colibriSession.signOut()              // the explicit sign-out path instead
-__colibriSession.state()                // { dead, code }
-```
+Login uses a real Atmosphere account through OAuth, against whatever PDS that account lives on. On a loopback address the client id is the [localhost development form](https://atproto.com/specs/oauth#localhost-client-development), `http://localhost?scope=...&redirect_uri=http://127.0.0.1:<port>/app/login`, instead of a hosted client metadata document. Scopes are built from the AppView's `did:web`, so they're derived from what your local install points at.
 
 ## Tests
 
-CI runs Biome, the test suite, and a typecheck of the client, all of which you
-can reproduce locally:
+CI runs Biome, the test suite, and Knip, all of which you can reproduce locally:
 
 ```sh
 pnpm lint
 pnpm test
-pnpm --filter @colibri-social/client typecheck
+pnpm knip
+pnpm --filter @colibri-social/app typecheck
 ```
 
-Tests are [Vitest](https://vitest.dev) files configured by a small
-`vitest.config.ts` in each tested package. The client defines two
-[projects](https://vitest.dev/guide/projects):
+Tests are [Vitest](https://vitest.dev) files configured by a `vitest.config.ts` in each tested package. The client defines two [projects](https://vitest.dev/guide/projects). `unit` covers `src/**/*.test.ts` and runs in Node. `browser` covers `src/**/*.browser.test.tsx` and runs in headless Chromium through Playwright.
 
-```sh
-pnpm --filter @colibri-social/client test              # unit
-pnpm --filter @colibri-social/client test:integration  # against a real stack
-```
+[Knip](https://knip.dev) reports unused files, exports, and dependencies across the workspace. A file nothing imports fails CI, so delete code once its last caller is gone.
 
-`unit` covers `src/**/*.test.ts`, sitting next to the code it tests, and runs in
-Node with nothing else running. The pure logic is where coverage pays off: the
-sync and voice frame codecs, space reference parsing, read cursor coalescing,
-label folding, cache snapshot merges, and the outbox. `pnpm test` never touches
-the integration project, so a green run needs no services.
-
-`integration` covers `test/integration/**` and drives the real client against a
-local AppView and PDS, so it checks the wire format that a mocked fetch cannot.
-It stays out of pull request CI, because the spaces alpha moves underneath it.
-See `packages/client/test/integration/README.md` for bringing the stack up.
-
-See [Testing](/docs/development/testing) for what belongs where, the component
-sandbox, and how the AppView is kept in sync.
+See [Testing](/docs/development/testing) for what belongs where, and how the AppView is kept in sync.
 
 ## Running the website
 
@@ -111,7 +79,7 @@ pnpm build
 pnpm dev:web
 ```
 
-The website consumes the client's built `dist/`, not its source, so build the workspace once before starting it (and rebuild the client after changing it, or run `pnpm dev:client` for UI work, which serves from source with HMR).
+The website serves the client's built `dist/` at `/app`, so build the workspace once before starting it. For UI work, run `pnpm dev:app`, which serves from source with HMR.
 
 Its `dev`, `build` and `preview` scripts all run `sync-assets` first, which fetches shared assets out of `@colibri-social/assets` and copies them into place. `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are declared as required server env vars, so the site won't boot without them.
 
@@ -119,10 +87,9 @@ Documentation pages are Markdown/MDX under `apps/website/src/content/docs/docs/`
 
 ## Running the native app
 
-The shell renders the client's **built** output, so build the client first:
+The shell renders the client's **built** output, and its build commands build `packages/app` for you:
 
 ```sh
-pnpm --filter @colibri-social/client build
 pnpm dev:tauri              # desktop
 pnpm dev:tauri:android      # Android, needs the Android SDK/NDK
 pnpm dev:tauri:ios          # iOS, needs Xcode
@@ -158,7 +125,7 @@ Changes limited to the website's content, the docs, or repository configuration 
 
 ## Announcing a change in-app
 
-The client shows a "What's New" popup once per release, plus a settings page with the last five releases. Its content comes from the changesets themselves, so anything you want users to read about is written where you already write the changeset.
+The client has a "What's New" settings page with the last five releases. Its content comes from the changesets themselves, so anything you want users to read about is written where you already write the changeset.
 
 Use the wrapper instead of `pnpm exec changeset`, and it walks you through the entry after the usual prompts:
 
@@ -166,19 +133,15 @@ Use the wrapper instead of `pnpm exec changeset`, and it walks you through the e
 pnpm changeset:feature
 ```
 
-It asks whether to announce the change (defaulting to yes for a `minor` or `major` bump and no for a `patch`), whether it is a feature or a fix, then a title, a body, an icon, and which platforms it applies to, defaulting to all of them. The icon step is a live search over [Phosphor](https://phosphoricons.com) that narrows as you type, and it renders each match inline if your terminal supports the Kitty graphics protocol, as Ghostty, Kitty and WezTerm do. Set `COLIBRI_NO_ICON_PREVIEW=1` to fall back to names only.
-
-Only the `-fill` weight is offered, so the popup stays visually consistent. Search by the base name and the suffix is added for you: typing `microphone` finds `microphone-fill`.
+It asks whether to announce the change (defaulting to yes for a `minor` or `major` bump and no for a `patch`), whether it is a feature or a fix, then a title, a body, an icon, and which platforms it applies to, defaulting to all of them. The icon step is a live search over the bold weight of [Solar](https://solar-icons.vercel.app) that narrows as you type, and it renders each match inline if your terminal supports the Kitty graphics protocol, as Ghostty, Kitty and WezTerm do. Set `COLIBRI_NO_ICON_PREVIEW=1` to fall back to names only.
 
 To see your entry in the running app before it ships:
 
 ```sh
 pnpm whats-new:preview   # writes a throwaway 0.0.0-preview release
-pnpm dev:client
+pnpm dev:app
 pnpm whats-new:generate  # removes it again
 ```
-
-The popup opens once per unseen release, so if you have already dismissed it, clear `lastSeenReleaseNote` inside the `colibri:user-preferences` entry in local storage to bring it back. A browser profile with no stored preferences at all counts as a new install and is left alone.
 
 The preview renders through the same platform filter as a real release, so an entry limited to `ios` will not show up in a desktop browser.
 
@@ -186,14 +149,14 @@ The result is an HTML comment in the changeset body, which you can also write or
 
 ```md
 ---
-"@colibri-social/client": minor
+"@colibri-social/wrapper": minor
 ---
 
 Adds voice channels with screen sharing
 
 <!-- whatsnew
 title: Voice channels
-icon: microphone-fill
+icon: microphone
 body: Hop into a voice channel and talk without leaving the app.
 platforms: all
 kind: feature
@@ -204,23 +167,13 @@ kind: feature
 
 `platforms` takes a comma-separated list of `web`, `ios`, `android`, `macos`, `windows` and `linux`, plus three shorthands: `all` for every platform, `mobile` for `ios, android`, and `desktop` for `macos, windows, linux`. Combine them freely, so `mobile, macos` is three platforms. `all` is the right answer unless the change is invisible on some platform.
 
-The key exists because the App Store does not let the iOS app show release notes for anything other than iOS. Every place an entry is rendered filters to one platform: the in-app popup and the settings page filter to the platform the app is running on, and the App Store and Play listings filter to the platform being published. An entry naming no matching platform is invisible there, and a release with nothing left for a store gets a generic "Bug fixes and improvements." line instead.
+The key exists because the App Store does not let the iOS app show release notes for anything other than iOS. Every place an entry is rendered filters to one platform: the settings page filters to the platform the app is running on, and the App Store and Play listings filter to the platform being published. An entry naming no matching platform is invisible there, and a release with nothing left for a store gets a generic "Bug fixes and improvements." line instead.
 
 Two optional release-level keys, `releaseTitle` and `heroImage`, can be set by any one changeset in a release. Setting either from two changesets in the same release is an error.
 
-CI fails a `minor` or `major` client changeset that has no block, so features never ship unannounced, and prints a ready-to-paste block in the failure. A `patch` without one only gets a hint, since most fixes are not worth a popup.
+CI fails a `minor` or `major` changeset for `@colibri-social/wrapper` that has no block, so features never ship unannounced, and prints a ready-to-paste block in the failure. A `patch` without one only gets a hint, since most fixes are not worth an entry.
 
-The generated files under `packages/client/src/release-notes/` are written by `pnpm ci:version` during a release. If you edit them by hand, run `pnpm whats-new:generate` and commit the result, which CI also verifies.
-
-## Preview releases
-
-Every pull request gets an installable build of the client through [pkg.pr.new](https://pkg.pr.new) without waiting for a release. A bot comment on the PR carries the install command:
-
-```sh
-pnpm add https://pkg.pr.new/@colibri-social/client@156
-```
-
-The URL is keyed on the pull request number, so it keeps resolving to that PR's latest build as you push to it. Commits on `main` publish too, which makes `@colibri-social/client@main` a way to track trunk between `rc` releases.
+The generated files under `packages/app/src/data/release-notes/` are written by `pnpm ci:version` during a release. If you edit them by hand, run `pnpm whats-new:generate` and commit the result, which CI also verifies.
 
 ## See also
 

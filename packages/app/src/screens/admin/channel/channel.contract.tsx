@@ -59,7 +59,7 @@ import {
 import { parseEntryId } from "./channel-target";
 
 export const CHANNEL_NAME_MAX = 32;
-export const CHANNEL_DESCRIPTION_MAX = 256;
+const CHANNEL_DESCRIPTION_MAX = 256;
 
 const TEXT_TYPE = "social.colibri.beta.channel.text";
 const VOICE_TYPE = "social.colibri.beta.channel.voice";
@@ -69,12 +69,12 @@ type ChannelKind = "text" | "voice";
 
 export type LinkPreviewChoice = "space" | "on" | "off";
 
-export const linkPreviewChoiceOf = (
+const linkPreviewChoiceOf = (
 	view: ChannelView | undefined,
 ): LinkPreviewChoice =>
 	view?.linkEmbeds === undefined ? "space" : view.linkEmbeds ? "on" : "off";
 
-export const linkPreviewChange = (
+const linkPreviewChange = (
 	choice: LinkPreviewChoice,
 ): Pick<UpdateChannelInput, "linkEmbeds" | "removeLinkEmbeds"> =>
 	choice === "space"

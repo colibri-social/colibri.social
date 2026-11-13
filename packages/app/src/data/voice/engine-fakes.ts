@@ -209,7 +209,7 @@ export class FakeDevice {
 	}
 }
 
-export const fakeAudio = () => {
+const fakeAudio = () => {
 	const el = {
 		autoplay: false,
 		srcObject: null,

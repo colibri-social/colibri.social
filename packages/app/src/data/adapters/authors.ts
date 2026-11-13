@@ -11,19 +11,19 @@ export type AuthorDirectory = {
 	hideOwnerBadge?: boolean;
 };
 
-export const memberRoles = (
+const memberRoles = (
 	member: MemberView | undefined,
 	roles: ReadonlyMap<string, RoleView>,
 ) => rolesOf(member, (rkey) => roles.get(rkey));
 
-export const roleIdentityFor = (
+const roleIdentityFor = (
 	ranked: readonly RoleView[],
 ): RoleIdentity | undefined => {
 	const top = topColoredRole(ranked);
 	return top ? roleIdentity(top) : undefined;
 };
 
-export const isOwnerMember = (
+const isOwnerMember = (
 	member: Pick<MemberView, "roles"> | undefined,
 	roles: ReadonlyMap<string, RoleView>,
 ) => !!member?.roles.some((rkey) => roles.get(rkey)?.protected);

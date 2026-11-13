@@ -3,7 +3,7 @@ import { type ChannelView, VOICE_CHANNEL } from "../../data/types";
 import { voice } from "../../data/voice";
 import type { Navigator } from "../../shell/stack";
 
-export const isConnectedHere = (channelUri: string) =>
+const isConnectedHere = (channelUri: string) =>
 	voice.current()?.channel === channelUri &&
 	voice.connection().state === "connected";
 

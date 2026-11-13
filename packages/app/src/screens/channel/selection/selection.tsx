@@ -58,7 +58,7 @@ export const messageSelectionActive = () => activeSelections() > 0;
 
 const THREAD_MARKER = ".channel.thread/";
 
-export const isThreadRef = (ref: string) => ref.includes(THREAD_MARKER);
+const isThreadRef = (ref: string) => ref.includes(THREAD_MARKER);
 
 type Destination =
 	| { kind: "thread"; thread: ThreadView }

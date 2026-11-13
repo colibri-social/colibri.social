@@ -35,7 +35,7 @@ import {
 import { collapseOut } from "./inbox-presence";
 import { firstRovingCell, focusPastRows } from "./inbox-roving";
 
-export const InboxTitle = KobaltePopover.Title;
+const InboxTitle = KobaltePopover.Title;
 
 export const focusFirstRow = (content: HTMLElement) =>
 	firstRovingCell(
@@ -49,7 +49,7 @@ export const focusFirstRowFrom = (element: HTMLElement) => {
 	if (dialog) focusFirstRow(dialog)?.focus();
 };
 
-export const shortStamp = (
+const shortStamp = (
 	value: TimeInput,
 	now: TimeInput = new Date(),
 	locale?: string,
@@ -71,7 +71,7 @@ export const shortStamp = (
 	}).format(date);
 };
 
-export const Stamp = (props: {
+const Stamp = (props: {
 	value: TimeInput;
 	now?: TimeInput;
 	locale?: string;
@@ -88,7 +88,7 @@ export const Stamp = (props: {
 	</time>
 );
 
-export const KindIcon = (props: { notification: InboxNotification }) => (
+const KindIcon = (props: { notification: InboxNotification }) => (
 	<Show
 		when={props.notification.kind === "reply"}
 		fallback={<MentionCircleIcon aria-hidden="true" class="size-4 shrink-0" />}
@@ -97,7 +97,7 @@ export const KindIcon = (props: { notification: InboxNotification }) => (
 	</Show>
 );
 
-export const NotificationText = (props: {
+const NotificationText = (props: {
 	notification: InboxNotification;
 	class?: string;
 }) => (
@@ -124,7 +124,7 @@ export const NotificationText = (props: {
 	</span>
 );
 
-export const AuthorName = (props: { notification: InboxNotification }) => {
+const AuthorName = (props: { notification: InboxNotification }) => {
 	const nameColor = useNameColor(() => ({
 		userColor: props.notification.nameColor,
 		roleColor: props.notification.role?.color,
@@ -152,7 +152,7 @@ export const AuthorName = (props: { notification: InboxNotification }) => {
 	);
 };
 
-export const UnreadDot = (props: { unread: boolean; class?: string }) => (
+const UnreadDot = (props: { unread: boolean; class?: string }) => (
 	<span
 		aria-hidden="true"
 		data-inbox-unread-dot={props.unread ? "" : undefined}
@@ -164,16 +164,16 @@ export const UnreadDot = (props: { unread: boolean; class?: string }) => (
 	/>
 );
 
-export const srKindPrefix = (notification: InboxNotification) =>
+const srKindPrefix = (notification: InboxNotification) =>
 	`${notification.read ? "" : "Unread. "}${kindLabel(notification)}.`;
 
-export type MarkReadButtonProps = {
+type MarkReadButtonProps = {
 	notification: InboxNotification;
 	onMarkRead: (id: string) => void;
 	class?: string;
 };
 
-export const MarkReadButton = (props: MarkReadButtonProps) => (
+const MarkReadButton = (props: MarkReadButtonProps) => (
 	<Show when={!props.notification.read}>
 		<IconButton
 			data-inbox-cell=""
@@ -373,7 +373,7 @@ const EMPTY_COPY: Record<InboxFilter, { title: string; body: string }> = {
 	},
 };
 
-export const emptyCopy = (filter: InboxFilter, spaceName?: string) =>
+const emptyCopy = (filter: InboxFilter, spaceName?: string) =>
 	spaceName
 		? {
 				title: "Nothing from this Space",

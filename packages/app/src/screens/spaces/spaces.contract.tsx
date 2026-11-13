@@ -107,7 +107,7 @@ const comingSoon = (label: string) => () =>
 
 const SETTINGS_PERMISSIONS = Object.values(SPACE_PERMISSIONS);
 
-export const pdslsUrl = (did: string) => `https://pdsls.dev/at://${did}`;
+const pdslsUrl = (did: string) => `https://pdsls.dev/at://${did}`;
 
 const spaceDeveloperCard = (did: string): DeveloperModeCardProps => ({
 	copyLabel: "Copy DID",

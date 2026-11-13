@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 
-export type ReportingAccount = { did: string | undefined; optedIn: boolean };
+type ReportingAccount = { did: string | undefined; optedIn: boolean };
 
 const [account, setAccount] = createSignal<ReportingAccount>({
 	did: undefined,

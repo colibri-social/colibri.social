@@ -1,5 +1,5 @@
 export const AUDIO_SAMPLE_RATE = 48_000;
-export const AUDIO_PROCESSOR = "colibri-capture-audio";
+const AUDIO_PROCESSOR = "colibri-capture-audio";
 
 const MAX_QUEUED_FRAMES = AUDIO_SAMPLE_RATE / 10;
 
@@ -60,7 +60,7 @@ class ColibriCaptureAudio extends AudioWorkletProcessor {
 registerProcessor(${JSON.stringify(AUDIO_PROCESSOR)}, ColibriCaptureAudio);
 `;
 
-export interface NativeAudioChunk {
+interface NativeAudioChunk {
 	frames: number;
 	planes: Float32Array[];
 }

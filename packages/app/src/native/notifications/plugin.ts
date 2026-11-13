@@ -87,7 +87,7 @@ export const createActivationMemory = (
 	};
 };
 
-export const storedActivationMemory = (): ActivationMemory =>
+const storedActivationMemory = (): ActivationMemory =>
 	createActivationMemory(
 		() => readStoredJSON(ACTIVATIONS_KEY, isRemembered),
 		(entries) => writeStoredJSON(ACTIVATIONS_KEY, entries),

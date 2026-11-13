@@ -58,7 +58,7 @@ export const CHAT_LAYOUT: Record<ChatPlatform, ChatLayout> = {
 	}),
 };
 
-export const chatTextStart = (platform: ChatPlatform) => {
+const chatTextStart = (platform: ChatPlatform) => {
 	const layout = CHAT_LAYOUT[platform];
 	return layout.rowPadding + layout.avatarSize + layout.avatarGap;
 };

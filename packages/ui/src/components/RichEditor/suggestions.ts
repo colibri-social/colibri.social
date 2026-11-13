@@ -45,7 +45,7 @@ export type SuggestionController = {
 	exit: () => void;
 };
 
-export const EMOJI_LIMIT = 10;
+const EMOJI_LIMIT = 10;
 export const EMOJI_MIN_QUERY = 2;
 const MEMBER_LIMIT = 6;
 const ROLE_LIMIT = 3;
@@ -62,7 +62,7 @@ const KIND_RANK: Record<SuggestionItem["kind"], number> = {
 	time: 4,
 };
 
-export const sortSuggestions = (items: ReadonlyArray<SuggestionItem>) =>
+const sortSuggestions = (items: ReadonlyArray<SuggestionItem>) =>
 	[...items].sort((a, b) => KIND_RANK[a.kind] - KIND_RANK[b.kind]);
 
 export const suggestionAttrs = (

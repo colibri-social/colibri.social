@@ -25,7 +25,7 @@ const drawFrame = (
 	context.fillText(`${t.toFixed(1)}s`, width * 0.05, height * 0.14);
 };
 
-export const recordClip = async (
+const recordClip = async (
 	seconds = 1.5,
 	width = 640,
 	height = 360,

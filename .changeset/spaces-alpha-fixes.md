@@ -2,7 +2,7 @@
 "@colibri-social/app": patch
 "@colibri-social/ui": patch
 "@colibri-social/lib": patch
-"@colibri-social/client": patch
+"@colibri-social/wrapper": patch
 "@colibri-social/website": patch
 ---
 

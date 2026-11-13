@@ -47,7 +47,7 @@ export const flattenMemberGroups = (
 export const countMemberRows = (groups: readonly MemberGroup[]) =>
 	groups.reduce((total, group) => total + 1 + group.members.length, 0);
 
-export const sameMemberRow = (a: MemberListRow, b: MemberListRow) => {
+const sameMemberRow = (a: MemberListRow, b: MemberListRow) => {
 	if (a.kind !== b.kind || a.key !== b.key || a.first !== b.first) return false;
 	if (a.kind === "header" && b.kind === "header")
 		return (

@@ -14,7 +14,7 @@ const parse = (href: string): URL | undefined => {
 	}
 };
 
-export const isExternalHref = (href: string | null | undefined): boolean => {
+const isExternalHref = (href: string | null | undefined): boolean => {
 	if (!href) return false;
 	const url = parse(href);
 	if (!url) return false;

@@ -1,6 +1,6 @@
 import type { Did } from "./types";
 
-export type HostingKind = "colibri" | "own";
+type HostingKind = "colibri" | "own";
 
 export type HostingView = {
 	kind: HostingKind;
@@ -35,7 +35,7 @@ export type AuthorizeHostInput =
 	  }
 	| { intent: "reconnect"; identifier: string; community: Did };
 
-export type AuthorizeHostResult = { authorizeUrl: string; request: string };
+type AuthorizeHostResult = { authorizeUrl: string; request: string };
 
 export type HandOverResult = {
 	identifier: string;

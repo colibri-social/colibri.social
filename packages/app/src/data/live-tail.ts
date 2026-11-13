@@ -7,7 +7,7 @@ import type {
 } from "./types";
 
 export const TAIL_PER_CHANNEL = 50;
-export const TAIL_TOTAL = 2_000;
+const TAIL_TOTAL = 2_000;
 
 export type Tail = {
 	messages: readonly MessageView[];
@@ -202,5 +202,3 @@ export const createLiveTails = (
 		size: () => count,
 	};
 };
-
-export type LiveTails = ReturnType<typeof createLiveTails>;

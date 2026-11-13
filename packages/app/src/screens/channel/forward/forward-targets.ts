@@ -17,7 +17,7 @@ export type ForwardTarget = {
 	current: boolean;
 };
 
-export type ForwardThreadList = {
+type ForwardThreadList = {
 	value?: readonly ThreadView[];
 	loading?: boolean;
 	failed?: boolean;
@@ -44,12 +44,12 @@ export type ForwardSpaceInput = {
 	threads?: (channel: ChannelView) => ForwardThreadList | undefined;
 };
 
-export const isForwardable = (channel: ChannelView) =>
+const isForwardable = (channel: ChannelView) =>
 	!isVoiceChannel(channel) &&
 	channel.viewer.canRead !== false &&
 	channel.viewer.canPost !== false;
 
-export const isForwardableThread = (thread: ThreadView) =>
+const isForwardableThread = (thread: ThreadView) =>
 	!thread.closedAt && !!thread.viewer.canPost;
 
 const byActivity = (a: ThreadView, b: ThreadView) =>
@@ -109,7 +109,7 @@ const fold = (value: string) =>
 
 const needleOf = (query: string) => fold(query.trim().replace(/^#/, ""));
 
-export const matchesForwardFilter = (target: ForwardTarget, query: string) => {
+const matchesForwardFilter = (target: ForwardTarget, query: string) => {
 	const needle = needleOf(query);
 	if (!needle) return true;
 	const names = target.thread

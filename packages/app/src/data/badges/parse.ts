@@ -1,6 +1,6 @@
 import type { BadgeAppearance, BadgeDefinition } from "@colibri-social/ui";
 
-export type { BadgeAppearance, BadgeDefinition };
+export type { BadgeDefinition };
 
 export type RawLabel = {
 	uri: string;
@@ -27,9 +27,7 @@ const asRecord = (value: unknown): Record<string, unknown> | undefined =>
 const asColor = (value: unknown): string | undefined =>
 	typeof value === "string" && HEX_COLOR.test(value) ? value : undefined;
 
-export const parseAppearance = (
-	value: unknown,
-): BadgeAppearance | undefined => {
+const parseAppearance = (value: unknown): BadgeAppearance | undefined => {
 	const raw = asRecord(value);
 	if (!raw) return undefined;
 	const variant = raw.variant ?? "solid";
@@ -50,9 +48,7 @@ export const parseAppearance = (
 	};
 };
 
-export const parseDefinition = (
-	value: unknown,
-): BadgeDefinition | undefined => {
+const parseDefinition = (value: unknown): BadgeDefinition | undefined => {
 	const raw = asRecord(value);
 	if (!raw) return undefined;
 	const { identifier, name, description, precedence } = raw;
@@ -139,7 +135,7 @@ export const indexDefinitions = (
 	return index;
 };
 
-export const badgeRank = (index: BadgeIndex, val: string) => {
+const badgeRank = (index: BadgeIndex, val: string) => {
 	if (val === BOT_BADGE) return Number.POSITIVE_INFINITY;
 	return index.get(val)?.precedence ?? Number.MAX_SAFE_INTEGER;
 };

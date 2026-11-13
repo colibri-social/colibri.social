@@ -48,7 +48,7 @@ const oneOf = <T extends string>(
 		? (value as T)
 		: fallback;
 
-export const soundVolumeOf = (value: unknown): number =>
+const soundVolumeOf = (value: unknown): number =>
 	typeof value === "number" && Number.isFinite(value)
 		? Math.min(100, Math.max(0, Math.round(value)))
 		: DEFAULT_SOUND_VOLUME;

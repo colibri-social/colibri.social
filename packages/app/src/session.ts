@@ -64,7 +64,7 @@ import { isNativeShell } from "./shell/desktop/window-chrome";
 
 const log = createLogger("session");
 
-export const SESSION_START_TIMEOUT_MS = 30_000;
+const SESSION_START_TIMEOUT_MS = 30_000;
 
 const nativeFetch: typeof fetch = async (input, init) => {
 	const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
@@ -72,9 +72,9 @@ const nativeFetch: typeof fetch = async (input, init) => {
 	return tauriFetch(input, init);
 };
 
-export const MOVE_MIN_GAIN = 0.7;
+const MOVE_MIN_GAIN = 0.7;
 
-export const betterNode = (
+const betterNode = (
 	nodes: NodeDirectory,
 	currentSocket: string,
 	candidate: string,
@@ -91,9 +91,9 @@ export const betterNode = (
 
 	return next.rttMs < current.rttMs * MOVE_MIN_GAIN;
 };
-export const SIGN_OUT_DRAIN_MS = 2_500;
+const SIGN_OUT_DRAIN_MS = 2_500;
 
-export type SignedInSession = {
+type SignedInSession = {
 	store: DataStore;
 	live: LiveConnection;
 	node: Accessor<string>;

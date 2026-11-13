@@ -1,5 +1,5 @@
 ---
-"@colibri-social/client": patch
+"@colibri-social/wrapper": patch
 ---
 
 Keep voice channel tiles mounted while you change someone's volume

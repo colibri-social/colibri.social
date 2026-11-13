@@ -65,7 +65,7 @@ const SERVICES: Record<string, BridgeService> = {
 	},
 };
 
-export const PAIRING_CODE_PATTERN = /^[A-Z2-9]{8}$/;
+const PAIRING_CODE_PATTERN = /^[A-Z2-9]{8}$/;
 
 const serviceForCode = (code: string) => {
 	if (code.startsWith("M")) return SERVICES.matrix as BridgeService;
@@ -73,7 +73,7 @@ const serviceForCode = (code: string) => {
 	return SERVICES.telegram as BridgeService;
 };
 
-export const normalizePairingCode = (code: string) =>
+const normalizePairingCode = (code: string) =>
 	code.trim().toUpperCase().replace(/[\s-]/g, "");
 
 export const createBridgeStore = (world: World, now: number) => {

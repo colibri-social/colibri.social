@@ -11,7 +11,7 @@ import {
 } from "../../data/bluesky-client";
 import type { PreferenceStore } from "../../data/preferences/store";
 
-export const blueskyProfileLink = (
+const blueskyProfileLink = (
 	client: ResolvedBlueskyClient,
 	did: string,
 ): ProfileHeaderLink => ({

@@ -8,7 +8,7 @@ export type Root = {
 	space?: string;
 };
 
-export const TEXT_CHANNEL_TYPE = "social.colibri.beta.channel.text";
+const TEXT_CHANNEL_TYPE = "social.colibri.beta.channel.text";
 
 type ChannelTarget = { space: string; channel: string; channelType?: string };
 
@@ -26,22 +26,22 @@ export type ThreadLayer = ChannelTarget & {
 };
 
 export const FULL_THREAD_SEGMENT = "full";
-export const MESSAGE_SEGMENT = "m";
+const MESSAGE_SEGMENT = "m";
 export type ThreadsLayer = ChannelTarget & { kind: "threads" };
 export type ThreadDraftLayer = ChannelTarget & {
 	kind: "threadDraft";
 	anchor?: string;
 };
 
-export const THREAD_DRAFT_SEGMENT = "new";
+const THREAD_DRAFT_SEGMENT = "new";
 
-export type EditProfileLayer = { kind: "editProfile" };
+type EditProfileLayer = { kind: "editProfile" };
 
 export type SettingsLayer = { kind: "settings"; page?: string };
 
-export type InboxLayer = { kind: "inbox" };
+type InboxLayer = { kind: "inbox" };
 
-export const ADMIN_PAGES = [
+const ADMIN_PAGES = [
 	"overview",
 	"profile",
 	"messages",
@@ -81,15 +81,15 @@ export type AdminLayer = {
 	id?: string;
 };
 
-export type CreateSpaceLayer = { kind: "createSpace" };
-export type LegacySpaceLayer = { kind: "legacySpace"; did: string };
-export type DiscoverLayer = { kind: "discover" };
-export type JoinLayer = { kind: "join"; code: string };
-export type PackLayer = { kind: "pack"; did: string; rkey: string };
+type CreateSpaceLayer = { kind: "createSpace" };
+type LegacySpaceLayer = { kind: "legacySpace"; did: string };
+type DiscoverLayer = { kind: "discover" };
+type JoinLayer = { kind: "join"; code: string };
+type PackLayer = { kind: "pack"; did: string; rkey: string };
 
 export type NotFoundLayer = { kind: "notFound"; path: string };
 
-export type AppLayer =
+type AppLayer =
 	| CreateSpaceLayer
 	| LegacySpaceLayer
 	| DiscoverLayer
@@ -146,25 +146,25 @@ const OVERLAY_KINDS: readonly Layer["kind"][] = [
 	"notFound",
 ];
 
-export const isOverlayLayer = (layer: Layer | undefined) =>
+const isOverlayLayer = (layer: Layer | undefined) =>
 	!!layer && OVERLAY_KINDS.includes(layer.kind);
 
 export const isSheetLayer = (layer: Layer | undefined) =>
 	layer?.kind === "admin" && layer.page === "overview";
 
-export const PROFILE_EDIT_PATH = "/app/profile/edit";
-export const CREATE_SPACE_PATH = "/app/new";
-export const LEGACY_SPACE_PATH = "/app/legacy";
-export const DISCOVER_PATH = "/app/discover";
+const PROFILE_EDIT_PATH = "/app/profile/edit";
+const CREATE_SPACE_PATH = "/app/new";
+const LEGACY_SPACE_PATH = "/app/legacy";
+const DISCOVER_PATH = "/app/discover";
 export const SETTINGS_PATH = "/app/settings";
-export const INBOX_PATH = "/app/inbox";
+const INBOX_PATH = "/app/inbox";
 
-export const adminPath = (layer: Omit<AdminLayer, "kind">) => {
+const adminPath = (layer: Omit<AdminLayer, "kind">) => {
 	const base = `/app/c/${layer.space}/manage/${layer.page}`;
 	return layer.id ? `${base}/${segment(layer.id)}` : base;
 };
 
-export const adminLayers = (
+const adminLayers = (
 	space: string,
 	page: AdminPage,
 	id?: string,
@@ -304,7 +304,7 @@ const decodeSegment = (part: string) => {
 	}
 };
 
-export const notFoundRoute = (pathname: string): Route => ({
+const notFoundRoute = (pathname: string): Route => ({
 	root: { tab: "spaces" },
 	layers: [{ kind: "notFound", path: pathname }],
 });
@@ -441,5 +441,3 @@ export const parsePath = (pathname: string): Route => {
 
 export const sameLayer = (a: Layer | undefined, b: Layer | undefined) =>
 	!!a && !!b && layerPath(a) === layerPath(b);
-
-export const layerKey = (layer: Layer) => layerPath(layer);

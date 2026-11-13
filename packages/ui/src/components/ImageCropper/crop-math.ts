@@ -22,10 +22,10 @@ export const CROP_OUTPUT: Record<ImageCropShape, Size> = {
 
 export const MIN_ZOOM = 1;
 export const MAX_ZOOM = 4;
-export const MAX_WORKING_SIDE = 4096;
+const MAX_WORKING_SIDE = 4096;
 const RUBBER_BAND = 0.35;
 
-export const coverScale = (image: Size, frame: Size) =>
+const coverScale = (image: Size, frame: Size) =>
 	Math.max(frame.width / image.width, frame.height / image.height);
 
 export const minZoomFor = (shape: ImageCropShape, image: Size, frame: Size) => {
@@ -37,7 +37,7 @@ export const minZoomFor = (shape: ImageCropShape, image: Size, frame: Size) => {
 	return containScale / coverScale(image, frame);
 };
 
-export const clampZoom = (zoom: number, minZoom = MIN_ZOOM) =>
+const clampZoom = (zoom: number, minZoom = MIN_ZOOM) =>
 	Math.min(MAX_ZOOM, Math.max(minZoom, zoom));
 
 export const panLimits = (image: Size, frame: Size, zoom: number) => {

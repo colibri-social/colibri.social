@@ -276,7 +276,7 @@ export type ChannelData = {
 	attach: (messages: readonly MessageView[]) => void;
 };
 
-export type CreateThreadDraft = {
+type CreateThreadDraft = {
 	name: string;
 	anchor?: ThreadAnchor;
 };

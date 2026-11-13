@@ -5,7 +5,7 @@ import type { CommunityView } from "../../../data/types";
 import { useStack } from "../../../shell/stack";
 import { moveOffSpace } from "../space-admin";
 
-export const LEAVE_SPACE_COPY = {
+const LEAVE_SPACE_COPY = {
 	title: (name: string) => `Leave ${name}?`,
 	description:
 		"You will no longer be able to view or send messages in this Space. You can rejoin with an invite link.",

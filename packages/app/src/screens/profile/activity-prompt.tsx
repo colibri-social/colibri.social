@@ -10,7 +10,7 @@ import { readStored, writeStored } from "../../data/persist";
 import type { DataSource } from "../../data/source";
 import { type DataStore, useData } from "../../data/store";
 
-export const ACTIVITY_PROMPT_TOASTS = {
+const ACTIVITY_PROMPT_TOASTS = {
 	enabled: "Others can see what you're listening to now",
 	failed: "Couldn't turn on activity sharing",
 	failedDescription: "Check your connection and try again.",
@@ -66,7 +66,7 @@ const stateFor = (data: DataStore): PromptState => {
 	return state;
 };
 
-export const activityOffer = (data: DataStore, state: PromptState) => {
+const activityOffer = (data: DataStore, state: PromptState) => {
 	if (state.dismissed()) return undefined;
 	if (data.preferences.shareActivity()) return undefined;
 	const presence = data.presenceOf(data.viewer.did) ?? data.viewer.presence;

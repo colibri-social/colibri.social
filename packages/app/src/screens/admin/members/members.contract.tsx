@@ -41,12 +41,12 @@ import {
 import { AdminNavHeader } from "../desktop/page-header";
 import { SPACE_PERMISSIONS, useAdminSpace } from "../space-admin";
 
-export const MEMBER_LIMIT = 50;
+const MEMBER_LIMIT = 50;
 
 const MEMBER_DROPDOWN_TRIGGER =
 	"block w-full cursor-pointer text-left outline-none hover:bg-secondary-highlight focus-ring-inset data-expanded:bg-secondary-highlight";
 
-export const MEMBERS_COPY = {
+const MEMBERS_COPY = {
 	title: "Members",
 	search: "Search members",
 	requests: "Join requests",

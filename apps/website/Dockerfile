@@ -15,7 +15,6 @@ COPY packages/assets/package.json ./packages/assets/
 COPY packages/lib/package.json ./packages/lib/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/app/package.json ./packages/app/
-COPY packages/client/package.json ./packages/client/
 COPY packages/standard-renderer/package.json ./packages/standard-renderer/
 COPY apps/website/package.json ./apps/website/
 
@@ -47,14 +46,6 @@ ENV VITE_APP_VERSION=${SENTRY_RELEASE}
 COPY packages/ ./packages/
 COPY apps/ ./apps/
 
-# ENV pnpm_config_link_workspace_packages=false
-# RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-#     CLIENT_VERSION="$(node -p 'require("/app/packages/client/package.json").version')" && \
-#     pnpm --filter @colibri-social/website add \
-#       "@colibri-social/client@${CLIENT_VERSION}" \
-#       --save-exact --yes --store-dir=/pnpm/store
-
-RUN pnpm --filter @colibri-social/client build
 RUN SENTRY_AUTH_TOKEN= pnpm --filter @colibri-social/app build
 
 RUN --mount=type=cache,id=astro-cache,target=/app/apps/website/node_modules/.astro \

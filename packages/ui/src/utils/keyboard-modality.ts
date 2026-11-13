@@ -77,7 +77,7 @@ export const focusFollowsNavigationKey = () => {
 	return navigationKeyPressed;
 };
 
-export const KEYBOARD_FOCUS_ATTRIBUTE = "data-keyboard-focus";
+const KEYBOARD_FOCUS_ATTRIBUTE = "data-keyboard-focus";
 
 export const keyboardFocusWithin = () => {
 	const keyboard = useKeyboardModality();

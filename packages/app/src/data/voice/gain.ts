@@ -7,9 +7,9 @@ type BoostNode = {
 	disconnect: () => void;
 };
 
-export type BoostGainNode = BoostNode & { gain: { value: number } };
+type BoostGainNode = BoostNode & { gain: { value: number } };
 
-export type BoostDestinationNode = BoostNode & { stream: MediaStream };
+type BoostDestinationNode = BoostNode & { stream: MediaStream };
 
 export type BoostAudioContext = {
 	state?: string;

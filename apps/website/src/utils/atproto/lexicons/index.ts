@@ -10,15 +10,6 @@ export const LEXICON_DOCS: LexiconDoc[] = Object.values(modules)
 	.filter((doc): doc is LexiconDoc => typeof doc?.id === "string")
 	.sort((a, b) => a.id.localeCompare(b.id));
 
-const idsOfKind = (kind: string): string[] =>
-	LEXICON_DOCS.filter((doc) => doc.defs.main?.type === kind).map(
-		(doc) => doc.id,
-	);
-
-export const RECORD_IDs: string[] = idsOfKind("record");
-export const SPACE_TYPE_IDs: string[] = idsOfKind("space");
-export const PERMISSION_SET_IDs: string[] = idsOfKind("permission-set");
-
 /**
  * A lexicon that can be used to validate records before inserting them:
  * ```ts

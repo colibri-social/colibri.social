@@ -19,7 +19,7 @@ const sizes: [number, number][] = [
 	[200, 140],
 ];
 
-export const fixtureGif = (index: number, prefix = "gif"): Gif => {
+const fixtureGif = (index: number, prefix = "gif"): Gif => {
 	const [width, height] = sizes[index % sizes.length];
 	const src = paintImage(
 		width / 2,
@@ -41,7 +41,7 @@ export const fixtureGifs = (count: number, offset = 0, prefix = "gif") =>
 		fixtureGif(index + offset, prefix),
 	);
 
-export const fixtureCategories: GifCategory[] = [
+const fixtureCategories: GifCategory[] = [
 	"happy",
 	"thumbs up",
 	"excited",

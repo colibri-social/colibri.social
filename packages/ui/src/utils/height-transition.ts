@@ -9,7 +9,7 @@ export type HeightTransitionOptions = {
 	isBusy?: () => boolean;
 };
 
-export const attachHeightTransition = (
+const attachHeightTransition = (
 	element: HTMLElement,
 	options: HeightTransitionOptions = {},
 ) => {

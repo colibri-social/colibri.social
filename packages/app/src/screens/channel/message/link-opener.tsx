@@ -27,9 +27,9 @@ const trustedHosts = createRoot(() => {
 	};
 });
 
-export const isTrustedHost = (host: string) => trustedHosts.has(host);
+const isTrustedHost = (host: string) => trustedHosts.has(host);
 
-export const trustHost = (host: string) => trustedHosts.add(host);
+const trustHost = (host: string) => trustedHosts.add(host);
 
 export const trustsHost = (
 	host: string,

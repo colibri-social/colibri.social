@@ -27,7 +27,7 @@ import { MAX_RECENT_GIFS, muteKey, pruneEmojiUsage } from "./wire";
 
 const log = createLogger("preferences");
 
-export const COMPOSER_WRITE_DELAY = 2000;
+const COMPOSER_WRITE_DELAY = 2000;
 
 export const preferencesSnapshotKey = (did: string) =>
 	`colibri:preferences:${did}`;

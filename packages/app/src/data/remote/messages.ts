@@ -43,7 +43,7 @@ const recordRefOf = (
 		: undefined;
 };
 
-export const REACTION_COLLECTION = "social.colibri.beta.reaction";
+const REACTION_COLLECTION = "social.colibri.beta.reaction";
 const HIDDEN_LABEL = "hidden";
 
 type Label = MessageView["labels"][number];

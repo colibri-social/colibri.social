@@ -60,7 +60,7 @@ export const roleIdentity = (role: RoleView): RoleIdentity => ({
 
 export const isVisibleRole = (role: RoleView) => !role.protected;
 
-export const isChipRole = (role: RoleView) =>
+const isChipRole = (role: RoleView) =>
 	isVisibleRole(role) && !isDefaultRole(role);
 
 export const visibleRoles = (roles: readonly RoleView[]) =>

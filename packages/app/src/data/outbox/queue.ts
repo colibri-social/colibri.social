@@ -3,7 +3,7 @@ import type { OutboxEntry, OutboxQueue } from "./types";
 
 const log = createLogger("outbox");
 
-export const OUTBOX_DB_NAME = "colibri-app-outbox";
+const OUTBOX_DB_NAME = "colibri-app-outbox";
 const OUTBOX_DB_VERSION = 1;
 const ENTRIES = "entries";
 

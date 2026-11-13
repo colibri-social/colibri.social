@@ -6,7 +6,7 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 8000;
 const PARTIAL_CACHE_TTL_MS = 60 * 1000;
 
-export const MONTHLY_GOAL_CENTS = 100_00;
+const MONTHLY_GOAL_CENTS = 100_00;
 
 export type Funding = {
 	monthlyCents: number;

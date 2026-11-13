@@ -4,13 +4,13 @@ import { MAX_VOLUME } from "../voice-settings";
 
 export type VolumeChannel = "voice" | "stream";
 
-export type ParticipantVolume = Partial<Record<VolumeChannel, number>> & {
+type ParticipantVolume = Partial<Record<VolumeChannel, number>> & {
 	streamMuted?: boolean;
 };
 
 export type ParticipantVolumes = Readonly<Record<string, ParticipantVolume>>;
 
-export const DEFAULT_PARTICIPANT_VOLUME = 100;
+const DEFAULT_PARTICIPANT_VOLUME = 100;
 
 const isVolume = (value: unknown) =>
 	value === undefined ||
@@ -93,7 +93,7 @@ export const withStreamMuted = (
 export const playbackGain = (output: number, participant: number) =>
 	Math.max(0, (output / 100) * (participant / 100));
 
-export const createParticipantVolumes = () => {
+const createParticipantVolumes = () => {
 	const [volumes, setVolumes] = devicePref<ParticipantVolumes>(
 		DEVICE_KEYS.voiceVolumes,
 		{},
@@ -111,9 +111,7 @@ export const createParticipantVolumes = () => {
 	};
 };
 
-export type ParticipantVolumeStore = ReturnType<
-	typeof createParticipantVolumes
->;
+type ParticipantVolumeStore = ReturnType<typeof createParticipantVolumes>;
 
 let shared: ParticipantVolumeStore | undefined;
 

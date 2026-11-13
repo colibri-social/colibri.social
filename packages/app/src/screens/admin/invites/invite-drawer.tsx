@@ -16,7 +16,7 @@ import { useData } from "../../../data/store";
 import type { CommunityView } from "../../../data/types";
 import { usePlatform } from "../../../screen/platform";
 
-export const INVITE_DRAWER_COPY = {
+const INVITE_DRAWER_COPY = {
 	title: (name: string) => `Invite people to ${name}`,
 	failed: "The invite link couldn't be created.",
 	share: (name: string) => `Join ${name} on Colibri`,

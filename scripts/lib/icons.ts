@@ -1,51 +1,43 @@
-import { createRequire } from "node:module";
+import { readdirSync, readFileSync } from "node:fs";
 
-const requireFromClient = createRequire(
-	new URL("../../packages/client/package.json", import.meta.url),
+const SOLAR_BOLD_DIR = new URL(
+	"../../packages/app/node_modules/@solar-icons/solid/dist/icons/bold/",
+	import.meta.url,
 );
 
-interface IconSet {
-	width: number;
-	height: number;
-	icons: Record<string, { body: string }>;
-	aliases?: Record<string, { parent: string }>;
-}
+const MODULE_SUFFIX = ".mjs";
 
-const iconSet = requireFromClient("@iconify-json/ph/icons.json") as IconSet;
+export const ICON_VIEWBOX = "0 0 24 24";
 
-export const FILL_SUFFIX = "-fill";
+const iconNames = new Set(
+	readdirSync(SOLAR_BOLD_DIR)
+		.filter((file) => file.endsWith(MODULE_SUFFIX))
+		.map((file) => file.slice(0, -MODULE_SUFFIX.length)),
+);
 
-export const ICON_VIEWBOX = `0 0 ${iconSet.width} ${iconSet.height}`;
-
-const resolveName = (name: string): string | undefined => {
-	if (iconSet.icons[name]) return name;
-	const parent = iconSet.aliases?.[name]?.parent;
-	if (parent && iconSet.icons[parent]) return parent;
-	return undefined;
+const readModule = (name: string) => {
+	return readFileSync(new URL(`${name}${MODULE_SUFFIX}`, SOLAR_BOLD_DIR), "utf8");
 };
 
-export const iconExists = (name: string): boolean =>
-	resolveName(name) !== undefined;
+export const iconExists = (name: string): boolean => {
+	return iconNames.has(name);
+};
 
 export const iconProblem = (name: string): string | undefined => {
-	if (!iconExists(name)) return `unknown icon "${name}"`;
-	if (name.endsWith(FILL_SUFFIX)) return undefined;
-
-	const fill = `${name}${FILL_SUFFIX}`;
-	return iconExists(fill)
-		? `icon "${name}" is not a fill variant, use "${fill}"`
-		: `icon "${name}" is not a fill variant, and "${fill}" does not exist`;
+	return iconExists(name) ? undefined : `unknown icon "${name}"`;
 };
 
 export const iconBody = (name: string): string | undefined => {
-	const resolved = resolveName(name);
-	return resolved ? iconSet.icons[resolved].body : undefined;
+	if (!iconExists(name)) return undefined;
+
+	return /iconBody:`([^`]*)`/.exec(readModule(name))?.[1];
 };
 
-const allNames = (): string[] => [
-	...Object.keys(iconSet.icons),
-	...Object.keys(iconSet.aliases ?? {}),
-];
+export const iconExportName = (name: string): string | undefined => {
+	if (!iconExists(name)) return undefined;
+
+	return /export\{\w+ as (\w+)\}/.exec(readModule(name))?.[1];
+};
 
 export interface IconSearchResult {
 	matches: string[];
@@ -53,18 +45,18 @@ export interface IconSearchResult {
 }
 
 export const searchIcons = (term: string, limit = 12): IconSearchResult => {
-	const needle = term.trim().toLowerCase().replace(/-fill$/, "");
+	const needle = term.trim().toLowerCase();
+
 	if (!needle) return { matches: [], total: 0 };
 
 	const scored: Array<{ name: string; score: number }> = [];
-	for (const name of allNames()) {
-		if (!name.endsWith(FILL_SUFFIX)) continue;
 
-		const base = name.slice(0, -FILL_SUFFIX.length);
-		const index = base.indexOf(needle);
+	for (const name of iconNames) {
+		const index = name.indexOf(needle);
+
 		if (index === -1) continue;
 
-		scored.push({ name, score: base === needle ? 0 : index === 0 ? 1 : 2 });
+		scored.push({ name, score: name === needle ? 0 : index === 0 ? 1 : 2 });
 	}
 
 	scored.sort(

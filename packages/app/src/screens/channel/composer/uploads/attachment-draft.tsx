@@ -36,7 +36,7 @@ export type AttachmentDraftOptions = {
 	reencode?: (file: File) => Promise<File>;
 };
 
-export const SERVABLE_IMAGE_TYPES: ReadonlySet<string> = new Set([
+const SERVABLE_IMAGE_TYPES: ReadonlySet<string> = new Set([
 	"image/jpeg",
 	"image/png",
 	"image/gif",
@@ -49,7 +49,7 @@ const log = createLogger("attachment-draft");
 const IMAGE_PREVIEW = /^image\//;
 const JPEG_QUALITY = 0.9;
 
-export const needsReencode = (file: File) =>
+const needsReencode = (file: File) =>
 	IMAGE_PREVIEW.test(file.type) && !SERVABLE_IMAGE_TYPES.has(file.type);
 
 export const tooManyMessage = (max: number) =>
@@ -105,7 +105,7 @@ const asPlainFile = (file: File) =>
 		lastModified: file.lastModified,
 	});
 
-export const videoThumbnail = (file: File) =>
+const videoThumbnail = (file: File) =>
 	new Promise<string | undefined>((resolve) => {
 		const source = URL.createObjectURL(file);
 		const video = document.createElement("video");

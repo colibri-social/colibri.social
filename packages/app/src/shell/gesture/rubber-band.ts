@@ -1,6 +1,6 @@
 const RUBBER_COEFFICIENT = 0.55;
 
-export const rubberBand = (overshoot: number, dimension: number) => {
+const rubberBand = (overshoot: number, dimension: number) => {
 	if (dimension <= 0) return 0;
 	const sign = Math.sign(overshoot);
 	const distance = Math.abs(overshoot);

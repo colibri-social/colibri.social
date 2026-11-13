@@ -24,7 +24,7 @@ import {
 import { SETTINGS_PAGES, settingsEntries } from "../registry";
 import SettingsScreen from "../settings.screen";
 
-export const settingsPageOf = (layer: Layer | undefined): SettingsPageId =>
+const settingsPageOf = (layer: Layer | undefined): SettingsPageId =>
 	settingsPage(layer?.kind === "settings" ? layer.page : undefined);
 
 export default function SettingsModal(props: ModalAreaProps) {
