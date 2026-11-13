@@ -15,6 +15,7 @@ import { profileBannerFill } from "./profile-theme";
 import type { ScreenShareQuality } from "./screen-share";
 import type { DataStore } from "./store";
 import type { Did, SpaceRef } from "./types";
+import type { VoiceDebugSnapshot } from "./voice/debug-stats";
 import type {
 	ScreenCapture,
 	VoiceConnection,
@@ -66,6 +67,7 @@ export type VoiceController = {
 	expand(): void;
 	collapse(): void;
 	cue(sound: VoiceSound): void;
+	debugSnapshot(): Promise<VoiceDebugSnapshot | null>;
 };
 
 type VoiceStore = Pick<
@@ -83,7 +85,7 @@ const communityOf = (channelUri: string) => channelUri.split("/")[2] ?? "";
 
 const NO_VIDEOS: readonly VoiceVideo[] = [];
 
-export type VoiceNotifier = (key: VoiceNoticeKey) => void;
+export type VoiceNotifier = (key: VoiceNoticeKey, retry?: () => void) => void;
 
 export type VoiceMoveNotifier = (move: VoiceMoveNotice | null) => void;
 
@@ -96,7 +98,8 @@ export const createVoice = (
 		let playSound = player;
 		let notifyWith = notifier;
 		let notifyMove: VoiceMoveNotifier = () => {};
-		const notify = (key: VoiceNoticeKey) => notifyWith(key);
+		const notify = (key: VoiceNoticeKey, retry?: () => void) =>
+			notifyWith(key, retry);
 		const [link, setLink] = createSignal<VoiceConnectionMonitor>(monitor());
 		const [floatingDismissed, setFloatingDismissed] = createSignal(false);
 		const [focusedKey, setFocusedKey] = createSignal<string | null>(null);
@@ -294,8 +297,15 @@ export const createVoice = (
 		const attach = (active: VoiceConnectionMonitor) => {
 			detach?.();
 			const releaseEnded = active.onEnded?.((reason) => {
-				if (!current()) return;
-				notify(reason);
+				const call = current();
+				if (!call) return;
+				const wasMuted = selfMuted();
+				notify(
+					reason,
+					reason === "nodesDown"
+						? () => controller.join(call, { muted: wasMuted })
+						: undefined,
+				);
 				ended();
 			});
 			const releaseMoved = active.onMoved?.(moved);
@@ -452,6 +462,11 @@ export const createVoice = (
 			},
 			collapse: () => setExpanded(false),
 			cue: play,
+			debugSnapshot: () => {
+				const read = link().debugSnapshot;
+
+				return current() && read ? read() : Promise.resolve(null);
+			},
 		};
 
 		const connect = (data: VoiceStore) =>

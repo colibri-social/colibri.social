@@ -17,7 +17,6 @@ import {
 	getMissingScopeSets,
 	isColibriError,
 	isRequestedScopeResource,
-	isRetryableCode,
 	isSignInDenial,
 	isStorageFailure,
 	scopeFeatureLabel,
@@ -44,7 +43,11 @@ import {
 	nativeCallbackParams,
 	SIGN_IN_PATH,
 } from "./callback";
-import { makeClientId } from "./client-id";
+import {
+	type ClientMetadata,
+	makeClientId,
+	makeClientMetadata,
+} from "./client-id";
 import { withDeadline } from "./deadline";
 import { createOAuthFetch } from "./fetch";
 import {
@@ -80,6 +83,8 @@ export const NEAR_EXPIRY_MS = 5 * 60_000;
 const SIGN_IN_TIMEOUT_MS = 75_000;
 const STARTUP_TIMEOUT_MS = 30_000;
 const BEFORE_SIGN_OUT_TIMEOUT_MS = 3_000;
+const RECONNECT_BASE_MS = 5_000;
+const RECONNECT_MAX_MS = 60_000;
 
 type SignOutOptions = {
 	beforeSignOut?: () => Promise<unknown>;
@@ -104,6 +109,7 @@ export type OAuthClientLike = Pick<
 
 export type LoadOAuthClient = (options: {
 	clientId: string;
+	clientMetadata?: ClientMetadata;
 	database: DatabaseOptions;
 	onSessionDeleted: (sub: string, cause: unknown) => void;
 }) => Promise<OAuthClientLike>;
@@ -114,9 +120,15 @@ type AuthStatus =
 	| "signedOut"
 	| "completing"
 	| "signedIn"
+	| "offline"
 	| "expired";
 
 type SignInPhase = "checking" | "redirecting" | "browser";
+
+type BoundAgent = {
+	agent: Agent;
+	bind: (oauth: OAuthSession) => void;
+};
 
 export type ScopeNotice = {
 	methods: string[];
@@ -142,6 +154,7 @@ export type AuthOptions = {
 	beforeSignOutTimeoutMs?: number;
 	appVersion?: string;
 	resumeEnvironment?: ResumeEnvironment | null;
+	reconnectBaseMs?: number;
 };
 
 export type Auth = {
@@ -171,14 +184,23 @@ export type Auth = {
 	onAuthFailure: (code: ColibriErrorCode) => void;
 };
 
-const defaultLoadClient: LoadOAuthClient = (options) =>
-	BrowserOAuthClient.load({
-		clientId: options.clientId,
+const defaultLoadClient: LoadOAuthClient = async (options) => {
+	const shared = {
 		handleResolver,
 		fetch: createOAuthFetch(),
 		databaseOptions: options.database,
 		onSessionDeleted: options.onSessionDeleted,
-	});
+	};
+
+	if (options.clientMetadata) {
+		return new BrowserOAuthClient({
+			...shared,
+			clientMetadata: options.clientMetadata,
+		});
+	}
+
+	return BrowserOAuthClient.load({ ...shared, clientId: options.clientId });
+};
 
 const safeStorage = (
 	pick: () => Pick<Storage, "getItem" | "setItem" | "removeItem">,
@@ -225,6 +247,20 @@ const asSignInError = (err: unknown): ColibriError => {
 		return new ColibriError({ code: "StorageStalled", cause: err });
 	}
 	return classifyThrown(err);
+};
+
+const isNearExpiry = (expiresAt: Date | undefined) => {
+	const at = expiresAt?.getTime();
+
+	return at !== undefined && at - Date.now() <= NEAR_EXPIRY_MS;
+};
+
+const expiresSoon = async (oauth: OAuthSession) => {
+	try {
+		return isNearExpiry((await oauth.getTokenInfo(false)).expiresAt);
+	} catch {
+		return false;
+	}
 };
 
 const isReturnablePath = (path: string) =>
@@ -281,6 +317,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		options.beforeSignOutTimeoutMs ?? BEFORE_SIGN_OUT_TIMEOUT_MS;
 	const appVersion =
 		options.appVersion ?? import.meta.env.VITE_APP_VERSION ?? "development";
+	const reconnectBaseMs = options.reconnectBaseMs ?? RECONNECT_BASE_MS;
 
 	const readPaused = (): ReadonlySet<string> => {
 		const raw = local.get(SCOPE_PAUSED_KEY);
@@ -311,13 +348,16 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		});
 	};
 
-	let refreshSession: (() => Promise<unknown>) | undefined;
+	let activeOAuth: OAuthSession | undefined;
 	const health = createSessionHealth(Date.now, {
 		onScopesRejected: (method) => {
 			const key = scopeNoticeKey(method);
 			if (justReapproved.has(key)) pauseMethods([key]);
 		},
-		refresh: () => refreshSession?.() ?? Promise.resolve(),
+		refresh: () => activeOAuth?.getTokenInfo(true) ?? Promise.resolve(),
+		refreshDue: () => {
+			return activeOAuth ? expiresSoon(activeOAuth) : Promise.resolve(false);
+		},
 	});
 	const [base, setBase] = createSignal<AuthStatus>("loading");
 	const [agent, setAgent] = createSignal<Agent>();
@@ -367,18 +407,55 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 	let stopDeepLinks: (() => void) | undefined;
 	let stopGrantRefresh: (() => void) | undefined;
 	let stopWakeWatch: (() => void) | undefined;
+	let offlineAgent: BoundAgent | undefined;
+	let stopReconnect: (() => void) | undefined;
 
-	const clientId = () => makeClientId({ native, location: location() });
+	const clientInput = () => ({ native, location: location() });
 
 	const load = (database: DatabaseOptions) =>
 		loadClient({
-			clientId: clientId(),
+			clientId: makeClientId(clientInput()),
+			clientMetadata: makeClientMetadata(clientInput()),
 			database,
-			onSessionDeleted: (sub) => {
+			onSessionDeleted: (sub, cause) => {
 				if (agent()?.did !== sub) return;
-				health.noteSessionDeleted(new Error("session deleted"));
+				health.noteSessionDeleted(cause);
 			},
 		});
+
+	const boundAgent = (did: string): BoundAgent => {
+		let bound: OAuthSession | undefined;
+		const next = new Agent({
+			did,
+			fetchHandler: (url, init) => {
+				if (!bound) {
+					return Promise.reject(
+						new ColibriError({ code: "Offline", method: url }),
+					);
+				}
+
+				return health.observe(url, bound.fetchHandler(url, init));
+			},
+		});
+
+		return {
+			agent: next,
+			bind: (oauth) => {
+				bound = oauth;
+			},
+		};
+	};
+
+	const restingStatus = (): AuthStatus => {
+		if (activeOAuth) return "signedIn";
+
+		return offlineAgent ? "offline" : "signedOut";
+	};
+
+	const stopReconnecting = () => {
+		stopReconnect?.();
+		stopReconnect = undefined;
+	};
 
 	const clearSession = () => {
 		local.remove(SUB_KEY);
@@ -387,7 +464,9 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		stopGrantRefresh = undefined;
 		stopWakeWatch?.();
 		stopWakeWatch = undefined;
-		refreshSession = undefined;
+		stopReconnecting();
+		offlineAgent = undefined;
+		activeOAuth = undefined;
 		batch(() => {
 			setAgent(undefined);
 			setGrantedScope(undefined);
@@ -419,8 +498,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		} catch {
 			return;
 		}
-		const expiresAt = info.expiresAt?.getTime();
-		if (expiresAt === undefined || expiresAt - Date.now() > NEAR_EXPIRY_MS) {
+		if (!isNearExpiry(info.expiresAt)) {
 			applyGrant(owner, info.scope);
 			return;
 		}
@@ -442,11 +520,16 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 	};
 
 	const adopt = async (oauth: OAuthSession, fresh: boolean) => {
-		const next = new Agent({
-			did: oauth.did,
-			fetchHandler: (url, init) =>
-				health.observe(url, oauth.fetchHandler(url, init)),
-		});
+		const reused =
+			!fresh && offlineAgent?.agent.did === oauth.did
+				? offlineAgent
+				: undefined;
+		const bound = reused ?? boundAgent(oauth.did);
+		const next = bound.agent;
+
+		bound.bind(oauth);
+		offlineAgent = undefined;
+		stopReconnecting();
 		let scope: string | undefined;
 		let host: string | undefined;
 		let issuer: string | undefined;
@@ -458,7 +541,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		} catch {}
 		local.set(SUB_KEY, oauth.sub);
 		health.reset();
-		refreshSession = () => oauth.getTokenInfo(true);
+		activeOAuth = oauth;
 		if (fresh) settleReapproval(oauth.did, scope);
 		batch(() => {
 			setAgent(next);
@@ -470,7 +553,6 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		});
 		const refreshable = () =>
 			isOnline() && getMissingScopeSets(untrack(grantedScope)).length === 0;
-		if (!fresh && scope && refreshable()) void refreshGrant(oauth, next);
 		stopGrantRefresh?.();
 		stopGrantRefresh = watchResume({
 			onResume: () => {
@@ -514,7 +596,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 			batch(() => {
 				setPhase(undefined);
 				setError(isSignInDenial(failure) ? undefined : failure);
-				setBase(agent() ? "signedIn" : "signedOut");
+				setBase(restingStatus());
 			});
 			if (isSignInDenial(failure)) log.info("sign-in was declined");
 			else log.warn("sign-in ended with an error", { code: failure.code });
@@ -533,9 +615,75 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 			batch(() => {
 				setPhase(undefined);
 				setError(failure);
-				setBase(agent() ? "signedIn" : "signedOut");
+				setBase(restingStatus());
 			});
 			return false;
+		}
+	};
+
+	const forget = (failure: ColibriError) => {
+		log.warn("the saved sign-in no longer works", { code: failure.code });
+		clearSession();
+		setError(new ColibriError({ code: failure.code, severity: "warning" }));
+	};
+
+	const scheduleReconnect = (attempt: number) => {
+		stopReconnecting();
+
+		const delay = Math.min(reconnectBaseMs * 2 ** attempt, RECONNECT_MAX_MS);
+		const timer = setTimeout(() => void reconnect(attempt + 1), delay);
+		const onOnline = () => void reconnect(0);
+
+		if (typeof window !== "undefined") {
+			window.addEventListener("online", onOnline);
+		}
+
+		stopReconnect = () => {
+			clearTimeout(timer);
+			if (typeof window !== "undefined") {
+				window.removeEventListener("online", onOnline);
+			}
+		};
+	};
+
+	const goOffline = (did: string) => {
+		if (offlineAgent?.agent.did !== did) offlineAgent = boundAgent(did);
+
+		const pending = offlineAgent;
+
+		batch(() => {
+			setAgent(pending.agent);
+			setBase("offline");
+		});
+		scheduleReconnect(0);
+	};
+
+	const reconnect = async (attempt: number) => {
+		const active = client;
+		const sub = local.get(SUB_KEY);
+
+		stopReconnecting();
+		if (!active || !sub || base() !== "offline") return;
+
+		try {
+			const restored = await active.restore(sub);
+			if (base() !== "offline") return;
+			await adopt(restored, false);
+			log.info("the saved sign-in is back after being offline");
+		} catch (err) {
+			if (base() !== "offline") return;
+
+			const failure = classifyThrown(err);
+
+			if (failure.needsReauth) {
+				forget(failure);
+				setBase("signedOut");
+				return;
+			}
+			log.info("the saved sign-in is still out of reach", {
+				code: failure.code,
+			});
+			scheduleReconnect(attempt);
 		}
 	};
 
@@ -562,9 +710,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 			}
 			const failure = classifyThrown(err);
 			if (failure.needsReauth) {
-				log.warn("the saved sign-in no longer works", { code: failure.code });
-				clearSession();
-				setError(new ColibriError({ code: failure.code, severity: "warning" }));
+				forget(failure);
 				return;
 			}
 			log.warn("refreshing the sign-in at launch failed", {
@@ -576,8 +722,18 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 				if (!current()) return;
 				await adopt(stored, false);
 			} catch (stale) {
-				const code = classifyThrown(stale).code;
-				if (!isRetryableCode(code)) clearSession();
+				if (!current()) return;
+
+				const staleFailure = classifyThrown(stale);
+
+				if (staleFailure.needsReauth) {
+					forget(staleFailure);
+					return;
+				}
+				log.warn("opening from this device until the sign-in loads", {
+					code: staleFailure.code,
+				});
+				goOffline(sub);
 			}
 		}
 	};
@@ -622,7 +778,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		}
 		await restore(loaded, current);
 		if (!current()) return;
-		if (base() === "loading") setBase(agent() ? "signedIn" : "signedOut");
+		if (base() === "loading") setBase(restingStatus());
 		if (native && !stopDeepLinks) void watchDeepLinks();
 	};
 
@@ -832,6 +988,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 			stopDeepLinks?.();
 			stopGrantRefresh?.();
 			stopWakeWatch?.();
+			stopReconnecting();
 		});
 	}
 

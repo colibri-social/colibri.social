@@ -143,4 +143,38 @@ describe("session health", () => {
 		health.noteAuthFailure("AuthRequired");
 		expect(health.dead()).toBe(true);
 	});
+
+	it("skips the refresh while the token is far from expiry and counts from there", async () => {
+		const { health, refresh } = setup({
+			refreshDue: () => Promise.resolve(false),
+			online: () => true,
+		});
+		health.noteAuthFailure("AuthRequired");
+		await settle();
+		expect(refresh).not.toHaveBeenCalled();
+		health.noteAuthFailure("AuthRequired");
+		health.noteAuthFailure("AuthRequired");
+		expect(health.dead()).toBe(false);
+		health.noteAuthFailure("AuthRequired");
+		expect(health.dead()).toBe(true);
+	});
+
+	it("keeps the session alive when a token refresh failed on the network", () => {
+		const { health } = setup();
+		const cause = new Error("token refresh failed", {
+			cause: new ColibriError({ code: "Unreachable" }),
+		});
+		cause.name = "TokenRefreshError";
+		health.noteSessionDeleted(cause);
+		expect(health.dead()).toBe(false);
+	});
+
+	it("ends the session when a token refresh was refused", () => {
+		const { health } = setup();
+		const cause = new Error("The session was revoked");
+		cause.name = "TokenRefreshError";
+		health.noteSessionDeleted(cause);
+		expect(health.dead()).toBe(true);
+		expect(health.deadCode()).toBe("ExpiredToken");
+	});
 });

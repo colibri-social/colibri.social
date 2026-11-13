@@ -1,3 +1,4 @@
+import { classifyThrown, createLogger } from "@colibri-social/lib";
 import {
 	createEffect,
 	createSignal,
@@ -14,8 +15,14 @@ import {
 	frameDelayMs,
 	frameTimeline,
 } from "./frame-clock";
+import { decodeWithScript } from "./script-decode";
+
+export type SyncedAnimationDecoder = "native" | "script";
+
+export type SyncedAnimationDecoderPreference = "auto" | "script";
 
 export type SyncedAnimation = {
+	decoder: SyncedAnimationDecoder;
 	frames: ImageBitmap[];
 	timeline: FrameTimeline;
 	width: number;
@@ -35,18 +42,32 @@ const MAX_FRAMES = 300;
 const MAX_SIDE = 256;
 const RELEASE_DELAY_MS = 2_000;
 
+const log = createLogger("emoji");
 const cache = new Map<string, CacheEntry>();
 const drawers = new Set<Drawer>();
 const observed = new Map<Element, Drawer>();
 let observer: IntersectionObserver | undefined;
 let tick = 0;
+let decoderPreference: SyncedAnimationDecoderPreference = "auto";
+
+export const setSyncedAnimationDecoder = (
+	preference: SyncedAnimationDecoderPreference,
+) => {
+	decoderPreference = preference;
+};
 
 const canSyncAnimation = () => {
 	return (
-		typeof ImageDecoder !== "undefined" &&
 		typeof createImageBitmap !== "undefined" &&
 		typeof IntersectionObserver !== "undefined"
 	);
+};
+
+const nativeDecoderSupports = async (type: string) => {
+	if (decoderPreference === "script") return false;
+	if (typeof ImageDecoder === "undefined") return false;
+
+	return await ImageDecoder.isTypeSupported(type);
 };
 
 const imageType = (bytes: Uint8Array) => {
@@ -65,7 +86,29 @@ const closeFrames = (frames: readonly ImageBitmap[]) => {
 	for (const frame of frames) frame.close();
 };
 
-const decodeFrames = async (bytes: Uint8Array, type: string) => {
+const finishAnimation = (
+	decoder: SyncedAnimationDecoder,
+	frames: ImageBitmap[],
+	delays: readonly number[],
+): SyncedAnimation | undefined => {
+	const first = frames[0];
+
+	if (!first || frames.length < 2) {
+		closeFrames(frames);
+
+		return undefined;
+	}
+
+	return {
+		decoder,
+		frames,
+		timeline: frameTimeline(delays),
+		width: first.width,
+		height: first.height,
+	};
+};
+
+const decodeNative = async (bytes: Uint8Array, type: string) => {
 	const decoder = new ImageDecoder({ data: bytes, type });
 	const frames: ImageBitmap[] = [];
 	const delays: number[] = [];
@@ -100,46 +143,84 @@ const decodeFrames = async (bytes: Uint8Array, type: string) => {
 				image.close();
 			}
 		}
-	} catch {
+	} catch (error) {
 		closeFrames(frames);
 
-		return undefined;
+		throw error;
 	} finally {
 		decoder.close();
 	}
 
-	const first = frames[0];
+	return finishAnimation("native", frames, delays);
+};
 
-	if (!first || frames.length < 2) {
+const decodeScript = async (bytes: Uint8Array, type: string) => {
+	const animation = decodeWithScript(bytes, type, MAX_FRAMES);
+
+	if (!animation) return undefined;
+
+	const { width, height } = animation;
+	const size = fitFrameSize(width, height, MAX_SIDE);
+	const frames: ImageBitmap[] = [];
+	const delays: number[] = [];
+
+	try {
+		for (const frame of animation.frames) {
+			frames.push(
+				await createImageBitmap(new ImageData(frame.pixels, width, height), {
+					resizeWidth: size.width,
+					resizeHeight: size.height,
+					resizeQuality: "high",
+				}),
+			);
+			delays.push(frameDelayMs(frame.delayMs * 1000));
+		}
+	} catch (error) {
 		closeFrames(frames);
 
-		return undefined;
+		throw error;
 	}
 
-	return {
-		frames,
-		timeline: frameTimeline(delays),
-		width: first.width,
-		height: first.height,
-	};
+	return finishAnimation("script", frames, delays);
+};
+
+const fetchImage = async (src: string) => {
+	try {
+		const response = await fetch(src);
+
+		if (response.ok) return new Uint8Array(await response.arrayBuffer());
+
+		log.warn("fetching an animated emoji failed", {
+			code: classifyThrown(response).code,
+		});
+	} catch (error) {
+		log.warn("fetching an animated emoji failed", {
+			code: classifyThrown(error).code,
+		});
+	}
+
+	return undefined;
 };
 
 const decodeAnimation = async (
 	src: string,
 ): Promise<SyncedAnimation | undefined> => {
+	const bytes = await fetchImage(src);
+	const type = bytes && imageType(bytes);
+
+	if (!bytes || !type || !isAnimatedImageData(bytes)) return undefined;
+
 	try {
-		const response = await fetch(src);
+		if (await nativeDecoderSupports(type)) {
+			return await decodeNative(bytes, type);
+		}
 
-		if (!response.ok) return undefined;
+		return await decodeScript(bytes, type);
+	} catch (error) {
+		log.warn("decoding an animated emoji failed", {
+			code: classifyThrown(error).code,
+		});
 
-		const bytes = new Uint8Array(await response.arrayBuffer());
-		const type = imageType(bytes);
-
-		if (!type || !isAnimatedImageData(bytes)) return undefined;
-		if (!(await ImageDecoder.isTypeSupported(type))) return undefined;
-
-		return await decodeFrames(bytes, type);
-	} catch {
 		return undefined;
 	}
 };

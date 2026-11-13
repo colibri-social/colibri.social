@@ -94,12 +94,28 @@ export const isAtprotoSessionError = (err: unknown): boolean => {
 	return typeof sub === "string" && sub.startsWith("did:");
 };
 
+const TRANSPORT_CODES = new Set<ColibriErrorCode>([
+	"Offline",
+	"Timeout",
+	"Unreachable",
+	"NetworkFailed",
+]);
+
 const PROGRAMMING_TYPE_ERROR =
 	/cannot read propert|cannot set propert|can't access property|is not a function|is not a constructor|is not iterable|is not an object|is undefined|is null|cannot destructure|invalid url|failed to construct|cannot convert|illegal invocation|read.only|assignment to constant/i;
 
 const isProgrammingTypeError = (err: unknown): boolean => {
 	const message = (err as { message?: unknown }).message;
 	return typeof message === "string" && PROGRAMMING_TYPE_ERROR.test(message);
+};
+
+const transportCause = (err: unknown): ColibriErrorCode | undefined => {
+	for (const link of causeChain(err).slice(1)) {
+		const code = isColibriError(link) ? link.code : codeForThrownShape(link);
+		if (code && TRANSPORT_CODES.has(code)) return code;
+	}
+
+	return undefined;
 };
 
 const codeForThrownShape = (err: unknown): ColibriErrorCode | undefined => {
@@ -113,9 +129,9 @@ const codeForThrownShape = (err: unknown): ColibriErrorCode | undefined => {
 	}
 
 	const sessionCode = name ? SESSION_ERROR_NAMES.get(name) : undefined;
-	if (sessionCode) return sessionCode;
+	if (sessionCode) return transportCause(err) ?? sessionCode;
 
-	if (isAtprotoSessionError(err)) return "InvalidToken";
+	if (isAtprotoSessionError(err)) return transportCause(err) ?? "InvalidToken";
 
 	if (name === "OverconstrainedError") return "DeviceUnavailable";
 

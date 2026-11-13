@@ -5,7 +5,6 @@ import type { Presence } from "../Avatar/Avatar";
 import { Chip } from "../Badge/Badge";
 import { DeveloperModeCard } from "../DeveloperMode/DeveloperModeCard";
 import type { CustomEmoji } from "../EmojiPicker/EmojiPicker";
-import { IconButton } from "../IconButton/IconButton";
 import { DestructiveRow, ListGroup, NavRow, SectionLabel } from "../List/List";
 import {
 	NowPlayingCard,
@@ -25,7 +24,6 @@ export type ProfileAction = {
 	label: string;
 	icon?: JSX.Element | (() => JSX.Element);
 	tone?: "default" | "destructive";
-	quick?: boolean;
 	onSelect?: () => void;
 };
 
@@ -75,6 +73,9 @@ export type ProfileContentPartProps = {
 	tight?: boolean;
 	headingLevel?: 1 | 2 | 3;
 	onAction?: (action: ProfileAction) => void;
+	headerActions?: JSX.Element;
+	showActions?: boolean;
+	showDeveloper?: boolean;
 	footer?: JSX.Element;
 	avatarPlay?: boolean;
 	class?: string;
@@ -97,63 +98,36 @@ const runAction = (
 export const profileActionsOf = (profile: ProfileData) =>
 	profile.self ? [] : (profile.actions ?? []);
 
-export const ProfileContentHeader = (props: ProfileContentPartProps) => {
-	const quickActions = () =>
-		profileActionsOf(props.profile).filter((action) => action.quick);
-
-	return (
-		<ProfileHeader
-			displayName={props.profile.nickname ?? props.profile.displayName}
-			nameColor={props.profile.accentColor}
-			handle={props.profile.handle}
-			pronouns={props.profile.pronouns}
-			avatarSeed={props.profile.avatarSeed}
-			avatarSrc={props.profile.avatarSrc}
-			avatarColor={props.profile.avatarColor}
-			presence={props.profile.presence}
-			bannerSrc={props.profile.bannerSrc}
-			bannerColor={props.profile.bannerColor}
-			badge={props.profile.badge}
-			appBadge={props.profile.appBadge}
-			links={props.profile.links}
-			status={props.profile.status}
-			statusEmoji={props.profile.statusEmoji}
-			statusCustomEmoji={props.profile.statusCustomEmoji}
-			statusEditable={props.profile.statusEditable}
-			statusShowWhileOffline={props.profile.statusShowWhileOffline}
-			onStatusClick={props.profile.onStatusClick}
-			onStatusCustomEmojiClick={props.profile.onStatusCustomEmojiClick}
-			avatarPlay={props.avatarPlay}
-			surface={props.surface ?? "popover"}
-			tight={props.tight}
-			headingLevel={props.headingLevel}
-			class={props.class}
-			actions={
-				quickActions().length > 0 ? (
-					<div
-						data-profile-quick-actions=""
-						class="flex gap-1 rounded-control-lg bg-popover p-1"
-					>
-						<For each={quickActions()}>
-							{(action) => (
-								<IconButton
-									size="sm"
-									variant="ghost"
-									class={cx(
-										action.tone === "destructive" && "text-destructive",
-									)}
-									label={action.label}
-									icon={renderActionIcon(action.icon)}
-									onClick={() => runAction(action, props.onAction)}
-								/>
-							)}
-						</For>
-					</div>
-				) : undefined
-			}
-		/>
-	);
-};
+export const ProfileContentHeader = (props: ProfileContentPartProps) => (
+	<ProfileHeader
+		displayName={props.profile.nickname ?? props.profile.displayName}
+		nameColor={props.profile.accentColor}
+		handle={props.profile.handle}
+		pronouns={props.profile.pronouns}
+		avatarSeed={props.profile.avatarSeed}
+		avatarSrc={props.profile.avatarSrc}
+		avatarColor={props.profile.avatarColor}
+		presence={props.profile.presence}
+		bannerSrc={props.profile.bannerSrc}
+		bannerColor={props.profile.bannerColor}
+		badge={props.profile.badge}
+		appBadge={props.profile.appBadge}
+		links={props.profile.links}
+		status={props.profile.status}
+		statusEmoji={props.profile.statusEmoji}
+		statusCustomEmoji={props.profile.statusCustomEmoji}
+		statusEditable={props.profile.statusEditable}
+		statusShowWhileOffline={props.profile.statusShowWhileOffline}
+		onStatusClick={props.profile.onStatusClick}
+		onStatusCustomEmojiClick={props.profile.onStatusCustomEmojiClick}
+		avatarPlay={props.avatarPlay}
+		surface={props.surface ?? "popover"}
+		tight={props.tight}
+		headingLevel={props.headingLevel}
+		class={props.class}
+		actions={props.headerActions}
+	/>
+);
 
 const ProfileSection = (props: { label: string; children: JSX.Element }) => (
 	<section data-profile-section={props.label} class="flex flex-col gap-2">
@@ -186,13 +160,17 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 	const activityPrompt = createSlot(() => props.profile.activityPrompt);
 	const footer = createSlot(() => props.footer);
 	const tone = () => (props.surface === "background" ? "card" : "secondary");
+	const actions = () =>
+		props.showActions === false ? [] : profileActionsOf(props.profile);
+	const developer = () =>
+		props.showDeveloper === false ? undefined : props.profile.developer;
 	const hasContent = () =>
 		bio.has() ||
 		(props.profile.nowPlaying ?? []).length > 0 ||
 		activityPrompt.has() ||
 		(props.profile.roles ?? []).length > 0 ||
-		profileActionsOf(props.profile).length > 0 ||
-		!!props.profile.developer ||
+		actions().length > 0 ||
+		!!developer() ||
 		footer.has();
 
 	return (
@@ -233,9 +211,9 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 						</div>
 					</ProfileSection>
 				</Show>
-				<Show when={profileActionsOf(props.profile).length > 0}>
+				<Show when={actions().length > 0}>
 					<ListGroup label={props.profile.actionsLabel ?? "Actions"}>
-						<For each={profileActionsOf(props.profile)}>
+						<For each={actions()}>
 							{(action) => (
 								<Show
 									when={action.tone === "destructive"}
@@ -257,7 +235,7 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 						</For>
 					</ListGroup>
 				</Show>
-				<Show when={props.profile.developer}>
+				<Show when={developer()}>
 					{(developer) => (
 						<DeveloperModeCard
 							copyLabel={developer().copyLabel ?? "Copy DID"}
@@ -284,12 +262,14 @@ export const ProfileContent = (props: ProfileContentPartProps) => (
 			tight={props.tight}
 			headingLevel={props.headingLevel}
 			avatarPlay={props.avatarPlay}
-			onAction={props.onAction}
+			headerActions={props.headerActions}
 		/>
 		<ProfileContentBody
 			profile={props.profile}
 			surface={props.surface}
 			onAction={props.onAction}
+			showActions={props.showActions}
+			showDeveloper={props.showDeveloper}
 			footer={props.footer}
 			class="px-4 pt-4"
 		/>

@@ -421,9 +421,22 @@ describe("voice engine", () => {
 		socket.open();
 		await reply(socket, "join", {
 			$type: `${DEFS}error`,
-			error: "VoiceUnavailable",
+			error: "Forbidden",
 		});
 		await vi.waitFor(() => expect(harness.ended).toEqual(["failed"]));
+	});
+
+	it("reports nodesDown when the only node can't take the call", async () => {
+		const harness = track(setup());
+		harness.engine.start({ channel: CHANNEL, muted: false, deafened: false });
+		await vi.waitFor(() => expect(harness.sockets).toHaveLength(1));
+		const socket = harness.sockets[0];
+		socket.open();
+		await reply(socket, "join", {
+			$type: `${DEFS}error`,
+			error: "VoiceUnavailable",
+		});
+		await vi.waitFor(() => expect(harness.ended).toEqual(["nodesDown"]));
 	});
 
 	it("turns the camera on and off", async () => {

@@ -118,7 +118,8 @@ export const createSignedInSession = (
 	createEffect(
 		on([auth.agent, attempt], ([agent]) => {
 			const did = agent?.did;
-			if (!agent || !did || untrack(auth.status) !== "signedIn") {
+			const status = untrack(auth.status);
+			if (!agent || !did || (status !== "signedIn" && status !== "offline")) {
 				setState({ kind: "idle" });
 				return;
 			}
@@ -248,7 +249,8 @@ export const createSignedInSession = (
 					uninstallVoice = installVoiceEngine({
 						agent,
 						appViewHost: appViewHost("ws"),
-						pickHost: () => nodes.endpointFor("voice"),
+						pickHost: (avoid) => nodes.endpointFor("voice", avoid),
+						describeNode: nodes.nodeAt,
 						forceRelay: () =>
 							isExperimentOn(store.preferences, VOICE_RELAY_EXPERIMENT),
 						serviceRef: appViewServiceRef(),

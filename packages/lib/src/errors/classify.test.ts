@@ -267,6 +267,25 @@ describe("classifyThrown", () => {
 		expect(classifyThrown(err).needsReauth).toBe(true);
 	});
 
+	it("keeps a token refresh that failed on the network retryable", () => {
+		offline(false);
+		const err = new Error("token refresh failed", {
+			cause: new TypeError("Failed to fetch"),
+		});
+		err.name = "TokenRefreshError";
+		expect(classifyThrown(err).code).toBe("NetworkFailed");
+		expect(classifyThrown(err).needsReauth).toBe(false);
+	});
+
+	it("reads an unreachable server behind a token refresh failure", () => {
+		offline(false);
+		const err = new Error("token refresh failed", {
+			cause: new ColibriError({ code: "Unreachable" }),
+		});
+		err.name = "TokenRefreshError";
+		expect(classifyThrown(err).code).toBe("Unreachable");
+	});
+
 	it("names a revoked session", () => {
 		offline(false);
 		const err = new Error("session revoked");

@@ -54,6 +54,7 @@ export const UNATTRIBUTED_REJECTION = "";
 export type SessionHealthOptions = {
 	onScopesRejected?: (method: string) => void;
 	refresh?: () => Promise<unknown>;
+	refreshDue?: () => Promise<boolean>;
 	online?: () => boolean;
 };
 
@@ -92,7 +93,12 @@ export const createSessionHealth = (
 	const refreshSession = () => {
 		const refresh = options.refresh;
 		if (!refresh || refreshing) return;
-		refreshing = refresh().then(
+
+		const started = options.refreshDue
+			? options.refreshDue().then((needed) => (needed ? refresh() : undefined))
+			: refresh();
+
+		refreshing = started.then(
 			() => {
 				refreshedAt = now();
 				refreshEpoch += 1;
@@ -172,7 +178,13 @@ export const createSessionHealth = (
 		clearScopeRejections: () => setRejectedMethods(new Set<string>()),
 		noteSessionDeleted: (cause) => {
 			const code = classifyThrown(cause).code;
-			markDead(needsReauthentication(code) ? code : "InvalidToken");
+			if (needsReauthentication(code)) {
+				markDead(code);
+				return;
+			}
+			log.info("the saved sign-in was dropped without an auth failure", {
+				code,
+			});
 		},
 		markDead,
 		observe: (url, pending) => {

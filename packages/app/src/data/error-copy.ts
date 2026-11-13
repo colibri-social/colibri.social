@@ -340,7 +340,9 @@ export const VOICE_MOVE_COPY = {
 	action: "Move now",
 };
 
-export const VOICE_NOTICE_COPY: Record<VoiceNoticeKey, ErrorCopy> = {
+export type VoiceNoticeCopy = ErrorCopy & { action?: string };
+
+export const VOICE_NOTICE_COPY: Record<VoiceNoticeKey, VoiceNoticeCopy> = {
 	screenStoppedByMove: {
 		title: "Your screen share stopped",
 		description:
@@ -373,6 +375,11 @@ export const VOICE_NOTICE_COPY: Record<VoiceNoticeKey, ErrorCopy> = {
 	unsupported: {
 		title: "Calls don't work on this device yet",
 		description: "Try Colibri on another device or browser.",
+	},
+	nodesDown: {
+		title: "Calls are having trouble right now",
+		description: "Try again in a minute.",
+		action: "Try again",
 	},
 	failed: {
 		title: "Couldn't join the call",

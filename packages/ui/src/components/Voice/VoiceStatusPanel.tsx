@@ -52,6 +52,7 @@ export type VoiceStatusPanelProps = CallMediaState & {
 	screenShareMenu?: ScreenShareMenuProps;
 	onShowOverlay?: () => void;
 	onOpenCall?: () => void;
+	onQualityClick?: () => void;
 	class?: string;
 };
 
@@ -61,6 +62,14 @@ const qualityTile: Record<VoiceConnectionQuality, string> = {
 	poor: "bg-destructive/15 text-destructive",
 	lost: "bg-destructive/15 text-destructive",
 	unknown: "bg-muted/50 text-foreground",
+};
+
+const qualityTileHover: Record<VoiceConnectionQuality, string> = {
+	excellent: "hover:bg-success/25",
+	good: "hover:bg-success/20",
+	poor: "hover:bg-destructive/25",
+	lost: "hover:bg-destructive/25",
+	unknown: "hover:bg-muted",
 };
 
 const qualityText: Record<VoiceConnectionQuality, string> = {
@@ -125,10 +134,19 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 				<div class="flex min-w-0 flex-1 items-center gap-2">
 					<Tooltip placement="top">
 						<TooltipTrigger
-							aria-label={`Connection: ${latencyLabel()}`}
+							aria-label={
+								props.onQualityClick
+									? `Connection details, ${latencyLabel()}`
+									: `Connection: ${latencyLabel()}`
+							}
 							data-quality-tile=""
+							data-clickable={props.onQualityClick ? "" : undefined}
+							onClick={() => props.onQualityClick?.()}
 							class={cx(
-								"flex size-8 shrink-0 cursor-default items-center justify-center rounded-control-sm border-0 p-0 outline-none focus-ring [&_svg]:size-5",
+								"flex size-8 shrink-0 items-center justify-center rounded-control-sm border-0 p-0 outline-none focus-ring [&_svg]:size-5",
+								props.onQualityClick
+									? cx("cursor-pointer", qualityTileHover[quality()])
+									: "cursor-default",
 								qualityTile[quality()],
 							)}
 						>

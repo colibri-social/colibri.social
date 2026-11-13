@@ -1,5 +1,13 @@
 import { Popover as KobaltePopover } from "@kobalte/core/popover";
-import { createSignal, type JSX, Show, type ValidComponent } from "solid-js";
+import { MenuDotsIcon } from "@solar-icons/solid/bold/menu-dots";
+import {
+	createMemo,
+	createSignal,
+	type JSX,
+	mergeProps,
+	Show,
+	type ValidComponent,
+} from "solid-js";
 import { createAnchorScroll } from "../../utils/anchor-scroll";
 import { createAnchorToggle } from "../../utils/anchor-toggle";
 import { cx } from "../../utils/cx";
@@ -8,20 +16,24 @@ import { createLiveAnchor } from "../../utils/live-anchor";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { reducedMotionActive } from "../../utils/playback";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
+import {
+	MemberDropdownMenu,
+	type MemberMenuActions,
+	memberMenuEntries,
+} from "../ContextMenu/MemberMenu";
+import { IconButton } from "../IconButton/IconButton";
 import type { PopoverPlacement } from "../Popover/Popover";
 import { Skeleton, SkeletonText } from "../Skeleton/Skeleton";
 import { ProfileHeaderSkeleton } from "../Skeleton/Skeletons";
 import { BlockedProfileFrame } from "./BlockedProfileFrame";
-import {
-	type ProfileAction,
-	ProfileContent,
-	type ProfileData,
-} from "./ProfileContent";
+import { ProfileContent, type ProfileData } from "./ProfileContent";
 
 export type ProfilePopoverPlacement =
 	| PopoverPlacement
 	| "left-start"
 	| "right-start";
+
+export type ProfileMenuActions = Omit<MemberMenuActions, "onViewProfile">;
 
 export type ProfilePopoverProps = {
 	profile?: ProfileData;
@@ -38,7 +50,7 @@ export type ProfilePopoverProps = {
 	open?: boolean;
 	defaultOpen?: boolean;
 	onOpenChange?: (open: boolean) => void;
-	onAction?: (action: ProfileAction) => void;
+	menu?: ProfileMenuActions;
 	contentClass?: string;
 	footer?: JSX.Element;
 	label?: string;
@@ -73,6 +85,36 @@ export const ProfilePopoverSkeleton = (props: { class?: string }) => (
 		<span class="sr-only">Loading profile</span>
 	</div>
 );
+
+const ProfileMenuButton = (props: {
+	name: string;
+	actions: ProfileMenuActions;
+}) => {
+	const actions = mergeProps(props.actions, { onViewProfile: undefined });
+	const hasEntries = createMemo(
+		() => memberMenuEntries(props.name, actions).length > 0,
+	);
+
+	return (
+		<Show when={hasEntries()}>
+			<div data-profile-menu="" class="flex rounded-control-sm bg-popover">
+				<MemberDropdownMenu
+					{...actions}
+					name={props.name}
+					triggerAs={IconButton}
+					triggerProps={{
+						variant: "ghost",
+						size: "sm",
+						class: "size-6 [&_svg]:size-4",
+						label: `More options for ${props.name}`,
+						icon: <MenuDotsIcon />,
+						"data-profile-menu-trigger": "",
+					}}
+				/>
+			</div>
+		</Show>
+	);
+};
 
 const focusMovedElsewhere = (content: EventTarget | null) => {
 	const active = document.activeElement;
@@ -204,10 +246,15 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 										tight
 										avatarPlay={open() && !reducedMotionActive()}
 										footer={props.footer}
-										onAction={(action) => {
-											setOpen(false);
-											props.onAction?.(action);
-										}}
+										showActions={false}
+										showDeveloper={false}
+										headerActions={
+											<Show when={props.menu}>
+												{(menu) => (
+													<ProfileMenuButton name={name()} actions={menu()} />
+												)}
+											</Show>
+										}
 									/>
 								</BlockedProfileFrame>
 							)}

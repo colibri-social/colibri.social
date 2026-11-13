@@ -154,7 +154,7 @@ export const CustomEmojiGlyph = (
 							role="img"
 							aria-label={alt()}
 							data-custom-emoji={local.emoji.name}
-							data-custom-emoji-synced=""
+							data-custom-emoji-synced={animation().decoder}
 							class={cx(local.class ?? GLYPH_SIZE, "object-contain")}
 							style={{ display: "inline-block" }}
 						/>

@@ -3,6 +3,7 @@ import type {
 	VoiceConnectionState,
 } from "@colibri-social/ui";
 import type { ScreenShareQuality } from "../screen-share";
+import type { VoiceDebugSnapshot } from "./debug-stats";
 
 export type VoiceConnection = {
 	state: VoiceConnectionState;
@@ -30,6 +31,7 @@ export type VoiceEndReason =
 	| "closed"
 	| "lost"
 	| "unsupported"
+	| "nodesDown"
 	| "failed";
 
 export type VoiceVideoSource = "cam" | "screen";
@@ -93,6 +95,7 @@ export type VoiceConnectionMonitor = {
 	onNotice?: (listener: (notice: VoiceNotice) => void) => () => void;
 	onMove?: (listener: (move: VoiceMoveNotice | null) => void) => () => void;
 	onCameraOff?: (listener: () => void) => () => void;
+	debugSnapshot?: () => Promise<VoiceDebugSnapshot>;
 	dispose?: () => void;
 };
 

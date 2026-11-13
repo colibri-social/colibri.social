@@ -22,7 +22,7 @@ export type DebugInformationProps = {
 	class?: string;
 };
 
-const FieldRow = (props: { field: DiagnosticsField }) => (
+export const DiagnosticsFieldRow = (props: { field: DiagnosticsField }) => (
 	<div class="flex min-w-0 flex-col gap-0.5 px-3 py-2">
 		<span class="text-xs text-muted-foreground">{props.field.label}</span>
 		<Switch>
@@ -99,7 +99,7 @@ export const DebugInformation = (props: DebugInformationProps) => {
 						{(section) => (
 							<ListGroup label={section.title}>
 								<For each={section.fields}>
-									{(field) => <FieldRow field={field} />}
+									{(field) => <DiagnosticsFieldRow field={field} />}
 								</For>
 							</ListGroup>
 						)}

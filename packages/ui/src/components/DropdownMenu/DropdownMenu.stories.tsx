@@ -161,6 +161,30 @@ export const DesktopSubmenu: Story = {
 	},
 };
 
+export const DesktopSubmenuHoverClose: Story = {
+	render: () => <Demo platform="desktop" />,
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Channel options" }),
+		);
+		const menu = await screen.findByRole("menu");
+		const share = within(menu).getByRole("menuitem", { name: "Share to" });
+		await userEvent.hover(share);
+		await waitFor(() => expect(screen.getAllByRole("menu")).toHaveLength(2));
+		const submenu = screen.getAllByRole("menu")[1];
+		if (!submenu) throw new Error("submenu missing");
+		await userEvent.unhover(share);
+		await userEvent.hover(submenu);
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		await expect(screen.getAllByRole("menu")).toHaveLength(2);
+		await userEvent.unhover(submenu);
+		await waitFor(() => expect(screen.getAllByRole("menu")).toHaveLength(1));
+		await expect(screen.getByRole("menu")).toBe(menu);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+	},
+};
+
 export const Mobile: Story = {
 	parameters: { viewport: { defaultViewport: "iphone" } },
 	render: () => <Demo platform="mobile" />,

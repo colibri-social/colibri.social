@@ -29,8 +29,9 @@ export const AuthGate = (props: AuthGateProps) => {
 	});
 
 	const inApp = () =>
-		props.auth.status() === "signedIn" &&
-		props.auth.missingScopes().length === 0;
+		props.auth.status() === "offline" ||
+		(props.auth.status() === "signedIn" &&
+			props.auth.missingScopes().length === 0);
 
 	return (
 		<>
@@ -82,7 +83,12 @@ export const AuthGate = (props: AuthGateProps) => {
 						<ReapproveScreen auth={props.auth} platform={props.platform} />
 					</GateShell>
 				</Match>
-				<Match when={props.auth.status() === "signedIn"}>
+				<Match
+					when={
+						props.auth.status() === "signedIn" ||
+						props.auth.status() === "offline"
+					}
+				>
 					{props.children}
 					<ScopeNotice auth={props.auth} platform={props.platform} />
 				</Match>

@@ -6,6 +6,7 @@ const WRITE_TIMEOUT_MS = 60_000;
 const ATTEMPTS = 2;
 const RETRY_BASE_DELAY_MS = 750;
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const TOKEN_GRANT = /(^|&)grant_type=/;
 
 type FetchInput = Parameters<typeof fetch>[0];
 
@@ -42,6 +43,36 @@ const budgetFor = (input: FetchInput, init?: RequestInit): number => {
 	return urlOf(input).includes("/xrpc/") ? XRPC_TIMEOUT_MS : READ_TIMEOUT_MS;
 };
 
+const formBodyOf = async (
+	input: FetchInput,
+	init?: RequestInit,
+): Promise<string | undefined> => {
+	if (init?.body != null) {
+		if (typeof init.body === "string") return init.body;
+		if (init.body instanceof URLSearchParams) return init.body.toString();
+		return undefined;
+	}
+	if (typeof Request === "undefined" || !(input instanceof Request)) {
+		return undefined;
+	}
+	try {
+		return await input.clone().text();
+	} catch {
+		return undefined;
+	}
+};
+
+const isTokenRequest = async (
+	input: FetchInput,
+	init?: RequestInit,
+): Promise<boolean> => {
+	if (methodOf(input, init) !== "POST") return false;
+
+	const body = await formBodyOf(input, init);
+
+	return body !== undefined && TOKEN_GRANT.test(body);
+};
+
 const isConnectivityError = (err: unknown): boolean =>
 	err instanceof TypeError ||
 	(err instanceof DOMException && err.name === "TimeoutError");
@@ -53,17 +84,24 @@ export const createOAuthFetch =
 	(base: typeof fetch = (...args) => fetch(...args)): typeof fetch =>
 	async (input, init) => {
 		const repeatable = isRepeatable(input, init);
-		const budget = budgetFor(input, init);
+		const budget = (await isTokenRequest(input, init))
+			? undefined
+			: budgetFor(input, init);
 		const external = init?.signal ?? undefined;
 		let lastError: unknown;
 
 		for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
 			const controller = new AbortController();
 			let timedOut = false;
-			const timer = setTimeout(() => {
-				timedOut = true;
-				controller.abort(new DOMException("Request timed out", "TimeoutError"));
-			}, budget);
+			const timer =
+				budget === undefined
+					? undefined
+					: setTimeout(() => {
+							timedOut = true;
+							controller.abort(
+								new DOMException("Request timed out", "TimeoutError"),
+							);
+						}, budget);
 			const forward = () => controller.abort(external?.reason);
 			if (external?.aborted) controller.abort(external.reason);
 			else external?.addEventListener("abort", forward, { once: true });

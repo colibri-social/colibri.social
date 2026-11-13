@@ -16,7 +16,11 @@ import {
 import { Dynamic } from "solid-js/web";
 import { cx } from "../../utils/cx";
 import { motionScale } from "../../utils/motion";
-import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
+import {
+	isInsideNestedLayer,
+	revealLayer,
+	topLayerAttrs,
+} from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { trackActiveMenu } from "../ContextMenu/active-menu";
 import {
@@ -385,16 +389,38 @@ export const MenuEntryGroups = (props: { entries: DropdownMenuEntry[] }) => {
 	);
 };
 
+const SUBMENU_HOVER_CLOSE_MS = 300;
+
 const DesktopSubmenu = (props: { entry: DropdownMenuSubmenuEntry }) => {
 	const overflowPadding = usePopperOverflowPadding();
+	const [open, setOpen] = createSignal(false);
+	let closeTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const cancelClose = () => {
+		clearTimeout(closeTimer);
+	};
+
+	const scheduleClose = (event: PointerEvent) => {
+		if (event.pointerType !== "mouse") return;
+
+		cancelClose();
+		closeTimer = setTimeout(() => setOpen(false), SUBMENU_HOVER_CLOSE_MS);
+	};
+
+	onCleanup(cancelClose);
+
 	return (
 		<KobalteDropdownMenu.Sub
+			open={open()}
+			onOpenChange={setOpen}
 			overflowPadding={overflowPadding()}
 			gutter={4}
 			shift={-5}
 		>
 			<KobalteDropdownMenu.SubTrigger
 				disabled={props.entry.disabled}
+				onPointerEnter={cancelClose}
+				onPointerLeave={scheduleClose}
 				class={cx(
 					menuItemClass,
 					menuItemToneClass.default,
@@ -419,6 +445,8 @@ const DesktopSubmenu = (props: { entry: DropdownMenuSubmenuEntry }) => {
 				<KobalteDropdownMenu.SubContent
 					{...topLayerAttrs}
 					ref={revealLayer}
+					onPointerEnter={cancelClose}
+					onPointerLeave={scheduleClose}
 					class={cx(
 						menuContentClass,
 						"max-h-(--kb-popper-content-available-height) overflow-y-auto",
@@ -596,6 +624,7 @@ export const DropdownMenu = (props: DropdownMenuProps) => {
 	const overflowPadding = usePopperOverflowPadding();
 	const mobile = () => props.platform === "mobile";
 	let content: HTMLElement | undefined;
+	let trigger: HTMLElement | undefined;
 	let closeTimer: ReturnType<typeof setTimeout> | undefined;
 	let openedByHover = false;
 	const cancelClose = () => {
@@ -634,6 +663,24 @@ export const DropdownMenu = (props: DropdownMenuProps) => {
 		? { open: "ArrowLeft", close: "ArrowRight" }
 		: { open: "ArrowRight", close: "ArrowLeft" };
 
+	createEffect(() => {
+		if (!open() || mobile() || props.submenu) return;
+
+		const dismissInsideLayer = (event: PointerEvent) => {
+			const target = event.target;
+
+			if (!(target instanceof Element) || !isInsideNestedLayer(target)) return;
+			if (target.closest('[role="menu"]') || trigger?.contains(target)) return;
+
+			setOpen(false);
+		};
+
+		document.addEventListener("pointerdown", dismissInsideLayer, true);
+		onCleanup(() =>
+			document.removeEventListener("pointerdown", dismissInsideLayer, true),
+		);
+	});
+
 	createEffect(
 		on(
 			mobile,
@@ -665,6 +712,7 @@ export const DropdownMenu = (props: DropdownMenuProps) => {
 						onPointerEnter={hoverOpen}
 						onPointerLeave={hoverLeave}
 						ref={(element: HTMLElement) => {
+							trigger = element;
 							if (!props.submenu) return;
 							const onKey = (event: KeyboardEvent) => {
 								if (event.key !== sideKeys.open) return;

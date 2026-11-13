@@ -205,7 +205,7 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 				color={props.bannerColor}
 			/>
 			<Show when={actions.has()}>
-				<div class="absolute top-4 right-4 z-10 flex">{actions()}</div>
+				<div class="absolute top-2 right-2 z-10 flex">{actions()}</div>
 			</Show>
 			<div class="relative -mt-12 flex items-start gap-3 pr-4 pl-3">
 				<Dynamic

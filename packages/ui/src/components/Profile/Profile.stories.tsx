@@ -4,7 +4,7 @@ import { SledgehammerIcon } from "@solar-icons/solid/bold/sledgehammer";
 import { UserBlockIcon } from "@solar-icons/solid/bold/user-block";
 import { UserCheckIcon } from "@solar-icons/solid/bold/user-check";
 import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded";
-import { createSignal, For } from "solid-js";
+import { createSignal, For, mergeProps } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import {
@@ -41,6 +41,7 @@ import { ProfileContentHeader, type ProfileData } from "./ProfileContent";
 import { ProfileDrawer as ProfileDrawerComponent } from "./ProfileDrawer";
 import {
 	PROFILE_POPOVER_WIDTH,
+	type ProfileMenuActions,
 	ProfilePopover,
 	ProfilePopoverSkeleton,
 } from "./ProfilePopover";
@@ -220,13 +221,11 @@ const lou = (overrides: Partial<ProfileData> = {}): ProfileData => ({
 			label: "Kick Lou",
 			icon: <UserMinusRoundedIcon />,
 			tone: "destructive",
-			quick: true,
 		},
 		{
 			label: "Ban Lou",
 			icon: <SledgehammerIcon />,
 			tone: "destructive",
-			quick: true,
 		},
 	],
 	developer: {
@@ -240,6 +239,110 @@ const sectionLabels = (root: ParentNode) =>
 	Array.from(root.querySelectorAll("[data-profile-section]")).map((section) =>
 		section.getAttribute("data-profile-section"),
 	);
+
+const profileMenuSpy = {
+	roleChange: fn(),
+	kick: fn(),
+	ban: fn(),
+	block: fn(),
+	unblock: fn(),
+	copyDid: fn(),
+	volume: fn(),
+};
+
+const resetProfileMenuSpies = () => {
+	for (const spy of Object.values(profileMenuSpy)) spy.mockClear();
+};
+
+const createProfileMenu = (
+	options: { space?: boolean; blocked?: () => boolean } = {},
+): ProfileMenuActions => {
+	const [roles, setRoles] = createSignal([
+		{
+			id: "mod",
+			name: "Moderator",
+			color: "#5cc8ff",
+			assigned: true,
+			manageable: false,
+		},
+		{
+			id: "birds",
+			name: "Bird watcher",
+			color: "#4ade80",
+			assigned: true,
+			manageable: true,
+		},
+		{
+			id: "night",
+			name: "Night owl",
+			color: "#f59e0b",
+			assigned: false,
+			manageable: true,
+		},
+	]);
+	const space: ProfileMenuActions = options.space
+		? {
+				voice: {
+					volume: 100,
+					onVolumeChange: (value) => profileMenuSpy.volume(value),
+				},
+				get roles() {
+					return roles();
+				},
+				onRoleChange: (id, assigned) => {
+					profileMenuSpy.roleChange(id, assigned);
+					setRoles((list) =>
+						list.map((role) => (role.id === id ? { ...role, assigned } : role)),
+					);
+				},
+				onKick: () => profileMenuSpy.kick(),
+				onBan: () => profileMenuSpy.ban(),
+			}
+		: {};
+
+	return mergeProps(space, {
+		get blocked() {
+			return options.blocked?.() ?? false;
+		},
+		onBlock: () => profileMenuSpy.block(),
+		onUnblock: () => profileMenuSpy.unblock(),
+		onCopyDid: () => profileMenuSpy.copyDid(),
+		developerMode: true,
+		onCopyAtUri: () => {},
+		onShowOnPdsls: () => {},
+	});
+};
+
+const visibleMenuName = (item: Element) => {
+	const copy = item.cloneNode(true) as Element;
+
+	for (const hidden of copy.querySelectorAll("[aria-hidden=true]")) {
+		hidden.remove();
+	}
+
+	return copy.textContent?.trim();
+};
+
+const menuEntryNames = (menu: HTMLElement) =>
+	Array.from(
+		menu.querySelectorAll(
+			'[role="menuitem"], [role="menuitemcheckbox"], [role="slider"]',
+		),
+	).map((item) =>
+		item.getAttribute("role") === "slider"
+			? `slider:${item.getAttribute("aria-valuetext")}`
+			: visibleMenuName(item),
+	);
+
+const openProfileMenu = async (popover: HTMLElement) => {
+	const trigger = await within(popover).findByRole("button", {
+		name: "More options for Lou",
+	});
+
+	await userEvent.click(trigger);
+
+	return screen.findByRole("menu", { name: "More options for Lou" });
+};
 
 const ProfileDrawerDemo = (props: { loading?: boolean }) => {
 	const [open, setOpen] = createSignal(true);
@@ -369,37 +472,40 @@ const desktop = { viewport: { defaultViewport: "responsive" } };
 const NOW = new Date("2026-10-08T14:30:00");
 const AT = new Date("2026-10-08T14:02:00");
 
+const AuthorPopover = (props: { menu?: ProfileMenuActions }) => {
+	const [open, setOpen] = createSignal(false);
+	let anchor: HTMLElement | undefined;
+
+	return (
+		<div class="min-h-[760px] w-[720px] bg-background py-6 pl-[360px]">
+			<MessageRow
+				author={{ name: "Lou", avatarSrc: AVATAR }}
+				badge={<TeamBadge size="sm" />}
+				timestamp={AT}
+				now={NOW}
+				locale="en-GB"
+				onAuthorClick={(event) => {
+					anchor = event.currentTarget as HTMLElement;
+					setOpen(true);
+				}}
+			>
+				I have walked that path for years and never once have I seen one.
+			</MessageRow>
+			<ProfilePopover
+				profile={lou()}
+				anchor={() => anchor}
+				open={open()}
+				onOpenChange={setOpen}
+				placement="left-start"
+				menu={props.menu}
+			/>
+		</div>
+	);
+};
+
 export const PopoverFromAuthor: Story = {
 	parameters: desktop,
-	render: () => {
-		const [open, setOpen] = createSignal(false);
-		let anchor: HTMLElement | undefined;
-		return (
-			<div class="min-h-[720px] w-[720px] bg-background py-6 pl-[360px]">
-				<MessageRow
-					author={{ name: "Lou", avatarSrc: AVATAR }}
-					badge={<TeamBadge size="sm" />}
-					timestamp={AT}
-					now={NOW}
-					locale="en-GB"
-					onAuthorClick={(event) => {
-						anchor = event.currentTarget as HTMLElement;
-						setOpen(true);
-					}}
-				>
-					I have walked that path for years and never once have I seen one.
-				</MessageRow>
-				<ProfilePopover
-					profile={lou()}
-					anchor={() => anchor}
-					open={open()}
-					onOpenChange={setOpen}
-					placement="left-start"
-					onAction={(action) => onAuthorAction(action.label)}
-				/>
-			</div>
-		);
-	},
+	render: () => <AuthorPopover menu={createProfileMenu({ space: true })} />,
 	play: async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
 		const author = canvas.getAllByRole("button", { name: /Lou/ })[0];
@@ -415,33 +521,31 @@ export const PopoverFromAuthor: Story = {
 		);
 		await expect(sectionLabels(popover)).toEqual(["Bio", "Space roles"]);
 		await expect(popover.offsetWidth).toBe(PROFILE_POPOVER_WIDTH);
+		await expect(screen.queryByRole("menu")).toBeNull();
 		const banner = popover.querySelector("[data-banner]");
 		if (!banner) throw new Error("banner missing");
-		const quick = popover.querySelector<HTMLElement>(
-			"[data-profile-quick-actions]",
-		);
-		if (!quick) throw new Error("quick actions missing");
-		const kick = within(quick).getByRole("button", { name: "Kick Lou" });
-		const ban = within(quick).getByRole("button", { name: "Ban Lou" });
+		const trigger = within(popover).getByRole("button", {
+			name: "More options for Lou",
+		});
+		await expect(trigger).toHaveAttribute("aria-expanded", "false");
+		await expect(trigger.querySelector("svg")).not.toBeNull();
 		await waitFor(() => {
 			const area = banner.getBoundingClientRect();
-			const midX = area.left + area.width / 2;
-			const midY = area.top + area.height / 2;
-			for (const button of [kick, ban]) {
-				const rect = button.getBoundingClientRect();
-				expect(rect.left).toBeGreaterThanOrEqual(midX);
-				expect(rect.right).toBeLessThanOrEqual(area.right);
-				expect(rect.top).toBeGreaterThanOrEqual(area.top);
-				expect(rect.bottom).toBeLessThanOrEqual(midY);
-			}
+			const rect = trigger.getBoundingClientRect();
+			expect(rect.left).toBeGreaterThanOrEqual(area.left + area.width / 2);
+			expect(rect.right).toBeLessThanOrEqual(area.right);
+			expect(rect.top).toBeGreaterThanOrEqual(area.top);
+			expect(rect.bottom).toBeLessThanOrEqual(area.top + area.height / 2);
+			expect(rect.width).toBe(24);
+			expect(area.right - rect.right).toBe(8);
+			expect(rect.top - area.top).toBe(8);
 		});
-		const actionButtons = within(popover).getAllByRole("button", {
-			name: /^(Kick|Ban) Lou$/,
-		});
-		await expect(actionButtons).toHaveLength(4);
-		for (const button of actionButtons) {
-			await expect(button.querySelector("svg")).not.toBeNull();
-		}
+		await expect(popover.querySelector("[data-developer-mode]")).toBeNull();
+		await expect(
+			within(popover).queryByRole("button", { name: /^(Kick|Ban) Lou$/ }),
+		).toBeNull();
+		await expect(within(popover).queryByText("Moderator actions")).toBeNull();
+		await expectNoLayoutIssues(popover);
 		await userEvent.keyboard("{Escape}");
 		await waitFor(() =>
 			expect(
@@ -449,29 +553,119 @@ export const PopoverFromAuthor: Story = {
 			).toBeNull(),
 		);
 		await waitFor(() => expect(author).toHaveFocus());
+	},
+};
 
-		onAuthorAction.mockClear();
-		await userEvent.click(author);
-		const reopened = await screen.findByRole("dialog", {
-			name: "Lou's profile",
-		});
-		const reopenedQuick = await waitFor(() => {
-			const element = reopened.querySelector<HTMLElement>(
-				"[data-profile-quick-actions]",
-			);
-			if (!element) throw new Error("quick actions missing");
-			return element;
-		});
-		await userEvent.click(
-			within(reopenedQuick).getByRole("button", { name: "Kick Lou" }),
+export const PopoverMenuInSpace: Story = {
+	name: "Popover menu in a Space",
+	parameters: desktop,
+	render: () => <AuthorPopover menu={createProfileMenu({ space: true })} />,
+	play: async ({ canvasElement }) => {
+		resetProfileMenuSpies();
+		const popover = await openLouPopover(canvasElement);
+		const menu = await openProfileMenu(popover);
+		await expectNoLayoutIssues(menu);
+		await expect(menuEntryNames(menu)).toEqual([
+			"slider:100%",
+			"Roles",
+			"Kick Lou",
+			"Ban Lou",
+			"Block Lou",
+			"Copy DID",
+			"Developer mode",
+		]);
+		await expect(
+			within(menu).queryByRole("menuitem", { name: "View profile" }),
+		).toBeNull();
+		await expect(menu.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+			within(popover)
+				.getByRole("button", { name: "More options for Lou" })
+				.getBoundingClientRect().bottom,
 		);
-		await expect(onAuthorAction).toHaveBeenCalledTimes(1);
-		await expect(onAuthorAction).toHaveBeenCalledWith("Kick Lou");
+		await userEvent.hover(
+			within(menu).getByRole("menuitem", { name: "Roles" }),
+		);
+		const roles = await screen.findByRole("menu", { name: "Roles" });
+		await expectNoLayoutIssues(roles);
+		await userEvent.click(
+			within(roles).getByRole("menuitemcheckbox", { name: "Night owl" }),
+		);
+		await expect(profileMenuSpy.roleChange).toHaveBeenCalledWith("night", true);
 		await waitFor(() =>
 			expect(
-				screen.queryByRole("dialog", { name: "Lou's profile" }),
-			).toBeNull(),
+				within(roles).getByRole("menuitemcheckbox", { name: "Night owl" }),
+			).toHaveAttribute("aria-checked", "true"),
 		);
+		await userEvent.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull(), {
+			timeout: 3000,
+		});
+		await expect(screen.getByRole("dialog", { name: "Lou's profile" })).toBe(
+			popover,
+		);
+		const reopened = await openProfileMenu(popover);
+		await userEvent.click(
+			within(reopened).getByRole("menuitem", { name: "Kick Lou" }),
+		);
+		await expect(profileMenuSpy.kick).toHaveBeenCalledTimes(1);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+	},
+};
+
+export const PopoverMenuOutsideSpace: Story = {
+	name: "Popover menu outside a Space",
+	parameters: desktop,
+	render: () => <AuthorPopover menu={createProfileMenu()} />,
+	play: async ({ canvasElement }) => {
+		resetProfileMenuSpies();
+		const popover = await openLouPopover(canvasElement);
+		const menu = await openProfileMenu(popover);
+		await expectNoLayoutIssues(menu);
+		await expect(menuEntryNames(menu)).toEqual([
+			"Block Lou",
+			"Copy DID",
+			"Developer mode",
+		]);
+		await userEvent.click(
+			within(menu).getByRole("menuitem", { name: "Copy DID" }),
+		);
+		await expect(profileMenuSpy.copyDid).toHaveBeenCalledTimes(1);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		await expect(screen.getByRole("dialog", { name: "Lou's profile" })).toBe(
+			popover,
+		);
+	},
+};
+
+export const PopoverMenuClosesOnCardClick: Story = {
+	name: "Popover menu closes on card click",
+	parameters: desktop,
+	render: () => <AuthorPopover menu={createProfileMenu({ space: true })} />,
+	play: async ({ canvasElement }) => {
+		const popover = await openLouPopover(canvasElement);
+		await openProfileMenu(popover);
+		await userEvent.click(
+			within(popover).getByRole("heading", { name: "Lou" }),
+		);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		await expect(screen.getByRole("dialog", { name: "Lou's profile" })).toBe(
+			popover,
+		);
+		await openProfileMenu(popover);
+		await userEvent.click(document.body);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+	},
+};
+
+export const PopoverWithoutMenu: Story = {
+	parameters: desktop,
+	render: () => <AuthorPopover />,
+	play: async ({ canvasElement }) => {
+		const popover = await openLouPopover(canvasElement);
+		await expect(popover.querySelector("[data-profile-menu]")).toBeNull();
+		await expect(
+			within(popover).queryByRole("button", { name: /^(Kick|Ban) Lou$/ }),
+		).toBeNull();
 	},
 };
 
@@ -921,8 +1115,8 @@ export const PopoverOwnProfile: Story = {
 				<OwnProfilePopoverFixture
 					profile={ownProfileFixture({
 						actions: [
-							{ label: "Kick Lou", tone: "destructive", quick: true },
-							{ label: "Ban Lou", tone: "destructive", quick: true },
+							{ label: "Kick Lou", tone: "destructive" },
+							{ label: "Ban Lou", tone: "destructive" },
 						],
 					})}
 				/>
@@ -946,9 +1140,7 @@ export const PopoverOwnProfile: Story = {
 			).toBeVisible(),
 		);
 		await expect(sectionLabels(popover)).toEqual(["Bio", "Space roles"]);
-		await expect(
-			popover.querySelector("[data-profile-quick-actions]"),
-		).toBeNull();
+		await expect(popover.querySelector("[data-profile-menu]")).toBeNull();
 		await expect(
 			within(popover).queryByRole("button", { name: /^(Kick|Ban) Lou$/ }),
 		).toBeNull();
@@ -1032,6 +1224,7 @@ export const PopoverSelfHidesModeration: Story = {
 				</button>
 				<ProfilePopover
 					profile={lou({ self: true })}
+					menu={{}}
 					anchor={() => anchor}
 					open={open()}
 					onOpenChange={setOpen}
@@ -1047,9 +1240,7 @@ export const PopoverSelfHidesModeration: Story = {
 		const popover = await screen.findByRole("dialog", {
 			name: "Lou's profile",
 		});
-		await expect(
-			popover.querySelector("[data-profile-quick-actions]"),
-		).toBeNull();
+		await expect(popover.querySelector("[data-profile-menu]")).toBeNull();
 		await expect(
 			within(popover).queryByRole("button", { name: /^(Kick|Ban) Lou$/ }),
 		).toBeNull();
@@ -1824,27 +2015,23 @@ const blockAction = (blocked: boolean) => {
 			};
 };
 
-const BlockablePopover = (props: { moderator: boolean }) => {
+const BlockablePopover = () => {
 	const [open, setOpen] = createSignal(false);
 	const [blocked, setBlocked] = createSignal(false);
 	let anchor: HTMLElement | undefined;
-	const moderatorActions = () =>
-		props.moderator
-			? [
-					{
-						label: "Kick Lou",
-						icon: () => <UserMinusRoundedIcon />,
-						tone: "destructive" as const,
-						quick: true,
-					},
-					{
-						label: "Ban Lou",
-						icon: () => <SledgehammerIcon />,
-						tone: "destructive" as const,
-						quick: true,
-					},
-				]
-			: [];
+	const menu: ProfileMenuActions = {
+		get blocked() {
+			return blocked();
+		},
+		onBlock: () => {
+			onAuthorAction("Block Lou");
+			setBlocked(true);
+		},
+		onUnblock: () => {
+			onAuthorAction("Unblock Lou");
+			setBlocked(false);
+		},
+	};
 
 	return (
 		<div class="min-h-[820px] w-[720px] bg-background py-6 pl-[360px]">
@@ -1864,18 +2051,17 @@ const BlockablePopover = (props: { moderator: boolean }) => {
 				profile={lou({
 					actionsLabel: "Actions",
 					actions: [
-						...moderatorActions(),
 						{
 							...blockAction(blocked()),
 							onSelect: () => setBlocked((value) => !value),
 						},
 					],
 				})}
+				menu={menu}
 				anchor={() => anchor}
 				open={open()}
 				onOpenChange={setOpen}
 				placement="left-start"
-				onAction={(action) => onAuthorAction(action.label)}
 			/>
 		</div>
 	);
@@ -1896,50 +2082,31 @@ const openLouPopover = async (canvasElement: HTMLElement) => {
 
 export const PopoverBlockAction: Story = {
 	parameters: desktop,
-	render: () => <BlockablePopover moderator={false} />,
+	render: () => <BlockablePopover />,
 	play: async ({ canvasElement }) => {
 		onAuthorAction.mockClear();
 		const popover = await openLouPopover(canvasElement);
 		await expect(
-			popover.querySelector("[data-profile-quick-actions]"),
+			within(popover).queryByRole("button", { name: /^(Un)?[Bb]lock Lou$/ }),
 		).toBeNull();
+		await expect(within(popover).queryByText("Actions")).toBeNull();
 		await expectNoLayoutIssues(popover);
+		const menu = await openProfileMenu(popover);
+		await expectNoLayoutIssues(menu);
 		await userEvent.click(
-			within(popover).getByRole("button", { name: "Block Lou" }),
+			within(menu).getByRole("menuitem", { name: "Block Lou" }),
 		);
 		await expect(onAuthorAction).toHaveBeenCalledWith("Block Lou");
-		await waitFor(() =>
-			expect(
-				screen.queryByRole("dialog", { name: "Lou's profile" }),
-			).toBeNull(),
-		);
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
 
-		const reopened = await openLouPopover(canvasElement);
+		const reopened = await openProfileMenu(popover);
 		await expect(
-			within(reopened).getByRole("button", { name: "Unblock Lou" }),
+			within(reopened).getByRole("menuitem", { name: "Unblock Lou" }),
 		).toBeVisible();
-		await expectNoLayoutIssues(reopened);
-	},
-};
-
-export const PopoverBlockActionModerator: Story = {
-	parameters: desktop,
-	render: () => <BlockablePopover moderator />,
-	play: async ({ canvasElement }) => {
-		const popover = await openLouPopover(canvasElement);
-		const quick = popover.querySelector<HTMLElement>(
-			"[data-profile-quick-actions]",
-		);
-		if (!quick) throw new Error("quick actions missing");
 		await expect(
-			within(quick).queryByRole("button", { name: "Block Lou" }),
+			within(popover).queryByRole("button", { name: "Unblock Lou" }),
 		).toBeNull();
-		await expect(
-			within(popover).getAllByRole("button", {
-				name: /^(Kick|Ban|Block) Lou$/,
-			}),
-		).toHaveLength(5);
-		await expectNoLayoutIssues(popover);
+		await expectNoLayoutIssues(reopened);
 	},
 };
 
@@ -2015,6 +2182,7 @@ const BlockedPopover = () => {
 						},
 					],
 				})}
+				menu={createProfileMenu({ blocked })}
 				anchor={() => anchor}
 				open={open()}
 				onOpenChange={setOpen}
@@ -2103,8 +2271,11 @@ export const BlockedProfilePopover: Story = {
 			expect(popover.querySelector("[data-blocked-profile]")).toBeNull(),
 		);
 		await expect(
-			within(popover).getByRole("button", { name: "Block Lou" }),
+			within(popover).getByRole("button", { name: "More options for Lou" }),
 		).toBeVisible();
+		await expect(
+			within(popover).queryByRole("button", { name: "Block Lou" }),
+		).toBeNull();
 		await expect(screen.getByRole("dialog", { name: "Lou's profile" })).toBe(
 			popover,
 		);
@@ -2131,8 +2302,11 @@ export const BlockedProfilePopoverRevealed: Story = {
 			popover.querySelector("[data-blocked-profile-notice]"),
 		).toBeNull();
 		await expect(
-			within(popover).getByRole("button", { name: "Unblock Lou" }),
+			within(popover).getByRole("button", { name: "More options for Lou" }),
 		).toBeVisible();
+		await expect(
+			within(popover).queryByRole("button", { name: "Unblock Lou" }),
+		).toBeNull();
 		await expect(screen.getByRole("dialog", { name: "Lou's profile" })).toBe(
 			popover,
 		);

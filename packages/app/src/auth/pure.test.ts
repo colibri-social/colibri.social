@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { appViewHost, appViewServiceRef } from "./appview";
 import { callbackParamsFrom, nativeCallbackParams } from "./callback";
-import { makeClientId, NATIVE_CLIENT_ORIGIN } from "./client-id";
+import {
+	makeClientId,
+	makeClientMetadata,
+	NATIVE_CLIENT_ORIGIN,
+} from "./client-id";
 import { createOAuthFetch } from "./fetch";
 import {
 	clearAccountSearchCache,
@@ -225,5 +229,85 @@ describe("oauth fetch", () => {
 			}),
 		).rejects.toMatchObject({ code: "Unreachable" });
 		expect(base).toHaveBeenCalledTimes(1);
+	});
+
+	const slowBase = () =>
+		vi.fn(
+			(_input: Parameters<typeof fetch>[0], init?: RequestInit) =>
+				new Promise<Response>((resolve, reject) => {
+					init?.signal?.addEventListener("abort", () =>
+						reject(init.signal?.reason),
+					);
+					setTimeout(() => resolve(new Response("{}")), 90_000);
+				}),
+		);
+
+	it("lets a token request run past the write timeout", async () => {
+		vi.useFakeTimers();
+		const base = slowBase();
+		const pending = createOAuthFetch(base)(
+			new Request("https://pds.example/oauth/token", {
+				method: "POST",
+				body: "grant_type=refresh_token&refresh_token=r",
+			}),
+		);
+		await vi.advanceTimersByTimeAsync(90_000);
+		expect((await pending).ok).toBe(true);
+	});
+
+	it("still times out a slow write that isn't a token request", async () => {
+		vi.useFakeTimers();
+		const base = slowBase();
+		const pending = createOAuthFetch(base)("https://pds.example/xrpc/x", {
+			method: "POST",
+			body: "{}",
+		});
+		const result = expect(pending).rejects.toMatchObject({
+			code: "Unreachable",
+		});
+		await vi.advanceTimersByTimeAsync(60_000);
+		await result;
+	});
+});
+
+describe("client metadata", () => {
+	it("bundles the web document so loading needs no request", () => {
+		const metadata = makeClientMetadata({
+			native: false,
+			location: location("spaces.colibri.social"),
+			appView: "https://spaces-api.colibri.social",
+		});
+		expect(metadata).toMatchObject({
+			client_id: "https://spaces.colibri.social/oauth-client-metadata.json",
+			redirect_uris: ["https://spaces.colibri.social/app/login"],
+			application_type: "web",
+			dpop_bound_access_tokens: true,
+		});
+		expect(metadata?.scope?.split(" ")).toContain("atproto");
+	});
+
+	it("uses the reversed domain as the native redirect scheme", () => {
+		const metadata = makeClientMetadata({
+			native: true,
+			location: location("tauri.localhost"),
+			appView: "https://spaces-api.colibri.social",
+		});
+		expect(metadata?.client_id).toBe(
+			`${NATIVE_CLIENT_ORIGIN}/oauth-client-metadata-native.json`,
+		);
+		expect(metadata?.redirect_uris).toEqual([
+			"social.colibri.spaces:/oauth/callback",
+		]);
+		expect(metadata?.application_type).toBe("native");
+	});
+
+	it("leaves loopback clients to the library", () => {
+		expect(
+			makeClientMetadata({
+				native: false,
+				location: location("127.0.0.1:5173", "5173"),
+				appView: "https://spaces-api.colibri.social",
+			}),
+		).toBeUndefined();
 	});
 });

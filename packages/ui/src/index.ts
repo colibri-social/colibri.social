@@ -239,6 +239,7 @@ export * from "./components/UserSettings/SettingsIndex";
 export * from "./components/UserSettings/SpaceNotificationSettings";
 export * from "./components/UserSettings/types";
 export * from "./components/Voice/CallControls";
+export * from "./components/Voice/CallDebugDialog";
 export * from "./components/Voice/CallPill";
 export * from "./components/Voice/CallScreen";
 export * from "./components/Voice/CameraPreviewDialog";

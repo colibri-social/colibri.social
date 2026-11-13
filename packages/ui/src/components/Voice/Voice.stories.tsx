@@ -1649,6 +1649,63 @@ export const StatusPanelOpensCall: Story = {
 	},
 };
 
+const qualityClick = fn();
+
+export const StatusPanelQualityDetails: Story = {
+	name: "Status panel quality details",
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => (
+		<Screen class="flex min-h-dvh flex-col gap-4 bg-background p-4 text-foreground">
+			<div data-testid="clickable" class="w-72 rounded-control-lg bg-card">
+				<VoiceStatusPanel
+					state="connected"
+					quality="good"
+					latency={42}
+					channelName="Hangout"
+					spaceName="Colibri Social Flock"
+					onDisconnect={() => {}}
+					onQualityClick={qualityClick}
+				/>
+			</div>
+			<div data-testid="plain" class="w-72 rounded-control-lg bg-card">
+				<VoiceStatusPanel
+					state="connected"
+					quality="good"
+					latency={42}
+					channelName="Hangout"
+					spaceName="Colibri Social Flock"
+					onDisconnect={() => {}}
+				/>
+			</div>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		qualityClick.mockClear();
+		const canvas = within(canvasElement);
+		const tile = within(canvas.getByTestId("clickable")).getByRole("button", {
+			name: "Connection details, 42 ms",
+		});
+		await expect(tile).toHaveAttribute("data-clickable");
+		await expect(getComputedStyle(tile).cursor).toBe("pointer");
+		await userEvent.hover(tile);
+		await waitFor(
+			() => expect(screen.getByRole("tooltip")).toHaveTextContent("42 ms"),
+			{ timeout: 3000 },
+		);
+		await userEvent.click(tile);
+		await expect(qualityClick).toHaveBeenCalledTimes(1);
+		await userEvent.unhover(tile);
+		const plain = within(canvas.getByTestId("plain")).getByRole("button", {
+			name: "Connection: 42 ms",
+		});
+		await expect(plain).not.toHaveAttribute("data-clickable");
+		await expect(getComputedStyle(plain).cursor).toBe("default");
+		tile.focus();
+		await expectFocusRingVisible(tile);
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
 export const LandscapeStage: Story = {
 	name: "Landscape stage",
 	parameters: { viewport: { defaultViewport: "responsive" } },

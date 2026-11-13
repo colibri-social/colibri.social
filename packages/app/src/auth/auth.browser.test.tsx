@@ -1,6 +1,6 @@
 import type { OAuthSession } from "@atproto/oauth-client-browser";
 import { ColibriError } from "@colibri-social/lib";
-import { createRoot } from "solid-js";
+import { createComputed, createRoot } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResumeEnvironment } from "../data/resume";
 import {
@@ -267,7 +267,7 @@ describe("createAuth", () => {
 		expect(auth.status()).toBe("signedIn");
 	});
 
-	it("refreshes first and then needs three soft failures inside a minute to expire", async () => {
+	it("checks the token first and then needs three soft failures inside a minute to expire", async () => {
 		const { auth } = setup(
 			{ stored: fakeSession(DID) },
 			{ storage: memoryStorage({ sub: DID }), resumeEnvironment: null },
@@ -628,16 +628,16 @@ describe("grant refresh", () => {
 			},
 		);
 		await auth.init();
-		await vi.waitFor(() => expect(forced).toEqual([false, true]));
+		expect(forced).toEqual([false]);
 		expect(auth.scopeNotice()?.methods).toEqual([GET_CATALOG]);
 
 		resume.awayFor(GRANT_REFRESH_AFTER_MS - 1);
-		expect(forced).toEqual([false, true]);
+		expect(forced).toEqual([false]);
 
 		scopes.current = expandedScope();
 		resume.awayFor(GRANT_REFRESH_AFTER_MS);
 		await vi.waitFor(() => expect(auth.scopeNotice()).toBeUndefined());
-		expect(forced).toEqual([false, true, false]);
+		expect(forced).toEqual([false, false]);
 	});
 
 	it("forces a token refresh on resume when the access token is about to expire", async () => {
@@ -653,11 +653,11 @@ describe("grant refresh", () => {
 			},
 		);
 		await auth.init();
-		await vi.waitFor(() => expect(forced).toEqual([false, true]));
+		expect(forced).toEqual([false]);
 
 		expiry.inMs = NEAR_EXPIRY_MS - 60_000;
 		resume.awayFor(GRANT_REFRESH_AFTER_MS);
-		await vi.waitFor(() => expect(forced).toEqual([false, true, false, true]));
+		await vi.waitFor(() => expect(forced).toEqual([false, false, true]));
 	});
 
 	it("reads the stored grant on resume without refreshing a token that is still fresh", async () => {
@@ -674,12 +674,13 @@ describe("grant refresh", () => {
 			},
 		);
 		await auth.init();
-		await vi.waitFor(() => expect(forced).toEqual([false, true]));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(forced).toEqual([false]);
 
 		resume.awayFor(GRANT_REFRESH_AFTER_MS);
-		await vi.waitFor(() => expect(forced).toEqual([false, true, false]));
+		await vi.waitFor(() => expect(forced).toEqual([false, false]));
 		await new Promise((resolve) => setTimeout(resolve, 20));
-		expect(forced).toEqual([false, true, false]);
+		expect(forced).toEqual([false, false]);
 	});
 
 	it("clears rejections once a refreshed grant differs", async () => {
@@ -713,9 +714,134 @@ describe("grant refresh", () => {
 			},
 		);
 		await auth.init();
-		await vi.waitFor(() => expect(forced).toEqual([false, true]));
+		expect(forced).toEqual([false]);
 		await auth.signOut();
 		resume.awayFor(GRANT_REFRESH_AFTER_MS);
-		expect(forced).toEqual([false, true]);
+		expect(forced).toEqual([false]);
+	});
+});
+
+const statusHistory = (auth: ReturnType<typeof setup>["auth"]) => {
+	const seen: string[] = [];
+	createRoot((dispose) => {
+		disposers.push(dispose);
+		createComputed(() => seen.push(auth.status()));
+	});
+	return seen;
+};
+
+const capturingLoad = (state: FakeClientState) => {
+	const { client } = fakeClient(state);
+	const captured: {
+		onSessionDeleted?: (sub: string, cause: unknown) => void;
+	} = {};
+	const loadClient: LoadOAuthClient = async (options) => {
+		captured.onSessionDeleted = options.onSessionDeleted;
+		return client;
+	};
+	return { loadClient, captured };
+};
+
+describe("offline launch", () => {
+	it("opens from this device with a saved account and no network", async () => {
+		const storage = memoryStorage({ sub: DID });
+		const { auth, fake } = setup(
+			{ restoreError: new ColibriError({ code: "Offline" }) },
+			{ storage },
+		);
+		const seen = statusHistory(auth);
+		await auth.init();
+		expect(auth.status()).toBe("offline");
+		expect(seen).not.toContain("signedOut");
+		expect(auth.did()).toBe(DID);
+		expect(auth.error()).toBeUndefined();
+		expect(storage.getItem("sub")).toBe(DID);
+
+		const pending = auth.agent();
+		fake.restoreError = undefined;
+		fake.stored = fakeSession(DID);
+		window.dispatchEvent(new Event("online"));
+		await vi.waitFor(() => expect(auth.status()).toBe("signedIn"));
+		expect(auth.agent()).toBe(pending);
+		expect(seen).not.toContain("signedOut");
+	});
+
+	it("rejects calls while offline without counting them against the session", async () => {
+		const { auth } = setup(
+			{ restoreError: new ColibriError({ code: "NetworkFailed" }) },
+			{ storage: memoryStorage({ sub: DID }) },
+		);
+		await auth.init();
+		await expect(
+			auth.agent()?.com.atproto.server.getSession(),
+		).rejects.toBeDefined();
+		expect(auth.health.dead()).toBe(false);
+		expect(auth.status()).toBe("offline");
+	});
+
+	it("keeps the saved account when restoring fails unexpectedly", async () => {
+		const storage = memoryStorage({ sub: DID });
+		const { auth } = setup({ restoreError: new Error("boom") }, { storage });
+		await auth.init();
+		expect(auth.status()).toBe("offline");
+		expect(storage.getItem("sub")).toBe(DID);
+	});
+
+	it("retries on a backoff until the saved sign-in loads", async () => {
+		const { auth, fake } = setup(
+			{ restoreError: new ColibriError({ code: "Unreachable" }) },
+			{ storage: memoryStorage({ sub: DID }), reconnectBaseMs: 5 },
+		);
+		await auth.init();
+		expect(auth.status()).toBe("offline");
+		fake.restoreError = undefined;
+		fake.stored = fakeSession(DID);
+		await vi.waitFor(() => expect(auth.status()).toBe("signedIn"));
+	});
+
+	it("asks to sign in again when the session turns out to be revoked", async () => {
+		const storage = memoryStorage({ sub: DID });
+		const { auth, fake } = setup(
+			{ restoreError: new ColibriError({ code: "Offline" }) },
+			{ storage },
+		);
+		await auth.init();
+		fake.restoreError = new ColibriError({ code: "InvalidToken" });
+		window.dispatchEvent(new Event("online"));
+		await vi.waitFor(() => expect(auth.status()).toBe("signedOut"));
+		expect(auth.agent()).toBeUndefined();
+		expect(storage.getItem("sub")).toBeNull();
+	});
+});
+
+describe("session deletion", () => {
+	it("keeps the session alive when a token refresh failed on the network", async () => {
+		const fake: FakeClientState = { calls: [], stored: fakeSession(DID) };
+		const { loadClient, captured } = capturingLoad(fake);
+		const { auth } = setup(
+			{},
+			{ loadClient, storage: memoryStorage({ sub: DID }) },
+		);
+		await auth.init();
+		const cause = new Error("token refresh failed", {
+			cause: new TypeError("Failed to fetch"),
+		});
+		cause.name = "TokenRefreshError";
+		captured.onSessionDeleted?.(DID, cause);
+		expect(auth.status()).toBe("signedIn");
+	});
+
+	it("expires when the provider refused the refresh", async () => {
+		const fake: FakeClientState = { calls: [], stored: fakeSession(DID) };
+		const { loadClient, captured } = capturingLoad(fake);
+		const { auth } = setup(
+			{},
+			{ loadClient, storage: memoryStorage({ sub: DID }) },
+		);
+		await auth.init();
+		const cause = new Error("The session was revoked");
+		cause.name = "TokenRefreshError";
+		captured.onSessionDeleted?.(DID, cause);
+		expect(auth.status()).toBe("expired");
 	});
 });

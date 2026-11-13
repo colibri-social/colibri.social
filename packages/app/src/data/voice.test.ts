@@ -325,6 +325,7 @@ const fakeMonitor = () => {
 const setupWithMonitor = () => {
 	const fake = fakeMonitor();
 	const notices: string[] = [];
+	const retries: (() => void)[] = [];
 	const sent: (VoiceState | undefined)[] = [];
 	const presence = new Map<string, Presence>();
 	const [version, setVersion] = createSignal(0);
@@ -332,7 +333,10 @@ const setupWithMonitor = () => {
 	const { controller, connect } = createVoice(
 		(sound) => played.push(sound),
 		() => fake.monitor,
-		(key) => notices.push(key),
+		(key, retry) => {
+			notices.push(key);
+			if (retry) retries.push(retry);
+		},
 	);
 	connect({
 		communities: { value: () => [], loading: () => false },
@@ -359,7 +363,7 @@ const setupWithMonitor = () => {
 			return next;
 		},
 	} as unknown as Parameters<typeof connect>[0]);
-	return { voice: controller, fake, notices, sent, played };
+	return { voice: controller, fake, notices, retries, sent, played };
 };
 
 describe("voice with a media engine", () => {
@@ -445,6 +449,30 @@ describe("voice with a media engine", () => {
 		expect(notices).toEqual(["moderator"]);
 		expect(played).toEqual(["leave"]);
 		expect(sent.at(-1)).toBeUndefined();
+	});
+
+	it("offers a retry that rejoins the call when every voice node failed", () => {
+		const { voice, fake, notices, retries } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE }, { muted: true });
+		fake.end("nodesDown");
+		expect(voice.current()).toBeUndefined();
+		expect(notices).toEqual(["nodesDown"]);
+		expect(retries).toHaveLength(1);
+		fake.monitor.start.mockClear();
+		retries[0]?.();
+		expect(voice.current()).toEqual({ space: SPACE, channel: LOUNGE });
+		expect(fake.monitor.start).toHaveBeenCalledWith({
+			channel: LOUNGE,
+			muted: true,
+			deafened: false,
+		});
+	});
+
+	it("offers no retry for other endings", () => {
+		const { fake, voice, retries } = setupWithMonitor();
+		voice.join({ space: SPACE, channel: LOUNGE });
+		fake.end("failed");
+		expect(retries).toEqual([]);
 	});
 
 	it("rejoins the destination when a moderator moves the viewer", () => {

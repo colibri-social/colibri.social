@@ -12,7 +12,7 @@ import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded
 import { UsersGroupRoundedIcon } from "@solar-icons/solid/bold/users-group-rounded";
 import { VolumeIcon } from "@solar-icons/solid/bold/volume";
 import { VolumeCrossIcon } from "@solar-icons/solid/bold/volume-cross";
-import { createMemo, type JSX, untrack } from "solid-js";
+import { createMemo, type JSX, untrack, type ValidComponent } from "solid-js";
 import { HeadphonesSlashIcon, MicrophoneSlashIcon } from "../../icons/custom";
 import {
 	DropdownMenu,
@@ -421,7 +421,8 @@ export const MemberContextMenu = (props: MemberContextMenuProps) => {
 
 export type MemberDropdownMenuProps = MemberMenuActions & {
 	name: string;
-	trigger: JSX.Element;
+	trigger?: JSX.Element;
+	triggerAs?: ValidComponent;
 	triggerClass?: string;
 	triggerProps?: Record<string, unknown>;
 	placement?: DropdownMenuPlacement;
@@ -440,6 +441,7 @@ export const MemberDropdownMenu = (props: MemberDropdownMenuProps) => {
 			label={`${props.name} options`}
 			items={entries()}
 			trigger={props.trigger}
+			triggerAs={props.triggerAs}
 			triggerClass={props.triggerClass}
 			triggerProps={props.triggerProps}
 			placement={props.placement ?? "bottom-end"}

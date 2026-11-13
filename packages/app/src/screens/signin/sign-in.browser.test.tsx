@@ -1,4 +1,5 @@
 import "../../app.css";
+import { ColibriError } from "@colibri-social/lib";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -224,6 +225,17 @@ describe("sign-in", () => {
 		);
 		await expect.element(page.getByTestId("signed-in")).toHaveTextContent(DID);
 		expect(screenOf()).toBeUndefined();
+	});
+
+	it("opens the app from this device when the saved sign-in can't load", async () => {
+		history.replaceState(null, "", "/app/inbox");
+		await mount(
+			{ restoreError: new ColibriError({ code: "Offline" }) },
+			{ storage: memoryStorage({ sub: DID }) },
+		);
+		await expect.element(page.getByTestId("signed-in")).toHaveTextContent(DID);
+		expect(screenOf()).toBeUndefined();
+		expect(location.pathname).toBe("/app/inbox");
 	});
 
 	it("shows the launch screen while starting, then a retry when starting hangs", async () => {

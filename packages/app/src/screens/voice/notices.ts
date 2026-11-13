@@ -5,9 +5,15 @@ import { setVoiceMoveNotifier, setVoiceNotifier } from "../../data/voice";
 const MOVE_TOAST_ID = "voice-move";
 
 export const installVoiceNotices = () => {
-	setVoiceNotifier((key) => {
+	setVoiceNotifier((key, retry) => {
 		const copy = VOICE_NOTICE_COPY[key];
-		toast(copy.title, { description: copy.description });
+
+		toast(copy.title, {
+			description: copy.description,
+			...(retry && copy.action
+				? { action: { label: copy.action, onClick: retry } }
+				: {}),
+		});
 	});
 	setVoiceMoveNotifier((move) => {
 		if (!move) {

@@ -46,6 +46,7 @@ import {
 	openMicrophone,
 } from "../media-devices";
 import type { ServiceAuthAgent } from "../remote/live/connection";
+import { socketOrigin } from "../remote/nodes";
 import {
 	type ScreenShareQuality,
 	screenCodecOptions,
@@ -57,6 +58,13 @@ import {
 } from "../screen-share";
 import { DEFAULT_VOICE_SETTINGS, type VoiceSettings } from "../voice-settings";
 import { applyAudioSink, type SinkableMediaElement } from "./audio-sink";
+import {
+	readAudioDebug,
+	readTransportDebug,
+	type VoiceDebugAudio,
+	type VoiceDebugSnapshot,
+	type VoiceDebugTransport,
+} from "./debug-stats";
 import { pickVoiceHandler, supportsWebRtc } from "./device";
 import {
 	type AudioBoost,
@@ -112,6 +120,7 @@ import {
 } from "./video-codec";
 import {
 	type ByteMark,
+	latestVideoStats,
 	publishVideoStats,
 	readVideoStats,
 	type StatsLike,
@@ -147,6 +156,14 @@ const MIC_CODEC_OPTIONS = {
 const OPEN = 1;
 
 const DEFS = "social.colibri.beta.voice.defs#";
+
+const NODE_FAILURE_CODES: ReadonlySet<string> = new Set([
+	"InternalError",
+	"VoiceUnavailable",
+	"UpstreamFailure",
+]);
+
+type NodeFailureCause = "socket" | "timeout" | "server" | "ice";
 
 export type VoiceSocket = {
 	readonly readyState: number;
@@ -191,7 +208,8 @@ export type VoiceEngineOptions = {
 	webRtc?: () => boolean;
 	handlerName?: () => types.BuiltinHandlerName | undefined;
 	probeVideoEncoding?: VideoEncodingProbe;
-	pickHost?: () => string | null;
+	pickHost?: (avoid: ReadonlySet<string>) => string | null;
+	describeNode?: (host: string) => { id: string; region: string } | undefined;
 	probe?: (url: string) => Promise<number | null>;
 	forceRelay?: () => boolean;
 };
@@ -226,6 +244,7 @@ export type VoiceEngine = {
 		| "onEnded"
 		| "onMoved"
 		| "onNotice"
+		| "debugSnapshot"
 		| "dispose"
 	>
 >;
@@ -453,13 +472,50 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		let session: VoiceSession | null = null;
 		let ws: VoiceSocket | null = null;
 		let hostOverride: string | null = null;
+		let wsHost: string | null = null;
+		let shunnedHost: string | null = null;
+		const failedHosts = new Set<string>();
 		let elsewhereHops = 0;
+		let joinedHops = 0;
 		let switching = false;
 		const moveListeners = new Set<(move: VoiceMove | null) => void>();
 		const probe = options.probe ?? probeRoundTrip;
 		const relayOnly = () => options.forceRelay?.() ?? false;
-		const signalingHost = () =>
-			hostOverride ?? options.pickHost?.() ?? options.appViewHost;
+		const hostKey = (host: string) => socketOrigin(voiceSocketUrl(host));
+		const pickFrom = (avoid: ReadonlySet<string>) =>
+			options.pickHost?.(avoid) ?? null;
+		const resolveHost = (): string | null => {
+			if (hostOverride && !failedHosts.has(hostKey(hostOverride))) {
+				return hostOverride;
+			}
+
+			hostOverride = null;
+
+			const avoid = new Set(failedHosts);
+
+			if (shunnedHost) avoid.add(shunnedHost);
+
+			const picked = pickFrom(avoid) ?? pickFrom(failedHosts);
+
+			if (picked) return picked;
+			if (pickFrom(new Set())) return null;
+
+			return failedHosts.has(hostKey(options.appViewHost))
+				? null
+				: options.appViewHost;
+		};
+		const shun = (host: string | null) => {
+			if (!host) return;
+
+			shunnedHost = hostKey(host);
+
+			if (hostOverride && hostKey(hostOverride) === shunnedHost) {
+				hostOverride = null;
+			}
+		};
+		const isOffline = () => {
+			return typeof navigator !== "undefined" && navigator.onLine === false;
+		};
 		const emitMove = (move: VoiceMove | null) => {
 			for (const listener of [...moveListeners]) listener(move);
 		};
@@ -499,6 +555,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		let videoStatsTimer: ReturnType<typeof setTimeout> | null = null;
 		let videoStatsGen = 0;
 		const videoByteMarks = new Map<string, ByteMark>();
+		const audioByteMarks = new Map<string, ByteMark>();
 		let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 		let sendChain: Promise<void> = Promise.resolve();
 		let pendingReplies: Waiter[] = [];
@@ -561,10 +618,14 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 							const at = pendingReplies.indexOf(waiter);
 							if (at !== -1) pendingReplies.splice(at, 1);
 							reject(new ColibriError({ code: "VoiceConnectionLost" }));
-							if (session && !intentionalClose) {
-								teardownMedia();
-								scheduleReconnect();
+							if (!session || intentionalClose) return;
+							if (!ready) {
+								failNode(wsHost, "timeout");
+								return;
 							}
+							shun(wsHost);
+							teardownMedia();
+							scheduleReconnect();
 						}, REPLY_TIMEOUT_MS);
 						const waiter: Waiter = {
 							resolve: (value) => {
@@ -1125,6 +1186,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			if (!ws) return;
 			const stale = ws;
 			ws = null;
+			wsHost = null;
 			stale.onclose = null;
 			stale.onerror = null;
 			stale.onmessage = null;
@@ -1377,6 +1439,27 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			setVideo(producerId, undefined);
 		};
 
+		const iceFailed = (
+			label: "sendTransport" | "recvTransport",
+			transport: types.Transport,
+		) => {
+			if (transport !== sendTransport && transport !== recvTransport) return;
+			if (!session || intentionalClose) return;
+
+			const wasConnected =
+				label === "sendTransport" ? sendConnected : recvConnected;
+
+			if (!wasConnected) {
+				failNode(wsHost, "ice");
+				return;
+			}
+
+			log.warn(`${label} lost its media connection`);
+			shun(wsHost);
+			teardownMedia();
+			scheduleReconnect();
+		};
+
 		const wireTransport = (
 			label: "sendTransport" | "recvTransport",
 			transport: types.Transport,
@@ -1391,6 +1474,10 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			});
 			transport.on("connectionstatechange", (state) => {
 				log.debug(`${label} ${state}`);
+				if (state === "failed") {
+					iceFailed(label, transport);
+					return;
+				}
 				if (state !== "connected") return;
 				if (label === "sendTransport") sendConnected = true;
 				else recvConnected = true;
@@ -1480,10 +1567,59 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			if (camera()) void resumeCamera();
 		};
 
-		const failSetup = (error: unknown) => {
+		const failNode = (
+			host: string | null,
+			cause: NodeFailureCause,
+			code?: string,
+		) => {
 			if (!session) return;
-			if (connection().state === "reconnecting") return;
+
+			if (!host || isOffline()) {
+				log.info("voice setup failed while offline", { cause, code });
+				teardownMedia();
+				scheduleReconnect();
+				return;
+			}
+
+			const key = hostKey(host);
+
+			failedHosts.add(key);
+			shun(host);
+			log.warn("a voice node failed, trying another one", {
+				cause,
+				code,
+				node: key,
+			});
+			teardownMedia();
+			abandonSignaling();
+			if (reconnectTimer) clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+
+			if (!resolveHost()) {
+				log.warn("no voice node is left to try", { cause, code });
+				finish("nodesDown");
+				return;
+			}
+
+			if (connection().state === "connected") {
+				patchConnection({
+					state: "reconnecting",
+					quality: "lost",
+					latency: null,
+				});
+			}
+
+			void openSignaling();
+		};
+
+		const failSetup = (error: unknown, host: string) => {
+			if (!session) return;
 			const code = classifyThrown(error).code;
+			if (NODE_FAILURE_CODES.has(code)) {
+				failNode(host, "server", code);
+				return;
+			}
+			if (connection().state === "reconnecting") return;
 			log.error("voice setup failed", { code });
 			finish(
 				error instanceof Error && error.name === "UnsupportedError"
@@ -1541,7 +1677,9 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 					const error = new ColibriError({
 						code: isAppViewErrorCode(frame.error)
 							? frame.error
-							: "InvalidRequest",
+							: frame.error === "InternalError"
+								? "InternalError"
+								: "InvalidRequest",
 						serverMessage: frame.message,
 					});
 					const next = pendingReplies.shift();
@@ -1675,6 +1813,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				if (switching) return;
 				switching = move.keepCurrent;
 				hostOverride = move.host;
+				if (shunnedHost === hostKey(move.host)) shunnedHost = null;
 			}
 			const id = sessionId;
 			let token: string;
@@ -1700,6 +1839,14 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			}
 
 			const keepCurrent = move?.keepCurrent === true && ws !== null;
+			const host = keepCurrent && move ? move.host : resolveHost();
+
+			if (!host) {
+				switching = false;
+				log.warn("no voice node is left to try");
+				finish("nodesDown");
+				return;
+			}
 
 			if (!keepCurrent) {
 				intentionalClose = false;
@@ -1709,12 +1856,16 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				abandonSignaling();
 			}
 
-			const socket = createSocket(voiceSocketUrl(signalingHost()), [
+			const socket = createSocket(voiceSocketUrl(host), [
 				AUTH_SUBPROTOCOL,
 				token,
 			]);
+			let opened = false;
 
-			if (!keepCurrent) ws = socket;
+			if (!keepCurrent) {
+				ws = socket;
+				wsHost = host;
+			}
 
 			const adopt = () => {
 				if (ws === socket) return;
@@ -1730,9 +1881,11 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				pendingReplies = [];
 				sendChain = Promise.resolve();
 				ws = socket;
+				wsHost = host;
 			};
 
 			socket.onopen = () => {
+				opened = true;
 				if (id !== sessionId || !session) {
 					socket.close();
 					return;
@@ -1745,10 +1898,9 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 							const elsewhere = frame as FrameOf<"callElsewhere">;
 
 							if (elsewhereHops >= MAX_ELSEWHERE_HOPS) {
-								throw new ColibriError({
-									code: "VoiceUnavailable",
-									message: "the call kept pointing at other nodes",
-								});
+								log.warn("the call kept pointing at other nodes");
+								finish("failed");
+								return;
 							}
 
 							elsewhereHops += 1;
@@ -1763,12 +1915,13 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 						}
 
 						expectFrame(frame, "joined");
+						joinedHops = elsewhereHops;
 						elsewhereHops = 0;
 						return performHandshake();
 					})
 					.catch((error: unknown) => {
 						if (ws !== socket) return;
-						failSetup(error);
+						failSetup(error, host);
 					});
 			};
 			socket.onmessage = (event) => {
@@ -1787,6 +1940,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				if (ws !== socket) {
 					if (keepCurrent && switching) {
 						switching = false;
+						if (!opened) failedHosts.add(hostKey(host));
 						log.warn("couldn't reach the node the call moves to", {
 							code: event.code,
 						});
@@ -1794,7 +1948,12 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 					return;
 				}
 				if (intentionalClose) return;
+				if (!opened) {
+					failNode(host, "socket");
+					return;
+				}
 				log.info("voice signaling socket closed", { code: event.code });
+				shun(host);
 				teardownMedia();
 				scheduleReconnect();
 			};
@@ -1811,7 +1970,10 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			sessionId += 1;
 			session = { ...next };
 			hostOverride = null;
+			failedHosts.clear();
+			shunnedHost = null;
 			elsewhereHops = 0;
+			joinedHops = 0;
 			switching = false;
 			reconnectAttempts = 0;
 			setModeration({});
@@ -2316,6 +2478,126 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			return live;
 		};
 
+		const readTransport = async (
+			transport: types.Transport | null,
+			direction: VoiceDebugTransport["direction"],
+		): Promise<VoiceDebugTransport | undefined> => {
+			if (!transport || transport.closed) return undefined;
+
+			try {
+				return readTransportDebug(
+					await transport.getStats(),
+					direction,
+					transport.connectionState,
+				);
+			} catch (error) {
+				log.debug("transport stats unavailable", {
+					code: classifyThrown(error).code,
+				});
+
+				return undefined;
+			}
+		};
+
+		const readAudio = async (
+			read: () => Promise<RTCStatsReport>,
+			base: Parameters<typeof readAudioDebug>[1],
+		): Promise<VoiceDebugAudio | undefined> => {
+			try {
+				const { sample, mark } = readAudioDebug(
+					await read(),
+					base,
+					audioByteMarks.get(base.id),
+				);
+
+				if (mark) audioByteMarks.set(base.id, mark);
+
+				return sample;
+			} catch (error) {
+				log.debug("audio stats unavailable", {
+					code: classifyThrown(error).code,
+				});
+
+				return undefined;
+			}
+		};
+
+		const debugSnapshot = async (): Promise<VoiceDebugSnapshot> => {
+			const host = wsHost;
+			const described = host
+				? options.describeNode?.(hostKey(host))
+				: undefined;
+			const audioJobs: Promise<VoiceDebugAudio | undefined>[] = [];
+			const own: [types.Producer | null, string][] = [
+				[micProducer, "mic"],
+				[screenAudioProducer, "screen"],
+			];
+
+			for (const [producer, source] of own) {
+				if (!producer || producer.closed) continue;
+
+				audioJobs.push(
+					readAudio(() => producer.getStats(), {
+						id: producer.id,
+						direction: "send",
+						did: viewer,
+						source,
+						paused: producer.paused,
+					}),
+				);
+			}
+
+			for (const consumer of consumers.values()) {
+				if (consumer.kind !== "audio" || consumer.closed) continue;
+
+				const owner = producers.owner(consumer.producerId);
+
+				audioJobs.push(
+					readAudio(() => consumer.getStats(), {
+						id: consumer.id,
+						direction: "recv",
+						did: owner?.did,
+						source: owner?.source,
+						paused: consumer.paused,
+					}),
+				);
+			}
+
+			const [transports, audio] = await Promise.all([
+				Promise.all([
+					readTransport(sendTransport, "send"),
+					readTransport(recvTransport, "recv"),
+				]),
+				Promise.all(audioJobs),
+			]);
+			const samples = audio.filter(
+				(sample): sample is VoiceDebugAudio => !!sample,
+			);
+			const live = new Set(samples.map((sample) => sample.id));
+
+			for (const id of audioByteMarks.keys()) {
+				if (!live.has(id)) audioByteMarks.delete(id);
+			}
+
+			return {
+				node: host
+					? {
+							host: hostKey(host),
+							id: described?.id,
+							region: described?.region,
+							relayOnly: relayOnly(),
+							hops: joinedHops,
+						}
+					: null,
+				failedHosts: [...failedHosts],
+				transports: transports.filter(
+					(entry): entry is VoiceDebugTransport => !!entry,
+				),
+				audio: samples,
+				video: latestVideoStats(),
+			};
+		};
+
 		createEffect(
 			on(
 				() => {
@@ -2417,7 +2699,8 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				moveListeners.add(listener);
 				return () => moveListeners.delete(listener);
 			},
-			host: signalingHost,
+			host: () => wsHost ?? hostOverride ?? options.appViewHost,
+			debugSnapshot,
 			onScreenShare: (listener) => {
 				screenShareListeners.add(listener);
 				return () => screenShareListeners.delete(listener);
