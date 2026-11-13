@@ -100,51 +100,126 @@ export type CallMediaState = {
 	serverMuted?: boolean;
 	serverDeafened?: boolean;
 	micMissing?: boolean;
+	micDenied?: boolean;
+	listenDenied?: boolean;
+	cameraDenied?: boolean;
+	screenshareDenied?: boolean;
 	cameraOn?: boolean;
 	cameraPending?: boolean;
 	screenSharing?: boolean;
 };
 
+export const CALL_PERMISSION_COPY = {
+	speakLabel: "Speaking not allowed",
+	speakTooltip: "You don't have permission to speak in this channel.",
+	listenLabel: "Listening not allowed",
+	listenTooltip: "You don't have permission to listen in this channel.",
+	cameraLabel: "Camera not allowed",
+	cameraTooltip:
+		"You don't have permission to turn on your camera in this channel.",
+	screenshareLabel: "Screen sharing not allowed",
+	screenshareTooltip:
+		"You don't have permission to share your screen in this channel.",
+} as const;
+
 export const micControl = (state: CallMediaState) => {
-	const off = () => !!(state.muted || state.serverMuted || state.micMissing);
+	const off = () =>
+		!!(state.muted || state.serverMuted || state.micDenied || state.micMissing);
 	return {
 		off,
-		disabled: () => !!(state.serverMuted || state.micMissing),
+		disabled: () =>
+			!!(state.serverMuted || state.micDenied || state.micMissing),
 		label: () =>
 			state.serverMuted
 				? "Muted by a moderator"
-				: state.micMissing
-					? "No microphone"
-					: off()
-						? "Unmute"
-						: "Mute",
+				: state.micDenied
+					? CALL_PERMISSION_COPY.speakLabel
+					: state.micMissing
+						? "No microphone"
+						: off()
+							? "Unmute"
+							: "Mute",
 		tooltip: () =>
 			state.serverMuted
 				? "A moderator muted you. Your mic stays muted until they lift it."
-				: state.micMissing
-					? "Colibri can't find a microphone. Plug one in and join the call again to talk."
-					: undefined,
+				: state.micDenied
+					? CALL_PERMISSION_COPY.speakTooltip
+					: state.micMissing
+						? "Colibri can't find a microphone. Plug one in and join the call again to talk."
+						: undefined,
 		tone: (): CallControlTone =>
-			state.serverMuted ? "server" : off() ? "off" : "default",
+			state.serverMuted || state.micDenied
+				? "server"
+				: off()
+					? "off"
+					: "default",
 	};
 };
 
 export const deafenControl = (state: CallMediaState) => {
-	const off = () => !!(state.deafened || state.serverDeafened);
+	const off = () =>
+		!!(state.deafened || state.serverDeafened || state.listenDenied);
 	return {
 		off,
+		disabled: () => !!(state.serverDeafened || state.listenDenied),
 		label: () =>
 			state.serverDeafened
 				? "Deafened by a moderator"
-				: off()
-					? "Undeafen"
-					: "Deafen",
+				: state.listenDenied
+					? CALL_PERMISSION_COPY.listenLabel
+					: off()
+						? "Undeafen"
+						: "Deafen",
 		tooltip: () =>
 			state.serverDeafened
 				? "A moderator deafened you. You stay deafened until they lift it."
+				: state.listenDenied
+					? CALL_PERMISSION_COPY.listenTooltip
+					: undefined,
+		tone: (): CallControlTone =>
+			state.serverDeafened || state.listenDenied
+				? "server"
+				: off()
+					? "off"
+					: "default",
+	};
+};
+
+export const cameraControl = (state: CallMediaState) => {
+	const on = () => !!state.cameraOn && !state.cameraDenied;
+	return {
+		on,
+		disabled: () => !!state.cameraDenied,
+		label: () =>
+			state.cameraDenied
+				? CALL_PERMISSION_COPY.cameraLabel
+				: on()
+					? "Turn off camera"
+					: "Turn on camera",
+		tooltip: () =>
+			state.cameraDenied ? CALL_PERMISSION_COPY.cameraTooltip : undefined,
+		tone: (): CallControlTone =>
+			state.cameraDenied ? "server" : on() ? "active" : "default",
+	};
+};
+
+export const screenShareControl = (state: CallMediaState) => {
+	const on = () => !!state.screenSharing && !state.screenshareDenied;
+	return {
+		on,
+		disabled: () => !!state.screenshareDenied,
+		label: () =>
+			state.screenshareDenied
+				? CALL_PERMISSION_COPY.screenshareLabel
+				: on()
+					? "Stop sharing"
+					: "Share screen",
+		tooltip: () =>
+			state.screenshareDenied
+				? CALL_PERMISSION_COPY.screenshareTooltip
 				: undefined,
 		tone: (): CallControlTone =>
-			state.serverDeafened ? "server" : off() ? "off" : "default",
+			state.screenshareDenied ? "server" : on() ? "active" : "default",
 	};
 };
 
@@ -157,6 +232,7 @@ export type CallControlsProps = CallMediaState & {
 	screenShareMenu?: ScreenShareMenuProps;
 	onOpenChat?: () => void;
 	chatOpen?: boolean;
+	chatAvailable?: boolean;
 	onLeave?: () => void;
 	class?: string;
 };
@@ -171,6 +247,9 @@ export const CallControls = (props: CallControlsProps) => {
 	const [local] = splitProps(props, ["class"]);
 	const mic = micControl(props);
 	const deafen = deafenControl(props);
+	const camera = cameraControl(props);
+	const share = screenShareControl(props);
+
 	return (
 		<div
 			role="toolbar"
@@ -180,12 +259,14 @@ export const CallControls = (props: CallControlsProps) => {
 		>
 			<Show when={props.onToggleCamera}>
 				<CallControlButton
-					label={props.cameraOn ? "Turn off camera" : "Turn on camera"}
-					pressed={!!props.cameraOn}
-					tone={props.cameraOn ? "active" : "default"}
+					label={camera.label()}
+					tooltip={camera.tooltip()}
+					pressed={camera.on()}
+					tone={camera.tone()}
 					size={props.size}
-					loading={props.cameraPending}
-					icon={<AnimatedVideocameraIcon off={!props.cameraOn} />}
+					disabled={camera.disabled()}
+					loading={!camera.disabled() && props.cameraPending}
+					icon={<AnimatedVideocameraIcon off={!camera.on()} />}
 					onClick={props.onToggleCamera}
 				/>
 			</Show>
@@ -205,23 +286,27 @@ export const CallControls = (props: CallControlsProps) => {
 				pressed={deafen.off()}
 				tone={deafen.tone()}
 				size={props.size}
-				disabled={props.serverDeafened}
+				disabled={deafen.disabled()}
 				icon={<AnimatedHeadphonesIcon deafened={deafen.off()} />}
 				onClick={props.onToggleDeafen}
 			/>
 			<Show when={props.onToggleScreenShare}>
-				<ScreenShareControl menu={props.screenShareMenu}>
+				<ScreenShareControl
+					menu={share.disabled() ? undefined : props.screenShareMenu}
+				>
 					<CallControlButton
-						label={props.screenSharing ? "Stop sharing" : "Share screen"}
-						pressed={!!props.screenSharing}
-						tone={props.screenSharing ? "active" : "default"}
+						label={share.label()}
+						tooltip={share.tooltip()}
+						pressed={share.on()}
+						tone={share.tone()}
 						size={props.size}
+						disabled={share.disabled()}
 						icon={<AnimatedScreencastIcon trigger="press" />}
 						onClick={props.onToggleScreenShare}
 					/>
 				</ScreenShareControl>
 			</Show>
-			<Show when={props.onOpenChat}>
+			<Show when={props.chatAvailable !== false && props.onOpenChat}>
 				<CallControlButton
 					label={chatToggleProps(props.chatOpen).label}
 					pressed={chatToggleProps(props.chatOpen).pressed}

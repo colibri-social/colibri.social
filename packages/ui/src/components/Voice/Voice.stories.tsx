@@ -7,7 +7,11 @@ import { expectFocusRingVisible } from "../../foundations/focus-ring-test";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { HapticsProvider } from "../../utils/haptics";
 import { storyImages } from "../Banner/story-images";
-import { CallControls } from "./CallControls";
+import {
+	CALL_PERMISSION_COPY,
+	CallControls,
+	type CallMediaState,
+} from "./CallControls";
 import { CallScreen } from "./CallScreen";
 import type { VoiceParticipant } from "./shared";
 import {
@@ -1779,6 +1783,335 @@ export const ChatToggle: Story = {
 		await expect(
 			controls.getByRole("button", { name: "Open chat" }),
 		).toBeInTheDocument();
+	},
+};
+
+const restrictedToggles = {
+	mute: fn(),
+	deafen: fn(),
+	camera: fn(),
+	screen: fn(),
+	chat: fn(),
+};
+
+const clearRestrictedToggles = () => {
+	for (const toggle of Object.values(restrictedToggles)) toggle.mockClear();
+};
+
+const RestrictedCall = (
+	props: CallMediaState & {
+		channelName?: string;
+		chatAvailable?: boolean;
+		screenShare?: boolean;
+	},
+) => (
+	<HapticsProvider haptics={haptics}>
+		<div class="fixed inset-0">
+			<CallScreen
+				channelName={props.channelName ?? "Hangout"}
+				tiles={tilesFor(3)}
+				micDenied={props.micDenied}
+				listenDenied={props.listenDenied}
+				cameraDenied={props.cameraDenied}
+				screenshareDenied={props.screenshareDenied}
+				chatAvailable={props.chatAvailable}
+				onToggleMute={restrictedToggles.mute}
+				onToggleDeafen={restrictedToggles.deafen}
+				onToggleCamera={restrictedToggles.camera}
+				onToggleScreenShare={
+					props.screenShare ? restrictedToggles.screen : undefined
+				}
+				onOpenChat={restrictedToggles.chat}
+				onLeave={() => {}}
+				onClose={() => {}}
+				onOpenSettings={() => {}}
+			/>
+		</div>
+	</HapticsProvider>
+);
+
+const expectDeniedControl = async (
+	canvasElement: HTMLElement,
+	label: string,
+	tooltip: string,
+	toggle: ReturnType<typeof fn>,
+) => {
+	const controls = within(
+		within(canvasElement).getByRole("toolbar", { name: "Call controls" }),
+	);
+	const button = controls.getByRole("button", { name: label });
+	await expect(button).toHaveAttribute("aria-disabled", "true");
+	await expect(button).toHaveAttribute("data-tone", "server");
+	await userEvent.click(button);
+	await expect(toggle).not.toHaveBeenCalled();
+	await userEvent.hover(button);
+	await waitFor(
+		() => expect(screen.getByRole("tooltip")).toHaveTextContent(tooltip),
+		{ timeout: 3000 },
+	);
+	await userEvent.unhover(button);
+};
+
+const expectCallLayout = async (canvasElement: HTMLElement) => {
+	const call = canvasElement.querySelector("[data-call-screen]");
+	await expect(call).not.toBeNull();
+	await expectNoLayoutIssues(call as HTMLElement);
+	await expectNoLayoutIssues(
+		canvasElement.querySelector("[data-call-controls]") as HTMLElement,
+	);
+};
+
+export const SpeakDenied: Story = {
+	name: "Speak denied",
+	render: () => <RestrictedCall micDenied />,
+	play: async ({ canvasElement }) => {
+		clearRestrictedToggles();
+		await expectDeniedControl(
+			canvasElement,
+			CALL_PERMISSION_COPY.speakLabel,
+			CALL_PERMISSION_COPY.speakTooltip,
+			restrictedToggles.mute,
+		);
+		await expectCallLayout(canvasElement);
+	},
+};
+
+export const ListenDenied: Story = {
+	name: "Listen denied",
+	render: () => <RestrictedCall listenDenied />,
+	play: async ({ canvasElement }) => {
+		clearRestrictedToggles();
+		await expectDeniedControl(
+			canvasElement,
+			CALL_PERMISSION_COPY.listenLabel,
+			CALL_PERMISSION_COPY.listenTooltip,
+			restrictedToggles.deafen,
+		);
+		await expectCallLayout(canvasElement);
+	},
+};
+
+export const CameraDenied: Story = {
+	name: "Camera denied",
+	render: () => <RestrictedCall cameraDenied />,
+	play: async ({ canvasElement }) => {
+		clearRestrictedToggles();
+		await expectDeniedControl(
+			canvasElement,
+			CALL_PERMISSION_COPY.cameraLabel,
+			CALL_PERMISSION_COPY.cameraTooltip,
+			restrictedToggles.camera,
+		);
+		await expectCallLayout(canvasElement);
+	},
+};
+
+export const ScreenShareDenied: Story = {
+	name: "Screen share denied",
+	parameters: { viewport: { defaultViewport: "desktop" } },
+	render: () => <RestrictedCall screenShare screenshareDenied />,
+	play: async ({ canvasElement }) => {
+		clearRestrictedToggles();
+		await expectDeniedControl(
+			canvasElement,
+			CALL_PERMISSION_COPY.screenshareLabel,
+			CALL_PERMISSION_COPY.screenshareTooltip,
+			restrictedToggles.screen,
+		);
+		await expectCallLayout(canvasElement);
+	},
+};
+
+export const AllDenied: Story = {
+	name: "All denied",
+	parameters: { viewport: { defaultViewport: "desktop" } },
+	render: () => (
+		<RestrictedCall
+			screenShare
+			micDenied
+			listenDenied
+			cameraDenied
+			screenshareDenied
+			chatAvailable={false}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		clearRestrictedToggles();
+		const denied = [
+			[
+				CALL_PERMISSION_COPY.speakLabel,
+				CALL_PERMISSION_COPY.speakTooltip,
+				restrictedToggles.mute,
+			],
+			[
+				CALL_PERMISSION_COPY.listenLabel,
+				CALL_PERMISSION_COPY.listenTooltip,
+				restrictedToggles.deafen,
+			],
+			[
+				CALL_PERMISSION_COPY.cameraLabel,
+				CALL_PERMISSION_COPY.cameraTooltip,
+				restrictedToggles.camera,
+			],
+			[
+				CALL_PERMISSION_COPY.screenshareLabel,
+				CALL_PERMISSION_COPY.screenshareTooltip,
+				restrictedToggles.screen,
+			],
+		] as const;
+		for (const [label, tooltip, toggle] of denied) {
+			await expectDeniedControl(canvasElement, label, tooltip, toggle);
+		}
+
+		await expect(
+			within(canvasElement).queryByRole("button", { name: "Open chat" }),
+		).toBeNull();
+		await expectCallLayout(canvasElement);
+	},
+};
+
+const expectNoChatEntry = async (canvasElement: HTMLElement) => {
+	const toolbar = within(canvasElement).getByRole("toolbar", {
+		name: "Call controls",
+	});
+	await expect(
+		within(toolbar).queryByRole("button", { name: /chat/i }),
+	).toBeNull();
+	const buttons = within(toolbar).getAllByRole("button");
+	const rects = buttons.map((button) => button.getBoundingClientRect());
+	const gaps = rects
+		.slice(1)
+		.map((rect, index) => rect.left - (rects[index] as DOMRect).right);
+	for (const gap of gaps) {
+		await expect(Math.abs(gap - (gaps[0] as number))).toBeLessThan(1);
+	}
+};
+
+const NoChatDemo = () => (
+	<Screen>
+		<Label>Call without chat</Label>
+		<div data-testid="no-chat-controls">
+			<CallControls
+				chatAvailable={false}
+				onToggleMute={() => {}}
+				onToggleDeafen={() => {}}
+				onToggleCamera={() => {}}
+				onOpenChat={restrictedToggles.chat}
+				onLeave={() => {}}
+			/>
+		</div>
+		<Label>Join without chat</Label>
+		<div data-testid="no-chat-join">
+			<VoiceJoinActions
+				chatAvailable={false}
+				onJoin={() => {}}
+				onJoinMutedChange={() => {}}
+				onOpenChat={restrictedToggles.chat}
+			/>
+		</div>
+	</Screen>
+);
+
+export const NoChat: Story = {
+	name: "No chat",
+	render: () => <NoChatDemo />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const controls = canvas.getByTestId("no-chat-controls");
+		await expectNoChatEntry(controls);
+		await expectNoLayoutIssues(controls);
+		const join = canvas.getByTestId("no-chat-join");
+		await expect(
+			within(join).queryByRole("button", { name: /chat/i }),
+		).toBeNull();
+		const joinButton = within(join).getByRole("button", {
+			name: "Join voice",
+		});
+		const actions = join.querySelector(
+			"[data-voice-join-actions]",
+		) as HTMLElement;
+		await expect(
+			Math.abs(
+				joinButton.getBoundingClientRect().right -
+					actions.getBoundingClientRect().right,
+			),
+		).toBeLessThan(1);
+		await expectNoLayoutIssues(join);
+	},
+};
+
+export const NoChatCall: Story = {
+	name: "No chat call",
+	render: () => <RestrictedCall chatAvailable={false} />,
+	play: async ({ canvasElement }) => {
+		await expectNoChatEntry(canvasElement);
+		await expectCallLayout(canvasElement);
+	},
+};
+
+export const MovedIntoHiddenChannel: Story = {
+	name: "Moved into hidden channel",
+	render: () => (
+		<RestrictedCall channelName="Staff room" chatAvailable={false} />
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await expect(
+			canvas.getByRole("heading", { name: "Staff room" }),
+		).toBeVisible();
+		await expect(canvas.getByRole("button", { name: "Mute" })).toBeEnabled();
+		await expectNoChatEntry(canvasElement);
+		await expectCallLayout(canvasElement);
+	},
+};
+
+const DeniedStatusPanel = () => (
+	<Screen class="flex min-h-dvh flex-col gap-4 bg-background p-4 text-foreground">
+		<div data-testid="status-denied" class="w-72 rounded-control-lg bg-card">
+			<VoiceStatusPanel
+				state="connected"
+				quality="excellent"
+				latency={30}
+				channelName="Hangout"
+				spaceName="Colibri Social Flock"
+				micDenied
+				listenDenied
+				cameraDenied
+				screenshareDenied
+				onDisconnect={() => {}}
+				onToggleMute={restrictedToggles.mute}
+				onToggleDeafen={restrictedToggles.deafen}
+				onToggleCamera={restrictedToggles.camera}
+				onToggleScreenShare={restrictedToggles.screen}
+			/>
+		</div>
+	</Screen>
+);
+
+export const StatusPanelDenied: Story = {
+	name: "Status panel denied",
+	parameters: { viewport: { defaultViewport: "responsive" } },
+	render: () => <DeniedStatusPanel />,
+	play: async ({ canvasElement }) => {
+		clearRestrictedToggles();
+		const panel = within(canvasElement).getByTestId("status-denied");
+		for (const label of [
+			CALL_PERMISSION_COPY.speakLabel,
+			CALL_PERMISSION_COPY.listenLabel,
+			CALL_PERMISSION_COPY.cameraLabel,
+			CALL_PERMISSION_COPY.screenshareLabel,
+		]) {
+			const button = within(panel).getByRole("button", { name: label });
+			await expect(button).toHaveAttribute("aria-disabled", "true");
+			await expect(button).toHaveAttribute("data-tone", "server");
+			await userEvent.click(button);
+		}
+
+		for (const toggle of Object.values(restrictedToggles)) {
+			await expect(toggle).not.toHaveBeenCalled();
+		}
+
+		await expectNoLayoutIssues(panel);
 	},
 };
 

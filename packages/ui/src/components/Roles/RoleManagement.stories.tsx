@@ -20,6 +20,14 @@ import {
 import { RoleMembers } from "./RoleMembers";
 import { ROLE_PERMISSION_GROUPS, RolePermissionList } from "./RolePermissions";
 
+const MEMBER_DEFAULT_PERMISSIONS: readonly string[] = [
+	"voice.speak",
+	"voice.listen",
+	"voice.camera",
+	"voice.screenshare",
+	"voice.chat",
+];
+
 const meta = {
 	title: "Surfaces/Role management",
 	parameters: { viewport: { defaultViewport: "iphone" } },
@@ -605,6 +613,79 @@ export const Permissions: Story = {
 		await expect(canvasElement).toHaveTextContent(
 			"You can't grant a permission you don't have.",
 		);
+	},
+};
+
+const VOICE_PERMISSION_NAMES = [
+	"Speak",
+	"Listen",
+	"Use camera",
+	"Share screen",
+	"See text chat",
+];
+
+const voiceSwitch = (canvasElement: HTMLElement, name: string) => {
+	return within(canvasElement).getByRole("switch", {
+		name: new RegExp(`^${name}`),
+	});
+};
+
+const onMemberPermissions = fn();
+
+export const MembersDefaultPermissions: Story = {
+	render: () => {
+		const [value, setValue] = createSignal<string[]>([
+			...MEMBER_DEFAULT_PERMISSIONS,
+		]);
+		return (
+			<div class="flex min-h-dvh flex-col bg-popover p-4 text-foreground">
+				<RolePermissionList
+					value={value()}
+					onChange={(next) => {
+						onMemberPermissions(next);
+						setValue(next);
+					}}
+				/>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		for (const name of VOICE_PERMISSION_NAMES) {
+			await expect(voiceSwitch(canvasElement, name)).toBeChecked();
+		}
+
+		await expect(
+			voiceSwitch(canvasElement, "Moderate voice"),
+		).not.toBeChecked();
+		await userEvent.click(voiceSwitch(canvasElement, "Speak"));
+		await expect(onMemberPermissions).toHaveBeenLastCalledWith([
+			"voice.listen",
+			"voice.camera",
+			"voice.screenshare",
+			"voice.chat",
+		]);
+		await expect(voiceSwitch(canvasElement, "Speak")).not.toBeChecked();
+	},
+};
+
+export const ListenOnlyVoicePermissions: Story = {
+	render: () => {
+		const [value, setValue] = createSignal<string[]>([
+			"voice.listen",
+			"voice.chat",
+		]);
+		return (
+			<div class="flex min-h-dvh flex-col bg-popover p-4 text-foreground">
+				<RolePermissionList value={value()} onChange={setValue} />
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		await expect(voiceSwitch(canvasElement, "Listen")).toBeChecked();
+		await expect(voiceSwitch(canvasElement, "See text chat")).toBeChecked();
+		await expect(voiceSwitch(canvasElement, "Speak")).not.toBeChecked();
+		await expect(voiceSwitch(canvasElement, "Use camera")).not.toBeChecked();
+		await expect(voiceSwitch(canvasElement, "Share screen")).not.toBeChecked();
 	},
 };
 

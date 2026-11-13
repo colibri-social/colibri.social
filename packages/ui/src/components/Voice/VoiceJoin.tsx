@@ -165,6 +165,7 @@ export type VoiceJoinPanelProps = {
 	joinDisabledReason?: JSX.Element;
 	onOpenChat?: () => void;
 	chatOpen?: boolean;
+	chatAvailable?: boolean;
 	onOpenSettings?: () => void;
 	onClose?: () => void;
 	emptyText?: JSX.Element;
@@ -256,6 +257,7 @@ export type VoiceJoinActionsProps = Pick<
 	| "joinDisabledReason"
 	| "onOpenChat"
 	| "chatOpen"
+	| "chatAvailable"
 >;
 
 export const VoiceJoinActions = (props: VoiceJoinActionsProps) => (
@@ -288,7 +290,7 @@ export const VoiceJoinActions = (props: VoiceJoinActionsProps) => (
 				Join voice
 			</Button>
 		</Show>
-		<Show when={props.onOpenChat}>
+		<Show when={props.chatAvailable !== false && props.onOpenChat}>
 			<CallControlButton
 				label={chatToggleProps(props.chatOpen).label}
 				pressed={chatToggleProps(props.chatOpen).pressed}

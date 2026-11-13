@@ -163,6 +163,34 @@ export const ROLE_PERMISSION_GROUPS: readonly RolePermissionGroup[] = [
 		label: "Voice",
 		permissions: [
 			{
+				key: "voice.speak",
+				name: "Speak",
+				description:
+					"Talk in voice channels. Without this, members join muted and can't unmute themselves.",
+			},
+			{
+				key: "voice.listen",
+				name: "Listen",
+				description:
+					"Hear others in voice channels. Without this, members join deafened but still see cameras and shared screens.",
+			},
+			{
+				key: "voice.camera",
+				name: "Use camera",
+				description: "Turn on their camera in voice channels.",
+			},
+			{
+				key: "voice.screenshare",
+				name: "Share screen",
+				description: "Share their screen in voice channels.",
+			},
+			{
+				key: "voice.chat",
+				name: "See text chat",
+				description:
+					"Read and write in a voice channel's text chat. Without this, the chat is hidden.",
+			},
+			{
 				key: "voice.moderate",
 				name: "Moderate voice",
 				description:

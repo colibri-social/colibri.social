@@ -1,6 +1,6 @@
 import { InboxIcon } from "@solar-icons/solid/bold/inbox";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
-import { createSignal, For, type JSX } from "solid-js";
+import { createSignal, For, type JSX, Show } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import {
@@ -2503,5 +2503,104 @@ export const SpaceDrawerPendingRequests: Story = {
 		await expectNoLayoutIssues(rows);
 		await userEvent.keyboard("{Escape}");
 		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+	},
+};
+
+const ava: VoiceParticipant = {
+	id: "ava",
+	name: "Ava",
+	avatarSrc: storyImages.tealIcon(),
+	speaking: true,
+};
+const kris: VoiceParticipant = {
+	id: "kris",
+	name: "Kris",
+	avatarSrc: storyImages.violetIcon(),
+};
+
+const HiddenVoiceSpace = (props: { inHiddenCall: boolean }) => (
+	<Panel>
+		<ChannelCategory name="Hangout">
+			<ChannelRow
+				name="General"
+				active
+				preview={{ author: "Lis", text: "Hey there!" }}
+			/>
+			<ChannelRow
+				name="Photos"
+				attachment="image"
+				preview={{ author: "Tim", text: "Kingfisher on the canal" }}
+			/>
+		</ChannelCategory>
+		<ChannelCategory name="Voice">
+			<VoiceChannelRow name="Lounge" participants={[lis]} />
+			<Show when={props.inHiddenCall}>
+				<VoiceChannelRow
+					name="Mod office"
+					private
+					joined
+					participants={[ava, kris]}
+				/>
+			</Show>
+			<VoiceChannelRow name="Birdwatch call" />
+		</ChannelCategory>
+	</Panel>
+);
+
+const voiceRowNames = (canvasElement: HTMLElement) => {
+	const category = within(canvasElement).getByRole("region", {
+		name: "Voice",
+	});
+	return Array.from(
+		category.querySelectorAll("[data-voice-row] [data-channel-name]"),
+		(name) => name.textContent,
+	);
+};
+
+export const MovedIntoHiddenVoiceChannel: Story = {
+	name: "Moved into hidden voice channel",
+	render: () => <HiddenVoiceSpace inHiddenCall />,
+	play: async ({ canvasElement }) => {
+		await expect(voiceRowNames(canvasElement)).toEqual([
+			"Lounge",
+			"Mod office",
+			"Birdwatch call",
+		]);
+		const joined = canvasElement.querySelectorAll(
+			"[data-voice-row][data-joined]",
+		);
+		await expect(joined.length).toBe(1);
+		const row = joined[0] as HTMLElement;
+		await expect(row.querySelector("[data-channel-private]")).not.toBeNull();
+		const list = within(canvasElement).getByRole("list", {
+			name: "In Mod office",
+		});
+		await expect(list).toHaveTextContent("Ava");
+		await expect(list).toHaveTextContent("Kris");
+		const speaking = canvasElement.querySelectorAll(
+			"[data-voice-participant][data-speaking]",
+		);
+		await expect(speaking.length).toBe(1);
+		await expect(row.contains(speaking[0] as Node)).toBe(true);
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
+export const AfterLeavingHiddenVoiceChannel: Story = {
+	name: "After leaving hidden voice channel",
+	render: () => <HiddenVoiceSpace inHiddenCall={false} />,
+	play: async ({ canvasElement }) => {
+		await expect(voiceRowNames(canvasElement)).toEqual([
+			"Lounge",
+			"Birdwatch call",
+		]);
+		await expect(canvasElement).not.toHaveTextContent("Mod office");
+		await expect(
+			canvasElement.querySelector("[data-voice-row][data-joined]"),
+		).toBeNull();
+		await expect(
+			canvasElement.querySelector("[data-voice-participant][data-speaking]"),
+		).toBeNull();
+		await expectNoLayoutIssues(canvasElement);
 	},
 };

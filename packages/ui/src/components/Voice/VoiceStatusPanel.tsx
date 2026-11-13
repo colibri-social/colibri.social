@@ -17,8 +17,10 @@ import {
 	CallControlButton,
 	CallLeaveButton,
 	type CallMediaState,
+	cameraControl,
 	deafenControl,
 	micControl,
+	screenShareControl,
 } from "./CallControls";
 import {
 	ScreenShareControl,
@@ -119,6 +121,8 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 	};
 	const mic = micControl(props);
 	const deafen = deafenControl(props);
+	const camera = cameraControl(props);
+	const share = screenShareControl(props);
 
 	return (
 		<div
@@ -218,28 +222,35 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 					tone={deafen.tone()}
 					size="lg"
 					stretch
-					disabled={props.serverDeafened}
+					disabled={deafen.disabled()}
 					icon={<AnimatedHeadphonesIcon deafened={deafen.off()} />}
 					onClick={props.onToggleDeafen}
 				/>
 				<CallControlButton
-					label={props.cameraOn ? "Turn off camera" : "Turn on camera"}
-					pressed={!!props.cameraOn}
-					tone={props.cameraOn ? "active" : "default"}
+					label={camera.label()}
+					tooltip={camera.tooltip()}
+					pressed={camera.on()}
+					tone={camera.tone()}
 					size="lg"
 					stretch
-					loading={props.cameraPending}
-					icon={<AnimatedVideocameraIcon off={!props.cameraOn} />}
+					disabled={camera.disabled()}
+					loading={!camera.disabled() && props.cameraPending}
+					icon={<AnimatedVideocameraIcon off={!camera.on()} />}
 					onClick={props.onToggleCamera}
 				/>
 				<Show when={props.onToggleScreenShare}>
-					<ScreenShareControl menu={props.screenShareMenu} stretch>
+					<ScreenShareControl
+						menu={share.disabled() ? undefined : props.screenShareMenu}
+						stretch
+					>
 						<CallControlButton
-							label={props.screenSharing ? "Stop sharing" : "Share screen"}
-							pressed={!!props.screenSharing}
-							tone={props.screenSharing ? "active" : "default"}
+							label={share.label()}
+							tooltip={share.tooltip()}
+							pressed={share.on()}
+							tone={share.tone()}
 							size="lg"
 							stretch
+							disabled={share.disabled()}
 							icon={<AnimatedScreencastIcon trigger="press" />}
 							onClick={props.onToggleScreenShare}
 						/>
