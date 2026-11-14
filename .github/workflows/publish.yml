@@ -163,9 +163,10 @@ jobs:
         with:
           xcode-version: "26.6"
 
-      - name: install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.99.1
           targets: |
             ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
             ${{ matrix.is-android && 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android' || '' }}
@@ -383,9 +384,10 @@ jobs:
         with:
           xcode-version: "26.6"
 
-      - name: install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.99.1
           targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Rust cache
@@ -596,9 +598,10 @@ jobs:
         with:
           xcode-version: "26.6"
 
-      - name: install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.99.1
           targets: aarch64-apple-ios
 
       - name: Rust cache
@@ -1027,8 +1030,10 @@ jobs:
       - name: Build frontend dependencies
         run: pnpm --filter "@colibri-social/wrapper^..." build
 
-      - name: install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
