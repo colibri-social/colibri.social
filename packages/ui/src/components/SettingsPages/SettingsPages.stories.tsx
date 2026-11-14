@@ -10,7 +10,7 @@ import {
 	TEAM_BADGE_DEFINITION,
 	UserBadge,
 } from "../Badge/Badge";
-import type { RecordExplorer } from "../DeveloperMode/record-explorer";
+import type { RecordExplorerChoice } from "../DeveloperMode/record-explorer";
 import {
 	AdvancedSettings,
 	ExperimentsSettings,
@@ -18,7 +18,7 @@ import {
 } from "./AdvancedSettings";
 import { DebugInformation, type DiagnosticsSection } from "./DebugInformation";
 import { type LogLine, LogsSettings } from "./LogsSettings";
-import { RELEASE_HISTORY_URL } from "./links";
+import { FEEDBACK_URL, RELEASE_HISTORY_URL } from "./links";
 import {
 	SupportColibriSettings,
 	type SupportColibriSettingsProps,
@@ -34,7 +34,8 @@ import {
 import { type ReleaseNoteView, WhatsNewSettings } from "./WhatsNewSettings";
 
 type Args = {
-	onRecordExplorerChange?: (explorer: RecordExplorer) => void;
+	onRecordExplorerChange?: (explorer: RecordExplorerChoice) => void;
+	onCustomExplorerTemplateSave?: (template: string) => void;
 	onChange?: (key: string, value: unknown) => void;
 	onDeveloperModeChange?: (value: boolean) => void;
 	onDeleteAccount?: () => void;
@@ -310,10 +311,12 @@ const AdvancedStory = (props: {
 	windowControls?: boolean;
 	onDeveloperModeChange?: (value: boolean) => void;
 	onDeleteAccount?: () => void;
-	onRecordExplorerChange?: (explorer: RecordExplorer) => void;
+	onRecordExplorerChange?: (explorer: RecordExplorerChoice) => void;
+	onCustomExplorerTemplateSave?: (template: string) => void;
 }) => {
 	const [developer, setDeveloper] = createSignal(false);
-	const [explorer, setExplorer] = createSignal<RecordExplorer>("pdsls");
+	const [explorer, setExplorer] = createSignal<RecordExplorerChoice>("pdsls");
+	const [template, setTemplate] = createSignal("");
 	const [reports, setReports] = createSignal(false);
 	const [windowControls, setWindowControls] = createSignal(false);
 	return (
@@ -329,6 +332,11 @@ const AdvancedStory = (props: {
 				onRecordExplorerChange={(value) => {
 					setExplorer(value);
 					props.onRecordExplorerChange?.(value);
+				}}
+				customExplorerTemplate={template()}
+				onCustomExplorerTemplateSave={(value) => {
+					setTemplate(value);
+					props.onCustomExplorerTemplateSave?.(value);
 				}}
 				includeAccountInReports={reports()}
 				onIncludeAccountInReportsChange={setReports}
@@ -387,9 +395,10 @@ export const AdvancedRecordExplorer: Story = {
 		<AdvancedStory
 			platform="desktop"
 			onRecordExplorerChange={args.onRecordExplorerChange}
+			onCustomExplorerTemplateSave={args.onCustomExplorerTemplateSave}
 		/>
 	),
-	args: { onRecordExplorerChange: fn() },
+	args: { onRecordExplorerChange: fn(), onCustomExplorerTemplateSave: fn() },
 	play: async ({ canvasElement, args }) => {
 		const canvas = within(canvasElement);
 		await userEvent.click(
@@ -404,6 +413,50 @@ export const AdvancedRecordExplorer: Story = {
 		);
 		await waitFor(() =>
 			expect(args.onRecordExplorerChange).toHaveBeenCalledWith("atprotoAt"),
+		);
+		await expect(
+			canvas.getByRole("link", { name: "feedback board" }),
+		).toHaveAttribute("href", FEEDBACK_URL);
+		await expectNoLayoutIssues(frameOf(canvasElement));
+	},
+};
+
+export const AdvancedCustomRecordExplorer: Story = {
+	parameters: desktop,
+	render: (args) => (
+		<AdvancedStory
+			platform="desktop"
+			onRecordExplorerChange={args.onRecordExplorerChange}
+			onCustomExplorerTemplateSave={args.onCustomExplorerTemplateSave}
+		/>
+	),
+	args: { onRecordExplorerChange: fn(), onCustomExplorerTemplateSave: fn() },
+	play: async ({ canvasElement, args }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(
+			canvas.getByRole("switch", { name: /Developer mode/ }),
+		);
+		await userEvent.click(
+			canvas.getByRole("button", { name: /Open records in/ }),
+		);
+		const listbox = await screen.findByRole("listbox");
+		await userEvent.click(
+			within(listbox).getByRole("option", { name: /Custom/ }),
+		);
+		await waitFor(() =>
+			expect(args.onRecordExplorerChange).toHaveBeenCalledWith("custom"),
+		);
+		const field = await canvas.findByRole("textbox", {
+			name: /Explorer link/,
+		});
+		await userEvent.type(field, "https://explorer.example/");
+		await userEvent.click(canvas.getByRole("button", { name: "Save" }));
+		await expect(canvas.getByText(/Add \{uri\}/)).toBeVisible();
+		await expect(args.onCustomExplorerTemplateSave).not.toHaveBeenCalled();
+		await userEvent.type(field, "{{uri:bare}");
+		await userEvent.click(canvas.getByRole("button", { name: "Save" }));
+		await expect(args.onCustomExplorerTemplateSave).toHaveBeenCalledWith(
+			"https://explorer.example/{uri:bare}",
 		);
 		await expectNoLayoutIssues(frameOf(canvasElement));
 	},

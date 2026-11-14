@@ -1,10 +1,21 @@
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
-import { For, Match, Show, Switch } from "solid-js";
 import {
-	isRecordExplorer,
+	createEffect,
+	createSignal,
+	For,
+	Match,
+	on,
+	Show,
+	Switch,
+} from "solid-js";
+import { Button } from "../Button/Button";
+import {
+	type ExplorerTemplateProblem,
+	explorerTemplateProblem,
+	isRecordExplorerChoice,
 	RECORD_EXPLORER_IDS,
-	RECORD_EXPLORERS,
-	type RecordExplorer,
+	RECORD_EXPLORER_LINKS,
+	type RecordExplorerChoice,
 	RecordExplorerLogo,
 } from "../DeveloperMode/record-explorer";
 import { DestructiveRow, ListGroup, NavRow, ToggleRow } from "../List/List";
@@ -13,6 +24,8 @@ import {
 	type SelectOption,
 	type SelectPlatform,
 } from "../Select/Select";
+import { TextField } from "../TextField/TextField";
+import { FEEDBACK_URL } from "./links";
 import { SettingsEmpty, SettingsPage } from "./shared";
 
 export type UpdateState =
@@ -96,19 +109,93 @@ const Updates = (props: { updates: UpdatesSection }) => (
 );
 
 const explorerOptions = (): SelectOption[] => {
-	return RECORD_EXPLORER_IDS.map((id) => ({
-		value: id,
-		label: RECORD_EXPLORERS[id].name,
-		icon: () => <RecordExplorerLogo explorer={id} class="size-4" />,
-	}));
+	return [
+		...RECORD_EXPLORER_IDS.map((id) => ({
+			value: id,
+			label: RECORD_EXPLORER_LINKS[id].name,
+			icon: () => <RecordExplorerLogo explorer={id} class="size-4" />,
+		})),
+		{
+			value: "custom",
+			label: "Custom",
+			icon: () => <RecordExplorerLogo explorer="custom" class="size-4" />,
+		},
+	];
+};
+
+const TEMPLATE_PROBLEM_COPY: Record<ExplorerTemplateProblem, string> = {
+	empty: "Enter a link to use.",
+	invalidUrl: "This isn't a full link. Start it with https://.",
+	unsupportedProtocol: "Use a link that starts with https:// or http://.",
+	missingIdentifier:
+		"Add {uri}, {uri:bare}, {authority} or {repo} so the link can point somewhere.",
+	unknownPlaceholder:
+		"Use only {uri}, {uri:bare}, {authority}, {spaceType}, {spaceKey}, {repo}, {collection} and {rkey} in curly braces.",
+};
+
+const CustomExplorerTemplate = (props: {
+	template: string;
+	onSave: (template: string) => void;
+}) => {
+	const [draft, setDraft] = createSignal(props.template);
+	const [problem, setProblem] = createSignal<ExplorerTemplateProblem>();
+
+	createEffect(
+		on(
+			() => props.template,
+			(saved) => setDraft(saved),
+			{ defer: true },
+		),
+	);
+
+	const changed = () => draft().trim() !== props.template.trim();
+
+	const save = () => {
+		const found = explorerTemplateProblem(draft());
+
+		setProblem(found);
+
+		if (!found && changed()) props.onSave(draft().trim());
+	};
+
+	return (
+		<form
+			class="flex flex-col"
+			onSubmit={(event) => {
+				event.preventDefault();
+				save();
+			}}
+		>
+			<TextField
+				label="Explorer link"
+				description="Use {uri}, {uri:bare}, {authority}, {spaceType}, {spaceKey}, {repo}, {collection} and {rkey} where the record goes. In a Space, {authority} is the Space owner and {repo} is the author."
+				error={problem() && TEMPLATE_PROBLEM_COPY[problem() ?? "empty"]}
+				value={draft()}
+				onChange={(value) => {
+					setDraft(value);
+					setProblem(undefined);
+				}}
+				placeholder="https://pdsls.dev/{uri}"
+				inputMode="url"
+				autocomplete="off"
+				trailingAction={
+					<Button type="submit" variant="secondary" disabled={!changed()}>
+						Save
+					</Button>
+				}
+			/>
+		</form>
+	);
 };
 
 export type AdvancedSettingsProps = {
 	updates?: UpdatesSection;
 	developerMode: boolean;
 	onDeveloperModeChange?: (enabled: boolean) => void;
-	recordExplorer?: RecordExplorer;
-	onRecordExplorerChange?: (explorer: RecordExplorer) => void;
+	recordExplorer?: RecordExplorerChoice;
+	onRecordExplorerChange?: (explorer: RecordExplorerChoice) => void;
+	customExplorerTemplate?: string;
+	onCustomExplorerTemplateSave?: (template: string) => void;
 	platform?: SelectPlatform;
 	includeAccountInReports?: boolean;
 	onIncludeAccountInReportsChange?: (enabled: boolean) => void;
@@ -138,11 +225,33 @@ export const AdvancedSettings = (props: AdvancedSettingsProps) => (
 					options={explorerOptions()}
 					value={props.recordExplorer ?? "pdsls"}
 					onChange={(value) => {
-						if (isRecordExplorer(value)) props.onRecordExplorerChange?.(value);
+						if (isRecordExplorerChoice(value)) {
+							props.onRecordExplorerChange?.(value);
+						}
 					}}
 					label="Open records in"
 					description="The site that developer mode links open identifiers and records on."
 				/>
+				<Show when={props.recordExplorer === "custom"}>
+					<CustomExplorerTemplate
+						template={props.customExplorerTemplate ?? ""}
+						onSave={(template) =>
+							props.onCustomExplorerTemplateSave?.(template)
+						}
+					/>
+				</Show>
+				<p class="text-xs text-muted-foreground">
+					Missing an explorer? Suggest it on the{" "}
+					<a
+						href={FEEDBACK_URL}
+						target="_blank"
+						rel="noreferrer"
+						class="rounded-control-xs font-semibold text-primary-highlight hover:underline focus-ring"
+					>
+						feedback board
+					</a>
+					.
+				</p>
 			</section>
 		</Show>
 		<Show when={props.includeAccountInReports !== undefined}>

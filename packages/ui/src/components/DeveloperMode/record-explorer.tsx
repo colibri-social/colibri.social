@@ -1,83 +1,37 @@
-import { createSignal, type JSX } from "solid-js";
+import { GlobeIcon } from "@solar-icons/solid/bold/globe";
+import { type JSX, Show } from "solid-js";
 import { AtprotoAtLogo, PdslsLogo } from "../../icons/animated/brand";
+import {
+	type RecordExplorer,
+	type RecordExplorerChoice,
+	resolveRecordExplorer,
+} from "./record-explorer-links";
 
-export const RECORD_EXPLORER_IDS = ["pdsls", "atprotoAt"] as const;
+export * from "./record-explorer-links";
 
-export type RecordExplorer = (typeof RECORD_EXPLORER_IDS)[number];
-
-type ExplorerHref = {
-	(
-		value: `did:${string}` | `at://${string}`,
-		explorer?: RecordExplorer,
-	): string;
-	(value: string | undefined, explorer?: RecordExplorer): string | undefined;
-};
-
-type ExplorerSite = {
-	name: string;
-	logo: (props: { class?: string }) => JSX.Element;
-	href: (identifier: string) => string;
-};
-
-export const RECORD_EXPLORERS: Record<RecordExplorer, ExplorerSite> = {
-	pdsls: {
-		name: "PDSls",
-		logo: (props) => <PdslsLogo class={props.class} />,
-		href: (identifier) => `https://pdsls.dev/${identifier}`,
-	},
-	atprotoAt: {
-		name: "atproto.at",
-		logo: (props) => <AtprotoAtLogo class={props.class} />,
-		href: (identifier) =>
-			`https://atproto.at/uri/${identifier.replace(/^at:\/\//, "")}`,
-	},
-};
-
-const [activeExplorer, setActiveExplorer] =
-	createSignal<RecordExplorer>("pdsls");
-
-export const isRecordExplorer = (value: unknown): value is RecordExplorer => {
-	return (
-		typeof value === "string" &&
-		(RECORD_EXPLORER_IDS as readonly string[]).includes(value)
-	);
-};
-
-export const recordExplorer = () => {
-	return activeExplorer();
-};
-
-export const setRecordExplorer = (explorer: RecordExplorer) => {
-	setActiveExplorer(explorer);
-};
-
-export const recordExplorerName = (explorer = activeExplorer()) => {
-	return RECORD_EXPLORERS[explorer].name;
-};
-
-export const showInExplorerLabel = (explorer = activeExplorer()) => {
-	return `Show on ${recordExplorerName(explorer)}`;
+const LOGOS: Record<
+	RecordExplorer,
+	(props: { class?: string }) => JSX.Element
+> = {
+	pdsls: (props) => <PdslsLogo class={props.class} />,
+	atprotoAt: (props) => <AtprotoAtLogo class={props.class} />,
 };
 
 export const RecordExplorerLogo = (props: {
-	explorer?: RecordExplorer;
+	explorer?: RecordExplorerChoice;
 	class?: string;
 }) => {
+	const explorer = () => {
+		if (props.explorer === "custom") return undefined;
+
+		const resolved = resolveRecordExplorer(props.explorer);
+
+		return resolved === "custom" ? undefined : resolved;
+	};
+
 	return (
-		<>{RECORD_EXPLORERS[props.explorer ?? activeExplorer()].logo(props)}</>
+		<Show when={explorer()} keyed fallback={<GlobeIcon class={props.class} />}>
+			{(id) => LOGOS[id](props)}
+		</Show>
 	);
 };
-
-const explorerHrefOf = (
-	value: string | undefined,
-	explorer = activeExplorer(),
-) => {
-	if (!value) return undefined;
-	if (value.startsWith("at://")) return RECORD_EXPLORERS[explorer].href(value);
-	if (value.startsWith("did:")) {
-		return RECORD_EXPLORERS[explorer].href(`at://${value}`);
-	}
-	return undefined;
-};
-
-export const recordExplorerHref = explorerHrefOf as ExplorerHref;

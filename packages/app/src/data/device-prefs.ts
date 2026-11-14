@@ -25,6 +25,7 @@ export const DEVICE_KEYS = {
 	fcmToken: "colibri:fcm:last-token",
 	webPushEndpoint: "colibri:webpush:last-endpoint",
 	pendingLink: "colibri:pending-link",
+	customRecordExplorer: "colibri:custom-record-explorer",
 } as const;
 
 export const deviceString = (key: string) => {
