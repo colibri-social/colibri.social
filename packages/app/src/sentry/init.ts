@@ -1,11 +1,11 @@
 import {
-	DEFAULT_APPVIEW_URL,
 	type LogEntry,
 	markReportDelivered,
 	redactText,
 } from "@colibri-social/lib";
 import * as Sentry from "@sentry/solid";
 import { isDeclinedByUser } from "./filter";
+import { TRACE_PROPAGATION_TARGETS } from "./trace-targets";
 
 export interface InitSentryOptions {
 	dsn?: string;
@@ -101,17 +101,7 @@ export function initSentry(options: InitSentryOptions): void {
 		sendDefaultPii: false,
 		integrations: [Sentry.browserTracingIntegration()],
 		tracesSampleRate: options.tracesSampleRate ?? 0.2,
-		tracePropagationTargets: [
-			"localhost",
-			/^https:\/\/colibri\.social\/_actions/,
-			/^https:\/\/colibri\.social\/api/,
-			/^https:\/\/api\.colibri\.social/,
-			/^https:\/\/appview\.colibri\.social/,
-			new RegExp(
-				`^${DEFAULT_APPVIEW_URL.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}`,
-			),
-			/^https:\/\/[a-z0-9-]+\.nodes\.colibri\.social/,
-		],
+		tracePropagationTargets: TRACE_PROPAGATION_TARGETS,
 		ignoreErrors: IGNORED_MESSAGES,
 		beforeBreadcrumb: (breadcrumb) => {
 			if (

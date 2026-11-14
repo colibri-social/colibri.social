@@ -1,4 +1,4 @@
-use tauri::http::{header, Request, Response, StatusCode};
+use tauri::http::{header, Method, Request, Response, StatusCode};
 use tauri::{AppHandle, Manager, Runtime, UriSchemeContext, UriSchemeResponder};
 
 pub const SCHEME: &str = "colibri-files";
@@ -9,9 +9,28 @@ pub fn serve<R: Runtime>(
     request: Request<Vec<u8>>,
     responder: UriSchemeResponder,
 ) {
+    if request.method() == Method::OPTIONS {
+        responder.respond(preflight());
+        return;
+    }
+    if request.method() != Method::GET {
+        responder.respond(empty(StatusCode::METHOD_NOT_ALLOWED));
+        return;
+    }
     let app = context.app_handle().clone();
     let id = request.uri().path().trim_start_matches('/').to_string();
     std::thread::spawn(move || responder.respond(respond(&app, &id)));
+}
+
+fn preflight() -> Response<Vec<u8>> {
+    Response::builder()
+        .status(StatusCode::NO_CONTENT)
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET")
+        .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
+        .header(header::ACCESS_CONTROL_MAX_AGE, "600")
+        .body(Vec::new())
+        .unwrap_or_else(|_| Response::new(Vec::new()))
 }
 
 fn is_valid_id(id: &str) -> bool {
@@ -77,6 +96,18 @@ mod tests {
         assert!(!is_valid_id("../secret"));
         assert!(!is_valid_id("a/b.png"));
         assert!(!is_valid_id("..png"));
+    }
+
+    #[test]
+    fn preflight_allows_any_request_header() {
+        let response = preflight();
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        assert_eq!(
+            response.headers()[header::ACCESS_CONTROL_ALLOW_HEADERS],
+            "*"
+        );
+        assert_eq!(response.headers()[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
+        assert!(response.body().is_empty());
     }
 
     #[test]
