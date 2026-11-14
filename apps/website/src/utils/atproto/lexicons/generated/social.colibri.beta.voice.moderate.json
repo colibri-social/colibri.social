@@ -39,7 +39,7 @@
 						"moveTo": {
 							"type": "string",
 							"format": "space-ref",
-							"description": "The voice channel to move the subject to. It must be in the same space as the channel."
+							"description": "The voice channel to move the subject to. It must be in the same space as the channel. The subject may join it for this call even when they can't see it, without access to its text chat."
 						}
 					}
 				}
@@ -71,10 +71,6 @@
 				{
 					"name": "NotVoiceChannel",
 					"description": "The moveTo channel is not a voice channel in the same space."
-				},
-				{
-					"name": "DestinationForbidden",
-					"description": "The subject cannot speak in the moveTo channel."
 				},
 				{
 					"name": "VoiceUnavailable",

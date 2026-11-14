@@ -36,12 +36,13 @@ for community content and no public repository indexing.
 
 Every community space uses a `managing-app` policy naming the AppView, so the
 community's PDS calls
-`com.atproto.simplespace.checkUserAccess` before it mints any credential.
+`com.atproto.managedspace.checkAccess` before it mints any credential.
 
 An AppView that cannot be reached from wherever the community's PDS runs makes
-its communities unreadable, even with the PDS itself perfectly healthy. It also
-costs writes made during the outage their place in the
-[writer set](/docs/architecture/sync#the-writer-set).
+its communities unreadable, even with the PDS itself perfectly healthy. The PDS
+answers `UpstreamFailure` for the duration, and writes made during the outage
+only enter the [writer set](/docs/architecture/sync#the-writer-set) once their
+host retries them after the AppView is back.
 
 ## Authentication
 

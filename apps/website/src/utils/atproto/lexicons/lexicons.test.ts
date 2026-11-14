@@ -14,6 +14,8 @@ import { LEXICON_DOCS, lexicon } from "./index.ts";
  */
 const SCHEMALESS_METHODS: Record<string, string> = {
 	"social.colibri.beta.blob.get": "Streams bytes, encoding is */*.",
+	"social.colibri.beta.embed.getImage": "Streams bytes, encoding is image/*.",
+	"social.colibri.beta.embed.getVideo": "Streams bytes, encoding is video/*.",
 };
 
 const METHOD_TYPES = new Set(["query", "procedure"]);

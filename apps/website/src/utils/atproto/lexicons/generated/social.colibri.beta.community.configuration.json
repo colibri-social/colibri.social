@@ -6,7 +6,7 @@
 			"type": "space",
 			"description": "A community's operational settings and its category layout.",
 			"key": "literal:self",
-			"name": "Colibri community settings",
+			"title": "Colibri community settings",
 			"collections": [
 				"social.colibri.beta.category",
 				"social.colibri.beta.community.settings",

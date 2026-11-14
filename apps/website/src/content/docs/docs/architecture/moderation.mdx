@@ -128,12 +128,15 @@ on the list.
 
 ## Access decisions fail closed
 
-`com.atproto.simplespace.checkUserAccess` is the endpoint the community's PDS
-calls before minting any credential. It answers from the AppView's local
-projections with an in-memory cache and makes no outbound call of its own.
+`com.atproto.managedspace.checkAccess` is the endpoint the community's PDS
+calls before minting any credential. It takes the `space`, the account asking as
+`repo`, and the attested `clientId` when there is one, and answers
+`{ read, write }`. It answers from the AppView's local projections with an
+in-memory cache and makes no outbound call of its own.
 
-An unrecognised space type is refused rather than allowed. When the AppView
-cannot tell whether someone belongs, the answer is no.
+An unrecognised space type is refused rather than allowed. A request without a
+`repo` gets `read: false`. When the AppView cannot tell whether someone belongs,
+the answer is no.
 
 | Space | Who gets in |
 | --- | --- |

@@ -6,7 +6,7 @@
 			"type": "space",
 			"description": "A community's membership and the roles that can be assigned within it.",
 			"key": "literal:self",
-			"name": "Colibri community members",
+			"title": "Colibri community members",
 			"collections": [
 				"social.colibri.beta.member",
 				"social.colibri.beta.role",

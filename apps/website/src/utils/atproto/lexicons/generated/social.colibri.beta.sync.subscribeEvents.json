@@ -1,0 +1,60 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.sync.subscribeEvents",
+	"defs": {
+		"main": {
+			"type": "subscription",
+			"description": "Live updates for one account over a WebSocket. Frames are JSON text, each an object tagged with $type. The client sends the social.colibri.beta.sync.defs frames subscribe, unsubscribe, heartbeat, typing, viewChannel, activity, wroteTo, setPresence and voiceSelfState. The connection is sent nothing for a community or channel it did not subscribe to.",
+			"parameters": {
+				"type": "params",
+				"properties": {
+					"auth": {
+						"type": "string",
+						"description": "Service auth token with lxm social.colibri.beta.sync.subscribeEvents, for clients that can't set an Authorization header on a WebSocket."
+					}
+				}
+			},
+			"message": {
+				"schema": {
+					"type": "union",
+					"refs": [
+						"social.colibri.beta.sync.defs#ack",
+						"social.colibri.beta.sync.defs#error",
+						"social.colibri.beta.sync.defs#subscribed",
+						"social.colibri.beta.sync.defs#messageEvent",
+						"social.colibri.beta.sync.defs#reactionEvent",
+						"social.colibri.beta.sync.defs#channelEvent",
+						"social.colibri.beta.sync.defs#threadEvent",
+						"social.colibri.beta.sync.defs#categoryEvent",
+						"social.colibri.beta.sync.defs#roleEvent",
+						"social.colibri.beta.sync.defs#memberEvent",
+						"social.colibri.beta.sync.defs#communityEvent",
+						"social.colibri.beta.sync.defs#applicationEvent",
+						"social.colibri.beta.sync.defs#invitationEvent",
+						"social.colibri.beta.sync.defs#emojiEvent",
+						"social.colibri.beta.sync.defs#emojiLibraryEvent",
+						"social.colibri.beta.sync.defs#labelEvent",
+						"social.colibri.beta.sync.defs#moderationEvent",
+						"social.colibri.beta.sync.defs#notificationEvent",
+						"social.colibri.beta.sync.defs#seenEvent",
+						"social.colibri.beta.sync.defs#readCursorEvent",
+						"social.colibri.beta.sync.defs#presenceEvent",
+						"social.colibri.beta.sync.defs#preferencesEvent",
+						"social.colibri.beta.sync.defs#typingEvent",
+						"social.colibri.beta.sync.defs#voiceEvent",
+						"social.colibri.beta.sync.defs#communityProgressEvent",
+						"social.colibri.beta.sync.defs#bridgeEvent",
+						"social.colibri.beta.sync.defs#drainNotice",
+						"social.colibri.beta.sync.defs#writeState"
+					]
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The upgrade request has no valid service auth. Answered with HTTP 401 before the WebSocket opens."
+				}
+			]
+		}
+	}
+}

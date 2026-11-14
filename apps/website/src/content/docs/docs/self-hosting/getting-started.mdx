@@ -22,8 +22,8 @@ requirements on an instance.
 **Your AppView must be reachable from every community PDS.** Community spaces use
 a `managing-app` policy naming your AppView, so the PDS calls you before it
 issues anyone a credential. An unreachable AppView makes its communities
-unreadable, and writes made during the outage do not appear until their author
-writes again. See [the writer set](/docs/architecture/sync#the-writer-set).
+unreadable, and writes made during the outage do not appear until their host
+retries them after the AppView is back. See [the writer set](/docs/architecture/sync#the-writer-set).
 
 **A community lives on the AppView that manages it.** Everyone in a community
 uses that instance, because gated data cannot be indexed by an AppView holding
@@ -47,7 +47,7 @@ run. Postgres is available as an overlay if you would rather use it.
   (`ghcr.io/bluesky-social/atproto:pds-spaces-alpha`), plus its admin password.
   This is required: communities are AT Protocol accounts and the AppView creates
   them there. A stock PDS will not do, because it does not implement
-  `com.atproto.simplespace`.
+  `com.atproto.space` or `com.atproto.managedspace`.
 - **A domain with TLS**, for example `appview.example.com`. The
   AppView identifies itself with a `did:web` derived from a hostname, serves its
   DID document at `/.well-known/did.json`, and both clients and community PDSs
@@ -97,8 +97,7 @@ accepts the risk.
 
 4. Put it behind a TLS-terminating reverse proxy on your domain.
 
-5. Confirm your DID document resolves and lists `#colibri_appview` and
-   `#atproto_space_syncer`:
+5. Confirm your DID document resolves and lists `#colibri_appview`:
 
    ```sh
    curl https://appview.example.com/.well-known/did.json
@@ -112,12 +111,13 @@ accepts the risk.
 
 </Steps>
 
-:::caution[`#atproto_space_syncer` must be there]
-`com.atproto.space.registerNotify` names a service identifier, not a URL, and
-the space host resolves the delivery endpoint out of your DID document. If that
-entry is missing, write notifications are never delivered and every community on
-your instance falls back to the sweep interval, which is five minutes by
-default.
+:::caution[`PUBLIC_URL` must be reachable over HTTPS]
+The AppView registers `PUBLIC_URL` as its notification endpoint when it calls
+`com.atproto.space.authorizeSpaceSync`. The community's PDS calls
+`com.atproto.space.confirmRegistration` and `com.atproto.space.notifySpaceUpdate`
+on it, and only accepts an HTTPS URL on a public address. If the PDS cannot
+reach it, write notifications are never delivered and every community on your
+instance falls back to the sweep interval, which is five minutes by default.
 :::
 
 ## Compose overlays

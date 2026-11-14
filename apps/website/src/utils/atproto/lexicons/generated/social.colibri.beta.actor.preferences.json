@@ -6,7 +6,7 @@
 			"type": "space",
 			"description": "A user's own Colibri settings, mutes, blocks and read state.",
 			"key": "literal:self",
-			"name": "Colibri preferences",
+			"title": "Colibri preferences",
 			"collections": [
 				"social.colibri.beta.actor.block",
 				"social.colibri.beta.actor.mute",

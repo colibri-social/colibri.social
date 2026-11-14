@@ -37,7 +37,7 @@ Permissioned-space support lives on a branch for now, and this page describes th
    | Variable | What it is |
    | --- | --- |
    | `APPVIEW_DID` | The `did:web` this AppView answers as. It must be a **hostname**, not an IP address: see below. |
-   | `PUBLIC_URL` | Where this AppView is reachable from the public internet. A community's PDS calls back here on every credential mint. |
+   | `PUBLIC_URL` | Where this AppView is reachable from the public internet. A community's PDS calls back here on every credential mint, and delivers space notifications here. |
    | `SIGNING_KEY` | A secp256k1 private key, published in the DID document. |
    | `CREDENTIAL_ENCRYPTION_KEY` | Encrypts community passwords at rest. |
    | `PDS_URL` | The PDS this AppView talks to. It must run the spaces alpha, `ghcr.io/bluesky-social/atproto:pds-spaces-alpha`. See [Running a PDS](/docs/development/pds). |
@@ -153,7 +153,7 @@ it is built from source.
 <FileTree>
 - packages
   - lexicons every Colibri schema, the space type declarations, and the types generated from them
-  - space client for `com.atproto.space` and `com.atproto.simplespace`
+  - space client for `com.atproto.space` and `com.atproto.managedspace`
   - space-sync keeps a local copy of a space current
   - db Drizzle schema and migrations for both libSQL and Postgres
   - projections turns synced records into the typed read models the API serves

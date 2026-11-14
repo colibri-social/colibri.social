@@ -6,7 +6,7 @@
 			"type": "space",
 			"description": "A text channel. The space key is the channel's identity, and the channel's own configuration is the social.colibri.beta.channel record at key 'self' inside it.",
 			"key": "tid",
-			"name": "Colibri text channel",
+			"title": "Colibri text channel",
 			"collections": [
 				"social.colibri.beta.channel",
 				"social.colibri.beta.message",

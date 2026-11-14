@@ -46,8 +46,9 @@ at://{authority}/space/{spaceType}/{skey}
 ```
 
 The space type is an NSID naming a lexicon whose `main` definition is a space
-declaration. It lists the record collections the space may hold and carries a
-human-readable name, which is what an OAuth consent screen shows a user.
+declaration. It lists the record collections the space may hold and carries an
+optional human-readable `title`, which is what an OAuth consent screen shows a
+user. Without a `title`, the consent screen shows the NSID.
 
 A record inside a space needs the author as well, because record keys are unique
 per repository and a space aggregates many repositories:
@@ -70,9 +71,10 @@ Obtaining one is a three-party exchange.
 1. **A delegation token is minted by the reader's own PDS.** It is single use,
    lives 60 seconds, and names the space authority as its audience.
 
-2. **The token is presented to the authority** in exchange for a credential,
-   along with a DPoP proof binding the credential to a key the reader holds.
-   The authority decides here whether to issue anything at all.
+2. **The token is presented to the authority** with
+   `com.atproto.space.authorizeSpaceSync`, along with a DPoP proof and the
+   `credentialKey` the credential binds to. The authority decides here whether
+   to issue anything at all, and answers `{ credential, spaceRev? }`.
 
 3. **The credential is presented to each repo host** in the space, with a fresh
    DPoP proof naming that host.
@@ -85,6 +87,24 @@ it is an authorization grant rather than an access token. A space credential
 goes in `Authorization: DPoP` with a proof that **does** carry `ath`.
 
 Delegation tokens are replay protected. Once used, a token is spent.
+
+Calling `authorizeSpaceSync` again before the credential expires reauthorizes.
+A reader that keeps a copy of the space, such as the AppView, also registers for
+notifications in the same call. See
+[Sync](/docs/architecture/sync#notification-registration).
+
+### Verifying responses
+
+A repo host proves that a commit or record came from the author's repository
+with a MAC. The reader asks for one with an `Accept-Signature` header, tagged
+`atproto-space-commit` for `getLatestCommit`, `getRepo` and `listRepoOps`, or
+`atproto-space-record` for `getRecord`. The host answers with an HTTP Message
+Signature: a covered `Atproto-Space-Commit` or `Atproto-Space-Record` header,
+plus `Signature-Input` and `Signature`.
+
+The MAC key is a secret exported with HPKE from the author's `#atproto_kem` key
+and a fresh ephemeral key the reader sends as the `keyid`. The reader derives a
+new secret for every request.
 
 ### A note on app passwords
 
@@ -109,8 +129,8 @@ so the owner always gets in and nobody else ever does.
 **`managing-app`** delegates the decision to an application. Every Colibri
 community space uses this, naming the AppView. When someone asks the community's
 PDS for a credential, the PDS calls
-[`com.atproto.simplespace.checkUserAccess`](/docs/specification/appview) on the
-AppView and does what it says.
+[`com.atproto.managedspace.checkAccess`](/docs/specification/appview) on the
+AppView and does what it says. The AppView answers `{ read, write }`.
 
 A ban is therefore the AppView answering "no" when the community's PDS asks
 whether that person may read, rather than a record clients are trusted to
@@ -118,9 +138,9 @@ honour. The refusal happens at the protocol layer, before any data moves.
 
 :::caution[The AppView must be reachable]
 `managing-app` makes the AppView's reachability a hard requirement. If a
-community's PDS cannot reach the AppView, it cannot mint credentials for that
-community's spaces, and the community becomes unreadable even though its PDS is
-up.
+community's PDS cannot reach the AppView, it answers credential requests for
+that community's spaces with `UpstreamFailure`, and the community becomes
+unreadable even though its PDS is up.
 
 The write path has a consequence of its own. See
 [the writer set](/docs/architecture/sync#the-writer-set).

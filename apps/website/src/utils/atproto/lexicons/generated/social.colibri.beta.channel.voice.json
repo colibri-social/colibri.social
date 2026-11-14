@@ -6,7 +6,7 @@
 			"type": "space",
 			"description": "A voice channel. Holds only its own configuration record, because call state is off-protocol.",
 			"key": "tid",
-			"name": "Colibri voice channel",
+			"title": "Colibri voice channel",
 			"collections": [
 				"social.colibri.beta.channel"
 			]

@@ -9,35 +9,49 @@
 		},
 		{
 			"name": "@atproto-labs/did-resolver",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto-labs/fetch",
-			"version": "0.3.6",
+			"version": "0.4.2",
+			"license": "MIT",
+			"href": "https://github.com/bluesky-social/atproto",
+			"ecosystem": "npm"
+		},
+		{
+			"name": "@atproto-labs/fetch-node",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto-labs/handle-resolver",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
+			"license": "MIT",
+			"href": "https://github.com/bluesky-social/atproto",
+			"ecosystem": "npm"
+		},
+		{
+			"name": "@atproto-labs/handle-resolver-node",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto-labs/identity-resolver",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto-labs/pipe",
-			"version": "0.2.4",
+			"version": "0.2.5",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
@@ -58,182 +72,189 @@
 		},
 		{
 			"name": "@atproto/api",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/car",
-			"version": "0.0.0-spaces-alpha-20261105160032",
-			"license": "MIT",
-			"href": "https://github.com/bluesky-social/atproto",
-			"ecosystem": "npm"
-		},
-		{
-			"name": "@atproto/common",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/common-web",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/crypto",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/did",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/jwk",
-			"version": "0.7.4",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/jwk-jose",
-			"version": "0.2.4",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/jwk-webcrypto",
-			"version": "0.3.4",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-builder",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-cbor",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-client",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-data",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-document",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-installer",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-json",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-resolver",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
+			"license": "MIT",
+			"href": "https://github.com/bluesky-social/atproto",
+			"ecosystem": "npm"
+		},
+		{
+			"name": "@atproto/lex-rpc",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-schema",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lexicon",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/oauth-client",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/oauth-client-browser",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
+			"license": "MIT",
+			"href": "https://github.com/bluesky-social/atproto",
+			"ecosystem": "npm"
+		},
+		{
+			"name": "@atproto/oauth-resolver",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/oauth-types",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/repo",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/syntax",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/xrpc",
-			"version": "0.0.0-spaces-alpha-20261105160032",
+			"version": "0.0.0-spaces-alpha-20261112204144",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
@@ -334,13 +355,6 @@
 			"version": "1.8.0",
 			"license": "MIT",
 			"href": "https://github.com/paulmillr/noble-hashes",
-			"ecosystem": "npm"
-		},
-		{
-			"name": "@pinojs/redact",
-			"version": "0.4.0",
-			"license": "MIT",
-			"href": "https://github.com/pinojs/redact",
 			"ecosystem": "npm"
 		},
 		{
@@ -694,13 +708,6 @@
 			"ecosystem": "npm"
 		},
 		{
-			"name": "atomic-sleep",
-			"version": "1.0.0",
-			"license": "MIT",
-			"href": "https://github.com/davidmarkclements/atomic-sleep",
-			"ecosystem": "npm"
-		},
-		{
 			"name": "await-lock",
 			"version": "3.0.0",
 			"license": "MIT",
@@ -908,6 +915,13 @@
 			"version": "2.3.3",
 			"license": "ISC",
 			"href": "https://github.com/versatica/h264-profile-level-id",
+			"ecosystem": "npm"
+		},
+		{
+			"name": "ipaddr.js",
+			"version": "2.5.0",
+			"license": "MIT",
+			"href": "https://github.com/whitequark/ipaddr.js",
 			"ecosystem": "npm"
 		},
 		{
@@ -1177,13 +1191,6 @@
 			"ecosystem": "npm"
 		},
 		{
-			"name": "on-exit-leak-free",
-			"version": "2.1.2",
-			"license": "MIT",
-			"href": "https://github.com/mcollina/on-exit-or-gc",
-			"ecosystem": "npm"
-		},
-		{
 			"name": "orderedmap",
 			"version": "2.1.1",
 			"license": "MIT",
@@ -1212,38 +1219,10 @@
 			"ecosystem": "npm"
 		},
 		{
-			"name": "pino",
-			"version": "10.3.1",
-			"license": "MIT",
-			"href": "https://github.com/pinojs/pino",
-			"ecosystem": "npm"
-		},
-		{
-			"name": "pino-abstract-transport",
-			"version": "3.0.0",
-			"license": "MIT",
-			"href": "https://github.com/pinojs/pino-abstract-transport",
-			"ecosystem": "npm"
-		},
-		{
-			"name": "pino-std-serializers",
-			"version": "7.1.0",
-			"license": "MIT",
-			"href": "https://github.com/pinojs/pino-std-serializers",
-			"ecosystem": "npm"
-		},
-		{
 			"name": "prettier",
 			"version": "3.9.8",
 			"license": "MIT",
 			"href": "https://github.com/prettier/prettier",
-			"ecosystem": "npm"
-		},
-		{
-			"name": "process-warning",
-			"version": "5.1.0",
-			"license": "MIT",
-			"href": "https://github.com/fastify/process-warning",
 			"ecosystem": "npm"
 		},
 		{
@@ -1338,13 +1317,6 @@
 			"ecosystem": "npm"
 		},
 		{
-			"name": "quick-format-unescaped",
-			"version": "4.0.4",
-			"license": "MIT",
-			"href": "https://github.com/davidmarkclements/quick-format",
-			"ecosystem": "npm"
-		},
-		{
 			"name": "react",
 			"version": "19.3.0",
 			"license": "MIT",
@@ -1352,31 +1324,10 @@
 			"ecosystem": "npm"
 		},
 		{
-			"name": "real-require",
-			"version": "0.2.0",
-			"license": "MIT",
-			"href": "https://github.com/pinojs/real-require",
-			"ecosystem": "npm"
-		},
-		{
-			"name": "real-require",
-			"version": "1.0.0",
-			"license": "MIT",
-			"href": "https://github.com/pinojs/real-require",
-			"ecosystem": "npm"
-		},
-		{
 			"name": "rope-sequence",
 			"version": "1.3.4",
 			"license": "MIT",
 			"href": "https://github.com/marijnh/rope-sequence",
-			"ecosystem": "npm"
-		},
-		{
-			"name": "safe-stable-stringify",
-			"version": "2.5.0",
-			"license": "MIT",
-			"href": "https://github.com/BridgeAR/safe-stable-stringify",
 			"ecosystem": "npm"
 		},
 		{
@@ -1443,20 +1394,6 @@
 			"ecosystem": "npm"
 		},
 		{
-			"name": "sonic-boom",
-			"version": "4.2.1",
-			"license": "MIT",
-			"href": "https://github.com/pinojs/sonic-boom",
-			"ecosystem": "npm"
-		},
-		{
-			"name": "split2",
-			"version": "4.2.0",
-			"license": "ISC",
-			"href": "https://github.com/mcollina/split2",
-			"ecosystem": "npm"
-		},
-		{
 			"name": "string-width",
 			"version": "7.2.0",
 			"license": "MIT",
@@ -1489,13 +1426,6 @@
 			"version": "3.7.0",
 			"license": "MIT",
 			"href": "https://github.com/dcastil/tailwind-merge",
-			"ecosystem": "npm"
-		},
-		{
-			"name": "thread-stream",
-			"version": "4.2.0",
-			"license": "MIT",
-			"href": "https://github.com/mcollina/thread-stream",
 			"ecosystem": "npm"
 		},
 		{
@@ -1538,6 +1468,13 @@
 			"version": "5.1.1",
 			"license": "Apache-2.0 OR MIT",
 			"href": "https://github.com/achingbrain/uint8arrays",
+			"ecosystem": "npm"
+		},
+		{
+			"name": "undici",
+			"version": "8.12.4",
+			"license": "MIT",
+			"href": "https://github.com/nodejs/undici",
 			"ecosystem": "npm"
 		},
 		{
@@ -1626,7 +1563,7 @@
 		},
 		{
 			"name": "yargs",
-			"version": "18.1.0",
+			"version": "18.2.0",
 			"license": "MIT",
 			"href": "https://github.com/yargs/yargs",
 			"ecosystem": "npm"

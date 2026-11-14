@@ -6,7 +6,7 @@
 			"type": "space",
 			"description": "A community's public identity: the one part of a community that can be read before joining it.",
 			"key": "literal:self",
-			"name": "Colibri community profile",
+			"title": "Colibri community profile",
 			"collections": [
 				"social.colibri.beta.community"
 			]

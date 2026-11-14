@@ -1072,7 +1072,7 @@ describe("createRemoteSource", () => {
 				xrpcError(400, "SpaceNotFound"),
 				json({ uri: "at://x", cid: "c" }),
 			);
-			fake.on("com.atproto.space.createSpace", json({ uri: "at://space" }));
+			fake.on("com.atproto.space.createSpace", json({ space: "at://space" }));
 		});
 		await withMessages(source, fake, [message("9")]);
 
@@ -1104,7 +1104,7 @@ describe("createRemoteSource", () => {
 			);
 			fake.on("com.atproto.space.createSpace", async () => {
 				await new Promise((resolve) => setTimeout(resolve, 20));
-				return json({ uri: "at://space" });
+				return json({ space: "at://space" });
 			});
 			fake.on(
 				colibri.channel.listMessages.main.nsid,

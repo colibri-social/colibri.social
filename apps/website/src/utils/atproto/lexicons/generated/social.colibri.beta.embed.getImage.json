@@ -1,0 +1,54 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.embed.getImage",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Proxies an image from a link embed through the AppView, so the viewer's address never reaches the origin. The URL comes signed in an embed view, which lets an img element load it without a bearer header. The origin's content type must be an allowed image type. Supports HTTP range requests.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"url",
+					"exp",
+					"sig"
+				],
+				"properties": {
+					"url": {
+						"type": "string",
+						"format": "uri",
+						"description": "The image on the origin."
+					},
+					"exp": {
+						"type": "integer",
+						"description": "Unix time in seconds after which the link stops working."
+					},
+					"sig": {
+						"type": "string",
+						"description": "Signature over the kind, url and exp, issued by this AppView."
+					}
+				}
+			},
+			"output": {
+				"encoding": "image/*"
+			},
+			"errors": [
+				{
+					"name": "InvalidRequest",
+					"description": "url, exp or sig is missing or malformed."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The signature is invalid or expired."
+				},
+				{
+					"name": "NotFetchable",
+					"description": "The origin could not be reached or answered with an error."
+				},
+				{
+					"name": "UnsupportedImage",
+					"description": "The origin served something other than an allowed image type."
+				}
+			]
+		}
+	}
+}

@@ -96,7 +96,7 @@ Three jobs run on every pull request:
 | --- | --- |
 | Lint | `pnpm biome ci .` |
 | Test | `pnpm build`, `pnpm typecheck`, then `pnpm test` |
-| Lexicons | re-runs `pnpm lexicons:codegen` and fails on a dirty tree, then checks the vendored `com.atproto.space` and `com.atproto.simplespace` lexicons are byte-identical to the pinned upstream commit |
+| Lexicons | re-runs `pnpm lexicons:codegen` and fails on a dirty tree, then checks the vendored `com.atproto.space`, `com.atproto.memberspace`, `com.atproto.managedspace` and `com.atproto.personalspace` lexicons are byte-identical to the pinned upstream commit |
 
 The vendored lexicons are pinned, so an upstream change arrives as a re-vendor
 rather than as a codegen result that shifts underneath the AppView. `packages/lexicons/lexicons/com/atproto/PINNED_COMMIT` holds the commit, and `packages/lexicons/README.md` covers how to move it.

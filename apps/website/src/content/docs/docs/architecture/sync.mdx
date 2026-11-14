@@ -18,8 +18,9 @@ over the records it holds. The AppView keeps its own running hash over its own
 copy.
 
 To advance, it calls `listRepoOps(since)`, applies each operation, and updates
-its hash as it goes. When a page reaches the head of the log, the host includes
-the current commit, and the two hashes are compared.
+its hash as it goes. Every page carries the repository's current commit. Once a
+page comes back without a `cursor`, the AppView compares that page's commit with
+its running hash.
 
 - **They agree.** The copy is correct, and the commit's signature says so.
 - **They disagree.** Something was missed or corrupted. The AppView falls back
@@ -37,24 +38,51 @@ in.
 
 Two mechanisms run at once.
 
-**Push.** The AppView registers itself with `com.atproto.space.registerNotify`.
-When a member writes, their host tells the space authority, and the authority
-forwards a `notifyWrite` to every registered syncer. That enqueues the repo for
-a pull, usually within a moment of the write.
+**Push.** The AppView registers for notifications each time it calls
+`com.atproto.space.authorizeSpaceSync`, by including
+`notify: { endpoint, token }`. When a member writes, their host sends
+`com.atproto.space.notifyRepoUpdate` to the space authority, and the authority
+sends `com.atproto.space.notifySpaceUpdate` to every registered syncer.
 
-**Sweep.** Every sync interval, `listRepos` returns the authority's view of the
-writer set with each repository's current revision. Anything ahead of the local
-cursor is enqueued, and anything that has disappeared is dropped.
+The `update` in that call says what changed:
 
-Write notifications are explicitly best effort in the proposal, so the sweep is
-the correctness guarantee and push is only latency. An AppView behind NAT that
-never receives a single notification still converges, just more slowly.
+| `update.$type` | What the AppView does |
+| --- | --- |
+| `com.atproto.space.defs#repoWrite` | Enqueues the repository for a pull, usually within a moment of the write |
+| `com.atproto.space.defs#repoRemoved` | Stops treating the repository as part of the space |
+| `com.atproto.space.notifySpaceUpdate#spaceDeleted` | Reauthorizes, and drops the space only if the authority answers `SpaceDeleted` |
+| `com.atproto.space.notifySpaceUpdate#registrationExpired` | Reauthorizes with `notify` and catches up through `listWriters` |
 
-:::note[Notifications need a DID document entry]
-`registerNotify` names a service *identifier*, not a URL, and the space host
-resolves the delivery endpoint from the AppView's DID document. Without an
-`#atproto_space_syncer` service entry there, no notification is ever delivered
-and sync quietly falls back to the sweep interval.
+**Sweep.** Every sync interval, `com.atproto.space.listWriters` returns the
+authority's view of the writer set. Each entry is either a `repoWrite` with the
+repository's current revision or a `repoRemoved`. Anything ahead of the local
+cursor is enqueued, and anything removed or missing is dropped.
+
+Write notifications are best effort in the proposal, so the sweep is the
+correctness guarantee and push is only latency. An AppView that never receives a
+single notification still converges, just more slowly.
+
+### Notification registration
+
+A registration has two parts. `endpoint` is the AppView's public base URL, and
+the space host calls XRPC methods against it, so it must be HTTPS on a public
+address. `token` is a random secret the AppView generates per space, stores, and
+keeps stable across authorizations. Calls to `notifySpaceUpdate` carry no service
+auth. The token in the body authenticates them, and the AppView rejects any token
+it did not issue for that space.
+
+Before accepting a new registration, the space host calls
+`com.atproto.space.confirmRegistration` on the endpoint with
+`{ space, token, challenge }`. The AppView checks the token and echoes
+`{ challenge }` back.
+
+A registration lasts as long as the credential from its latest authorization,
+10 minutes by default. The AppView reauthorizes before that expires, even for a
+space with nothing new to read.
+
+:::note[Notifications need a reachable endpoint]
+When the space host cannot reach `PUBLIC_URL`, it cannot confirm the
+registration, and sync falls back to the sweep interval.
 :::
 
 A bounded worker pool drains the queue with one pull at a time per repository,
@@ -65,23 +93,29 @@ so a burst of notifications about the same repo collapses into a single pull.
 The sweep is only as complete as the writer set, and that set is not the
 AppView's to maintain.
 
-A member enters it when their host notifies the authority of a write **and the
-authority accepts that notification**. Under a `managing-app` policy, accepting
-means asking the managing app whether that member belongs. A refusal there drops
-the write out of the writer set, and an unreachable managing app counts as a
-refusal.
+A member enters it when their host sends the authority a `notifyRepoUpdate`
+**and the authority accepts that notification**. Under a `managing-app` policy,
+accepting means asking the managing app, with
+`com.atproto.managedspace.checkAccess`, whether that member may write. A refusal
+there drops the write out of the writer set. When the managing app is
+unreachable, the authority answers `UpstreamFailure`, and the member's host
+retries the notification.
+
+A member leaves it when the authority removes their write access. The authority
+announces that with a `repoRemoved` notification, and `listWriters` keeps listing
+the repository as removed until it writes again.
 
 The record is still in the member's repository. Nothing enumerates it until that
 member writes again, so it does not appear in the community until then.
 
 Two different links carry notifications and only one of them belongs to the
 AppView. When the AppView misses its own, the sweep catches up. When the
-authority misses the member's host, the write stays out of the writer set.
+authority refuses the member's host, the write stays out of the writer set.
 
 :::caution[What an outage costs]
-A self-hosted AppView that goes down does more than refuse credentials for the
-duration. Writes made while it was unreachable never enter the writer set, so
-they stay invisible after it comes back until their author writes again.
+A self-hosted AppView that goes down refuses credentials for the duration, and
+writes made while it was unreachable wait on their host's retries before they
+enter the writer set.
 
 Your `APPVIEW_DID` must resolve, and its service endpoint must answer, from
 wherever the community's PDS runs.
@@ -100,7 +134,7 @@ The response depends on what failed.
 | The host no longer retains the revision the AppView asked to resume from | Full recovery from the CAR |
 | The set hash disagrees with a verified commit | Full recovery from the CAR |
 | The account is gone, taken down, suspended or deactivated | Drop the repository |
-| The authority says the space is deleted | Drop the space and forget the credential |
+| The authority answers `SpaceDeleted` to `authorizeSpaceSync` | Drop the space and forget the credential |
 | Anything else | Back off and retry, keeping the copy |
 
 An unrecognised error never counts as a deletion.

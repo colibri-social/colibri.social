@@ -22,7 +22,7 @@ community's own DID, plus a personal space for every member (see
 [Spaces](/docs/architecture/spaces) and [Communities](/docs/architecture/communities)).
 Those spaces have to live on a real PDS, and it has to run the spaces alpha
 image, `ghcr.io/bluesky-social/atproto:pds-spaces-alpha`, because
-`com.atproto.space` and `com.atproto.simplespace` don't exist on a stable PDS
+`com.atproto.space` and `com.atproto.managedspace` don't exist on a stable PDS
 release.
 
 `PDS_URL` in `.env` is one of the six variables the AppView refuses to boot
@@ -94,6 +94,10 @@ AppView. `.env.example` carries a working default for the JWT secret and the
 openssl ecparam -name secp256k1 -genkey -noout -outform DER \
   | tail -c +8 | head -c 32 | xxd -p -c 32
 ```
+
+The PDS runs with `PDS_DEV_MODE=true`. Outside dev mode it only calls
+notification endpoints over HTTPS on a public address, and the AppView's local
+`PUBLIC_URL` is neither.
 
 The PDS runs on the port it publishes, `3001`, because it advertises
 `http://localhost:3001` in every DID document it writes, and anything outside

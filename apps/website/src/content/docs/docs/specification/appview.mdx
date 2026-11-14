@@ -3762,63 +3762,99 @@ Server-enforced mute is distinct from self-mute. A moderator mute arrives as
 ## Protocol callbacks
 
 Three inbound methods are called by a community's PDS rather than by a client.
-They authenticate with service auth from the space authority, and each one
-verifies that the caller is the authority for the space it is talking about.
+`com.atproto.managedspace.checkAccess` authenticates with service auth from the
+space authority, and the AppView verifies that the caller is the authority for
+the space it asks about. The two notification methods carry no service auth. The
+`token` the AppView registered for the space authenticates them instead.
 
-### `com.atproto.simplespace.checkUserAccess`
+### `com.atproto.managedspace.checkAccess`
 
-Answers whether a user may hold a credential for a space. The community's PDS
-calls this before minting anything, so this is where bans, membership and
-channel visibility are enforced.
+Answers whether an account may read or write a space. The community's PDS calls
+this before minting any credential, with service auth carrying
+`lxm=com.atproto.managedspace.checkAccess`, so this is where bans, membership
+and channel visibility are enforced.
+
+`repo` is the account asking, and `clientId` is the attested OAuth client when
+the request presented a client attestation. A check prompted by a write carries
+no `clientId`. Without a `repo`, the AppView answers `read: false`.
 
 It answers from local projections with an in-memory cache and makes no outbound
 call of its own. It fails closed: an unrecognised space type, an unknown
 community or a caller that is not the space's authority all return
-`authorized: false`.
+`read: false` and `write: false`. When the PDS cannot reach the AppView, it
+answers the credential request with `UpstreamFailure`.
 
 <XRPCEndpointCard
 	method="GET"
-	nsid="com.atproto.simplespace.checkUserAccess"
+	nsid="com.atproto.managedspace.checkAccess"
 	queryParams={{
 		space: { type: "space-ref", required: true },
-		user: { type: "did", required: true },
-		clientId: { type: "string", required: false }
+		repo: { type: "did", required: false },
+		clientId: { type: "uri", required: false }
 	}}
 	response={{
-		authorized: { type: "boolean", required: true }
+		read: { type: "boolean", required: true },
+		write: { type: "boolean", required: true }
 	}}
 	authenticated={true}
 />
 
-### `com.atproto.space.notifyWrite`
+### `com.atproto.space.confirmRegistration`
 
-Tells the AppView that a repo in a space has been written to, which enqueues a
-pull of that repo. Notifications are best effort, and the periodic sweep is
-what guarantees correctness, so a missed one costs latency rather than data. See [Sync](/docs/architecture/sync).
+Confirms a notification registration. The AppView registers by including
+`notify: { endpoint, token }` in `com.atproto.space.authorizeSpaceSync`, where
+`endpoint` is its `PUBLIC_URL` and `token` is a random secret it keeps per
+space. Before the space host accepts a new registration, it calls this method on
+that endpoint. The AppView checks that it issued `token` for `space` and echoes
+the `challenge` back. Otherwise, `authorizeSpaceSync` fails with
+`RegistrationNotConfirmed`.
+
+A registration lasts as long as the credential from its latest authorization,
+10 minutes by default, so the AppView reauthorizes with the same `notify` before
+that expires, even for an idle space. See
+[Sync](/docs/architecture/sync#notification-registration).
 
 <XRPCEndpointCard
 	method="POST"
-	nsid="com.atproto.space.notifyWrite"
+	nsid="com.atproto.space.confirmRegistration"
 	body={{
 		space: { type: "space-ref", required: true },
-		repo: { type: "did", required: true }
+		token: { type: "string", required: true },
+		challenge: { type: "string", required: true }
 	}}
-	authenticated={true}
+	response={{
+		challenge: { type: "string", required: true }
+	}}
+	authenticated={false}
 />
 
-### `com.atproto.space.notifySpaceDeleted`
+### `com.atproto.space.notifySpaceUpdate`
 
-Tells the AppView a space no longer exists, so it drops its copy and forgets the
-credential. Ignored unless the caller is that space's authority.
+Tells the AppView that something changed in a space. The AppView rejects a
+`token` it did not issue for that `space`. Repo notifications are best effort,
+and the periodic sweep through `listWriters` is what guarantees correctness, so
+a missed one costs latency rather than data. See
+[Sync](/docs/architecture/sync).
 
 <XRPCEndpointCard
 	method="POST"
-	nsid="com.atproto.space.notifySpaceDeleted"
+	nsid="com.atproto.space.notifySpaceUpdate"
 	body={{
-		space: { type: "space-ref", required: true }
+		space: { type: "space-ref", required: true },
+		token: { type: "string", required: true },
+		update: { type: "object", required: true }
 	}}
-	authenticated={true}
+	authenticated={false}
 />
+
+`update.$type` names one of four updates:
+
+| `$type` | Fields | What the AppView does |
+| --- | --- | --- |
+| `com.atproto.space.defs#repoWrite` | `repo`, `repoRev`, `data`, `spaceRev`, `prevSpaceRev?` | Enqueues a pull of `repo` |
+| `com.atproto.space.defs#repoRemoved` | `repo`, `spaceRev`, `prevSpaceRev?` | Stops treating `repo` as part of the space |
+| `com.atproto.space.notifySpaceUpdate#spaceDeleted` | none | Reauthorizes, and drops its copy and the credential only when the answer is `SpaceDeleted` |
+| `com.atproto.space.notifySpaceUpdate#registrationExpired` | `spaceRev` | Reauthorizes with `notify` and catches up through `listWriters` |
 
 ## See also
 
