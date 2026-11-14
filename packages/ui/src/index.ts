@@ -171,6 +171,7 @@ export * from "./components/RichText/ChipButton";
 export * from "./components/RichText/context";
 export * from "./components/RichText/RichText";
 export * from "./components/Roles/OwnerBadge";
+export * from "./components/Roles/PermissionOverrides";
 export * from "./components/Roles/RoleBadge";
 export * from "./components/Roles/RoleBadgePicker";
 export * from "./components/Roles/RoleList";

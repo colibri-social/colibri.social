@@ -1,5 +1,5 @@
 import { SegmentedControl as KobalteSegmentedControl } from "@kobalte/core/segmented-control";
-import { For, type JSX, splitProps } from "solid-js";
+import { For, type JSX, Show, splitProps } from "solid-js";
 import { cx } from "../../utils/cx";
 
 export type SegmentedControlOption = {
@@ -18,6 +18,7 @@ export type SegmentedControlProps = {
 	onChange?: (value: string) => void;
 	onReselect?: (value: string) => void;
 	size?: SegmentedControlSize;
+	iconOnly?: boolean;
 	disabled?: boolean;
 	name?: string;
 	class?: string;
@@ -40,6 +41,7 @@ export const SegmentedControl = (props: SegmentedControlProps) => {
 		"size",
 		"class",
 		"onReselect",
+		"iconOnly",
 	]);
 	const size = () => local.size ?? "md";
 
@@ -79,11 +81,14 @@ export const SegmentedControl = (props: SegmentedControlProps) => {
 								"hover:text-foreground data-[checked]:text-foreground",
 								"data-[disabled]:cursor-not-allowed",
 								"peer-focus-ring-inset [&_svg]:size-4 [&_svg]:shrink-0",
+								local.iconOnly && "px-0",
 								indicatorRadius[size()],
 							)}
 						>
 							{option.icon}
-							<span class="truncate">{option.label}</span>
+							<Show when={!local.iconOnly} fallback={option.label}>
+								<span class="truncate">{option.label}</span>
+							</Show>
 						</KobalteSegmentedControl.ItemLabel>
 					</KobalteSegmentedControl.Item>
 				)}

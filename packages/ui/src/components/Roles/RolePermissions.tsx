@@ -73,6 +73,12 @@ export const ROLE_PERMISSION_GROUPS: readonly RolePermissionGroup[] = [
 		label: "Channels",
 		permissions: [
 			{
+				key: "channel.view",
+				name: "View channels",
+				description:
+					"See channels and read their messages. Without this, channels stay hidden.",
+			},
+			{
 				key: "channel.create",
 				name: "Create channels",
 				description: "Create new channels.",
@@ -86,6 +92,18 @@ export const ROLE_PERMISSION_GROUPS: readonly RolePermissionGroup[] = [
 				key: "channel.delete",
 				name: "Delete channels",
 				description: "Delete channels.",
+			},
+		],
+	},
+	{
+		id: "messages",
+		label: "Messages",
+		permissions: [
+			{
+				key: "message.send",
+				name: "Send messages",
+				description:
+					"Write in text channels and their threads. Without this, channels are read-only.",
 			},
 		],
 	},
@@ -163,6 +181,11 @@ export const ROLE_PERMISSION_GROUPS: readonly RolePermissionGroup[] = [
 		label: "Voice",
 		permissions: [
 			{
+				key: "voice.connect",
+				name: "Join voice channels",
+				description: "Connect to voice channels.",
+			},
+			{
 				key: "voice.speak",
 				name: "Speak",
 				description:
@@ -232,6 +255,55 @@ export const ROLE_PERMISSION_GROUPS: readonly RolePermissionGroup[] = [
 		],
 	},
 ];
+
+export type ChannelPermissionScope = "text" | "voice" | "category";
+
+export const CHANNEL_SCOPED_PERMISSIONS: readonly string[] = [
+	"channel.view",
+	"channel.update",
+	"channel.delete",
+	"message.send",
+	"thread.create",
+	"thread.manage",
+	"thread.move",
+	"mention.roles",
+	"label.apply",
+	"voice.connect",
+	"voice.speak",
+	"voice.listen",
+	"voice.camera",
+	"voice.screenshare",
+	"voice.chat",
+	"voice.moderate",
+];
+
+const TEXT_ONLY = new Set([
+	"message.send",
+	"thread.create",
+	"thread.manage",
+	"thread.move",
+]);
+
+const appliesTo = (key: string, scope: ChannelPermissionScope) => {
+	if (!CHANNEL_SCOPED_PERMISSIONS.includes(key)) return false;
+	if (scope === "text") return !key.startsWith("voice.");
+	if (scope === "voice") return !TEXT_ONLY.has(key);
+	return true;
+};
+
+export const channelPermissionGroups = (
+	scope: ChannelPermissionScope,
+	groups: readonly RolePermissionGroup[] = ROLE_PERMISSION_GROUPS,
+): RolePermissionGroup[] => {
+	return groups
+		.map((group) => ({
+			...group,
+			permissions: group.permissions.filter((permission) =>
+				appliesTo(permission.key, scope),
+			),
+		}))
+		.filter((group) => group.permissions.length > 0);
+};
 
 export type RolePermissionListProps = {
 	value: readonly string[];
