@@ -28,7 +28,7 @@ export type LegacySpaceVariant =
 	| "failed"
 	| "blocked";
 
-export type LegacyBlockedReason = "ownerRepo" | "unreadable" | "noAdmin";
+export type LegacyBlockedReason = "unreadable" | "noAdmin";
 
 export type LegacySpaceProgress = {
 	step: string;
@@ -67,9 +67,6 @@ const plural = (count: number, one: string, many: string) =>
 	`${count} ${count === 1 ? one : many}`;
 
 const blockedCopy = (reason: string | undefined): string => {
-	if (reason === "ownerRepo") {
-		return "This community was made with an early version of Colibri, so it can't move to Spaces.";
-	}
 	if (reason === "noAdmin") {
 		return "Nobody who can move this community is still in it, so it can't move to Spaces.";
 	}

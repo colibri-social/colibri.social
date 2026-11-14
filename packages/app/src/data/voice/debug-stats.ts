@@ -30,7 +30,7 @@ export type VoiceDebugAudio = {
 	audioLevel?: number;
 };
 
-export type VoiceDebugNode = {
+type VoiceDebugNode = {
 	host: string;
 	id?: string;
 	region?: string;

@@ -59,11 +59,11 @@ export const CallDebugDialog = (props: CallDebugDialogProps) => {
 					</Button>
 				}
 			>
-				<div
+				<section
 					data-call-debug=""
 					data-layout-clip=""
-					role="region"
 					aria-label={CALL_DEBUG_COPY.title}
+					// biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard users scroll the debug details
 					tabIndex={0}
 					class="flex max-h-[min(60dvh,520px)] min-w-0 flex-col gap-4 overflow-y-auto rounded-control-sm outline-none focus-ring"
 				>
@@ -88,7 +88,7 @@ export const CallDebugDialog = (props: CallDebugDialogProps) => {
 							</For>
 						)}
 					</Show>
-				</div>
+				</section>
 				<span role="status" class="sr-only">
 					{copied() ? CALL_DEBUG_COPY.copied : ""}
 				</span>

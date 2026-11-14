@@ -165,25 +165,6 @@ export const Failed: Story = {
 	},
 };
 
-export const BlockedOwnerRepo: Story = {
-	render: () => <Frame variant="blocked" blockedReason="ownerRepo" />,
-	play: async ({ canvasElement }) => {
-		onDismiss.mockClear();
-		const canvas = within(canvasElement);
-		await expect(
-			canvas.getByText(/made with an early version of Colibri/),
-		).toBeVisible();
-		await expect(
-			canvas.queryByRole("button", { name: "Try again" }),
-		).not.toBeInTheDocument();
-		await userEvent.click(
-			canvas.getByRole("button", { name: "Remove from sidebar" }),
-		);
-		await expect(onDismiss).toHaveBeenCalledTimes(1);
-		await expectNoLayoutIssues(canvasElement);
-	},
-};
-
 export const BlockedUnreachable: Story = {
 	render: () => <Frame variant="blocked" blockedReason="unreadable" />,
 	play: async ({ canvasElement }) => {
@@ -201,9 +182,18 @@ export const BlockedUnreachable: Story = {
 export const BlockedNoAdmin: Story = {
 	render: () => <Frame variant="blocked" blockedReason="noAdmin" />,
 	play: async ({ canvasElement }) => {
+		onDismiss.mockClear();
+		const canvas = within(canvasElement);
 		await expect(
-			within(canvasElement).getByText(/Nobody who can move this community/),
+			canvas.getByText(/Nobody who can move this community/),
 		).toBeVisible();
+		await expect(
+			canvas.queryByRole("button", { name: "Try again" }),
+		).not.toBeInTheDocument();
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Remove from sidebar" }),
+		);
+		await expect(onDismiss).toHaveBeenCalledTimes(1);
 		await expectNoLayoutIssues(canvasElement);
 	},
 };

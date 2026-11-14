@@ -17,9 +17,9 @@ import {
 } from "./frame-clock";
 import { decodeWithScript } from "./script-decode";
 
-export type SyncedAnimationDecoder = "native" | "script";
+type SyncedAnimationDecoder = "native" | "script";
 
-export type SyncedAnimationDecoderPreference = "auto" | "script";
+type SyncedAnimationDecoderPreference = "auto" | "script";
 
 export type SyncedAnimation = {
 	decoder: SyncedAnimationDecoder;

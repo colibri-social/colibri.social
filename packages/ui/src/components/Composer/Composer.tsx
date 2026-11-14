@@ -259,8 +259,10 @@ export const Composer = (props: ComposerProps) => {
 						fallback={
 							<div
 								class={cx(
-									"flex min-h-12 items-center justify-between gap-3 text-sm text-muted-foreground",
-									platform() === "desktop" ? "px-4 py-3" : "px-3 py-2",
+									"flex items-center justify-between gap-3 text-sm text-muted-foreground",
+									platform() === "desktop"
+										? "min-h-[54px] px-4 py-[11px]"
+										: "min-h-12 px-3 py-2",
 								)}
 							>
 								<span>

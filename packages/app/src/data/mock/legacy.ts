@@ -51,7 +51,7 @@ export const SAMPLE_LEGACY_COMMUNITIES: LegacyCommunityView[] = [
 		name: "Wren Corner",
 		viewerIsAdmin: false,
 		state: "blocked",
-		blockedReason: "ownerRepo",
+		blockedReason: "noAdmin",
 		owner: { did: "did:plc:wrenownerxxxxxxxxxxxxxxx" as Did },
 	},
 ];

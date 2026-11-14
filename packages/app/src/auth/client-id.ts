@@ -7,7 +7,7 @@ export const NATIVE_CLIENT_ORIGIN = "https://spaces.colibri.social";
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
-export type ClientLocation = Pick<Location, "hostname" | "host" | "port">;
+type ClientLocation = Pick<Location, "hostname" | "host" | "port">;
 
 export type ClientMetadata = NonNullable<
 	BrowserOAuthClientOptions["clientMetadata"]
@@ -24,7 +24,7 @@ type ClientInput = {
 const isLoopback = (location: ClientLocation): boolean =>
 	LOOPBACK_HOSTS.has(location.hostname);
 
-export const NATIVE_REDIRECT_URI = `${new URL(NATIVE_CLIENT_ORIGIN).hostname
+const NATIVE_REDIRECT_URI = `${new URL(NATIVE_CLIENT_ORIGIN).hostname
 	.split(".")
 	.reverse()
 	.join(".")}:/oauth/callback` as RedirectUri;

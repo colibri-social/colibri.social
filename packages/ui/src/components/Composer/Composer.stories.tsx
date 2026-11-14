@@ -1452,6 +1452,53 @@ export const Disabled: Story = {
 	),
 };
 
+const DisabledHeightPair = (props: { platform: "mobile" | "desktop" }) => {
+	const Screen = props.platform === "desktop" ? DesktopScreen : MobileScreen;
+
+	return (
+		<Screen>
+			<div data-pair="enabled">
+				<Composer platform={props.platform} channelName="general" />
+			</div>
+			<div data-pair="disabled">
+				<Composer
+					platform={props.platform}
+					channelName="announcements"
+					disabled
+					disabledReason="You can't post in this channel."
+				/>
+			</div>
+		</Screen>
+	);
+};
+
+const boxHeight = (root: HTMLElement, pair: string) => {
+	const box = root.querySelector(`[data-pair="${pair}"] [data-composer-box]`);
+
+	return box?.getBoundingClientRect().height ?? 0;
+};
+
+const expectMatchingHeights = async (root: HTMLElement) => {
+	await waitFor(() => expect(boxHeight(root, "enabled")).toBeGreaterThan(0));
+	await expect(boxHeight(root, "disabled")).toBe(boxHeight(root, "enabled"));
+};
+
+export const DisabledHeightDesktop: Story = {
+	render: () => <DisabledHeightPair platform="desktop" />,
+	play: async ({ canvasElement }) => {
+		await expectMatchingHeights(canvasElement);
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
+export const DisabledHeightMobile: Story = {
+	render: () => <DisabledHeightPair platform="mobile" />,
+	play: async ({ canvasElement }) => {
+		await expectMatchingHeights(canvasElement);
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
 export const TrayRetry: Story = {
 	render: () => {
 		const [items, setItems] = createSignal<PendingAttachment[]>([

@@ -6,7 +6,7 @@ import {
 } from "gifuct-js";
 import UPNG from "upng-js";
 
-export type RgbaFrame = {
+type RgbaFrame = {
 	pixels: Uint8ClampedArray<ArrayBuffer>;
 	delayMs: number;
 };

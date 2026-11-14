@@ -147,7 +147,7 @@ describe("legacy communities", () => {
 		).click();
 		await until(() => !!screen(root));
 		const view = screen(root) as HTMLElement;
-		expect(view.textContent).toContain("early version of Colibri");
+		expect(view.textContent).toContain("Nobody who can move this community");
 		buttonNamed(view, "Remove from sidebar")?.click();
 		await until(() => !railItem(root, "Wren Corner"));
 		expect(store.preferences.client().dismissedLegacyCommunities).toContain(
