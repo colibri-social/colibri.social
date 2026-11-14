@@ -1434,6 +1434,18 @@ describe("createRemoteSource", () => {
 		expect(fake.callsTo("com.atproto.repo.getRecord")).toHaveLength(1);
 	});
 
+	it("treats a 404 RecordNotFound as a missing profile", async () => {
+		const { source } = await setup((fake) =>
+			fake.on("com.atproto.repo.getRecord", () =>
+				xrpcError(404, "RecordNotFound"),
+			),
+		);
+
+		await expect(source.loadProfileSetup()).resolves.toMatchObject({
+			complete: false,
+		});
+	});
+
 	it("seeds an incomplete profile from the old record and Bluesky", async () => {
 		const image = (cid: string) => ({
 			$type: "blob",

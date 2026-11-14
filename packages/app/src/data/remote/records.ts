@@ -371,7 +371,10 @@ export const createRecords = (transport: Transport, host?: HostModeSignal) => {
 					{ params: { repo: transport.did, collection, rkey } },
 				);
 			} catch (error) {
-				if (error instanceof ColibriError && error.status === 400)
+				if (
+					error instanceof ColibriError &&
+					(error.status === 400 || error.status === 404)
+				)
 					return undefined;
 				throw error;
 			}

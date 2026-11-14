@@ -116,13 +116,7 @@ export const createHostMode = (input: {
 				}).code,
 			});
 
-			const current = status();
-
-			if (current) return current;
-
-			apply(NATIVE_FALLBACK);
-
-			return NATIVE_FALLBACK;
+			return status() ?? NATIVE_FALLBACK;
 		}
 	};
 

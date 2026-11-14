@@ -20,8 +20,18 @@ const nativeFetch = async (src: string) => {
 	return tauriFetch(src, { method: "GET" });
 };
 
+const fetchResponse = async (src: string) => {
+	try {
+		return await fetch(src);
+	} catch (thrown) {
+		if (!isNativeShell()) throw thrown;
+
+		return nativeFetch(src);
+	}
+};
+
 const fetchImage = async (src: string) => {
-	const response = isNativeShell() ? await nativeFetch(src) : await fetch(src);
+	const response = await fetchResponse(src);
 	if (!response.ok) throw new Error(`image request failed: ${response.status}`);
 	const type = response.headers.get("content-type")?.split(";")[0]?.trim();
 	const blob = await response.blob();

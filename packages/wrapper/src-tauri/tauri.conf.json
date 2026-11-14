@@ -19,7 +19,8 @@
 				"minHeight": 768,
 				"titleBarStyle": "Overlay",
 				"hiddenTitle": true,
-				"generalAutofillEnabled": false
+				"generalAutofillEnabled": false,
+				"dragDropEnabled": false
 			}
 		],
 		"security": {
