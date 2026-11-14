@@ -14,6 +14,7 @@ import { voice } from "../../data/voice";
 import { useOptionalDesktopShell } from "../../shell/desktop/context";
 import { windowBarHeight } from "../../shell/desktop/window-chrome";
 import { useStack } from "../../shell/stack";
+import { CallDebugHost } from "./call-debug";
 import { CameraPreviewHost } from "./camera-preview";
 import { installVoiceNotices } from "./notices";
 import {
@@ -48,6 +49,7 @@ export default function VoiceDock() {
 	const shell = useOptionalDesktopShell();
 	const [corner, setCorner] = createSignal<FloatingCorner>(storedCorner());
 	const [width, setWidth] = createSignal(storedWidth());
+	const [debugOpen, setDebugOpen] = createSignal(false);
 	const call = createMemo(() => {
 		const current = voice.current();
 		if (!current) return undefined;
@@ -56,6 +58,12 @@ export default function VoiceDock() {
 			? data.space(community).channelBySlug(skeyOf(current.channel))
 			: undefined;
 		return { ...current, community, view };
+	});
+
+	const developerMode = () => data.preferences.client().developerMode;
+
+	createEffect(() => {
+		if (!call() || !developerMode()) setDebugOpen(false);
 	});
 
 	const viewingCall = () => {
@@ -117,6 +125,7 @@ export default function VoiceDock() {
 				<>
 					<CameraPreviewHost />
 					<ScreenShareHost />
+					<CallDebugHost open={debugOpen()} onOpenChange={setDebugOpen} />
 					<VoiceStatusPanel
 						state={voice.connection().state}
 						quality={voice.connection().quality}
@@ -147,6 +156,9 @@ export default function VoiceDock() {
 							screenShareAvailable() ? screenShareMenu() : undefined
 						}
 						onOpenCall={openCall}
+						onQualityClick={
+							developerMode() ? () => setDebugOpen(true) : undefined
+						}
 						onShowOverlay={
 							voice.floatingDismissed()
 								? () => voice.setFloatingDismissed(false)

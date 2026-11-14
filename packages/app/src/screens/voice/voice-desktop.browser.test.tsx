@@ -280,6 +280,42 @@ it("reports a connecting then measured connection in the status panel", async ()
 	expect(voice.connection().state).toBe("disconnected");
 });
 
+it("opens the call details dialog from the connection indicator in developer mode", async () => {
+	await mount("standup");
+	await userEvent.click(button(stage(), "Join voice"));
+
+	const tile = () =>
+		document.querySelector<HTMLElement>("[data-quality-tile]") as HTMLElement;
+
+	await expect.poll(tile).toBeTruthy();
+	expect(tile().dataset.clickable).toBeUndefined();
+	expect(tile().getAttribute("aria-label")).toMatch(/^Connection:/);
+
+	await lastStore?.preferences.setClient({ developerMode: true });
+
+	await expect.poll(() => tile().dataset.clickable).toBe("");
+
+	const panel = () =>
+		document.querySelector<HTMLElement>("[data-voice-status]") as HTMLElement;
+	const indicator = () =>
+		Array.from(panel().querySelectorAll<HTMLElement>("button")).find(
+			(element) =>
+				element.getAttribute("aria-label")?.startsWith("Connection") ?? false,
+		) as HTMLElement;
+
+	await expect.poll(() => panel()?.dataset.state).toBe("connected");
+	await userEvent.click(indicator());
+
+	const dialog = () => document.querySelector<HTMLElement>("[data-call-debug]");
+
+	await expect.poll(dialog).not.toBeNull();
+	await expect.poll(() => dialog()?.textContent).toContain("Node");
+
+	await userEvent.keyboard("{Escape}");
+
+	await expect.poll(dialog).toBeNull();
+});
+
 it("shows the floating window with video away from the call and snaps it to corners", async () => {
 	const host = await mount("standup");
 	await userEvent.click(button(stage(), "Join voice"));
