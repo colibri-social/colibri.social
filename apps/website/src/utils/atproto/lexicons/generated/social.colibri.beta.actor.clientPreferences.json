@@ -81,6 +81,15 @@
 						"type": "boolean",
 						"description": "Whether the client shows identifiers and links to inspect records."
 					},
+					"recordExplorer": {
+						"type": "string",
+						"maxLength": 32,
+						"knownValues": [
+							"pdsls",
+							"atprotoAt"
+						],
+						"description": "The site that developer mode links open records and identifiers in. Absent means pdsls."
+					},
 					"hideModeratedMessages": {
 						"type": "boolean",
 						"description": "Whether messages a moderator hid stay out of view for a user who could otherwise see them. A community can override this with social.colibri.beta.actor.spaceModeration."

@@ -164,30 +164,9 @@ describe("createAuth", () => {
 		expect(session.getItem("colibri:return-to")).toBe("/app/c/did:plc:space");
 	});
 
-	it("stops before the handoff when the provider has no Spaces support", async () => {
+	it("hands off to a provider without Spaces support like any other", async () => {
 		stubResolve(DID);
-		const spacesSupport = vi.fn(async () => false);
-		const { auth, fake } = setup(
-			{},
-			{ pdsHost: async () => "pds.example", spacesSupport },
-		);
-		await auth.init();
-		await auth.signIn("alice.example");
-		expect(spacesSupport).toHaveBeenCalledWith("pds.example");
-		expect(auth.error()?.code).toBe("SpacesUnsupported");
-		expect(auth.phase()).toBeUndefined();
-		expect(fake.calls.some((call) => call.method === "signIn")).toBe(false);
-	});
-
-	it.each([
-		["supported", true],
-		["unknown", undefined],
-	] as const)("continues to the provider when support is %s", async (_, answer) => {
-		stubResolve(DID);
-		const { auth, fake } = setup(
-			{},
-			{ pdsHost: async () => "pds.example", spacesSupport: async () => answer },
-		);
+		const { auth, fake } = setup({});
 		await auth.init();
 		void auth.signIn("alice.example");
 		await vi.waitFor(() => expect(auth.phase()).toBe("redirecting"));
@@ -197,14 +176,14 @@ describe("createAuth", () => {
 		);
 	});
 
-	it("checks the sign-up provider before creating an account", async () => {
-		const spacesSupport = vi.fn(async () => false);
-		const { auth, fake } = setup({}, { spacesSupport });
+	it("creates an account with any provider", async () => {
+		const { auth, fake } = setup({});
 		await auth.init();
-		await auth.signIn("https://signup.example", { create: true });
-		expect(spacesSupport).toHaveBeenCalledWith("signup.example");
-		expect(auth.error()?.code).toBe("SpacesUnsupported");
-		expect(fake.calls.some((call) => call.method === "signIn")).toBe(false);
+		void auth.signIn("https://signup.example", { create: true });
+		await vi.waitFor(() =>
+			expect(fake.calls.some((call) => call.method === "signIn")).toBe(true),
+		);
+		expect(auth.error()).toBeUndefined();
 	});
 
 	it("opens the native sign-in sheet and finishes inline", async () => {
@@ -438,7 +417,6 @@ const scopeSetup = (
 		},
 		{
 			storage: memoryStorage({ sub: DID }),
-			pdsHost: async () => undefined,
 			resumeEnvironment: null,
 			appVersion: "1.0.0",
 			...rest,

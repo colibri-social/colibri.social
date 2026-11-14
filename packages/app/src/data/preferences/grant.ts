@@ -1,4 +1,5 @@
 import { classifyThrown, colibri, createLogger } from "@colibri-social/lib";
+import type { HostModeSignal, HostStatus } from "../polyfill/host-mode";
 import type { Transport } from "../remote/transport";
 import { isMissingSpace, type PreferencesSpace } from "./remote";
 
@@ -27,8 +28,9 @@ export const regrantRetryDelay = (failures: number): number => {
 export const createPreferencesGrant = (input: {
 	transport: Transport;
 	space: PreferencesSpace;
+	host?: HostModeSignal;
 }) => {
-	const { transport, space } = input;
+	const { transport, space, host } = input;
 
 	const delegate = () =>
 		transport.pdsQuery<{ token: string }>(
@@ -58,7 +60,7 @@ export const createPreferencesGrant = (input: {
 		}
 	};
 
-	const start = () => {
+	const loop = () => {
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		let stopped = false;
 		let failures = 0;
@@ -84,6 +86,34 @@ export const createPreferencesGrant = (input: {
 		return () => {
 			stopped = true;
 			if (timer !== undefined) clearTimeout(timer);
+		};
+	};
+
+	const start = () => {
+		if (!host) return loop();
+
+		let stopped = false;
+		let stopLoop: (() => void) | undefined;
+
+		const follow = (status: HostStatus) => {
+			if (stopped) return;
+			if (status.mode === "native") {
+				stopLoop ??= loop();
+				return;
+			}
+
+			stopLoop?.();
+			stopLoop = undefined;
+		};
+
+		const unsubscribe = host.subscribe(follow);
+
+		void host.resolved().then(follow);
+
+		return () => {
+			stopped = true;
+			unsubscribe();
+			stopLoop?.();
 		};
 	};
 

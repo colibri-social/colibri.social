@@ -14,7 +14,6 @@ import type {
 	BridgePairingView,
 	BridgeRegistrationView,
 	BridgeRemoteRoom,
-	CategoryPermissions,
 	CategoryView,
 	ChannelView,
 	CommunityView,
@@ -27,6 +26,7 @@ import type {
 	MemberView,
 	MessageView,
 	NotificationView,
+	PermissionOverride,
 	Presence,
 	ProfileView,
 	ReactionEmojiRef,
@@ -356,12 +356,7 @@ export type CreateChannelInput = {
 	name: string;
 	category?: string;
 	description?: string;
-	private?: boolean;
-	ownerOnly?: boolean;
-	allowedRoles?: string[];
-	allowedMembers?: Did[];
-	visibleToRoles?: string[];
-	visibleToMembers?: Did[];
+	permissionOverrides?: PermissionOverride[];
 };
 
 export type UpdateChannelInput = {
@@ -369,13 +364,13 @@ export type UpdateChannelInput = {
 	name?: string;
 	description?: string;
 	category?: string;
-	ownerOnly?: boolean;
-	allowedRoles?: string[];
-	allowedMembers?: Did[];
 	linkEmbeds?: boolean;
 	removeLinkEmbeds?: boolean;
-	visibleToRoles?: string[];
-	visibleToMembers?: Did[];
+	permissionOverrides?: PermissionOverride[];
+};
+
+export type CategoryOverrides = {
+	permissionOverrides?: PermissionOverride[];
 };
 
 type CategoryTarget = { community: Did; category: string };
@@ -540,10 +535,10 @@ export type DataSource = AccessSource &
 		deleteChannel: (input: { channel: SpaceRef }) => Promise<void>;
 		updateChannel: (input: UpdateChannelInput) => Promise<ChannelView>;
 		createCategory: (
-			input: { community: Did; name: string } & CategoryPermissions,
+			input: { community: Did; name: string } & CategoryOverrides,
 		) => Promise<CategoryView>;
 		updateCategory: (
-			input: CategoryTarget & { name?: string } & CategoryPermissions,
+			input: CategoryTarget & { name?: string } & CategoryOverrides,
 		) => Promise<CategoryView>;
 		deleteCategory: (input: CategoryTarget) => Promise<void>;
 		reorderChannels: (

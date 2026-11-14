@@ -131,23 +131,6 @@ describe("sign-in", () => {
 			.toBeNull();
 	});
 
-	it("explains in plain words when the account's provider has no Spaces support", async () => {
-		stubResolve("did:plc:alice");
-		await mount(
-			{},
-			{ pdsHost: async () => "pds.example", spacesSupport: async () => false },
-		);
-		await userEvent.click(page.getByRole("button", { name: "Start setup" }));
-		await userEvent.type(page.getByRole("combobox"), "alice.example{Enter}");
-		await expect
-			.element(page.getByText(/doesn't support Spaces yet/))
-			.toBeVisible();
-		const text =
-			document.querySelector("[data-sign-in-error]")?.textContent ?? "";
-		expect(text).toContain("Create an account with a provider");
-		expect(text).not.toMatch(/handle|DID|PDS|OAuth|AppView|server/i);
-	});
-
 	it("shows the button as busy while handing off", async () => {
 		stubResolve(DID);
 		const { fake } = await mount({});
@@ -304,7 +287,6 @@ describe("sign-in", () => {
 			{ stored: fakeSession(DID, scope) },
 			{
 				storage: memoryStorage({ sub: DID }),
-				pdsHost: async () => undefined,
 				resumeEnvironment: null,
 			},
 		);

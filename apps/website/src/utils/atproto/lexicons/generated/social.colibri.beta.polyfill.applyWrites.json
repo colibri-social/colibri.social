@@ -1,0 +1,216 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.polyfill.applyWrites",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Writes records to the requesting user's repo in a space the AppView hosts for them. The write is authorized the way the space's authority would authorize it, stored, and indexed like a synced write. Records keep the URIs they will have on the user's PDS after a migration.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"space",
+						"writes"
+					],
+					"properties": {
+						"space": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The space holding the repo."
+						},
+						"writes": {
+							"type": "array",
+							"minLength": 1,
+							"maxLength": 200,
+							"items": {
+								"type": "union",
+								"refs": [
+									"#create",
+									"#update",
+									"#delete"
+								],
+								"closed": true
+							},
+							"description": "The writes, applied in order as one revision."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"results",
+						"rev"
+					],
+					"properties": {
+						"rev": {
+							"type": "string",
+							"format": "tid",
+							"description": "The repo revision after the writes."
+						},
+						"results": {
+							"type": "array",
+							"items": {
+								"type": "union",
+								"refs": [
+									"#createResult",
+									"#updateResult",
+									"#deleteResult"
+								],
+								"closed": true
+							},
+							"description": "One result per write, in the same order."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "SpaceNotFound",
+					"description": "No space matches the given space reference."
+				},
+				{
+					"name": "NotAuthorized",
+					"description": "The caller may not write to or read from this repo in the space."
+				},
+				{
+					"name": "RepoNotHosted",
+					"description": "The AppView does not host the caller's repo in this space, because it lives on the caller's PDS. Write to the PDS instead."
+				},
+				{
+					"name": "InvalidRecord",
+					"description": "A record failed validation against its lexicon."
+				},
+				{
+					"name": "RecordNotFound",
+					"description": "An update or delete names a record that does not exist."
+				}
+			]
+		},
+		"create": {
+			"type": "object",
+			"required": [
+				"collection",
+				"value"
+			],
+			"properties": {
+				"collection": {
+					"type": "string",
+					"format": "nsid",
+					"description": "The record's collection."
+				},
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "Defaults to a new TID."
+				},
+				"value": {
+					"type": "unknown",
+					"description": "The record itself."
+				}
+			},
+			"description": "Creates a record."
+		},
+		"update": {
+			"type": "object",
+			"required": [
+				"collection",
+				"rkey",
+				"value"
+			],
+			"properties": {
+				"collection": {
+					"type": "string",
+					"format": "nsid",
+					"description": "The record's collection."
+				},
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The record key."
+				},
+				"value": {
+					"type": "unknown",
+					"description": "The record itself."
+				}
+			},
+			"description": "Replaces a record."
+		},
+		"delete": {
+			"type": "object",
+			"required": [
+				"collection",
+				"rkey"
+			],
+			"properties": {
+				"collection": {
+					"type": "string",
+					"format": "nsid",
+					"description": "The record's collection."
+				},
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The record key."
+				}
+			},
+			"description": "Deletes a record."
+		},
+		"createResult": {
+			"type": "object",
+			"required": [
+				"uri",
+				"cid"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "at-uri",
+					"description": "The record's URI, the same one it keeps after a migration."
+				},
+				"cid": {
+					"type": "string",
+					"format": "cid",
+					"description": "The CID of the record or blob."
+				}
+			},
+			"description": "The outcome of a create."
+		},
+		"updateResult": {
+			"type": "object",
+			"required": [
+				"uri",
+				"cid"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "at-uri",
+					"description": "The record's URI, the same one it keeps after a migration."
+				},
+				"cid": {
+					"type": "string",
+					"format": "cid",
+					"description": "The CID of the record or blob."
+				}
+			},
+			"description": "The outcome of an update."
+		},
+		"deleteResult": {
+			"type": "object",
+			"properties": {},
+			"description": "The outcome of a delete."
+		}
+	}
+}

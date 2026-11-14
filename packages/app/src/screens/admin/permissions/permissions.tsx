@@ -1,90 +1,60 @@
 import {
 	AudiencePicker,
+	type ChannelPermissionScope,
+	DestructiveRow,
+	EMPTY_PERMISSION_OVERRIDE,
+	isEmptyPermissionOverride,
 	ListGroup,
-	NavRow,
-	ToggleRow,
+	type PermissionOverrideEntry,
+	PermissionOverrideList,
+	type PermissionOverrideTarget,
+	PermissionOverrideTargetList,
+	type PermissionOverrideValue,
+	permissionOverrideTargetName,
+	sortPermissionOverrideEntries,
 } from "@colibri-social/ui";
-import { EyeIcon } from "@solar-icons/solid/bold/eye";
-import { PenNewSquareIcon } from "@solar-icons/solid/bold/pen-new-square";
 import { createMemo, onMount, Show } from "solid-js";
+import type { PermissionOverride } from "../../../data/types";
 import { defineContract, slot } from "../../../screen/define";
 import type { AdminPage } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { UnsavedBar, type UnsavedForm } from "../../settings/unsaved-form";
 import { adminDraft, adminDraftKey, provideAdminDraft } from "../admin-draft";
-import {
-	type Audience,
-	type AudienceKind,
-	type AudienceOptions,
-	audienceSummary,
-} from "../channel/audience";
 import { AdminNavHeader } from "../desktop/page-header";
+import type { OverrideTargets } from "./override-targets";
 
 export type PermissionTarget = "channel" | "category";
 
 export type PermissionDraft = {
-	ownerOnly: () => boolean;
-	setOwnerOnly?: (ownerOnly: boolean) => void;
-	audience: (kind: AudienceKind) => Audience;
-	setAudience: (kind: AudienceKind, audience: Audience) => void;
-	options: AudienceOptions;
+	overrides: () => readonly PermissionOverride[];
+	setOverrides: (next: PermissionOverride[]) => void;
+	targets: OverrideTargets;
+	scope: () => ChannelPermissionScope;
+	canChange: (permission: string) => boolean;
 	disabled: () => boolean;
-	voice?: () => boolean;
 	form?: UnsavedForm;
 };
 
-const AUDIENCE_SEPARATOR = "~";
+const TARGET_SEPARATOR = "~";
+const ADD = "add";
 
-type PermissionCopy = {
-	title: string;
-	ownerOnly: string;
-	audience: Record<AudienceKind, string>;
-	empty: Record<AudienceKind, string>;
+const TITLES: Record<PermissionTarget, string> = {
+	channel: "Channel permissions",
+	category: "Category permissions",
 };
 
-const COPY: Record<PermissionTarget | "voice", PermissionCopy> = {
-	channel: {
-		title: "Channel permissions",
-		ownerOnly: "Only you can chat here.",
-		audience: { visible: "Who can see it", post: "Who can post in it" },
-		empty: {
-			visible:
-				"No roles or members specified. Every member will be able to see this channel!",
-			post: "No roles or members specified. Everyone will be allowed to chat here!",
-		},
-	},
-	voice: {
-		title: "Channel permissions",
-		ownerOnly: "Only you can join and chat here.",
-		audience: { visible: "Who can see it", post: "Who can join it" },
-		empty: {
-			visible:
-				"No roles or members specified. Every member will be able to see this voice channel!",
-			post: "No roles or members specified. Everyone will be allowed to join and chat here!",
-		},
-	},
-	category: {
-		title: "Category permissions",
-		ownerOnly: "Only you can chat in this category's channels.",
-		audience: { visible: "Who can see it", post: "Who can post in it" },
-		empty: {
-			visible:
-				"No roles or members specified. Every member will be able to see this category!",
-			post: "No roles or members specified. Everyone will be allowed to chat in its channels!",
-		},
-	},
+const INTRO: Record<PermissionTarget, string> = {
+	channel:
+		"Allow or deny permissions for a role or a single member in this channel. Inherit keeps what the category and the roles already set.",
+	category:
+		"Allow or deny permissions for a role or a single member in every channel of this category. Inherit keeps what the roles already set.",
 };
-
-const copyFor = (
-	target: PermissionTarget,
-	draft: PermissionDraft | undefined,
-) => COPY[target === "channel" && draft?.voice?.() ? "voice" : target];
 
 const permissionsPage = (target: PermissionTarget): AdminPage =>
 	`${target}-permissions`;
 
-const audiencePage = (target: PermissionTarget): AdminPage =>
+const targetPage = (target: PermissionTarget): AdminPage =>
 	`${target}-audience`;
 
 const draftKey = (target: PermissionTarget, space: string, id: string) =>
@@ -104,14 +74,53 @@ export const openPermissions = (
 	id: string,
 ) => stack.push({ kind: "admin", space, page: permissionsPage(target), id });
 
-const parseAudienceId = (id: string | undefined) => {
+const overrideKey = (target: { role?: string; member?: string }) => {
+	return target.role ? `role:${target.role}` : `member:${target.member}`;
+};
+
+const parseTargetId = (id: string | undefined) => {
 	const raw = id ?? "";
-	const split = raw.lastIndexOf(AUDIENCE_SEPARATOR);
-	const kind = raw.slice(split + 1);
-	return {
-		owner: split === -1 ? raw : raw.slice(0, split),
-		kind: (kind === "post" ? "post" : "visible") as AudienceKind,
-	};
+	const split = raw.indexOf(TARGET_SEPARATOR);
+	if (split === -1) return { owner: raw, target: ADD };
+
+	return { owner: raw.slice(0, split), target: raw.slice(split + 1) };
+};
+
+const overrideValue = (
+	overrides: readonly PermissionOverride[],
+	key: string,
+): PermissionOverrideValue => {
+	const found = overrides.find((override) => overrideKey(override) === key);
+	if (!found) return EMPTY_PERMISSION_OVERRIDE;
+
+	return { allow: found.allow ?? [], deny: found.deny ?? [] };
+};
+
+const withValue = (
+	overrides: readonly PermissionOverride[],
+	key: string,
+	value: PermissionOverrideValue,
+): PermissionOverride[] => {
+	const index = overrides.findIndex(
+		(override) => overrideKey(override) === key,
+	);
+	const target = key.startsWith("role:")
+		? { role: key.slice("role:".length) }
+		: { member: key.slice("member:".length) as PermissionOverride["member"] };
+	const next = { ...target, allow: [...value.allow], deny: [...value.deny] };
+
+	if (index === -1) return [...overrides, next];
+
+	return overrides.map((override, position) =>
+		position === index ? next : override,
+	);
+};
+
+const withoutTarget = (
+	overrides: readonly PermissionOverride[],
+	key: string,
+): PermissionOverride[] => {
+	return overrides.filter((override) => overrideKey(override) !== key);
 };
 
 const useDraft = (target: PermissionTarget, args: AdminArgs, owner: string) => {
@@ -119,8 +128,10 @@ const useDraft = (target: PermissionTarget, args: AdminArgs, owner: string) => {
 	const draft = createMemo(() =>
 		adminDraft<PermissionDraft>(draftKey(target, args.space, owner)),
 	);
+
 	onMount(() => {
 		if (draft()) return;
+
 		stack.replaceTop({
 			kind: "admin",
 			space: args.space,
@@ -128,7 +139,27 @@ const useDraft = (target: PermissionTarget, args: AdminArgs, owner: string) => {
 			id: owner,
 		});
 	});
+
 	return { stack, draft };
+};
+
+const entriesOf = (draft: PermissionDraft): PermissionOverrideEntry[] => {
+	const overrides = draft.overrides();
+	const shown = new Set(overrides.map(overrideKey));
+	const fallback = draft.targets.defaultRole();
+
+	if (fallback) shown.add(`role:${fallback}`);
+
+	const entries = [...shown].flatMap((key) => {
+		const target = draft.targets.resolve(key);
+		return target ? [{ target, value: overrideValue(overrides, key) }] : [];
+	});
+
+	return sortPermissionOverrideEntries(entries, draft.targets.position);
+};
+
+const targetKey = (target: PermissionOverrideTarget) => {
+	return `${target.kind}:${target.id}`;
 };
 
 export const createPermissionsContract = (
@@ -140,22 +171,25 @@ export const createPermissionsContract = (
 		model: (args: AdminArgs) => {
 			const owner = args.id ?? "";
 			const { stack, draft } = useDraft(target, args, owner);
-			const locked = () => {
-				const current = draft();
-				return !current || current.disabled() || current.ownerOnly();
-			};
+			const push = (suffix: string) =>
+				stack.push({
+					kind: "admin",
+					space: args.space,
+					page: targetPage(target),
+					id: `${owner}${TARGET_SEPARATOR}${suffix}`,
+				});
+
 			return {
-				copy: () => copyFor(target, draft()),
+				title: TITLES[target],
+				intro: INTRO[target],
 				draft,
-				locked,
+				entries: () => {
+					const current = draft();
+					return current ? entriesOf(current) : [];
+				},
 				back: () => stack.pop(),
-				pick: (kind: AudienceKind) =>
-					stack.push({
-						kind: "admin",
-						space: args.space,
-						page: audiencePage(target),
-						id: `${owner}${AUDIENCE_SEPARATOR}${kind}`,
-					}),
+				open: (entry: PermissionOverrideTarget) => push(targetKey(entry)),
+				add: () => push(ADD),
 			};
 		},
 		slots: {
@@ -164,43 +198,23 @@ export const createPermissionsContract = (
 					safeTop
 					kind="back"
 					onNavigate={m.back}
-					title={m.copy().title}
+					title={m.title}
 				/>
 			)),
 			Bar: slot((m) => <UnsavedBar form={m.draft()?.form} />),
 			Body: slot((m) => (
 				<Show when={m.draft()}>
 					{(draft) => (
-						<div data-permissions-page="" class="flex flex-col gap-6">
-							<Show when={draft().setOwnerOnly}>
-								{(setOwnerOnly) => (
-									<ListGroup>
-										<ToggleRow
-											title="Owner-only"
-											description={m.copy().ownerOnly}
-											checked={draft().ownerOnly()}
-											onChange={(checked) => setOwnerOnly()(checked)}
-											disabled={draft().disabled()}
-										/>
-									</ListGroup>
-								)}
-							</Show>
-							<ListGroup>
-								<NavRow
-									icon={<EyeIcon />}
-									label={m.copy().audience.visible}
-									value={audienceSummary(draft().audience("visible"))}
-									disabled={m.locked()}
-									onClick={() => m.pick("visible")}
-								/>
-								<NavRow
-									icon={<PenNewSquareIcon />}
-									label={m.copy().audience.post}
-									value={audienceSummary(draft().audience("post"))}
-									disabled={m.locked()}
-									onClick={() => m.pick("post")}
-								/>
-							</ListGroup>
+						<div data-permissions-page="" class="flex flex-col gap-4">
+							<p class="m-0 text-sm text-pretty text-muted-foreground">
+								{m.intro}
+							</p>
+							<PermissionOverrideTargetList
+								entries={m.entries()}
+								disabled={draft().disabled()}
+								onOpen={m.open}
+								onAdd={m.add}
+							/>
 						</div>
 					)}
 				</Show>
@@ -212,29 +226,92 @@ export const createAudienceContract = (id: string, target: PermissionTarget) =>
 	defineContract({
 		id,
 		model: (args: AdminArgs) => {
-			const parsed = parseAudienceId(args.id);
+			const parsed = parseTargetId(args.id);
 			const { stack, draft } = useDraft(target, args, parsed.owner);
-			const selected = () => draft()?.audience(parsed.kind);
-			const empty = () => {
-				const current = selected();
-				return (
-					!current ||
-					(current.roles.length === 0 && current.members.length === 0)
-				);
+			const adding = parsed.target === ADD;
+			const resolved = () => draft()?.targets.resolve(parsed.target);
+			const isDefault = () => {
+				const current = resolved();
+				return current?.kind === "role" && current.isDefault === true;
 			};
+			const used = (key: string) => {
+				const current = draft();
+				if (!current) return true;
+				if (key === `role:${current.targets.defaultRole()}`) return true;
+
+				return current
+					.overrides()
+					.some((override) => overrideKey(override) === key);
+			};
+
+			const pick = (key: string) => {
+				const current = draft();
+				if (!current || used(key)) return;
+
+				current.setOverrides(
+					withValue(current.overrides(), key, EMPTY_PERMISSION_OVERRIDE),
+				);
+				stack.replaceTop({
+					kind: "admin",
+					space: args.space,
+					page: targetPage(target),
+					id: `${parsed.owner}${TARGET_SEPARATOR}${key}`,
+				});
+			};
+
 			return {
-				kind: parsed.kind,
-				copy: () => copyFor(target, draft()),
+				adding,
 				draft,
-				selected,
-				empty,
-				back: () => stack.pop(),
-				change: (next: Partial<Audience>) => {
-					const current = draft();
-					const base = selected();
-					if (!current || !base) return;
-					current.setAudience(parsed.kind, { ...base, ...next });
+				resolved,
+				isDefault,
+				title: () => {
+					if (adding) return "Add role or member";
+
+					const current = resolved();
+					return current
+						? permissionOverrideTargetName(current)
+						: TITLES[target];
 				},
+				value: () => overrideValue(draft()?.overrides() ?? [], parsed.target),
+				editable: () => {
+					const current = draft();
+					return (
+						!!current &&
+						!current.disabled() &&
+						current.targets.canTarget(parsed.target)
+					);
+				},
+				change: (value: PermissionOverrideValue) => {
+					const current = draft();
+					if (!current) return;
+
+					current.setOverrides(
+						withValue(current.overrides(), parsed.target, value),
+					);
+				},
+				remove: () => {
+					const current = draft();
+					if (!current) return;
+
+					current.setOverrides(
+						withoutTarget(current.overrides(), parsed.target),
+					);
+					stack.pop();
+				},
+				canPickRole: (rkey: string) =>
+					!used(`role:${rkey}`) && !!draft()?.targets.canTarget(`role:${rkey}`),
+				canPickMember: (did: string) =>
+					!used(`member:${did}`) &&
+					!!draft()?.targets.canTarget(`member:${did}`),
+				pickRole: (ids: string[]) => {
+					const [rkey] = ids;
+					if (rkey) pick(`role:${rkey}`);
+				},
+				pickMember: (ids: string[]) => {
+					const [did] = ids;
+					if (did) pick(`member:${did}`);
+				},
+				back: () => stack.pop(),
 			};
 		},
 		slots: {
@@ -243,33 +320,84 @@ export const createAudienceContract = (id: string, target: PermissionTarget) =>
 					safeTop
 					kind="back"
 					onNavigate={m.back}
-					title={m.copy().audience[m.kind]}
+					title={m.title()}
 				/>
 			)),
 			Bar: slot((m) => <UnsavedBar form={m.draft()?.form} />),
 			Body: slot((m) => (
 				<Show when={m.draft()}>
 					{(draft) => (
-						<div data-audience-page={m.kind} class="flex flex-col gap-4">
-							<p class="m-0 text-sm text-pretty text-muted-foreground">
-								{m.empty()
-									? m.copy().empty[m.kind]
-									: "Only the roles and members you pick are allowed."}
-							</p>
-							<AudiencePicker
-								searchLabel="Search members and roles"
-								roles={draft().options.roles()}
-								members={draft().options.members()}
-								selectedRoles={m.selected()?.roles ?? []}
-								selectedMembers={m.selected()?.members ?? []}
-								onRolesChange={(roles) => m.change({ roles })}
-								onMembersChange={(members) => m.change({ members })}
-								canSelectRole={draft().options.canSelectRole}
-								canSelectMember={draft().options.canSelectMember}
-							/>
-						</div>
+						<Show
+							when={!m.adding}
+							fallback={
+								<div data-override-add="" class="flex flex-col gap-4">
+									<AudiencePicker
+										searchLabel="Search members and roles"
+										roles={draft().targets.roleOptions()}
+										members={draft().targets.memberOptions()}
+										selectedRoles={[]}
+										selectedMembers={[]}
+										onRolesChange={m.pickRole}
+										onMembersChange={m.pickMember}
+										canSelectRole={m.canPickRole}
+										canSelectMember={m.canPickMember}
+									/>
+								</div>
+							}
+						>
+							<div data-override-editor="" class="flex flex-col gap-6">
+								<PermissionOverrideList
+									scope={draft().scope()}
+									value={m.value()}
+									onChange={m.change}
+									canChange={draft().canChange}
+									disabled={!m.editable()}
+								/>
+								<Show when={!m.isDefault() && m.editable()}>
+									<ListGroup>
+										<DestructiveRow
+											label="Remove override"
+											onClick={m.remove}
+										/>
+									</ListGroup>
+								</Show>
+							</div>
+						</Show>
 					)}
 				</Show>
 			)),
 		},
 	});
+
+export const cleanOverrides = (
+	overrides: readonly PermissionOverride[],
+): PermissionOverride[] => {
+	return overrides
+		.filter(
+			(override) =>
+				!isEmptyPermissionOverride({
+					allow: override.allow ?? [],
+					deny: override.deny ?? [],
+				}),
+		)
+		.map((override) => ({
+			...(override.role ? { role: override.role } : {}),
+			...(override.member ? { member: override.member } : {}),
+			allow: [...(override.allow ?? [])].sort(),
+			deny: [...(override.deny ?? [])].sort(),
+		}));
+};
+
+export const sameOverrides = (
+	left: readonly PermissionOverride[],
+	right: readonly PermissionOverride[],
+) => {
+	const canonical = (overrides: readonly PermissionOverride[]) =>
+		JSON.stringify(
+			cleanOverrides(overrides).sort((a, b) =>
+				overrideKey(a).localeCompare(overrideKey(b)),
+			),
+		);
+
+	return canonical(left) === canonical(right);
+};

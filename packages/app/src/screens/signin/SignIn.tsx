@@ -39,15 +39,6 @@ const SIGNUP_UNAVAILABLE: ErrorCopy = {
 	description: "You can still sign in with an account you already have.",
 };
 
-const PROVIDER_WITHOUT_SPACES: ErrorCopy = {
-	title: "Your account's provider doesn't support Spaces yet",
-	description:
-		"Colibri keeps your Spaces with the provider that holds your account, and yours can't do that so far. Create an account with a provider that supports Spaces to use Colibri.",
-};
-
-const isSpacesUnsupported = (failure: ColibriError) =>
-	failure.code === "SpacesUnsupported";
-
 type SignedOutStep = "welcome" | "sign-in" | "create-account";
 
 const TITLES: Record<SignedOutStep, string> = {
@@ -150,13 +141,12 @@ export const SignInFlow = (props: SignInFlowProps) => {
 	const signupNotice = (): ErrorCopy | undefined => {
 		if (signupBlocked()) return SIGNUP_UNAVAILABLE;
 		const failure = props.auth.error();
-		if (failure && isSpacesUnsupported(failure)) return SIGNUP_UNAVAILABLE;
+
 		return failure ? describeError(failure) : undefined;
 	};
 
 	const notice = (): ErrorCopy | undefined => {
 		const failure: ColibriError | undefined = props.auth.error();
-		if (failure && isSpacesUnsupported(failure)) return PROVIDER_WITHOUT_SPACES;
 		if (failure) return describeError(failure);
 		const expired = props.auth.status() === "expired";
 		if (expired) return copyForCode(props.auth.expiredCode() ?? "ExpiredToken");

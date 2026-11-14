@@ -97,8 +97,8 @@ importers:
         specifier: workspace:0.0.2
         version: link:../../packages/assets
       '@colibri-social/lexicons':
-        specifier: ^2.38.0
-        version: 2.38.0
+        specifier: ^2.39.0
+        version: 2.39.0
       '@colibri-social/lib':
         specifier: workspace:*
         version: link:../../packages/lib
@@ -237,8 +237,8 @@ importers:
         version: 1.9.15
     devDependencies:
       '@colibri-social/lexicons':
-        specifier: ^2.38.0
-        version: 2.38.0
+        specifier: ^2.39.0
+        version: 2.39.0
       '@sentry/vite-plugin':
         specifier: ^5.3.0
         version: 5.4.0(supports-color@11.0.0)
@@ -292,8 +292,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20261112204144
         version: 0.0.0-spaces-alpha-20261112204144
       '@colibri-social/lexicons':
-        specifier: ^2.38.0
-        version: 2.38.0
+        specifier: ^2.39.0
+        version: 2.39.0
       mdast-util-from-markdown:
         specifier: ^2.0.2
         version: 2.0.3(supports-color@11.0.0)
@@ -432,6 +432,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.1.18
         version: 4.3.3(vite@8.3.0(@types/node@25.9.7)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1))
+      '@types/upng-js':
+        specifier: 2.1.5
+        version: 2.1.5
       '@vitest/browser':
         specifier: ^4.1.10
         version: 4.1.11(vite@8.3.0(@types/node@25.9.7)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1))(vitest@4.1.11)
@@ -1159,8 +1162,8 @@ packages:
     resolution: {integrity: sha512-dlT1m5e/0yUL0kRNcQn7yGLVThkgbB0Ga/1AmfDDC/8ik6AIiSf2QLQO2zPYvefsHP0aFgxO93cVLCCfDp7kzQ==}
     engines: {node: '>= 20.12.0'}
 
-  '@colibri-social/lexicons@2.38.0':
-    resolution: {integrity: sha512-Bg3fNyRwaYmJdD7LJaLWddV4jNByCBqjTzhScKD80ov2Dvc2t7BGrebn2c12LOGMiZI+DjSZCZXPoyu3KPWHBg==}
+  '@colibri-social/lexicons@2.39.0':
+    resolution: {integrity: sha512-79cQ9qbIAqzXRXFGvz4hgyLH8rCOMMczquTpIYi4XCy8I3kwRC3aLBeCbBQgINu6nLD5kRLA30oo114X+sH/jA==}
 
   '@corvu/dialog@0.2.4':
     resolution: {integrity: sha512-n54vJq+fOy8GVrnYBdJpD6JXNuyx7LOeMrRxwzAvZnYGpW8+AA12tnb/P/2emJj/HjOO5otheGKb0breshdFlA==}
@@ -3209,6 +3212,9 @@ packages:
 
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
+
+  '@types/upng-js@2.1.5':
+    resolution: {integrity: sha512-CzXg1lcCcWzrmYmke9BLbBPzb2DpdC1bXuXf0BtK3Bygvsozslei8S1bheDI1QUfZzZpMeQI5fywfnMj4CxocQ==}
 
   '@types/whatwg-mimetype@3.0.2':
     resolution: {integrity: sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA==}
@@ -6909,7 +6915,7 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
 
-  '@colibri-social/lexicons@2.38.0':
+  '@colibri-social/lexicons@2.39.0':
     dependencies:
       '@atproto/lex': 0.0.0-spaces-alpha-20261112204144
       '@atproto/lex-data': 0.0.0-spaces-alpha-20261112204144
@@ -8567,6 +8573,8 @@ snapshots:
   '@types/unist@2.0.11': {}
 
   '@types/unist@3.0.3': {}
+
+  '@types/upng-js@2.1.5': {}
 
   '@types/whatwg-mimetype@3.0.2':
     optional: true

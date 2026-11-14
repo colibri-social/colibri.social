@@ -239,6 +239,7 @@ export * from "./components/UserSettings/DeleteAccount";
 export * from "./components/UserSettings/NotificationSettings";
 export * from "./components/UserSettings/SettingsIndex";
 export * from "./components/UserSettings/SpaceNotificationSettings";
+export * from "./components/UserSettings/StorageNotice";
 export * from "./components/UserSettings/types";
 export * from "./components/Voice/CallControls";
 export * from "./components/Voice/CallDebugDialog";

@@ -31,6 +31,7 @@ import {
 	Show,
 } from "solid-js";
 import { formatAge } from "../../../data/adapters/time";
+import { viewerCan } from "../../../data/channel-permissions";
 import { channelSlug, skeyOf } from "../../../data/ids";
 import type { ChannelData, DataStore, SpaceData } from "../../../data/store";
 import type {
@@ -50,6 +51,7 @@ import {
 	moveBlock,
 	movedToast,
 	sharedOrigin,
+	viewAudience,
 } from "./move-plan";
 
 const [activeSelections, setActiveSelections] = createSignal(0);
@@ -104,17 +106,17 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 	const active = () => keys().length > 0;
 	const here = () => options.feed()?.channel;
 
-	const canMove = () => {
-		const viewer = options.community()?.viewer;
-		return !!viewer?.isOwner || !!viewer?.permissions?.includes("thread.move");
+	const hereChannel = () => {
+		const ref = here();
+		if (!ref) return undefined;
+		return channelByRef(threadByRef(ref)?.channel ?? ref);
 	};
 
-	const canCreateThread = () => {
-		const viewer = options.community()?.viewer;
-		return (
-			!!viewer?.isOwner || !!viewer?.permissions?.includes("thread.create")
-		);
-	};
+	const canMove = () =>
+		viewerCan(options.community(), hereChannel(), "thread.move");
+
+	const canCreateThread = () =>
+		viewerCan(options.community(), hereChannel(), "thread.create");
 
 	const selected = createMemo(() => {
 		const set = new Set(keys());
@@ -348,10 +350,13 @@ export const createMessageSelection = (options: MessageSelectionOptions) => {
 		if (!ref) return {};
 		const thread = threadByRef(ref);
 		const channel = channelByRef(thread?.channel ?? ref);
-		return {
-			visibleToRoles: channel?.visibleToRoles,
-			visibleToMembers: channel?.visibleToMembers,
-		};
+		const category = channel?.category
+			? options
+					.space()
+					?.categories.value()
+					?.find((entry) => entry.rkey === channel.category)
+			: undefined;
+		return viewAudience(channel, category);
 	};
 
 	const shift = (destination: Destination) =>

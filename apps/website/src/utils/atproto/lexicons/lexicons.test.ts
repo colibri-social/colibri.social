@@ -16,6 +16,7 @@ const SCHEMALESS_METHODS: Record<string, string> = {
 	"social.colibri.beta.blob.get": "Streams bytes, encoding is */*.",
 	"social.colibri.beta.embed.getImage": "Streams bytes, encoding is image/*.",
 	"social.colibri.beta.embed.getVideo": "Streams bytes, encoding is video/*.",
+	"social.colibri.beta.polyfill.getBlob": "Streams bytes, encoding is */*.",
 };
 
 const METHOD_TYPES = new Set(["query", "procedure"]);

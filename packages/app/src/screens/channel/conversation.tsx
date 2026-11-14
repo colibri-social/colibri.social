@@ -43,6 +43,7 @@ import {
 	reactionFor,
 	reactionShortcode,
 } from "../../data/adapters/reactions";
+import { viewerCan } from "../../data/channel-permissions";
 import { describeError, VOICE_CHAT_UNAVAILABLE } from "../../data/error-copy";
 import { channelSlug, skeyOf, spaceKey } from "../../data/ids";
 import {
@@ -578,10 +579,7 @@ export const createConversation = (options: ConversationOptions) => {
 		if (!ref || ref.includes("/social.colibri.beta.channel.thread/")) {
 			return false;
 		}
-		const viewer = community()?.viewer;
-		return (
-			!!viewer?.isOwner || !!viewer?.permissions?.includes("thread.create")
-		);
+		return viewerCan(community(), view(), "thread.create");
 	};
 
 	const startThread = (message: ChatMessage) => {
@@ -594,10 +592,7 @@ export const createConversation = (options: ConversationOptions) => {
 		});
 	};
 
-	const canModerate = () => {
-		const viewer = community()?.viewer;
-		return !!viewer?.isOwner || !!viewer?.permissions?.includes("label.apply");
-	};
+	const canModerate = () => viewerCan(community(), view(), "label.apply");
 
 	const [shownBlocked, setShownBlocked] = createSignal<ReadonlySet<string>>(
 		new Set(),

@@ -217,6 +217,31 @@ const pick = (scope: ParentNode, name: string) =>
 		).find((element) => element.textContent?.includes(name))
 	)?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
+const overrideTargets = (scope: ParentNode) =>
+	Array.from(scope.querySelectorAll<HTMLElement>("[data-override-target]")).map(
+		(element) => element.dataset.overrideTarget,
+	);
+
+const overrideRow = (scope: ParentNode, permission: string) =>
+	scope.querySelector<HTMLElement>(
+		`[data-permission-override-row="${permission}"]`,
+	);
+
+const overrideState = (scope: ParentNode, permission: string) =>
+	overrideRow(scope, permission)?.dataset.overrideState;
+
+const chooseOverride = (
+	scope: ParentNode,
+	permission: string,
+	state: "Deny" | "Inherit" | "Allow",
+) =>
+	Array.from(
+		overrideRow(scope, permission)?.querySelectorAll<HTMLElement>("label") ??
+			[],
+	)
+		.find((element) => element.textContent?.trim() === state)
+		?.click();
+
 const openSpaceMenuEntry = async (root: HTMLElement, entry: string) => {
 	await until(() => !!buttonNamed(root, /^Colibri HQ, Space options/));
 	buttonNamed(root, /^Colibri HQ, Space options/)?.click();
@@ -363,21 +388,19 @@ describe("channel settings", () => {
 		expect(space.channelBySlug("design")?.linkEmbeds).toBeUndefined();
 	});
 
-	it("words the permissions of a voice channel around joining", async () => {
+	it("offers voice permissions for a voice channel", async () => {
 		const { root } = await mount(`/app/c/${HQ}/manage/channel/lounge`);
 		const page = await openPage(root, "Channel settings");
 		buttonNamed(page, /^Channel permissions/)?.click();
 		const permissions = await openPage(root, "Channel permissions");
-		expect(buttonNamed(permissions, /^Who can join it/)).toBeTruthy();
-		expect(buttonNamed(permissions, /^Who can post in it/)).toBeUndefined();
-		expect(permissions.textContent).toContain(
-			"Only you can join and chat here.",
-		);
-		buttonNamed(permissions, /^Who can join it/)?.click();
-		const picker = await openPage(root, "Who can join it");
-		expect(picker.textContent).toContain(
-			"No roles or members specified. Everyone will be allowed to join and chat here!",
-		);
+		permissions
+			.querySelector<HTMLElement>('[data-override-target="members"]')
+			?.click();
+		const editor = await openPage(root, "Members");
+		await until(() => !!overrideRow(editor, "voice.connect"));
+		expect(overrideRow(editor, "voice.speak")).not.toBeNull();
+		expect(overrideRow(editor, "message.send")).toBeNull();
+		expect(overrideRow(editor, "thread.create")).toBeNull();
 	});
 
 	it("edits channel permissions on pushed pages that go back one level at a time", async () => {
@@ -389,34 +412,71 @@ describe("channel settings", () => {
 			`/app/c/${HQ}/manage/channel-permissions/dev`,
 		);
 		expect(document.querySelector("[data-full-screen-sheet]")).toBeNull();
-		expect(permissions.textContent).not.toContain("Control who can see");
 		await expectNoLayoutIssues(permissions);
-		const row = () => buttonNamed(permissions, /^Who can see it/);
-		expect(row()?.textContent).toContain("Everyone");
-		row()?.click();
-		const picker = await openPage(root, "Who can see it");
+		expect(overrideTargets(permissions)).toEqual(["members"]);
+		buttonNamed(permissions, "Add")?.click();
+		const picker = await openPage(root, "Add role or member");
 		expect(location.pathname).toBe(
-			`/app/c/${HQ}/manage/channel-audience/dev~visible`,
+			`/app/c/${HQ}/manage/channel-audience/dev~add`,
 		);
 		await until(() => picker.querySelector("[data-audience-picker]") !== null);
 		await expectNoLayoutIssues(picker);
 		pick(picker, "Moderators");
-		await until(() => barShown(picker));
+		const editor = await openPage(root, "Moderators");
+		await until(() => editor.querySelector("[data-override-editor]") !== null);
+		expect(overrideRow(editor, "voice.speak")).toBeNull();
+		chooseOverride(editor, "message.send", "Deny");
+		await until(() => overrideState(editor, "message.send") === "deny");
+		await until(() => barShown(editor));
+		await expectNoLayoutIssues(editor);
 		backFrom(root);
 		await until(
 			() => location.pathname === `/app/c/${HQ}/manage/channel-permissions/dev`,
 		);
 		await settledActive(root);
-		expect(row()?.textContent).toContain("1 role");
+		expect(overrideTargets(permissions)).toEqual(["members", "mods"]);
+		expect(
+			permissions.querySelector('[data-override-target="mods"]')?.textContent,
+		).toContain("1 denied");
 		expect(barShown(permissions)).toBe(true);
 		backFrom(root);
 		await until(() => location.pathname === `/app/c/${HQ}/manage/channel/dev`);
 		await settledActive(root);
 		await saveFromBar(page);
-		await until(() => !!space.channelBySlug("dev")?.visibleToRoles?.length);
-		expect(space.channelBySlug("dev")?.visibleToRoles).toEqual(["mods"]);
+		await until(
+			() => !!space.channelBySlug("dev")?.permissionOverrides?.length,
+		);
+		expect(space.channelBySlug("dev")?.permissionOverrides).toEqual([
+			{ role: "mods", allow: [], deny: ["message.send"] },
+		]);
 		await until(() => !barShown(page));
 		expect(location.pathname).toBe(`/app/c/${HQ}/manage/channel/dev`);
+	});
+
+	it("removes a member override from its editor", async () => {
+		const { root } = await mount(`/app/c/${HQ}/manage/channel/dev`);
+		const page = await openPage(root, "Channel settings");
+		buttonNamed(page, /^Channel permissions/)?.click();
+		const permissions = await openPage(root, "Channel permissions");
+		buttonNamed(permissions, "Add")?.click();
+		const picker = await openPage(root, "Add role or member");
+		await until(() => picker.querySelector("[data-audience-picker]") !== null);
+		await until(() => picker.textContent?.includes("Mira Okafor") ?? false);
+		pick(picker, "Mira Okafor");
+		await until(() =>
+			decodeURIComponent(location.pathname).includes("~member:"),
+		);
+		const did = decodeURIComponent(location.pathname).split("~member:")[1];
+		await until(() => !!topPane(root).querySelector("[data-override-editor]"));
+		await settledActive(root);
+		const editor = topPane(root);
+		expect(overrideTargets(permissions)).toContain(did);
+		buttonNamed(editor, "Remove override")?.click();
+		await until(
+			() => location.pathname === `/app/c/${HQ}/manage/channel-permissions/dev`,
+		);
+		await settledActive(root);
+		expect(overrideTargets(permissions)).not.toContain(did);
 	});
 
 	it("opens the channel settings when a permissions link has no settings page under it", async () => {
@@ -534,7 +594,11 @@ describe("channel creation", () => {
 		const created = (space.channels.value() ?? []).find(
 			(channel) => channel.name === "launch-room",
 		);
-		expect(created?.visibleToRoles).toEqual(["mods"]);
+		expect(created?.permissionOverrides).toEqual([
+			{ role: "members", allow: [], deny: ["channel.view"] },
+			{ role: "mods", allow: ["channel.view"], deny: [] },
+		]);
+		expect(created?.private).toBe(true);
 		await until(() =>
 			location.pathname.endsWith(
 				`/${channelSlug(created ?? { space: "x" as never })}`,
@@ -561,7 +625,10 @@ describe("channel creation", () => {
 		const created = (space.channels.value() ?? []).find(
 			(channel) => channel.name === "secret-plans",
 		);
-		expect(created?.visibleToMembers).toEqual([store.viewer.did]);
+		expect(created?.permissionOverrides).toEqual([
+			{ role: "members", allow: [], deny: ["channel.view"] },
+			{ member: store.viewer.did, allow: ["channel.view"], deny: [] },
+		]);
 		await until(() =>
 			location.pathname.includes("/social.colibri.beta.channel.text/"),
 		);
@@ -636,35 +703,43 @@ describe("categories", () => {
 		expect(location.pathname).toBe(`/app/c/${HQ}/manage/category/build`);
 	});
 
-	it("applies category see and post permissions to every channel in it", async () => {
+	it("applies category overrides to every channel in it", async () => {
 		const { root, space } = await mount(`/app/c/${HQ}/manage/category/build`);
 		const page = await openPage(root, "Category settings");
 		buttonNamed(page, /^Category permissions/)?.click();
 		const permissions = await openPage(root, "Category permissions");
 		expect(document.querySelector("[data-full-screen-sheet]")).toBeNull();
 		await expectNoLayoutIssues(permissions);
-		for (const [label, role] of [
-			["Who can see it", "Moderators"],
-			["Who can post in it", "Core team"],
-		] as const) {
-			buttonNamed(permissions, new RegExp(`^${label}`))?.click();
-			const picker = await openPage(root, label);
-			await until(
-				() => picker.querySelector("[data-audience-picker]") !== null,
-			);
-			pick(picker, role);
-			backFrom(root);
-			await until(() =>
-				location.pathname.endsWith("/manage/category-permissions/build"),
-			);
-			await settledActive(root);
-		}
-		expect(buttonNamed(permissions, /^Who can see it/)?.textContent).toContain(
-			"1 role",
+		permissions
+			.querySelector<HTMLElement>('[data-override-target="members"]')
+			?.click();
+		const members = await openPage(root, "Members");
+		await until(() => !!overrideRow(members, "voice.speak"));
+		expect(members.textContent).not.toContain("Remove override");
+		chooseOverride(members, "channel.view", "Deny");
+		await until(() => overrideState(members, "channel.view") === "deny");
+		backFrom(root);
+		await until(() =>
+			location.pathname.endsWith("/manage/category-permissions/build"),
 		);
+		await settledActive(root);
+		buttonNamed(permissions, "Add")?.click();
+		const picker = await openPage(root, "Add role or member");
+		await until(() => picker.querySelector("[data-audience-picker]") !== null);
+		pick(picker, "Moderators");
+		const mods = await openPage(root, "Moderators");
+		await until(() => !!overrideRow(mods, "channel.view"));
+		chooseOverride(mods, "channel.view", "Allow");
+		await until(() => overrideState(mods, "channel.view") === "allow");
+		backFrom(root);
+		await until(() =>
+			location.pathname.endsWith("/manage/category-permissions/build"),
+		);
+		await settledActive(root);
 		expect(
-			buttonNamed(permissions, /^Who can post in it/)?.textContent,
-		).toContain("1 role");
+			permissions.querySelector('[data-override-target="members"]')
+				?.textContent,
+		).toContain("1 denied");
 		backFrom(root);
 		await until(() => location.pathname.endsWith("/manage/category/build"));
 		await settledActive(root);
@@ -673,15 +748,19 @@ describe("categories", () => {
 			(space.categories.value() ?? []).find(
 				(category) => category.rkey === "build",
 			);
-		await until(() => build()?.visibleToRoles?.[0] === "mods");
-		expect(build()?.allowedRoles?.length).toBe(1);
-		expect(build()?.private).toBe(true);
+		await until(() => build()?.private === true);
+		expect(build()?.permissionOverrides).toEqual([
+			{ role: "members", allow: [], deny: ["channel.view"] },
+			{ role: "mods", allow: ["channel.view"], deny: [] },
+		]);
 		await until(
 			() =>
 				!!build()?.channels.length &&
 				!!build()?.channels.every((channel) => {
 					const served = space.channelBySlug(channelSlug(channel));
-					return served?.private === true && !served.visibleToRoles?.length;
+					return (
+						served?.private === true && !served.permissionOverrides?.length
+					);
 				}),
 		);
 		await until(() => !barShown(page));
@@ -730,8 +809,8 @@ describe("categories", () => {
 			(category) => category.name === "Events",
 		);
 		expect(created?.category).toBe(events?.rkey);
-		expect(events?.visibleToRoles).toEqual(["mods"]);
-		expect(created?.visibleToRoles ?? []).toEqual([]);
+		expect(events?.private).toBe(true);
+		expect(created?.permissionOverrides ?? []).toEqual([]);
 		expect(created?.private).toBe(true);
 	});
 
@@ -822,7 +901,7 @@ describe("desktop creation", () => {
 		const created = (space.channels.value() ?? []).find(
 			(channel) => channel.name === "launch-room",
 		);
-		expect(created?.visibleToRoles).toEqual(["mods"]);
+		expect(created?.private).toBe(true);
 		await until(() =>
 			location.pathname.endsWith(
 				`/${channelSlug(created ?? { space: "x" as never })}`,
@@ -860,7 +939,11 @@ describe("desktop creation", () => {
 		const events = (space.categories.value() ?? []).find(
 			(category) => category.name === "Events",
 		);
-		expect(events?.visibleToRoles).toEqual(["mods"]);
+		expect(events?.permissionOverrides).toContainEqual({
+			role: "mods",
+			allow: ["channel.view"],
+			deny: [],
+		});
 		await until(() => !location.pathname.includes("/manage/"));
 		await until(() => !document.querySelector('[role="dialog"]'));
 	});

@@ -46,45 +46,14 @@
 							"maxLength": 256,
 							"description": "The channel's topic."
 						},
-						"ownerOnly": {
-							"type": "boolean",
-							"description": "Whether only community admins may post."
-						},
-						"allowedRoles": {
+						"permissionOverrides": {
 							"type": "array",
 							"items": {
-								"type": "string",
-								"format": "record-key",
-								"description": "A role permitted to post."
+								"type": "ref",
+								"ref": "social.colibri.beta.defs#permissionOverride"
 							},
-							"description": "Roles allowed to post here."
-						},
-						"allowedMembers": {
-							"type": "array",
-							"items": {
-								"type": "string",
-								"format": "did",
-								"description": "A member permitted to post."
-							},
-							"description": "Members allowed to post here in addition to allowedRoles."
-						},
-						"visibleToRoles": {
-							"type": "array",
-							"description": "Roles that may read this channel. Empty means every member may.",
-							"items": {
-								"type": "string",
-								"format": "record-key",
-								"description": "A role."
-							}
-						},
-						"visibleToMembers": {
-							"type": "array",
-							"description": "Members that may read this channel beyond visibleToRoles.",
-							"items": {
-								"type": "string",
-								"format": "did",
-								"description": "A member."
-							}
+							"maxLength": 200,
+							"description": "Per-role and per-member permission overrides."
 						}
 					}
 				}

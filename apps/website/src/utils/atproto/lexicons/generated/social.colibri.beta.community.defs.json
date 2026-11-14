@@ -171,49 +171,18 @@
 					},
 					"description": "Channels in display order."
 				},
-				"ownerOnly": {
-					"type": "boolean",
-					"description": "Whether only community admins may post in the category's channels. A channel that sets its own posting restriction overrides this."
-				},
-				"allowedRoles": {
-					"type": "array",
-					"items": {
-						"type": "string",
-						"format": "record-key",
-						"description": "A role permitted to post."
-					},
-					"description": "Roles allowed to post in the category's channels. Empty means no role restriction. A channel that sets its own posting restriction overrides this."
-				},
-				"allowedMembers": {
-					"type": "array",
-					"items": {
-						"type": "string",
-						"format": "did",
-						"description": "A member permitted to post."
-					},
-					"description": "Members allowed to post in the category's channels in addition to allowedRoles."
-				},
-				"visibleToRoles": {
-					"type": "array",
-					"description": "Roles that may read the category's channels. Empty or absent means every member may read them. A channel with its own non-empty visibleToRoles or visibleToMembers overrides this. A non-empty list makes the category's other channels private, enforced the same way as a private channel.",
-					"items": {
-						"type": "string",
-						"format": "record-key",
-						"description": "A role permitted to read."
-					}
-				},
-				"visibleToMembers": {
-					"type": "array",
-					"description": "Members that may read the category's channels in addition to visibleToRoles.",
-					"items": {
-						"type": "string",
-						"format": "did",
-						"description": "A member permitted to read."
-					}
-				},
 				"private": {
 					"type": "boolean",
-					"description": "Whether the category restricts who may read its channels."
+					"description": "Whether the default role is denied channel.view in the category."
+				},
+				"permissionOverrides": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.defs#permissionOverride"
+					},
+					"maxLength": 200,
+					"description": "Per-role and per-member permission overrides set here."
 				}
 			}
 		},
@@ -253,28 +222,6 @@
 					"format": "record-key",
 					"description": "The category this channel is listed under."
 				},
-				"ownerOnly": {
-					"type": "boolean",
-					"description": "Whether only admins may post."
-				},
-				"allowedRoles": {
-					"type": "array",
-					"items": {
-						"type": "string",
-						"format": "record-key",
-						"description": "A role."
-					},
-					"description": "Roles allowed to post."
-				},
-				"allowedMembers": {
-					"type": "array",
-					"items": {
-						"type": "string",
-						"format": "did",
-						"description": "A member."
-					},
-					"description": "Members allowed to post."
-				},
 				"linkEmbeds": {
 					"type": "boolean",
 					"description": "Whether link previews are shown here."
@@ -289,27 +236,18 @@
 					"ref": "#channelViewerState",
 					"description": "The requesting user's access to this channel."
 				},
-				"visibleToRoles": {
-					"type": "array",
-					"description": "Roles that may read this channel. Empty means every member may.",
-					"items": {
-						"type": "string",
-						"format": "record-key",
-						"description": "A role."
-					}
-				},
-				"visibleToMembers": {
-					"type": "array",
-					"description": "Members that may read this channel beyond visibleToRoles.",
-					"items": {
-						"type": "string",
-						"format": "did",
-						"description": "A member."
-					}
-				},
 				"private": {
 					"type": "boolean",
-					"description": "Whether the channel restricts who may read it, rather than only who may post."
+					"description": "Whether the default role is denied channel.view in the channel, directly or through its category."
+				},
+				"permissionOverrides": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.defs#permissionOverride"
+					},
+					"maxLength": 200,
+					"description": "Per-role and per-member permission overrides set here."
 				}
 			}
 		},
@@ -335,7 +273,7 @@
 						"type": "string",
 						"description": "A permission identifier."
 					},
-					"description": "Effective permissions in this channel, after per-channel role overrides."
+					"description": "The requesting user's effective permissions in this channel, after category and channel overrides."
 				}
 			}
 		},
@@ -400,47 +338,9 @@
 					"type": "boolean",
 					"description": "Whether every member holds this role from the moment they join."
 				},
-				"channelOverrides": {
-					"type": "array",
-					"items": {
-						"type": "ref",
-						"ref": "#roleChannelOverride"
-					},
-					"description": "Per-channel overrides."
-				},
 				"memberCount": {
 					"type": "integer",
 					"description": "Number of members holding this role."
-				}
-			}
-		},
-		"roleChannelOverride": {
-			"type": "object",
-			"description": "Allow and deny lists scoped to one channel.",
-			"required": [
-				"channel"
-			],
-			"properties": {
-				"channel": {
-					"type": "string",
-					"format": "record-key",
-					"description": "The channel's space key."
-				},
-				"allow": {
-					"type": "array",
-					"items": {
-						"type": "string",
-						"description": "A permission identifier."
-					},
-					"description": "Permissions granted here."
-				},
-				"deny": {
-					"type": "array",
-					"items": {
-						"type": "string",
-						"description": "A permission identifier."
-					},
-					"description": "Permissions denied here."
 				}
 			}
 		},

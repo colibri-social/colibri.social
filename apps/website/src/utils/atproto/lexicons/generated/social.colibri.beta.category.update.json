@@ -30,45 +30,14 @@
 							"maxLength": 32,
 							"description": "The category's new name."
 						},
-						"ownerOnly": {
-							"type": "boolean",
-							"description": "Whether only community admins may post in the category's channels. Absent leaves the current value unchanged."
-						},
-						"allowedRoles": {
+						"permissionOverrides": {
 							"type": "array",
 							"items": {
-								"type": "string",
-								"format": "record-key",
-								"description": "A role permitted to post."
+								"type": "ref",
+								"ref": "social.colibri.beta.defs#permissionOverride"
 							},
-							"description": "Roles allowed to post in the category's channels. Absent leaves the current value unchanged."
-						},
-						"allowedMembers": {
-							"type": "array",
-							"items": {
-								"type": "string",
-								"format": "did",
-								"description": "A member permitted to post."
-							},
-							"description": "Members allowed to post in the category's channels in addition to allowedRoles. Absent leaves the current value unchanged."
-						},
-						"visibleToRoles": {
-							"type": "array",
-							"description": "Roles that may read the category's channels. Absent leaves the current value unchanged.",
-							"items": {
-								"type": "string",
-								"format": "record-key",
-								"description": "A role permitted to read."
-							}
-						},
-						"visibleToMembers": {
-							"type": "array",
-							"description": "Members that may read the category's channels in addition to visibleToRoles. Absent leaves the current value unchanged.",
-							"items": {
-								"type": "string",
-								"format": "did",
-								"description": "A member permitted to read."
-							}
+							"maxLength": 200,
+							"description": "Per-role and per-member permission overrides. Replaces the whole list. Absent leaves the current value unchanged."
 						}
 					}
 				}

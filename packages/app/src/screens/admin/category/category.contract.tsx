@@ -20,24 +20,23 @@ import {
 	onCleanup,
 	Show,
 } from "solid-js";
-import type { Did } from "../../../data/types";
+import type { PermissionOverride } from "../../../data/types";
 import { defineContract, slot } from "../../../screen/define";
 import { NEW_ENTRY } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
 import { useUnsavedChanges } from "../../../shell/unsaved-changes";
 import { createUnsavedForm, UnsavedBar } from "../../settings/unsaved-form";
-import {
-	type Audience,
-	type AudienceKind,
-	createAudienceOptions,
-	sameAudience,
-} from "../channel/audience";
+import { type Audience, createAudienceOptions } from "../channel/audience";
+import { privateOverrides } from "../channel/channel.contract";
 import { AdminNavHeader } from "../desktop/page-header";
 import { AdminDeveloper } from "../developer";
+import { createOverrideTargets } from "../permissions/override-targets";
 import {
+	cleanOverrides,
 	openPermissions,
 	providePermissionDraft,
+	sameOverrides,
 } from "../permissions/permissions";
 import { useAdminSpace } from "../space-admin";
 import { isRestricted } from "./category-audience";
@@ -75,27 +74,17 @@ export const adminCategory = defineContract({
 			creating ? can("category.create") : canEdit() || canDelete();
 		const developerMode = () => data.controls().developerMode;
 
-		const savedVisible = createMemo(
-			(): Audience => ({
-				roles: [...(category()?.visibleToRoles ?? [])],
-				members: [...(category()?.visibleToMembers ?? [])],
-			}),
+		const savedOverrides = createMemo((): PermissionOverride[] =>
+			(category()?.permissionOverrides ?? []).map((override) => ({
+				...override,
+			})),
 		);
-		const savedPost = createMemo(
-			(): Audience => ({
-				roles: [...(category()?.allowedRoles ?? [])],
-				members: [...(category()?.allowedMembers ?? [])],
-			}),
-		);
-		const savedOwnerOnly = () => !!category()?.ownerOnly;
-		const isOwner = () => !!community()?.viewer.isOwner;
 
 		const [step, setStep] = createSignal<1 | 2>(1);
 		const [name, setName] = createSignal("");
 		const [restricted, setRestricted] = createSignal(false);
 		const [audience, setAudience] = createSignal<Audience>(NO_AUDIENCE);
-		const [post, setPost] = createSignal<Audience>(NO_AUDIENCE);
-		const [ownerOnly, setOwnerOnly] = createSignal(false);
+		const [overrides, setOverrides] = createSignal<PermissionOverride[]>([]);
 		const [saving, setSaving] = createSignal(false);
 		const [attempted, setAttempted] = createSignal(false);
 		const [deleteOpen, setDeleteOpen] = createSignal(false);
@@ -103,9 +92,7 @@ export const adminCategory = defineContract({
 		const seed = (view: { name: string }) => {
 			batch(() => {
 				setName(view.name);
-				setAudience(savedVisible());
-				setPost(savedPost());
-				setOwnerOnly(savedOwnerOnly());
+				setOverrides(savedOverrides());
 				setAttempted(false);
 			});
 		};
@@ -123,36 +110,15 @@ export const adminCategory = defineContract({
 		const trimmed = () => name().trim();
 		const nameError = () =>
 			attempted() && !trimmed() ? "Give the category a name." : undefined;
-		const visibleChanged = () =>
-			!creating && !sameAudience(audience(), savedVisible());
-		const postChanged = () => !creating && !sameAudience(post(), savedPost());
-		const ownerOnlyChanged = () =>
-			!creating && ownerOnly() !== savedOwnerOnly();
-		const audienceChanged = () =>
-			visibleChanged() || postChanged() || ownerOnlyChanged();
-		const audienceOf = (kind: AudienceKind) =>
-			kind === "visible" ? audience() : post();
-		const setAudienceOf = (kind: AudienceKind, next: Audience) =>
-			kind === "visible" ? setAudience(next) : setPost(next);
-		if (!creating) {
-			providePermissionDraft("category", args.space, args.id ?? "", {
-				ownerOnly,
-				get setOwnerOnly() {
-					return isOwner() ? setOwnerOnly : undefined;
-				},
-				audience: audienceOf,
-				setAudience: setAudienceOf,
-				options,
-				disabled: () => saving() || !canEditChannels(),
-				get form() {
-					return unsaved;
-				},
-			});
-		}
+		const targets = createOverrideTargets(community, space);
+		const canOverride = () => can("role.manage");
+		const canRestrict = () => canOverride() && !!targets.defaultRole();
+		const overridesChanged = () =>
+			!creating && !sameOverrides(overrides(), savedOverrides());
 		const dirty = createMemo(() =>
 			creating
 				? !!trimmed() || restricted()
-				: trimmed() !== (category()?.name ?? trimmed()) || audienceChanged(),
+				: trimmed() !== (category()?.name ?? trimmed()) || overridesChanged(),
 		);
 
 		const depth = () =>
@@ -200,15 +166,17 @@ export const adminCategory = defineContract({
 			const current = community();
 			if (!current) return;
 			const picked = audience();
-			const visibility = restricted()
-				? isRestricted(picked)
-					? picked
-					: { roles: [], members: [data.viewer.did] }
-				: NO_AUDIENCE;
-			const created = await data.categories.create(current.did, trimmed(), {
-				visibleToRoles: visibility.roles,
-				visibleToMembers: visibility.members as Did[],
-			});
+			const fallback = targets.defaultRole();
+			const visibility = isRestricted(picked)
+				? picked
+				: { roles: [], members: [data.viewer.did] };
+			const created = await data.categories.create(
+				current.did,
+				trimmed(),
+				restricted() && fallback
+					? { permissionOverrides: privateOverrides(fallback, visibility) }
+					: {},
+			);
 			toast.success(`Created ${created.name}`);
 			leave();
 		};
@@ -247,23 +215,11 @@ export const adminCategory = defineContract({
 			const view = category();
 			if (!current || !view || saving() || !trimmed() || !dirty()) return;
 			void run(async () => {
-				const visible = audience();
-				const posting = post();
 				const updated = await data.categories.update(current.did, view.rkey, {
 					...(trimmed() !== view.name ? { name: trimmed() } : {}),
-					...(visibleChanged()
-						? {
-								visibleToRoles: visible.roles,
-								visibleToMembers: visible.members as Did[],
-							}
+					...(overridesChanged()
+						? { permissionOverrides: cleanOverrides(overrides()) }
 						: {}),
-					...(postChanged()
-						? {
-								allowedRoles: posting.roles,
-								allowedMembers: posting.members as Did[],
-							}
-						: {}),
-					...(ownerOnlyChanged() ? { ownerOnly: ownerOnly() } : {}),
 				});
 				seed(updated);
 				toast.success("Category settings saved");
@@ -282,6 +238,17 @@ export const adminCategory = defineContract({
 						if (view) seed(view);
 					},
 				});
+		if (!creating) {
+			providePermissionDraft("category", args.space, args.id ?? "", {
+				overrides,
+				setOverrides,
+				targets,
+				scope: () => "category",
+				canChange: can,
+				disabled: () => saving() || !canEdit() || !canOverride(),
+				form: unsaved,
+			});
+		}
 
 		const remove = async () => {
 			const current = community();
@@ -313,6 +280,7 @@ export const adminCategory = defineContract({
 			setName,
 			nameError,
 			restricted,
+			canRestrict,
 			setRestricted,
 			audience,
 			setAudience,
@@ -413,15 +381,17 @@ export const adminCategory = defineContract({
 					disabled={m.saving()}
 					autocomplete="off"
 				/>
-				<ListGroup>
-					<ToggleRow
-						title="Make category private?"
-						description="Private categories can only be seen by certain members and roles. All channels in the category follow this, unless they're set otherwise."
-						checked={m.restricted()}
-						onChange={m.setRestricted}
-						disabled={m.saving()}
-					/>
-				</ListGroup>
+				<Show when={m.canRestrict()}>
+					<ListGroup>
+						<ToggleRow
+							title="Make category private?"
+							description="Private categories can only be seen by certain members and roles. All channels in the category follow this, unless they're set otherwise."
+							checked={m.restricted()}
+							onChange={m.setRestricted}
+							disabled={m.saving()}
+						/>
+					</ListGroup>
+				</Show>
 			</div>
 		)),
 		Audience: slot((m) => (

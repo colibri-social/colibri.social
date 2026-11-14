@@ -72,7 +72,7 @@
 							"type": "ref",
 							"ref": "#channelOverride"
 						},
-						"description": "Per-channel permission overrides."
+						"description": "Deprecated, superseded by permissionOverrides on channel records. Honoured only for channels without permissionOverrides."
 					}
 				}
 			}

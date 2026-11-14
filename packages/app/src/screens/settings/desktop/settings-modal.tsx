@@ -23,6 +23,7 @@ import {
 } from "../nav";
 import { SETTINGS_PAGES, settingsEntries } from "../registry";
 import SettingsScreen from "../settings.screen";
+import { AccountStorageNotice } from "../storage-notice";
 
 const settingsPageOf = (layer: Layer | undefined): SettingsPageId =>
 	settingsPage(layer?.kind === "settings" ? layer.page : undefined);
@@ -87,6 +88,7 @@ export default function SettingsModal(props: ModalAreaProps) {
 						entries={settingsEntries(data, sidebarNav)}
 						active={SETTINGS_PAGES[root()].entry}
 						onLogOut={account ? () => void account.signOut() : undefined}
+						accountNotice={<AccountStorageNotice />}
 						header={
 							<MemberRow
 								variant="desktop"

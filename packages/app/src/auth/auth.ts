@@ -20,7 +20,6 @@ import {
 	isSignInDenial,
 	isStorageFailure,
 	scopeFeatureLabel,
-	supportsSpaces,
 } from "@colibri-social/lib";
 import {
 	type Accessor,
@@ -54,7 +53,6 @@ import {
 	handleResolver,
 	normalizeHandle,
 	resolveHandleToDid,
-	resolvePdsHost,
 } from "./identity";
 import {
 	classifyNativeError,
@@ -148,8 +146,6 @@ export type AuthOptions = {
 	openBrowser?: (url: string) => void;
 	webAuth?: (url: string, scheme: string) => Promise<string>;
 	onSignedOut?: () => void | Promise<void>;
-	pdsHost?: (did: string) => Promise<string | undefined>;
-	spacesSupport?: (host: string) => Promise<boolean | undefined>;
 	startupTimeoutMs?: number;
 	beforeSignOutTimeoutMs?: number;
 	appVersion?: string;
@@ -310,8 +306,6 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 			);
 		});
 	const webAuth = options.webAuth ?? startWebAuth;
-	const pdsHost = options.pdsHost ?? resolvePdsHost;
-	const spacesSupport = options.spacesSupport ?? supportsSpaces;
 	const startupTimeoutMs = options.startupTimeoutMs ?? STARTUP_TIMEOUT_MS;
 	const beforeSignOutTimeoutMs =
 		options.beforeSignOutTimeoutMs ?? BEFORE_SIGN_OUT_TIMEOUT_MS;
@@ -913,14 +907,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 			const input = create
 				? handle
 				: await resolveHandleToDid(normalizeHandle(handle));
-			const host = create ? hostOf(input) : await pdsHost(input);
-			if (host !== undefined && (await spacesSupport(host)) === false) {
-				log.warn("the account's provider has no spaces support");
-				throw new ColibriError({
-					code: "SpacesUnsupported",
-					context: { host, create },
-				});
-			}
+
 			await run(input, create);
 		} catch (err) {
 			const failure = asSignInError(err);

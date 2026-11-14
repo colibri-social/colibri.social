@@ -39,7 +39,19 @@ const channel = (
 		space: ref(did, skey, extra.type ?? TEXT),
 		type: extra.type ?? TEXT,
 		name,
-		...(extra.visibleToRoles ? { visibleToRoles: extra.visibleToRoles } : {}),
+		...(extra.visibleToRoles
+			? {
+					private: true,
+					permissionOverrides: [
+						{ role: "everyone", allow: [], deny: ["channel.view"] },
+						...extra.visibleToRoles.map((rkey) => ({
+							role: rkey,
+							allow: ["channel.view"],
+							deny: [],
+						})),
+					],
+				}
+			: {}),
 		viewer: { canRead: true, canPost: extra.canPost ?? true },
 	}) as unknown as ChannelView;
 
@@ -83,7 +95,17 @@ const role = (rkey: string, name: string) =>
 	({ rkey, name, mentionable: true }) as unknown as RoleView;
 
 const roles: Record<string, RoleView[]> = {
-	"did:plc:hq": [role("core", "Core"), role("mods", "Moderators")],
+	"did:plc:hq": [
+		role("core", "Core"),
+		role("mods", "Moderators"),
+		{
+			rkey: "everyone",
+			name: "Members",
+			permissions: ["channel.view"],
+			position: 0,
+			default: true,
+		} as RoleView,
+	],
 	"did:plc:owls": [role("artists", "Artists")],
 };
 

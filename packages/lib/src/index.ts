@@ -21,7 +21,6 @@ export { colibri, space } from "./protocol/lexicons.js";
 export * from "./protocol/message-record.js";
 export * from "./protocol/scopes.js";
 export * from "./protocol/space-ref.js";
-export * from "./protocol/spaces-support.js";
 export * from "./protocol/sync-frames.js";
 export * from "./protocol/tid.js";
 export * from "./protocol/views.js";

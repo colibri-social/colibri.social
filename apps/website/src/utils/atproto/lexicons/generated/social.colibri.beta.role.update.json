@@ -68,15 +68,6 @@
 						"mentionable": {
 							"type": "boolean",
 							"description": "Whether @role mentions resolve to this role."
-						},
-						"channelOverrides": {
-							"type": "array",
-							"items": {
-								"type": "ref",
-								"ref": "social.colibri.beta.community.defs#roleChannelOverride",
-								"description": "A per-channel permission override."
-							},
-							"description": "Per-channel overrides."
 						}
 					}
 				}

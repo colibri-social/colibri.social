@@ -290,12 +290,26 @@ const PROXY_UNRESOLVED = /^could not resolve proxy did/i;
 const isProxyUnresolved = (input: ClassifyEnvelopeInput): boolean =>
 	input.code === "InvalidRequest" && PROXY_UNRESOLVED.test(input.message ?? "");
 
+const SPACE_METHOD_UNSERVED =
+	/^No service configured for com\.atproto\.space\./;
+
+const isSpaceMethodUnserved = (input: ClassifyEnvelopeInput): boolean =>
+	input.code === "InvalidRequest" &&
+	SPACE_METHOD_UNSERVED.test(input.message ?? "");
+
+const specialEnvelopeCode = (
+	input: ClassifyEnvelopeInput,
+): ColibriErrorCode | undefined => {
+	if (isProxyUnresolved(input)) return "Unreachable";
+	if (isSpaceMethodUnserved(input)) return "SpacesUnsupported";
+
+	return undefined;
+};
+
 export const classifyEnvelope = (
 	input: ClassifyEnvelopeInput,
 ): ColibriError => {
-	const known = isProxyUnresolved(input)
-		? "Unreachable"
-		: knownEnvelopeCode(input.code);
+	const known = specialEnvelopeCode(input) ?? knownEnvelopeCode(input.code);
 	const resolved: ColibriErrorCode = known ?? codeForStatus(input.status);
 
 	const options: ColibriErrorOptions = {

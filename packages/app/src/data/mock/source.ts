@@ -7,6 +7,7 @@ import { createMemoryPreferenceBackend } from "../preferences/memory";
 import { createPreferenceStore } from "../preferences/store";
 import type { Preferences } from "../preferences/types";
 import {
+	type CategoryOverrides,
 	type ControlsPreferences,
 	type DataSource,
 	type ListMessagesParams,
@@ -18,7 +19,6 @@ import {
 } from "../source";
 import type {
 	AttachmentView,
-	CategoryPermissions,
 	CategoryView,
 	ChannelView,
 	CommunityView,
@@ -69,19 +69,6 @@ export { pendingLatency, setLatency } from "./latency";
 
 const DEFAULT_PAGE = 50;
 
-const categoryPermissionsFrom = (
-	input: CategoryPermissions,
-): CategoryPermissions => {
-	const picked: CategoryPermissions = {};
-	if (input.ownerOnly !== undefined) picked.ownerOnly = input.ownerOnly;
-	if (input.allowedRoles) picked.allowedRoles = [...input.allowedRoles];
-	if (input.allowedMembers) picked.allowedMembers = [...input.allowedMembers];
-	if (input.visibleToRoles) picked.visibleToRoles = [...input.visibleToRoles];
-	if (input.visibleToMembers) {
-		picked.visibleToMembers = [...input.visibleToMembers];
-	}
-	return picked;
-};
 const MESSAGE_VIEW = "social.colibri.beta.channel.defs#messageView";
 
 export type MockSourceOptions = {
@@ -244,6 +231,26 @@ export const createMockSource = (
 	) =>
 		!!space.view.viewer.isOwner ||
 		!!space.view.viewer.permissions?.includes(permission);
+
+	const assertOverrideRights = (space: (typeof world.spaces)[number]) => {
+		if (!allowedIn(space, "role.manage")) {
+			throw new Error("Not allowed to change permission overrides");
+		}
+	};
+
+	const overridesFrom = (
+		input: CategoryOverrides & { community: Did },
+	): CategoryOverrides => {
+		if (!input.permissionOverrides) return {};
+
+		assertOverrideRights(spaceOf(input.community));
+
+		return {
+			permissionOverrides: input.permissionOverrides.map((override) => ({
+				...override,
+			})),
+		};
+	};
 
 	const communityOf = (ref: SpaceRef) =>
 		ref.slice("at://".length, ref.indexOf("/space/")) as Did;
@@ -1034,19 +1041,9 @@ export const createMockSource = (
 				} as ChannelView;
 				if (input.category) view.category = input.category;
 				if (input.description) view.description = input.description;
-				if (input.private) view.private = true;
-				if (input.ownerOnly) view.ownerOnly = true;
-				if (input.allowedRoles?.length) view.allowedRoles = input.allowedRoles;
-				if (input.allowedMembers?.length) {
-					view.allowedMembers = input.allowedMembers;
-				}
-				if (input.visibleToRoles?.length) {
-					view.visibleToRoles = input.visibleToRoles;
-					view.private = true;
-				}
-				if (input.visibleToMembers?.length) {
-					view.visibleToMembers = input.visibleToMembers;
-					view.private = true;
+				if (input.permissionOverrides) {
+					assertOverrideRights(space);
+					view.permissionOverrides = input.permissionOverrides;
 				}
 				space.channels.push({
 					view,
@@ -1109,23 +1106,12 @@ export const createMockSource = (
 						throw new Error("Unknown category");
 					view.category = input.category;
 				}
-				if (input.ownerOnly !== undefined) view.ownerOnly = input.ownerOnly;
 				if (input.linkEmbeds !== undefined) view.linkEmbeds = input.linkEmbeds;
 				else if (input.removeLinkEmbeds) delete view.linkEmbeds;
-				if (input.allowedRoles !== undefined) {
-					view.allowedRoles = input.allowedRoles;
+				if (input.permissionOverrides) {
+					assertOverrideRights(space);
+					view.permissionOverrides = input.permissionOverrides;
 				}
-				if (input.allowedMembers !== undefined) {
-					view.allowedMembers = input.allowedMembers;
-				}
-				if (input.visibleToRoles !== undefined) {
-					view.visibleToRoles = input.visibleToRoles;
-				}
-				if (input.visibleToMembers !== undefined) {
-					view.visibleToMembers = input.visibleToMembers;
-				}
-				view.private =
-					!!view.visibleToRoles?.length || !!view.visibleToMembers?.length;
 				record.view = view;
 				emit({ $type: "layoutInvalidatedEvent", community: space.did });
 				return world.channelViewIn(space, view);
@@ -1144,7 +1130,7 @@ export const createMockSource = (
 				space.categories.push({
 					rkey,
 					name,
-					...categoryPermissionsFrom(input),
+					...overridesFrom(input),
 				});
 				const view = world
 					.categoriesOf(space)
@@ -1170,7 +1156,7 @@ export const createMockSource = (
 				space.categories[index] = {
 					...existing,
 					name,
-					...categoryPermissionsFrom(input),
+					...overridesFrom(input),
 				};
 				const view = world
 					.categoriesOf(space)

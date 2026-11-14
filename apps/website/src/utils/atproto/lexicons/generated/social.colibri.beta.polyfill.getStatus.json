@@ -1,0 +1,46 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.polyfill.getStatus",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Reports where the requesting user's space repos live and whether their PDS can host spaces now. The client routes space reads and writes by the mode, and starts a migration when the mode is polyfill and the PDS supports spaces.",
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"mode",
+						"pdsSupportsSpaces"
+					],
+					"properties": {
+						"mode": {
+							"type": "ref",
+							"ref": "social.colibri.beta.polyfill.defs#hostMode",
+							"description": "Where the user's repos live after this call."
+						},
+						"pdsSupportsSpaces": {
+							"type": "boolean",
+							"description": "Whether the user's PDS serves the space methods a migration needs, as of the last check."
+						},
+						"migration": {
+							"type": "ref",
+							"ref": "social.colibri.beta.polyfill.defs#migrationProgress",
+							"description": "Progress of a running migration. Absent when none runs."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				}
+			]
+		}
+	}
+}

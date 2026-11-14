@@ -1,8 +1,17 @@
 import { MAX_MOVE_SUBJECTS } from "../../../data/source";
 
+type OverrideScope = {
+	permissionOverrides?: readonly {
+		role?: string;
+		member?: string;
+		allow?: readonly string[];
+		deny?: readonly string[];
+	}[];
+};
+
 export type Audience = {
-	visibleToRoles?: readonly string[];
-	visibleToMembers?: readonly string[];
+	private?: boolean;
+	viewers?: readonly string[];
 };
 
 export type AudienceChange = {
@@ -10,9 +19,29 @@ export type AudienceChange = {
 	toPrivate: boolean;
 };
 
-const isPrivate = (audience: Audience) =>
-	(audience.visibleToRoles?.length ?? 0) > 0 ||
-	(audience.visibleToMembers?.length ?? 0) > 0;
+export const viewAudience = (
+	channel: (OverrideScope & { private?: boolean }) | undefined,
+	category: OverrideScope | undefined,
+): Audience => {
+	const rules = [channel, category].flatMap((scope, level) =>
+		(scope?.permissionOverrides ?? []).flatMap((override) => {
+			const state = override.deny?.includes("channel.view")
+				? "deny"
+				: override.allow?.includes("channel.view")
+					? "allow"
+					: undefined;
+			if (!state) return [];
+
+			const target = override.role
+				? `role:${override.role}`
+				: `member:${override.member}`;
+
+			return [`${level}:${target}:${state}`];
+		}),
+	);
+
+	return { private: !!channel?.private, viewers: rules };
+};
 
 const sameSet = (
 	a: readonly string[] | undefined,
@@ -30,10 +59,8 @@ export const audienceChange = (
 	to: Audience,
 ): AudienceChange => ({
 	changed:
-		isPrivate(from) !== isPrivate(to) ||
-		!sameSet(from.visibleToRoles, to.visibleToRoles) ||
-		!sameSet(from.visibleToMembers, to.visibleToMembers),
-	toPrivate: isPrivate(to),
+		!!from.private !== !!to.private || !sameSet(from.viewers, to.viewers),
+	toPrivate: !!to.private,
 });
 
 export type MoveBlock = "nothing-selected" | "too-many" | "not-permitted";

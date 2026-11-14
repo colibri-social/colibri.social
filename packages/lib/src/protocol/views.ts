@@ -17,8 +17,6 @@ export type ChannelView = social.colibri.beta.community.defs.ChannelView;
 export type ChannelViewerState =
 	social.colibri.beta.community.defs.ChannelViewerState;
 export type RoleView = social.colibri.beta.community.defs.RoleView;
-export type RoleChannelOverride =
-	social.colibri.beta.community.defs.RoleChannelOverride;
 export type MemberView = social.colibri.beta.community.defs.MemberView;
 export type ApplicationView =
 	social.colibri.beta.community.defs.ApplicationView;
@@ -63,6 +61,7 @@ export type GifCategory = social.colibri.beta.embed.defs.GifCategory;
 
 export type RecordRef = social.colibri.beta.defs.RecordRef;
 export type SpaceRecordRef = social.colibri.beta.defs.SpaceRecordRef;
+export type PermissionOverride = social.colibri.beta.defs.PermissionOverride;
 
 export type Facet = social.colibri.beta.richtext.facet.Main;
 

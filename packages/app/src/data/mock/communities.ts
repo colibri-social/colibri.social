@@ -11,7 +11,7 @@ import { asDatetime, asDid, asHandle, spaceRef, tidFor } from "./refs";
 import { createRandom } from "./seed";
 import { MEMBER_VOICE_PERMISSIONS, type SpaceSeed } from "./spaces";
 import type { ChannelRecord, SpaceRecord, World } from "./world";
-import { MANAGING_APP } from "./world";
+import { defaultMemberRole, MANAGING_APP } from "./world";
 
 const DAY = 24 * 60 * 60_000;
 
@@ -251,7 +251,7 @@ export const createCommunityRecord = (
 		}),
 		did,
 		view,
-		roles: [owner],
+		roles: [owner, defaultMemberRole(1)],
 		categories: [
 			{ rkey: textCategory, name: STARTER_LAYOUT.textCategory },
 			{ rkey: voiceCategory, name: STARTER_LAYOUT.voiceCategory },
@@ -331,6 +331,7 @@ export const discoverableRecord = (
 			memberCount: 1,
 			protected: true,
 		},
+		defaultMemberRole(memberKeys.length),
 	];
 	const members: MemberView[] = memberKeys.map((key) => ({
 		actor: world.people.profile(key),

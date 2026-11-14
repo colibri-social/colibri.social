@@ -26,7 +26,7 @@
 					"ownerOnly": {
 						"type": "boolean",
 						"default": false,
-						"description": "Whether only community admins may post."
+						"description": "Deprecated, superseded by permissionOverrides. Honoured only while permissionOverrides is absent."
 					},
 					"allowedRoles": {
 						"type": "array",
@@ -35,7 +35,7 @@
 							"format": "record-key",
 							"description": "A role permitted to post."
 						},
-						"description": "Roles allowed to post here. Empty means no role restriction."
+						"description": "Deprecated, superseded by permissionOverrides. Honoured only while permissionOverrides is absent."
 					},
 					"allowedMembers": {
 						"type": "array",
@@ -44,7 +44,7 @@
 							"format": "did",
 							"description": "A member permitted to post."
 						},
-						"description": "Members allowed to post here in addition to allowedRoles."
+						"description": "Deprecated, superseded by permissionOverrides. Honoured only while permissionOverrides is absent."
 					},
 					"linkEmbeds": {
 						"type": "boolean",
@@ -57,7 +57,7 @@
 					},
 					"visibleToRoles": {
 						"type": "array",
-						"description": "Roles that may read this channel. Empty or absent means every member may read it. A non-empty list makes the channel private: the community declines space credentials for it to anyone outside the list, so it is enforced by the protocol rather than only by a read handler.",
+						"description": "Deprecated, superseded by permissionOverrides. Honoured only while permissionOverrides is absent.",
 						"items": {
 							"type": "string",
 							"format": "record-key",
@@ -66,12 +66,21 @@
 					},
 					"visibleToMembers": {
 						"type": "array",
-						"description": "Members that may read this channel in addition to visibleToRoles.",
+						"description": "Deprecated, superseded by permissionOverrides. Honoured only while permissionOverrides is absent.",
 						"items": {
 							"type": "string",
 							"format": "did",
 							"description": "A member permitted to read."
 						}
+					},
+					"permissionOverrides": {
+						"type": "array",
+						"items": {
+							"type": "ref",
+							"ref": "social.colibri.beta.defs#permissionOverride"
+						},
+						"maxLength": 200,
+						"description": "Per-role and per-member permission overrides in this channel."
 					}
 				}
 			}

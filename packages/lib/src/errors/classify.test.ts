@@ -87,6 +87,30 @@ describe("classifyResponse", () => {
 		}
 	});
 
+	it("reads a provider without space methods as lacking spaces support", () => {
+		const err = classifyResponse({
+			status: 400,
+			body: JSON.stringify({
+				error: "InvalidRequest",
+				message: "No service configured for com.atproto.space.createRecord",
+			}),
+			method: "com.atproto.space.createRecord",
+		});
+		expect(err.code).toBe("SpacesUnsupported");
+		expect(err.context.unknownCode).toBeUndefined();
+	});
+
+	it("keeps a missing service for other methods a bad request", () => {
+		const err = classifyResponse({
+			status: 400,
+			body: JSON.stringify({
+				error: "InvalidRequest",
+				message: "No service configured for com.example.thing",
+			}),
+		});
+		expect(err.code).toBe("InvalidRequest");
+	});
+
 	it("leaves other InvalidRequest envelopes alone", () => {
 		const err = classifyResponse({
 			status: 400,

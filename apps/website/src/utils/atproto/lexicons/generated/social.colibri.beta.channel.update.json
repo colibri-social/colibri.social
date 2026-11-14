@@ -34,28 +34,6 @@
 							"format": "record-key",
 							"description": "The category to move the channel to. Absent leaves the current value unchanged."
 						},
-						"ownerOnly": {
-							"type": "boolean",
-							"description": "Whether only community admins may post. Absent leaves the current value unchanged."
-						},
-						"allowedRoles": {
-							"type": "array",
-							"items": {
-								"type": "string",
-								"format": "record-key",
-								"description": "A role permitted to post."
-							},
-							"description": "Roles allowed to post here. Absent leaves the current value unchanged."
-						},
-						"allowedMembers": {
-							"type": "array",
-							"items": {
-								"type": "string",
-								"format": "did",
-								"description": "A member permitted to post."
-							},
-							"description": "Members allowed to post here in addition to allowedRoles. Absent leaves the current value unchanged."
-						},
 						"linkEmbeds": {
 							"type": "boolean",
 							"description": "Whether link previews are shown here. Absent leaves the current value unchanged."
@@ -64,23 +42,14 @@
 							"type": "boolean",
 							"description": "Clears the channel's link preview setting so the community default applies. Ignored when linkEmbeds is also given."
 						},
-						"visibleToRoles": {
+						"permissionOverrides": {
 							"type": "array",
-							"description": "Roles that may read this channel. Empty means every member may.",
 							"items": {
-								"type": "string",
-								"format": "record-key",
-								"description": "A role."
-							}
-						},
-						"visibleToMembers": {
-							"type": "array",
-							"description": "Members that may read this channel beyond visibleToRoles.",
-							"items": {
-								"type": "string",
-								"format": "did",
-								"description": "A member."
-							}
+								"type": "ref",
+								"ref": "social.colibri.beta.defs#permissionOverride"
+							},
+							"maxLength": 200,
+							"description": "Per-role and per-member permission overrides. Replaces the whole list. Absent leaves the current value unchanged."
 						}
 					}
 				}

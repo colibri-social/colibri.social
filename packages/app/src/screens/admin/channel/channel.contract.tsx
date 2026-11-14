@@ -35,7 +35,7 @@ import type {
 	CreateChannelInput,
 	UpdateChannelInput,
 } from "../../../data/source";
-import type { ChannelView, Did } from "../../../data/types";
+import type { ChannelView, Did, PermissionOverride } from "../../../data/types";
 import { defineContract, slot } from "../../../screen/define";
 import type { Platform } from "../../../screen/platform";
 import type { AdminArgs } from "../../../shell/registry";
@@ -45,17 +45,15 @@ import { createUnsavedForm, UnsavedBar } from "../../settings/unsaved-form";
 import { isRestricted } from "../category/category-audience";
 import { AdminNavHeader } from "../desktop/page-header";
 import { AdminDeveloper } from "../developer";
+import { createOverrideTargets } from "../permissions/override-targets";
 import {
+	cleanOverrides,
 	openPermissions,
 	providePermissionDraft,
+	sameOverrides,
 } from "../permissions/permissions";
 import { useAdminSpace } from "../space-admin";
-import {
-	type Audience,
-	type AudienceKind,
-	createAudienceOptions,
-	sameAudience,
-} from "./audience";
+import { type Audience, createAudienceOptions } from "./audience";
 import { parseEntryId } from "./channel-target";
 
 export const CHANNEL_NAME_MAX = 32;
@@ -86,15 +84,23 @@ const NO_AUDIENCE: Audience = { roles: [], members: [] };
 const channelLabel = (view: ChannelView) =>
 	isVoiceChannel(view) ? view.name : `#${view.name}`;
 
-const visibleOf = (view: ChannelView | undefined): Audience => ({
-	roles: [...(view?.visibleToRoles ?? [])],
-	members: [...(view?.visibleToMembers ?? [])],
-});
+const overridesOf = (view: ChannelView | undefined): PermissionOverride[] =>
+	(view?.permissionOverrides ?? []).map((override) => ({ ...override }));
 
-const postOf = (view: ChannelView | undefined): Audience => ({
-	roles: [...(view?.allowedRoles ?? [])],
-	members: [...(view?.allowedMembers ?? [])],
-});
+export const privateOverrides = (
+	defaultRole: string,
+	audience: Audience,
+): PermissionOverride[] => [
+	{ role: defaultRole, allow: [], deny: ["channel.view"] },
+	...audience.roles
+		.filter((role) => role !== defaultRole)
+		.map((role) => ({ role, allow: ["channel.view"], deny: [] })),
+	...audience.members.map((member) => ({
+		member: member as Did,
+		allow: ["channel.view"],
+		deny: [],
+	})),
+];
 
 export const adminChannel = defineContract({
 	id: "adminChannel",
@@ -129,11 +135,10 @@ export const adminChannel = defineContract({
 		const [description, setDescription] = createSignal("");
 		const [category, setCategory] = createSignal(NO_CATEGORY);
 		const [restricted, setRestricted] = createSignal(false);
-		const [ownerOnly, setOwnerOnly] = createSignal(false);
 		const [linkPreviews, setLinkPreviews] =
 			createSignal<LinkPreviewChoice>("space");
 		const [visible, setVisible] = createSignal<Audience>(NO_AUDIENCE);
-		const [post, setPost] = createSignal<Audience>(NO_AUDIENCE);
+		const [overrides, setOverrides] = createSignal<PermissionOverride[]>([]);
 		const [categoryOpen, setCategoryOpen] = createSignal(false);
 		const [saving, setSaving] = createSignal(false);
 		const [attempted, setAttempted] = createSignal(false);
@@ -146,10 +151,8 @@ export const adminChannel = defineContract({
 				setName(view.name);
 				setDescription(view.description ?? "");
 				setCategory(view.category ?? NO_CATEGORY);
-				setOwnerOnly(!!view.ownerOnly);
 				setLinkPreviews(linkPreviewChoiceOf(view));
-				setVisible(visibleOf(view));
-				setPost(postOf(view));
+				setOverrides(overridesOf(view));
 				setAttempted(false);
 			});
 		};
@@ -176,27 +179,10 @@ export const adminChannel = defineContract({
 			const view = channel();
 			return !!view && isVoiceChannel(view);
 		};
-		const audience = (which: AudienceKind) =>
-			which === "visible" ? visible() : post();
-		const setAudience = (which: AudienceKind, next: Audience) =>
-			which === "visible" ? setVisible(next) : setPost(next);
 		const options = createAudienceOptions(community, space);
-		if (!creating) {
-			providePermissionDraft("channel", args.space, args.id ?? "", {
-				ownerOnly,
-				get setOwnerOnly() {
-					return isOwner() ? setOwnerOnly : undefined;
-				},
-				audience,
-				setAudience,
-				options,
-				disabled: () => saving() || !canEdit(),
-				voice: isVoice,
-				get form() {
-					return unsaved;
-				},
-			});
-		}
+		const targets = createOverrideTargets(community, space);
+		const canOverride = () => can("role.manage");
+		const canRestrict = () => canOverride() && !!targets.defaultRole();
 
 		const trimmedName = () => name().trim();
 		const nameError = () =>
@@ -216,17 +202,11 @@ export const adminChannel = defineContract({
 			if (category() && category() !== (view.category ?? NO_CATEGORY)) {
 				patch.category = category();
 			}
-			if (ownerOnly() !== !!view.ownerOnly) patch.ownerOnly = ownerOnly();
 			if (linkPreviews() !== linkPreviewChoiceOf(view)) {
 				Object.assign(patch, linkPreviewChange(linkPreviews()));
 			}
-			if (!sameAudience(visible(), visibleOf(view))) {
-				patch.visibleToRoles = visible().roles;
-				patch.visibleToMembers = visible().members as Did[];
-			}
-			if (!sameAudience(post(), postOf(view))) {
-				patch.allowedRoles = post().roles;
-				patch.allowedMembers = post().members as Did[];
+			if (!sameOverrides(overrides(), overridesOf(view))) {
+				patch.permissionOverrides = cleanOverrides(overrides());
 			}
 			return patch;
 		};
@@ -284,10 +264,12 @@ export const adminChannel = defineContract({
 				name: trimmedName(),
 			};
 			if (category()) input.category = category();
-			if (restricted()) {
-				const picked = pickedAudience();
-				input.visibleToRoles = picked.roles;
-				input.visibleToMembers = picked.members as Did[];
+			const fallback = targets.defaultRole();
+			if (restricted() && fallback) {
+				input.permissionOverrides = privateOverrides(
+					fallback,
+					pickedAudience(),
+				);
 			}
 			const created = await data.channels.create(input);
 			toast.success(`Created ${channelLabel(created)}`);
@@ -355,6 +337,17 @@ export const adminChannel = defineContract({
 						if (view) seedFrom(view);
 					},
 				});
+		if (!creating) {
+			providePermissionDraft("channel", args.space, args.id ?? "", {
+				overrides,
+				setOverrides,
+				targets,
+				scope: () => (isVoice() ? "voice" : "text"),
+				canChange: can,
+				disabled: () => saving() || !canEdit() || !canOverride(),
+				form: unsaved,
+			});
+		}
 
 		const matches = () => {
 			const view = channel();
@@ -415,13 +408,10 @@ export const adminChannel = defineContract({
 			setCategory,
 			restricted,
 			setRestricted,
-			ownerOnly,
-			setOwnerOnly,
+			canRestrict,
 			linkPreviews,
 			setLinkPreviews,
 			spaceLinkPreviews: () => community()?.linkEmbeds !== false,
-			audience,
-			setAudience,
 			visible,
 			setVisible,
 			hasSelection,
@@ -547,15 +537,17 @@ export const adminChannel = defineContract({
 						description="Hang out together with voice, video, and screen share."
 					/>
 				</RadioRowGroup>
-				<ListGroup>
-					<ToggleRow
-						title="Make channel private?"
-						description="Private channels can only be seen by certain members and roles."
-						checked={m.restricted()}
-						onChange={m.setRestricted}
-						disabled={m.saving()}
-					/>
-				</ListGroup>
+				<Show when={m.canRestrict()}>
+					<ListGroup>
+						<ToggleRow
+							title="Make channel private?"
+							description="Private channels can only be seen by certain members and roles."
+							checked={m.restricted()}
+							onChange={m.setRestricted}
+							disabled={m.saving()}
+						/>
+					</ListGroup>
+				</Show>
 			</div>
 		)),
 		Audience: slot((m) => (

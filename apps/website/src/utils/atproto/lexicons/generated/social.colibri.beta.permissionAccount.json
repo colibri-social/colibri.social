@@ -68,7 +68,16 @@
 						"social.colibri.beta.emoji.putFollow",
 						"social.colibri.beta.server.describeServer",
 						"social.colibri.beta.server.listNodes",
-						"social.colibri.beta.blob.get"
+						"social.colibri.beta.blob.get",
+						"social.colibri.beta.polyfill.getStatus",
+						"social.colibri.beta.polyfill.applyWrites",
+						"social.colibri.beta.polyfill.getRecord",
+						"social.colibri.beta.polyfill.listRecords",
+						"social.colibri.beta.polyfill.uploadBlob",
+						"social.colibri.beta.polyfill.getBlob",
+						"social.colibri.beta.polyfill.beginMigration",
+						"social.colibri.beta.polyfill.listForMigration",
+						"social.colibri.beta.polyfill.completeMigration"
 					]
 				}
 			]

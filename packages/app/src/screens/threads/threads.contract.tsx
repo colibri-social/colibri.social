@@ -22,6 +22,7 @@ import {
 	Switch,
 } from "solid-js";
 import { formatAge } from "../../data/adapters/time";
+import { viewerCan } from "../../data/channel-permissions";
 import { skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
 import type { ThreadView } from "../../data/types";
@@ -145,12 +146,7 @@ export const threads = defineContract({
 		);
 		const [showClosed, setShowClosed] = createSignal(false);
 		const loading = () => !load() || load()?.loading();
-		const canCreate = () => {
-			const viewer = community()?.viewer;
-			return (
-				!!viewer?.isOwner || !!viewer?.permissions?.includes("thread.create")
-			);
-		};
+		const canCreate = () => viewerCan(community(), parent(), "thread.create");
 		const channelType = () => parent()?.type ?? args.channelType;
 		const open = (thread: ThreadView, presentation?: "full") =>
 			stack.push({

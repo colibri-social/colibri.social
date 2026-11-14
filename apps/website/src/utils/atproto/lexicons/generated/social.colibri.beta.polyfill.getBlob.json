@@ -1,0 +1,40 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.polyfill.getBlob",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Returns the bytes of a blob the requesting user stored with the AppView, so a migration can upload it to their PDS.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"cid"
+				],
+				"properties": {
+					"cid": {
+						"type": "string",
+						"format": "cid",
+						"description": "The CID of the record or blob."
+					}
+				}
+			},
+			"output": {
+				"encoding": "*/*"
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "BlobNotFound",
+					"description": "The caller has no blob with this CID."
+				}
+			]
+		}
+	}
+}

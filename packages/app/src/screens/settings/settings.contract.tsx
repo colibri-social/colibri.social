@@ -16,6 +16,7 @@ import {
 	type SettingsPageId,
 } from "./nav";
 import { SETTINGS_PAGES, SettingsPageView, settingsEntries } from "./registry";
+import { AccountStorageNotice } from "./storage-notice";
 
 export type SettingsArgs = { page?: SettingsPageId };
 
@@ -54,6 +55,7 @@ export const settings = defineContract({
 					variant={p.platform}
 					entries={m.entries()}
 					onLogOut={m.logOut}
+					accountNotice={<AccountStorageNotice />}
 				/>
 			</SettingsNavContext.Provider>
 		)),

@@ -70,6 +70,7 @@ import {
 	withoutRole,
 } from "./role-store";
 import {
+	type CategoryOverrides,
 	type CommunityImageKind,
 	type CreateChannelInput,
 	type DataSource,
@@ -88,7 +89,6 @@ import { createSpaceDirectory } from "./space-directory";
 import { withoutFutureActivity } from "./thread-summary";
 import type {
 	AttachmentView,
-	CategoryPermissions,
 	CategoryView,
 	ChannelView,
 	CommunityView,
@@ -1780,7 +1780,9 @@ export const createDataStore = (
 					name: `${base}-copy`,
 					category: view.category,
 					description: view.description,
-					private: view.private,
+					...(view.permissionOverrides?.length
+						? { permissionOverrides: view.permissionOverrides }
+						: {}),
 				});
 			},
 			remove: async (view: ChannelView) => {
@@ -1835,7 +1837,7 @@ export const createDataStore = (
 			create: async (
 				community: Did,
 				name: string,
-				permissions: CategoryPermissions = {},
+				permissions: CategoryOverrides = {},
 			) => {
 				const view = await source.createCategory({
 					community,
@@ -1848,7 +1850,7 @@ export const createDataStore = (
 			update: async (
 				community: Did,
 				category: string,
-				changes: { name?: string } & CategoryPermissions,
+				changes: { name?: string } & CategoryOverrides,
 			) => {
 				const view = await source.updateCategory({
 					community,

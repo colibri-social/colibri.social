@@ -1,11 +1,13 @@
 import {
+	BASELINE_PERMISSIONS,
+	holderCan,
+	holderPermissions,
 	isPrivateCategory,
-	permissionsOf,
-	resolveChannelView,
-} from "../category-permissions";
+	isPrivateChannel,
+	postingPermission,
+} from "../channel-permissions";
 import { skeyOf } from "../ids";
 import type {
-	CategoryPermissions,
 	CategoryView,
 	ChannelView,
 	CommunityView,
@@ -13,6 +15,7 @@ import type {
 	Did,
 	MemberView,
 	MessageView,
+	PermissionOverride,
 	ReactionView,
 	RoleView,
 	SpaceRef,
@@ -48,6 +51,27 @@ const DELETED_VIEW = "social.colibri.beta.channel.defs#deletedMessageView";
 const ICON_BADGE = "social.colibri.beta.community.defs#roleIconBadge";
 const IMAGE_BADGE = "social.colibri.beta.community.defs#roleImageBadgeView";
 const ARCHIVE_SIZE = 10_000;
+
+const DEFAULT_ROLE = "members";
+
+export const defaultMemberRole = (memberCount: number): RoleView => {
+	return {
+		rkey: DEFAULT_ROLE,
+		name: "Members",
+		permissions: [...BASELINE_PERMISSIONS],
+		position: 0,
+		default: true,
+		memberCount,
+	};
+};
+
+const privateOverrides = (posting: string): PermissionOverride[] => {
+	return [
+		{ role: DEFAULT_ROLE, allow: [], deny: ["channel.view"] },
+		{ role: "owner", allow: ["channel.view", posting], deny: [] },
+		{ role: "mods", allow: ["channel.view", posting], deny: [] },
+	];
+};
 
 const END_AGO: Record<string, number> = {
 	"hq:welcome": 60 * 24 * 30,
@@ -127,7 +151,11 @@ export type SpaceRecord = {
 	did: Did;
 	view: CommunityView;
 	roles: RoleView[];
-	categories: ({ rkey: string; name: string } & CategoryPermissions)[];
+	categories: {
+		rkey: string;
+		name: string;
+		permissionOverrides?: PermissionOverride[];
+	}[];
 	channels: ChannelRecord[];
 	members: MemberView[];
 	threads: ThreadRecord[];
@@ -380,6 +408,7 @@ export const createWorld = (now: number) => {
 			}
 			return view;
 		});
+		roles.push(defaultMemberRole(seed.members.length));
 		const sortRoles = (keys: string[]) =>
 			[...keys].sort(
 				(a, b) => (positions.get(b) ?? 0) - (positions.get(a) ?? 0),
@@ -451,9 +480,9 @@ export const createWorld = (now: number) => {
 			if (channel.description) channelView.description = channel.description;
 			if (channel.category) channelView.category = channel.category;
 			if (channel.private) {
-				channelView.private = true;
-				channelView.allowedRoles = ["owner", "mods"];
-				channelView.visibleToRoles = ["owner", "mods"];
+				channelView.permissionOverrides = privateOverrides(
+					postingPermission(channelView),
+				);
 			}
 			const key = `${seed.key}:${channel.skey}`;
 			const build =
@@ -586,12 +615,44 @@ export const createWorld = (now: number) => {
 		});
 	}
 
-	const channelViewIn = (space: SpaceRecord, view: ChannelView) =>
-		resolveChannelView(
-			view,
-			space.categories.find((entry) => entry.rkey === view.category),
-			{ did: didOf(VIEWER_KEY), community: space.view, roles: space.roles },
+	const channelViewIn = (
+		space: SpaceRecord,
+		view: ChannelView,
+	): ChannelView => {
+		const category = space.categories.find(
+			(entry) => entry.rkey === view.category,
 		);
+		const holder = {
+			did: didOf(VIEWER_KEY),
+			roles: space.view.viewer.roles ?? [],
+			owner: !!space.view.viewer.isOwner,
+		};
+		const seeded = view.viewer.permissions ?? [];
+		const base = (key: string) =>
+			BASELINE_PERMISSIONS.includes(key) || seeded.includes(key);
+		const can = (key: string) =>
+			holderCan(holder, space.roles, key, view, category, base);
+		const resolved: ChannelView = {
+			...view,
+			viewer: {
+				...view.viewer,
+				canRead: can("channel.view"),
+				canPost: can(postingPermission(view)) && view.viewer.canPost !== false,
+				permissions: holderPermissions(
+					holder,
+					space.roles,
+					view,
+					category,
+					base,
+				),
+			},
+		};
+
+		if (isPrivateChannel(view, category, space.roles)) resolved.private = true;
+		else delete resolved.private;
+
+		return resolved;
+	};
 
 	const listed = (space: SpaceRecord) =>
 		space.channels.filter((channel) => !channel.hidden);
@@ -602,14 +663,16 @@ export const createWorld = (now: number) => {
 	const categoriesOf = (space: SpaceRecord): CategoryView[] =>
 		space.categories.map((category) => {
 			const view: CategoryView = {
-				...permissionsOf(category),
 				rkey: category.rkey,
 				name: category.name,
 				channels: listed(space)
 					.filter((channel) => channel.view.category === category.rkey)
 					.map((channel) => channelViewIn(space, channel.view)),
 			};
-			if (isPrivateCategory(category)) view.private = true;
+			if (category.permissionOverrides) {
+				view.permissionOverrides = category.permissionOverrides;
+			}
+			if (isPrivateCategory(category, space.roles)) view.private = true;
 			return view;
 		});
 

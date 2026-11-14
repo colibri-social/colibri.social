@@ -590,9 +590,9 @@ describe("movedChannelView", () => {
 		});
 	});
 
-	it("ignores a missing or malformed view", () => {
+	it("ignores a missing view and rejects a malformed one", () => {
 		expect(movedChannelView(moved({}))).toBeUndefined();
-		expect(movedChannelView(moved({ view: { name: 1 } }))).toBeUndefined();
+		expect(moved({ view: { name: 1 } })).toBeNull();
 	});
 
 	it("reads the channel the destination sits after", () => {
@@ -604,7 +604,7 @@ describe("movedChannelView", () => {
 
 		expect(movedAfter(moved({ view, after: before }))).toBe(before);
 		expect(movedAfter(moved({ view }))).toBeUndefined();
-		expect(movedAfter(moved({ view, after: "nope" }))).toBeUndefined();
+		expect(moved({ view, after: "nope" })).toBeNull();
 	});
 
 	it("ignores a view of another channel", () => {

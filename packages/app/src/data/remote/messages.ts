@@ -283,7 +283,7 @@ export const createMessageWrites = (deps: {
 					method: "repo.uploadBlob",
 				});
 			options?.onProgress?.(0);
-			const blob = await records.uploadBlob(file, options?.signal);
+			const blob = await records.uploadSpaceBlob(file, options?.signal);
 			options?.onProgress?.(1);
 			const url = URL.createObjectURL(file);
 			const mimeType = blob.mimeType || file.type;
@@ -533,7 +533,7 @@ export const createMessageWrites = (deps: {
 						| AttachmentView
 						| undefined;
 					return {
-						blob: await records.uploadBlob(file),
+						blob: await records.uploadSpaceBlob(file),
 						name: file.name,
 						...(original?.width && original.height
 							? { width: original.width, height: original.height }

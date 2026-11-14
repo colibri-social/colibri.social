@@ -20,10 +20,7 @@ import {
 } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { useBadges } from "../../data/badges";
-import {
-	canReadChannel,
-	isAdminRoleSet,
-} from "../../data/category-permissions";
+import { canReadChannel } from "../../data/channel-permissions";
 import { isVoiceChannel, skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
 import type { Did, ThreadView } from "../../data/types";
@@ -143,10 +140,9 @@ export const members = defineContract({
 			const readers = list.filter((member) => {
 				return included
 					? included.has(member.actor.did)
-					: canReadChannel(view, category, {
+					: canReadChannel(view, category, roles, {
 							did: member.actor.did,
 							roles: member.roles ?? [],
-							admin: isAdminRoleSet(member.roles ?? [], roles),
 						});
 			});
 			const mapped = readers.map((member) =>

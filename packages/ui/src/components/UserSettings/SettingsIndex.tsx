@@ -173,9 +173,11 @@ export const SETTINGS_ENTRY_INFO: Record<SettingsEntryId, EntryInfo> = {
 
 type EntrySection = { label: string; entries: SettingsEntryId[] };
 
+const ACCOUNT_SECTION = "Account";
+
 const SECTIONS: EntrySection[] = [
 	{
-		label: "Account",
+		label: ACCOUNT_SECTION,
 		entries: ["profile", "emojiPacks", "atmosphereAccount", "blockedUsers"],
 	},
 	{
@@ -210,6 +212,7 @@ export type SettingsIndexProps = {
 	active?: SettingsEntryId;
 	onLogOut?: () => void;
 	header?: JSX.Element;
+	accountNotice?: JSX.Element;
 	query?: string;
 	defaultQuery?: string;
 	onQueryChange?: (query: string) => void;
@@ -218,6 +221,7 @@ export type SettingsIndexProps = {
 
 export const SettingsIndex = (props: SettingsIndexProps) => {
 	const header = createSlot(() => props.header);
+	const accountNotice = createSlot(() => props.accountNotice);
 	const [internalQuery, setInternalQuery] = createSignal(
 		props.defaultQuery ?? "",
 	);
@@ -227,6 +231,10 @@ export const SettingsIndex = (props: SettingsIndexProps) => {
 		props.onQueryChange?.(next);
 	};
 	const desktop = () => props.variant === "desktop";
+	const noticeAfter = (section: EntrySection) =>
+		section.label === ACCOUNT_SECTION &&
+		accountNotice.has() &&
+		query().trim() === "";
 
 	const present = (section: EntrySection) =>
 		section.entries.filter((id) => props.entries[id]);
@@ -284,12 +292,15 @@ export const SettingsIndex = (props: SettingsIndexProps) => {
 						<>
 							<For each={mainSections()}>
 								{(section) => (
-									<MobileSection
-										section={section}
-										entries={props.entries}
-										select={select}
-										icon={icon}
-									/>
+									<>
+										<MobileSection
+											section={section}
+											entries={props.entries}
+											select={select}
+											icon={icon}
+										/>
+										<Show when={noticeAfter(section)}>{accountNotice()}</Show>
+									</>
 								)}
 							</For>
 							<Show when={props.onLogOut}>
@@ -320,13 +331,16 @@ export const SettingsIndex = (props: SettingsIndexProps) => {
 					<SidebarNav aria-label="Settings">
 						<For each={mainSections()}>
 							{(section) => (
-								<DesktopSection
-									section={section}
-									entries={props.entries}
-									active={props.active}
-									select={select}
-									icon={icon}
-								/>
+								<>
+									<DesktopSection
+										section={section}
+										entries={props.entries}
+										active={props.active}
+										select={select}
+										icon={icon}
+									/>
+									<Show when={noticeAfter(section)}>{accountNotice()}</Show>
+								</>
 							)}
 						</For>
 						<Show when={props.onLogOut}>

@@ -16,15 +16,8 @@ export type MigrationProgressView =
 	social.colibri.beta.community.defs.MigrationProgress;
 export type LegacyCommunityView =
 	social.colibri.beta.community.defs.LegacyCommunityView;
-export type CategoryPermissions = {
-	ownerOnly?: boolean;
-	allowedRoles?: string[];
-	allowedMembers?: Did[];
-	visibleToRoles?: string[];
-	visibleToMembers?: Did[];
-};
-export type CategoryView = social.colibri.beta.community.defs.CategoryView &
-	CategoryPermissions & { private?: boolean };
+export type CategoryView = social.colibri.beta.community.defs.CategoryView;
+export type PermissionOverride = social.colibri.beta.defs.PermissionOverride;
 export type ChannelView = social.colibri.beta.community.defs.ChannelView;
 export type RoleView = social.colibri.beta.community.defs.RoleView;
 export type MemberView = social.colibri.beta.community.defs.MemberView;

@@ -61,7 +61,6 @@ export type ClientPreferences = Omit<
 > & {
 	controls?: Omit<NonNullable<ClientPreferencesWire["controls"]>, "$type">;
 	voiceView?: Omit<NonNullable<ClientPreferencesWire["voiceView"]>, "$type">;
-	recordExplorer?: string;
 };
 
 export type EmojiUse = { count: number; lastUsed: number };

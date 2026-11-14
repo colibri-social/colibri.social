@@ -1,0 +1,80 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.polyfill.completeMigration",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Asks the AppView to verify one repo the client copied to its PDS. The AppView syncs the repo from the PDS and compares it with its own copy. On a match the PDS becomes the source of truth. On a mismatch the repo stays hosted by the AppView, and the client may try again.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"space"
+					],
+					"properties": {
+						"space": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The space holding the repo."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"mode"
+					],
+					"properties": {
+						"mode": {
+							"type": "ref",
+							"ref": "social.colibri.beta.polyfill.defs#hostMode",
+							"description": "Where the user's repos live after this call."
+						},
+						"missing": {
+							"type": "array",
+							"description": "Records the AppView holds that the PDS copy lacks or differs on, when verification fails.",
+							"items": {
+								"type": "string",
+								"format": "at-uri"
+							}
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "SpaceNotFound",
+					"description": "No space matches the given space reference."
+				},
+				{
+					"name": "NotAuthorized",
+					"description": "The caller may not write to or read from this repo in the space."
+				},
+				{
+					"name": "RepoNotHosted",
+					"description": "The AppView does not host the caller's repo in this space, because it lives on the caller's PDS. Write to the PDS instead."
+				},
+				{
+					"name": "MigrationNotStarted",
+					"description": "The repo is not in the migrating state."
+				},
+				{
+					"name": "VerificationFailed",
+					"description": "The PDS copy could not be read or did not match."
+				}
+			]
+		}
+	}
+}

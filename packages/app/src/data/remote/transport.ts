@@ -31,6 +31,7 @@ export type CallInit = {
 	body?: unknown;
 	raw?: RawBody;
 	signal?: AbortSignal;
+	attempts?: number;
 };
 
 const RETRY_ATTEMPTS = 3;
@@ -88,7 +89,7 @@ export const createTransport = (input: {
 			body = JSON.stringify(init.body);
 		}
 		const path = `/xrpc/${nsid}${encodeParams(init.params)}`;
-		const attempts = kind === "query" ? RETRY_ATTEMPTS : 1;
+		const attempts = init.attempts ?? (kind === "query" ? RETRY_ATTEMPTS : 1);
 		let failure: ColibriError | undefined;
 		for (let attempt = 1; attempt <= attempts; attempt++) {
 			try {
@@ -118,6 +119,38 @@ export const createTransport = (input: {
 		throw error;
 	};
 
+	const fetchBlob = async (
+		nsid: string,
+		params: Params,
+		proxy: string | undefined,
+	): Promise<Blob> => {
+		const path = `/xrpc/${nsid}${encodeParams(params)}`;
+		const headers = new Headers();
+
+		if (proxy) headers.set("atproto-proxy", proxy);
+
+		let response: Response;
+
+		try {
+			response = await input.session.fetchHandler(path, {
+				method: "GET",
+				headers,
+			});
+		} catch (cause) {
+			throw classifyThrown(cause, { method: nsid });
+		}
+
+		if (!response.ok)
+			throw classifyResponse({
+				status: response.status,
+				body: await response.text(),
+				method: nsid,
+				retryAfter: response.headers.get("retry-after"),
+			});
+
+		return response.blob();
+	};
+
 	return {
 		did: input.session.did,
 		appViewDid: input.appViewDid,
@@ -131,24 +164,18 @@ export const createTransport = (input: {
 			send(nsid, "query", init, undefined) as Promise<T>,
 		pdsProcedure: <T>(nsid: string, init: CallInit = {}) =>
 			send(nsid, "procedure", init, undefined) as Promise<T>,
-		pdsBlob: async (cid: string): Promise<Blob> => {
-			const nsid = "com.atproto.sync.getBlob";
-			const path = `/xrpc/${nsid}${encodeParams({ did: input.session.did, cid })}`;
-			let response: Response;
-			try {
-				response = await input.session.fetchHandler(path, { method: "GET" });
-			} catch (cause) {
-				throw classifyThrown(cause, { method: nsid });
-			}
-			if (!response.ok)
-				throw classifyResponse({
-					status: response.status,
-					body: await response.text(),
-					method: nsid,
-					retryAfter: response.headers.get("retry-after"),
-				});
-			return response.blob();
-		},
+		appViewQuery: <T>(nsid: string, init: CallInit = {}) =>
+			send(nsid, "query", init, appViewProxy) as Promise<T>,
+		appViewProcedure: <T>(nsid: string, init: CallInit = {}) =>
+			send(nsid, "procedure", init, appViewProxy) as Promise<T>,
+		pdsBlob: (cid: string) =>
+			fetchBlob(
+				"com.atproto.sync.getBlob",
+				{ did: input.session.did, cid },
+				undefined,
+			),
+		appViewBlob: (nsid: string, params: Params) =>
+			fetchBlob(nsid, params, appViewProxy),
 	};
 };
 

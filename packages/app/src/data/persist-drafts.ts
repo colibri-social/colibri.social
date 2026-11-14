@@ -113,6 +113,7 @@ export const createComposerDraft = (options: ComposerDraftOptions) => {
 	let handle: RichEditorHandle | undefined;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let pendingKey: string | undefined;
+	let snapshot: { json: EditorJSON; empty: boolean } | undefined;
 	let alive = true;
 	const [linkPreviews, setLinkPreviewsSignal] = createSignal<
 		boolean | undefined
@@ -123,14 +124,21 @@ export const createComposerDraft = (options: ComposerDraftOptions) => {
 		if (options.key() === key) setLinkPreviewsSignal(undefined);
 	};
 
-	const save = (key: string) => {
+	const capture = () => {
 		const current = handle;
-		if (!current) return;
-		const json = current.getJSON();
-		if (json === undefined) return;
-		const empty = current.isEmpty();
-		writeComposerDraft(key, empty ? undefined : json);
-		if (empty) forgetLinkPreviews(key);
+		const json = current?.getJSON();
+		if (!current || json === undefined) return snapshot;
+
+		return { json, empty: current.isEmpty() };
+	};
+
+	const save = (key: string) => {
+		const state = capture();
+		snapshot = undefined;
+		if (!state) return;
+
+		writeComposerDraft(key, state.empty ? undefined : state.json);
+		if (state.empty) forgetLinkPreviews(key);
 	};
 
 	const flush = () => {
@@ -157,6 +165,7 @@ export const createComposerDraft = (options: ComposerDraftOptions) => {
 		if (!key || options.paused?.()) return;
 		if (pendingKey && pendingKey !== key) flush();
 		pendingKey = key;
+		snapshot = capture();
 		if (timer !== undefined) clearTimeout(timer);
 		timer = setTimeout(flush, SAVE_DELAY_MS);
 	};
@@ -165,6 +174,7 @@ export const createComposerDraft = (options: ComposerDraftOptions) => {
 		if (timer !== undefined) clearTimeout(timer);
 		timer = undefined;
 		pendingKey = undefined;
+		snapshot = undefined;
 		const key = options.key();
 		if (key) {
 			writeComposerDraft(key, undefined);
@@ -216,6 +226,7 @@ export const createComposerDraft = (options: ComposerDraftOptions) => {
 
 	return {
 		bind: (next: RichEditorHandle) => {
+			if (handle !== next) flush();
 			handle = next;
 			const key = options.key();
 			if (key) restore(key);

@@ -5,6 +5,7 @@ import {
 	moveBlock,
 	movedToast,
 	sharedOrigin,
+	viewAudience,
 } from "./move-plan";
 
 describe("move plan", () => {
@@ -24,20 +25,41 @@ describe("move plan", () => {
 	});
 
 	it("notices when the audience changes", () => {
-		expect(audienceChange({}, {}).changed).toBe(false);
-		expect(audienceChange({}, { visibleToRoles: ["mods"] })).toEqual({
+		const open = viewAudience({}, undefined);
+		const staff = viewAudience(
+			{
+				private: true,
+				permissionOverrides: [
+					{ role: "members", allow: [], deny: ["channel.view"] },
+					{ role: "mods", allow: ["channel.view"], deny: [] },
+				],
+			},
+			undefined,
+		);
+
+		expect(audienceChange(open, viewAudience({}, undefined)).changed).toBe(
+			false,
+		);
+		expect(audienceChange(open, staff)).toEqual({
 			changed: true,
 			toPrivate: true,
 		});
 		expect(
 			audienceChange(
-				{ visibleToRoles: ["mods", "owner"] },
-				{ visibleToRoles: ["owner", "mods"] },
+				staff,
+				viewAudience(
+					{
+						private: true,
+						permissionOverrides: [
+							{ role: "mods", allow: ["channel.view", "message.send"] },
+							{ role: "members", deny: ["channel.view"] },
+						],
+					},
+					undefined,
+				),
 			).changed,
 		).toBe(false);
-		expect(audienceChange({ visibleToRoles: ["mods"] }, {}).toPrivate).toBe(
-			false,
-		);
+		expect(audienceChange(staff, open).toPrivate).toBe(false);
 	});
 
 	it("words the toast by count", () => {

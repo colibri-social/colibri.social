@@ -11,6 +11,7 @@ import {
 	colibri,
 	createLogger,
 } from "@colibri-social/lib";
+import { type HostModeSignal, isHostedByAppView } from "../polyfill/host-mode";
 import type { Records } from "../remote/records";
 import type { Transport } from "../remote/transport";
 import { type PreferenceBackend, SETTINGS_FIELDS } from "./types";
@@ -32,10 +33,13 @@ const MISSING_SPACE = new Set(["SpaceNotFound", "RepoNotFound", "NotFound"]);
 export const isMissingSpace = (error: unknown) =>
 	error instanceof ColibriError && MISSING_SPACE.has(error.code);
 
-export const createPreferencesSpace = (transport: Transport) => {
+export const createPreferencesSpace = (
+	transport: Transport,
+	host?: HostModeSignal,
+) => {
 	const space = asSpaceRef(preferencesSpace(transport.did));
 	let ready: Promise<void> | undefined;
-	const ensure = () => {
+	const create = () => {
 		ready ??= transport
 			.pdsProcedure("com.atproto.space.createSpace", {
 				body: {
@@ -57,6 +61,11 @@ export const createPreferencesSpace = (transport: Transport) => {
 			);
 		return ready;
 	};
+	const ensure = async () => {
+		if (host && isHostedByAppView((await host.resolved()).mode)) return;
+
+		await create();
+	};
 	const write = async <T>(run: () => Promise<T>): Promise<T> => {
 		try {
 			return await run();
@@ -67,7 +76,7 @@ export const createPreferencesSpace = (transport: Transport) => {
 			return run();
 		}
 	};
-	return { space, ensure, write };
+	return { space, ensure, create, write };
 };
 
 export type PreferencesSpace = ReturnType<typeof createPreferencesSpace>;

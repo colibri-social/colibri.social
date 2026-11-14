@@ -21,6 +21,8 @@ import { createActivitySourceDetector } from "../activity-source";
 import { createNetworkLabeler } from "../badges/labeler";
 import { summarizeChannel } from "../channel-summary";
 import { type HostingView, toHostAuthorization } from "../hosting";
+import { createHostMode } from "../polyfill/host-mode";
+import { createMigrator } from "../polyfill/migrator";
 import { createPreferencesGrant } from "../preferences/grant";
 import { importLegacyPreferences } from "../preferences/legacy";
 import {
@@ -94,7 +96,7 @@ export type RemoteLive = {
 };
 
 export type RemoteDataSource = DataSource & {
-	startPreferencesGrant: () => () => void;
+	startHosting: () => () => void;
 	flushReadCursors: () => Promise<void>;
 	watchChannel: (channel: SpaceRef) => () => void;
 	viewChannel: (channel?: SpaceRef) => void;
@@ -137,7 +139,10 @@ export const createRemoteSource = async (
 		appViewDid: options.appViewDid,
 		onScopesRejected: options.onScopesRejected,
 	});
-	const records = createRecords(transport);
+	const host = createHostMode({ transport, publish: true });
+	const records = createRecords(transport, host);
+
+	void host.refresh();
 	const index = createMessageIndex();
 	const uploads = createUploads();
 
@@ -219,11 +224,30 @@ export const createRemoteSource = async (
 		};
 	};
 
-	const preferencesSpace = createPreferencesSpace(transport);
+	const preferencesSpace = createPreferencesSpace(transport, host);
 	const preferencesGrant = createPreferencesGrant({
 		transport,
 		space: preferencesSpace,
+		host,
 	});
+	const migrator = createMigrator({
+		transport,
+		host,
+		preferencesSpace,
+		grantPreferences: async () =>
+			(await preferencesGrant.grant()) !== undefined,
+	});
+
+	const startHosting = () => {
+		const stopGrant = preferencesGrant.start();
+		const stopMigrator = migrator.start();
+
+		return () => {
+			stopGrant();
+			stopMigrator();
+			host.dispose();
+		};
+	};
 	const deletion = createDeletion({
 		transport,
 		records,
@@ -386,7 +410,7 @@ export const createRemoteSource = async (
 	};
 
 	const source: RemoteDataSource = {
-		startPreferencesGrant: preferencesGrant.start,
+		startHosting,
 		...emoji,
 		emojiBlobUrl,
 

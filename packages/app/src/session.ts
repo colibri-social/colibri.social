@@ -132,7 +132,7 @@ export const createSignedInSession = (
 			let uninstallVoice: (() => void) | undefined;
 			let uninstallBadge: (() => void) | undefined;
 			let uninstallPush: (() => void) | undefined;
-			let stopPreferencesGrant: (() => void) | undefined;
+			let stopHosting: (() => void) | undefined;
 			const nodes = createNodeDirectory({
 				mainUrl: appViewUrl(),
 				fetch: isNativeShell() ? nativeFetch : undefined,
@@ -216,7 +216,7 @@ export const createSignedInSession = (
 							),
 						);
 					});
-					stopPreferencesGrant = source.startPreferencesGrant();
+					stopHosting = source.startHosting();
 					uninstallCall = installNativeCall(store);
 					const push = createPush({
 						source,
@@ -279,7 +279,7 @@ export const createSignedInSession = (
 				uninstallVoice?.();
 				uninstallBadge?.();
 				uninstallPush?.();
-				stopPreferencesGrant?.();
+				stopHosting?.();
 				clearBeforeExit?.();
 				if (activeStore === session?.store) activeStore = undefined;
 				session?.store.dispose();

@@ -1,0 +1,51 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.polyfill.uploadBlob",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Stores a blob for the requesting user while the AppView hosts their space repos. A blob nothing references within a day is deleted.",
+			"input": {
+				"encoding": "*/*",
+				"description": "The raw bytes. The content type is sniffed rather than trusted."
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"blob"
+					],
+					"properties": {
+						"blob": {
+							"type": "blob",
+							"description": "A reference to the stored blob, for use in a record."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "RepoNotHosted",
+					"description": "The AppView does not host the caller's repos. Upload to the PDS instead."
+				},
+				{
+					"name": "BlobTooLarge",
+					"description": "The blob exceeds the size limit."
+				},
+				{
+					"name": "BlobStorageUnavailable",
+					"description": "The AppView has no blob storage configured, so it cannot hold attachments right now."
+				}
+			]
+		}
+	}
+}

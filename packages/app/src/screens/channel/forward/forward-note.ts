@@ -8,10 +8,7 @@ import type {
 } from "@colibri-social/ui";
 import { displayNameOf } from "../../../data/adapters/display-name";
 import { uiPresence } from "../../../data/adapters/presence";
-import {
-	canReadChannel,
-	isAdminRoleSet,
-} from "../../../data/category-permissions";
+import { canReadChannel } from "../../../data/channel-permissions";
 import { channelSlug, isVoiceChannel } from "../../../data/ids";
 import { isMentionableRole } from "../../../data/role-flags";
 import type { DataStore } from "../../../data/store";
@@ -66,10 +63,9 @@ const readersOf = (target: ForwardTarget, space: NoteSpace) => {
 	return new Map(
 		space.members
 			.filter((member) =>
-				canReadChannel(target.channel, category, {
+				canReadChannel(target.channel, category, roles, {
 					did: member.actor.did,
 					roles: member.roles ?? [],
-					admin: isAdminRoleSet(member.roles ?? [], roles),
 				}),
 			)
 			.map((member) => [member.actor.did as string, member]),

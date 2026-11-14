@@ -131,14 +131,6 @@ const colorToggle = (root: HTMLElement) =>
 const sheetMembers = () =>
 	document.querySelectorAll("[data-pane][data-pane-active] [data-role-member]");
 
-const makeBotsDefault = (source: ReturnType<typeof createMockSource>) => {
-	const bots = source.world.spaces
-		.find((space) => space.did === HQ)
-		?.roles.find((role) => role.rkey === "bots");
-	if (!bots) throw new Error("Bots role missing");
-	Object.assign(bots, { default: true });
-};
-
 const hqSpace = (store: ReturnType<typeof createDataStore>) => {
 	const community = store.spaceByKey(HQ);
 	if (!community) throw new Error("HQ missing");
@@ -148,12 +140,13 @@ const hqSpace = (store: ReturnType<typeof createDataStore>) => {
 describe("roles", () => {
 	it("lists roles in rank order and hides the owner role", async () => {
 		const { root } = await mount(`/app/c/${HQ}/manage/roles`);
-		await until(() => roleRows(root).length === 4);
+		await until(() => roleRows(root).length === 5);
 		expect(roleRows(root).map((row) => row.textContent)).toEqual([
 			expect.stringContaining("Core team"),
 			expect.stringContaining("Moderators"),
 			expect.stringContaining("Testers"),
 			expect.stringContaining("Bots"),
+			expect.stringContaining("Members"),
 		]);
 		expect(rowNamed(root, "Testers")?.textContent).not.toContain("members");
 		expect(rowNamed(root, "Owner")).toBeUndefined();
@@ -197,7 +190,7 @@ describe("roles", () => {
 
 	it("creates a role and lands on it", async () => {
 		const { root, store } = await mount(`/app/c/${HQ}/manage/roles`);
-		await until(() => roleRows(root).length === 4);
+		await until(() => roleRows(root).length === 5);
 		buttonNamed(root, "Create role")?.click();
 		await until(() => location.pathname.endsWith("/manage/role/new"));
 		await until(() => !!nameField(root));
@@ -499,13 +492,14 @@ describe("roles", () => {
 
 	it("saves a new order through the store and shows it", async () => {
 		const { root, store } = await mount(`/app/c/${HQ}/manage/roles`);
-		await until(() => roleRows(root).length === 4);
+		await until(() => roleRows(root).length === 5);
 		await hqSpace(store).reorderRoles([
 			"owner",
 			"testers",
 			"core",
 			"mods",
 			"bots",
+			"members",
 		]);
 		await until(
 			() => roleRows(root)[0]?.textContent?.includes("Testers") === true,
@@ -519,12 +513,13 @@ describe("roles", () => {
 			["core", 3],
 			["mods", 2],
 			["bots", 1],
+			["members", 0],
 		]);
 	});
 
 	it("lifts a held role and moves it to where it's dropped", async () => {
 		const { root, store } = await mount(`/app/c/${HQ}/manage/roles`);
-		await until(() => roleRows(root).length === 4);
+		await until(() => roleRows(root).length === 5);
 		expect(root.querySelector('[data-role-hold="owner"]')).toBeNull();
 		const held = root.querySelector<HTMLElement>(
 			'[data-role-hold="testers"]',
@@ -566,15 +561,12 @@ describe("roles", () => {
 				hqSpace(store)
 					.roles.value()
 					?.map((role) => role.rkey)
-					.join(",") === "owner,core,testers,mods,bots",
+					.join(",") === "owner,core,testers,mods,bots,members",
 		);
 	});
 
 	it("marks the default role and offers no way to delete it", async () => {
-		const { root } = await mount(
-			`/app/c/${HQ}/manage/role/bots`,
-			makeBotsDefault,
-		);
+		const { root } = await mount(`/app/c/${HQ}/manage/role/members`);
 		await until(() => !!nameField(root));
 		await settled(root);
 		const note = activeScreen(root).querySelector("[data-role-default]");
@@ -587,23 +579,20 @@ describe("roles", () => {
 	});
 
 	it("shows no default role note on other roles", async () => {
-		const { root } = await mount(
-			`/app/c/${HQ}/manage/role/testers`,
-			makeBotsDefault,
-		);
+		const { root } = await mount(`/app/c/${HQ}/manage/role/testers`);
 		await until(() => !!buttonNamed(activeScreen(root), "Delete role"));
 		expect(activeScreen(root).querySelector("[data-role-default]")).toBeNull();
 	});
 
 	it("keeps the default role pinned below every other role", async () => {
-		const { root } = await mount(`/app/c/${HQ}/manage/roles`, makeBotsDefault);
-		await until(() => roleRows(root).length === 4);
-		expect(root.querySelector('[data-role-hold="bots"]')).not.toBeNull();
+		const { root } = await mount(`/app/c/${HQ}/manage/roles`);
+		await until(() => roleRows(root).length === 5);
+		expect(root.querySelector('[data-role-hold="members"]')).not.toBeNull();
 		buttonNamed(root, "Reorder")?.click();
 		await until(() => !!buttonNamed(root, "Save order"));
-		const bots = rowNamed(root, "Bots");
-		expect(bots?.hasAttribute("data-locked")).toBe(true);
-		expect(buttonNamed(root, "Move Bots")).toBeUndefined();
+		const members = rowNamed(root, "Members");
+		expect(members?.hasAttribute("data-locked")).toBe(true);
+		expect(buttonNamed(root, "Move Members")).toBeUndefined();
 		expect(buttonNamed(root, "Move Testers")).toBeTruthy();
 	});
 

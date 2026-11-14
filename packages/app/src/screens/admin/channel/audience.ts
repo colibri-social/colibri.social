@@ -10,25 +10,6 @@ import { uiPresence } from "../../members/member-adapter";
 
 export type Audience = { roles: string[]; members: string[] };
 
-export type AudienceKind = "visible" | "post";
-
-const sameSet = (a: readonly string[], b: readonly string[]) =>
-	a.length === b.length && a.every((entry) => b.includes(entry));
-
-export const sameAudience = (a: Audience, b: Audience) =>
-	sameSet(a.roles, b.roles) && sameSet(a.members, b.members);
-
-const plural = (count: number, noun: string) =>
-	`${count} ${noun}${count === 1 ? "" : "s"}`;
-
-export const audienceSummary = (audience: Audience) => {
-	const parts = [
-		audience.roles.length ? plural(audience.roles.length, "role") : "",
-		audience.members.length ? plural(audience.members.length, "member") : "",
-	].filter(Boolean);
-	return parts.length ? parts.join(", ") : "Everyone";
-};
-
 export const createAudienceOptions = (
 	community: () => CommunityView | undefined,
 	space: () => SpaceData | undefined,
@@ -83,5 +64,3 @@ export const createAudienceOptions = (
 		canSelectMember,
 	};
 };
-
-export type AudienceOptions = ReturnType<typeof createAudienceOptions>;
