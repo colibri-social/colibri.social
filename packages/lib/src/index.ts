@@ -1,4 +1,5 @@
 export * from "./atproto.js";
+export * from "./autolink.js";
 export * from "./cache/kv-store.js";
 export * from "./cache/lru.js";
 export * from "./cache/message-window.js";

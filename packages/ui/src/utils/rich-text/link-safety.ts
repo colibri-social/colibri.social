@@ -1,3 +1,4 @@
+import { isAtUri } from "@colibri-social/lib";
 import tlds from "tlds";
 
 const SCHEME_RE = /^[a-z][a-z0-9+.-]*:\/\//i;
@@ -39,10 +40,7 @@ const parse = (value: string): URL | null => {
 	}
 };
 
-const AT_URI_RE =
-	/^at:\/\/(did:[a-z]+:[a-zA-Z0-9._:%-]+|[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+)(\/[a-zA-Z0-9._~:%-]+)*$/;
-
-export const isAtUri = (uri: string): boolean => AT_URI_RE.test(uri);
+export { isAtUri };
 
 export const isSafeLinkUri = (uri: string): boolean => {
 	if (isAtUri(uri)) return true;

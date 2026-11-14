@@ -43,55 +43,65 @@ const linksIn = (input: string): Array<{ uri: string; covers: string }> => {
 	);
 };
 
-describe("autolinked bare domains", () => {
-	it("leaves a possessive out of the link", () => {
-		expect(linksIn("read plc.directory's docs")).toEqual([
-			{ uri: "https://plc.directory", covers: "plc.directory" },
-		]);
+describe("bare domains", () => {
+	it.each([
+		"mu.social",
+		"try example.com today",
+		"read plc.directory's docs",
+		"www.example.com/path",
+	])("leaves %s as plain text", (input) => {
+		expect(linksIn(input)).toEqual([]);
+	});
+});
+
+describe("escaped urls", () => {
+	it("keeps a url after a backslash as plain text and drops the backslash", () => {
+		const result = proseMirrorToFacets(
+			paragraph("see \\https://example.com now"),
+		);
+
+		expect(result.text).toBe("see https://example.com now");
+		expect(result.facets).toEqual([]);
 	});
 
-	it("leaves a curly possessive out of the link", () => {
-		expect(linksIn("read plc.directory’s docs")).toEqual([
-			{ uri: "https://plc.directory", covers: "plc.directory" },
-		]);
-	});
+	it("keeps an at uri after a backslash as plain text", () => {
+		const uri = "at://did:plc:abc123/app.bsky.feed.post/3kabc";
+		const result = proseMirrorToFacets(paragraph(`\\${uri}`));
 
-	it("drops a trailing full stop", () => {
-		expect(linksIn("we build on astro.build.")).toEqual([
-			{ uri: "https://astro.build", covers: "astro.build" },
-		]);
-	});
-
-	it("drops a possessive followed by a full stop", () => {
-		expect(linksIn("that is plc.directory's.")).toEqual([
-			{ uri: "https://plc.directory", covers: "plc.directory" },
-		]);
-	});
-
-	it("drops a trailing straight quote", () => {
-		expect(linksIn('she said "go to example.com"')).toEqual([
-			{ uri: "https://example.com", covers: "example.com" },
-		]);
-	});
-
-	it("drops a trailing curly quote", () => {
-		expect(linksIn("she said “go to example.com”")).toEqual([
-			{ uri: "https://example.com", covers: "example.com" },
-		]);
-	});
-
-	it("drops an unbalanced closing paren and the full stop after it", () => {
-		expect(linksIn("(see astro.build).")).toEqual([
-			{ uri: "https://astro.build", covers: "astro.build" },
-		]);
-	});
-
-	it("skips a domain whose tail cannot be a hostname", () => {
-		expect(linksIn("ask plc.directory'sup about it")).toEqual([]);
+		expect(result.text).toBe(uri);
+		expect(result.facets).toEqual([]);
 	});
 });
 
 describe("autolinked absolute urls", () => {
+	it("leaves a possessive out of the link", () => {
+		expect(linksIn("read https://plc.directory's docs")).toEqual([
+			{ uri: "https://plc.directory", covers: "https://plc.directory" },
+		]);
+	});
+
+	it("drops a trailing full stop", () => {
+		expect(linksIn("we build on https://astro.build.")).toEqual([
+			{ uri: "https://astro.build", covers: "https://astro.build" },
+		]);
+	});
+
+	it("drops a trailing curly quote", () => {
+		expect(linksIn("she said “go to https://example.com”")).toEqual([
+			{ uri: "https://example.com", covers: "https://example.com" },
+		]);
+	});
+
+	it("drops an unbalanced closing paren and the full stop after it", () => {
+		expect(linksIn("(see https://astro.build).")).toEqual([
+			{ uri: "https://astro.build", covers: "https://astro.build" },
+		]);
+	});
+
+	it("skips a url inside inline code", () => {
+		expect(linksIn("run `curl https://example.com` now")).toEqual([]);
+	});
+
 	it("keeps a balanced closing paren", () => {
 		const uri = "https://en.wikipedia.org/wiki/Bracket_(disambiguation)";
 		expect(linksIn(`read ${uri} first`)).toEqual([{ uri, covers: uri }]);

@@ -9,11 +9,7 @@ import {
 import type { Editor, MarkType, NodeType, TextType } from "@tiptap/core";
 import { shortcodeToEmoji } from "@tiptap/extension-emoji";
 import { TIPTAP_EMOJIS } from "../../utils/emoji-data";
-import {
-	isAtUri,
-	isValidDomain,
-	MARKDOWN_LINK_POLICY,
-} from "../../utils/rich-text/link-safety";
+import { MARKDOWN_LINK_POLICY } from "../../utils/rich-text/link-safety";
 
 export type ParsedText = { text: string; facets: Array<ColibriRichTextFacet> };
 type DocContent =
@@ -84,13 +80,6 @@ export type MentionType = {
 				style?: TimestampStyle;
 		  };
 };
-
-const textEncoder = new TextEncoder();
-
-const URL_REGEX =
-	/(^|\s|\()((https?:\/\/[\S]+)|(at:\/\/[\S]+)|((?<domain>[a-z][a-z0-9]*(\.[a-z0-9]+)+)[\S]*))/gim;
-
-const SCHEME_LINK_REGEX = /^(https?|at):\/\//i;
 
 const docToSource = (
 	content: DocContent,
@@ -231,125 +220,14 @@ const docToSource = (
 	return { source, atoms };
 };
 
-const TRAILING_PUNCTUATION_REGEX = /[.,;:!?'"‘’“”\]}]$/;
-const TRAILING_POSSESSIVE_REGEX = /['’]s$/i;
-const HOSTNAME_REGEX =
-	/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/;
-
-const trimTrailingPunctuation = (
-	uri: string,
-	endUtf16: number,
-): { uri: string; endUtf16: number } => {
-	let trimmed = uri;
-	let end = endUtf16;
-
-	for (;;) {
-		if (TRAILING_POSSESSIVE_REGEX.test(trimmed)) {
-			trimmed = trimmed.slice(0, -2);
-			end -= 2;
-			continue;
-		}
-
-		if (TRAILING_PUNCTUATION_REGEX.test(trimmed)) {
-			trimmed = trimmed.slice(0, -1);
-			end--;
-			continue;
-		}
-
-		if (trimmed.endsWith(")") && !trimmed.includes("(")) {
-			trimmed = trimmed.slice(0, -1);
-			end--;
-			continue;
-		}
-
-		return { uri: trimmed, endUtf16: end };
-	}
-};
-
-const hasParsableHostname = (uri: string): boolean => {
-	try {
-		return HOSTNAME_REGEX.test(new URL(uri).hostname);
-	} catch {
-		return false;
-	}
-};
-
-const detectMissingLinkFacets = (
-	text: string,
-	facets: Array<ColibriRichTextFacet>,
-): Array<ColibriRichTextFacet> => {
-	const linkedRanges: Array<[number, number]> = [];
-	for (const facet of facets) {
-		if (
-			facet.features.some(
-				(f) =>
-					f.$type === "social.colibri.beta.richtext.facet#link" ||
-					f.$type === "social.colibri.beta.richtext.facet#codeblock" ||
-					f.$type === "social.colibri.beta.richtext.facet#code",
-			)
-		) {
-			linkedRanges.push([facet.index.byteStart, facet.index.byteEnd]);
-		}
-	}
-
-	const newFacets: Array<ColibriRichTextFacet> = [];
-	const re = new RegExp(URL_REGEX.source, URL_REGEX.flags);
-	let match: RegExpExecArray | null;
-
-	while ((match = re.exec(text))) {
-		let uri = match[2];
-		const isBareDomain = !SCHEME_LINK_REGEX.test(uri);
-		if (isBareDomain) {
-			const domain = match.groups?.domain;
-			if (!domain || !isValidDomain(domain)) continue;
-			uri = `https://${uri}`;
-		}
-
-		const startUtf16 = text.indexOf(match[2], match.index);
-		const trimmed = trimTrailingPunctuation(uri, startUtf16 + match[2].length);
-		uri = trimmed.uri;
-		const endUtf16 = trimmed.endUtf16;
-
-		if (isBareDomain && !hasParsableHostname(uri)) continue;
-		if (/^at:/i.test(uri) && !isAtUri(uri)) continue;
-
-		const byteStart = textEncoder.encode(text.slice(0, startUtf16)).length;
-		const byteEnd = textEncoder.encode(text.slice(0, endUtf16)).length;
-
-		const alreadyLinked = linkedRanges.some(
-			([s, e]) => s <= byteStart && e >= byteEnd,
-		);
-		if (alreadyLinked) continue;
-
-		newFacets.push({
-			$type: "social.colibri.beta.richtext.facet",
-			index: {
-				$type: "social.colibri.beta.richtext.facet#byteSlice",
-				byteStart,
-				byteEnd,
-			},
-			features: [
-				{
-					$type: "social.colibri.beta.richtext.facet#link",
-					uri,
-				} as ColibriRichTextFeature,
-			],
-		});
-	}
-
-	if (newFacets.length === 0) return facets;
-
-	return [...facets, ...newFacets].sort(
-		(a, b) => a.index.byteStart - b.index.byteStart,
-	);
-};
-
 export const proseMirrorToFacets = (
 	json: ReturnType<Editor["getJSON"]>,
 ): ParsedText => {
 	const { source, atoms } = docToSource(json.content);
-	const { text, facets } = parseMarkdown(source, atoms, MARKDOWN_LINK_POLICY);
-	const withDetectedLinks = detectMissingLinkFacets(text, facets);
+	const parsed = parseMarkdown(source, atoms, {
+		...MARKDOWN_LINK_POLICY,
+		autolink: true,
+	});
 
-	return normalizeWhitespace({ text, facets: withDetectedLinks });
+	return normalizeWhitespace(parsed);
 };

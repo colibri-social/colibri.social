@@ -2,6 +2,7 @@ import type { Nodes, Parent } from "mdast";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmStrikethroughFromMarkdown } from "mdast-util-gfm-strikethrough";
 import { gfmStrikethrough } from "micromark-extension-gfm-strikethrough";
+import { AUTOLINK_SCHEME_REGEX, findAutolinks } from "./autolink.js";
 import type { ColibriRichTextFacet } from "./facets.js";
 
 type Feature = ColibriRichTextFacet["features"][number];
@@ -26,7 +27,8 @@ export type MarkdownTokenKind =
 	| "heading"
 	| "list"
 	| "subtext"
-	| "spoiler";
+	| "spoiler"
+	| "escape";
 
 export interface MarkdownToken {
 	kind: MarkdownTokenKind;
@@ -39,7 +41,7 @@ export interface MarkdownToken {
 	indent?: number;
 }
 
-const FEATURE_TYPE: Record<MarkdownTokenKind, Feature["$type"]> = {
+const FEATURE_TYPE: Partial<Record<MarkdownTokenKind, Feature["$type"]>> = {
 	bold: "social.colibri.beta.richtext.facet#bold",
 	italic: "social.colibri.beta.richtext.facet#italic",
 	underline: "social.colibri.beta.richtext.facet#underline",
@@ -64,6 +66,48 @@ const INLINE_MARKER: Partial<Record<MarkdownTokenKind, string>> = {
 };
 
 const encoder = new TextEncoder();
+
+const ASCII_PUNCTUATION = /[!-/:-@[-`{-~]/;
+
+const isEscapedAt = (source: string, index: number): boolean => {
+	let count = 0;
+	for (let i = index - 1; i >= 0 && source[i] === "\\"; i--) count++;
+
+	return count % 2 === 1;
+};
+
+const escapeTokens = (
+	source: string,
+	start: number,
+	end: number,
+): MarkdownToken[] => {
+	const tokens: MarkdownToken[] = [];
+
+	let i = start;
+	while (i < end) {
+		if (source[i] !== "\\") {
+			i++;
+			continue;
+		}
+
+		const next = source[i + 1];
+		const escapesPunctuation =
+			i + 1 < end && next !== undefined && ASCII_PUNCTUATION.test(next);
+		const escapesUrl = AUTOLINK_SCHEME_REGEX.test(source.slice(i + 1, end));
+
+		if (escapesPunctuation || escapesUrl) {
+			tokens.push({
+				kind: "escape",
+				markers: [[i, i + 1]],
+				content: [i + 1, i + 1],
+			});
+		}
+
+		i += escapesPunctuation ? 2 : 1;
+	}
+
+	return tokens;
+};
 
 const offset = (node: { position?: { start: { offset?: number } } }): number =>
 	node.position?.start.offset ?? 0;
@@ -347,6 +391,10 @@ const tokenizeUnquoted = (source: string): MarkdownToken[] => {
 				if (w) tokens.push({ kind: "heading", level: node.depth, ...w });
 				break;
 			}
+			case "text": {
+				tokens.push(...escapeTokens(source, offset(node), endOffset(node)));
+				break;
+			}
 			case "list": {
 				for (const item of node.children) {
 					if (item.type !== "listItem") continue;
@@ -411,7 +459,7 @@ const tokenizeUnquoted = (source: string): MarkdownToken[] => {
 		});
 	}
 
-	const spoilerRe = /\|\|([^\n]+?)\|\|/g;
+	const spoilerRe = /\|\|((?:\\.|[^\n\\])+?)\|\|/g;
 
 	let sp: RegExpExecArray | null;
 	while ((sp = spoilerRe.exec(source))) {
@@ -419,6 +467,12 @@ const tokenizeUnquoted = (source: string): MarkdownToken[] => {
 		const end = start + sp[0].length;
 		const contentStart = start + 2;
 		const contentEnd = end - 2;
+
+		if (isEscapedAt(source, start)) {
+			spoilerRe.lastIndex = start + 1;
+			continue;
+		}
+
 		if (contentEnd <= contentStart || insideCode(start)) continue;
 		tokens.push({
 			kind: "spoiler",
@@ -457,7 +511,7 @@ const buildFeature = (token: MarkdownToken): Feature => {
 				...(token.indent ? { indent: token.indent } : {}),
 			};
 		default:
-			return { $type: FEATURE_TYPE[token.kind] } as Feature;
+			return { $type: FEATURE_TYPE[token.kind] ?? "" } as Feature;
 	}
 };
 
@@ -477,7 +531,58 @@ export interface ParsedMarkdown {
 
 export interface ParseMarkdownOptions {
 	allowLink?: (label: string, uri: string) => boolean;
+	autolink?: boolean;
 }
+
+const tokenSpan = (token: MarkdownToken): [number, number] => {
+	const first = token.markers[0] ?? token.content;
+	const last = token.markers[token.markers.length - 1] ?? token.content;
+
+	return [
+		Math.min(first[0], token.content[0]),
+		Math.max(last[1], token.content[1]),
+	];
+};
+
+const autolinkFacets = (
+	source: string,
+	tokens: MarkdownToken[],
+): SourceFacet[] => {
+	const blocked = tokens
+		.filter(
+			(token) =>
+				token.kind === "code" ||
+				token.kind === "codeblock" ||
+				token.kind === "link",
+		)
+		.map(tokenSpan);
+
+	let masked = source;
+	for (const token of tokens) {
+		if (token.kind === "escape") continue;
+
+		for (const [start, end] of token.markers) {
+			masked =
+				masked.slice(0, start) + " ".repeat(end - start) + masked.slice(end);
+		}
+	}
+
+	return findAutolinks(masked)
+		.filter(
+			(link) =>
+				!blocked.some(([start, end]) => link.start < end && link.end > start),
+		)
+		.map((link) => ({
+			start: link.start,
+			end: link.end,
+			features: [
+				{
+					$type: "social.colibri.beta.richtext.facet#link",
+					uri: link.uri,
+				} as Feature,
+			],
+		}));
+};
 
 /**
  * Collapses spans into an ascending, non-overlapping list
@@ -574,7 +679,8 @@ export const parseMarkdown = (
 		if (token.content[1] <= token.content[0]) continue;
 		pushFacet(token.content[0], token.content[1], [buildFeature(token)]);
 	}
-	for (const ex of extra) {
+	const autolinks = options?.autolink ? autolinkFacets(source, tokens) : [];
+	for (const ex of [...extra, ...autolinks]) {
 		pushFacet(ex.start, ex.end, ex.features);
 	}
 
@@ -822,15 +928,15 @@ const isAutolinkable = (
 	);
 };
 
-/**
- * The inverse of {@link parseMarkdown}: rebuilds raw markdown source from stored
- * clean text + facets, re-injecting the literal syntax markers so the editor can
- * show them
- */
-export const facetsToSource = (
+interface BuiltSource extends SourceWithAtoms {
+	textAt: Map<number, number>;
+}
+
+const buildSource = (
 	text: string,
 	facets: Array<ColibriRichTextFacet>,
-): SourceWithAtoms => {
+	escapes: Set<number>,
+): BuiltSource => {
 	const byteToStr = byteIndexMap(text);
 	const toStr = (byte: number): number => byteToStr.get(byte) ?? text.length;
 	const charAt = (index: number): string | undefined => text[index];
@@ -961,6 +1067,7 @@ export const facetsToSource = (
 	let out = "";
 	let i = 0;
 	const atoms: SourceAtom[] = [];
+	const textAt = new Map<number, number>();
 	let pending: {
 		cleanEnd: number;
 		feature: Feature;
@@ -1015,9 +1122,105 @@ export const facetsToSource = (
 			};
 		}
 
+		if (escapes.has(i)) out += "\\";
+		if (!pending) textAt.set(out.length, i);
 		out += text[i];
 		i++;
 	}
 
-	return { source: out, atoms };
+	return { source: out, atoms, textAt };
+};
+
+const MAX_ESCAPE_ROUNDS = 8;
+
+const literalRanges = (
+	text: string,
+	facets: Array<ColibriRichTextFacet>,
+): Array<[number, number]> => {
+	const byteToStr = byteIndexMap(text);
+	const toStr = (byte: number): number => byteToStr.get(byte) ?? text.length;
+
+	return facets
+		.filter((facet) =>
+			facet.features.some((feature) => {
+				const kind = featureKind(feature);
+
+				return kind === "code" || kind === "codeblock";
+			}),
+		)
+		.map((facet) => [toStr(facet.index.byteStart), toStr(facet.index.byteEnd)]);
+};
+
+const unlinkedAutolinkStarts = (
+	text: string,
+	facets: Array<ColibriRichTextFacet>,
+): number[] => {
+	const byteToStr = byteIndexMap(text);
+	const toStr = (byte: number): number => byteToStr.get(byte) ?? text.length;
+	const linked = facets
+		.filter((facet) =>
+			facet.features.some((feature) => featureKind(feature) === "link"),
+		)
+		.map((facet) => [toStr(facet.index.byteStart), toStr(facet.index.byteEnd)]);
+
+	return findAutolinks(text)
+		.filter(
+			(link) =>
+				!linked.some(([start, end]) => link.start < end && link.end > start),
+		)
+		.map((link) => link.start);
+};
+
+const escapesNeeded = (built: BuiltSource, text: string): number[] => {
+	const needed: number[] = [];
+
+	for (const token of tokenizeMarkdown(built.source)) {
+		const fromText = token.markers.find(([start, end]) => {
+			for (let p = start; p < end; p++) {
+				if (built.textAt.has(p)) return true;
+			}
+
+			return false;
+		});
+		if (!fromText) continue;
+
+		for (let p = fromText[0]; p < fromText[1]; p++) {
+			const index = built.textAt.get(p);
+			if (index !== undefined && ASCII_PUNCTUATION.test(text[index])) {
+				needed.push(index);
+			}
+		}
+	}
+
+	return needed;
+};
+
+/**
+ * The inverse of {@link parseMarkdown}: rebuilds raw markdown source from stored
+ * clean text + facets, re-injecting the literal syntax markers so the editor can
+ * show them
+ */
+export const facetsToSource = (
+	text: string,
+	facets: Array<ColibriRichTextFacet>,
+): SourceWithAtoms => {
+	const literal = literalRanges(text, facets);
+	const escapable = (index: number): boolean =>
+		!literal.some(([start, end]) => index >= start && index < end);
+	const escapes = new Set(
+		unlinkedAutolinkStarts(text, facets).filter(escapable),
+	);
+
+	let built = buildSource(text, facets, escapes);
+	for (let round = 0; round < MAX_ESCAPE_ROUNDS; round++) {
+		const added = escapesNeeded(built, text).filter(
+			(index) => escapable(index) && !escapes.has(index),
+		);
+		if (added.length === 0) break;
+
+		for (const index of added) escapes.add(index);
+		built = buildSource(text, facets, escapes);
+	}
+
+	return { source: built.source, atoms: built.atoms };
 };

@@ -541,3 +541,132 @@ describe("bare link source", () => {
 		).toBe(`[${uri}](${uri})`);
 	});
 });
+
+describe("backslash escapes", () => {
+	it.each([
+		["\\*hi*", "*hi*"],
+		["\\**hi**", "**hi**"],
+		["\\_hi_", "_hi_"],
+		["\\~~hi~~", "~~hi~~"],
+		["\\`hi`", "`hi`"],
+		["\\||hi||", "||hi||"],
+		["\\# hi", "# hi"],
+		["\\- hi", "- hi"],
+		["1\\. hi", "1. hi"],
+		["\\> hi", "> hi"],
+		["\\-# hi", "-# hi"],
+		["\\[a](https://b.example)", "[a](https://b.example)"],
+	])("turns %s into plain %s", (source, text) => {
+		const parsed = parseMarkdown(source, []);
+
+		expect(parsed.text).toBe(text);
+		expect(parsed.facets).toEqual([]);
+	});
+
+	it("keeps an escaped backslash and formats what follows", () => {
+		const parsed = parseMarkdown("\\\\*hi*", []);
+
+		expect(parsed.text).toBe("\\hi");
+		expect(summarize(parsed.facets)).toEqual(["1-3:italic"]);
+	});
+
+	it("keeps a backslash before a letter", () => {
+		expect(parseMarkdown("a\\b", []).text).toBe("a\\b");
+	});
+
+	it("keeps backslashes inside inline code", () => {
+		const parsed = parseMarkdown("`\\*`", []);
+
+		expect(parsed.text).toBe("\\*");
+		expect(summarize(parsed.facets)).toEqual(["0-2:code"]);
+	});
+
+	it("keeps backslashes inside a code block", () => {
+		expect(parseMarkdown("```\n\\*a*\n```", []).text).toBe("\\*a*");
+	});
+
+	it("drops the backslash inside a quote", () => {
+		const parsed = parseMarkdown("> \\*hi*", []);
+
+		expect(parsed.text).toBe("*hi*");
+		expect(summarize(parsed.facets)).toEqual(["0-4:quote"]);
+	});
+
+	it("keeps an escaped pipe inside a spoiler", () => {
+		const parsed = parseMarkdown("||a\\||b||", []);
+
+		expect(parsed.text).toBe("a||b");
+		expect(summarize(parsed.facets)).toEqual(["0-4:spoiler"]);
+	});
+
+	it("drops the backslash before a url and skips the autolink", () => {
+		const parsed = parseMarkdown("see \\https://example.com", [], {
+			autolink: true,
+		});
+
+		expect(parsed.text).toBe("see https://example.com");
+		expect(parsed.facets).toEqual([]);
+	});
+});
+
+describe("autolink option", () => {
+	it("links absolute urls", () => {
+		const parsed = parseMarkdown("see **https://example.com**", [], {
+			autolink: true,
+		});
+
+		expect(parsed.text).toBe("see https://example.com");
+		expect(summarize(parsed.facets)).toEqual(["4-23:bold", "4-23:link"]);
+	});
+
+	it("leaves bare domains alone", () => {
+		const parsed = parseMarkdown("mu.social and example.com", [], {
+			autolink: true,
+		});
+
+		expect(parsed.facets).toEqual([]);
+	});
+
+	it("leaves markdown link targets alone", () => {
+		const parsed = parseMarkdown("[a](https://example.com)", [], {
+			autolink: true,
+		});
+
+		expect(summarize(parsed.facets)).toEqual(["0-1:link"]);
+	});
+});
+
+describe("escape round trip", () => {
+	it.each([
+		"\\*hi*",
+		"\\**hi**",
+		"\\_hi_",
+		"\\~~hi~~",
+		"\\`hi`",
+		"\\||hi||",
+		"\\# hi",
+		"\\- hi",
+		"\\> hi",
+		"\\-# hi",
+		"\\[a](https://b.example)",
+		"\\\\*hi*",
+		"**a\\\\**",
+		"see \\https://example.com now",
+		"*a* and \\*b*",
+		"`\\*` stays",
+	])("restores %s", (source) => {
+		const first = parseMarkdown(source, [], { autolink: true });
+		const rebuilt = facetsToSource(first.text, first.facets).source;
+		const second = parseMarkdown(rebuilt, [], { autolink: true });
+
+		expect(second).toEqual(first);
+	});
+
+	it("does not escape plain text", () => {
+		const parsed = parseMarkdown("it's fine - really, 1.5 * 2", []);
+
+		expect(facetsToSource(parsed.text, parsed.facets).source).toBe(
+			"it's fine - really, 1.5 * 2",
+		);
+	});
+});

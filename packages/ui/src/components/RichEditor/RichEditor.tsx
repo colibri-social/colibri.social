@@ -460,7 +460,10 @@ export const RichEditor = (props: RichEditorProps) => {
 	};
 
 	const insertParsedText = (instance: Editor, text: string) => {
-		const parsed = parseMarkdown(text, [], MARKDOWN_LINK_POLICY);
+		const parsed = parseMarkdown(text, [], {
+			...MARKDOWN_LINK_POLICY,
+			autolink: true,
+		});
 		const { content } = facetsToProseMirror(
 			parsed.text,
 			parsed.facets,
