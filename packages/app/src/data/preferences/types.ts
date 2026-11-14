@@ -32,6 +32,10 @@ export const BLUESKY_CLIENTS = [
 
 export type BlueskyClient = (typeof BLUESKY_CLIENTS)[number];
 
+export const RECORD_EXPLORERS = ["pdsls", "atprotoAt"] as const;
+
+export type RecordExplorer = (typeof RECORD_EXPLORERS)[number];
+
 export type MuteSubject =
 	| { kind: "actor"; did: Did }
 	| { kind: "channel"; channel: SpaceRef }
@@ -57,6 +61,7 @@ export type ClientPreferences = Omit<
 > & {
 	controls?: Omit<NonNullable<ClientPreferencesWire["controls"]>, "$type">;
 	voiceView?: Omit<NonNullable<ClientPreferencesWire["voiceView"]>, "$type">;
+	recordExplorer?: string;
 };
 
 export type EmojiUse = { count: number; lastUsed: number };

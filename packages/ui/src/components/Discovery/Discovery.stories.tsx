@@ -404,7 +404,7 @@ export const DeveloperMode: Story = {
 			<DeveloperModeCard
 				copyLabel="Copy DID"
 				copyValue={space.id}
-				pdslsHref={`https://pdsls.dev/at://${space.id}`}
+				explorerHref={`https://pdsls.dev/at://${space.id}`}
 			/>
 		),
 	}),
@@ -435,7 +435,7 @@ export const DeveloperModeOnMobile: Story = {
 			<DeveloperModeCard
 				copyLabel="Copy DID"
 				copyValue={space.id}
-				pdslsHref={`https://pdsls.dev/at://${space.id}`}
+				explorerHref={`https://pdsls.dev/at://${space.id}`}
 			/>
 		),
 	}),

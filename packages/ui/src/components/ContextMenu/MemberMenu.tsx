@@ -397,7 +397,7 @@ const menuShape = (props: MemberMenuActions & { name: string }) =>
 		!!props.onCopyDid,
 		!!props.developerMode,
 		!!props.onCopyAtUri,
-		!!props.onShowOnPdsls,
+		!!props.onShowInExplorer,
 		memberVoiceShape(props.voice),
 	].join("|");
 

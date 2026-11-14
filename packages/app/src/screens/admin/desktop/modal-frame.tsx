@@ -95,7 +95,7 @@ export const AdminModalFrame = (props: AdminModalFrameProps) => {
 								<div data-developer-mode="">
 									<DeveloperNavSection
 										copyValue={target().copyValue}
-										pdslsHref={target().pdslsHref}
+										explorerHref={target().explorerHref}
 									/>
 								</div>
 							)}

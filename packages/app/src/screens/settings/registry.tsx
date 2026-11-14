@@ -1,6 +1,7 @@
 import {
 	DOCUMENTATION_URL,
 	FEEDBACK_URL,
+	recordExplorerHref,
 	SETTINGS_ENTRY_INFO,
 	type SettingsEntries,
 	type SettingsEntryId,
@@ -127,8 +128,6 @@ export const SettingsPageView = (props: {
 	/>
 );
 
-const pdslsHref = (did: string) => `https://pdsls.dev/at://${did}`;
-
 const copyDidFailed = () =>
 	toast.error("Couldn't copy your DID", {
 		description: "Give it another try.",
@@ -168,7 +167,7 @@ export const settingsEntries = (
 						copyValue: data.viewer.did,
 						onCopyFailed: copyDidFailed,
 					},
-					pdsls: external(pdslsHref(data.viewer.did)),
+					recordExplorer: external(recordExplorerHref(data.viewer.did)),
 					debugInfo: page("debugInfo"),
 					logs: page("logs"),
 				}

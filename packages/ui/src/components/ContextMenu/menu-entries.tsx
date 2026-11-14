@@ -4,7 +4,10 @@ import { CheckReadIcon } from "@solar-icons/solid/bold/check-read";
 import { CodeIcon } from "@solar-icons/solid/bold/code";
 import { CopyIcon } from "@solar-icons/solid/bold/copy";
 import { createMemo, type JSX } from "solid-js";
-import { PdslsLogo } from "../../icons/animated/brand";
+import {
+	RecordExplorerLogo,
+	showInExplorerLabel,
+} from "../DeveloperMode/record-explorer";
 import {
 	type DropdownMenuCheckboxEntry,
 	type DropdownMenuEntry,
@@ -71,7 +74,7 @@ export const muteEntry = (
 export type DeveloperMenuActions = {
 	developerMode?: boolean;
 	onCopyAtUri?: () => void;
-	onShowOnPdsls?: () => void;
+	onShowInExplorer?: () => void;
 };
 
 export const developerEntry = (
@@ -86,12 +89,14 @@ export const developerEntry = (
 			},
 			onSelect: actions.onCopyAtUri,
 		},
-		actions.onShowOnPdsls && {
-			label: "Show on PDSls",
-			get icon() {
-				return <PdslsLogo class="size-4" />;
+		actions.onShowInExplorer && {
+			get label() {
+				return showInExplorerLabel();
 			},
-			onSelect: actions.onShowOnPdsls,
+			get icon() {
+				return <RecordExplorerLogo class="size-4" />;
+			},
+			onSelect: actions.onShowInExplorer,
 		},
 	].filter(Boolean) as DropdownMenuItemEntry[];
 	if (items.length === 0) return undefined;

@@ -18,7 +18,7 @@ export const AdminDeveloper = (props: { target?: DeveloperTarget }) => {
 					stacked={platform() === "desktop"}
 					copyLabel="Copy AT-URI"
 					copyValue={target().copyValue}
-					pdslsHref={target().pdslsHref}
+					explorerHref={target().explorerHref}
 				/>
 			)}
 		</Show>

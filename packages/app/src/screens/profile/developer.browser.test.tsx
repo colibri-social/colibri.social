@@ -1,4 +1,5 @@
 import "../../app.css";
+import { setRecordExplorer } from "@colibri-social/ui";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { page } from "vitest/browser";
@@ -7,6 +8,7 @@ import { createMockSource, setLatency } from "../../data/mock/source";
 import { createDataStore, DataContext } from "../../data/store";
 import { Providers } from "../../providers";
 import { MobileShell } from "../../shell/MobileShell";
+import { RecordExplorerSync } from "../../shell/record-explorer-sync";
 import { ProfileSheetProvider, useProfileSheet } from "./profile-sheet";
 
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
@@ -33,6 +35,7 @@ afterEach(() => {
 	stop?.();
 	host?.remove();
 	history.replaceState(null, "", originalPath);
+	setRecordExplorer("pdsls");
 });
 
 const mount = async (path: string, developerMode: boolean) => {
@@ -47,6 +50,7 @@ const mount = async (path: string, developerMode: boolean) => {
 		() => (
 			<DataContext.Provider value={store}>
 				<Providers>
+					<RecordExplorerSync />
 					<MobileShell />
 				</Providers>
 			</DataContext.Provider>
@@ -59,10 +63,12 @@ const mount = async (path: string, developerMode: boolean) => {
 
 const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]');
 
-const pdslsLink = (scope: ParentNode) =>
+const explorerLink = (scope: ParentNode, name: string) =>
 	Array.from(scope.querySelectorAll<HTMLAnchorElement>("a")).find(
-		(link) => link.textContent?.trim() === "Show on PDSls",
+		(link) => link.textContent?.trim() === `Show on ${name}`,
 	);
+
+const pdslsLink = (scope: ParentNode) => explorerLink(scope, "PDSls");
 
 const copyDid = (scope: ParentNode) =>
 	Array.from(scope.querySelectorAll<HTMLElement>("button")).find(
@@ -110,6 +116,17 @@ describe("developer mode cards", () => {
 		expect(pdslsLink(drawer)?.href).toBe(`https://pdsls.dev/at://${HQ}`);
 		expect(copyDid(drawer)).toBeTruthy();
 		await expectNoLayoutIssues(drawer);
+	});
+
+	it("links to atproto.at once the viewer picks it", async () => {
+		const { root, store } = await mount("/app/profile", true);
+		await until(() => !!pdslsLink(root));
+		void store.preferences.setClient({ recordExplorer: "atprotoAt" });
+		await until(() => !!explorerLink(root, "atproto.at"));
+		expect(explorerLink(root, "atproto.at")?.href).toBe(
+			`https://atproto.at/uri/${store.viewer.did}`,
+		);
+		expect(pdslsLink(root)).toBeUndefined();
 	});
 
 	it("leaves the Space drawer without the card outside developer mode", async () => {

@@ -22,6 +22,7 @@ import {
 	ChannelThreads,
 	copyText,
 	type DeveloperModeCardProps,
+	recordExplorerHref,
 	type SpaceAttention,
 	SpaceAttentionNotice,
 	SpaceContextMenu,
@@ -67,7 +68,7 @@ import {
 	VOICE_CHANNEL,
 } from "../../data/types";
 import { voice } from "../../data/voice";
-import { openExternalUrl } from "../../native/open-external";
+import { openInRecordExplorer } from "../../native/open-in-explorer";
 import { defineContract, slot } from "../../screen/define";
 import { usePlatform } from "../../screen/platform";
 import { lastViewedSpace } from "../../shell/cold-start";
@@ -108,12 +109,10 @@ const comingSoon = (label: string) => () =>
 
 const SETTINGS_PERMISSIONS = Object.values(SPACE_PERMISSIONS);
 
-const pdslsUrl = (did: string) => `https://pdsls.dev/at://${did}`;
-
 const spaceDeveloperCard = (did: string): DeveloperModeCardProps => ({
 	copyLabel: "Copy DID",
 	copyValue: did,
-	pdslsHref: pdslsUrl(did),
+	explorerHref: recordExplorerHref(did),
 });
 
 const attentionNotice = (attention: SpaceAttention | undefined) =>
@@ -563,7 +562,7 @@ export const spaces = defineContract({
 				},
 				onCopyAtUri: () =>
 					void copyText(target.did).then(() => toast.success("DID copied")),
-				onShowOnPdsls: () => openExternalUrl(pdslsUrl(target.did)),
+				onShowInExplorer: () => openInRecordExplorer(target.did),
 				get muted() {
 					return prefs.isMuted(target.did);
 				},
@@ -806,7 +805,7 @@ export const spaces = defineContract({
 				developerMode: m.data.controls().developerMode,
 				onCopyAtUri: () =>
 					void copyText(ref).then(() => toast.success("AT-URI copied")),
-				onShowOnPdsls: () => openExternalUrl(`https://pdsls.dev/${ref}`),
+				onShowInExplorer: () => openInRecordExplorer(ref),
 			});
 			const voiceRow = (channel: ChannelView) => (
 				<VoiceChannelRow
@@ -1217,7 +1216,7 @@ export const spaces = defineContract({
 								developer={{
 									copyLabel: "Copy AT-URI",
 									copyValue: channel().space,
-									pdslsHref: `https://pdsls.dev/${channel().space}`,
+									explorerHref: recordExplorerHref(channel().space),
 								}}
 							/>
 						)}
@@ -1259,7 +1258,9 @@ export const spaces = defineContract({
 								developer={{
 									copyLabel: "Copy AT-URI",
 									copyValue: `at://${m.community()?.did}/social.colibri.beta.category/${category().rkey}`,
-									pdslsHref: `https://pdsls.dev/at://${m.community()?.did}/social.colibri.beta.category/${category().rkey}`,
+									explorerHref: recordExplorerHref(
+										`at://${m.community()?.did}/social.colibri.beta.category/${category().rkey}`,
+									),
 								}}
 							/>
 						)}

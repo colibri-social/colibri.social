@@ -49,6 +49,7 @@ export * from "./components/DestinationPicker/ForwardNote";
 export * from "./components/DestinationPicker/ForwardPreview";
 export * from "./components/DeveloperMode/DeveloperModeCard";
 export * from "./components/DeveloperMode/DeveloperNavSection";
+export * from "./components/DeveloperMode/record-explorer";
 export * from "./components/Discovery/Discovery";
 export * from "./components/Discovery/DiscoveryGrid";
 export * from "./components/Discovery/discovery-model";

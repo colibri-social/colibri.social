@@ -1,22 +1,26 @@
 import { CheckCircleIcon } from "@solar-icons/solid/bold/check-circle";
 import { CopyIcon } from "@solar-icons/solid/bold/copy";
 import { Show } from "solid-js";
-import { PdslsLogo } from "../../icons/animated/brand";
 import { SidebarNavItem, SidebarNavSection } from "../List/List";
 import { createCopied } from "../SettingsPages/shared";
-import { pdslsHrefFor } from "./DeveloperModeCard";
+import {
+	RecordExplorerLogo,
+	recordExplorerHref,
+	showInExplorerLabel,
+} from "./record-explorer";
 
 export type DeveloperNavSectionProps = {
 	copyLabel?: string;
 	copyValue: string;
-	pdslsHref?: string;
-	pdslsLabel?: string;
+	explorerHref?: string;
+	explorerLabel?: string;
 	class?: string;
 };
 
 export const DeveloperNavSection = (props: DeveloperNavSectionProps) => {
 	const { copied, copy } = createCopied();
-	const pdslsHref = () => props.pdslsHref ?? pdslsHrefFor(props.copyValue);
+	const explorerHref = () =>
+		props.explorerHref ?? recordExplorerHref(props.copyValue);
 	return (
 		<SidebarNavSection label="Developer mode" class={props.class}>
 			<SidebarNavItem
@@ -28,11 +32,11 @@ export const DeveloperNavSection = (props: DeveloperNavSectionProps) => {
 					void copy(props.copyValue, event.currentTarget as HTMLElement)
 				}
 			/>
-			<Show when={pdslsHref()}>
+			<Show when={explorerHref()}>
 				{(href) => (
 					<SidebarNavItem
-						icon={<PdslsLogo />}
-						label={props.pdslsLabel ?? "Show on PDSls"}
+						icon={<RecordExplorerLogo />}
+						label={props.explorerLabel ?? showInExplorerLabel()}
 						href={href()}
 						external
 					/>

@@ -1,4 +1,8 @@
-import { type ProfileData, RoleBadge } from "@colibri-social/ui";
+import {
+	type ProfileData,
+	RoleBadge,
+	recordExplorerHref,
+} from "@colibri-social/ui";
 import type { JSX } from "solid-js";
 import { nowPlayingOf } from "../../data/activity";
 import { displayNameOf } from "../../data/adapters/authors";
@@ -58,7 +62,7 @@ export const ownProfileData = (
 			? {
 					copyLabel: "Copy DID",
 					copyValue: viewer.did,
-					pdslsHref: `https://pdsls.dev/at://${viewer.did}`,
+					explorerHref: recordExplorerHref(viewer.did),
 				}
 			: undefined,
 	};

@@ -175,7 +175,7 @@ export const MessageMenu: Story = {
 				onViewReactions={fn()}
 				developerMode
 				onCopyAtUri={onCopyMessageAtUri}
-				onShowOnPdsls={onShowMessageOnPdsls}
+				onShowInExplorer={onShowMessageOnPdsls}
 				onDelete={fn()}
 			>
 				<div
@@ -382,7 +382,7 @@ const Sidebar = (props: {
 			onDelete={manage()}
 			developerMode={developerMode()}
 			onCopyAtUri={spy.copyAtUri}
-			onShowOnPdsls={noop}
+			onShowInExplorer={noop}
 		>
 			<ChannelRow
 				name={name}
@@ -435,7 +435,7 @@ const Sidebar = (props: {
 							onReorderChannels={manage()}
 							developerMode={developerMode()}
 							onCopyAtUri={spy.copyAtUri}
-							onShowOnPdsls={noop}
+							onShowInExplorer={noop}
 							onLeave={admin() ? undefined : spy.leave}
 						>
 							<SpaceRailItem

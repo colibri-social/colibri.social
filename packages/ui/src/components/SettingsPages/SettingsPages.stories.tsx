@@ -2,7 +2,7 @@ import { BugIcon } from "@solar-icons/solid/bold/bug";
 import { ChatRoundLineIcon } from "@solar-icons/solid/bold/chat-round-line";
 import { StarsIcon } from "@solar-icons/solid/bold/stars";
 import { createSignal, type JSX } from "solid-js";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import {
@@ -10,6 +10,7 @@ import {
 	TEAM_BADGE_DEFINITION,
 	UserBadge,
 } from "../Badge/Badge";
+import type { RecordExplorer } from "../DeveloperMode/record-explorer";
 import {
 	AdvancedSettings,
 	ExperimentsSettings,
@@ -33,6 +34,7 @@ import {
 import { type ReleaseNoteView, WhatsNewSettings } from "./WhatsNewSettings";
 
 type Args = {
+	onRecordExplorerChange?: (explorer: RecordExplorer) => void;
 	onChange?: (key: string, value: unknown) => void;
 	onDeveloperModeChange?: (value: boolean) => void;
 	onDeleteAccount?: () => void;
@@ -308,17 +310,25 @@ const AdvancedStory = (props: {
 	windowControls?: boolean;
 	onDeveloperModeChange?: (value: boolean) => void;
 	onDeleteAccount?: () => void;
+	onRecordExplorerChange?: (explorer: RecordExplorer) => void;
 }) => {
 	const [developer, setDeveloper] = createSignal(false);
+	const [explorer, setExplorer] = createSignal<RecordExplorer>("pdsls");
 	const [reports, setReports] = createSignal(false);
 	const [windowControls, setWindowControls] = createSignal(false);
 	return (
 		<Frame platform={props.platform}>
 			<AdvancedSettings
+				platform={props.platform}
 				developerMode={developer()}
 				onDeveloperModeChange={(value) => {
 					setDeveloper(value);
 					props.onDeveloperModeChange?.(value);
+				}}
+				recordExplorer={explorer()}
+				onRecordExplorerChange={(value) => {
+					setExplorer(value);
+					props.onRecordExplorerChange?.(value);
 				}}
 				includeAccountInReports={reports()}
 				onIncludeAccountInReportsChange={setReports}
@@ -344,10 +354,12 @@ export const AdvancedMobile: Story = {
 	play: async ({ canvasElement, args }) => {
 		const canvas = within(canvasElement);
 		await expect(canvas.queryByText("Use system window controls")).toBeNull();
+		await expect(canvas.queryByText("Open records in")).toBeNull();
 		const developer = canvas.getByRole("switch", { name: /Developer mode/ });
 		await userEvent.click(developer);
 		await expect(developer).toBeChecked();
 		await expect(args.onDeveloperModeChange).toHaveBeenCalledWith(true);
+		await expect(canvas.getByText("Open records in")).toBeVisible();
 		await expect(canvas.getByText("Danger zone")).toBeVisible();
 		await userEvent.click(
 			canvas.getByRole("button", { name: "Delete my Colibri data" }),
@@ -365,6 +377,34 @@ export const AdvancedDesktop: Story = {
 		await expect(
 			canvas.getByRole("switch", { name: /Use system window controls/ }),
 		).not.toBeChecked();
+		await expectNoLayoutIssues(frameOf(canvasElement));
+	},
+};
+
+export const AdvancedRecordExplorer: Story = {
+	parameters: desktop,
+	render: (args) => (
+		<AdvancedStory
+			platform="desktop"
+			onRecordExplorerChange={args.onRecordExplorerChange}
+		/>
+	),
+	args: { onRecordExplorerChange: fn() },
+	play: async ({ canvasElement, args }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(
+			canvas.getByRole("switch", { name: /Developer mode/ }),
+		);
+		await userEvent.click(
+			canvas.getByRole("button", { name: /Open records in/ }),
+		);
+		const listbox = await screen.findByRole("listbox");
+		await userEvent.click(
+			within(listbox).getByRole("option", { name: /atproto\.at/ }),
+		);
+		await waitFor(() =>
+			expect(args.onRecordExplorerChange).toHaveBeenCalledWith("atprotoAt"),
+		);
 		await expectNoLayoutIssues(frameOf(canvasElement));
 	},
 };

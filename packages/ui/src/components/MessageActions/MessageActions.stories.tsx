@@ -384,7 +384,7 @@ const StandInMessage = (props: { own: boolean; text: string }) => {
 			onViewReactions={fn()}
 			developerMode
 			onCopyAtUri={fn()}
-			onShowOnPdsls={fn()}
+			onShowInExplorer={fn()}
 			onDelete={props.own ? menuDelete : undefined}
 			onHide={props.own ? undefined : fn()}
 		/>
@@ -400,7 +400,7 @@ const StandInMessage = (props: { own: boolean; text: string }) => {
 			onViewReactions={fn()}
 			developerMode
 			onCopyAtUri={fn()}
-			onShowOnPdsls={fn()}
+			onShowInExplorer={fn()}
 			onDelete={props.own ? menuDelete : undefined}
 			onHide={props.own ? undefined : fn()}
 		>
@@ -910,7 +910,7 @@ export const LongPressDrawer: Story = {
 						developer={{
 							atUri:
 								"at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/social.colibri.beta.message/3lmsg",
-							pdslsHref:
+							explorerHref:
 								"https://pdsls.dev/at://did:plc:ewvi7nxzyoun6zhxrhs64oiz/social.colibri.beta.message/3lmsg",
 						}}
 					/>

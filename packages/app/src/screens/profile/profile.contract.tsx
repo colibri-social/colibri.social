@@ -10,6 +10,7 @@ import {
 	ProfileBio,
 	ProfileHeader,
 	presenceLabels,
+	recordExplorerHref,
 	toast,
 	type Presence as UiPresence,
 } from "@colibri-social/ui";
@@ -161,7 +162,7 @@ export const profile = defineContract({
 				<DeveloperModeCard
 					copyLabel="Copy DID"
 					copyValue={m.viewer.did}
-					pdslsHref={`https://pdsls.dev/at://${m.viewer.did}`}
+					explorerHref={recordExplorerHref(m.viewer.did)}
 				/>
 			</Show>
 		)),

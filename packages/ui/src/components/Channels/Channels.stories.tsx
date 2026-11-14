@@ -963,7 +963,7 @@ const SpaceDrawerDemo = () => {
 				developer={{
 					copyLabel: "Copy DID",
 					copyValue: "did:plc:colibrisocialflock",
-					pdslsHref: "https://pdsls.dev/at://did:plc:colibrisocialflock",
+					explorerHref: "https://pdsls.dev/at://did:plc:colibrisocialflock",
 				}}
 				menu={{
 					onInvite: () => {},
@@ -1008,7 +1008,7 @@ const SpaceDrawerDemo = () => {
 				developer={{
 					copyLabel: "Copy DID",
 					copyValue: "did:plc:colibrisocialflock",
-					pdslsHref: "https://pdsls.dev/at://did:plc:colibrisocialflock",
+					explorerHref: "https://pdsls.dev/at://did:plc:colibrisocialflock",
 				}}
 			/>
 		</div>

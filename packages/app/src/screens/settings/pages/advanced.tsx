@@ -27,7 +27,7 @@ const appVersion = async () => {
 	}
 };
 
-export default function AdvancedPage(_props: { platform: Platform }) {
+export default function AdvancedPage(props: { platform: Platform }) {
 	const data = useData();
 	const nav = useSettingsNav();
 	const [includeAccount, setIncludeAccount] = reportAttribution();
@@ -57,6 +57,11 @@ export default function AdvancedPage(_props: { platform: Platform }) {
 			onDeveloperModeChange={(enabled) =>
 				void data.preferences.setClient({ developerMode: enabled })
 			}
+			recordExplorer={data.preferences.client().recordExplorer}
+			onRecordExplorerChange={(explorer) =>
+				void data.preferences.setClient({ recordExplorer: explorer })
+			}
+			platform={props.platform}
 			includeAccountInReports={sentryActive() ? includeAccount() : undefined}
 			onIncludeAccountInReportsChange={setIncludeAccount}
 			systemWindowControls={

@@ -14,4 +14,4 @@ The GIF glyph in `src/icons/animated/brand.tsx` and `src/icons/solar/brand.ts` c
 
 ## Brand marks
 
-The PDSls, Bluesky and Google Play marks belong to their respective owners. The library uses them only to refer to those services.
+The PDSls, atproto.at, Bluesky and Google Play marks belong to their respective owners. The library uses them only to refer to those services.

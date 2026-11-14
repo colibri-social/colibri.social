@@ -8,6 +8,7 @@ import {
 	ListGroup,
 	memberSummary,
 	NavHeader,
+	recordExplorerHref,
 	Skeleton,
 	SpaceProfileHeader,
 	StatusScreen,
@@ -265,7 +266,7 @@ export const join = defineContract({
 							<DeveloperModeCard
 								copyLabel="Copy DID"
 								copyValue={space().id}
-								pdslsHref={`https://pdsls.dev/at://${space().id}`}
+								explorerHref={recordExplorerHref(space().id)}
 							/>
 						</Show>
 					</SpaceProfileHeader>

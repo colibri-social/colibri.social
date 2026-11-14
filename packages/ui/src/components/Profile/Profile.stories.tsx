@@ -137,7 +137,7 @@ export const ProfileTab: Story = {
 				<DeveloperModeCard
 					copyLabel="Copy DID"
 					copyValue="did:plc:loulougg"
-					pdslsHref="https://pdsls.dev/at://did:plc:loulougg"
+					explorerHref="https://pdsls.dev/at://did:plc:loulougg"
 				/>
 			</div>
 		</div>
@@ -230,7 +230,7 @@ const lou = (overrides: Partial<ProfileData> = {}): ProfileData => ({
 	],
 	developer: {
 		copyValue: "did:plc:loulougg",
-		pdslsHref: "https://pdsls.dev/at://did:plc:loulougg",
+		explorerHref: "https://pdsls.dev/at://did:plc:loulougg",
 	},
 	...overrides,
 });
@@ -309,7 +309,7 @@ const createProfileMenu = (
 		onCopyDid: () => profileMenuSpy.copyDid(),
 		developerMode: true,
 		onCopyAtUri: () => {},
-		onShowOnPdsls: () => {},
+		onShowInExplorer: () => {},
 	});
 };
 

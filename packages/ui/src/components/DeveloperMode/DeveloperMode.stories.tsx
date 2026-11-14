@@ -1,8 +1,10 @@
+import { onCleanup } from "solid-js";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { SidebarNavItem, SidebarNavSection } from "../List/List";
 import { DeveloperModeCard } from "./DeveloperModeCard";
 import { DeveloperNavSection } from "./DeveloperNavSection";
+import { setRecordExplorer } from "./record-explorer";
 
 const meta = {
 	title: "Surfaces/Developer mode",
@@ -24,7 +26,7 @@ export const SpaceDid: Story = {
 	args: {
 		copyLabel: "Copy DID",
 		copyValue: "did:plc:colibrisocialflock",
-		pdslsHref: "https://pdsls.dev/at://did:plc:colibrisocialflock",
+		explorerHref: "https://pdsls.dev/at://did:plc:colibrisocialflock",
 		onCopy: fn(),
 	},
 	play: async ({ canvasElement, args }) => {
@@ -56,7 +58,7 @@ export const MessageAtUri: Story = {
 	args: {
 		copyLabel: "Copy AT-URI",
 		copyValue: "at://did:plc:example/social.colibri.message/3k",
-		pdslsHref:
+		explorerHref:
 			"https://pdsls.dev/at://did:plc:example/social.colibri.message/3k",
 	},
 };
@@ -66,7 +68,7 @@ export const StackedInSidebar: Story = {
 		stacked: true,
 		copyLabel: "Copy AT-URI",
 		copyValue: "at://did:plc:colibrisocialflock",
-		pdslsHref: "https://pdsls.dev/at://did:plc:colibrisocialflock",
+		explorerHref: "https://pdsls.dev/at://did:plc:colibrisocialflock",
 	},
 	decorators: [
 		(Story) => (
@@ -114,5 +116,35 @@ export const SidebarSection: Story = {
 		await expect(
 			canvas.getByRole("button", { name: "Copy AT-URI" }),
 		).toBeInTheDocument();
+	},
+};
+
+const AtprotoAtSection = () => {
+	setRecordExplorer("atprotoAt");
+	onCleanup(() => setRecordExplorer("pdsls"));
+	return (
+		<div class="flex w-72 flex-col gap-6">
+			<DeveloperModeCard
+				copyLabel="Copy DID"
+				copyValue="did:plc:colibrisocialflock"
+			/>
+			<DeveloperNavSection copyValue="at://did:plc:colibrisocialflock/social.colibri.beta.role/bots" />
+		</div>
+	);
+};
+
+export const AtprotoAtExplorer: Story = {
+	render: () => <AtprotoAtSection />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const links = canvas.getAllByRole("link", { name: "Show on atproto.at" });
+		await expect(links[0]).toHaveAttribute(
+			"href",
+			"https://atproto.at/uri/did:plc:colibrisocialflock",
+		);
+		await expect(links[1]).toHaveAttribute(
+			"href",
+			"https://atproto.at/uri/did:plc:colibrisocialflock/social.colibri.beta.role/bots",
+		);
 	},
 };

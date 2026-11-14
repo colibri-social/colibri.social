@@ -21,13 +21,13 @@ import {
 	MessageSelectFrame,
 	MessageToolbar,
 	MovedFromLine,
-	pdslsHrefFor,
 	ReactionBar,
 	ReactionsViewer,
 	type RichText,
 	type RichTextCustomEmoji,
 	RichTextProvider,
 	RichTextRenderer,
+	recordExplorerHref,
 	SwipeToReply,
 	ThreadCard,
 	toast,
@@ -839,7 +839,7 @@ export const MessageItem = (props: MessageItemProps) => {
 		if (!uri || legacy() || !chat.developerMode?.()) return undefined;
 		return {
 			atUri: uri,
-			pdslsHref: pdslsHrefFor(uri),
+			explorerHref: recordExplorerHref(uri),
 		};
 	};
 	const copyAtUri = () => {
@@ -849,8 +849,8 @@ export const MessageItem = (props: MessageItemProps) => {
 			if (copied) toast.success("AT-URI copied");
 		});
 	};
-	const showOnPdsls = () => {
-		const href = developer()?.pdslsHref;
+	const showInExplorer = () => {
+		const href = developer()?.explorerHref;
 		if (href) openExternalUrl(href);
 	};
 	const viewReactionsAction = () =>
@@ -881,7 +881,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			onViewReactions={viewReactionsAction()}
 			developerMode={!!developer()}
 			onCopyAtUri={copyAtUri}
-			onShowOnPdsls={showOnPdsls}
+			onShowInExplorer={showInExplorer}
 			onDelete={confirmDeleteAction()}
 			hidden={hidden()}
 			onHide={confirmHideAction()}
@@ -1151,7 +1151,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			onViewReactions={viewReactionsAction()}
 			developerMode={!!developer()}
 			onCopyAtUri={copyAtUri}
-			onShowOnPdsls={showOnPdsls}
+			onShowInExplorer={showInExplorer}
 			onDelete={removeAction()}
 			onRetry={retryAction()}
 			hidden={hidden()}

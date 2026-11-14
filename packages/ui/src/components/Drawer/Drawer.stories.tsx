@@ -82,7 +82,7 @@ export const ContextMenu: Story = {
 				<DeveloperModeCard
 					copyLabel="Copy AT-URI"
 					copyValue={CHANNEL_AT_URI}
-					pdslsHref={`https://pdsls.dev/${CHANNEL_AT_URI}`}
+					explorerHref={`https://pdsls.dev/${CHANNEL_AT_URI}`}
 				/>
 			</DrawerContent>
 		</Drawer>

@@ -18,9 +18,13 @@ import { Tuning2Icon } from "@solar-icons/solid/bold/tuning-2";
 import { UserBlockIcon } from "@solar-icons/solid/bold/user-block";
 import { UserIdIcon } from "@solar-icons/solid/bold/user-id";
 import { createSignal, For, type JSX, Show } from "solid-js";
-import { AtmosphereGlyph, PdslsLogo } from "../../icons/animated/brand";
+import { AtmosphereGlyph } from "../../icons/animated/brand";
 import { cx } from "../../utils/cx";
 import { createSlot } from "../../utils/slot";
+import {
+	RecordExplorerLogo,
+	recordExplorerName,
+} from "../DeveloperMode/record-explorer";
 import {
 	DestructiveRow,
 	ListGroup,
@@ -50,7 +54,7 @@ export type SettingsEntryId =
 	| "acknowledgements"
 	| "experiments"
 	| "copyDid"
-	| "pdsls"
+	| "recordExplorer"
 	| "debugInfo"
 	| "logs";
 
@@ -157,7 +161,12 @@ export const SETTINGS_ENTRY_INFO: Record<SettingsEntryId, EntryInfo> = {
 		keywords: ["beta", "preview"],
 	},
 	copyDid: { label: "Copy DID", icon: () => <CopyIcon /> },
-	pdsls: { label: "View account on PDSls", icon: () => <PdslsLogo /> },
+	recordExplorer: {
+		get label() {
+			return `View account on ${recordExplorerName()}`;
+		},
+		icon: () => <RecordExplorerLogo />,
+	},
 	debugInfo: { label: "Debug information", icon: () => <BugIcon /> },
 	logs: { label: "Logs", icon: () => <DocumentTextIcon /> },
 };
@@ -188,7 +197,7 @@ const SECTIONS: EntrySection[] = [
 
 const DEVELOPER_SECTION: EntrySection = {
 	label: "Developer mode",
-	entries: ["copyDid", "pdsls", "debugInfo", "logs"],
+	entries: ["copyDid", "recordExplorer", "debugInfo", "logs"],
 };
 
 const LOG_OUT_LABEL = "Log out";

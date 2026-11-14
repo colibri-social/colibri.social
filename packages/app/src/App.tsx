@@ -30,6 +30,7 @@ import { ColdStart } from "./shell/boot-gate";
 import { LaunchScreen } from "./shell/launch/LaunchScreen";
 import { StartupError } from "./shell/launch/StartupError";
 import { MobileShell } from "./shell/MobileShell";
+import { RecordExplorerSync } from "./shell/record-explorer-sync";
 import { ThemeSync } from "./shell/theme-sync";
 
 const DesktopShell = lazy(() =>
@@ -47,6 +48,7 @@ const Shells = (props: { store: DataStore }) => {
 	return (
 		<DataContext.Provider value={props.store}>
 			<ThemeSync />
+			<RecordExplorerSync />
 			<Show when={platform() === "desktop"} fallback={<MobileShell />}>
 				<Suspense fallback={<LaunchScreen />}>
 					<DesktopShell />

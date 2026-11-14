@@ -5,6 +5,7 @@ import {
 	ProfilePopover,
 	type ProfilePopoverPlacement,
 	RoleBadge,
+	recordExplorerHref,
 } from "@colibri-social/ui";
 import { UserBlockIcon } from "@solar-icons/solid/bold/user-block";
 import { UserCheckIcon } from "@solar-icons/solid/bold/user-check";
@@ -161,7 +162,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 				? {
 						copyLabel: "Copy DID",
 						copyValue: actor.did,
-						pdslsHref: `https://pdsls.dev/at://${actor.did}`,
+						explorerHref: recordExplorerHref(actor.did),
 					}
 				: undefined,
 		};

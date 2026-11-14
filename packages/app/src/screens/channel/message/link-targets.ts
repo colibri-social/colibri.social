@@ -6,8 +6,8 @@ import {
 import {
 	isAtUri,
 	parseEmojiPackShareUrl,
-	pdslsHrefFor,
 	type RichTextLinkTarget,
+	recordExplorerHref,
 } from "@colibri-social/ui";
 import { emojiRegistry } from "../../../data/emoji";
 import { skeyOf } from "../../../data/ids";
@@ -227,7 +227,7 @@ export const linkTargetFor = (
 				true,
 			);
 		}
-		const href = pdslsHrefFor(uri);
+		const href = recordExplorerHref(uri);
 		return href ? { kind: "external", href } : undefined;
 	}
 	const record = routeRecord(uri);

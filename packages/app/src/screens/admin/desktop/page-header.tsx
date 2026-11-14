@@ -3,7 +3,7 @@ import { createContext, Show, useContext } from "solid-js";
 
 export type DeveloperTarget = {
 	copyValue: string;
-	pdslsHref?: string;
+	explorerHref?: string;
 };
 
 export type ModalPage = {

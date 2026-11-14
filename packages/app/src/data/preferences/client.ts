@@ -8,6 +8,8 @@ import {
 	GIF_LOOP_LIMITS,
 	INBOX_PRESENTATIONS,
 	type InboxPresentation,
+	RECORD_EXPLORERS,
+	type RecordExplorer,
 	THEMES,
 	type Theme,
 } from "./types";
@@ -20,6 +22,7 @@ export type ResolvedClient = {
 	blueskyClient: BlueskyClient;
 	customBlueskyClientBase: string;
 	developerMode: boolean;
+	recordExplorer: RecordExplorer;
 	hideModeratedMessages: boolean;
 	inboxPresentation: InboxPresentation;
 	gifLoopLimit: number | undefined;
@@ -64,6 +67,7 @@ export const resolveClient = (
 	blueskyClient: oneOf(BLUESKY_CLIENTS, client.blueskyClient, "bluesky"),
 	customBlueskyClientBase: client.customBlueskyClientBase ?? "",
 	developerMode: client.developerMode ?? defaults.developerMode,
+	recordExplorer: oneOf(RECORD_EXPLORERS, client.recordExplorer, "pdsls"),
 	hideModeratedMessages: client.hideModeratedMessages ?? false,
 	inboxPresentation: oneOf(
 		INBOX_PRESENTATIONS,

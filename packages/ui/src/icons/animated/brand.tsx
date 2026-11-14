@@ -12,6 +12,8 @@ import {
 import {
 	atmosphereAt,
 	atmosphereRing,
+	atprotoAtColor,
+	atprotoAtGlyphs,
 	blueskyButterfly,
 	heroiconsGif,
 	pdslsColor,
@@ -28,6 +30,7 @@ import {
 } from "./AnimatedIcon";
 
 const PDSLS_VIEWBOX = "0 0 16 16";
+const ATPROTO_AT_VIEWBOX = "0 0 16 16";
 const PLAY_TESTER_BADGE_VIEWBOX = "0 0 16 16";
 const GIF_VIEWBOX = "0 0 20 20";
 const BLUESKY_VIEWBOX = "-2.4 -3.80625 28.8 28.8";
@@ -172,6 +175,15 @@ export const PdslsLogo = (props: LogoProps) => (
 		<path d={pdslsMark.d} fill={pdslsColor} />
 	</StaticLogo>
 );
+
+export const AtprotoAtLogo = (props: LogoProps) => {
+	return (
+		<StaticLogo {...props} viewBox={ATPROTO_AT_VIEWBOX}>
+			<rect width="16" height="16" rx="3" fill={atprotoAtColor} />
+			<path d={atprotoAtGlyphs.d} fill="#fff" fill-rule="evenodd" />
+		</StaticLogo>
+	);
+};
 
 export const BlueskyLogo = (props: LogoProps) => (
 	<StaticLogo {...props} viewBox={BLUESKY_VIEWBOX}>

@@ -1,9 +1,13 @@
 import { createSignal, type JSX, onCleanup, Show } from "solid-js";
-import { PdslsLogo } from "../../icons/animated/brand";
 import { AnimatedCopyIcon } from "../../icons/animated/icons";
 import { copyText } from "../../utils/clipboard";
 import { cx } from "../../utils/cx";
 import { Button, buttonVariants } from "../Button/Button";
+import {
+	RecordExplorerLogo,
+	recordExplorerHref,
+	showInExplorerLabel,
+} from "./record-explorer";
 
 const COPIED_MS = 1500;
 
@@ -12,21 +16,15 @@ export type DeveloperModeCardProps = {
 	copyLabel?: string;
 	copyValue?: string;
 	onCopy?: () => void;
-	pdslsHref?: string;
-	pdslsLabel?: string;
+	explorerHref?: string;
+	explorerLabel?: string;
 	stacked?: boolean;
 	class?: string;
 };
 
-export const pdslsHrefFor = (value: string | undefined) => {
-	if (!value) return undefined;
-	if (value.startsWith("at://")) return `https://pdsls.dev/${value}`;
-	if (value.startsWith("did:")) return `https://pdsls.dev/at://${value}`;
-	return undefined;
-};
-
 export const DeveloperModeCard = (props: DeveloperModeCardProps) => {
-	const pdslsHref = () => props.pdslsHref ?? pdslsHrefFor(props.copyValue);
+	const explorerHref = () =>
+		props.explorerHref ?? recordExplorerHref(props.copyValue);
 	const [copied, setCopied] = createSignal(false);
 	let resetTimer: ReturnType<typeof setTimeout> | undefined;
 	onCleanup(() => clearTimeout(resetTimer));
@@ -72,7 +70,7 @@ export const DeveloperModeCard = (props: DeveloperModeCardProps) => {
 				>
 					<span class="truncate">{props.copyLabel ?? "Copy DID"}</span>
 				</Button>
-				<Show when={pdslsHref()}>
+				<Show when={explorerHref()}>
 					{(href) => (
 						<a
 							href={href()}
@@ -84,9 +82,9 @@ export const DeveloperModeCard = (props: DeveloperModeCardProps) => {
 								props.stacked ? "w-full" : "flex-1",
 							)}
 						>
-							<PdslsLogo class="size-4 shrink-0" />
+							<RecordExplorerLogo class="size-4 shrink-0" />
 							<span class="truncate">
-								{props.pdslsLabel ?? "Show on PDSls"}
+								{props.explorerLabel ?? showInExplorerLabel()}
 							</span>
 						</a>
 					)}

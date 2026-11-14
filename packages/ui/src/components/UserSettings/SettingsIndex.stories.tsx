@@ -40,7 +40,7 @@ const MAIN_ORDER: SettingsEntryId[] = [
 
 const DEVELOPER_ORDER: SettingsEntryId[] = [
 	"copyDid",
-	"pdsls",
+	"recordExplorer",
 	"debugInfo",
 	"logs",
 ];
@@ -61,7 +61,7 @@ const entriesFor = (ids: SettingsEntryId[]): SettingsEntries =>
 	Object.fromEntries(
 		ids.map((id) => [
 			id,
-			id === "atmosphereAccount" || id === "pdsls"
+			id === "atmosphereAccount" || id === "recordExplorer"
 				? { href: "https://example.com/", external: true }
 				: id === "copyDid"
 					? { copyValue: DID }

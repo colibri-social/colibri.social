@@ -158,7 +158,7 @@ const MemberDrawerDemo = (props: DemoProps) => {
 				developer={{
 					copyLabel: "Copy DID",
 					copyValue: "did:plc:lisdrawspixelbirds2b4d6f8h",
-					pdslsHref:
+					explorerHref:
 						"https://pdsls.dev/at://did:plc:lisdrawspixelbirds2b4d6f8h",
 				}}
 				{...moderation()}

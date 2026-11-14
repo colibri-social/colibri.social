@@ -1,6 +1,18 @@
 import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import { For, Match, Show, Switch } from "solid-js";
+import {
+	isRecordExplorer,
+	RECORD_EXPLORER_IDS,
+	RECORD_EXPLORERS,
+	type RecordExplorer,
+	RecordExplorerLogo,
+} from "../DeveloperMode/record-explorer";
 import { DestructiveRow, ListGroup, NavRow, ToggleRow } from "../List/List";
+import {
+	Select,
+	type SelectOption,
+	type SelectPlatform,
+} from "../Select/Select";
 import { SettingsEmpty, SettingsPage } from "./shared";
 
 export type UpdateState =
@@ -83,10 +95,21 @@ const Updates = (props: { updates: UpdatesSection }) => (
 	</ListGroup>
 );
 
+const explorerOptions = (): SelectOption[] => {
+	return RECORD_EXPLORER_IDS.map((id) => ({
+		value: id,
+		label: RECORD_EXPLORERS[id].name,
+		icon: () => <RecordExplorerLogo explorer={id} class="size-4" />,
+	}));
+};
+
 export type AdvancedSettingsProps = {
 	updates?: UpdatesSection;
 	developerMode: boolean;
 	onDeveloperModeChange?: (enabled: boolean) => void;
+	recordExplorer?: RecordExplorer;
+	onRecordExplorerChange?: (explorer: RecordExplorer) => void;
+	platform?: SelectPlatform;
 	includeAccountInReports?: boolean;
 	onIncludeAccountInReportsChange?: (enabled: boolean) => void;
 	systemWindowControls?: boolean;
@@ -103,11 +126,25 @@ export const AdvancedSettings = (props: AdvancedSettingsProps) => (
 		<ListGroup label="Developer">
 			<ToggleRow
 				title="Developer mode"
-				description="Shows identifiers and links to inspect records on PDSls."
+				description="Shows identifiers and links to inspect records."
 				checked={props.developerMode}
 				onChange={(checked) => props.onDeveloperModeChange?.(checked)}
 			/>
 		</ListGroup>
+		<Show when={props.developerMode && props.onRecordExplorerChange}>
+			<section data-record-explorer-settings="" class="flex flex-col gap-2">
+				<Select
+					platform={props.platform}
+					options={explorerOptions()}
+					value={props.recordExplorer ?? "pdsls"}
+					onChange={(value) => {
+						if (isRecordExplorer(value)) props.onRecordExplorerChange?.(value);
+					}}
+					label="Open records in"
+					description="The site that developer mode links open identifiers and records on."
+				/>
+			</section>
+		</Show>
 		<Show when={props.includeAccountInReports !== undefined}>
 			<ListGroup label="Error reports">
 				<ToggleRow

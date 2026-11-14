@@ -30,7 +30,7 @@ export type ProfileAction = {
 export type ProfileDeveloperInfo = {
 	copyLabel?: string;
 	copyValue: string;
-	pdslsHref?: string;
+	explorerHref?: string;
 };
 
 export type ProfileData = {
@@ -240,7 +240,7 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 						<DeveloperModeCard
 							copyLabel={developer().copyLabel ?? "Copy DID"}
 							copyValue={developer().copyValue}
-							pdslsHref={developer().pdslsHref}
+							explorerHref={developer().explorerHref}
 						/>
 					)}
 				</Show>

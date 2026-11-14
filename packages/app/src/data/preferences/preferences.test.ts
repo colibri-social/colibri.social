@@ -467,6 +467,7 @@ describe("client preferences", () => {
 			theme: "system",
 			warnOnExternalLinks: true,
 			blueskyClient: "bluesky",
+			recordExplorer: "pdsls",
 			voiceView: { showOwnCamera: true },
 		});
 
@@ -489,6 +490,14 @@ describe("client preferences", () => {
 		});
 	});
 
+	it("keeps the chosen record explorer", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const store = create(memory.backend);
+		await store.setClient({ recordExplorer: "atprotoAt" });
+		expect(store.client().recordExplorer).toBe("atprotoAt");
+		expect(memory.state().client).toEqual({ recordExplorer: "atprotoAt" });
+	});
+
 	it("falls back for values this client does not know", () => {
 		const store = create(createMemoryPreferenceBackend().backend);
 		store.adopt(
@@ -496,12 +505,14 @@ describe("client preferences", () => {
 				client: {
 					theme: "sepia",
 					blueskyClient: "elsewhere",
+					recordExplorer: "explorer.example",
 					controls: { doubleTapAction: "wave" },
 				},
 			}),
 		);
 		expect(store.client().theme).toBe("system");
 		expect(store.client().blueskyClient).toBe("bluesky");
+		expect(store.client().recordExplorer).toBe("pdsls");
 		expect(store.controls().doubleTapAction).toBe("react");
 	});
 

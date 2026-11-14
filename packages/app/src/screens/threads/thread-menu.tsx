@@ -8,6 +8,7 @@ import {
 	ModalContent,
 	RadioRow,
 	RadioRowGroup,
+	recordExplorerHref,
 	TextField,
 	THREAD_NAME_MAX_LENGTH,
 	ThreadContextMenu,
@@ -27,7 +28,7 @@ import { channelSlug, skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
 import type { SpaceRef, ThreadView } from "../../data/types";
 import { TEXT_CHANNEL } from "../../data/types";
-import { openExternalUrl } from "../../native/open-external";
+import { openInRecordExplorer } from "../../native/open-in-explorer";
 import { layerPath } from "../../shell/layers";
 import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 
@@ -345,9 +346,7 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 				onCopyAtUri={() =>
 					void copyText(view().space).then(() => toast.success("AT-URI copied"))
 				}
-				onShowOnPdsls={() =>
-					openExternalUrl(`https://pdsls.dev/${view().space}`)
-				}
+				onShowInExplorer={() => openInRecordExplorer(view().space)}
 				onRename={
 					view().viewer.canEdit ? () => showDialog(view(), "rename") : undefined
 				}
@@ -427,7 +426,7 @@ export const createThreadMenu = (options: ThreadMenuOptions) => {
 							developer={{
 								copyLabel: "Copy AT-URI",
 								copyValue: view().space,
-								pdslsHref: `https://pdsls.dev/${view().space}`,
+								explorerHref: recordExplorerHref(view().space),
 							}}
 							onRename={
 								view().viewer.canEdit

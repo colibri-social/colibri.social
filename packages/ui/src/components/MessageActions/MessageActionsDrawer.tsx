@@ -146,7 +146,7 @@ export type MessageActionsDrawerProps = {
 
 export type MessageDeveloperInfo = {
 	atUri: string;
-	pdslsHref?: string;
+	explorerHref?: string;
 	onCopy?: () => void;
 };
 
@@ -439,7 +439,7 @@ export const MessageActionsDrawer = (props: MessageActionsDrawerProps) => {
 								copyLabel="Copy AT-URI"
 								copyValue={developer().atUri}
 								onCopy={developer().onCopy}
-								pdslsHref={developer().pdslsHref}
+								explorerHref={developer().explorerHref}
 							/>
 						)}
 					</Show>

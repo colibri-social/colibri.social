@@ -4,6 +4,7 @@ import {
 	Discovery,
 	DiscoveryScreen,
 	type DiscoverySpace,
+	recordExplorerHref,
 	StatusScreen,
 	toast,
 } from "@colibri-social/ui";
@@ -98,7 +99,7 @@ export const discover = defineContract({
 					<DeveloperModeCard
 						copyLabel="Copy DID"
 						copyValue={space.id}
-						pdslsHref={`https://pdsls.dev/at://${space.id}`}
+						explorerHref={recordExplorerHref(space.id)}
 					/>
 				) : undefined,
 		};
