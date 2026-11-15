@@ -11,9 +11,16 @@ export { fixedFrame };
 export const isNativeShell = () =>
 	typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-export const chromeModeFor = (agent: string, native: boolean): ChromeMode => {
+export const isTouchDevice = (agent: string, touchPoints = 0) =>
+	/Android|iPhone|iPad/.test(agent) || (/Mac/.test(agent) && touchPoints > 1);
+
+export const chromeModeFor = (
+	agent: string,
+	native: boolean,
+	touchPoints = 0,
+): ChromeMode => {
 	if (!native) return "none";
-	if (/Android|iPhone|iPad/.test(agent)) return "none";
+	if (isTouchDevice(agent, touchPoints)) return "none";
 	if (/Mac/.test(agent)) return "macos";
 	if (/Windows/.test(agent)) return "windows";
 	if (/Linux|X11/.test(agent)) return "linux";
@@ -24,6 +31,7 @@ export const resolveChromeMode = (): ChromeMode =>
 	chromeModeFor(
 		typeof navigator === "undefined" ? "" : navigator.userAgent,
 		isNativeShell(),
+		typeof navigator === "undefined" ? 0 : navigator.maxTouchPoints,
 	);
 
 export const markChromeMode = () => {

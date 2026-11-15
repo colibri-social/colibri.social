@@ -1622,8 +1622,8 @@ export const MediaSingleContains: Story = {
 		<Screen>
 			<div data-testid="fit-host">
 				<Message
-					text="A panorama wider than the tile allows"
-					attachments={<MediaGrid items={[fixtureImage(0, 4000, 400)]} />}
+					text="A photo taller than the tile allows"
+					attachments={<MediaGrid items={[fixtureImage(0, 400, 2400)]} />}
 				/>
 				<Message
 					name="Lis"
@@ -1644,7 +1644,7 @@ export const MediaSingleContains: Story = {
 				expect(image?.className).toContain("opacity-100");
 				return image as HTMLImageElement;
 			});
-		const single = await imageIn("A panorama wider than the tile allows");
+		const single = await imageIn("A photo taller than the tile allows");
 		await expect(getComputedStyle(single).objectFit).toBe("contain");
 		const tile = single.closest("[data-media-tile]") as HTMLElement;
 		await expect(getComputedStyle(tile).backgroundColor).not.toBe(
@@ -1653,6 +1653,175 @@ export const MediaSingleContains: Story = {
 		const grid = await imageIn("Two in a grid");
 		await expect(getComputedStyle(grid).objectFit).toBe("cover");
 		await expectNoLayoutIssues(canvas.getByTestId("fit-host"));
+	},
+};
+
+const SINGLE_TILE_WIDTH = 416;
+const SINGLE_TILE_ASPECT = 2.5;
+
+const WIDE_CASES = [
+	{ text: "A 6:1 banner", width: 1800, height: 300 },
+	{ text: "A 3:1 strip narrower than the column", width: 600, height: 200 },
+	{ text: "A 10:1 panorama", width: 4000, height: 400 },
+];
+
+const WideCases = (props: { desktop?: boolean }) => (
+	<Screen desktop={props.desktop}>
+		<div data-testid="wide-host">
+			{WIDE_CASES.map((wide, index) => (
+				<Message
+					name={index % 2 ? "Lis" : "Lou"}
+					text={wide.text}
+					attachments={
+						<MediaGrid
+							items={[fixtureImage(index, wide.width, wide.height)]}
+							onOpen={onOpen}
+						/>
+					}
+				/>
+			))}
+		</div>
+	</Screen>
+);
+
+const expectWideGeometry = async (
+	canvasElement: HTMLElement,
+	desktop: boolean,
+) => {
+	const host = within(canvasElement).getByTestId("wide-host");
+
+	for (const wide of WIDE_CASES) {
+		const tile = await waitFor(() => {
+			const found = within(host)
+				.getByText(wide.text)
+				.closest("article")
+				?.querySelector<HTMLElement>("[data-media-tile]");
+
+			expect(found?.querySelector("img")?.className).toContain("opacity-100");
+
+			return found as HTMLElement;
+		});
+		const grid = tile.closest<HTMLElement>("[data-media-grid]");
+		const column = grid?.parentElement?.getBoundingClientRect().width ?? 0;
+		const box = tile.getBoundingClientRect();
+		const width = Math.min(column, wide.width);
+		const todayHeight =
+			Math.min(SINGLE_TILE_WIDTH, wide.height * SINGLE_TILE_ASPECT) /
+			SINGLE_TILE_ASPECT;
+		const image = tile.querySelector("img") as HTMLImageElement;
+
+		await expect(grid).toHaveAttribute("data-media-wide", "");
+		await expect(Math.abs(box.width - width)).toBeLessThan(1);
+		await expect(
+			Math.abs(
+				box.height - Math.max((width * wide.height) / wide.width, todayHeight),
+			),
+		).toBeLessThan(1);
+		await expect(getComputedStyle(image).objectFit).toBe("contain");
+
+		const imageBox = image.getBoundingClientRect();
+
+		await expect(Math.abs(imageBox.width - box.width)).toBeLessThan(1);
+		await expect(Math.abs(imageBox.height - box.height)).toBeLessThan(1);
+	}
+
+	if (desktop) {
+		const banner = within(host)
+			.getByText("A 6:1 banner")
+			.closest("article")
+			?.querySelector<HTMLElement>("[data-media-tile]");
+
+		await expect(banner?.getBoundingClientRect().width).toBeGreaterThan(
+			SINGLE_TILE_WIDTH,
+		);
+	}
+
+	await expectNoLayoutIssues(host);
+};
+
+export const MediaSingleWide: Story = {
+	parameters: mobile,
+	render: () => <WideCases />,
+	play: async ({ canvasElement }) => {
+		await expectWideGeometry(canvasElement, false);
+	},
+};
+
+export const MediaSingleWideDesktop: Story = {
+	render: () => <WideCases desktop />,
+	play: async ({ canvasElement }) => {
+		await expectWideGeometry(canvasElement, true);
+	},
+};
+
+const onMediaDownload = fn();
+const onFileDownload = fn();
+const onAudioDownload = fn();
+
+export const DownloadHandlers: Story = {
+	parameters: mobile,
+	render: () => (
+		<Screen>
+			<div data-testid="download-host">
+				<Message
+					text="Saved in the app"
+					attachments={
+						<MediaGrid
+							items={[fixtureImage(0, 1600, 900)]}
+							onOpen={onOpen}
+							onDownload={onMediaDownload}
+						/>
+					}
+				/>
+				<Message
+					name="Lis"
+					attachments={
+						<FileAttachment
+							name="route-notes.pdf"
+							size={248_000}
+							onDownload={onFileDownload}
+						/>
+					}
+				/>
+				<Message
+					attachments={
+						<AudioAttachment
+							name="dawn-chorus.mp3"
+							size={3_948_544}
+							duration={187}
+							onDownload={onAudioDownload}
+						/>
+					}
+				/>
+			</div>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		onOpen.mockClear();
+		onMediaDownload.mockClear();
+		onFileDownload.mockClear();
+		onAudioDownload.mockClear();
+
+		const canvas = within(canvasElement);
+		const host = canvas.getByTestId("download-host");
+
+		await userEvent.click(
+			await canvas.findByRole("button", { name: "Download photo-1.png" }),
+		);
+		await expect(onMediaDownload).toHaveBeenCalledWith(0);
+		await expect(onOpen).not.toHaveBeenCalledWith(0);
+
+		await userEvent.click(
+			canvas.getByRole("button", { name: /^Download route-notes\.pdf/ }),
+		);
+		await expect(onFileDownload).toHaveBeenCalledOnce();
+
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Download dawn-chorus.mp3" }),
+		);
+		await expect(onAudioDownload).toHaveBeenCalledOnce();
+		await expect(host.querySelector("a[download]")).toBeNull();
+		await expectNoLayoutIssues(host);
 	},
 };
 

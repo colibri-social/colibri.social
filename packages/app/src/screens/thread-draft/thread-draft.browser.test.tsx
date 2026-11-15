@@ -40,7 +40,8 @@ afterEach(() => {
 const mount = async (path: string) => {
 	setLatency(0);
 	history.replaceState(null, "", path);
-	const store = createDataStore(createMockSource({ live: false }));
+	const source = createMockSource({ live: false });
+	const store = createDataStore(source);
 	host = document.createElement("div");
 	host.style.cssText = "position:fixed;inset:0;width:402px;height:874px";
 	document.body.append(host);
@@ -54,7 +55,7 @@ const mount = async (path: string) => {
 		),
 		host,
 	);
-	return { store, root: host };
+	return { store, source, root: host };
 };
 
 const pane = (root: HTMLElement, index: number) =>
@@ -187,6 +188,70 @@ describe("thread draft", () => {
 		history.back();
 		await until(() => location.pathname === GENERAL);
 		await until(() => settled(root, 1));
+	});
+
+	it("keeps the draft pane open when a message arrives in the parent channel", async () => {
+		const { store, source, root } = await mount(GENERAL);
+		await until(() => !!generalRef(store));
+		const ref = generalRef(store);
+		if (!ref) throw new Error("no general");
+		const feed = store.channel(ref);
+		await until(() => feed.ready());
+		await until(() => !!pane(root, 1)?.querySelector("[data-message-key]"));
+		const rows = Array.from(
+			pane(root, 1)?.querySelectorAll<HTMLElement>("[data-message-key]") ?? [],
+		);
+		const row = rows.reverse().find((element) => {
+			const key = element.dataset.messageKey ?? "";
+			return !!feed.messages().find((entry) => entry.rkey === key)?.text;
+		});
+		if (!row) throw new Error("no message with text");
+		const anchor = feed
+			.messages()
+			.find((entry) => entry.rkey === row.dataset.messageKey) as MessageView;
+		const author = source.world.spaces
+			.find((entry) => entry.did === HQ)
+			?.members.find((member) => member.actor.did !== source.world.viewerDid)
+			?.actor.did;
+		if (!author) throw new Error("Seed changed");
+
+		await press(row);
+		await until(() => !!button(document, "Open thread"));
+		await userEvent.click(button(document, "Open thread") as HTMLElement);
+		await until(() => settled(root, 2));
+		const draft = pane(root, 2) as HTMLElement;
+		const input = draft.querySelector("input") as HTMLInputElement;
+		const anchorCard = draft.querySelector("[data-thread-anchor]");
+		await userEvent.type(input, "Release notes");
+		const editor = draft.querySelector<HTMLElement>('[role="textbox"]');
+		editor?.focus();
+		await userEvent.keyboard("Half a thought");
+		const path = location.pathname;
+
+		for (let index = 0; index < 3; index++) {
+			source.simulateMessage({
+				author,
+				channel: ref,
+				text: `Interruption ${index}`,
+			});
+			await wait(150);
+		}
+		await until(() =>
+			feed.messages().some((entry) => entry.text === "Interruption 2"),
+		);
+		await wait(600);
+
+		expect(location.pathname).toBe(path);
+		expect(pane(root, 2)).toBe(draft);
+		expect(draft.isConnected).toBe(true);
+		expect(settled(root, 2)).toBe(true);
+		expect(draft.querySelector("input")).toBe(input);
+		expect(input.value).toBe("Release notes");
+		expect(draft.querySelector("[data-thread-anchor]")).toBe(anchorCard);
+		expect(anchorCard?.textContent).toContain(anchor.text.slice(0, 20));
+		expect(draft.querySelector('[role="textbox"]')?.textContent).toContain(
+			"Half a thought",
+		);
 	});
 
 	it("starts a named thread from the channel drawer", async () => {

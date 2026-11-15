@@ -90,3 +90,54 @@ it("keeps the thread scroll position while the parent thread list refreshes", as
 	expect(scroller()).toBe(element);
 	expect(element.scrollTop).toBe(before);
 });
+
+it("keeps the thread scroll position while messages and Space updates arrive", async () => {
+	const { store, source, record } = await mountWithDistantAnchor();
+	const feed = store.channel(record.view.space);
+	await until(() => feed.ready());
+	for (let index = 0; index < 30; index++) {
+		await feed.send({ text: `Filler ${index}` });
+	}
+	await until(() => !!document.querySelector("[data-thread-anchor]"));
+	await wait(800);
+	const element = scroller() as HTMLElement;
+	element.scrollTop = 400;
+	await wait(500);
+	const before = element.scrollTop;
+	expect(before).toBeGreaterThan(0);
+	const space = source.world.spaces.find((entry) => entry.did === HQ);
+	const channel = space?.channels.find((entry) => entry.view.space === DEV_REF);
+	const author = space?.members.find(
+		(member) => member.actor.did !== source.world.viewerDid,
+	)?.actor.did;
+	if (!space || !channel || !author) throw new Error("Seed changed");
+
+	source.simulateMessage({
+		author,
+		channel: DEV_REF,
+		text: "Chatter in the parent channel",
+	});
+	source.emit({
+		$type: "channelEvent",
+		event: "update",
+		community: space.did,
+		channel: { ...channel.view },
+	});
+	source.emit({
+		$type: "communityEvent",
+		event: "update",
+		community: { ...space.view },
+	});
+	await wait(500);
+	expect(scroller()).toBe(element);
+	expect(element.scrollTop).toBe(before);
+
+	source.simulateMessage({
+		author,
+		channel: record.view.space,
+		text: "A reply while you read older messages",
+	});
+	await wait(500);
+	expect(scroller()).toBe(element);
+	expect(element.scrollTop).toBe(before);
+});

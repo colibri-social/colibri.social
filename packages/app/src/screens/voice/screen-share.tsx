@@ -57,7 +57,10 @@ import {
 	supportsNativeCapture,
 } from "../../native/screen-capture";
 import { usePlatform } from "../../screen/platform";
-import { isNativeShell } from "../../shell/desktop/window-chrome";
+import {
+	isNativeShell,
+	isTouchDevice,
+} from "../../shell/desktop/window-chrome";
 
 const log = createLogger("voice/screen-share");
 
@@ -71,8 +74,6 @@ const SCREEN_SHARE_COPY = {
 	soundFailedDescription:
 		"Others can see your screen but can't hear it. Stop sharing and share again to try once more.",
 } as const;
-
-const MOBILE_DEVICE = /Android|iPhone|iPad/;
 
 const [pickerOpen, setPickerOpen] = createSignal(false);
 const [permissionOpen, setPermissionOpen] = createSignal(false);
@@ -89,7 +90,8 @@ const native = createRoot(() => {
 });
 
 const mobileDevice = () =>
-	typeof navigator !== "undefined" && MOBILE_DEVICE.test(navigator.userAgent);
+	typeof navigator !== "undefined" &&
+	isTouchDevice(navigator.userAgent, navigator.maxTouchPoints);
 
 const linuxApp = () =>
 	isLinuxApp(

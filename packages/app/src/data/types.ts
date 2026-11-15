@@ -100,6 +100,7 @@ export type LinkEmbed = social.colibri.beta.embed.defs.LinkEmbed & {
 	post?: EmbedPost;
 };
 export type GifView = social.colibri.beta.embed.defs.GifView;
+export type GifCategoryView = social.colibri.beta.embed.defs.GifCategory;
 export type Facet = social.colibri.beta.richtext.facet.Main;
 
 export type Did = ProfileView["did"];

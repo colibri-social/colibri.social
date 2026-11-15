@@ -6287,6 +6287,7 @@ dependencies = [
 name = "tauri-plugin-keyboard-inset"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "tauri",
  "tauri-plugin",
 ]

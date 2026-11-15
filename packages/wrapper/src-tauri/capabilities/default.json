@@ -26,6 +26,9 @@
         },
         {
           "url": "https://*.giphy.com/media/*"
+        },
+        {
+          "url": "https://*"
         }
       ]
     }

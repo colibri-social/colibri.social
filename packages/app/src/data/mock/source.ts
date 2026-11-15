@@ -45,7 +45,7 @@ import {
 	discoverableRecord,
 } from "./communities";
 import { createMockEmoji } from "./emoji";
-import { searchGifs } from "./gifs";
+import { gifCategories, searchGifs } from "./gifs";
 import { createMockHosting } from "./hosting";
 import { latencyScale, setLatencyScale, withLatency } from "./latency";
 import { createMockLegacy } from "./legacy";
@@ -1446,6 +1446,7 @@ export const createMockSource = (
 				return next;
 			}),
 		listGifs: (query) => withLatency(() => searchGifs(query)),
+		listGifCategories: () => withLatency(() => gifCategories()),
 		gifFavorites: () => preferences.gifFavorites(),
 		setGifFavorite: (gif, favorite) => {
 			void preferences.setGifFavorite(gif, favorite);

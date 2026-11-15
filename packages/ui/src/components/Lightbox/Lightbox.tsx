@@ -67,6 +67,7 @@ export type LightboxProps = {
 	onShare?: (index: number) => void;
 	onCopyImage?: (index: number) => void;
 	onDownloadImage?: (index: number) => void;
+	onDownload?: (index: number) => void;
 	label?: string;
 };
 
@@ -1301,24 +1302,42 @@ export const Lightbox = (props: LightboxProps) => {
 							<Show
 								when={
 									!(props.onDownloadImage && !isVideo(item())) &&
-									item()?.downloadHref
+									(props.onDownload || item()?.downloadHref)
 								}
 							>
-								{(href) => (
-									<Tooltip placement="bottom">
-										<TooltipTrigger
-											as="a"
-											href={href()}
-											download={item()?.name ?? ""}
-											data-icon-host=""
-											aria-label="Download"
-											class={chromeButton}
-										>
-											<AnimatedDownloadIcon />
-										</TooltipTrigger>
-										<TooltipContent>Download</TooltipContent>
-									</Tooltip>
-								)}
+								<Tooltip placement="bottom">
+									<Show
+										when={props.onDownload}
+										fallback={
+											<TooltipTrigger
+												as="a"
+												href={item()?.downloadHref}
+												download={item()?.name ?? ""}
+												data-icon-host=""
+												data-lightbox-download=""
+												aria-label="Download"
+												class={chromeButton}
+											>
+												<AnimatedDownloadIcon />
+											</TooltipTrigger>
+										}
+									>
+										{(download) => (
+											<TooltipTrigger
+												as="button"
+												type="button"
+												data-icon-host=""
+												data-lightbox-download=""
+												aria-label="Download"
+												class={chromeButton}
+												onClick={() => download()(index())}
+											>
+												<AnimatedDownloadIcon />
+											</TooltipTrigger>
+										)}
+									</Show>
+									<TooltipContent>Download</TooltipContent>
+								</Tooltip>
 							</Show>
 							<Show when={props.onShare || props.shareUrl}>
 								<Tooltip placement="bottom">

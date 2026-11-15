@@ -1859,6 +1859,18 @@ describe("createRemoteSource", () => {
 		).toBe("cats");
 	});
 
+	it("lists GIF categories in one call", async () => {
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				colibri.embed.gifCategories.main.nsid,
+				json({ categories: [{ name: "Party" }] }),
+			);
+		});
+
+		expect(await source.listGifCategories()).toEqual([{ name: "Party" }]);
+		expect(fake.callsTo(colibri.embed.gifCategories.main.nsid)).toHaveLength(1);
+	});
+
 	it("keeps its message index in step with live events", async () => {
 		const { fake, live, source } = await setup((fake) =>
 			fake.on(colibri.community.applyLabel.main.nsid, json({ label: {} })),

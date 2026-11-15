@@ -20,6 +20,8 @@ describe("window chrome", () => {
 		expect(chromeModeFor(LINUX, true)).toBe("linux");
 		expect(chromeModeFor(ANDROID, true)).toBe("none");
 		expect(chromeModeFor(MAC, false)).toBe("none");
+		expect(chromeModeFor(MAC, true, 5)).toBe("none");
+		expect(chromeModeFor(MAC, true, 0)).toBe("macos");
 	});
 
 	it("titles the window with the channel and Space", () => {

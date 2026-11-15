@@ -43,7 +43,7 @@ import type {
 	LinkEmbed as LinkEmbedView,
 } from "../../../data/types";
 import { externalAnchorOf } from "../../../native/open-external";
-import { lightboxImageActions } from "./image-actions";
+import { downloadMedia, lightboxImageActions } from "./image-actions";
 import { InviteEmbed } from "./invite-embed";
 import { PackEmbed } from "./pack-embed";
 
@@ -155,6 +155,15 @@ export const MediaWithLightbox = (props: {
 					setIndex(next);
 					setMounted(true);
 					setOpen(true);
+				}}
+				onDownload={(at) => {
+					const item = props.items[at];
+					if (!item) return;
+					void downloadMedia({
+						src: item.downloadHref ?? item.src,
+						name: item.name,
+						mimeType: item.mimeType,
+					});
 				}}
 			/>
 			<Show when={mounted()}>
@@ -379,10 +388,37 @@ export const MessageAttachments = (props: {
 				/>
 			</Show>
 			<For each={props.split.audio}>
-				{(audio) => <AudioAttachment {...audio} />}
+				{(audio) => (
+					<AudioAttachment
+						{...audio}
+						onDownload={
+							audio.href
+								? () =>
+										void downloadMedia({
+											src: audio.href ?? "",
+											name: audio.name,
+										})
+								: undefined
+						}
+					/>
+				)}
 			</For>
 			<For each={props.split.files}>
-				{(file) => <FileAttachment {...file} />}
+				{(file) => (
+					<FileAttachment
+						{...file}
+						onDownload={
+							file.href
+								? () =>
+										void downloadMedia({
+											src: file.href ?? "",
+											name: file.name,
+											mimeType: file.mimeType,
+										})
+								: undefined
+						}
+					/>
+				)}
 			</For>
 			<For each={embedUris()}>
 				{(uri) => (

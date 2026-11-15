@@ -62,6 +62,9 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: Colibri uses your camera for video in voice channels and calls.
         NSMicrophoneUsageDescription: Colibri uses your microphone for voice channels and calls.
+        NSPhotoLibraryAddUsageDescription: Colibri saves images and videos you download to your photo library.
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
         CFBundleURLTypes:
           - CFBundleURLSchemes: [social.colibri, social.colibri.spaces]
             CFBundleURLName: social.colibri

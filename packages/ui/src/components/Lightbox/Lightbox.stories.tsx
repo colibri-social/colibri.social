@@ -713,6 +713,60 @@ export const ImageActionsAndScrims: Story = {
 	},
 };
 
+const onDownload = fn();
+
+const DownloadHandlerGallery = () => {
+	const [items, setItems] = createSignal<MediaItem[]>();
+	const [open, setOpen] = createSignal(true);
+
+	onMount(async () => {
+		const clip = await sharedClip(3);
+
+		setItems([
+			{
+				src: clip?.src ?? "",
+				poster: clip?.poster,
+				kind: "video",
+				width: 640,
+				height: 360,
+				name: "clip.webm",
+				alt: "A purple dot sliding back and forth",
+			},
+		]);
+	});
+
+	return (
+		<Show when={items()}>
+			{(list) => (
+				<Lightbox
+					items={list()}
+					open={open()}
+					onOpenChange={setOpen}
+					onDownload={onDownload}
+				/>
+			)}
+		</Show>
+	);
+};
+
+export const DownloadHandler: Story = {
+	name: "Download handler for a video",
+	parameters: iphone,
+	render: () => <DownloadHandlerGallery />,
+	play: async () => {
+		onDownload.mockClear();
+
+		const download = await screen.findByRole("button", { name: "Download" });
+		const toolbar = download.closest<HTMLElement>("[data-lightbox-chrome]");
+
+		await expect(document.querySelector("a[download]")).toBeNull();
+		await userEvent.click(download);
+		await expect(onDownload).toHaveBeenCalledWith(0);
+
+		if (toolbar) await expectNoLayoutIssues(toolbar);
+	},
+};
+
 export const ImageMenuOnRightClick: Story = {
 	name: "Image menu on right-click",
 	render: () => {

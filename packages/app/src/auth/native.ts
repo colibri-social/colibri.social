@@ -4,6 +4,7 @@ type NativeErrorCode =
 	| "Cancelled"
 	| "Unsupported"
 	| "InvalidRequest"
+	| "PermissionDenied"
 	| "Failed";
 
 type NativeErrorEnvelope = { code: NativeErrorCode; message: string };
@@ -12,6 +13,7 @@ const CODE_MAP: Record<NativeErrorCode, ColibriErrorCode> = {
 	Cancelled: "NativeCancelled",
 	Unsupported: "NativeUnavailable",
 	InvalidRequest: "InvalidRequest",
+	PermissionDenied: "DevicePermissionDenied",
 	Failed: "NativeFailed",
 };
 

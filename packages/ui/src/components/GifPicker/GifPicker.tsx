@@ -193,6 +193,30 @@ export const GifPicker = (props: GifPickerProps) => {
 	const [categoriesFailed, setCategoriesFailed] = createSignal(false);
 	let generation = 0;
 	let scroller: HTMLDivElement | undefined;
+	let tileObserver: IntersectionObserver | undefined;
+	const revealers = new WeakMap<Element, () => void>();
+
+	onCleanup(() => tileObserver?.disconnect());
+
+	const observeTile = (element: HTMLElement, reveal: () => void) => {
+		tileObserver ??= new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (!entry.isIntersecting) continue;
+					revealers.get(entry.target)?.();
+					tileObserver?.unobserve(entry.target);
+					revealers.delete(entry.target);
+				}
+			},
+			{ root: scroller, rootMargin: `${PREFETCH_MARGIN} 0px` },
+		);
+		revealers.set(element, reveal);
+		tileObserver.observe(element);
+		onCleanup(() => {
+			tileObserver?.unobserve(element);
+			revealers.delete(element);
+		});
+	};
 
 	createEffect(
 		on(rawQuery, (raw) => {
@@ -320,22 +344,25 @@ export const GifPicker = (props: GifPickerProps) => {
 		style?: JSX.CSSProperties;
 	}) => {
 		const [loaded, setLoaded] = createSignal(false);
+		const [near, setNear] = createSignal(false);
 		const favorite = () => isFavorite(tile.gif);
 		const touch = () => platform() === "mobile";
 		return (
 			<div
 				data-gif-tile={tile.gif.id}
+				data-gif-near={near() || undefined}
 				class={cx("group/tile relative", tile.class)}
 				style={tile.style}
-				ref={(element) =>
+				ref={(element) => {
+					observeTile(element, () => setNear(true));
 					createLongPress(element, {
 						enabled: () => !!props.onToggleFavorite,
 						onLongPress: () => {
 							haptics.impact("medium");
 							toggleFavorite(tile.gif);
 						},
-					})
-				}
+					});
+				}}
 			>
 				<button
 					type="button"
@@ -344,18 +371,19 @@ export const GifPicker = (props: GifPickerProps) => {
 					onClick={(event) => props.onPick(tile.gif, event)}
 					class="block size-full cursor-pointer overflow-hidden rounded-control-sm bg-secondary outline-none focus-ring"
 				>
-					<AnimatedImage
-						src={tile.gif.previewUrl}
-						alt=""
-						loading="lazy"
-						decoding="async"
-						draggable={false}
-						onLoad={() => setLoaded(true)}
-						class={cx(
-							"size-full object-cover transition-opacity duration-[calc(160ms*var(--motion-scale))] ease-(--ease-out-quick)",
-							!loaded() && "opacity-0",
-						)}
-					/>
+					<Show when={near()}>
+						<AnimatedImage
+							src={tile.gif.previewUrl}
+							alt=""
+							decoding="async"
+							draggable={false}
+							onLoad={() => setLoaded(true)}
+							class={cx(
+								"size-full object-cover transition-opacity duration-[calc(160ms*var(--motion-scale))] ease-(--ease-out-quick)",
+								!loaded() && "opacity-0",
+							)}
+						/>
+					</Show>
 				</button>
 				<Show when={props.onToggleFavorite}>
 					<button

@@ -10,6 +10,8 @@ import {
 	MessageMenuItems,
 } from "../ContextMenu/MessageMenu";
 import { CustomEmojiImage } from "../Emoji/Emoji";
+import { chatLayoutVars } from "../Message/layout";
+import { MessageRow } from "../Message/MessageRow";
 import { MessageActionsDrawer } from "./MessageActionsDrawer";
 import { MessageGestures } from "./MessageGestures";
 import { MessageToolbar } from "./MessageToolbar";
@@ -864,6 +866,92 @@ export const SwipeReply: Story = {
 		await waitFor(() =>
 			expect(canvasElement.querySelector("[data-swipe-reveal]")).toBeNull(),
 		);
+	},
+};
+
+const BAND_NOW = new Date("2026-11-15T12:00:00Z");
+
+const bandRows = [
+	{ id: "start", continuation: false, text: "First message in a group." },
+	{ id: "follow", continuation: true, text: "A follow-up in the same group." },
+];
+
+export const SwipeReplyBand: Story = {
+	render: () => (
+		<HapticsProvider haptics={haptics}>
+			<div
+				class="min-h-screen bg-background py-4"
+				style={chatLayoutVars("mobile")}
+			>
+				<For each={bandRows}>
+					{(row) => (
+						<SwipeToReply onReply={fn()}>
+							<MessageGestures longPress={false}>
+								<MessageRow
+									data-testid={`band-${row.id}`}
+									author={{ name: "Lou" }}
+									timestamp={BAND_NOW}
+									now={BAND_NOW}
+									locale="en-GB"
+									platform="mobile"
+									continuation={row.continuation}
+								>
+									{row.text}
+								</MessageRow>
+							</MessageGestures>
+						</SwipeToReply>
+					)}
+				</For>
+			</div>
+		</HapticsProvider>
+	),
+	parameters: iphone,
+	play: async ({ canvasElement }) => {
+		for (const { id } of bandRows) {
+			const row = within(canvasElement).getByTestId(`band-${id}`);
+			const wrapper = row.closest("[data-swipe-to-reply]") as HTMLElement;
+			const content = wrapper.querySelector(
+				"[data-swipe-content]",
+			) as HTMLElement;
+			const rect = row.getBoundingClientRect();
+			const y = rect.top + rect.height / 2;
+			const startX = rect.left + 300;
+
+			touch("pointerdown", content, startX, y);
+			touch("pointermove", content, startX - 12, y);
+			await nextFrame();
+			touch("pointermove", content, startX - 40, y);
+			await nextFrame();
+
+			const reveal = await waitFor(() => {
+				const element = wrapper.querySelector<HTMLElement>(
+					"[data-swipe-reveal]",
+				);
+				expect(element).not.toBeNull();
+				return element as HTMLElement;
+			});
+			const revealRect = reveal.getBoundingClientRect();
+			const surfaceRect = content.getBoundingClientRect();
+			const rowRect = row.getBoundingClientRect();
+
+			await expect(revealRect.top).toBeCloseTo(rowRect.top, 0);
+			await expect(revealRect.bottom).toBeCloseTo(rowRect.bottom, 0);
+			await expect(surfaceRect.top).toBeCloseTo(rowRect.top, 0);
+			await expect(surfaceRect.bottom).toBeCloseTo(rowRect.bottom, 0);
+
+			touch("pointercancel", content, startX - 40, y);
+			await waitFor(() =>
+				expect(wrapper.querySelector("[data-swipe-reveal]")).toBeNull(),
+			);
+		}
+
+		const start = within(canvasElement).getByTestId("band-start");
+		const startWrapper = start.closest("[data-swipe-to-reply]") as HTMLElement;
+
+		await expect(
+			start.getBoundingClientRect().top -
+				startWrapper.getBoundingClientRect().top,
+		).toBeGreaterThan(0);
 	},
 };
 

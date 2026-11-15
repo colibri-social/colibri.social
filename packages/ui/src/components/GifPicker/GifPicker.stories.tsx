@@ -164,6 +164,52 @@ export const Categories: Story = {
 	},
 };
 
+let onDemandSource = createFakeGifSource();
+
+export const LoadsOnDemand: Story = {
+	render: () => {
+		onDemandSource = createFakeGifSource({ delay: 40, pageSize: 24 });
+		return (
+			<Surface>
+				<WithFavorites source={onDemandSource} />
+			</Surface>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await canvas.findByRole("button", { name: "Trending GIF 1" });
+		await expect(onDemandSource.calls).toEqual(["trending:"]);
+
+		const scroller = canvasElement.querySelector(
+			"[data-gif-scroller]",
+		) as HTMLElement;
+		const box = scroller.getBoundingClientRect();
+		await waitFor(() => {
+			for (const tile of tiles(canvasElement)) {
+				const rect = tile.getBoundingClientRect();
+				expect(rect.height).toBeGreaterThan(0);
+				if (rect.top < box.bottom) {
+					expect(tile).toHaveAttribute("data-gif-near");
+					expect(tile.querySelector("img")).not.toBeNull();
+				}
+				if (rect.top > box.bottom + 400) {
+					expect(tile).not.toHaveAttribute("data-gif-near");
+					expect(tile.querySelector("img")).toBeNull();
+				}
+			}
+		});
+		await expect(
+			tiles(canvasElement).some(
+				(tile) => tile.getBoundingClientRect().top > box.bottom + 400,
+			),
+		).toBe(true);
+
+		await userEvent.click(canvas.getByRole("radio", { name: "Categories" }));
+		await canvas.findByRole("button", { name: "dance" });
+		await expect(onDemandSource.calls).toEqual(["trending:", "categories"]);
+	},
+};
+
 export const Errors: Story = {
 	render: () => (
 		<Surface>

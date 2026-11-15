@@ -10,6 +10,8 @@ export const REPLY_SWIPE_THRESHOLD = 60;
 export const MAX_REPLY_DRAG = 88;
 const REVEAL_TUCK = 16;
 
+type RevealBand = { top: number; height: number };
+
 export type SwipeToReplyProps = {
 	onReply?: () => void;
 	enabled?: boolean;
@@ -24,12 +26,14 @@ export const SwipeToReply = (props: SwipeToReplyProps) => {
 	const haptics = useHaptics();
 	const [offset, setOffset] = createSignal(0);
 	const [active, setActive] = createSignal(false);
+	const [band, setBand] = createSignal<RevealBand>({ top: 0, height: 0 });
 	const threshold = () => props.threshold ?? REPLY_SWIPE_THRESHOLD;
 	const maxDrag = () => props.maxDrag ?? MAX_REPLY_DRAG;
 	const enabled = () => props.enabled ?? true;
 	const progress = () => Math.min(1, Math.abs(offset()) / threshold());
 	const exposed = () => Math.max(0, -offset());
 	let arrow: HTMLSpanElement | undefined;
+	let content: HTMLDivElement | undefined;
 	let crossed = false;
 	let spring: SpringHandle | undefined;
 
@@ -59,6 +63,9 @@ export const SwipeToReply = (props: SwipeToReplyProps) => {
 		spring?.stop();
 		const next = Math.min(0, Math.round(Math.max(dx, -maxDrag())));
 		batch(() => {
+			if (!active() && content) {
+				setBand({ top: content.offsetTop, height: content.offsetHeight });
+			}
 			setActive(true);
 			setOffset(next);
 		});
@@ -87,8 +94,10 @@ export const SwipeToReply = (props: SwipeToReplyProps) => {
 					aria-hidden="true"
 					data-swipe-reveal=""
 					data-exposed={exposed()}
-					class="pointer-events-none absolute inset-y-0 right-0 overflow-hidden bg-primary"
+					class="pointer-events-none absolute right-0 overflow-hidden bg-primary"
 					style={{
+						top: `${band().top}px`,
+						height: `${band().height}px`,
 						width: `${exposed() > 0 ? exposed() + REVEAL_TUCK : 0}px`,
 						visibility: exposed() > 0 ? "visible" : "hidden",
 					}}
@@ -113,14 +122,15 @@ export const SwipeToReply = (props: SwipeToReplyProps) => {
 				</div>
 			</Show>
 			<div
-				ref={(element) =>
+				ref={(element) => {
+					content = element;
 					createSwipe(element, {
 						enabled,
 						threshold: threshold(),
 						onSwipeLeft: () => props.onReply?.(),
 						onSwipeMove: move,
-					})
-				}
+					});
+				}}
 				data-swipe-content=""
 				class={cx(
 					"relative",

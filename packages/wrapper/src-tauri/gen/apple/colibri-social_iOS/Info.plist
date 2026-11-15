@@ -24,6 +24,13 @@
 	<string>Colibri uses your camera for video in voice channels and calls.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Colibri uses your microphone for voice channels and calls.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Colibri saves images and videos you download to your photo library.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+	</dict>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

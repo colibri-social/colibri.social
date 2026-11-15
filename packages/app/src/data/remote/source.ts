@@ -48,6 +48,7 @@ import type {
 	ChannelView,
 	CommunityView,
 	Did,
+	GifCategoryView,
 	GifView,
 	LegacyCommunityView,
 	MemberView,
@@ -972,6 +973,10 @@ export const createRemoteSource = async (
 					})
 				: await transport.query(colibri.embed.trendingGifs.main);
 			return result.gifs as GifView[];
+		},
+		listGifCategories: async () => {
+			const result = await transport.query(colibri.embed.gifCategories.main);
+			return result.categories as GifCategoryView[];
 		},
 		gifFavorites: () => preferences.gifFavorites(),
 		setGifFavorite: (gif, favorite) => {

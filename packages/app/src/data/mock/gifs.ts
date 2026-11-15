@@ -1,4 +1,4 @@
-import type { GifView } from "../types";
+import type { GifCategoryView, GifView } from "../types";
 import { asUri } from "./refs";
 
 type GifSeed = {
@@ -74,3 +74,11 @@ export const searchGifs = (query?: string): GifView[] => {
 		: SEEDS;
 	return matches.map(gifView);
 };
+
+const CATEGORY_NAMES = ["Happy", "Party", "Wow", "Thumbs up", "Cat", "Bird"];
+
+export const gifCategories = (): GifCategoryView[] =>
+	CATEGORY_NAMES.flatMap((name) => {
+		const [first] = searchGifs(name);
+		return first ? [{ name, previewUrl: first.previewUrl }] : [];
+	});

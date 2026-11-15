@@ -1,3 +1,4 @@
+import { isTouchDevice } from "../../shell/desktop/window-chrome";
 import { createActivationBus } from "./activation";
 import { createNativeNotifier } from "./native";
 import { createPluginNotifier } from "./plugin";
@@ -17,7 +18,7 @@ const isTauri = () =>
 
 const isMobileAgent = () =>
 	typeof navigator !== "undefined" &&
-	/Android|iPhone|iPad/.test(navigator.userAgent);
+	isTouchDevice(navigator.userAgent, navigator.maxTouchPoints);
 
 const noopNotifier: OsNotifier = {
 	kind: "none",

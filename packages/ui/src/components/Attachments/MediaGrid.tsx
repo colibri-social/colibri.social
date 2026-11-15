@@ -109,6 +109,7 @@ export type MediaTileProps = {
 	onOpen?: (index: number) => void;
 	onMediaError?: MediaErrorHandler;
 	onRetry?: (index: number) => void;
+	onDownload?: (index: number) => void;
 	onNaturalSize?: (size: { width: number; height: number }) => void;
 	class?: string;
 	style?: JSX.CSSProperties;
@@ -241,6 +242,9 @@ const LoopingVideo = (props: {
 	);
 };
 
+const downloadButtonClass =
+	"absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-control-sm bg-black/60 text-white opacity-0 outline-none backdrop-blur-sm group-hover/tile:opacity-100 hover:bg-black/75 focus-visible:opacity-100 focus-ring [&>svg]:size-4";
+
 const isVideoMime = (mimeType: string | undefined) =>
 	!!mimeType?.startsWith("video/");
 
@@ -352,6 +356,8 @@ export const MediaTile = (props: MediaTileProps) => {
 			loaded() ? "opacity-100" : "opacity-0",
 			hidden() && "scale-110 blur-xl",
 		);
+	const downloadLabel = () =>
+		`Download ${props.item.name ?? kindLabel(props.item.kind)}`;
 	const label = () => {
 		if (hidden()) return `Reveal spoiler ${kindLabel(props.item.kind)}`;
 		if (props.overflow) return `Show ${props.overflow} more`;
@@ -551,20 +557,39 @@ export const MediaTile = (props: MediaTileProps) => {
 				when={
 					!props.loading &&
 					working() &&
-					props.item.downloadHref &&
+					(props.onDownload || props.item.downloadHref) &&
 					!hidden() &&
 					!props.overflow
 				}
 			>
-				<a
-					href={props.item.downloadHref}
-					download={props.item.name ?? ""}
-					aria-label={`Download ${props.item.name ?? kindLabel(props.item.kind)}`}
-					data-icon-host=""
-					class="absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-control-sm bg-black/60 text-white opacity-0 outline-none backdrop-blur-sm group-hover/tile:opacity-100 hover:bg-black/75 focus-visible:opacity-100 focus-ring [&>svg]:size-4"
+				<Show
+					when={props.onDownload}
+					fallback={
+						<a
+							href={props.item.downloadHref}
+							download={props.item.name ?? ""}
+							aria-label={downloadLabel()}
+							data-icon-host=""
+							data-media-download=""
+							class={downloadButtonClass}
+						>
+							<AnimatedDownloadIcon />
+						</a>
+					}
 				>
-					<AnimatedDownloadIcon />
-				</a>
+					{(download) => (
+						<button
+							type="button"
+							aria-label={downloadLabel()}
+							data-icon-host=""
+							data-media-download=""
+							class={cx(downloadButtonClass, "cursor-pointer border-0")}
+							onClick={() => download()(props.index)}
+						>
+							<AnimatedDownloadIcon />
+						</button>
+					)}
+				</Show>
 			</Show>
 		</div>
 	);
@@ -575,6 +600,7 @@ export type MediaGridProps = {
 	onOpen?: (index: number) => void;
 	onMediaError?: MediaErrorHandler;
 	onRetry?: (index: number) => void;
+	onDownload?: (index: number) => void;
 	loading?: boolean;
 	maxTiles?: number;
 	class?: string;
@@ -604,23 +630,42 @@ export const MediaGrid = (props: MediaGridProps) => {
 							createSignal<Pick<MediaItem, "width" | "height">>();
 						const known = () => !!item().width && !!item().height;
 						const size = () => (known() ? item() : (natural() ?? item()));
+						const naturalAspect = () => aspectOf(size());
+						const wide = () => naturalAspect() > SINGLE_MAX_ASPECT;
 						const aspect = () =>
 							clamp(
-								aspectOf(size()),
+								naturalAspect(),
 								item().kind === "video"
 									? SINGLE_VIDEO_MIN_ASPECT
 									: SINGLE_MIN_ASPECT,
 								SINGLE_MAX_ASPECT,
 							);
-						const maxWidth = () => {
+						const tileWidth = () => {
 							const { width, height } = size();
 							const limits = [SINGLE_MAX_WIDTH, SINGLE_MAX_HEIGHT * aspect()];
+
 							if (width && height) limits.push(width, height * aspect());
-							return `${Math.min(...limits)}px`;
+
+							return Math.min(...limits);
 						};
+						const maxWidth = () => {
+							return wide() && size().width
+								? `${size().width}px`
+								: `${tileWidth()}px`;
+						};
+						const tileStyle = (): JSX.CSSProperties => {
+							if (!wide()) return { "aspect-ratio": String(aspect()) };
+
+							return {
+								"aspect-ratio": String(naturalAspect()),
+								"min-height": `${tileWidth() / SINGLE_MAX_ASPECT}px`,
+							};
+						};
+
 						return (
 							<div
 								data-media-grid=""
+								data-media-wide={wide() ? "" : undefined}
 								class={cx("w-full", props.class)}
 								style={{ "max-width": maxWidth() }}
 							>
@@ -632,9 +677,10 @@ export const MediaGrid = (props: MediaGridProps) => {
 									onOpen={props.onOpen}
 									onMediaError={props.onMediaError}
 									onRetry={props.onRetry}
+									onDownload={props.onDownload}
 									onNaturalSize={known() ? undefined : setNatural}
 									class={cx("w-full", radius())}
-									style={{ "aspect-ratio": String(aspect()) }}
+									style={tileStyle()}
 								/>
 							</div>
 						);
@@ -672,6 +718,7 @@ export const MediaGrid = (props: MediaGridProps) => {
 										onOpen={props.onOpen}
 										onMediaError={props.onMediaError}
 										onRetry={props.onRetry}
+										onDownload={props.onDownload}
 										class="flex-1"
 										overflow={
 											overflow() > 0 && tile().index === max() - 1

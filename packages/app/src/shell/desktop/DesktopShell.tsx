@@ -344,24 +344,23 @@ export const DesktopShell = () => {
 		</div>
 	);
 
-	const pane = (): JSX.Element | undefined => {
-		const current = splitPane();
+	const voiceChat = createMemo(() => {
+		if (!isVoice() || !voiceChatOpen()) return undefined;
 		const target = chatTarget();
-		const voiceChat =
-			isVoice() &&
-			voiceChatOpen() &&
-			voiceChatAvailable(data, target.community, target.view)
-				? chat()
-				: undefined;
-		if (!current && !voiceChat) return undefined;
-		return (
+		return voiceChatAvailable(data, target.community, target.view)
+			? chat()
+			: undefined;
+	});
+
+	const pane = (): JSX.Element => (
+		<Show when={splitPane() || voiceChat()}>
 			<PlacementContext.Provider value="pane">
 				<Suspense>
 					<Show
 						when={splitPane()}
 						keyed
 						fallback={
-							<Show when={voiceChat} keyed>
+							<Show when={voiceChat()} keyed>
 								{(target) => (
 									<ChannelScreen
 										args={{
@@ -397,8 +396,8 @@ export const DesktopShell = () => {
 					</Show>
 				</Suspense>
 			</PlacementContext.Provider>
-		);
-	};
+		</Show>
+	);
 
 	return (
 		<DesktopShellContext.Provider

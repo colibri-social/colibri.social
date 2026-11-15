@@ -31,6 +31,7 @@ fn main() {
         println!("cargo:rustc-link-lib=framework=UserNotifications");
         if target_os == "ios" {
             println!("cargo:rustc-link-lib=framework=UIKit");
+            println!("cargo:rustc-link-lib=framework=Photos");
         } else {
             println!("cargo:rustc-link-lib=framework=AppKit");
         }

@@ -16,7 +16,7 @@ mod push;
 #[cfg(any(target_os = "android", test))]
 mod received_files;
 mod open_external;
-mod save_image;
+mod save_file;
 #[cfg(desktop)]
 mod notifications;
 #[cfg(desktop)]
@@ -45,6 +45,7 @@ pub mod native_error {
         Cancelled,
         Unsupported,
         InvalidRequest,
+        PermissionDenied,
         Failed,
     }
 
@@ -240,7 +241,8 @@ pub fn run() {
     {
         builder = builder
             .plugin(tauri_plugin_ios_webview_insets::init())
-            .plugin(tauri_plugin_keyboard_inset::init());
+            .plugin(tauri_plugin_keyboard_inset::init())
+            .plugin(tauri_plugin_keyboard_inset::init_save_file());
     }
 
     // The single-instance plugin must be the first one registered. With the
@@ -315,7 +317,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             web_auth::start_web_auth,
-            save_image::save_image,
+            save_file::save_url,
             open_external::open_external_url,
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             apns::apns_register,

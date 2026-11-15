@@ -118,6 +118,7 @@ export type FileAttachmentProps = {
 	progress?: number;
 	spoiler?: boolean;
 	onCancel?: () => void;
+	onDownload?: () => void;
 	class?: string;
 };
 
@@ -127,28 +128,40 @@ export const FileAttachment = (props: FileAttachmentProps) => {
 	const hidden = () => !!props.spoiler && !revealed();
 	const kind = () => props.kind ?? fileKindOf(props.name, props.mimeType);
 	const uploading = () => props.progress !== undefined && props.progress < 1;
-	const interactive = () => !uploading() && !!props.href && !hidden();
+	const interactive = () =>
+		!uploading() && !!(props.href || props.onDownload) && !hidden();
+	const element = () => {
+		if (!interactive()) return "div";
+
+		return props.onDownload ? "button" : "a";
+	};
 	const meta = () => `${KIND_LABEL[kind()]} · ${formatBytes(props.size)}`;
 
 	const card = () => (
 		<Dynamic
-			component={interactive() ? "a" : "div"}
+			component={element()}
 			ref={(element: HTMLElement) => {
 				if (interactive()) press(element);
 			}}
-			href={interactive() ? props.href : undefined}
-			download={interactive() ? props.name : undefined}
+			type={element() === "button" ? "button" : undefined}
+			href={element() === "a" ? props.href : undefined}
+			download={element() === "a" ? props.name : undefined}
+			onClick={element() === "button" ? () => props.onDownload?.() : undefined}
 			data-file-attachment=""
 			data-icon-host={interactive() ? "" : undefined}
 			class={cx(
 				embedSurface,
 				cardClass,
 				"items-center no-underline select-none",
+				element() === "button" && "text-left",
 				interactive() && cx(pressSurface, "hover:bg-popover"),
 				!props.spoiler && props.class,
 			)}
 		>
 			<KindTile kind={kind()} />
+			<Show when={element() === "button"}>
+				<span class="sr-only">Download</span>
+			</Show>
 			<span class="flex min-w-0 flex-1 flex-col gap-1">
 				<TableText class="text-sm font-semibold" text={props.name} />
 				<Show
@@ -202,6 +215,9 @@ export const FileAttachment = (props: FileAttachmentProps) => {
 	);
 };
 
+const audioDownloadClass =
+	"pressable focus-ring flex size-8 shrink-0 items-center justify-center rounded-control-sm text-muted-foreground hover:bg-secondary hover:text-foreground [&>svg]:size-5";
+
 export type AudioAttachmentProps = {
 	name: string;
 	size: number;
@@ -209,6 +225,7 @@ export type AudioAttachmentProps = {
 	duration?: number;
 	href?: string;
 	spoiler?: boolean;
+	onDownload?: () => void;
 	class?: string;
 };
 
@@ -290,17 +307,39 @@ export const AudioAttachment = (props: AudioAttachmentProps) => {
 					<TableText class="text-sm font-semibold" text={props.name} />
 					<span class="text-xs text-muted-foreground">{meta()}</span>
 				</div>
-				<Show when={props.href}>
-					{(href) => (
-						<a
-							href={href()}
-							download={props.name}
+				<Show
+					when={props.onDownload}
+					fallback={
+						<Show when={props.href}>
+							{(href) => (
+								<a
+									href={href()}
+									download={props.name}
+									aria-label={`Download ${props.name}`}
+									data-icon-host=""
+									data-audio-download=""
+									class={audioDownloadClass}
+								>
+									<AnimatedDownloadIcon />
+								</a>
+							)}
+						</Show>
+					}
+				>
+					{(download) => (
+						<button
+							type="button"
 							aria-label={`Download ${props.name}`}
 							data-icon-host=""
-							class="pressable focus-ring flex size-8 shrink-0 items-center justify-center rounded-control-sm text-muted-foreground hover:bg-secondary hover:text-foreground [&>svg]:size-5"
+							data-audio-download=""
+							class={cx(
+								audioDownloadClass,
+								"cursor-pointer border-0 bg-transparent",
+							)}
+							onClick={() => download()()}
 						>
 							<AnimatedDownloadIcon />
-						</a>
+						</button>
 					)}
 				</Show>
 			</div>

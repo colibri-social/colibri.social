@@ -21,6 +21,7 @@ import type {
 	Datetime,
 	Did,
 	Facet,
+	GifCategoryView,
 	GifView,
 	LegacyCommunityView,
 	MemberView,
@@ -605,6 +606,7 @@ export type DataSource = AccessSource &
 		setVoice: (voice: VoiceState | undefined) => Promise<Presence>;
 		moderateVoice: (input: VoiceModerationInput) => Promise<void>;
 		listGifs: (query?: string) => Promise<GifView[]>;
+		listGifCategories: () => Promise<GifCategoryView[]>;
 		gifFavorites: () => GifView[];
 		setGifFavorite: (gif: GifView, favorite: boolean) => void;
 		forwardMessage: (input: ForwardInput) => Promise<MessageView>;

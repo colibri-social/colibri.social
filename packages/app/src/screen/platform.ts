@@ -1,5 +1,6 @@
 import { createMediaQuery } from "@solid-primitives/media";
 import { type Accessor, createRoot } from "solid-js";
+import { isTouchDevice } from "../shell/desktop/window-chrome";
 
 export type Platform = "mobile" | "desktop";
 
@@ -10,8 +11,9 @@ const isTauri = () =>
 
 const nativePlatform = (): Platform | undefined => {
 	if (!isTauri()) return undefined;
-	const agent = navigator.userAgent;
-	return /Android|iPhone|iPad/.test(agent) ? "mobile" : "desktop";
+	return isTouchDevice(navigator.userAgent, navigator.maxTouchPoints)
+		? "mobile"
+		: "desktop";
 };
 
 let shared: Accessor<Platform> | undefined;

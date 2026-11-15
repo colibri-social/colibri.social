@@ -35,3 +35,29 @@ where
         .map_err(|error| NativeError::failed(error.to_string()))?
         .map_err(|_| NativeError::failed("the app window closed before the call finished"))?
 }
+
+pub async fn on_worker<R, T, F>(app: &AppHandle<R>, work: F) -> Result<T, NativeError>
+where
+    R: Runtime,
+    T: Send + 'static,
+    F: FnOnce(&mut JNIEnv<'_>, &JObject<'_>) -> Result<T, NativeError> + Send + 'static,
+{
+    let (vm, activity) = on_activity(app, |env, activity| {
+        let vm = env
+            .get_java_vm()
+            .map_err(|error| clear_exception(env, error))?;
+        let activity = env
+            .new_global_ref(activity)
+            .map_err(|error| clear_exception(env, error))?;
+        Ok((vm, activity))
+    })
+    .await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut env = vm
+            .attach_current_thread()
+            .map_err(|error| NativeError::failed(error.to_string()))?;
+        work(&mut env, activity.as_obj())
+    })
+    .await
+    .map_err(|error| NativeError::failed(error.to_string()))?
+}

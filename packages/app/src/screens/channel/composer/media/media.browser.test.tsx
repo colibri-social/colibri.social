@@ -33,6 +33,9 @@ const fakeGifs = (): GifData => {
 						(entry.title ?? "").toLowerCase().includes(query.toLowerCase()),
 					)
 				: CATALOG,
+		listGifCategories: async () => [
+			{ name: "Party", previewUrl: CATALOG[0]?.previewUrl },
+		],
 		gifFavorites: () => [...favorites.values()],
 		setGifFavorite: (entry, favorite) => {
 			if (favorite) favorites.set(entry.id, entry);
