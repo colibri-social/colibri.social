@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.view.inputmethod.InputMethodManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
@@ -255,6 +256,14 @@ class MainActivity : TauriActivity() {
     @JavascriptInterface
     fun setLightBars(light: Boolean) {
       handler.post { applyLightBars(light) }
+    }
+
+    @JavascriptInterface
+    fun restartInput() {
+      handler.post {
+        val view = webView ?: return@post
+        getSystemService(InputMethodManager::class.java)?.restartInput(view)
+      }
     }
   }
 

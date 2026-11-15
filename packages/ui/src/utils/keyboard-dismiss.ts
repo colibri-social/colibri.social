@@ -11,7 +11,9 @@ const TEXT_INPUT_TYPES = new Set([
 	"number",
 ]);
 
-const isEditableElement = (element: Element | null): element is HTMLElement => {
+export const isEditableElement = (
+	element: EventTarget | null,
+): element is HTMLElement => {
 	if (!(element instanceof HTMLElement)) return false;
 	if (element.isContentEditable) return true;
 	if (element instanceof HTMLTextAreaElement)

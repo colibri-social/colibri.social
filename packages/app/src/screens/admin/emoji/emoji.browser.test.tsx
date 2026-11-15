@@ -308,9 +308,10 @@ describe("Space emoji", () => {
 		expect(activeScreen(root).textContent).toContain(":nope:");
 
 		await pressButton(activeScreen(root), /emoji/i);
-		await until(() => !!document.querySelector('[role="dialog"]'));
+		const picker = '[role="dialog"], [data-media-picker-panel][data-open]';
+		await until(() => !!document.querySelector(picker));
 		await until(() =>
-			Array.from(document.querySelectorAll('[role="dialog"]')).some((dialog) =>
+			Array.from(document.querySelectorAll(picker)).some((dialog) =>
 				dialog.textContent?.includes("Release day"),
 			),
 		);

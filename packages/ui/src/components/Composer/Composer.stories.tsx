@@ -113,15 +113,28 @@ export const FocusedBorder: Story = {
 	},
 };
 
-export const EmojiKeepsKeyboard: Story = {
+export const EmojiPanelSwapsKeyboard: Story = {
 	render: () => {
 		const [open, setOpen] = createSignal<MediaPickerKind | null>(null);
+		let editor: RichEditorHandle | undefined;
 		return (
 			<MobileScreen>
 				<Composer
 					channelName="general"
 					onSend={onSend}
-					onEmoji={() => setOpen("emoji")}
+					emojiPanelOpen={open() !== null}
+					editorRef={(handle) => {
+						editor = handle;
+					}}
+					onEmoji={() => {
+						if (open()) {
+							editor?.focus(null);
+							setOpen(null);
+							return;
+						}
+						setOpen("emoji");
+						editor?.blur();
+					}}
 				/>
 				<MediaPickers
 					platform="mobile"
@@ -145,41 +158,37 @@ export const EmojiKeepsKeyboard: Story = {
 		const field = textarea(canvasElement);
 		await userEvent.click(field);
 		await waitFor(() => expect(field).toHaveFocus());
-		const button = within(canvasElement).getByRole("button", {
-			name: "Add an emoji",
-		});
+		const canvas = within(canvasElement);
 		const losses: string[] = [];
 		const onFocusIn = (event: FocusEvent) => {
 			const target = event.target as HTMLElement;
-			if (
-				target !== field &&
-				target.getAttribute("aria-label") !== "Search emoji"
-			)
-				losses.push(target.tagName);
+			if (target !== field) losses.push(target.tagName);
 		};
 		document.addEventListener("focusin", onFocusIn);
-		await userEvent.click(button);
-		const search = await waitFor(() => {
-			const input = document.querySelector<HTMLInputElement>(
-				'input[aria-label="Search emoji"]',
+		await userEvent.click(canvas.getByRole("button", { name: "Add an emoji" }));
+		const panel = await waitFor(() => {
+			const element = document.querySelector<HTMLElement>(
+				"[data-media-picker-panel]",
 			);
-			expect(input).not.toBeNull();
-			expect(input).toHaveFocus();
-			return input as HTMLInputElement;
+			expect(element).not.toBeNull();
+			return element as HTMLElement;
 		});
 		document.removeEventListener("focusin", onFocusIn);
 		await expect(losses).toEqual([]);
-		await userEvent.type(search, "heart");
-		await expect(search).toHaveFocus();
-		await userEvent.keyboard("{Escape}");
-		await expect(search).toHaveValue("");
-		await userEvent.keyboard("{Escape}");
-		await waitFor(() =>
-			expect(
-				document.querySelector('input[aria-label="Search emoji"]'),
-			).toBeNull(),
+		await expect(field).not.toHaveFocus();
+		await expect(
+			within(panel).getByRole("searchbox", { name: "Search emoji" }),
+		).not.toHaveFocus();
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Show keyboard" }),
 		);
 		await waitFor(() => expect(field).toHaveFocus());
+		await waitFor(() =>
+			expect(document.querySelector("[data-media-picker-panel]")).toBeNull(),
+		);
+		await expect(
+			canvas.getByRole("button", { name: "Add an emoji" }),
+		).toBeInTheDocument();
 	},
 };
 

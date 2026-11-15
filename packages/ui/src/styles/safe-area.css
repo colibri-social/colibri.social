@@ -8,7 +8,7 @@
 }
 
 :root[data-keyboard-open] {
-	--safe-area-bottom: 0px;
+	--safe-area-bottom: 0px !important;
 }
 
 @utility pt-overlay {

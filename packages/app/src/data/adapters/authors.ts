@@ -32,7 +32,9 @@ export const toMessageAuthor = (
 	profile: ProfileView,
 	directory: AuthorDirectory,
 ): MessageAuthor => {
-	const member = directory.members.get(profile.did);
+	const member = profile.bridge
+		? undefined
+		: directory.members.get(profile.did);
 	const actor = member?.actor ?? profile;
 	return {
 		name: displayNameOf(actor, member),

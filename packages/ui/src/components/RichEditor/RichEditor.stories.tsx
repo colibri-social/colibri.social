@@ -4,6 +4,7 @@ import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { setAppActive } from "../../utils/playback";
+import { setNativeTouchKeyboardRestart } from "../../utils/touch-keyboard";
 import { storyImages } from "../Banner/story-images";
 import { buildClipboardHtml } from "./clipboard-facets";
 import { RichEditorProvider } from "./context";
@@ -797,11 +798,12 @@ const withPointer = async (coarse: boolean, run: () => Promise<void>) => {
 const submitAndCountBlurs = async (
 	canvasElement: HTMLElement,
 	handle: () => RichEditorHandle | undefined,
+	text = "seed 42",
 ) => {
 	const editor = field(canvasElement);
 	await userEvent.click(editor);
-	await userEvent.keyboard("seed 42");
-	await waitFor(() => expect(currentValue(canvasElement).text).toBe("seed 42"));
+	await userEvent.keyboard(text);
+	await waitFor(() => expect(currentValue(canvasElement).text).toBe(text));
 	let blurs = 0;
 	const count = () => {
 		blurs += 1;
@@ -813,7 +815,7 @@ const submitAndCountBlurs = async (
 		editor.removeEventListener("blur", count);
 	}
 	await expect(onSubmit).toHaveBeenCalledWith(
-		expect.objectContaining({ text: "seed 42" }),
+		expect.objectContaining({ text }),
 	);
 	await expect(document.activeElement).toBe(editor);
 	await waitFor(() =>
@@ -838,10 +840,40 @@ export const TouchKeyboardResetsAfterSend: Story = {
 	),
 	play: async ({ canvasElement }) => {
 		resetSpies();
+		const nativeRestart = fn(() => true);
+		setNativeTouchKeyboardRestart(nativeRestart);
+		try {
+			await withPointer(true, async () => {
+				const blurs = await submitAndCountBlurs(
+					canvasElement,
+					() => keyboardHandle,
+				);
+				await expect(blurs).toBe(0);
+			});
+		} finally {
+			setNativeTouchKeyboardRestart(undefined);
+		}
+		await expect(nativeRestart).toHaveBeenCalledOnce();
+		const missingBridge = fn(() => false);
+		setNativeTouchKeyboardRestart(missingBridge);
+		try {
+			await withPointer(true, async () => {
+				const blurs = await submitAndCountBlurs(
+					canvasElement,
+					() => keyboardHandle,
+					"seed 43",
+				);
+				await expect(blurs).toBe(1);
+			});
+		} finally {
+			setNativeTouchKeyboardRestart(undefined);
+		}
+		await expect(missingBridge).toHaveBeenCalledOnce();
 		await withPointer(true, async () => {
 			const blurs = await submitAndCountBlurs(
 				canvasElement,
 				() => keyboardHandle,
+				"seed 44",
 			);
 			await expect(blurs).toBe(1);
 		});

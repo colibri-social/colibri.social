@@ -285,6 +285,25 @@ describe("authors", () => {
 		});
 	});
 
+	it("names a bridged author after the bridged person", () => {
+		const connector = profile("did:plc:matrixbridge");
+		const bridged = profile("did:plc:matrixbridge", {
+			displayName: "Remote Rae",
+			bridge: {
+				registration: "3lbridgereg22",
+				platform: "matrix",
+				remoteId: "@rae:matrix.org",
+			},
+		});
+		const members = new Map([
+			[connector.did, member(connector, ["mod"], "Bridge Bot")],
+		]);
+		const author = toMessageAuthor(bridged, { members, roles });
+
+		expect(author.name).toBe("Remote Rae");
+		expect(author.role).toBeUndefined();
+	});
+
 	it("skips the owner role and falls through to the next colored role", () => {
 		const actor = profile("did:plc:owner");
 		const withOwner = new Map(roles).set(

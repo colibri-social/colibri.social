@@ -3,12 +3,16 @@ import { afterEach, expect, it } from "vitest";
 import {
 	installKeyboardInset,
 	KEYBOARD_INSET_VAR,
+	keyboardPanelHeight,
+	reserveKeyboardSpace,
 	SHELL_INSET_VAR,
 	springSamples,
 } from "./keyboard-inset";
 
 const frame = () =>
 	new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 200));
 
 const inset = () =>
 	document.documentElement.style.getPropertyValue(KEYBOARD_INSET_VAR);
@@ -131,4 +135,170 @@ it("samples a critically damped spring from 0 to 1", () => {
 	for (let index = 1; index < samples.length; index++) {
 		expect(samples[index]).toBeGreaterThanOrEqual(samples[index - 1] ?? 0);
 	}
+});
+
+const shellInset = () =>
+	document.documentElement.style.getPropertyValue(SHELL_INSET_VAR);
+
+const released = () => {
+	let count = 0;
+	return {
+		done: () => {
+			count++;
+		},
+		count: () => count,
+	};
+};
+
+const until = async (check: () => boolean, timeout = 2000) => {
+	const start = performance.now();
+	while (!check()) {
+		if (performance.now() - start > timeout) throw new Error("Timed out");
+		await frame();
+	}
+};
+
+it("remembers the last open keyboard height for the emoji panel", async () => {
+	install();
+	dispatch(280);
+	await frame();
+	await settle();
+	dispatch(0);
+	await frame();
+	expect(keyboardPanelHeight()).toBe(280);
+});
+
+it("ignores the opening target when remembering the keyboard height", async () => {
+	install();
+	window.dispatchEvent(
+		new CustomEvent("colibri-keyboard-progress", {
+			detail: { phase: "start", from: 0, to: 370 },
+		}),
+	);
+	dispatch(336);
+	await frame();
+	await settle();
+	dispatch(0);
+	await frame();
+	expect(keyboardPanelHeight()).toBe(336);
+});
+
+it("ignores a height the keyboard reports only briefly", async () => {
+	install();
+	dispatch(336);
+	await frame();
+	await settle();
+	dispatch(370);
+	await frame();
+	dispatch(0);
+	await frame();
+	await settle();
+	expect(keyboardPanelHeight()).toBe(336);
+});
+
+it("holds the shell inset while the keyboard closes under a reserved panel", async () => {
+	install();
+	dispatch(300);
+	await frame();
+	const signal = released();
+	const reservation = reserveKeyboardSpace(300, signal.done);
+	dispatch(0);
+	await frame();
+	expect(shellInset()).toBe("300px");
+	expect(document.documentElement.hasAttribute("data-keyboard-open")).toBe(
+		true,
+	);
+	reservation.release();
+	expect(shellInset()).toBe("0px");
+	await until(() => signal.count() === 1);
+});
+
+it("slides the shell and the panel up together when the keyboard is closed", async () => {
+	const target = install();
+	const panel = document.createElement("div");
+	panel.setAttribute("data-keyboard-panel", "");
+	document.body.append(panel);
+	const signal = released();
+	const reservation = reserveKeyboardSpace(260, signal.done);
+	expect(shellInset()).toBe("260px");
+	expect(target.getAnimations()).toHaveLength(1);
+	const keyframes = panel
+		.getAnimations()
+		.map((running) =>
+			running.effect instanceof KeyframeEffect
+				? running.effect.getKeyframes()
+				: [],
+		)[0];
+	expect(String(keyframes?.at(0)?.transform)).toBe(
+		"translate3d(0px, 260px, 0px)",
+	);
+	expect(String(keyframes?.at(-1)?.transform)).toBe(
+		"translate3d(0px, 0px, 0px)",
+	);
+	reservation.release();
+	await until(() => signal.count() === 1);
+	panel.remove();
+});
+
+it("keeps the panel space until the rising keyboard reaches it", async () => {
+	install();
+	const signal = released();
+	const reservation = reserveKeyboardSpace(300, signal.done);
+	reservation.release({ untilKeyboard: true });
+	dispatch(120);
+	await frame();
+	expect(shellInset()).toBe("300px");
+	expect(signal.count()).toBe(0);
+	dispatch(320);
+	await frame();
+	expect(shellInset()).toBe("300px");
+	await settle();
+	expect(shellInset()).toBe("320px");
+	await settle();
+	await settle();
+	await settle();
+	expect(signal.count()).toBe(1);
+});
+
+it("holds the panel height through a keyboard that overshoots and settles", async () => {
+	install();
+	const signal = released();
+	const reservation = reserveKeyboardSpace(336, signal.done);
+	reservation.release({ untilKeyboard: true });
+	dispatch(370);
+	await frame();
+	expect(shellInset()).toBe("336px");
+	dispatch(336);
+	await frame();
+	await settle();
+	expect(shellInset()).toBe("336px");
+	expect(signal.count()).toBe(1);
+});
+
+it("holds the panel height when the picker opens over a rising keyboard", async () => {
+	install();
+	dispatch(370);
+	await frame();
+	const signal = released();
+	reserveKeyboardSpace(336, signal.done);
+	await frame();
+	expect(shellInset()).toBe("336px");
+	dispatch(0);
+	await frame();
+	expect(shellInset()).toBe("336px");
+});
+
+it("stacks the search strip on top of the keyboard while the panel searches", async () => {
+	install();
+	const signal = released();
+	const reservation = reserveKeyboardSpace(300, signal.done);
+	reservation.setStacked(176);
+	expect(shellInset()).toBe("300px");
+	dispatch(300);
+	await frame();
+	expect(shellInset()).toBe("476px");
+	reservation.setStacked(0);
+	expect(shellInset()).toBe("300px");
+	reservation.release();
+	await until(() => signal.count() === 1);
 });

@@ -14,6 +14,8 @@ export const KEYBOARD_INSET_EVENT = "colibri-keyboard-inset";
 export const KEYBOARD_LIFT_ATTRIBUTE = "data-keyboard-lift";
 export const KEYBOARD_LIFT_VAR = "--keyboard-lift";
 export const keyboardLiftAttrs = { [KEYBOARD_LIFT_ATTRIBUTE]: "" };
+export const KEYBOARD_PANEL_ATTRIBUTE = "data-keyboard-panel";
+export const SHELL_KEYBOARD_INSET_VAR = "--shell-keyboard-inset";
 export const BASE_OVERFLOW_PADDING = 8;
 
 const ZERO_INSETS: SafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };

@@ -192,6 +192,17 @@ A bridge receives a community's `threadEvent` frames while it holds at least one
 
 A bridge must ignore message and reaction events carrying its own registration in `bridged`. Those are its own writes coming back.
 
+### Nodes
+
+The AppView runs on several nodes. [`social.colibri.beta.server.listNodes`](/docs/specification/appview) lists the nodes that accept clients. Measure the round trip to each node's `probeUrl` and open the event socket on the fastest node with the `live` role. XRPC calls go to the AppView host, which routes them to a nearby node.
+
+Two frames tell a bridge how the node is doing:
+
+- `drainNotice` means the node goes offline at `deadline`. Open a socket on another node, subscribe to the same channels, and close the old socket once the new one answers with `subscribed`. Events can arrive on both sockets in between. The node closes any socket still open at the deadline.
+- `writeState` arrives on connect and whenever the node's write mode changes. In `readOnly` mode the node rejects writes with a `ReadOnly` error, so hold writes until the mode changes again. `queued` accepts writes and applies them later.
+
+`@colibri-social/bridge-core` does all of this for a bridge built on `Bridge`.
+
 ## Records
 
 ### `bridged`

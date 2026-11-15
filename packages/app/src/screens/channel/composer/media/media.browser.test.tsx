@@ -98,57 +98,107 @@ const findEmoji = (sheet: HTMLElement, name: string) => {
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 450));
 
-describe("composer media sheet", () => {
-	it("inserts emoji and sends GIFs", async () => {
+const panel = () =>
+	document.querySelector<HTMLElement>(
+		'[data-media-picker-panel][aria-label="Emoji and GIF picker"]',
+	);
+
+describe("composer media panel", () => {
+	it("keeps the panel open across picks and sends GIFs", async () => {
 		const onInsertEmoji = vi.fn();
 		const onSendGif = vi.fn();
+		const focusComposer = vi.fn();
+		const blurComposer = vi.fn();
+		const releaseGuard = vi.fn();
+		const guardBack = vi.fn((_onBack: () => void) => releaseGuard);
 		let media: ReturnType<typeof createComposerMedia> | undefined;
 		mount(() => {
 			media = createComposerMedia({
 				gifs: fakeGifs(),
 				onInsertEmoji,
 				onSendGif,
+				focusComposer,
+				blurComposer,
+				guardBack,
 			});
 			return <media.Sheet />;
 		});
-		media?.openEmoji();
-		const sheet = await until(() => dialogNamed("Emoji and GIF picker"));
+		media?.toggleEmoji();
+		media?.toggleEmoji();
+		const sheet = await until(panel);
 		await settle();
 		await expectNoLayoutIssues(sheet);
-		expect(document.activeElement?.getAttribute("aria-label")).toBe(
+		expect(media?.panelOpen()).toBe(true);
+		expect(blurComposer).toHaveBeenCalledTimes(1);
+		expect(guardBack).toHaveBeenCalledTimes(1);
+		expect(document.activeElement?.getAttribute("aria-label")).not.toBe(
 			"Search emoji",
 		);
 		const fire = await findEmoji(sheet, "fire");
 		fire.click();
-		expect(onInsertEmoji).not.toHaveBeenCalled();
-		await until(() => !dialogNamed("Emoji and GIF picker"));
-		await until(() => onInsertEmoji.mock.calls.length > 0);
 		expect(onInsertEmoji).toHaveBeenCalledWith("🔥");
+		expect(focusComposer).not.toHaveBeenCalled();
+		expect(panel()).toBe(sheet);
+		expect(media?.panelOpen()).toBe(true);
 
 		media?.openGif();
-		const gifSheet = await until(() => dialogNamed("Emoji and GIF picker"));
-		await settle();
-		await expectNoLayoutIssues(gifSheet);
 		const search = await until(() =>
-			gifSheet.querySelector<HTMLInputElement>(
-				'input[aria-label="Search GIFs"]',
-			),
+			sheet.querySelector<HTMLInputElement>('input[aria-label="Search GIFs"]'),
 		);
 		search.value = "party";
 		search.dispatchEvent(new InputEvent("input", { bubbles: true }));
 		const tile = await until(() => {
 			const tiles = [
-				...gifSheet.querySelectorAll<HTMLButtonElement>(
+				...sheet.querySelectorAll<HTMLButtonElement>(
 					'button[aria-label="Party time"]',
 				),
 			];
-			const cat = gifSheet.querySelector('button[aria-label="Cat typing"]');
+			const cat = sheet.querySelector('button[aria-label="Cat typing"]');
 			return tiles.length && !cat ? tiles[0] : undefined;
 		});
 		tile.click();
 		expect(onSendGif).toHaveBeenCalledWith(
 			expect.objectContaining({ id: "a", title: "Party time" }),
 		);
+		expect(media?.panelOpen()).toBe(true);
+
+		await new Promise((resolve) => setTimeout(resolve, 400));
+		media?.toggleEmoji();
+		expect(focusComposer).toHaveBeenCalledTimes(1);
+		expect(media?.panelOpen()).toBe(false);
+		expect(releaseGuard).toHaveBeenCalledTimes(1);
+		await until(() => !panel());
+	});
+
+	it("closes on Escape and when another field takes focus", async () => {
+		let media: ReturnType<typeof createComposerMedia> | undefined;
+		const field = document.createElement("textarea");
+		document.body.append(field);
+		mount(() => {
+			media = createComposerMedia({
+				gifs: fakeGifs(),
+				onInsertEmoji: vi.fn(),
+				onSendGif: vi.fn(),
+			});
+			return <media.Sheet />;
+		});
+		media?.openEmoji();
+		const sheet = await until(panel);
+		sheet.dispatchEvent(
+			new KeyboardEvent("keydown", {
+				key: "Escape",
+				bubbles: true,
+				cancelable: true,
+			}),
+		);
+		expect(media?.panelOpen()).toBe(false);
+		await until(() => !panel());
+		media?.openEmoji();
+		await until(panel);
+		field.focus();
+		expect(media?.panelOpen()).toBe(false);
+		await until(() => !panel());
+		field.remove();
 	});
 });
 

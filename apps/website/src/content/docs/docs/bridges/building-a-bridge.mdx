@@ -238,6 +238,8 @@ The store maps message ids between the two services and remembers uploaded avata
 
 Pass a `log` option to receive structured log lines. The bridge is silent without one.
 
+The bridge opens its event socket on the fastest Colibri node and moves to another node when that one goes offline for an update. While the network is read-only, it holds writes and sends them once Colibri takes writes again. See [Nodes](/docs/bridges/reference#nodes) for the details.
+
 ## Example: a console connector
 
 The connector below relays a single linked room to the terminal. Every line typed becomes a message from `console`, and every Colibri message is printed. It's enough to pair a community and watch messages flow in both directions.

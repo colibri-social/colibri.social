@@ -2,17 +2,60 @@ import {
 	KEYBOARD_INSET_EVENT,
 	KEYBOARD_LIFT_ATTRIBUTE,
 	KEYBOARD_LIFT_VAR,
+	KEYBOARD_PANEL_ATTRIBUTE,
+	motionScale,
+	prefersReducedMotion,
+	SHELL_KEYBOARD_INSET_VAR,
 } from "@colibri-social/ui";
 
 export const KEYBOARD_INSET_VAR = "--keyboard-inset";
 export const KEYBOARD_PROGRESS_EVENT = "colibri-keyboard-progress";
 const KEYBOARD_FOLLOW_ATTRIBUTE = "data-keyboard-follow";
-export const SHELL_INSET_VAR = "--shell-keyboard-inset";
+export const SHELL_INSET_VAR = SHELL_KEYBOARD_INSET_VAR;
 
 const MAX_INSET_RATIO = 0.7;
 const SPRING_SAMPLES = 60;
 const CRITICAL_TOLERANCE = 1e-3;
 const ZOOMED_SCALE = 1.01;
+const FALLBACK_PANEL_RATIO = 0.4;
+const MIN_PANEL_HEIGHT = 240;
+const MAX_PANEL_HEIGHT = 380;
+const RESERVE_RELEASE_MS = 700;
+const KEYBOARD_SETTLE_MS = 120;
+const KEYBOARD_STABLE_MS = 150;
+const RESERVE_SPRING = { duration: 420, mass: 1, stiffness: 380 };
+
+let rememberedKeyboard = 0;
+
+export const keyboardPanelHeight = () => {
+	if (rememberedKeyboard > 0) return rememberedKeyboard;
+	const viewport = typeof window === "undefined" ? 800 : window.innerHeight;
+	const max = Math.min(MAX_PANEL_HEIGHT, viewport * MAX_INSET_RATIO);
+	const preferred = viewport * FALLBACK_PANEL_RATIO;
+	return Math.round(Math.min(Math.max(preferred, MIN_PANEL_HEIGHT), max));
+};
+
+export type KeyboardReservation = {
+	setStacked: (height: number) => void;
+	release: (options?: { untilKeyboard?: boolean }) => void;
+};
+
+type ReserveController = {
+	reserve: (floor: number, onReleased: () => void) => KeyboardReservation;
+};
+
+let reserveController: ReserveController | undefined;
+
+export const reserveKeyboardSpace = (
+	floor: number,
+	onReleased: () => void,
+): KeyboardReservation => {
+	if (reserveController) return reserveController.reserve(floor, onReleased);
+	return {
+		setStacked: () => {},
+		release: () => onReleased(),
+	};
+};
 
 export type KeyboardSpring = {
 	inset: number;
@@ -128,7 +171,38 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 	let frame = 0;
 	let native = false;
 	let animation: Animation | undefined;
+	let panelAnimations: Animation[] = [];
 	let motion: Motion | undefined;
+	let floor = 0;
+	let stacked = 0;
+	let releasing = false;
+	let releaseAt: number | undefined;
+	let releaseTimer: ReturnType<typeof setTimeout> | undefined;
+	let settleTimer: ReturnType<typeof setTimeout> | undefined;
+	let rememberTimer: ReturnType<typeof setTimeout> | undefined;
+	let releasedTimer: ReturnType<typeof setTimeout> | undefined;
+	let onReleased: (() => void) | undefined;
+
+	const effective = (raw: number) => {
+		if (floor <= 0) return raw;
+		if (releasing || stacked <= 0 || raw <= 0) return floor;
+		return Math.max(raw + stacked, floor);
+	};
+
+	const valueFor = (target: Target, raw: number) => {
+		return target.kind === "shell" ? effective(raw) : raw;
+	};
+
+	const noteKeyboard = (raw: number) => {
+		keyboard = raw;
+		if (rememberTimer) clearTimeout(rememberTimer);
+		rememberTimer = undefined;
+		if (raw <= 0) return;
+		rememberTimer = setTimeout(() => {
+			rememberTimer = undefined;
+			if (keyboard === raw) rememberedKeyboard = raw;
+		}, KEYBOARD_STABLE_MS);
+	};
 
 	const focusedTarget = (): Target => {
 		const active = document.activeElement;
@@ -163,7 +237,9 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 		if (target.kind === "lift") return [target.element];
 		if (target.kind === "overlay") return [];
 		return Array.from(
-			root.querySelectorAll<HTMLElement>(`[${KEYBOARD_FOLLOW_ATTRIBUTE}]`),
+			root.querySelectorAll<HTMLElement>(
+				`[${KEYBOARD_FOLLOW_ATTRIBUTE}], [${KEYBOARD_PANEL_ATTRIBUTE}]`,
+			),
 		);
 	};
 
@@ -216,12 +292,12 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 	};
 
 	const commit = (target: Target, inset: number) => {
-		keyboard = inset;
 		if (target.kind === "shell") {
 			if (inset !== current) applyShell(inset);
 			return;
 		}
-		if (inset < current) applyShell(inset);
+		const shellInset = effective(inset);
+		if (shellInset < current) applyShell(shellInset);
 		if (target.kind === "lift") {
 			applyLift(target.element, inset);
 			if (inset > 0) requestAnimationFrame(revealFocus);
@@ -237,7 +313,9 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 		if (next === undefined) return;
 		const target = motion?.target ?? focusedTarget();
 		endMotion();
-		commit(target, next);
+		noteKeyboard(next);
+		if (releasing && next > 0 && next >= floor) settleSoon();
+		commit(target, valueFor(target, next));
 	};
 
 	const queue = (inset: number) => {
@@ -251,9 +329,40 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 		queued = undefined;
 	};
 
-	const animate = (target: Target, from: number, spring: KeyboardSpring) => {
+	const cancelAnimations = () => {
 		animation?.cancel();
 		animation = undefined;
+		for (const running of panelAnimations) running.cancel();
+		panelAnimations = [];
+	};
+
+	const animatePanels = (
+		span: number,
+		samples: number[],
+		spring: KeyboardSpring,
+	) => {
+		const last = samples.length - 1;
+		const panels = root.querySelectorAll<HTMLElement>(
+			`[${KEYBOARD_PANEL_ATTRIBUTE}]`,
+		);
+		for (const panel of panels) {
+			const running = panel.animate(
+				samples.map((progress, index) => ({
+					offset: index / last,
+					transform: `translate3d(0, ${Math.round(span * (1 - progress))}px, 0)`,
+				})),
+				{ duration: spring.duration, easing: "linear", fill: "none" },
+			);
+			running.currentTime = Math.min(
+				Math.max(performance.now() - spring.at + spring.latency, 0),
+				spring.duration,
+			);
+			panelAnimations.push(running);
+		}
+	};
+
+	const animate = (target: Target, from: number, spring: KeyboardSpring) => {
+		cancelAnimations();
 		if (spring.duration <= 0 || spring.mass <= 0) return;
 		const to = clampInset(spring.inset);
 		const span = to - from;
@@ -270,6 +379,7 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 				})),
 				{ duration: spring.duration, easing: "linear", fill: "none" },
 			);
+			animatePanels(span, samples, spring);
 		} else if (target.kind === "lift") {
 			running = target.element.animate(
 				samples.map((progress, index) => ({
@@ -292,9 +402,12 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 		const detail = (event as CustomEvent<unknown>).detail;
 		if (isSpring(detail)) {
 			const target = focusedTarget();
-			const next = clampInset(detail.inset);
+			const raw = clampInset(detail.inset);
+			noteKeyboard(raw);
+			if (releasing && raw > 0)
+				clearReserve(detail.duration + Math.max(detail.latency, 0));
+			const next = valueFor(target, raw);
 			const from = committedFor(target);
-			keyboard = next;
 			if (next === from) return;
 			cancelQueued();
 			endMotion();
@@ -316,7 +429,10 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 			endMotion();
 			const target = focusedTarget();
 			const from = committedFor(target);
-			const to = clampInset(progress.to);
+			const raw = clampInset(progress.to);
+			keyboard = raw;
+			if (releasing && raw > 0 && raw < floor) releaseAt = raw;
+			const to = valueFor(target, raw);
 			const base = Math.min(from, to);
 			const movers = moversFor(target);
 			for (const mover of movers)
@@ -327,6 +443,10 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 			if (target.kind === "lift") cap = Math.min(cap, headroom(target.element));
 			motion = { target, base, cap, movers };
 			place(movers, Math.min(from - base, cap), target.kind);
+			return;
+		}
+		if (releaseAt !== undefined && clampInset(progress.inset) >= releaseAt) {
+			releaseNow();
 			return;
 		}
 		if (!motion) return;
@@ -354,7 +474,7 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 			lifted.element.style.removeProperty(KEYBOARD_LIFT_VAR);
 			lifted = undefined;
 		}
-		commit({ kind: "shell" }, keyboard);
+		commit({ kind: "shell" }, effective(keyboard));
 	};
 
 	const viewport = window.visualViewport;
@@ -364,6 +484,124 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 			clampInset(window.innerHeight - viewport.height - viewport.offsetTop),
 		);
 	};
+
+	const reserveSpring = (inset: number): KeyboardSpring => {
+		const reduced = prefersReducedMotion() || !(motionScale() > 0);
+		const scale = reduced ? 0 : motionScale();
+		return {
+			inset,
+			duration: RESERVE_SPRING.duration * scale,
+			mass: RESERVE_SPRING.mass,
+			stiffness: RESERVE_SPRING.stiffness,
+			damping: 2 * Math.sqrt(RESERVE_SPRING.stiffness * RESERVE_SPRING.mass),
+			velocity: 0,
+			latency: 0,
+			at: performance.now(),
+		};
+	};
+
+	const refresh = () => {
+		if (motion) return 0;
+		const target = focusedTarget();
+		if (target.kind !== "shell") return 0;
+		const from = current;
+		const next = effective(keyboard);
+		if (next === from) return 0;
+		cancelQueued();
+		commit(target, next);
+		const spring = reserveSpring(next);
+		animate(target, from, spring);
+		return spring.duration;
+	};
+
+	const settleRelease = (duration: number) => {
+		const done = onReleased;
+		onReleased = undefined;
+		if (releasedTimer) clearTimeout(releasedTimer);
+		releasedTimer = undefined;
+		if (!done) return;
+		if (duration <= 0) {
+			done();
+			return;
+		}
+		releasedTimer = setTimeout(() => {
+			releasedTimer = undefined;
+			done();
+		}, duration);
+	};
+
+	const dropReserve = () => {
+		floor = 0;
+		stacked = 0;
+		releasing = false;
+		releaseAt = undefined;
+		if (releaseTimer) clearTimeout(releaseTimer);
+		releaseTimer = undefined;
+		if (settleTimer) clearTimeout(settleTimer);
+		settleTimer = undefined;
+	};
+
+	const clearReserve = (cover: number) => {
+		dropReserve();
+		settleRelease(cover);
+	};
+
+	const releaseNow = () => {
+		dropReserve();
+		endMotion();
+		settleRelease(refresh());
+	};
+
+	const settleSoon = () => {
+		if (settleTimer) clearTimeout(settleTimer);
+		settleTimer = setTimeout(() => {
+			settleTimer = undefined;
+			if (releasing) releaseNow();
+		}, KEYBOARD_SETTLE_MS);
+	};
+
+	const reserve = (
+		nextFloor: number,
+		released: () => void,
+	): KeyboardReservation => {
+		const previous = onReleased;
+		onReleased = undefined;
+		if (releaseTimer) clearTimeout(releaseTimer);
+		if (releasedTimer) clearTimeout(releasedTimer);
+		releaseTimer = undefined;
+		releasedTimer = undefined;
+		if (previous && previous !== released) previous();
+		floor = Math.max(0, nextFloor);
+		stacked = 0;
+		releasing = false;
+		releaseAt = undefined;
+		onReleased = released;
+		refresh();
+		const owns = () => onReleased === released;
+		return {
+			setStacked: (height) => {
+				if (!owns() || releasing) return;
+				stacked = Math.max(0, height);
+				refresh();
+			},
+			release: (options) => {
+				if (!owns() || releasing) return;
+				if (options?.untilKeyboard) {
+					releasing = true;
+					stacked = 0;
+					releaseTimer = setTimeout(() => {
+						releaseTimer = undefined;
+						if (releasing) releaseNow();
+					}, RESERVE_RELEASE_MS);
+					return;
+				}
+				releaseNow();
+			},
+		};
+	};
+
+	const controller: ReserveController = { reserve };
+	reserveController = controller;
 
 	window.addEventListener(KEYBOARD_INSET_EVENT, onInset);
 	window.addEventListener(KEYBOARD_PROGRESS_EVENT, onProgress);
@@ -377,7 +615,15 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 		endMotion();
 		viewport?.removeEventListener("resize", onViewport);
 		if (frame) cancelAnimationFrame(frame);
-		animation?.cancel();
+		cancelAnimations();
+		if (reserveController === controller) reserveController = undefined;
+		if (releaseTimer) clearTimeout(releaseTimer);
+		if (releasedTimer) clearTimeout(releasedTimer);
+		if (settleTimer) clearTimeout(settleTimer);
+		if (rememberTimer) clearTimeout(rememberTimer);
+		const released = onReleased;
+		onReleased = undefined;
+		released?.();
 		lifted?.element.style.removeProperty(KEYBOARD_LIFT_VAR);
 		lifted = undefined;
 		root.style.removeProperty(KEYBOARD_INSET_VAR);

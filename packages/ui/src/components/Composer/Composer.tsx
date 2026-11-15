@@ -1,5 +1,6 @@
 import { AddIcon } from "@solar-icons/solid/bold/add";
 import { CheckCircleIcon } from "@solar-icons/solid/bold/check-circle";
+import { KeyboardIcon } from "@solar-icons/solid/bold/keyboard";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
 import { SmileCircleIcon } from "@solar-icons/solid/bold/smile-circle";
 import { UnlinkIcon } from "@solar-icons/solid/bold/unlink";
@@ -61,6 +62,7 @@ export type ComposerProps = {
 	hasAttachments?: boolean;
 	onUpload?: (event: MouseEvent) => void;
 	onEmoji?: (event: MouseEvent) => void;
+	emojiPanelOpen?: boolean;
 	onGif?: (event: MouseEvent) => void;
 	onEscape?: () => void;
 	onEditLast?: () => boolean;
@@ -374,10 +376,13 @@ export const Composer = (props: ComposerProps) => {
 								</span>
 							</Show>
 							<IconButton
+								data-composer-emoji=""
 								variant="ghost"
-								label="Add an emoji"
-								icon={<SmileCircleIcon />}
-								iconEffect="wiggle"
+								label={props.emojiPanelOpen ? "Show keyboard" : "Add an emoji"}
+								icon={
+									props.emojiPanelOpen ? <KeyboardIcon /> : <SmileCircleIcon />
+								}
+								iconEffect={props.emojiPanelOpen ? undefined : "wiggle"}
 								class={toolButtonClass}
 								onPointerDown={keepEditorFocus}
 								onMouseDown={keepEditorFocus}

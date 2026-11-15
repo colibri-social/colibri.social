@@ -293,4 +293,5 @@ export * from "./utils/status-visibility";
 export * from "./utils/text-length";
 export * from "./utils/theme";
 export * from "./utils/time";
+export * from "./utils/touch-keyboard";
 export * from "./utils/typography";

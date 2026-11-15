@@ -33,6 +33,10 @@ import {
 	MARKDOWN_LINK_POLICY,
 } from "../../utils/rich-text/link-safety";
 import { utf8Length } from "../../utils/text-length";
+import {
+	restartNativeTouchKeyboard,
+	swapTouchKeyboardFocus,
+} from "../../utils/touch-keyboard";
 import { MESSAGE_LINE_HEIGHT } from "../../utils/typography";
 import { mentionChipClass, timeChipClass } from "../Badge/Badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
@@ -84,8 +88,12 @@ export type RichEditorPlatform = "mobile" | "desktop";
 
 export type EditorJSON = ReturnType<Editor["getJSON"]>;
 
+export type RichEditorInsertOptions = {
+	focus?: boolean;
+};
+
 export type RichEditorHandle = {
-	focus: (position?: "start" | "end") => void;
+	focus: (position?: "start" | "end" | null) => void;
 	blur: () => void;
 	clear: () => void;
 	isEmpty: () => boolean;
@@ -93,8 +101,11 @@ export type RichEditorHandle = {
 	setValue: (value: RichText | string) => void;
 	getJSON: () => EditorJSON | undefined;
 	setJSON: (json: EditorJSON) => void;
-	insertText: (text: string) => void;
-	insertCustomEmoji: (emoji: CustomEmojiSuggestion) => void;
+	insertText: (text: string, options?: RichEditorInsertOptions) => void;
+	insertCustomEmoji: (
+		emoji: CustomEmojiSuggestion,
+		options?: RichEditorInsertOptions,
+	) => void;
 	submit: () => void;
 	element: () => HTMLElement | undefined;
 };
@@ -431,8 +442,8 @@ export const RichEditor = (props: RichEditorProps) => {
 
 	const restartTouchKeyboard = (instance: Editor) => {
 		if (!hasCoarsePointer() || !instance.view.hasFocus()) return;
-		instance.view.dom.blur();
-		instance.view.focus();
+		if (restartNativeTouchKeyboard()) return;
+		swapTouchKeyboardFocus(() => instance.view.focus());
 	};
 
 	const submit = () => {
@@ -459,7 +470,7 @@ export const RichEditor = (props: RichEditorProps) => {
 		}, restore);
 	};
 
-	const insertParsedText = (instance: Editor, text: string) => {
+	const insertParsedText = (instance: Editor, text: string, focus = true) => {
 		const parsed = parseMarkdown(text, [], {
 			...MARKDOWN_LINK_POLICY,
 			autolink: true,
@@ -473,7 +484,9 @@ export const RichEditor = (props: RichEditorProps) => {
 			content.length === 1 && content[0]?.type === "paragraph"
 				? (content[0].content ?? [])
 				: content;
-		instance.chain().focus().insertContent(inline).run();
+		const chain = instance.chain();
+		if (focus) chain.focus();
+		chain.insertContent(inline).run();
 	};
 
 	const updateBubble = () => {
@@ -918,18 +931,24 @@ export const RichEditor = (props: RichEditorProps) => {
 				},
 			);
 		},
-		insertText: (text) => {
+		insertText: (text, options) => {
 			const instance = editor();
 			if (!instance) return;
-			if (text.includes("\n")) insertParsedText(instance, text);
-			else instance.chain().focus().insertContent(text).run();
+			const focus = options?.focus ?? true;
+			if (text.includes("\n")) {
+				insertParsedText(instance, text, focus);
+				return;
+			}
+			const chain = instance.chain();
+			if (focus) chain.focus();
+			chain.insertContent(text).run();
 		},
-		insertCustomEmoji: (emoji) => {
+		insertCustomEmoji: (emoji, options) => {
 			const instance = editor();
 			if (!instance) return;
-			instance
-				.chain()
-				.focus()
+			const chain = instance.chain();
+			if (options?.focus ?? true) chain.focus();
+			chain
 				.insertContent({ type: "mention", attrs: customEmojiAttrs(emoji) })
 				.run();
 		},

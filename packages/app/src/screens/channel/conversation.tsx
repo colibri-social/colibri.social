@@ -35,7 +35,11 @@ import {
 	Show,
 	untrack,
 } from "solid-js";
-import { authorForDid, displayNameOf } from "../../data/adapters/authors";
+import {
+	authorForDid,
+	displayNameOf,
+	toMessageAuthor,
+} from "../../data/adapters/authors";
 import { fromComposerValue, toTextValue } from "../../data/adapters/facets";
 import type { ForwardTarget as ForwardPlace } from "../../data/adapters/forward";
 import {
@@ -185,20 +189,34 @@ export const createConversation = (options: ConversationOptions) => {
 			return platform();
 		},
 		anchor: () => mediaAnchor,
-		focusComposer: () => editor?.focus(),
+		focusComposer: () => editor?.focus(null),
+		blurComposer: () => editor?.blur(),
+		guardBack: (onBack) =>
+			stack.setPopGuard({
+				depth: stack.depth(),
+				blocked: () => true,
+				onBlocked: onBack,
+			}),
 		gifs: data.source,
 		packs: emojiPacks,
 		onInsertEmoji: (emoji) => {
+			if (!desktop()) {
+				editor?.insertText(emoji, { focus: false });
+				return;
+			}
 			editor?.insertText(emoji);
 			keepEditorFocus();
 		},
 		onInsertCustomEmoji: (picked) => {
 			const emoji = data.emoji.lookup(picked.id);
-			editor?.insertCustomEmoji(
-				emoji
-					? data.emoji.suggestion(emoji)
-					: { id: picked.id, name: picked.name, src: picked.src },
-			);
+			const suggestion = emoji
+				? data.emoji.suggestion(emoji)
+				: { id: picked.id, name: picked.name, src: picked.src };
+			if (!desktop()) {
+				editor?.insertCustomEmoji(suggestion, { focus: false });
+				return;
+			}
+			editor?.insertCustomEmoji(suggestion);
 			keepEditorFocus();
 		},
 		onSendGif: (gif) => {
@@ -741,6 +759,12 @@ export const createConversation = (options: ConversationOptions) => {
 				? displayNameOf(data.viewer)
 				: "Someone";
 	};
+	const nameOfMessage = (message: ChatMessage) => {
+		const profile = message.view?.author;
+		return profile
+			? toMessageAuthor(profile, directory()).name
+			: nameOf(message.author);
+	};
 
 	const seamAfter = createMemo(() =>
 		community()?.migration ? lastLegacyKey(items()) : undefined,
@@ -827,6 +851,16 @@ export const createConversation = (options: ConversationOptions) => {
 		isActive,
 		desktop,
 	});
+
+	createEffect(
+		on(
+			() => stack.moving() || selection.active(),
+			(covered) => {
+				if (covered) media.close();
+			},
+			{ defer: true },
+		),
+	);
 
 	const inlineEditKey = () => {
 		const target = editing();
@@ -1370,6 +1404,7 @@ export const createConversation = (options: ConversationOptions) => {
 		muted,
 		setMuted,
 		nameOf,
+		nameOfMessage,
 		send,
 		linkPreviewsByDefault,
 		saveEdit,
@@ -1416,7 +1451,7 @@ export const ConversationMessages = (props: {
 							seamAfter={m.seamAfter()}
 							seamLabel={m.seamLabel()}
 							isOwnMessage={(message) => message.author === m.data.viewer.did}
-							getAuthorName={(message) => m.nameOf(message.author)}
+							getAuthorName={(message) => m.nameOfMessage(message)}
 							locale="en-GB"
 							hasOlder={!m.revealed() || (m.feed()?.hasOlder() ?? false)}
 							bottomInset={COMPOSER_TYPING_INSET}
@@ -1586,8 +1621,9 @@ export const ConversationComposer = (props: {
 					hasAttachments={m.attachments.hasAttachments()}
 					onEmoji={(event) => {
 						anchorMedia(event);
-						m.media.openEmoji();
+						m.media.toggleEmoji();
 					}}
+					emojiPanelOpen={m.media.panelOpen()}
 					onGif={(event) => {
 						anchorMedia(event);
 						m.media.openGif();
@@ -1639,7 +1675,10 @@ export const ConversationComposer = (props: {
 							</ComposerBar>
 							<ReplyBar
 								open={!!m.replyTo()}
-								name={m.replyTo() ? m.nameOf(m.replyTo()?.author ?? "") : ""}
+								name={(() => {
+									const target = m.replyTo();
+									return target ? m.nameOfMessage(target) : "";
+								})()}
 								onCancel={() => m.setReplyTo(undefined)}
 								onClick={() => {
 									const target = m.replyTo();

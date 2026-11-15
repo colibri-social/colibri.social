@@ -297,8 +297,9 @@ export const threadDraft = defineContract({
 								? event.currentTarget
 								: undefined,
 						);
-						m.conversation.media.openEmoji();
+						m.conversation.media.toggleEmoji();
 					}}
+					emojiPanelOpen={m.conversation.media.panelOpen()}
 					onGif={(event) => {
 						m.conversation.setMediaAnchor(
 							event.currentTarget instanceof HTMLElement

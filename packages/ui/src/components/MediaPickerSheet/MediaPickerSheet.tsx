@@ -1,5 +1,11 @@
-import { createEffect, createSignal, Show } from "solid-js";
-import { Drawer, DrawerContent } from "../Drawer/Drawer";
+import { createEffect, createSignal, on, onCleanup, Show } from "solid-js";
+import { Portal } from "solid-js/web";
+import { cx } from "../../utils/cx";
+import { isEditableElement } from "../../utils/keyboard-dismiss";
+import {
+	KEYBOARD_PANEL_ATTRIBUTE,
+	SHELL_KEYBOARD_INSET_VAR,
+} from "../../utils/safe-area";
 import {
 	type EmojiPick,
 	EmojiPicker,
@@ -23,44 +29,84 @@ type EmojiOptions = Omit<
 >;
 type GifOptions = Omit<GifPickerProps, "platform" | "onPick" | "autofocus">;
 
-export type MediaPickerSheetProps = {
+export const MEDIA_PANEL_SEARCH_STRIP = 176;
+
+export type MediaPickerPanelProps = {
 	open: boolean;
-	onOpenChange: (open: boolean) => void;
+	height: number;
 	tab: MediaPickerKind;
 	onTabChange: (tab: MediaPickerKind) => void;
 	emoji: EmojiOptions;
 	gif: GifOptions;
 	onEmoji: (pick: EmojiPick, event: MouseEvent) => void;
 	onGif: (gif: Gif, event: MouseEvent) => void;
-	keepKeyboard?: boolean;
+	onClose?: () => void;
+	onOutsideFocus?: () => void;
+	onSearchingChange?: (searching: boolean) => void;
+	class?: string;
 };
 
-export const MediaPickerSheet = (props: MediaPickerSheetProps) => {
-	const [emojiSearch, setEmojiSearch] = createSignal<HTMLInputElement>();
-	const [picked, setPicked] = createSignal(false);
-	createEffect(() => {
-		if (props.open) setPicked(false);
-	});
-	const closeAfterPick = () => {
-		setPicked(true);
-		props.onOpenChange(false);
+export const MediaPickerPanel = (props: MediaPickerPanelProps) => {
+	let panel: HTMLElement | undefined;
+	const [searching, setSearching] = createSignal(false);
+	const height = () => Math.round(props.height);
+
+	createEffect(
+		on(searching, (active) => props.onSearchingChange?.(active), {
+			defer: true,
+		}),
+	);
+
+	const onDocumentFocus = (event: FocusEvent) => {
+		const target = event.target;
+		if (!props.open || !isEditableElement(target)) return;
+		if (panel?.contains(target)) return;
+		props.onOutsideFocus?.();
 	};
+
+	document.addEventListener("focusin", onDocumentFocus);
+	onCleanup(() => document.removeEventListener("focusin", onDocumentFocus));
+
 	return (
-		<Drawer
-			open={props.open}
-			onOpenChange={props.onOpenChange}
-			initialFocus="content"
-			initialFocusEl={props.tab === "emoji" ? emojiSearch() : undefined}
-			restoreFocus={!picked()}
-			keepKeyboard={props.keepKeyboard}
-		>
-			<DrawerContent aria-label="Emoji and GIF picker">
+		<Portal>
+			<section
+				ref={panel}
+				data-media-picker-panel=""
+				{...{ [KEYBOARD_PANEL_ATTRIBUTE]: "" }}
+				data-open={props.open || undefined}
+				data-searching={searching() || undefined}
+				aria-label="Emoji and GIF picker"
+				inert={!props.open || undefined}
+				onFocusIn={(event) => {
+					if (isEditableElement(event.target)) setSearching(true);
+				}}
+				onFocusOut={(event) => {
+					if (!isEditableElement(event.target)) return;
+					const next = event.relatedTarget;
+					if (isEditableElement(next) && panel?.contains(next)) return;
+					setSearching(false);
+				}}
+				onKeyDown={(event) => {
+					if (event.key !== "Escape" || event.defaultPrevented) return;
+					event.preventDefault();
+					props.onClose?.();
+				}}
+				style={{
+					height: `${height()}px`,
+					translate: `0 calc(${height()}px - var(${SHELL_KEYBOARD_INSET_VAR}, ${height()}px))`,
+				}}
+				class={cx(
+					"fixed inset-x-0 bottom-0 z-40 flex flex-col border-t border-border bg-popover",
+					"px-safe-offset-3 pt-2 pb-[env(safe-area-inset-bottom,0px)]",
+					props.class,
+				)}
+			>
 				<Tabs
 					value={props.tab}
 					onChange={(value) => props.onTabChange(value as MediaPickerKind)}
-					class="gap-3"
+					class="min-h-0 flex-1 gap-2"
 				>
-					<TabsList aria-label="Picker">
+					<TabsList aria-label="Picker" class={cx(searching() && "hidden")}>
 						<TabsTrigger value="emoji" class="flex-1 justify-center">
 							Emoji
 						</TabsTrigger>
@@ -72,26 +118,21 @@ export const MediaPickerSheet = (props: MediaPickerSheetProps) => {
 						<EmojiPicker
 							{...props.emoji}
 							platform="mobile"
-							searchRef={setEmojiSearch}
-							onPick={(pick, event) => {
-								props.onEmoji(pick, event);
-								closeAfterPick();
-							}}
+							class="h-auto min-h-0 flex-1"
+							onPick={(pick, event) => props.onEmoji(pick, event)}
 						/>
 					</TabsContent>
 					<TabsContent value="gif">
 						<GifPicker
 							{...props.gif}
 							platform="mobile"
-							onPick={(gif, event) => {
-								props.onGif(gif, event);
-								closeAfterPick();
-							}}
+							class="h-auto min-h-0 flex-1"
+							onPick={(gif, event) => props.onGif(gif, event)}
 						/>
 					</TabsContent>
 				</Tabs>
-			</DrawerContent>
-		</Drawer>
+			</section>
+		</Portal>
 	);
 };
 
@@ -105,8 +146,14 @@ export type MediaPickersProps = {
 	gif: GifOptions;
 	onEmoji: (pick: EmojiPick, event: MouseEvent) => void;
 	onGif: (gif: Gif, event: MouseEvent) => void;
-	keepKeyboard?: boolean;
+	panelHeight?: number;
+	panelMounted?: boolean;
+	onPanelClose?: () => void;
+	onOutsideFocus?: () => void;
+	onSearchingChange?: (searching: boolean) => void;
 };
+
+const DEFAULT_PANEL_HEIGHT = 320;
 
 export const MediaPickers = (props: MediaPickersProps) => {
 	let lastTab: MediaPickerKind = "emoji";
@@ -118,19 +165,27 @@ export const MediaPickers = (props: MediaPickersProps) => {
 		<Show
 			when={(props.platform ?? "desktop") === "desktop"}
 			fallback={
-				<MediaPickerSheet
-					open={props.open !== null}
-					onOpenChange={(open) => {
-						if (!open) props.onOpenChange(null);
-					}}
-					tab={tab()}
-					onTabChange={(next) => props.onOpenChange(next)}
-					emoji={props.emoji}
-					gif={props.gif}
-					onEmoji={props.onEmoji}
-					onGif={props.onGif}
-					keepKeyboard={props.keepKeyboard}
-				/>
+				<Show when={props.panelMounted ?? props.open !== null}>
+					<MediaPickerPanel
+						open={props.open !== null}
+						height={props.panelHeight ?? DEFAULT_PANEL_HEIGHT}
+						tab={tab()}
+						onTabChange={(next) => props.onOpenChange(next)}
+						emoji={props.emoji}
+						gif={props.gif}
+						onEmoji={props.onEmoji}
+						onGif={props.onGif}
+						onClose={() => {
+							if (props.onPanelClose) props.onPanelClose();
+							else props.onOpenChange(null);
+						}}
+						onOutsideFocus={() => {
+							if (props.onOutsideFocus) props.onOutsideFocus();
+							else props.onOpenChange(null);
+						}}
+						onSearchingChange={props.onSearchingChange}
+					/>
+				</Show>
 			}
 		>
 			<EmojiPickerPopover
