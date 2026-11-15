@@ -235,7 +235,8 @@ export const SpaceRoleList = (props: SpaceRoleListProps) => {
 		}
 		return {
 			transform: `translate3d(0,${shift(index)}px,0)`,
-			transition: "transform 160ms var(--ease-out, ease-out)",
+			transition:
+				"transform calc(160ms * var(--motion-scale)) var(--ease-out, ease-out)",
 		};
 	};
 

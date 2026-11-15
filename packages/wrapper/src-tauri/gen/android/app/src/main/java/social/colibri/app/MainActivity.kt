@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
@@ -31,6 +32,7 @@ class MainActivity : TauriActivity() {
   private var imeAnimating = false
   private var imeFrom: Int = 0
   private var barsScriptHandler: ScriptHandler? = null
+  private var motionScriptHandler: ScriptHandler? = null
   private var askedForNotifications = false
   private var pendingOpenCall = false
   @Volatile private var pendingLaunchTap = ""
@@ -61,6 +63,7 @@ class MainActivity : TauriActivity() {
   override fun onResume() {
     super.onResume()
     NotificationTray.activityResumed = true
+    webView?.let(::registerMotionScript)
     webView?.evaluateJavascript(
       "window.dispatchEvent(new CustomEvent('colibri-mark-read-pending'));",
       null
@@ -87,6 +90,7 @@ class MainActivity : TauriActivity() {
       "__colibriNotificationActions"
     )
     ReceiveFiles(this, webView).attach()
+    registerMotionScript(webView)
     if (pendingOpenCall) {
       pendingOpenCall = false
       handler.postDelayed({ CallEvents.dispatch("open") }, 1500L)
@@ -193,6 +197,36 @@ class MainActivity : TauriActivity() {
     if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
       barsScriptHandler?.remove()
       barsScriptHandler = WebViewCompat.addDocumentStartJavaScript(webView, script, setOf("*"))
+    }
+    webView.evaluateJavascript(script, null)
+  }
+
+  private fun animatorDurationScale(): Float {
+    val scale = Settings.Global.getFloat(
+      contentResolver,
+      Settings.Global.ANIMATOR_DURATION_SCALE,
+      1f
+    )
+    return if (scale.isFinite() && scale >= 0f) scale else 1f
+  }
+
+  private fun registerMotionScript(webView: WebView) {
+    val scale = animatorDurationScale()
+    val script = """
+      (function () {
+        var root = document.documentElement;
+        var scale = $scale;
+        var systemReduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        root.style.setProperty('--motion-scale', String(scale));
+        root.setAttribute('data-motion-scale', String(scale));
+        if (scale === 0) root.setAttribute('data-reduced-motion', 'true');
+        else if (!systemReduce) root.removeAttribute('data-reduced-motion');
+        window.dispatchEvent(new CustomEvent('colibri-motion-scale', { detail: scale }));
+      })();
+    """.trimIndent()
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+      motionScriptHandler?.remove()
+      motionScriptHandler = WebViewCompat.addDocumentStartJavaScript(webView, script, setOf("*"))
     }
     webView.evaluateJavascript(script, null)
   }

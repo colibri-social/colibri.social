@@ -1,4 +1,8 @@
-import { prefersReducedMotion, useHaptics } from "@colibri-social/ui";
+import {
+	motionScale,
+	prefersReducedMotion,
+	useHaptics,
+} from "@colibri-social/ui";
 import {
 	batch,
 	createContext,
@@ -60,6 +64,10 @@ const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
 const PARKED_CLEARANCE_PX = 1;
 
+const reducedMotion = () => {
+	return prefersReducedMotion() || !(motionScale() > 0);
+};
+
 const boxSize = (node: HTMLElement) => {
 	const box = node.getBoundingClientRect();
 	return { width: box.width, height: box.height };
@@ -90,6 +98,7 @@ export const createStack = (options: StackOptions) => {
 	let element: HTMLElement | undefined;
 
 	const frames = new Map<number, Frame>();
+	const staleLayers = new WeakSet<Layer>();
 	let popGuard: PopGuard | undefined;
 
 	const leave = createLeaveGuard(() => target);
@@ -216,6 +225,10 @@ export const createStack = (options: StackOptions) => {
 		if (pane && Number(pane.dataset.paneIndex) !== target) focused.blur();
 	};
 
+	const parkable = (layer: Layer | undefined) => {
+		return !!layer && !staleLayers.has(layer);
+	};
+
 	const settle = () => {
 		stopLoop();
 		depth = target;
@@ -224,7 +237,9 @@ export const createStack = (options: StackOptions) => {
 		batch(() => {
 			setMoving(false);
 			setActiveDepth(target);
-			setMounted((list) => list.slice(0, target + 1));
+			setMounted((list) =>
+				list.slice(0, target + (parkable(list[target]) ? 1 : 0)),
+			);
 		});
 		render();
 		blurInactive();
@@ -232,10 +247,17 @@ export const createStack = (options: StackOptions) => {
 	};
 
 	const tick = (time: number) => {
-		const seconds =
+		const scale = motionScale();
+		if (!(scale > 0)) {
+			depth = target;
+			settle();
+			return;
+		}
+		const elapsed =
 			lastTime === 0
 				? 1 / 60
 				: Math.min(MAX_FRAME_SECONDS, (time - lastTime) / 1000);
+		const seconds = elapsed / scale;
 		lastTime = time;
 		const next: SpringState = stepSpring(
 			{ position: depth, velocity },
@@ -261,19 +283,24 @@ export const createStack = (options: StackOptions) => {
 		});
 	};
 
-	const animateTo = (next: number, initialVelocity?: number) => {
+	const animateTo = (
+		next: number,
+		initialVelocity?: number,
+		fromGesture = false,
+	) => {
 		const clamped = Math.max(0, Math.min(mounted().length, next));
 		target = clamped;
 		blurInactive();
 		setActiveDepth(clamped);
-		if (initialVelocity !== undefined) velocity = initialVelocity;
-		if (initialVelocity === undefined && prefersReducedMotion()) {
+		if (reducedMotion()) {
 			const opening = clamped > depth;
 			depth = clamped;
-			setMoving(false);
 			settle();
-			if (opening) fadeIn(clamped);
+			if (opening && !fromGesture) fadeIn(clamped);
 			return;
+		}
+		if (initialVelocity !== undefined) {
+			velocity = initialVelocity * motionScale();
 		}
 		setMoving(true);
 		if (!frameRequest) frameRequest = requestAnimationFrame(tick);
@@ -287,6 +314,11 @@ export const createStack = (options: StackOptions) => {
 	};
 
 	const setRoot = (next: Root) => {
+		const current = root();
+		if (current.tab !== next.tab || current.space !== next.space) {
+			for (const layer of mounted()) staleLayers.add(layer);
+			if (!moving()) setMounted((list) => list.slice(0, target));
+		}
 		setRootSignal(next);
 		if (target === 0 && !moving()) history.sync();
 	};
@@ -343,8 +375,9 @@ export const createStack = (options: StackOptions) => {
 		if (options.canForward && !options.canForward(top)) return undefined;
 		const parked = mounted()[target];
 		const candidate = options.forward(top, root());
-		if (parked && (!candidate || parked.kind === candidate.kind)) return parked;
-		return candidate;
+		if (!candidate) return undefined;
+
+		return parked && sameLayer(parked, candidate) ? parked : candidate;
 	};
 
 	const allow = (direction: PanDirection) => {
@@ -407,14 +440,14 @@ export const createStack = (options: StackOptions) => {
 			max: gesture.max,
 		});
 		gesture = undefined;
-		animateTo(next, depthVelocity);
+		animateTo(next, depthVelocity, true);
 	};
 
 	const cancelGesture = () => {
 		if (!gesture) return;
 		gesture = undefined;
 		held = false;
-		animateTo(target, 0);
+		animateTo(target, 0, true);
 	};
 
 	const bindSheet = (frame: HTMLElement, index: number) =>
@@ -447,7 +480,7 @@ export const createStack = (options: StackOptions) => {
 					max: gesture.max,
 				});
 				gesture = undefined;
-				animateTo(next, depthVelocity);
+				animateTo(next, depthVelocity, true);
 			},
 		});
 
@@ -486,7 +519,7 @@ export const createStack = (options: StackOptions) => {
 			onRelease: () => {
 				if (!held) return;
 				held = false;
-				animateTo(target, 0);
+				animateTo(target, 0, true);
 			},
 			onStart: startGesture,
 			onMove: moveGesture,

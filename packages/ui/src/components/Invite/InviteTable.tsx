@@ -259,14 +259,14 @@ const CopyGlyph = (props: { copied: boolean }) => (
 		<CopyIcon
 			aria-hidden="true"
 			class={cx(
-				"transition-[opacity,scale,filter] duration-200 ease-(--ease-out-quick) motion-reduce:transition-none",
+				"transition-[opacity,scale,filter] duration-[calc(200ms*var(--motion-scale))] ease-(--ease-out-quick) motion-reduce:transition-none reduced-motion:transition-none",
 				props.copied && "scale-25 opacity-0 blur-[4px]",
 			)}
 		/>
 		<CheckIcon
 			aria-hidden="true"
 			class={cx(
-				"transition-[opacity,scale,filter] duration-200 ease-(--ease-out-quick) motion-reduce:transition-none",
+				"transition-[opacity,scale,filter] duration-[calc(200ms*var(--motion-scale))] ease-(--ease-out-quick) motion-reduce:transition-none reduced-motion:transition-none",
 				!props.copied && "scale-25 opacity-0 blur-[4px]",
 			)}
 		/>

@@ -1,8 +1,9 @@
 import { createEffect, untrack } from "solid-js";
-import { channelSlug, isVoiceChannel, spaceKey } from "../data/ids";
+import { channelSlug, spaceKey } from "../data/ids";
 import type { DataStore } from "../data/store";
-import type { ChannelView, CommunityView } from "../data/types";
+import type { CommunityView } from "../data/types";
 import type { Navigator } from "./stack";
+import { lastViewedChannel } from "./text-channel";
 
 export const lastViewedSpace = (
 	data: DataStore,
@@ -10,17 +11,6 @@ export const lastViewedSpace = (
 ) => {
 	const key = data.lastSpace();
 	return key ? list.find((entry) => spaceKey(entry) === key) : undefined;
-};
-
-const lastViewedChannel = (
-	data: DataStore,
-	community: CommunityView,
-	channels: readonly ChannelView[],
-) => {
-	const slug = data.lastChannel(spaceKey(community));
-	if (!slug) return undefined;
-	const target = channels.find((channel) => channelSlug(channel) === slug);
-	return target && !isVoiceChannel(target) ? target : undefined;
 };
 
 const atColdStart = (stack: Navigator, space?: string) => {

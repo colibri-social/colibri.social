@@ -100,10 +100,27 @@ const rootDataset = () =>
 		? undefined
 		: document.documentElement.dataset;
 
-export const motionScale = () => (rootDataset()?.slowMotion === "true" ? 5 : 1);
+const SLOW_MOTION_SCALE = 5;
 
-export const prefersReducedMotion = () => {
+const parseMotionScale = (value: string | undefined) => {
+	if (value === undefined || value.trim() === "") return 1;
+
+	const scale = Number(value);
+
+	return Number.isFinite(scale) && scale >= 0 ? scale : 1;
+};
+
+export const motionScale = (): number => {
+	const dataset = rootDataset();
+
+	if (dataset?.slowMotion === "true") return SLOW_MOTION_SCALE;
+
+	return parseMotionScale(dataset?.motionScale);
+};
+
+export const prefersReducedMotion = (): boolean => {
 	if (rootDataset()?.reducedMotion === "true") return true;
+	if (motionScale() === 0) return true;
 	if (typeof window === "undefined" || !window.matchMedia) return false;
 	return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 };
@@ -176,9 +193,17 @@ export const animateSpring = (options: {
 	});
 
 	const tick = (now: number) => {
+		const scale = motionScale();
+
+		if (scale === 0) {
+			onUpdate(to);
+			resolve();
+			return;
+		}
+
 		const elapsed = last === 0 ? STEP_MS : now - last;
 		last = now;
-		const steps = Math.max(1, Math.round(elapsed / motionScale() / STEP_MS));
+		const steps = Math.max(1, Math.round(elapsed / scale / STEP_MS));
 		const dt = STEP_MS / 1000;
 
 		for (let step = 0; step < steps; step++) {

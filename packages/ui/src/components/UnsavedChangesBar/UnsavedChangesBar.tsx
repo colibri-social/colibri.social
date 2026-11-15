@@ -45,7 +45,7 @@ const flash = (card: HTMLElement | undefined) => {
 };
 
 const motion =
-	"transition-[opacity,translate] ease-out motion-reduce:transition-none reduced-motion:transition-none data-[visible]:duration-200 not-data-[visible]:duration-150";
+	"transition-[opacity,translate] ease-out motion-reduce:transition-none reduced-motion:transition-none data-[visible]:duration-[calc(200ms*var(--motion-scale))] not-data-[visible]:duration-[calc(150ms*var(--motion-scale))]";
 
 export const UnsavedChangesBar = (props: UnsavedChangesBarProps) => {
 	const mobile = () => props.platform === "mobile";

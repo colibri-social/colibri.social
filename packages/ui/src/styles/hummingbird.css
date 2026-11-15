@@ -59,22 +59,24 @@
 }
 
 .hb-rig {
-	animation: hb-bob var(--hb-bob) ease-in-out infinite alternate;
+	animation: hb-bob calc(var(--hb-bob) * var(--motion-scale)) ease-in-out
+		infinite alternate;
 }
 
 .hb-fan {
-	animation: hb-flick calc(var(--hb-tempo) * 0.28s) ease-in-out infinite
-		alternate;
+	animation: hb-flick calc(var(--hb-tempo) * 0.28s * var(--motion-scale))
+		ease-in-out infinite alternate;
 }
 
 .hb-wing-near {
-	animation: hb-shimmer-near calc(var(--hb-tempo) * 0.055s) linear infinite
+	animation: hb-shimmer-near
+		calc(var(--hb-tempo) * 0.055s * var(--motion-scale)) linear infinite
 		alternate;
 }
 
 .hb-wing-far {
-	animation: hb-shimmer-far calc(var(--hb-tempo) * 0.055s) linear infinite
-		alternate-reverse;
+	animation: hb-shimmer-far calc(var(--hb-tempo) * 0.055s * var(--motion-scale))
+		linear infinite alternate-reverse;
 }
 
 .hb-paused {

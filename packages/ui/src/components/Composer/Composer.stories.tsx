@@ -1019,7 +1019,7 @@ export const LinkPreviewsStartOff: Story = {
 	play: async ({ canvasElement }) => {
 		const canvas = within(canvasElement);
 		await userEvent.click(textarea(canvasElement));
-		await userEvent.keyboard("See example.com/notes ");
+		await userEvent.keyboard("See https://example.com/notes ");
 		await waitFor(() =>
 			expect(linkPreviewSlot(canvasElement)).toHaveAttribute("data-visible"),
 		);

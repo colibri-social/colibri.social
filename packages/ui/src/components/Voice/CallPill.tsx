@@ -250,10 +250,17 @@ export const CallPill = (props: CallPillProps) => {
 	};
 
 	const tick = (time: number) => {
+		const scale = motionScale();
+
+		if (scale === 0) {
+			settleAll();
+			return;
+		}
+
 		const elapsedMs =
 			lastFrame === 0 ? STEP_MS : Math.min(time - lastFrame, MAX_FRAME_MS);
 		lastFrame = time;
-		const steps = Math.max(1, Math.round(elapsedMs / motionScale() / STEP_MS));
+		const steps = Math.max(1, Math.round(elapsedMs / scale / STEP_MS));
 		const dt = STEP_MS / 1000;
 		for (let index = 0; index < steps; index++) {
 			for (const channel of [offsetY, width, height]) {

@@ -301,7 +301,7 @@ export const VoiceFloatingWindow = (props: VoiceFloatingWindowProps) => {
 				/>
 				<div
 					data-floating-chrome=""
-					class="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between opacity-0 transition-opacity duration-150 group-data-keyboard-focus/floating:opacity-100 group-hover/floating:opacity-100 motion-reduce:transition-none"
+					class="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between opacity-0 transition-opacity duration-[calc(150ms*var(--motion-scale))] group-data-keyboard-focus/floating:opacity-100 group-hover/floating:opacity-100 motion-reduce:transition-none reduced-motion:transition-none"
 				>
 					<div class="flex items-start justify-between gap-2 bg-linear-to-b from-black/70 to-transparent p-2 pb-6">
 						<button

@@ -152,7 +152,7 @@ const ChannelDescriptionButton = (props: {
 	<Modal>
 		<ModalTrigger
 			data-channel-description=""
-			class="focus-ring m-0 min-w-0 flex-1 cursor-pointer truncate rounded-control-sm border-0 bg-transparent p-0 text-left text-base leading-5 text-muted-foreground transition-colors duration-150 hover:text-foreground"
+			class="focus-ring m-0 min-w-0 flex-1 cursor-pointer truncate rounded-control-sm border-0 bg-transparent p-0 text-left text-base leading-5 text-muted-foreground transition-colors duration-[calc(150ms*var(--motion-scale))] hover:text-foreground motion-reduce:transition-none reduced-motion:transition-none"
 		>
 			<TableText text={props.description} />
 		</ModalTrigger>

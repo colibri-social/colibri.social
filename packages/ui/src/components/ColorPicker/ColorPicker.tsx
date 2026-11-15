@@ -350,7 +350,7 @@ export const ColorSwatchButton = (props: ColorSwatchButtonProps) => {
 			data-color-swatch-button=""
 			class={cx(
 				"relative flex h-full w-full cursor-pointer items-center justify-center overflow-hidden rounded-control border border-border",
-				"transition-[scale] duration-200 ease-out active:scale-[0.97] motion-reduce:transition-none",
+				"transition-[scale] duration-[calc(200ms*var(--motion-scale))] ease-out active:scale-[0.97] motion-reduce:transition-none reduced-motion:transition-none",
 				"disabled:cursor-not-allowed disabled:opacity-50",
 				focusRing,
 				light() ? "text-black/80" : "text-white/90",
@@ -626,7 +626,7 @@ export const AddColorSwatch = (props: AddColorSwatchProps) => {
 				class={cx(
 					"relative flex h-full w-full cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-control border border-dashed border-muted-foreground/40 text-sm font-semibold text-muted-foreground",
 					"hover:border-muted-foreground/60 hover:bg-secondary hover:text-foreground",
-					"transition-[scale] duration-200 ease-out active:scale-[0.97] motion-reduce:transition-none",
+					"transition-[scale] duration-[calc(200ms*var(--motion-scale))] ease-out active:scale-[0.97] motion-reduce:transition-none reduced-motion:transition-none",
 					"disabled:cursor-not-allowed disabled:opacity-50",
 					focusRing,
 				)}

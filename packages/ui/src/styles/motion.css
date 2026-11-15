@@ -15,6 +15,12 @@
 	}
 }
 
+@keyframes ui-pulse {
+	50% {
+		opacity: 0.5;
+	}
+}
+
 @keyframes ui-modal-in {
 	from {
 		opacity: 0;
@@ -197,21 +203,35 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	:root {
+	:root:root {
 		--press-scale: 1;
 		--modal-from-scale: 1;
 		--modal-to-scale: 1;
 		--tooltip-from-scale: 1;
 		--duration-resize: 1ms;
+		--duration-color: 1ms;
+		--duration-exit: 1ms;
+		--duration-toggle: 1ms;
+		--duration-thumb-stretch: 1ms;
+		--duration-pop: 1ms;
+		--duration-overlay-in: 1ms;
+		--duration-sheet: 1ms;
 	}
 }
 
 :root[data-reduced-motion="true"] {
-	--duration-resize: 1ms;
 	--press-scale: 1;
 	--modal-from-scale: 1;
 	--modal-to-scale: 1;
 	--tooltip-from-scale: 1;
+	--duration-resize: 1ms;
+	--duration-color: 1ms;
+	--duration-exit: 1ms;
+	--duration-toggle: 1ms;
+	--duration-thumb-stretch: 1ms;
+	--duration-pop: 1ms;
+	--duration-overlay-in: 1ms;
+	--duration-sheet: 1ms;
 }
 
 @utility ring-room {

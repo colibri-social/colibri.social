@@ -1,10 +1,13 @@
 import "../app.css";
 import { render } from "solid-js/web";
 import { afterEach, describe, expect, it } from "vitest";
+import type { SpaceData } from "../data/store";
+import type { CategoryView, ChannelView, CommunityView } from "../data/types";
 import type { HistoryPort } from "./history-sync";
 import { LayerStack } from "./LayerStack";
-import type { Layer } from "./layers";
+import { type Layer, layerPath, type Root } from "./layers";
 import { createStack, type Stack } from "./stack";
+import { type ForwardData, swipeForward } from "./swipe-forward";
 
 const memoryHistory = (initial: string): HistoryPort => {
 	const entries: { state: unknown; url: string }[] = [
@@ -49,9 +52,23 @@ let host: HTMLDivElement | undefined;
 afterEach(() => {
 	dispose?.();
 	host?.remove();
+	delete document.documentElement.dataset.reducedMotion;
+	delete document.documentElement.dataset.slowMotion;
 });
 
-const mount = (path = "/app/c/did:plc:hq", width = "402px") => {
+type Forward = (top: Layer | undefined, root: Root) => Layer | undefined;
+
+const membersOnly: Forward = (top) => {
+	return top?.kind === "chat"
+		? { kind: "members", space: top.space, channel: top.channel }
+		: undefined;
+};
+
+const mount = (
+	path = "/app/c/did:plc:hq",
+	width = "402px",
+	forward: Forward = membersOnly,
+) => {
 	host = document.createElement("div");
 	host.style.cssText = `position:fixed;inset:0;width:${width};height:874px`;
 	document.body.append(host);
@@ -61,17 +78,16 @@ const mount = (path = "/app/c/did:plc:hq", width = "402px") => {
 		stack = createStack({
 			history,
 			initialPath: path,
-			forward: (top) =>
-				top?.kind === "chat"
-					? { kind: "members", space: top.space, channel: top.channel }
-					: undefined,
+			forward,
 		});
 		return (
 			<LayerStack
 				stack={stack}
 				base={<div data-testid="base">Base</div>}
 				renderLayer={(layer) => (
-					<div data-testid={layer.kind}>{layer.kind}</div>
+					<div data-testid={layer.kind} data-path={layerPath(layer)}>
+						{layer.kind}
+					</div>
 				)}
 			/>
 		);
@@ -551,5 +567,283 @@ describe("sheet layers", () => {
 		await wait(300);
 		expect(stack.depth()).toBe(1);
 		expect(sheet.style.transform).toBe("");
+	});
+});
+
+const HQ = "did:plc:hq";
+const LAB = "did:plc:lab";
+const TEXT = "social.colibri.beta.channel.text";
+const VOICE = "social.colibri.beta.channel.voice";
+
+const channelView = (
+	space: string,
+	slug: string,
+	type = TEXT,
+	category?: string,
+) => {
+	return {
+		space: `at://${space}/space/${type}/${slug}`,
+		type,
+		name: slug,
+		category,
+	} as unknown as ChannelView;
+};
+
+type FakeSpace = {
+	channels: ChannelView[];
+	categories?: CategoryView[];
+	last?: string;
+};
+
+const fakeData = (spaces: Record<string, FakeSpace>) => {
+	const data: ForwardData = {
+		spaceByKey: (key: string) =>
+			spaces[key] ? ({ did: key } as CommunityView) : undefined,
+		space: (community: CommunityView) =>
+			({
+				channels: { value: () => spaces[community.did]?.channels },
+				categories: { value: () => spaces[community.did]?.categories },
+			}) as unknown as SpaceData,
+		lastChannel: (key: string) => spaces[key]?.last,
+	};
+
+	return data;
+};
+
+const twoSpaces = () => {
+	return fakeData({
+		[HQ]: { channels: [channelView(HQ, "general")], last: "general" },
+		[LAB]: {
+			channels: [channelView(LAB, "lobby"), channelView(LAB, "design")],
+			last: "design",
+		},
+	});
+};
+
+const chatPath = (space: string, slug: string, type = TEXT) => {
+	return `/app/c/${space}/${type}/${slug}`;
+};
+
+const swipeForwardOn = (root: HTMLElement) => {
+	return drag(
+		stackRoot(root),
+		{ x: 360, y: 400 },
+		Array.from({ length: 12 }, (_, index) => ({ dx: -12 - index * 22 })),
+		{ restBeforeRelease: 120 },
+	);
+};
+
+const openChat = (root: HTMLElement) => {
+	return root.querySelector<HTMLElement>('[data-testid="chat"]');
+};
+
+describe("forward swipe from the channel list", () => {
+	it("opens the last channel of the Space you switched to", async () => {
+		const { stack, root, history } = mount(
+			`/app/c/${HQ}`,
+			"402px",
+			swipeForward(twoSpaces()),
+		);
+		await swipeForwardOn(root);
+		await until(settledAt(stack, 1));
+		stack.pop();
+		await until(settledAt(stack, 0));
+		expect(openChat(root)?.dataset.path).toBe(chatPath(HQ, "general"));
+		stack.setRoot({ tab: "spaces", space: LAB });
+		await swipeForwardOn(root);
+		await until(settledAt(stack, 1));
+		expect(stack.top()).toEqual({
+			kind: "chat",
+			space: LAB,
+			channel: "design",
+			channelType: TEXT,
+		});
+		expect(openChat(root)?.dataset.path).toBe(chatPath(LAB, "design"));
+		expect(history.path()).toBe(chatPath(LAB, "design"));
+	});
+
+	it("opens the topmost text channel when the last one is gone or isn't text", async () => {
+		const data = fakeData({
+			[LAB]: {
+				channels: [
+					channelView(LAB, "hangout", VOICE),
+					channelView(LAB, "news", TEXT, "c1"),
+					channelView(LAB, "lobby"),
+				],
+				categories: [
+					{
+						rkey: "c1",
+						name: "Updates",
+						channels: [channelView(LAB, "news", TEXT, "c1")],
+					} as unknown as CategoryView,
+				],
+				last: "hangout",
+			},
+		});
+		const { stack, root } = mount(`/app/c/${LAB}`, "402px", swipeForward(data));
+		await swipeForwardOn(root);
+		await until(settledAt(stack, 1));
+		expect(openChat(root)?.dataset.path).toBe(chatPath(LAB, "lobby"));
+	});
+
+	it("opens the first channel in a category when nothing sits above it", async () => {
+		const data = fakeData({
+			[LAB]: {
+				channels: [
+					channelView(LAB, "hangout", VOICE, "c1"),
+					channelView(LAB, "news", TEXT, "c1"),
+				],
+				categories: [
+					{
+						rkey: "c1",
+						name: "Updates",
+						channels: [
+							channelView(LAB, "hangout", VOICE, "c1"),
+							channelView(LAB, "news", TEXT, "c1"),
+						],
+					} as unknown as CategoryView,
+				],
+			},
+		});
+		const { stack, root } = mount(`/app/c/${LAB}`, "402px", swipeForward(data));
+		await swipeForwardOn(root);
+		await until(settledAt(stack, 1));
+		expect(openChat(root)?.dataset.path).toBe(chatPath(LAB, "news"));
+	});
+
+	it("has no forward swipe in a Space without text channels", async () => {
+		const data = fakeData({
+			[LAB]: { channels: [channelView(LAB, "hangout", VOICE)] },
+		});
+		const { stack, root } = mount(`/app/c/${LAB}`, "402px", swipeForward(data));
+		await swipeForwardOn(root);
+		await wait(150);
+		expect(stack.activeDepth()).toBe(0);
+		expect(stack.mounted()).toEqual([]);
+	});
+
+	it("opens the new Space's channel after creating a Space", async () => {
+		const { stack, root } = mount(
+			"/app/new",
+			"402px",
+			swipeForward(twoSpaces()),
+		);
+		await until(() => !!root.querySelector('[data-testid="createSpace"]'));
+		stack.setRoot({ tab: "spaces", space: LAB });
+		stack.popTo(0);
+		await until(settledAt(stack, 0));
+		expect(root.querySelector('[data-testid="createSpace"]')).toBeNull();
+		await swipeForwardOn(root);
+		await until(settledAt(stack, 1));
+		expect(root.querySelector('[data-testid="createSpace"]')).toBeNull();
+		expect(openChat(root)?.dataset.path).toBe(chatPath(LAB, "design"));
+	});
+
+	it("reuses a parked chat of the same channel without remounting it", async () => {
+		const { stack, root } = mount(
+			`/app/c/${HQ}`,
+			"402px",
+			swipeForward(twoSpaces()),
+		);
+		stack.push({
+			kind: "chat",
+			space: HQ,
+			channel: "general",
+			channelType: TEXT,
+		});
+		await until(settledAt(stack, 1));
+		const parked = openChat(root);
+		stack.pop();
+		await until(settledAt(stack, 0));
+		expect(parked?.isConnected).toBe(true);
+		await swipeForwardOn(root);
+		await until(settledAt(stack, 1));
+		expect(openChat(root)).toBe(parked);
+	});
+
+	it("doesn't re-enter a settings page you backed out of", async () => {
+		const { stack, root } = mount(
+			"/app/settings",
+			"402px",
+			swipeForward(twoSpaces()),
+		);
+		stack.push({ kind: "settings", page: "appearance" });
+		await until(settledAt(stack, 1));
+		stack.pop();
+		await until(settledAt(stack, 0));
+		await swipeForwardOn(root);
+		await wait(150);
+		expect(stack.activeDepth()).toBe(0);
+		expect(stack.top()).toBeUndefined();
+	});
+
+	it("opens nothing on the settings tab after leaving a chat", async () => {
+		const { stack, root } = mount(
+			`/app/c/${HQ}`,
+			"402px",
+			swipeForward(twoSpaces()),
+		);
+		stack.push({
+			kind: "chat",
+			space: HQ,
+			channel: "general",
+			channelType: TEXT,
+		});
+		await until(settledAt(stack, 1));
+		stack.pop();
+		await until(settledAt(stack, 0));
+		stack.setRoot({ tab: "settings" });
+		expect(stack.mounted()).toEqual([]);
+		await swipeForwardOn(root);
+		await wait(150);
+		expect(stack.activeDepth()).toBe(0);
+		expect(openChat(root)).toBeNull();
+	});
+});
+
+describe("pane motion settings", () => {
+	it("snaps a released swipe to its target with reduced motion", async () => {
+		document.documentElement.dataset.reducedMotion = "true";
+		const { stack, root } = mount(chatPath(HQ, "general"));
+		await until(() => !!frame(root, 1));
+		await swipeForwardOn(root);
+		expect(stack.moving()).toBe(false);
+		expect(stack.activeDepth()).toBe(2);
+		expect(frame(root, 2).style.transform).toBe("");
+		expect(frame(root, 2).getAnimations()).toHaveLength(0);
+	});
+
+	it("follows the finger during a drag with reduced motion", async () => {
+		document.documentElement.dataset.reducedMotion = "true";
+		const { root } = mount(chatPath(HQ, "general"));
+		await until(() => !!frame(root, 1));
+		const surface = stackRoot(root);
+		pointer(surface, "pointerdown", 360, 400);
+		for (const dx of [-12, -40, -80, -120]) {
+			pointer(surface, "pointermove", 360 + dx, 400);
+			await wait(8);
+		}
+		const offset = translateX(frame(root, 2));
+		expect(offset).toBeGreaterThan(0);
+		expect(offset).toBeLessThan(402);
+		pointer(document.body, "pointerup", 240, 400);
+	});
+
+	it("fades a tapped layer in with reduced motion", async () => {
+		document.documentElement.dataset.reducedMotion = "true";
+		const { stack, root } = mount();
+		stack.push(chat);
+		await until(settledAt(stack, 1));
+		expect(frame(root, 1).style.transform).toBe("");
+		expect(frame(root, 1).getAnimations()).toHaveLength(1);
+	});
+
+	it("stretches the pane spring by the motion scale", async () => {
+		document.documentElement.dataset.slowMotion = "true";
+		const { stack } = mount();
+		stack.push(chat);
+		await wait(900);
+		expect(stack.moving()).toBe(true);
+		await until(settledAt(stack, 1), 6000);
 	});
 });

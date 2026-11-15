@@ -37,7 +37,7 @@ import { NotificationHost } from "./NotificationHost";
 import { installOverlayBack } from "./overlay-back";
 import { AdminScreen, AppScreen } from "./registry";
 import { createStack } from "./stack";
-import { canSwipeForward, membersForward } from "./swipe-forward";
+import { canSwipeForward, swipeForward } from "./swipe-forward";
 import { installTapGuard } from "./tap-guard";
 import { WriteFailureToasts } from "./WriteFailureToasts";
 
@@ -89,7 +89,7 @@ export const MobileShell = () => {
 				selecting: messageSelectionActive(),
 				swipeLeftAction: data.controls().swipeLeftAction,
 			}),
-		forward: membersForward,
+		forward: swipeForward(data),
 	});
 
 	const selectTab = (tab: string) => {

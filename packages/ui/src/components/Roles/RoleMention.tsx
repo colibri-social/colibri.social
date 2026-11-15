@@ -53,7 +53,9 @@ export const RoleMentionHeader = (props: RoleMentionData) => {
 			</span>
 			<Show
 				when={props.members}
-				fallback={<span class="h-4 w-28 animate-pulse rounded bg-muted" />}
+				fallback={
+					<span class="h-4 w-28 animate-[ui-pulse_calc(2s*var(--motion-scale))_cubic-bezier(0.4,0,0.6,1)_infinite] rounded bg-muted motion-reduce:animate-none reduced-motion:animate-none" />
+				}
 			>
 				<span class="text-xs text-muted-foreground tabular-nums">
 					{countLabel(total(), online())}

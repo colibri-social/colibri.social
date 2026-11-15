@@ -109,7 +109,11 @@
 }
 
 :root[data-slow-motion="true"] {
-	--motion-scale: 5;
+	--motion-scale: 5 !important;
+}
+
+@theme {
+	--default-transition-duration: calc(150ms * var(--motion-scale));
 }
 
 @theme inline {

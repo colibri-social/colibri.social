@@ -1,4 +1,5 @@
 import { createSignal } from "solid-js";
+import { prefersReducedMotion } from "./motion";
 
 const [domFocused, setDomFocused] = createSignal(true);
 const [hostActive, setHostActive] = createSignal<boolean | undefined>(
@@ -30,10 +31,14 @@ const documentActive = () => {
 	return typeof doc.hasFocus === "function" ? doc.hasFocus() : true;
 };
 
-const readReducedMotion = () => {
-	if (document.documentElement.dataset.reducedMotion === "true") return true;
-	if (!window.matchMedia) return false;
-	return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const MOTION_ATTRIBUTES = [
+	"data-reduced-motion",
+	"data-motion-scale",
+	"data-slow-motion",
+];
+
+const syncReducedMotion = () => {
+	setReducedMotion(prefersReducedMotion());
 };
 
 const reconcile = () => {
@@ -68,14 +73,14 @@ const install = () => {
 		target.addEventListener("visibilitychange", onHidden);
 	}
 	setDomFocused(topDocument().visibilityState !== "hidden");
-	setReducedMotion(readReducedMotion());
+	syncReducedMotion();
 	window
 		.matchMedia?.("(prefers-reduced-motion: reduce)")
-		.addEventListener?.("change", () => setReducedMotion(readReducedMotion()));
-	new MutationObserver(() => setReducedMotion(readReducedMotion())).observe(
-		document.documentElement,
-		{ attributes: true, attributeFilter: ["data-reduced-motion"] },
-	);
+		.addEventListener?.("change", syncReducedMotion);
+	new MutationObserver(syncReducedMotion).observe(document.documentElement, {
+		attributes: true,
+		attributeFilter: MOTION_ATTRIBUTES,
+	});
 };
 
 export const setAppActive = (active: boolean | undefined) => {
