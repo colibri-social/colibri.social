@@ -46,7 +46,7 @@ export const RECORD_EXPLORER_LINKS: Record<RecordExplorer, ExplorerLink> = {
 	},
 	atprotoAt: {
 		name: "atproto.at",
-		href: (uri) => `https://atproto.at/uri/${uri.replace(/^at:\/\//, "")}`,
+		href: (uri) => `https://atproto.at/uri/${uri}`,
 	},
 };
 

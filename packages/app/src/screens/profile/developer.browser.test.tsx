@@ -144,7 +144,7 @@ describe("developer mode cards", () => {
 		void store.preferences.setClient({ recordExplorer: "atprotoAt" });
 		await until(() => !!explorerLink(root, "atproto.at"));
 		expect(explorerLink(root, "atproto.at")?.href).toBe(
-			`https://atproto.at/uri/${store.viewer.did}`,
+			`https://atproto.at/uri/at://${store.viewer.did}`,
 		);
 		expect(pdslsLink(root)).toBeUndefined();
 	});

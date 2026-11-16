@@ -140,11 +140,11 @@ export const AtprotoAtExplorer: Story = {
 		const links = canvas.getAllByRole("link", { name: "Show on atproto.at" });
 		await expect(links[0]).toHaveAttribute(
 			"href",
-			"https://atproto.at/uri/did:plc:colibrisocialflock",
+			"https://atproto.at/uri/at://did:plc:colibrisocialflock",
 		);
 		await expect(links[1]).toHaveAttribute(
 			"href",
-			"https://atproto.at/uri/did:plc:colibrisocialflock/social.colibri.beta.role/bots",
+			"https://atproto.at/uri/at://did:plc:colibrisocialflock/social.colibri.beta.role/bots",
 		);
 	},
 };
