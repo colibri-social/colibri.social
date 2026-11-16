@@ -77,7 +77,7 @@ const fetchResponse = async (src: string) => {
 	}
 };
 
-const fetchMedia = async (src: string, fallbackType?: string) => {
+export const fetchMedia = async (src: string, fallbackType?: string) => {
 	const response = await fetchResponse(src);
 
 	if (!response.ok) throw new Error(`media request failed: ${response.status}`);

@@ -141,6 +141,8 @@ const Harness = (props: {
 	initialValue?: RichText | string;
 	maxLength?: number;
 	autofocus?: boolean;
+	pasteAsFileOver?: number;
+	onPasteFiles?: (files: File[]) => void;
 	onReady?: (handle: RichEditorHandle) => void;
 }) => {
 	const [value, setValue] = createSignal<RichText>({ text: "", facets: [] });
@@ -152,6 +154,8 @@ const Harness = (props: {
 				initialValue={props.initialValue}
 				maxLength={props.maxLength}
 				autofocus={props.autofocus}
+				pasteAsFileOver={props.pasteAsFileOver}
+				onPasteFiles={props.onPasteFiles}
 				onSubmit={(next) => {
 					onSubmit(next);
 					return undefined;
@@ -571,6 +575,95 @@ export const PasteLinkOverSelection: Story = {
 			expect(featureTypes(currentValue(canvasElement))).toEqual(["link"]),
 		);
 		await expect(currentValue(canvasElement).text).toBe("read the docs");
+	},
+};
+
+const onPasteFiles = fn();
+
+const pastedFile = () => {
+	const files = onPasteFiles.mock.calls[0]?.[0] as File[] | undefined;
+
+	return files?.[0];
+};
+
+export const PasteLongTextAsFile: Story = {
+	render: () => (
+		<Harness
+			platform="desktop"
+			pasteAsFileOver={20}
+			onPasteFiles={onPasteFiles}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		onPasteFiles.mockClear();
+
+		const editor = field(canvasElement);
+		const long = "# Notes\nthis is longer";
+
+		await userEvent.click(editor);
+		pasteInto(editor, { "text/plain": long });
+		await waitFor(() => expect(onPasteFiles).toHaveBeenCalledTimes(1));
+		await expect(pastedFile()?.name).toBe("message.txt");
+		await expect(pastedFile()?.type).toBe("text/plain");
+		await expect(await pastedFile()?.text()).toBe(long);
+		await expect(currentValue(canvasElement).text).toBe("");
+	},
+};
+
+export const PasteAtLimitStaysInline: Story = {
+	render: () => (
+		<Harness
+			platform="desktop"
+			pasteAsFileOver={20}
+			onPasteFiles={onPasteFiles}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		onPasteFiles.mockClear();
+
+		const editor = field(canvasElement);
+
+		await userEvent.click(editor);
+		pasteInto(editor, { "text/plain": "exactly twenty chars" });
+		await waitFor(() =>
+			expect(currentValue(canvasElement).text).toBe("exactly twenty chars"),
+		);
+		await expect(onPasteFiles).not.toHaveBeenCalled();
+	},
+};
+
+export const PasteCountsBytes: Story = {
+	render: () => (
+		<Harness
+			platform="desktop"
+			pasteAsFileOver={20}
+			onPasteFiles={onPasteFiles}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		onPasteFiles.mockClear();
+
+		const editor = field(canvasElement);
+
+		await userEvent.click(editor);
+		pasteInto(editor, { "text/plain": "über straße grüße" });
+		await waitFor(() => expect(onPasteFiles).toHaveBeenCalledTimes(1));
+		await expect(currentValue(canvasElement).text).toBe("");
+	},
+};
+
+export const PasteLongTextWithoutFileHandler: Story = {
+	render: () => <Harness platform="desktop" pasteAsFileOver={20} />,
+	play: async ({ canvasElement }) => {
+		const editor = field(canvasElement);
+
+		await userEvent.click(editor);
+		pasteInto(editor, { "text/plain": "this paste is longer than twenty" });
+		await waitFor(() =>
+			expect(currentValue(canvasElement).text).toBe(
+				"this paste is longer than twenty",
+			),
+		);
 	},
 };
 

@@ -309,6 +309,7 @@ export const Composer = (props: ComposerProps) => {
 									onEscape={handleEscape}
 									onEditLast={props.onEditLast}
 									onPasteFiles={props.onPasteFiles}
+									pasteAsFileOver={props.onPasteFiles ? max() : undefined}
 									sources={props.sources}
 									autofocus={props.autofocus}
 									anchorSuggestionsToParent

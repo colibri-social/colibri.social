@@ -124,6 +124,7 @@ export type RichEditorProps = {
 	onEscape?: () => void;
 	onEditLast?: () => boolean;
 	onPasteFiles?: (files: File[]) => void;
+	pasteAsFileOver?: number;
 	maxLength?: number;
 	maxLines?: number;
 	lineHeight?: number;
@@ -140,6 +141,7 @@ export const DEFAULT_LINE_HEIGHT = MESSAGE_LINE_HEIGHT;
 const DEFAULT_MAX_LINES = 8;
 const BUBBLE_GAP = 8;
 const VIEWPORT_GAP = 8;
+const LONG_PASTE_FILE_NAME = "message.txt";
 
 const EMPTY_VALUE: RichText = { text: "", facets: [] };
 
@@ -470,6 +472,15 @@ export const RichEditor = (props: RichEditorProps) => {
 		}, restore);
 	};
 
+	const longPasteFile = (text: string) => {
+		const limit = props.pasteAsFileOver;
+
+		if (!props.onPasteFiles || limit === undefined) return undefined;
+		if (utf8Length(text) <= limit) return undefined;
+
+		return new File([text], LONG_PASTE_FILE_NAME, { type: "text/plain" });
+	};
+
 	const insertParsedText = (instance: Editor, text: string, focus = true) => {
 		const parsed = parseMarkdown(text, [], {
 			...MARKDOWN_LINK_POLICY,
@@ -678,9 +689,25 @@ export const RichEditor = (props: RichEditorProps) => {
 							return false;
 						}
 						const files = extractFiles(input.dataTransfer);
-						if (files.length === 0) return false;
-						props.onPasteFiles(files);
+
+						if (files.length > 0) {
+							props.onPasteFiles(files);
+							event.preventDefault();
+
+							return true;
+						}
+
+						if (input.inputType !== "insertFromPaste") return false;
+
+						const file = longPasteFile(
+							input.dataTransfer?.getData("text/plain") ?? "",
+						);
+
+						if (!file) return false;
+
+						props.onPasteFiles([file]);
 						event.preventDefault();
+
 						return true;
 					},
 				},
@@ -700,6 +727,14 @@ export const RichEditor = (props: RichEditorProps) => {
 					const plain = plainPasteRequested;
 					plainPasteRequested = false;
 					const pastedText = data?.getData("text/plain") ?? "";
+					const longPaste = longPasteFile(pastedText);
+
+					if (longPaste) {
+						props.onPasteFiles?.([longPaste]);
+
+						return true;
+					}
+
 					const trimmed = pastedText.trim();
 
 					if (

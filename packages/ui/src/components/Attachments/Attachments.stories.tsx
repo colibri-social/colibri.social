@@ -1,5 +1,5 @@
 import { createSignal, type JSX, Show } from "solid-js";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectFocusRingVisible } from "../../foundations/focus-ring-test";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
@@ -23,6 +23,7 @@ import { LinkEmbed, LinkEmbedSkeleton } from "./LinkEmbed";
 import { MediaGrid, MediaGridSkeleton, type MediaItem } from "./MediaGrid";
 import { type RichTextBlock, SocialPostEmbed } from "./SocialPostEmbed";
 import { fixtureImage, fixtureImages } from "./story-fixtures";
+import { TextAttachment } from "./TextAttachment";
 
 const meta = {
 	title: "Messaging/Attachments",
@@ -459,6 +460,251 @@ export const SpoilerFiles: Story = {
 
 export const SpoilerFilesDesktop: Story = {
 	render: () => <SpoilerFileCases desktop />,
+};
+
+const SHORT_PASTE = `Train times for Saturday
+08:12 Hamburg Hbf
+10:41 Berlin Hbf`;
+
+const LONG_PASTE = Array.from(
+	{ length: 40 },
+	(_, line) =>
+		`[14:${String(line).padStart(2, "0")}:07] relay connected, cursor ${
+			48_201 + line * 13
+		}, 3 subscribers`,
+).join("\n");
+
+const MARKDOWN_NOTES = `# Release checklist
+
+Before tagging, go through **every** item below.
+
+## Steps
+
+- Bump the version in \`package.json\`
+- Run the *full* test suite
+- Write the changeset
+
+1. Tag the commit
+2. Push the tag
+
+> Store review takes about a day.
+
+\`\`\`sh
+pnpm changeset version
+pnpm build
+\`\`\`
+
+Questions go to [the release thread](https://colibri.social).`;
+
+const onTextDownload = fn();
+
+const byteSize = (text: string) => new TextEncoder().encode(text).length;
+
+const TextFileCases = (props: { desktop?: boolean }) => (
+	<Screen desktop={props.desktop}>
+		<div data-testid="text-files">
+			<Message
+				attachments={
+					<TextAttachment
+						name="message.txt"
+						size={byteSize(SHORT_PASTE)}
+						text={SHORT_PASTE}
+						onDownload={onTextDownload}
+					/>
+				}
+			/>
+			<Message
+				name="Lis"
+				attachments={
+					<TextAttachment
+						name="message.txt"
+						size={byteSize(LONG_PASTE)}
+						text={LONG_PASTE}
+						onDownload={onTextDownload}
+					/>
+				}
+			/>
+			<Message
+				name="Tim"
+				text="Notes for tomorrow"
+				attachments={
+					<TextAttachment
+						name="release-checklist.md"
+						size={byteSize(MARKDOWN_NOTES)}
+						text={MARKDOWN_NOTES}
+						onDownload={onTextDownload}
+					/>
+				}
+			/>
+			<Message
+				name="Lis"
+				attachments={<TextAttachment name="message.txt" size={6_214} />}
+			/>
+			<Message
+				name="Tim"
+				attachments={
+					<TextAttachment
+						name="server-log.txt"
+						size={12_288}
+						failed
+						onDownload={onTextDownload}
+					/>
+				}
+			/>
+			<Message
+				name="Lis"
+				text="Plot of the finale, do not open"
+				attachments={
+					<TextAttachment
+						name="finale.md"
+						size={byteSize(MARKDOWN_NOTES)}
+						text={MARKDOWN_NOTES}
+						spoiler
+					/>
+				}
+			/>
+		</div>
+	</Screen>
+);
+
+export const TextFiles: Story = {
+	parameters: mobile,
+	render: () => <TextFileCases />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const bodies = canvasElement.querySelectorAll<HTMLElement>(
+			"[data-text-attachment-body]",
+		);
+
+		await expect(bodies[0]).not.toHaveAttribute("data-clamped");
+		await waitFor(() => expect(bodies[1]).toHaveAttribute("data-clamped"));
+		await expect(bodies[1]?.getBoundingClientRect().height).toBe(160);
+		await expect(canvas.getAllByText(/^Markdown · \d+ B$/)[0]).toBeVisible();
+		await expect(
+			canvasElement.querySelector("[data-text-attachment-loading]"),
+		).toHaveAttribute("aria-busy", "true");
+		await expect(
+			canvas.getAllByRole("button", { name: "Expand message.txt" })[2],
+		).toHaveAttribute("aria-disabled", "true");
+		await expect(
+			canvasElement.querySelector("[data-file-attachment]"),
+		).toHaveTextContent("server-log.txt");
+		await expect(
+			canvas.getByRole("button", { name: "Reveal spoiler file" }),
+		).toBeVisible();
+
+		await userEvent.click(
+			canvas.getAllByRole("button", { name: "Download message.txt" })[0]!,
+		);
+		await expect(onTextDownload).toHaveBeenCalledTimes(1);
+		await expectNoLayoutIssues(canvas.getByTestId("text-files"));
+	},
+};
+
+export const TextFilesDesktop: Story = {
+	render: () => <TextFileCases desktop />,
+};
+
+const TextViewerCase = () => (
+	<Screen>
+		<Message
+			text="Notes for tomorrow"
+			attachments={
+				<TextAttachment
+					name="release-checklist.md"
+					size={byteSize(MARKDOWN_NOTES)}
+					text={MARKDOWN_NOTES}
+					onDownload={onTextDownload}
+				/>
+			}
+		/>
+		<Message
+			name="Lis"
+			attachments={
+				<TextAttachment
+					name="message.txt"
+					size={byteSize(LONG_PASTE)}
+					text={LONG_PASTE}
+				/>
+			}
+		/>
+	</Screen>
+);
+
+const openViewer = async (canvasElement: HTMLElement, name: string) => {
+	await userEvent.click(
+		within(canvasElement).getByRole("button", { name: `Expand ${name}` }),
+	);
+
+	return await screen.findByRole("dialog", { name });
+};
+
+export const TextViewerMarkdown: Story = {
+	parameters: mobile,
+	render: () => <TextViewerCase />,
+	play: async ({ canvasElement }) => {
+		const dialog = await openViewer(canvasElement, "release-checklist.md");
+		const view = within(dialog);
+
+		await waitFor(() =>
+			expect(
+				view.getByRole("heading", { name: "Release checklist" }),
+			).toBeVisible(),
+		);
+		await expect(view.getByRole("heading", { name: "Steps" })).toBeVisible();
+		await expect(
+			dialog.querySelector('ul[data-facet-type="list"]'),
+		).not.toBeNull();
+		await expect(
+			dialog.querySelector('ol[data-facet-type="list"]'),
+		).not.toBeNull();
+		await expect(view.getByText("every").tagName).toBe("STRONG");
+		await expect(dialog).toHaveTextContent("pnpm changeset version");
+		await expect(dialog).not.toHaveTextContent("```");
+		await expect(dialog).not.toHaveTextContent("# Release");
+		await expectNoLayoutIssues(dialog);
+
+		await userEvent.click(
+			view.getByRole("button", { name: "Download release-checklist.md" }),
+		);
+		await expect(onTextDownload).toHaveBeenCalled();
+		await userEvent.click(view.getByRole("button", { name: "Close" }));
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+		);
+	},
+};
+
+export const TextViewerMarkdownDesktop: Story = {
+	render: () => <TextViewerCase />,
+	play: async ({ canvasElement }) => {
+		const dialog = await openViewer(canvasElement, "release-checklist.md");
+
+		await expectNoLayoutIssues(dialog);
+	},
+};
+
+export const TextViewerLongPaste: Story = {
+	parameters: mobile,
+	render: () => <TextViewerCase />,
+	play: async ({ canvasElement }) => {
+		const dialog = await openViewer(canvasElement, "message.txt");
+		const scroller = dialog.querySelector<HTMLElement>(
+			"[data-text-attachment-viewer]",
+		);
+
+		await expect(dialog).toHaveTextContent("cursor 48201");
+		await expect(dialog).toHaveTextContent("cursor 48708");
+		await expect(
+			within(dialog).queryByRole("button", { name: /^Download/ }),
+		).toBeNull();
+		await waitFor(() =>
+			expect(scroller?.scrollHeight ?? 0).toBeGreaterThan(
+				scroller?.clientHeight ?? 0,
+			),
+		);
+		await expectNoLayoutIssues(dialog);
+	},
 };
 
 const LinkCases = (props: { desktop?: boolean }) => (

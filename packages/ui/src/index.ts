@@ -6,6 +6,8 @@ export * from "./components/Attachments/HiddenMessage";
 export * from "./components/Attachments/LinkEmbed";
 export * from "./components/Attachments/MediaGrid";
 export * from "./components/Attachments/SocialPostEmbed";
+export * from "./components/Attachments/TextAttachment";
+export * from "./components/Attachments/TextAttachmentViewer";
 export * from "./components/Avatar/Avatar";
 export * from "./components/Avatar/default-avatars/default-avatars";
 export * from "./components/Badge/Badge";

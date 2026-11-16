@@ -1,3 +1,4 @@
+import { classifyThrown, createLogger } from "@colibri-social/lib";
 import {
 	AudioAttachment,
 	BlueskyPostEmbed,
@@ -10,6 +11,8 @@ import {
 	type MediaItem,
 	type RichTextExternalLink,
 	SocialPostEmbed,
+	TextAttachment,
+	textAttachmentFormatOf,
 } from "@colibri-social/ui";
 import {
 	createMemo,
@@ -43,9 +46,60 @@ import type {
 	LinkEmbed as LinkEmbedView,
 } from "../../../data/types";
 import { externalAnchorOf } from "../../../native/open-external";
-import { downloadMedia, lightboxImageActions } from "./image-actions";
+import {
+	downloadMedia,
+	fetchMedia,
+	lightboxImageActions,
+} from "./image-actions";
 import { InviteEmbed } from "./invite-embed";
 import { PackEmbed } from "./pack-embed";
+
+type MessageFile = SplitAttachments["files"][number];
+
+const TEXT_PREVIEW_MAX_BYTES = 64 * 1024;
+
+const log = createLogger("message-attachments");
+
+const previewsAsText = (file: MessageFile) => {
+	return (
+		!!file.href &&
+		file.size <= TEXT_PREVIEW_MAX_BYTES &&
+		textAttachmentFormatOf(file.name, file.mimeType) !== undefined
+	);
+};
+
+const loadText = async (href: string, mimeType?: string) => {
+	try {
+		const blob = await fetchMedia(href, mimeType);
+
+		return await blob.text();
+	} catch (thrown) {
+		const error = classifyThrown(thrown, { method: "attachment.text" });
+
+		log.warn("attachment.text failed", { code: error.code });
+
+		throw error;
+	}
+};
+
+const TextFile = (props: { file: MessageFile; onDownload?: () => void }) => {
+	const [text] = createResource(
+		() => props.file.href,
+		(href) => loadText(href, props.file.mimeType),
+	);
+
+	return (
+		<TextAttachment
+			name={props.file.name}
+			size={props.file.size}
+			mimeType={props.file.mimeType}
+			spoiler={props.file.spoiler}
+			text={text.state === "ready" ? text() : undefined}
+			failed={text.state === "errored"}
+			onDownload={props.onDownload}
+		/>
+	);
+};
 
 const routeEmbedLink = (
 	event: MouseEvent,
@@ -404,21 +458,25 @@ export const MessageAttachments = (props: {
 				)}
 			</For>
 			<For each={props.split.files}>
-				{(file) => (
-					<FileAttachment
-						{...file}
-						onDownload={
-							file.href
-								? () =>
-										void downloadMedia({
-											src: file.href ?? "",
-											name: file.name,
-											mimeType: file.mimeType,
-										})
-								: undefined
-						}
-					/>
-				)}
+				{(file) => {
+					const download = file.href
+						? () =>
+								void downloadMedia({
+									src: file.href ?? "",
+									name: file.name,
+									mimeType: file.mimeType,
+								})
+						: undefined;
+
+					return (
+						<Show
+							when={previewsAsText(file)}
+							fallback={<FileAttachment {...file} onDownload={download} />}
+						>
+							<TextFile file={file} onDownload={download} />
+						</Show>
+					);
+				}}
 			</For>
 			<For each={embedUris()}>
 				{(uri) => (
