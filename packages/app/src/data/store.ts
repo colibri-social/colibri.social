@@ -912,7 +912,7 @@ export const createDataStore = (
 		const notifications = createNotificationStore(source, (views, seen) => {
 			const counts = new Map<SpaceRef, number>();
 			for (const view of views) {
-				if (view.thread || !view.message || !isPingNotification(view)) continue;
+				if (view.thread || !isPingNotification(view)) continue;
 				counts.set(view.channel, (counts.get(view.channel) ?? 0) + 1);
 			}
 			batch(() => {
@@ -3362,6 +3362,7 @@ export const createDataStore = (
 						if (current && current.rkey === rkey) {
 							void loadSummaries(communityOfRef(event.channel), event.channel);
 						}
+						if (rkey) notifications.dropMessage(event.channel, rkey);
 					}
 					if (!messageListeners.get(event.channel)?.(event)) feedTail(event);
 					return;

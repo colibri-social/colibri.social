@@ -1,8 +1,8 @@
 import "../../app.css";
 import { setRecordExplorer } from "@colibri-social/ui";
 import { render } from "solid-js/web";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { page } from "vitest/browser";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { page, userEvent } from "vitest/browser";
 import { expectNoLayoutIssues } from "../../../../ui/src/foundations/layout-test";
 import { createMockSource, setLatency } from "../../data/mock/source";
 import { createDataStore, DataContext } from "../../data/store";
@@ -75,6 +75,26 @@ const copyDid = (scope: ParentNode) =>
 		(button) => button.textContent?.trim() === "Copy DID",
 	);
 
+const menuItem = (label: string) =>
+	Array.from(document.querySelectorAll<HTMLElement>("[role='menuitem']")).find(
+		(entry) => entry.textContent?.includes(label),
+	);
+
+const openProfileMenu = async () => {
+	const trigger = document.querySelector<HTMLElement>(
+		"[data-profile-menu-trigger]",
+	);
+	if (!trigger) throw new Error("profile menu trigger missing");
+	await userEvent.click(trigger);
+	await until(() => !!document.querySelector("[role='menu']"));
+	await wait(50);
+};
+
+const closeProfileMenu = async () => {
+	await userEvent.keyboard("{Escape}");
+	await until(() => !document.querySelector("[role='menu']"));
+};
+
 const openRailDrawer = async (root: HTMLElement) => {
 	await until(() =>
 		Array.from(
@@ -136,7 +156,7 @@ describe("developer mode cards", () => {
 		expect(copyDid(drawer)).toBeUndefined();
 	});
 
-	it("shows another member's DID in the profile popover only in developer mode", async () => {
+	it("shows another member's DID in the profile popover menu only in developer mode", async () => {
 		setLatency(0);
 		await page.viewport(1440, 900);
 		const store = createDataStore(createMockSource({ live: false }));
@@ -175,13 +195,25 @@ describe("developer mode cards", () => {
 			host,
 		);
 		open(other.actor.did, HQ, { element: anchor });
-		await until(() => !!document.querySelector("[data-profile-link]"));
-		expect(pdslsLink(document)).toBeUndefined();
-		expect(copyDid(document)).toBeUndefined();
+		await until(() => !!document.querySelector("[data-profile-menu-trigger]"));
+		await openProfileMenu();
+		expect(menuItem("Copy DID")).toBeTruthy();
+		expect(menuItem("Developer mode")).toBeUndefined();
+		await closeProfileMenu();
 		store.setControls({ developerMode: true });
-		await until(() => !!pdslsLink(document));
-		expect(pdslsLink(document)?.href).toBe(
+		await openProfileMenu();
+		const developer = menuItem("Developer mode");
+		if (!developer) throw new Error("developer submenu missing");
+		developer.focus();
+		await userEvent.keyboard("{ArrowRight}");
+		await until(() => !!menuItem("Show on PDSls"));
+		const opened = vi.spyOn(window, "open").mockReturnValue(null);
+		await userEvent.click(menuItem("Show on PDSls") as HTMLElement);
+		expect(opened).toHaveBeenCalledWith(
 			`https://pdsls.dev/at://${other.actor.did}`,
+			expect.anything(),
+			expect.anything(),
 		);
+		opened.mockRestore();
 	});
 });

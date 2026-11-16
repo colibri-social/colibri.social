@@ -631,6 +631,53 @@ export const Replying: Story = {
 
 const onJumpToReply = fn();
 
+export const ReplyCancelKeepsEditorFocus: Story = {
+	render: () => {
+		const [replying, setReplying] = createSignal(true);
+		return (
+			<MobileScreen>
+				<Composer
+					channelName="general"
+					onSend={onSend}
+					top={
+						<ReplyBar
+							open={replying()}
+							name="Lou"
+							onClick={onJumpToReply}
+							onCancel={() => {
+								onCancel();
+								setReplying(false);
+							}}
+						/>
+					}
+				/>
+			</MobileScreen>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		onCancel.mockClear();
+		onJumpToReply.mockClear();
+		const canvas = within(canvasElement);
+		const field = textarea(canvasElement);
+		const bar = canvasElement.querySelector<HTMLElement>(
+			'[data-composer-bar="reply"]',
+		);
+		if (!bar) throw new Error("Missing reply bar");
+
+		await userEvent.click(field);
+		await waitFor(() => expect(field).toHaveFocus());
+		await userEvent.click(
+			within(bar).getByRole("button", { name: /^Replying to Lou/ }),
+		);
+		await expect(onJumpToReply).toHaveBeenCalledOnce();
+		await expect(field).toHaveFocus();
+		await userEvent.click(canvas.getByRole("button", { name: "Cancel reply" }));
+		await expect(onCancel).toHaveBeenCalledOnce();
+		await expect(bar).not.toHaveAttribute("data-open");
+		await expect(field).toHaveFocus();
+	},
+};
+
 const DELETED_PING_NOTICE = "The message that pinged you was deleted.";
 const CLOSED_THREAD_NOTICE =
 	"This thread is closed. Sending a message reopens it.";

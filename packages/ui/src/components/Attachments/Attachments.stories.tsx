@@ -902,6 +902,44 @@ export const EmbedsRemovable: Story = {
 	},
 };
 
+export const EmbedRemoveAboveImage: Story = {
+	render: () => (
+		<Screen>
+			<div data-testid="embed-remove-images" class="flex flex-col gap-3 px-4">
+				<LinkEmbed
+					url="https://atproto.com/guides/overview"
+					siteName="AT Protocol"
+					title="Protocol overview"
+					description="An open, decentralized network for social apps."
+					imageStyle="thumbnail"
+					image={fixtureImage(2, 600, 600)}
+					onOpenImage={() => undefined}
+					onRemove={() => undefined}
+				/>
+			</div>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const remove = canvas.getByRole("button", { name: "Remove link preview" });
+		const image = canvas.getByRole("button", {
+			name: "Open image from AT Protocol",
+		});
+		const box = remove.getBoundingClientRect();
+		const imageBox = image.getBoundingClientRect();
+		const x = box.left + box.width / 2;
+		const y = box.top + box.height / 2;
+
+		await expect(box.right > imageBox.left && box.bottom > imageBox.top).toBe(
+			true,
+		);
+
+		await expect(remove.contains(document.elementFromPoint(x, y))).toBe(true);
+
+		await expectNoLayoutIssues(canvas.getByTestId("embed-remove-images"));
+	},
+};
+
 export const MediaUploading: Story = {
 	render: () => (
 		<div class="w-[402px] p-4" data-testid="uploading-host">

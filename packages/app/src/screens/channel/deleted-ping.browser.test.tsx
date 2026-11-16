@@ -126,7 +126,7 @@ const mountWelcome = async (
 		source: ReturnType<typeof createMockSource>,
 		welcome: SpaceRef,
 		messages: MessageView[],
-	) => { cache?: MessageCache; ping: NotificationView },
+	) => { cache?: MessageCache; ping: NotificationView; listed?: boolean },
 ) => {
 	setVoiceSoundPlayer(() => {});
 	await page.viewport(402, 874);
@@ -140,7 +140,18 @@ const mountWelcome = async (
 	if (!record) throw new Error("Seed changed");
 	const welcome = record.view.space;
 	const messages = source.world.messagesOf(record);
-	const { cache, ping } = build(source, welcome, messages);
+	const { cache, ping, listed } = build(source, welcome, messages);
+
+	if (listed) {
+		const list = source.listNotifications;
+
+		source.listNotifications = async (params) => {
+			const page = await list(params);
+
+			return params?.cursor ? page : { ...page, items: [ping, ...page.items] };
+		};
+	}
+
 	const store = createDataStore(source, cache ? { cache } : {});
 	const host = document.createElement("div");
 	host.style.cssText = "position:fixed;inset:0";
@@ -157,7 +168,7 @@ const mountWelcome = async (
 	);
 	await until(() => !!channelButton("welcome"));
 	await until(() => store.notifications.status() === "ready");
-	source.emit({ $type: "notificationEvent", notification: ping });
+	if (!listed) source.emit({ $type: "notificationEvent", notification: ping });
 	const seen = () =>
 		store.notifications.items().find((entry) => entry.id === ping.id)?.seenAt;
 	return { store, welcome, seen };
@@ -193,5 +204,17 @@ it("confirms a missing ping before showing the banner and marking it read", asyn
 	channelButton("welcome")?.click();
 	await until(() => banner()?.dataset.open !== undefined);
 	expect(banner()?.textContent).toContain(DELETED_PING_COPY);
+	await until(() => !!seen());
+});
+
+it("marks a ping read when its message was gone before it loaded", async () => {
+	const { seen } = await mountWelcome((_source, welcome, messages) => {
+		const { message: _message, ...ping } = pingFor(
+			messages.at(-1) as MessageView,
+			welcome,
+		);
+		return { ping: { ...ping, kind: "reply" }, listed: true };
+	});
+	channelButton("welcome")?.click();
 	await until(() => !!seen());
 });

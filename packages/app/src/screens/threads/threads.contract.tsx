@@ -22,6 +22,7 @@ import {
 	Switch,
 } from "solid-js";
 import { formatAge } from "../../data/adapters/time";
+import { blueskyUrlRewriter } from "../../data/bluesky-client";
 import { viewerCan } from "../../data/channel-permissions";
 import { skeyOf } from "../../data/ids";
 import { useData } from "../../data/store";
@@ -177,6 +178,7 @@ export const threads = defineContract({
 				live: (entry) => data.lastMessage(entry.space),
 				emoji: (feature) => data.emoji.mention(community()?.did, feature),
 				isBlocked: (did) => data.preferences.isBlocked(did),
+				rewriteUrl: blueskyUrlRewriter(data.preferences),
 			});
 		return {
 			args,

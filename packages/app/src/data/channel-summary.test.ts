@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { linkMessage } from "./adapters/facets";
+import { blueskyUrlRewriter } from "./bluesky-client";
 import {
 	newerSummary,
 	summarizeChannel,
@@ -7,6 +8,7 @@ import {
 	summarizePending,
 	summaryParts,
 } from "./channel-summary";
+import type { PreferenceStore } from "./preferences/store";
 import type { Facet, MessageView } from "./types";
 
 const GIF_URL = "https://static.klipy.com/ii/e7539ef2/abc.gif";
@@ -22,6 +24,29 @@ const emojiFacet = (byteStart: number, byteEnd: number, uri = KEK): Facet => ({
 
 const emojiFor = (feature: Facet["features"][number]) =>
 	"uri" in feature && feature.uri === KEK ? { name: "kek" } : undefined;
+
+const MU_LINK = "https://mu.social/profile/lou.gg";
+
+const BSKY_LINK = "https://bsky.app/profile/lou.gg";
+
+const linkFacet = (
+	byteStart: number,
+	byteEnd: number,
+	uri = MU_LINK,
+): Facet => ({
+	index: { byteStart, byteEnd },
+	features: [
+		{ $type: "social.colibri.beta.richtext.facet#link", uri },
+	] as Facet["features"],
+});
+
+const toBluesky = blueskyUrlRewriter({
+	client: () => ({ blueskyClient: "bluesky", customBlueskyClientBase: "" }),
+} as unknown as Pick<PreferenceStore, "client">);
+
+const byteLength = (text: string) => {
+	return new TextEncoder().encode(text).length;
+};
 
 const message = (overrides: Partial<MessageView> = {}): MessageView =>
 	({
@@ -214,5 +239,36 @@ describe("channel summary", () => {
 		expect(summary.text).toBe("https://example.com/a.gif");
 		expect(summary.facets).toHaveLength(1);
 		expect(summary.attachment).toBeUndefined();
+	});
+
+	it("rewrites bare Bluesky links to the preferred client", () => {
+		const prefix = "🦉 see ";
+		const start = byteLength(prefix);
+		const text = `${prefix}${MU_LINK} :kek:`;
+		const linkEnd = start + byteLength(MU_LINK);
+		const summary = {
+			text,
+			facets: [linkFacet(start, linkEnd), emojiFacet(linkEnd + 1, linkEnd + 6)],
+		};
+		expect(summaryParts(summary, emojiFor, toBluesky)).toEqual([
+			`${prefix}${BSKY_LINK} `,
+			{ name: "kek" },
+		]);
+	});
+
+	it("keeps link labels that differ from the uri", () => {
+		const summary = {
+			text: "my profile",
+			facets: [linkFacet(3, 10)],
+		};
+		expect(summaryParts(summary, emojiFor, toBluesky)).toEqual(["my profile"]);
+	});
+
+	it("keeps the original link without a rewriter", () => {
+		const summary = {
+			text: MU_LINK,
+			facets: [linkFacet(0, byteLength(MU_LINK))],
+		};
+		expect(summaryParts(summary, emojiFor)).toEqual([MU_LINK]);
 	});
 });

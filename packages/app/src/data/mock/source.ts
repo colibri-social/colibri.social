@@ -3,6 +3,7 @@ import { mentionedDids } from "../adapters/facets";
 import { summarizeMessage } from "../channel-summary";
 import type { HostingView } from "../hosting";
 import { skeyOf } from "../ids";
+import { isPingNotification } from "../notification-alerts";
 import { createMemoryPreferenceBackend } from "../preferences/memory";
 import { createPreferenceStore } from "../preferences/store";
 import type { Preferences } from "../preferences/types";
@@ -179,6 +180,28 @@ export const createMockSource = (
 	const allNotifications = () => {
 		notifications ??= deriveNotifications(world, now);
 		return notifications;
+	};
+
+	const retractNotifications = (channel: SpaceRef, did: Did, rkey: string) => {
+		const kept = allNotifications().filter(
+			(view) =>
+				view.message?.author.did !== did ||
+				view.message.rkey !== rkey ||
+				(view.thread ?? view.channel) !== channel,
+		);
+
+		if (kept.length === allNotifications().length) return;
+
+		notifications = kept;
+
+		emit({
+			$type: "seenEvent",
+			channel,
+			message: { did, rkey },
+			unread: kept.filter((view) => !view.seenAt && isPingNotification(view))
+				.length,
+			seenAt: asDatetime(Date.now()),
+		});
 	};
 
 	const liveEmit = (event: LiveEvent) => {
@@ -1300,7 +1323,8 @@ export const createMockSource = (
 			whenOnline(() =>
 				withLatency(() => {
 					const { list, index } = findMessage(input.channel, input.rkey);
-					list.splice(index, 1);
+					const [removed] = list.splice(index, 1);
+
 					touchThread(input.channel);
 					emit({
 						$type: "messageEvent",
@@ -1308,6 +1332,9 @@ export const createMockSource = (
 						channel: input.channel,
 						rkey: input.rkey,
 					});
+
+					if (removed)
+						retractNotifications(input.channel, removed.author.did, input.rkey);
 				}),
 			),
 		react: (input) =>

@@ -20,7 +20,11 @@ import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { createSlot } from "../../utils/slot";
 import { PendingBadge } from "../Badge/Badge";
-import { claimActiveMenu, releaseActiveMenu } from "./active-menu";
+import {
+	claimActiveMenu,
+	hasActiveMenu,
+	releaseActiveMenu,
+} from "./active-menu";
 
 export const menuContentClass =
 	"z-50 flex min-w-52 max-w-72 flex-col rounded-control-lg border border-border bg-popover p-1 text-foreground shadow-overlay outline-none";
@@ -288,6 +292,9 @@ export const ContextMenu = (props: ContextMenuProps) => {
 								{...topLayerAttrs}
 								ref={revealLayer}
 								{...rest}
+								onCloseAutoFocus={(event: Event) => {
+									if (hasActiveMenu()) event.preventDefault();
+								}}
 								class={cx(
 									menuContentClass,
 									"max-h-(--kb-popper-content-available-height) origin-(--kb-menu-content-transform-origin) overflow-y-auto",

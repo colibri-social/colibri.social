@@ -81,7 +81,10 @@ import {
 	toReactions,
 } from "../../../data/adapters/reactions";
 import { formatAge } from "../../../data/adapters/time";
-import { blueskyClientOf } from "../../../data/bluesky-client";
+import {
+	blueskyClientOf,
+	blueskyUrlRewriter,
+} from "../../../data/bluesky-client";
 import { useData } from "../../../data/store";
 import type { ProfileView } from "../../../data/types";
 import { routeFromLink } from "../../../native/deep-links";
@@ -227,6 +230,7 @@ export const MessageItem = (props: MessageItemProps) => {
 			const parts = replyParts(parent.text, parent.facets, {
 				byFeature: (feature) => replyEmoji(chat.customEmojiFeature?.(feature)),
 				byName: (name) => replyEmoji(chat.customEmoji?.(name)),
+				rewriteUrl: blueskyUrlRewriter(data.preferences),
 			});
 			return {
 				author: toMessageAuthor(parent.author, directory()),
@@ -943,6 +947,7 @@ export const MessageItem = (props: MessageItemProps) => {
 					live: (entry) => data.lastMessage(entry.space),
 					emoji: (feature) => data.emoji.mention(chat.community().did, feature),
 					isBlocked: (did) => data.preferences.isBlocked(did),
+					rewriteUrl: blueskyUrlRewriter(data.preferences),
 				})
 			: undefined;
 	};

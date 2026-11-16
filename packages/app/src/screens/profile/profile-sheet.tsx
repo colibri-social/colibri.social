@@ -1,11 +1,14 @@
 import {
+	copyText,
 	type ProfileAction,
 	type ProfileData,
 	ProfileDrawer,
+	type ProfileMenuActions,
 	ProfilePopover,
 	type ProfilePopoverPlacement,
 	RoleBadge,
 	recordExplorerHref,
+	toast,
 } from "@colibri-social/ui";
 import { UserBlockIcon } from "@solar-icons/solid/bold/user-block";
 import { UserCheckIcon } from "@solar-icons/solid/bold/user-check";
@@ -26,6 +29,7 @@ import { profileBannerFill } from "../../data/profile-theme";
 import { roleIdentity, rolesOf } from "../../data/roles";
 import { useData } from "../../data/store";
 import type { Did, ProfileView } from "../../data/types";
+import { openInRecordExplorer } from "../../native/open-in-explorer";
 import { usePlatform } from "../../screen/platform";
 import { createCustomEmojiDrawer } from "../channel/message/custom-emoji-drawer";
 import { createBlockFlow } from "../members/block-flow";
@@ -168,6 +172,56 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 		};
 	});
 
+	const menuName = () => {
+		const current = profile();
+
+		return current ? (current.nickname ?? current.displayName) : "";
+	};
+
+	const menuActions: ProfileMenuActions = {
+		get blocked() {
+			const did = target()?.did;
+
+			return !!did && blocking.isBlocked(did);
+		},
+		get onBlock() {
+			const did = target()?.did;
+			if (!did || !blocking.canBlock(did)) return undefined;
+
+			return () => {
+				const name = menuName();
+
+				setOpen(false);
+				blocking.ask(did, name);
+			};
+		},
+		get onUnblock() {
+			const did = target()?.did;
+			if (!did || !blocking.canBlock(did)) return undefined;
+
+			return () => void blocking.unblock(did, menuName());
+		},
+		get onCopyDid() {
+			const did = target()?.did;
+			if (!did) return undefined;
+
+			return () => {
+				const name = menuName();
+
+				void copyText(did).then(() => toast.success(`DID for ${name} copied`));
+			};
+		},
+		get developerMode() {
+			return data.controls().developerMode;
+		},
+		get onShowInExplorer() {
+			const did = target()?.did;
+			if (!did) return undefined;
+
+			return () => openInRecordExplorer(did);
+		},
+	};
+
 	const api: ProfileSheetApi = {
 		open: (did, space, at) => {
 			const focused =
@@ -206,6 +260,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 					anchorRect={anchorRect}
 					placement={placement() ?? "left-start"}
 					profile={profile()}
+					menu={menuActions}
 					loading={open() && !profile()}
 				/>
 			</Show>

@@ -1,6 +1,6 @@
 import type { social } from "@colibri-social/lexicons";
 import { isGifSiteUrl } from "./adapters/attachments";
-import { collapseWhitespace } from "./adapters/facets";
+import { collapseWhitespace, linkUriOf } from "./adapters/facets";
 import type { Did, Facet, MessageView, SpaceRef } from "./types";
 
 export type ChannelSummary = {
@@ -145,28 +145,75 @@ export const newerSummary = (
 
 export type SummaryPart<Emoji> = string | Emoji;
 
+const bareLinkRewrite = (
+	facet: Facet,
+	label: string,
+	rewriteUrl: ((uri: string) => string) | undefined,
+) => {
+	if (!rewriteUrl) return undefined;
+
+	const uri = facet.features
+		.map((feature) => linkUriOf(feature))
+		.find((value) => value !== undefined);
+	if (uri === undefined || label !== uri) return undefined;
+
+	const rewritten = rewriteUrl(uri);
+
+	return rewritten === uri ? undefined : rewritten;
+};
+
 export const summaryParts = <Emoji>(
 	summary: Pick<ChannelSummary, "text" | "facets">,
 	emojiFor: (feature: Facet["features"][number]) => Emoji | undefined,
+	rewriteUrl?: (uri: string) => string,
 ): SummaryPart<Emoji>[] => {
 	const bytes = new TextEncoder().encode(summary.text);
 	const decoder = new TextDecoder();
 	const parts: SummaryPart<Emoji>[] = [];
+	let text = "";
 	let cursor = 0;
 	const sorted = [...(summary.facets ?? [])].sort(
 		(a, b) => a.index.byteStart - b.index.byteStart,
 	);
+
+	const flush = () => {
+		if (text) parts.push(text);
+		text = "";
+	};
+
 	for (const facet of sorted) {
 		if (facet.index.byteStart < cursor) continue;
+
 		const emoji = facet.features
 			.map((feature) => emojiFor(feature))
 			.find((value) => value !== undefined);
-		if (emoji === undefined) continue;
+		const label =
+			emoji === undefined
+				? decoder.decode(
+						bytes.subarray(facet.index.byteStart, facet.index.byteEnd),
+					)
+				: "";
+		const link =
+			emoji === undefined
+				? bareLinkRewrite(facet, label, rewriteUrl)
+				: undefined;
+		if (emoji === undefined && link === undefined) continue;
+
 		if (facet.index.byteStart > cursor)
-			parts.push(decoder.decode(bytes.subarray(cursor, facet.index.byteStart)));
-		parts.push(emoji);
+			text += decoder.decode(bytes.subarray(cursor, facet.index.byteStart));
+
+		if (emoji === undefined) {
+			text += link;
+		} else {
+			flush();
+			parts.push(emoji);
+		}
+
 		cursor = facet.index.byteEnd;
 	}
-	if (cursor < bytes.length) parts.push(decoder.decode(bytes.subarray(cursor)));
+
+	if (cursor < bytes.length) text += decoder.decode(bytes.subarray(cursor));
+	flush();
+
 	return parts;
 };

@@ -981,6 +981,128 @@ describe("read state", () => {
 		store.dispose();
 	});
 
+	it("drops the ping of a deleted message and its mention count", async () => {
+		const { store, space, emit } = await setupWithEvents();
+		await until(() => store.notifications.status() === "ready");
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const referenced = new Set(
+			store.notifications.items().map((entry) => entry.message?.rkey),
+		);
+		const message = feed
+			.messages()
+			.findLast(
+				(entry) =>
+					entry.author.did !== store.viewer.did && !referenced.has(entry.rkey),
+			);
+		if (!message) throw new Error("message missing");
+		const unreadBefore = store.notifications.unreadCount();
+		const mentionsBefore = space.unread("general").mentions;
+
+		emit({
+			$type: "notificationEvent",
+			notification: {
+				id: "deleted-reply",
+				kind: "reply",
+				author: message.author,
+				channel: general.space,
+				community: space.community.did,
+				message,
+				indexedAt: new Date(Date.now() - 1000).toISOString(),
+			} as never,
+		});
+		expect(space.unread("general").mentions).toBe(mentionsBefore + 1);
+
+		emit({
+			$type: "messageEvent",
+			event: "delete",
+			channel: general.space,
+			rkey: message.rkey,
+		});
+
+		expect(store.notifications.unreadCount()).toBe(unreadBefore);
+		expect(space.unread("general").mentions).toBe(mentionsBefore);
+		expect(
+			store.notifications.items().some((entry) => entry.id === "deleted-reply"),
+		).toBe(false);
+		store.dispose();
+	});
+
+	it("clears the mention count of a ping whose message is gone", async () => {
+		const { store, space, emit } = await setupWithEvents();
+		await until(() => store.notifications.status() === "ready");
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const author = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did)?.author;
+		if (!author) throw new Error("author missing");
+		const mentionsBefore = space.unread("general").mentions;
+
+		emit({
+			$type: "notificationEvent",
+			notification: {
+				id: "orphan-reply",
+				kind: "reply",
+				author,
+				channel: general.space,
+				community: space.community.did,
+				indexedAt: new Date(Date.now() - 1000).toISOString(),
+			} as never,
+		});
+		expect(space.unread("general").mentions).toBe(mentionsBefore + 1);
+
+		await store.notifications.markRead(["orphan-reply"]);
+
+		expect(space.unread("general").mentions).toBe(mentionsBefore);
+		store.dispose();
+	});
+
+	it("keeps a ping seen when its message is already gone", async () => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const source: DataSource = {
+			...base,
+			updateSeenForMessage: async () => {
+				throw new ColibriError({ code: "MessageNotFound" });
+			},
+		};
+		const { store, channel } = await setup({ source });
+		await until(() => store.notifications.status() === "ready");
+		const message = channel
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did);
+		if (!message) throw new Error("message missing");
+
+		base.emit({
+			$type: "notificationEvent",
+			notification: {
+				id: "gone-mention",
+				kind: "mention",
+				author: message.author,
+				channel: message.channel,
+				community: store.communities.value()?.[0]?.did,
+				message,
+				indexedAt: new Date(Date.now() - 1000).toISOString(),
+			} as never,
+		});
+		await until(() =>
+			store.notifications.items().some((entry) => entry.id === "gone-mention"),
+		);
+
+		await store.notifications.markRead(["gone-mention"]);
+
+		expect(
+			store.notifications.items().find((entry) => entry.id === "gone-mention")
+				?.seenAt,
+		).toBeDefined();
+		store.dispose();
+	});
+
 	it("ignores notifications from a blocked author for channel mentions", async () => {
 		const { store, space, emit, base } = await setupWithEvents();
 		await until(() => store.notifications.status() === "ready");

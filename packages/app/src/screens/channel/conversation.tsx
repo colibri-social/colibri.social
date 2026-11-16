@@ -326,7 +326,10 @@ export const createConversation = (options: ConversationOptions) => {
 		const missing: string[] = [];
 		for (const entry of orphans) {
 			const rkey = entry.message?.rkey;
-			if (!rkey) continue;
+			if (!rkey) {
+				missing.push(entry.id);
+				continue;
+			}
 			try {
 				if (!(await current.loadAround(rkey))) missing.push(entry.id);
 			} catch (thrown) {
@@ -355,9 +358,10 @@ export const createConversation = (options: ConversationOptions) => {
 		const present = new Set(messages.map((message) => message.rkey));
 		const complete = !current.hasOlder();
 		const orphans = data.notifications.items().filter((entry) => {
-			const rkey = entry.message?.rkey;
-			if (!rkey || entry.seenAt || handledOrphans.has(entry.id)) return false;
+			if (entry.seenAt || handledOrphans.has(entry.id)) return false;
 			if ((entry.thread ?? entry.channel) !== ref) return false;
+			const rkey = entry.message?.rkey;
+			if (!rkey) return true;
 			if (present.has(rkey) || rkey > newest) return false;
 			return complete || (!!oldest && rkey > oldest);
 		});

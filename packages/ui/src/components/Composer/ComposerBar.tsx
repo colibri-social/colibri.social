@@ -17,6 +17,8 @@ const toneClass: Record<ComposerBarTone, string> = {
 		"bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] [--composer-bar-accent:var(--primary-highlight)]",
 };
 
+const keepEditorFocus = (event: Event) => event.preventDefault();
+
 export type ComposerBarProps = {
 	open: boolean;
 	tone: ComposerBarTone;
@@ -74,6 +76,8 @@ export const ComposerBar = (props: ComposerBarProps) => {
 							<button
 								type="button"
 								data-composer-bar-action=""
+								onPointerDown={keepEditorFocus}
+								onMouseDown={keepEditorFocus}
 								onClick={() => onClick()()}
 								class="flex h-full min-w-0 flex-1 cursor-pointer items-center rounded-control-xs text-left text-muted-foreground outline-none hover:text-foreground focus-ring-inset"
 							>
@@ -93,6 +97,8 @@ export const ComposerBar = (props: ComposerBarProps) => {
 							"text-muted-foreground not-aria-disabled:hover:text-foreground",
 							!props.onClick && "-my-1",
 						)}
+						onPointerDown={keepEditorFocus}
+						onMouseDown={keepEditorFocus}
 						onClick={() => props.onCancel?.()}
 					/>
 				</div>

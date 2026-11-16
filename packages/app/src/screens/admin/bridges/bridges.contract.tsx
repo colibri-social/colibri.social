@@ -10,12 +10,14 @@ import {
 	DrawerContent,
 	ListGroup,
 	NavRow,
+	SettingsNotice,
 	Skeleton,
 	SkeletonGroup,
 	StatusScreen,
 	toast,
 } from "@colibri-social/ui";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
+import { TestTubeMinimalisticIcon } from "@solar-icons/solid/bold/test-tube-minimalistic";
 import { AddIcon } from "@solar-icons/solid/linear/add";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { SpaceRef } from "../../../data/types";
@@ -26,6 +28,7 @@ import { afterClosed, MENU_SELECTOR } from "../desktop/after-closed";
 import { AdminNavHeader } from "../desktop/page-header";
 import {
 	BRIDGE_DOCS_URL,
+	BRIDGES_BETA_NOTICE,
 	BRIDGES_DESCRIPTION,
 	platformName,
 	toConnectedBridge,
@@ -166,18 +169,25 @@ export const bridges = defineContract({
 			</Show>
 		)),
 		Intro: slot(() => (
-			<p class="m-0 text-sm text-muted-foreground">
-				{`${BRIDGES_DESCRIPTION} `}
-				<a
-					href={BRIDGE_DOCS_URL}
-					target="_blank"
-					rel="noreferrer"
-					class="focus-ring rounded-xs text-foreground underline-offset-2 hover:underline"
-				>
-					documentation
-				</a>
-				.
-			</p>
+			<div data-bridges-intro="" class="flex min-w-0 flex-col gap-3">
+				<p class="m-0 text-sm text-muted-foreground">
+					{`${BRIDGES_DESCRIPTION} `}
+					<a
+						href={BRIDGE_DOCS_URL}
+						target="_blank"
+						rel="noreferrer"
+						class="focus-ring rounded-xs text-foreground underline-offset-2 hover:underline"
+					>
+						documentation
+					</a>
+					.
+				</p>
+				<SettingsNotice
+					icon={<TestTubeMinimalisticIcon />}
+					title={BRIDGES_BETA_NOTICE.title}
+					description={BRIDGES_BETA_NOTICE.description}
+				/>
+			</div>
 		)),
 		List: slot((m, p: { platform?: Platform }) => (
 			<Show

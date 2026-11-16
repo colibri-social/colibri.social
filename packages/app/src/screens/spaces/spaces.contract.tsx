@@ -49,6 +49,7 @@ import {
 	Show,
 } from "solid-js";
 import { displayNameOf } from "../../data/adapters/authors";
+import { blueskyUrlRewriter } from "../../data/bluesky-client";
 import { summaryParts } from "../../data/channel-summary";
 import {
 	CHANNEL_ORDER_NOT_SAVED,
@@ -874,8 +875,11 @@ export const spaces = defineContract({
 								? {
 										author: m.authorName(current.author),
 										text: current.text,
-										parts: summaryParts(current, (feature) =>
-											m.data.emoji.mention(m.community()?.did, feature),
+										parts: summaryParts(
+											current,
+											(feature) =>
+												m.data.emoji.mention(m.community()?.did, feature),
+											blueskyUrlRewriter(m.data.preferences),
 										),
 									}
 								: undefined;

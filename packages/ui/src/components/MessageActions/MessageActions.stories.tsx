@@ -16,7 +16,7 @@ import { MessageActionsDrawer } from "./MessageActionsDrawer";
 import { MessageGestures } from "./MessageGestures";
 import { MessageToolbar } from "./MessageToolbar";
 import { type Reaction, ReactionBar } from "./ReactionBar";
-import { SwipeToReply } from "./SwipeToReply";
+import { REPLY_SWIPE_THRESHOLD, SwipeToReply } from "./SwipeToReply";
 
 const meta = {
 	title: "Messaging/Message actions",
@@ -863,6 +863,72 @@ export const SwipeReply: Story = {
 			await expect(exposed).toBe(Math.max(0, -translate));
 			if (exposed === 0) await expect(reveal.style.visibility).toBe("hidden");
 		}
+		await waitFor(() =>
+			expect(canvasElement.querySelector("[data-swipe-reveal]")).toBeNull(),
+		);
+	},
+};
+
+const ARROW_DRAGS = [64, 72, 80, 88];
+
+export const SwipeReplyArrowCentered: Story = {
+	render: () => (
+		<HapticsProvider haptics={haptics}>
+			<div class="min-h-screen bg-background py-4">
+				<SwipeToReply onReply={fn()}>
+					<StandInRow text="The arrow stays centered in the reveal." />
+				</SwipeToReply>
+			</div>
+		</HapticsProvider>
+	),
+	parameters: iphone,
+	play: async ({ canvasElement }) => {
+		const content = canvasElement.querySelector(
+			"[data-swipe-content]",
+		) as HTMLElement;
+		const rect = content.getBoundingClientRect();
+		const y = rect.top + rect.height / 2;
+		const startX = rect.left + 300;
+
+		touch("pointerdown", content, startX, y);
+		touch("pointermove", content, startX - 12, y);
+		await nextFrame();
+
+		for (const drag of ARROW_DRAGS) {
+			touch("pointermove", content, startX - drag, y);
+			await nextFrame();
+
+			const reveal = await waitFor(() => {
+				const element = canvasElement.querySelector<HTMLElement>(
+					"[data-swipe-reveal]",
+				);
+				expect(element).not.toBeNull();
+				return element as HTMLElement;
+			});
+			const exposed = Number(reveal.dataset.exposed);
+			const arrow = reveal.querySelector("[data-swipe-arrow] svg");
+			if (!arrow) throw new Error("Missing swipe arrow");
+			const revealRect = reveal.getBoundingClientRect();
+			const surfaceRect = content.getBoundingClientRect();
+			const arrowRect = arrow.getBoundingClientRect();
+			const visibleCenterX = (surfaceRect.right + revealRect.right) / 2;
+			const visibleCenterY = revealRect.top + revealRect.height / 2;
+
+			await expect(exposed).toBeGreaterThanOrEqual(REPLY_SWIPE_THRESHOLD);
+			await expect(revealRect.right - surfaceRect.right).toBeCloseTo(
+				exposed,
+				0,
+			);
+			await expect(arrowRect.width).toBeGreaterThan(0);
+			await expect(
+				Math.abs(arrowRect.left + arrowRect.width / 2 - visibleCenterX),
+			).toBeLessThanOrEqual(1);
+			await expect(
+				Math.abs(arrowRect.top + arrowRect.height / 2 - visibleCenterY),
+			).toBeLessThanOrEqual(1);
+		}
+
+		touch("pointercancel", content, startX - 88, y);
 		await waitFor(() =>
 			expect(canvasElement.querySelector("[data-swipe-reveal]")).toBeNull(),
 		);

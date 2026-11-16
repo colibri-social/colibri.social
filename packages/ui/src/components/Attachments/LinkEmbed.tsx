@@ -55,7 +55,7 @@ export type LinkEmbedProps = {
 };
 
 export const embedRemoveButtonClass =
-	"z-10 opacity-0 group-hover/embed:opacity-100 focus-visible:opacity-100 data-pressed:opacity-100 [@media(hover:none)]:opacity-100";
+	"z-20 opacity-0 group-hover/embed:opacity-100 focus-visible:opacity-100 data-pressed:opacity-100 [@media(hover:none)]:opacity-100";
 
 const domainOf = (url: string) => {
 	try {

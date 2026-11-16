@@ -8,6 +8,12 @@ import type {
 export const BRIDGES_DESCRIPTION =
 	"Bridges sync Colibri channels with other platforms. Read more in our";
 
+export const BRIDGES_BETA_NOTICE = {
+	title: "Bridges are in beta",
+	description:
+		"Bridges are free to use while they are in beta. After that, they will cost $5 a month per Space.",
+} as const;
+
 export const BRIDGE_DOCS_URL =
 	"https://spaces.colibri.social/docs/bridges/pairing/";
 

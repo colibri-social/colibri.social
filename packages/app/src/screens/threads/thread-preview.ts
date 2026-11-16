@@ -26,6 +26,7 @@ export type ThreadPreviewSources = {
 	live: (thread: ThreadView) => ChannelSummary | undefined;
 	emoji: (feature: Facet["features"][number]) => PreviewEmoji | undefined;
 	isBlocked?: (did: Did) => boolean;
+	rewriteUrl?: (uri: string) => string;
 };
 
 const previewEmoji = (
@@ -64,8 +65,10 @@ export const threadPreview = (
 		name,
 		...(avatarSrc ? { avatarSrc } : {}),
 		text: summary.text,
-		parts: summaryParts(summary, (feature) =>
-			previewEmoji(sources.emoji(feature)),
+		parts: summaryParts(
+			summary,
+			(feature) => previewEmoji(sources.emoji(feature)),
+			sources.rewriteUrl,
 		),
 		...(summary.attachment ? { attachment: summary.attachment } : {}),
 	};

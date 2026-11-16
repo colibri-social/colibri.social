@@ -11,6 +11,7 @@ export type ReplyEmojiResolvers = {
 		feature: Facet["features"][number],
 	) => ReplyPartEmoji | undefined;
 	byName?: (name: string) => ReplyPartEmoji | undefined;
+	rewriteUrl?: (uri: string) => string;
 };
 
 const SHORTCODE = /:([a-z0-9_]{2,32}):/g;
@@ -68,10 +69,11 @@ export const replyParts = (
 ): ReplyPart[] => {
 	const body = collapseWhitespace(text, facets ? [...facets] : []);
 	if (!body.text) return [];
-	const byFeature = resolvers.byFeature;
-	const faceted = byFeature
-		? summaryParts<ReplyPartEmoji>(body, byFeature)
-		: [body.text];
+	const faceted = summaryParts<ReplyPartEmoji>(
+		body,
+		resolvers.byFeature ?? (() => undefined),
+		resolvers.rewriteUrl,
+	);
 	const parts = faceted.flatMap((part) =>
 		typeof part === "string" ? shortcodeParts(part, resolvers.byName) : [part],
 	);

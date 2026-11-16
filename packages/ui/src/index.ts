@@ -187,6 +187,7 @@ export * from "./components/Selection/SelectionRows";
 export * from "./components/Settings/BridgeOverview";
 export * from "./components/Settings/FeaturedBridgeCard";
 export * from "./components/Settings/Settings";
+export * from "./components/Settings/SettingsNotice";
 export * from "./components/SettingsPages/AcknowledgementsSettings";
 export * from "./components/SettingsPages/AdvancedSettings";
 export * from "./components/SettingsPages/DebugInformation";

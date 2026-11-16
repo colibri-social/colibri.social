@@ -12,6 +12,10 @@ export const releaseActiveMenu = (close: () => void) => {
 	if (activeMenuClose === close) activeMenuClose = undefined;
 };
 
+export const hasActiveMenu = () => {
+	return activeMenuClose !== undefined;
+};
+
 export const closeActiveMenu = () => {
 	const close = activeMenuClose;
 	activeMenuClose = undefined;

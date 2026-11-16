@@ -103,7 +103,7 @@ export const SwipeToReply = (props: SwipeToReplyProps) => {
 					}}
 				>
 					<span
-						class="absolute top-1/2 text-primary-foreground"
+						class="absolute top-1/2 flex text-primary-foreground"
 						style={{
 							right: `${Math.max(4, Math.abs(offset()) / 2 - 10)}px`,
 							opacity: progress(),

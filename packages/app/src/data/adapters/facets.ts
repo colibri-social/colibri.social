@@ -157,7 +157,7 @@ export const mentionsRole = (
 const LINK_FEATURE = "social.colibri.beta.richtext.facet#link";
 const SPOILER_FEATURE = "social.colibri.beta.richtext.facet#spoiler";
 
-const linkUriOf = (feature: Facet["features"][number]) =>
+export const linkUriOf = (feature: Facet["features"][number]) =>
 	feature.$type === LINK_FEATURE &&
 	"uri" in feature &&
 	typeof feature.uri === "string"

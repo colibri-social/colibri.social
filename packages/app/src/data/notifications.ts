@@ -1,11 +1,14 @@
+import { classifyThrown, createLogger } from "@colibri-social/lib";
 import { batch, createSignal } from "solid-js";
 import { isPingNotification } from "./notification-alerts";
 import type { PreferenceStore } from "./preferences/store";
 import type { NotificationLevel } from "./preferences/types";
 import type { DataSource } from "./source";
-import type { Datetime, Did, NotificationView } from "./types";
+import type { Datetime, Did, NotificationView, SpaceRef } from "./types";
 
 const MAX_PAGES = 4;
+
+const log = createLogger("notifications");
 
 export type NotificationStatus = "loading" | "ready" | "error";
 
@@ -82,6 +85,23 @@ export const createNotificationStore = (
 		onSeenChange?.(targets, true);
 	};
 
+	const dropMessage = (channel: SpaceRef, rkey: string) => {
+		const targets = all().filter(
+			(entry) =>
+				(entry.thread ?? entry.channel) === channel &&
+				entry.message?.rkey === rkey,
+		);
+
+		if (targets.length === 0) return;
+
+		const ids = new Set(targets.map((entry) => entry.id));
+		const unseen = targets.filter(isUnread);
+
+		setItems((current) => current.filter((entry) => !ids.has(entry.id)));
+
+		if (unseen.length > 0) onSeenChange?.(unseen, true);
+	};
+
 	const applySeen = (seenAt: Datetime, unread: number, global: boolean) => {
 		if (global) {
 			const cutoff = Date.parse(seenAt);
@@ -152,10 +172,21 @@ export const createNotificationStore = (
 						: Promise.resolve(),
 				),
 			);
-		} catch (error) {
+		} catch (thrown) {
+			const failure = classifyThrown(thrown, {
+				method: "notification.updateSeenForMessage",
+			});
+
+			if (failure.code === "MessageNotFound") {
+				log.debug("seen message is gone", { code: failure.code });
+
+				return;
+			}
+
 			patch(keys, undefined);
 			onSeenChange?.(targets, false);
-			throw error;
+
+			throw failure;
 		}
 	};
 
@@ -204,6 +235,7 @@ export const createNotificationStore = (
 		markRead,
 		markAllRead,
 		clear,
+		dropMessage,
 	};
 };
 
