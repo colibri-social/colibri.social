@@ -9,6 +9,7 @@ import {
 	notifServiceRef,
 	type Output,
 } from "@colibri-social/lib";
+import { registerUpload, UPLOAD_ID_HEADER } from "../../auth/upload-progress";
 
 const log = createLogger("remote");
 
@@ -32,6 +33,7 @@ export type CallInit = {
 	raw?: RawBody;
 	signal?: AbortSignal;
 	attempts?: number;
+	onProgress?: (fraction: number) => void;
 };
 
 const RETRY_ATTEMPTS = 3;
@@ -90,28 +92,41 @@ export const createTransport = (input: {
 		}
 		const path = `/xrpc/${nsid}${encodeParams(init.params)}`;
 		const attempts = init.attempts ?? (kind === "query" ? RETRY_ATTEMPTS : 1);
+		const upload = init.onProgress
+			? registerUpload(init.onProgress)
+			: undefined;
+
+		if (upload) headers.set(UPLOAD_ID_HEADER, upload.id);
+
 		let failure: ColibriError | undefined;
-		for (let attempt = 1; attempt <= attempts; attempt++) {
-			try {
-				const response = await input.session.fetchHandler(path, {
-					method: kind === "query" ? "GET" : "POST",
-					headers,
-					body,
-					signal: init.signal,
-				});
-				if (response.ok) return await readBody(response);
-				failure = classifyResponse({
-					status: response.status,
-					body: await response.text(),
-					method: nsid,
-					retryAfter: response.headers.get("retry-after"),
-				});
-			} catch (cause) {
-				failure = classifyThrown(cause, { method: nsid });
+		try {
+			for (let attempt = 1; attempt <= attempts; attempt++) {
+				try {
+					const response = await input.session.fetchHandler(path, {
+						method: kind === "query" ? "GET" : "POST",
+						headers,
+						body,
+						signal: init.signal,
+					});
+					if (response.ok) return await readBody(response);
+					failure = classifyResponse({
+						status: response.status,
+						body: await response.text(),
+						method: nsid,
+						retryAfter: response.headers.get("retry-after"),
+					});
+				} catch (cause) {
+					failure = classifyThrown(cause, { method: nsid });
+				}
+				if (!failure.retryable || isOffline() || init.signal?.aborted) break;
+				if (attempt < attempts) {
+					await sleep(RETRY_BASE_MS * 2 ** (attempt - 1));
+				}
 			}
-			if (!failure.retryable || isOffline() || init.signal?.aborted) break;
-			if (attempt < attempts) await sleep(RETRY_BASE_MS * 2 ** (attempt - 1));
+		} finally {
+			upload?.release();
 		}
+
 		const error =
 			failure ?? new ColibriError({ code: "Unexpected", method: nsid });
 		log.warn("request failed", { method: nsid, code: error.code });

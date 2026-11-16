@@ -721,9 +721,15 @@ export const createConversation = (options: ConversationOptions) => {
 						...(upload.alt ? { alt: upload.alt } : {}),
 					})),
 				],
-				uploadProgress: entry.uploads?.map((upload) =>
-					upload.failed ? undefined : upload.progress,
-				),
+				uploadProgress:
+					entry.uploads && entry.state !== "failed"
+						? [
+								...(entry.attachments ?? []).map(() => undefined),
+								...entry.uploads.map((upload) =>
+									upload.failed ? undefined : upload.progress,
+								),
+							]
+						: undefined,
 			});
 			return entry.state === "failed" ? failChatMessage(message) : message;
 		});

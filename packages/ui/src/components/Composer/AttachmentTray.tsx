@@ -7,6 +7,7 @@ import { RestartIcon } from "@solar-icons/solid/bold/restart";
 import { createSignal, For, Show } from "solid-js";
 import { cx } from "../../utils/cx";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
+import { Spinner } from "../Spinner/Spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import { AttachmentAltDialog } from "./AttachmentAltDialog";
 
@@ -53,40 +54,63 @@ const extensionOf = (name: string) => {
 		: undefined;
 };
 
-export const UploadProgress = (props: { progress: number; label?: string }) => (
-	<span
-		role="progressbar"
-		aria-label={props.label ?? "Uploading"}
-		aria-valuemin={0}
-		aria-valuemax={100}
-		aria-valuenow={Math.round(props.progress * 100)}
-		class="absolute inset-0 flex items-center justify-center bg-background/60"
-	>
-		<svg viewBox="0 0 20 20" class="size-6 -rotate-90" aria-hidden="true">
-			<circle
-				cx="10"
-				cy="10"
-				r={RING_RADIUS}
-				fill="none"
-				stroke-width="2"
-				data-upload-track=""
-				class="stroke-foreground/25"
-			/>
-			<circle
-				cx="10"
-				cy="10"
-				r={RING_RADIUS}
-				fill="none"
-				stroke-width="2"
-				data-upload-arc=""
-				stroke-linecap="round"
-				stroke-dasharray={`${RING_CIRCUMFERENCE}`}
-				stroke-dashoffset={`${RING_CIRCUMFERENCE * (1 - Math.min(1, Math.max(0, props.progress)))}`}
-				class="stroke-foreground transition-[stroke-dashoffset] duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)] motion-reduce:transition-none reduced-motion:transition-none"
-			/>
-		</svg>
-	</span>
-);
+export type UploadProgressProps = {
+	progress: number;
+	label?: string;
+	sendingLabel?: string;
+};
+
+export const UploadProgress = (props: UploadProgressProps) => {
+	return (
+		<Show
+			when={props.progress < 1}
+			fallback={
+				<span
+					role="status"
+					aria-busy="true"
+					aria-label={props.sendingLabel ?? "Sending"}
+					data-upload-sending=""
+					class="absolute inset-0 flex items-center justify-center bg-background/60 text-foreground"
+				>
+					<Spinner size={24} />
+				</span>
+			}
+		>
+			<span
+				role="progressbar"
+				aria-label={props.label ?? "Uploading"}
+				aria-valuemin={0}
+				aria-valuemax={100}
+				aria-valuenow={Math.round(props.progress * 100)}
+				class="absolute inset-0 flex items-center justify-center bg-background/60"
+			>
+				<svg viewBox="0 0 20 20" class="size-6 -rotate-90" aria-hidden="true">
+					<circle
+						cx="10"
+						cy="10"
+						r={RING_RADIUS}
+						fill="none"
+						stroke-width="2"
+						data-upload-track=""
+						class="stroke-foreground/25"
+					/>
+					<circle
+						cx="10"
+						cy="10"
+						r={RING_RADIUS}
+						fill="none"
+						stroke-width="2"
+						data-upload-arc=""
+						stroke-linecap="round"
+						stroke-dasharray={`${RING_CIRCUMFERENCE}`}
+						stroke-dashoffset={`${RING_CIRCUMFERENCE * (1 - Math.max(0, props.progress))}`}
+						class="stroke-foreground transition-[stroke-dashoffset] duration-[calc(var(--duration-color)*var(--motion-scale))] ease-[var(--ease-out-quick)] motion-reduce:transition-none reduced-motion:transition-none"
+					/>
+				</svg>
+			</span>
+		</Show>
+	);
+};
 
 export const AttachmentTray = (props: AttachmentTrayProps) => {
 	const [editingId, setEditingId] = createSignal<string>();

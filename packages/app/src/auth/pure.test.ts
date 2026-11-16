@@ -248,6 +248,7 @@ describe("oauth fetch", () => {
 		const pending = createOAuthFetch(base)(
 			new Request("https://pds.example/oauth/token", {
 				method: "POST",
+				headers: { "content-type": "application/x-www-form-urlencoded" },
 				body: "grant_type=refresh_token&refresh_token=r",
 			}),
 		);

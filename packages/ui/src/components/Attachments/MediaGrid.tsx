@@ -386,11 +386,12 @@ export const MediaTile = (props: MediaTileProps) => {
 			<Show when={props.loading || (!loaded() && status() !== "broken")}>
 				<Skeleton class="absolute inset-0 size-full rounded-none" />
 			</Show>
-			<Show when={props.item.progress !== undefined && props.item.progress < 1}>
+			<Show when={props.item.progress !== undefined}>
 				<span data-media-uploading="" class="absolute inset-0 z-10">
 					<UploadProgress
 						progress={props.item.progress ?? 0}
 						label={`Uploading ${props.item.name ?? kindLabel(props.item.kind)}`}
+						sendingLabel={`Sending ${props.item.name ?? kindLabel(props.item.kind)}`}
 					/>
 				</span>
 			</Show>

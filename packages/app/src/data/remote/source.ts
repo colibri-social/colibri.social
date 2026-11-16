@@ -16,6 +16,7 @@ import { createSignal } from "solid-js";
 import { resolvePdsHost } from "../../auth/identity";
 import { isNativeShell } from "../../auth/native";
 import { resolveAuthorizationServer } from "../../auth/signup";
+import { throttleToFrames } from "../../auth/upload-progress";
 import type { InvitationPreview, JoinResult } from "../access";
 import { createActivitySourceDetector } from "../activity-source";
 import { createNetworkLabeler } from "../badges/labeler";
@@ -493,14 +494,18 @@ export const createRemoteSource = async (
 				})
 			).community as CommunityView,
 		putCommunityImage: async (input) => {
+			const progress = throttleToFrames(input.onProgress);
+
 			input.onProgress?.(0);
-			const result = await transport.procedure(
-				colibri.community.putImage.main,
-				{
+
+			const result = await transport
+				.procedure(colibri.community.putImage.main, {
 					params: { community: input.community, kind: input.kind },
 					raw: { data: input.file, encoding: input.file.type || "image/*" },
-				},
-			);
+					onProgress: progress.report,
+				})
+				.finally(progress.stop);
+
 			input.onProgress?.(1);
 			return result.community as CommunityView;
 		},

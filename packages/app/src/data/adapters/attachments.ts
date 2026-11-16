@@ -81,6 +81,7 @@ export const splitAttachments = (
 				size: attachment.size ?? 0,
 				src: mediaUrl(attachment.url),
 				href: mediaUrl(attachment.url),
+				progress: uploading,
 				...spoiler,
 			});
 			continue;

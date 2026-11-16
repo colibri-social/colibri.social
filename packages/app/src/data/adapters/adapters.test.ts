@@ -471,6 +471,21 @@ describe("attachments", () => {
 		});
 	});
 
+	it("carries upload progress to media, audio and files by index", () => {
+		const result = splitAttachments(
+			[
+				attachment("image/png"),
+				attachment("audio/mpeg", { name: "song.mp3" }),
+				attachment("application/pdf", { name: "doc.pdf" }),
+			],
+			[0.5, 1, 0.25],
+		);
+
+		expect(result.media[0]?.progress).toBe(0.5);
+		expect(result.audio[0]?.progress).toBe(1);
+		expect(result.files[0]?.progress).toBe(0.25);
+	});
+
 	it("carries the spoiler flag to media, audio and files", () => {
 		const result = splitAttachments([
 			attachment("image/png", { spoiler: true }),

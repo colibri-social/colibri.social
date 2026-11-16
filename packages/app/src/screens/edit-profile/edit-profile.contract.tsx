@@ -256,6 +256,7 @@ export const editProfile = defineContract({
 								<UploadProgress
 									progress={m.progress().banner ?? 0}
 									label="Uploading banner"
+									sendingLabel="Saving banner"
 								/>
 							</Show>
 							<Show when={m.banner.src() && !m.syncBluesky() && !m.saving()}>
@@ -313,6 +314,7 @@ export const editProfile = defineContract({
 									<UploadProgress
 										progress={m.progress().avatar ?? 0}
 										label="Uploading picture"
+										sendingLabel="Saving picture"
 									/>
 								</Show>
 							</button>

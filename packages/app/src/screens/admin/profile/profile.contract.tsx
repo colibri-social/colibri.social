@@ -310,6 +310,7 @@ export const spaceProfile = defineContract({
 								<UploadProgress
 									progress={m.progress().banner ?? 0}
 									label="Uploading banner"
+									sendingLabel="Saving banner"
 								/>
 							</Show>
 							<Show when={m.banner.src() && !m.saving()}>
@@ -365,6 +366,7 @@ export const spaceProfile = defineContract({
 									<UploadProgress
 										progress={m.progress().picture ?? 0}
 										label="Uploading icon"
+										sendingLabel="Saving icon"
 									/>
 								</Show>
 							</button>

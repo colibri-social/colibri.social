@@ -6,6 +6,7 @@ import {
 	isRecordMissing,
 	isRepoNotHosted,
 } from "../polyfill/host-mode";
+import type { UploadOptions } from "../source";
 
 type ApplyWritesInput = social.colibri.beta.polyfill.applyWrites.$InputBody;
 
@@ -231,11 +232,15 @@ export const createRecords = (transport: Transport, host?: HostModeSignal) => {
 		}
 	};
 
-	const pdsUpload = async (file: Blob, signal?: AbortSignal) => {
+	const pdsUpload = async (file: Blob, options: UploadOptions = {}) => {
 		try {
 			const result = await transport.pdsProcedure<{ blob: BlobRef }>(
 				"com.atproto.repo.uploadBlob",
-				{ raw: rawOf(file), signal },
+				{
+					raw: rawOf(file),
+					signal: options.signal,
+					onProgress: options.onProgress,
+				},
 			);
 
 			return result.blob;
@@ -244,11 +249,15 @@ export const createRecords = (transport: Transport, host?: HostModeSignal) => {
 		}
 	};
 
-	const hostedUpload = async (file: Blob, signal?: AbortSignal) => {
+	const hostedUpload = async (file: Blob, options: UploadOptions = {}) => {
 		try {
 			const result = await transport.appViewProcedure<{ blob: BlobRef }>(
 				colibri.polyfill.uploadBlob.main.nsid,
-				{ raw: rawOf(file), signal },
+				{
+					raw: rawOf(file),
+					signal: options.signal,
+					onProgress: options.onProgress,
+				},
 			);
 
 			return result.blob;
@@ -401,11 +410,11 @@ export const createRecords = (transport: Transport, host?: HostModeSignal) => {
 			});
 		},
 		uploadBlob: pdsUpload,
-		uploadSpaceBlob: (file: Blob, signal?: AbortSignal) =>
+		uploadSpaceBlob: (file: Blob, options: UploadOptions = {}) =>
 			routed(
 				{},
-				() => pdsUpload(file, signal),
-				() => hostedUpload(file, signal),
+				() => pdsUpload(file, options),
+				() => hostedUpload(file, options),
 			),
 	};
 };

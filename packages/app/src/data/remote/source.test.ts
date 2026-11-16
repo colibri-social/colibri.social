@@ -1,5 +1,9 @@
 import { type ColibriError, colibri } from "@colibri-social/lib";
 import { describe, expect, it, vi } from "vitest";
+import {
+	progressCallbackFor,
+	UPLOAD_ID_HEADER,
+} from "../../auth/upload-progress";
 import { linkMessage } from "../adapters/facets";
 import { DEFAULT_COMPOSER } from "../preferences/types";
 import {
@@ -401,6 +405,38 @@ describe("createRemoteSource", () => {
 			$type: "social.colibri.beta.richtext.facet#link",
 			uri: url,
 		});
+	});
+
+	it("reports byte progress between the 0 and 1 bookends", async () => {
+		const blob = {
+			$type: "blob",
+			ref: { $link: "bafy" },
+			mimeType: "image/png",
+			size: 3,
+		};
+		const { source } = await setup((fake) => {
+			fake.on("com.atproto.repo.uploadBlob", async (call) => {
+				const report = progressCallbackFor(
+					call.headers.get(UPLOAD_ID_HEADER) ?? "",
+				);
+
+				report?.(0.25);
+				report?.(0.5);
+				await new Promise((resolve) => setTimeout(resolve, 50));
+				report?.(0.75);
+
+				return json({ blob });
+			});
+		});
+		const progress: number[] = [];
+
+		await source.uploadBlob(
+			new File(["png"], "cat.png", { type: "image/png" }),
+			{ onProgress: (fraction) => progress.push(fraction) },
+		);
+		await new Promise((resolve) => setTimeout(resolve, 50));
+
+		expect(progress).toEqual([0, 0.5, 1]);
 	});
 
 	it("attaches uploaded blobs to a sent message", async () => {

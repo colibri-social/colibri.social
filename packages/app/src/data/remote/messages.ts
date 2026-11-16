@@ -10,6 +10,7 @@ import {
 	spaceRecordUri,
 	spaceSkey,
 } from "@colibri-social/lib";
+import { throttleToFrames } from "../../auth/upload-progress";
 import { measureMedia } from "../media-size";
 import type {
 	EmbedSuppressionInput,
@@ -282,8 +283,17 @@ export const createMessageWrites = (deps: {
 					code: "FileTooLarge",
 					method: "repo.uploadBlob",
 				});
+			const progress = throttleToFrames(options?.onProgress);
+
 			options?.onProgress?.(0);
-			const blob = await records.uploadSpaceBlob(file, options?.signal);
+
+			const blob = await records
+				.uploadSpaceBlob(file, {
+					signal: options?.signal,
+					onProgress: progress.report,
+				})
+				.finally(progress.stop);
+
 			options?.onProgress?.(1);
 			const url = URL.createObjectURL(file);
 			const mimeType = blob.mimeType || file.type;

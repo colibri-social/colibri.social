@@ -1,5 +1,9 @@
 import { ColibriError, colibri } from "@colibri-social/lib";
 import { describe, expect, it, vi } from "vitest";
+import {
+	progressCallbackFor,
+	UPLOAD_ID_HEADER,
+} from "../../auth/upload-progress";
 import { createFakeSession, json, xrpcError } from "./fake-session";
 import { createTransport, encodeParams } from "./transport";
 
@@ -194,5 +198,41 @@ describe("createTransport", () => {
 		expect(call?.headers.get("content-type")).toBe("image/png");
 		expect(call?.params.get("kind")).toBe("picture");
 		expect(call?.body).toBe(file);
+	});
+
+	it("tags uploads with a progress id and releases it afterwards", async () => {
+		const { fake, transport } = setup();
+		const fractions: number[] = [];
+		let id: string | null = null;
+
+		fake.on("com.atproto.repo.uploadBlob", (call) => {
+			id = call.headers.get(UPLOAD_ID_HEADER);
+			progressCallbackFor(id ?? "")?.(0.5);
+
+			return json({ blob: {} });
+		});
+
+		await transport.pdsProcedure("com.atproto.repo.uploadBlob", {
+			raw: { data: new Blob(["png"]), encoding: "image/png" },
+			onProgress: (fraction) => fractions.push(fraction),
+		});
+
+		expect(id).not.toBeNull();
+		expect(fractions).toEqual([0.5]);
+		expect(progressCallbackFor(id ?? "")).toBeUndefined();
+	});
+
+	it("sends no progress id without a progress callback", async () => {
+		const { fake, transport } = setup();
+
+		fake.on("com.atproto.repo.uploadBlob", json({ blob: {} }));
+
+		await transport.pdsProcedure("com.atproto.repo.uploadBlob", {
+			raw: { data: new Blob(["png"]), encoding: "image/png" },
+		});
+
+		const [call] = fake.callsTo("com.atproto.repo.uploadBlob");
+
+		expect(call?.headers.has(UPLOAD_ID_HEADER)).toBe(false);
 	});
 });

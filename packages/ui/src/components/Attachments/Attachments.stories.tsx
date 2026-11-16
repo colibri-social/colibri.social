@@ -205,7 +205,7 @@ export const MediaDesktop: Story = {
 };
 
 const FileCases = (props: { desktop?: boolean }) => {
-	const [progress, setProgress] = createSignal(0.42);
+	const [progress, setProgress] = createSignal<number | undefined>(0.42);
 	return (
 		<Screen desktop={props.desktop}>
 			<Message
@@ -256,7 +256,7 @@ const FileCases = (props: { desktop?: boolean }) => {
 						name="flight-path.mp4"
 						size={83_886_080}
 						progress={progress()}
-						onCancel={() => setProgress(1)}
+						onCancel={() => setProgress(undefined)}
 					/>
 				}
 			/>
@@ -303,6 +303,98 @@ export const Files: Story = {
 
 export const FilesDesktop: Story = {
 	render: () => <FileCases desktop />,
+};
+
+const onUploadCancel = fn();
+
+export const FilesUploading: Story = {
+	parameters: mobile,
+	render: () => (
+		<Screen>
+			<div data-testid="files-uploading">
+				<Message
+					name="Lis"
+					attachments={
+						<FileAttachment
+							name="flight-path.mp4"
+							size={83_886_080}
+							progress={0.42}
+							onCancel={onUploadCancel}
+						/>
+					}
+				/>
+				<Message
+					name="Lis"
+					attachments={
+						<FileAttachment
+							name="nest-assets.zip"
+							size={48_234_112}
+							progress={1}
+							onCancel={onUploadCancel}
+						/>
+					}
+				/>
+				<Message
+					name="Tim"
+					attachments={
+						<AudioAttachment
+							name="dawn-chorus.mp3"
+							size={3_948_544}
+							duration={187}
+							href="data:text/plain,example"
+							progress={0.6}
+						/>
+					}
+				/>
+				<Message
+					name="Tim"
+					attachments={
+						<AudioAttachment
+							name="evening-chorus.mp3"
+							size={2_948_544}
+							duration={142}
+							href="data:text/plain,example"
+							progress={1}
+						/>
+					}
+				/>
+			</div>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+
+		await expect(
+			canvas.getByRole("progressbar", { name: "Uploading flight-path.mp4" }),
+		).toHaveAttribute("aria-valuenow", "42");
+		await expect(
+			canvas.getByRole("button", { name: "Cancel upload of flight-path.mp4" }),
+		).toBeInTheDocument();
+
+		const sendingFile = canvas.getByRole("status", {
+			name: "Sending nest-assets.zip",
+		});
+
+		await expect(sendingFile).toHaveAttribute("aria-busy", "true");
+		await expect(sendingFile).toHaveTextContent("Sending");
+		await expect(
+			canvas.queryByRole("progressbar", { name: "Uploading nest-assets.zip" }),
+		).toBeNull();
+		await expect(
+			canvas.queryByRole("button", {
+				name: "Cancel upload of nest-assets.zip",
+			}),
+		).toBeNull();
+
+		await expect(
+			canvas.getByRole("progressbar", { name: "Uploading dawn-chorus.mp3" }),
+		).toHaveAttribute("aria-valuenow", "60");
+		await expect(
+			canvas.getByRole("status", { name: "Sending evening-chorus.mp3" }),
+		).toHaveAttribute("aria-busy", "true");
+		await expect(canvas.queryByRole("link", { name: /^Download/ })).toBeNull();
+		await expectNoLayoutIssues(canvas.getByTestId("files-uploading"));
+	},
 };
 
 const SpoilerFileCases = (props: { desktop?: boolean }) => (
@@ -962,6 +1054,36 @@ export const MediaUploading: Story = {
 			canvas.queryByRole("progressbar", { name: "Uploading photo-2.jpg" }),
 		).toBeNull();
 		await expectNoLayoutIssues(canvas.getByTestId("uploading-host"));
+	},
+};
+
+export const MediaSending: Story = {
+	render: () => (
+		<div class="w-[402px] p-4" data-testid="sending-host">
+			<MediaGrid
+				items={fixtureImages(2).map((item, index) => ({
+					...item,
+					name: `photo-${index + 1}.jpg`,
+					progress: index === 0 ? 1 : 0.7,
+				}))}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const sending = await canvas.findByRole("status", {
+			name: "Sending photo-1.jpg",
+		});
+
+		await expect(sending).toHaveAttribute("aria-busy", "true");
+		await expect(sending.querySelector("svg")).not.toBeNull();
+		await expect(
+			canvas.queryByRole("progressbar", { name: "Uploading photo-1.jpg" }),
+		).toBeNull();
+		await expect(
+			canvas.getByRole("progressbar", { name: "Uploading photo-2.jpg" }),
+		).toHaveAttribute("aria-valuenow", "70");
+		await expectNoLayoutIssues(canvas.getByTestId("sending-host"));
 	},
 };
 

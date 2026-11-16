@@ -21,6 +21,7 @@ import { AnimatedDownloadIcon } from "../../icons/animated/navigation";
 import { cx } from "../../utils/cx";
 import { Scrubber } from "../Media/Scrubber";
 import { Skeleton, SkeletonText } from "../Skeleton/Skeleton";
+import { Spinner } from "../Spinner/Spinner";
 import { TableText } from "../Table/TableText";
 import {
 	createPressRipple,
@@ -109,6 +110,31 @@ const ProgressBar = (props: {
 	</span>
 );
 
+const UploadStatus = (props: { progress: number; name: string }) => {
+	return (
+		<Show
+			when={props.progress < 1}
+			fallback={
+				<span
+					role="status"
+					aria-busy="true"
+					aria-label={`Sending ${props.name}`}
+					data-upload-sending=""
+					class="flex items-center gap-1.5 text-xs text-muted-foreground"
+				>
+					<Spinner size={12} />
+					Sending
+				</span>
+			}
+		>
+			<span class="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
+				<ProgressBar value={props.progress} name={props.name} class="flex-1" />
+				{Math.round(props.progress * 100)}%
+			</span>
+		</Show>
+	);
+};
+
 export type FileAttachmentProps = {
 	name: string;
 	size: number;
@@ -127,9 +153,10 @@ export const FileAttachment = (props: FileAttachmentProps) => {
 	const [revealed, setRevealed] = createSignal(false);
 	const hidden = () => !!props.spoiler && !revealed();
 	const kind = () => props.kind ?? fileKindOf(props.name, props.mimeType);
-	const uploading = () => props.progress !== undefined && props.progress < 1;
+	const pending = () => props.progress !== undefined;
+	const uploading = () => pending() && (props.progress ?? 0) < 1;
 	const interactive = () =>
-		!uploading() && !!(props.href || props.onDownload) && !hidden();
+		!pending() && !!(props.href || props.onDownload) && !hidden();
 	const element = () => {
 		if (!interactive()) return "div";
 
@@ -165,17 +192,10 @@ export const FileAttachment = (props: FileAttachmentProps) => {
 			<span class="flex min-w-0 flex-1 flex-col gap-1">
 				<TableText class="text-sm font-semibold" text={props.name} />
 				<Show
-					when={uploading()}
+					when={pending()}
 					fallback={<span class="text-xs text-muted-foreground">{meta()}</span>}
 				>
-					<span class="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
-						<ProgressBar
-							value={props.progress ?? 0}
-							name={props.name}
-							class="flex-1"
-						/>
-						{Math.round((props.progress ?? 0) * 100)}%
-					</span>
+					<UploadStatus progress={props.progress ?? 0} name={props.name} />
 				</Show>
 			</span>
 			<Switch>
@@ -224,6 +244,7 @@ export type AudioAttachmentProps = {
 	src?: string;
 	duration?: number;
 	href?: string;
+	progress?: number;
 	spoiler?: boolean;
 	onDownload?: () => void;
 	class?: string;
@@ -305,12 +326,19 @@ export const AudioAttachment = (props: AudioAttachmentProps) => {
 				<KindTile kind="audio" />
 				<div class="flex min-w-0 flex-1 flex-col gap-1">
 					<TableText class="text-sm font-semibold" text={props.name} />
-					<span class="text-xs text-muted-foreground">{meta()}</span>
+					<Show
+						when={props.progress !== undefined}
+						fallback={
+							<span class="text-xs text-muted-foreground">{meta()}</span>
+						}
+					>
+						<UploadStatus progress={props.progress ?? 0} name={props.name} />
+					</Show>
 				</div>
 				<Show
-					when={props.onDownload}
+					when={props.progress === undefined && props.onDownload}
 					fallback={
-						<Show when={props.href}>
+						<Show when={props.progress === undefined && props.href}>
 							{(href) => (
 								<a
 									href={href()}
