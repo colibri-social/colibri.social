@@ -207,14 +207,48 @@ it("confirms a missing ping before showing the banner and marking it read", asyn
 	await until(() => !!seen());
 });
 
-it("marks a ping read when its message was gone before it loaded", async () => {
-	const { seen } = await mountWelcome((_source, welcome, messages) => {
-		const { message: _message, ...ping } = pingFor(
-			messages.at(-1) as MessageView,
-			welcome,
-		);
-		return { ping: { ...ping, kind: "reply" }, listed: true };
-	});
+it("forgets a ping whose message was gone before it loaded", async () => {
+	const { store, welcome } = await mountWelcome(
+		(_source, welcome, messages) => {
+			const { message: _message, ...ping } = pingFor(
+				messages.at(-1) as MessageView,
+				welcome,
+			);
+
+			return { ping: { ...ping, kind: "reply" }, listed: true };
+		},
+	);
+	const listed = () =>
+		store.notifications
+			.items()
+			.some((entry) => entry.channel === welcome && !entry.message);
+
+	expect(listed()).toBe(true);
+
 	channelButton("welcome")?.click();
-	await until(() => !!seen());
+	await until(() => banner()?.dataset.open !== undefined);
+	await until(() => !listed());
+
+	await store.notifications.reload();
+
+	expect(listed()).toBe(false);
+});
+
+it("ignores a non-ping notification whose message is gone", async () => {
+	const { store, welcome } = await mountWelcome(
+		(_source, welcome, messages) => {
+			const { message: _message, ...ping } = pingFor(
+				messages.at(-1) as MessageView,
+				welcome,
+			);
+
+			return { ping: { ...ping, kind: "message" }, listed: true };
+		},
+	);
+
+	channelButton("welcome")?.click();
+	await until(() => store.channel(welcome).confirmed());
+	await new Promise((resolve) => setTimeout(resolve, 600));
+
+	expect(banner()?.dataset.open).toBeUndefined();
 });

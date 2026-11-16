@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createMockSource, setLatency } from "./mock/source";
+import { createNotificationStore } from "./notifications";
 import { createDataStore } from "./store";
 
 const until = async (check: () => boolean, timeout = 8000) => {
@@ -84,6 +85,36 @@ describe("notification store", () => {
 			store.notifications.items().find((entry) => entry.id === target.id)
 				?.seenAt,
 		).toBeUndefined();
+	});
+
+	it("forgets notifications for the session and reports unseen ones", async () => {
+		setLatency(0);
+		const source = createMockSource({ live: false });
+		const reported: string[] = [];
+		const store = createNotificationStore(source, (views, seen) => {
+			if (seen) reported.push(...views.map((view) => view.id));
+		});
+
+		await until(() => store.status() === "ready");
+
+		const unseen = store.items().find((entry) => !entry.seenAt);
+		const seen = store.items().find((entry) => !!entry.seenAt);
+
+		if (!unseen || !seen) throw new Error("no mixed notifications");
+
+		store.forget([unseen.id, seen.id]);
+
+		const present = () =>
+			store
+				.items()
+				.filter((entry) => entry.id === unseen.id || entry.id === seen.id);
+
+		expect(present()).toEqual([]);
+		expect(reported).toEqual([unseen.id]);
+
+		await store.reload();
+
+		expect(present()).toEqual([]);
 	});
 
 	it("persists mark all read in the source", async () => {

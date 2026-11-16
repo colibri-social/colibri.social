@@ -55,6 +55,7 @@ import {
 	MediaLinkContext,
 } from "../../data/media-link";
 import { keepUnchanged } from "../../data/merge";
+import { isPingNotification } from "../../data/notification-alerts";
 import {
 	createComposerDraft,
 	editDraftKey,
@@ -324,10 +325,11 @@ export const createConversation = (options: ConversationOptions) => {
 		orphans: readonly { id: string; message?: { rkey: string } }[],
 	) => {
 		const missing: string[] = [];
+		const unreadable: string[] = [];
 		for (const entry of orphans) {
 			const rkey = entry.message?.rkey;
 			if (!rkey) {
-				missing.push(entry.id);
+				unreadable.push(entry.id);
 				continue;
 			}
 			try {
@@ -339,8 +341,11 @@ export const createConversation = (options: ConversationOptions) => {
 				});
 			}
 		}
-		if (missing.length === 0 || options.target() !== ref) return;
+		if (missing.length === 0 && unreadable.length === 0) return;
+		if (options.target() !== ref) return;
+
 		setDeletedPing(true);
+		data.notifications.forget(unreadable);
 		void data.notifications.markRead(missing).catch(() => {});
 	};
 
@@ -358,6 +363,7 @@ export const createConversation = (options: ConversationOptions) => {
 		const present = new Set(messages.map((message) => message.rkey));
 		const complete = !current.hasOlder();
 		const orphans = data.notifications.items().filter((entry) => {
+			if (!isPingNotification(entry)) return false;
 			if (entry.seenAt || handledOrphans.has(entry.id)) return false;
 			if ((entry.thread ?? entry.channel) !== ref) return false;
 			const rkey = entry.message?.rkey;

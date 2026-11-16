@@ -29,6 +29,7 @@ export const createNotificationStore = (
 ) => {
 	const [all, setItems] = createSignal<readonly NotificationView[]>([]);
 	const [clearedAt, setClearedAt] = createSignal<number>();
+	const forgotten = new Set<string>();
 	const fromUnblocked = (entry: NotificationView) => {
 		return !source.preferences.isBlocked(entry.author.did);
 	};
@@ -53,7 +54,7 @@ export const createNotificationStore = (
 			let pages = 0;
 			do {
 				const page = await source.listNotifications({ limit: 100, cursor });
-				all.push(...page.items);
+				all.push(...page.items.filter((entry) => !forgotten.has(entry.id)));
 				cursor = page.cursor;
 				pages += 1;
 			} while (cursor && pages < MAX_PAGES);
@@ -85,12 +86,8 @@ export const createNotificationStore = (
 		onSeenChange?.(targets, true);
 	};
 
-	const dropMessage = (channel: SpaceRef, rkey: string) => {
-		const targets = all().filter(
-			(entry) =>
-				(entry.thread ?? entry.channel) === channel &&
-				entry.message?.rkey === rkey,
-		);
+	const drop = (matches: (entry: NotificationView) => boolean) => {
+		const targets = all().filter(matches);
 
 		if (targets.length === 0) return;
 
@@ -100,6 +97,20 @@ export const createNotificationStore = (
 		setItems((current) => current.filter((entry) => !ids.has(entry.id)));
 
 		if (unseen.length > 0) onSeenChange?.(unseen, true);
+	};
+
+	const dropMessage = (channel: SpaceRef, rkey: string) => {
+		drop(
+			(entry) =>
+				(entry.thread ?? entry.channel) === channel &&
+				entry.message?.rkey === rkey,
+		);
+	};
+
+	const forget = (ids: readonly string[]) => {
+		for (const id of ids) forgotten.add(id);
+
+		drop((entry) => forgotten.has(entry.id));
 	};
 
 	const applySeen = (seenAt: Datetime, unread: number, global: boolean) => {
@@ -236,6 +247,7 @@ export const createNotificationStore = (
 		markAllRead,
 		clear,
 		dropMessage,
+		forget,
 	};
 };
 
