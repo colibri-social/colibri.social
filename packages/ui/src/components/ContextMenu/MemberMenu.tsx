@@ -1,5 +1,4 @@
 import { CameraIcon } from "@solar-icons/solid/bold/camera";
-import { CopyIcon } from "@solar-icons/solid/bold/copy";
 import { EndCallRoundedIcon } from "@solar-icons/solid/bold/end-call-rounded";
 import { MonitorCameraIcon } from "@solar-icons/solid/bold/monitor-camera";
 import { ShieldUserIcon } from "@solar-icons/solid/bold/shield-user";
@@ -368,14 +367,14 @@ export const memberMenuEntries = (
 		},
 		{
 			items: [
-				actions.onCopyDid && {
-					label: "Copy DID",
-					get icon() {
-						return <CopyIcon />;
+				developerEntry(
+					{
+						developerMode: actions.developerMode,
+						onCopyAtUri: actions.onCopyDid,
+						onShowInExplorer: actions.onShowInExplorer,
 					},
-					onSelect: actions.onCopyDid,
-				},
-				developerEntry(actions),
+					"Copy DID",
+				),
 			],
 		},
 	]);

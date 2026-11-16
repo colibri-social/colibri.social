@@ -308,7 +308,6 @@ const createProfileMenu = (
 		onUnblock: () => profileMenuSpy.unblock(),
 		onCopyDid: () => profileMenuSpy.copyDid(),
 		developerMode: true,
-		onCopyAtUri: () => {},
 		onShowInExplorer: () => {},
 	});
 };
@@ -571,7 +570,6 @@ export const PopoverMenuInSpace: Story = {
 			"Kick Lou",
 			"Ban Lou",
 			"Block Lou",
-			"Copy DID",
 			"Developer mode",
 		]);
 		await expect(
@@ -621,13 +619,22 @@ export const PopoverMenuOutsideSpace: Story = {
 		const popover = await openLouPopover(canvasElement);
 		const menu = await openProfileMenu(popover);
 		await expectNoLayoutIssues(menu);
-		await expect(menuEntryNames(menu)).toEqual([
-			"Block Lou",
+		await expect(menuEntryNames(menu)).toEqual(["Block Lou", "Developer mode"]);
+		await userEvent.hover(
+			within(menu).getByRole("menuitem", { name: "Developer mode" }),
+		);
+
+		const developer = await screen.findByRole("menu", {
+			name: "Developer mode",
+		});
+
+		await expectNoLayoutIssues(developer);
+		await expect(menuEntryNames(developer)).toEqual([
 			"Copy DID",
-			"Developer mode",
+			"Show on PDSls",
 		]);
 		await userEvent.click(
-			within(menu).getByRole("menuitem", { name: "Copy DID" }),
+			within(developer).getByRole("menuitem", { name: "Copy DID" }),
 		);
 		await expect(profileMenuSpy.copyDid).toHaveBeenCalledTimes(1);
 		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());

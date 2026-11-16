@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import {
 	cleanupMounted,
@@ -35,7 +35,8 @@ const closeMenu = async () => {
 
 const expectMemberMenu = async () => {
 	await until(() => !!menuItem("View profile"));
-	expect(menuItem("Copy DID")).toBeTruthy();
+	expect(menuItem("Copy DID")).toBeUndefined();
+	expect(menuItem("Developer mode")).toBeUndefined();
 	expect(menuItem("Reply")).toBeUndefined();
 	await wait(300);
 	expect(document.querySelector("[data-corvu-drawer-content]")).toBeNull();
@@ -88,4 +89,29 @@ it("opens the member context menu on a role popover row", async () => {
 	rightClick(row);
 	await expectMemberMenu();
 	await expect.element(popover).toBeVisible();
+});
+
+it("puts Copy DID and the explorer link in the developer submenu", async () => {
+	const { store } = await mount(`/app/c/${TRAIL}/${TEXT}/planning`);
+	store.setControls({ developerMode: true });
+	const article = memberArticle();
+	const name = article.querySelector<HTMLElement>("button[data-author-name]");
+	if (!name) throw new Error("missing author name");
+
+	rightClick(name);
+	await until(() => !!menuItem("Developer mode"));
+	await wait(50);
+	expect(menuItem("Copy DID")).toBeUndefined();
+	const developer = menuItem("Developer mode") as HTMLElement;
+	developer.focus();
+	await userEvent.keyboard("{ArrowRight}");
+	await until(() => !!menuItem("Show on PDSls"));
+	expect(menuItem("Copy DID")).toBeTruthy();
+	const opened = vi.spyOn(window, "open").mockReturnValue(null);
+	await userEvent.click(menuItem("Show on PDSls") as HTMLElement);
+	expect(opened).toHaveBeenCalledTimes(1);
+	expect(opened.mock.calls[0]?.[0]).toMatch(
+		/^https:\/\/pdsls\.dev\/at:\/\/did:/,
+	);
+	opened.mockRestore();
 });

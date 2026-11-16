@@ -22,7 +22,7 @@ const spy = {
 	kick: fn(),
 	ban: fn(),
 	copyDid: fn(),
-	copyAtUri: fn(),
+	showInExplorer: fn(),
 	volume: fn(),
 	streamVolume: fn(),
 	streamMuted: fn(),
@@ -159,7 +159,7 @@ const DesktopDemo = (props: {
 					onBan={props.moderator ? spy.ban : undefined}
 					onCopyDid={spy.copyDid}
 					developerMode
-					onCopyAtUri={spy.copyAtUri}
+					onShowInExplorer={spy.showInExplorer}
 				>
 					<MemberRow name={name()} seed="did:plc:wren" presence="online" />
 				</MemberContextMenu>
@@ -233,7 +233,7 @@ const expectFullWidthSliders = async (menu: HTMLElement) => {
 	}
 };
 
-const REGULAR_ENTRIES = ["View profile", "Copy DID", "Developer mode"];
+const REGULAR_ENTRIES = ["View profile", "Developer mode"];
 
 export const PeerInCall: Story = {
 	render: () => <DesktopDemo kind="peer" moderator />,
@@ -253,7 +253,6 @@ export const PeerInCall: Story = {
 			"View profile",
 			`Kick ${NAME}`,
 			`Ban ${NAME}`,
-			"Copy DID",
 			"Developer mode",
 		]);
 		const volume = within(menu).getByRole("slider", { name: "Volume" });

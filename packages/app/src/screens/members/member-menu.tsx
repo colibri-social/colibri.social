@@ -6,6 +6,7 @@ import {
 	MemberDropdownMenu,
 	type MemberMenuActions,
 	type MemberMenuRole,
+	recordExplorerHref,
 	toast,
 } from "@colibri-social/ui";
 import {
@@ -25,6 +26,7 @@ import {
 import { isAssignableRole } from "../../data/role-flags";
 import { type SpaceData, useData } from "../../data/store";
 import type { Did, MemberView, RoleView } from "../../data/types";
+import { openInRecordExplorer } from "../../native/open-in-explorer";
 import { whenOverlaysClosed } from "../channel/forward/overlay-wait";
 import { useProfileSheet } from "../profile/profile-sheet";
 import { PrimaryBadge } from "../profile/user-badges";
@@ -202,10 +204,14 @@ export const MemberMenuProvider = (props: ParentProps) => {
 					? () => void blocking.unblock(target.did, label())
 					: undefined;
 			},
+			get developerMode() {
+				return data.controls().developerMode;
+			},
 			onCopyDid: () =>
 				void copyText(target.did).then(() =>
 					toast.success(`DID for ${label()} copied`),
 				),
+			onShowInExplorer: () => openInRecordExplorer(target.did),
 		});
 	};
 
@@ -306,6 +312,12 @@ export const MemberMenuProvider = (props: ParentProps) => {
 									toast.success(`DID for ${name()} copied`),
 								)
 							}
+							developerMode={data.controls().developerMode}
+							developer={{
+								copyLabel: "Copy DID",
+								copyValue: current().member.actor.did,
+								explorerHref: recordExplorerHref(current().member.actor.did),
+							}}
 						/>
 						<Show when={moderation()}>
 							{(kind) => (

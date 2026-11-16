@@ -79,11 +79,12 @@ export type DeveloperMenuActions = {
 
 export const developerEntry = (
 	actions: DeveloperMenuActions,
+	copyLabel = "Copy AT-URI",
 ): DropdownMenuEntry | undefined => {
 	if (!actions.developerMode) return undefined;
 	const items = [
 		actions.onCopyAtUri && {
-			label: "Copy AT-URI",
+			label: copyLabel,
 			get icon() {
 				return <CopyIcon />;
 			},

@@ -1,6 +1,6 @@
 import "../../../app.css";
 import { render } from "solid-js/web";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { createMockSource, setLatency } from "../../../data/mock/source";
 import { createDataStore, DataContext } from "../../../data/store";
@@ -18,11 +18,12 @@ afterEach(() => {
 	history.replaceState(null, "", "/");
 });
 
-const mount = async (path: string) => {
+const mount = async (path: string, developerMode = false) => {
 	setLatency(0);
 	await page.viewport(1440, 900);
 	history.replaceState(null, "", path);
 	const store = createDataStore(createMockSource({ live: false }));
+	store.setControls({ developerMode });
 	const host = document.createElement("div");
 	host.style.cssText = "position:fixed;inset:0";
 	document.body.append(host);
@@ -55,7 +56,8 @@ const closeMenu = async () => {
 
 const expectMemberMenu = async () => {
 	await expect.poll(() => !!menuItem("View profile"), SLOW).toBe(true);
-	expect(menuItem("Copy DID")).toBeTruthy();
+	expect(menuItem("Copy DID")).toBeUndefined();
+	expect(menuItem("Developer mode")).toBeUndefined();
 	await new Promise((resolve) => setTimeout(resolve, 300));
 	expect(document.querySelector("[data-corvu-drawer-content]")).toBeNull();
 };
@@ -82,4 +84,25 @@ it("opens the member menu as a dropdown on click and at the pointer on right-cli
 	);
 	await expectMemberMenu();
 	await closeMenu();
+});
+
+it("puts Copy DID and the explorer link in the developer submenu", async () => {
+	await mount(`/app/c/${HQ}/manage/members`, true);
+	await expect.poll(() => !!memberTrigger(), SLOW).toBe(true);
+
+	await userEvent.click(memberTrigger() as HTMLElement);
+	await expect.poll(() => !!menuItem("Developer mode"), SLOW).toBe(true);
+	expect(menuItem("Copy DID")).toBeUndefined();
+	const developer = menuItem("Developer mode") as HTMLElement;
+	developer.focus();
+	await userEvent.keyboard("{ArrowRight}");
+	await expect.poll(() => !!menuItem("Show on PDSls")).toBe(true);
+	expect(menuItem("Copy DID")).toBeTruthy();
+	const opened = vi.spyOn(window, "open").mockReturnValue(null);
+	await userEvent.click(menuItem("Show on PDSls") as HTMLElement);
+	expect(opened).toHaveBeenCalledTimes(1);
+	expect(opened.mock.calls[0]?.[0]).toMatch(
+		/^https:\/\/pdsls\.dev\/at:\/\/did:/,
+	);
+	opened.mockRestore();
 });

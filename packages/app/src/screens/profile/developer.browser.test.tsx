@@ -197,7 +197,7 @@ describe("developer mode cards", () => {
 		open(other.actor.did, HQ, { element: anchor });
 		await until(() => !!document.querySelector("[data-profile-menu-trigger]"));
 		await openProfileMenu();
-		expect(menuItem("Copy DID")).toBeTruthy();
+		expect(menuItem("Copy DID")).toBeUndefined();
 		expect(menuItem("Developer mode")).toBeUndefined();
 		await closeProfileMenu();
 		store.setControls({ developerMode: true });
@@ -207,6 +207,7 @@ describe("developer mode cards", () => {
 		developer.focus();
 		await userEvent.keyboard("{ArrowRight}");
 		await until(() => !!menuItem("Show on PDSls"));
+		expect(menuItem("Copy DID")).toBeTruthy();
 		const opened = vi.spyOn(window, "open").mockReturnValue(null);
 		await userEvent.click(menuItem("Show on PDSls") as HTMLElement);
 		expect(opened).toHaveBeenCalledWith(

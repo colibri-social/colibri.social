@@ -1020,7 +1020,7 @@ const memberSpy = {
 	block: fn(),
 	unblock: fn(),
 	copyDid: fn(),
-	copyAtUri: fn(),
+	showInExplorer: fn(),
 };
 
 const LONG_MEMBER_NAME =
@@ -1092,7 +1092,7 @@ const MemberMenuDemo = (props: { moderator: boolean; blocked?: boolean }) => {
 					}}
 					onCopyDid={memberSpy.copyDid}
 					developerMode
-					onCopyAtUri={memberSpy.copyAtUri}
+					onShowInExplorer={memberSpy.showInExplorer}
 				>
 					<MemberRow
 						name={LONG_MEMBER_NAME}
@@ -1127,7 +1127,6 @@ export const MemberMenu: Story = {
 			`Kick ${LONG_MEMBER_NAME}`,
 			`Ban ${LONG_MEMBER_NAME}`,
 			`Block ${LONG_MEMBER_NAME}`,
-			"Copy DID",
 			"Developer mode",
 		]);
 		for (const verb of ["Kick", "Ban", "Block"]) {
@@ -1189,10 +1188,24 @@ export const MemberMenuRegularMember: Story = {
 		await expect(itemNames(menu)).toEqual([
 			"View profile",
 			`Block ${LONG_MEMBER_NAME}`,
-			"Copy DID",
 			"Developer mode",
 		]);
-		await closeWithEscape();
+
+		await userEvent.hover(
+			within(menu).getByRole("menuitem", { name: "Developer mode" }),
+		);
+
+		const submenu = await screen.findByRole("menu", { name: "Developer mode" });
+
+		await waitFor(() => expectInsideViewport(submenu));
+		await expectNoLayoutIssues(submenu);
+		await expect(itemNames(submenu)).toEqual(["Copy DID", "Show on PDSls"]);
+		memberSpy.copyDid.mockClear();
+		await userEvent.click(
+			within(submenu).getByRole("menuitem", { name: "Copy DID" }),
+		);
+		await expect(memberSpy.copyDid).toHaveBeenCalledTimes(1);
+		await waitForClosed();
 	},
 };
 
