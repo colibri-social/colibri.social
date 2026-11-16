@@ -5,6 +5,7 @@ import {
 	layersFor,
 	pickScreenCodec,
 	SCREEN_CODEC_CANDIDATES,
+	screenHintFor,
 	sendableVideoCodecs,
 	type VideoEncodingProbe,
 } from "./video-codec";
@@ -61,6 +62,21 @@ describe("layersFor", () => {
 		expect(layersFor("video/vp8", "Safari12")).toBeUndefined();
 		expect(layersFor("video/vp8", "Firefox120")).toBeUndefined();
 		expect(layersFor("video/vp8", undefined)).toBeUndefined();
+	});
+
+	it("keeps VP9 to one spatial layer for a detail hint", () => {
+		expect(layersFor("video/vp9", "Chrome111", true)).toBe("L1T3");
+		expect(layersFor("video/vp8", "Chrome111", true)).toBe("L1T3");
+		expect(layersFor("video/vp9", "Safari12", true)).toBeUndefined();
+	});
+});
+
+describe("screenHintFor", () => {
+	it("swaps detail for motion on a spatial SVC sender", () => {
+		expect(screenHintFor("detail", "L2T3_KEY")).toBe("motion");
+		expect(screenHintFor("detail", "L1T3")).toBe("detail");
+		expect(screenHintFor("detail", undefined)).toBe("detail");
+		expect(screenHintFor("motion", "L2T3_KEY")).toBe("motion");
 	});
 });
 
@@ -190,6 +206,31 @@ describe("pickScreenCodec", () => {
 		});
 		expect(probe).toHaveBeenCalledWith("video/vp9", TARGET, "L2T3_KEY");
 		expect(probe).toHaveBeenCalledWith("video/h264", TARGET, undefined);
+	});
+
+	it("probes and sends VP9 with one spatial layer for a detail hint", async () => {
+		const probe = vi.fn(
+			probeWith({
+				"video/vp9": { supported: true, powerEfficient: false },
+				"video/vp8": { supported: true, powerEfficient: false },
+			}),
+		);
+		const choice = await pickScreenCodec({
+			codecs: [VP8, VP9],
+			handlerName: "Chrome111",
+			target: TARGET,
+			probe,
+			candidates: ["video/vp9", "video/vp8"],
+			detail: true,
+		});
+
+		expect(choice).toEqual(
+			expect.objectContaining({
+				mimeType: "video/vp9",
+				scalabilityMode: "L1T3",
+			}),
+		);
+		expect(probe).toHaveBeenCalledWith("video/vp9", TARGET, "L1T3");
 	});
 
 	it("falls back to VP9, then VP8, when nothing is power efficient", async () => {

@@ -106,14 +106,24 @@ export const sendableVideoCodecs = (
 export const layersFor = (
 	mimeType: string,
 	handlerName: string | undefined,
+	detail = false,
 ): string | undefined =>
 	handlerName &&
 	LAYERED_HANDLERS.has(handlerName) &&
 	LAYERED_MIME_TYPES.has(mimeType.toLowerCase())
-		? SVC_MIME_TYPES.has(mimeType.toLowerCase())
+		? SVC_MIME_TYPES.has(mimeType.toLowerCase()) && !detail
 			? SCREEN_SVC_SCALABILITY_MODE
 			: SCREEN_SCALABILITY_MODE
 		: undefined;
+
+export const screenHintFor = (
+	hint: string,
+	scalabilityMode: string | undefined,
+): string => {
+	return hint === "detail" && scalabilityMode === SCREEN_SVC_SCALABILITY_MODE
+		? "motion"
+		: hint;
+};
 
 export const pickScreenCodec = async (input: {
 	codecs: readonly types.RtpCodecCapability[];
@@ -121,6 +131,7 @@ export const pickScreenCodec = async (input: {
 	target: VideoEncodingTarget;
 	probe: VideoEncodingProbe;
 	candidates?: readonly string[];
+	detail?: boolean;
 }): Promise<ScreenCodecChoice> => {
 	const candidates = input.candidates ?? SCREEN_CODEC_CANDIDATES;
 	const available = candidates
@@ -131,7 +142,11 @@ export const pickScreenCodec = async (input: {
 		powerEfficient?: boolean,
 	): ScreenCodecChoice => {
 		const mimeType = codec ? mimeOf(codec) : "video/vp8";
-		const scalabilityMode = layersFor(mimeType, input.handlerName);
+		const scalabilityMode = layersFor(
+			mimeType,
+			input.handlerName,
+			input.detail,
+		);
 		return {
 			...(codec ? { codec } : {}),
 			mimeType,
@@ -146,7 +161,7 @@ export const pickScreenCodec = async (input: {
 			support: await input.probe(
 				mimeOf(codec),
 				input.target,
-				layersFor(mimeOf(codec), input.handlerName),
+				layersFor(mimeOf(codec), input.handlerName, input.detail),
 			),
 		})),
 	);

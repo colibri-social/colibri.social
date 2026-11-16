@@ -84,6 +84,19 @@ export const stepSenderLoad = (
 	};
 };
 
+export const ENCODER_STALL_POLLS = 3;
+
+export const stepEncoderStall = (
+	streak: number,
+	sample: Pick<VideoStatsSample, "captureFps" | "keyFrames"> | undefined,
+): number => {
+	if (!sample) return streak;
+
+	const capturing = (sample.captureFps ?? 0) > 0;
+
+	return capturing && sample.keyFrames === 0 ? streak + 1 : 0;
+};
+
 export const tuningFor = (
 	level: number,
 	spatialLayers: number,

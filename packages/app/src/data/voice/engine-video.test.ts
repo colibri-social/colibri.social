@@ -78,6 +78,27 @@ const SCREEN_STATS = new Map<string, Record<string, unknown>>([
 	],
 ]);
 
+const STALLED_STATS = new Map<string, Record<string, unknown>>([
+	[
+		"out",
+		{
+			id: "out",
+			type: "outbound-rtp",
+			kind: "video",
+			codecId: "codec",
+			bytesSent: 0,
+			keyFramesEncoded: 0,
+			timestamp: 1,
+			qualityLimitationReason: "none",
+		},
+	],
+	["codec", { id: "codec", type: "codec", mimeType: "video/VP9" }],
+	[
+		"src",
+		{ id: "src", type: "media-source", kind: "video", framesPerSecond: 24 },
+	],
+]);
+
 type Produced = {
 	encodings?: RTCRtpEncodingParameters[];
 	codec?: types.RtpCodecCapability;
@@ -90,6 +111,7 @@ class ChromiumDevice extends FakeDevice {
 	sendRtpCapabilities: { codecs: types.RtpCodecCapability[] };
 	produced: Produced[] = [];
 	rejectSimulcast = false;
+	screenStats = SCREEN_STATS;
 	constructor(codecs: types.RtpCodecCapability[] = [VP8]) {
 		super();
 		this.sendRtpCapabilities = { codecs };
@@ -106,7 +128,7 @@ class ChromiumDevice extends FakeDevice {
 			}
 			const producer = await produce(input);
 			return Object.assign(producer, {
-				getStats: async () => SCREEN_STATS,
+				getStats: async () => this.screenStats,
 			});
 		};
 		return transport;
@@ -197,7 +219,7 @@ describe("screen share encoding", () => {
 		expect(latestVideoStats()).toEqual([]);
 	});
 
-	it("sends VP9 for sharp text at 30 fps and logs the send route", async () => {
+	it("sends VP9 in one spatial layer for sharp text at 30 fps", async () => {
 		const device = new ChromiumDevice([VP8, VP9]);
 		const probe = vi.fn(async (mimeType: string) => ({
 			supported: true,
@@ -237,7 +259,7 @@ describe("screen share encoding", () => {
 		expect(screen?.encodings).toEqual([
 			expect.objectContaining({
 				maxFramerate: 30,
-				scalabilityMode: "L2T3_KEY",
+				scalabilityMode: "L1T3",
 			}),
 		]);
 		const setParameters = vi.fn(async () => {});
@@ -321,6 +343,110 @@ describe("screen share encoding", () => {
 		expect(
 			device.produced.filter((entry) => entry.appData.source === "screen"),
 		).toHaveLength(2);
+	});
+
+	it("keeps a motion hint when a VP9 SVC share drops to 30 fps", async () => {
+		const device = new ChromiumDevice([VP8, VP9]);
+		const harness = setup({
+			createDevice: () => device as unknown as types.Device,
+			probeVideoEncoding: vi.fn(async () => ({
+				supported: true,
+				powerEfficient: false,
+			})),
+		});
+
+		running.push(harness.engine);
+
+		const { socket } = await connect(harness);
+		const video = new FakeTrack("video");
+		const sharing = harness.engine.shareScreen(
+			{
+				video: video as unknown as MediaStreamTrack,
+				audio: null,
+				release() {},
+			},
+			{ resolution: "1080", framerate: 60 },
+		);
+
+		await reply(socket, "produce", {
+			$type: `${DEFS}producerInfo`,
+			producerId: "screen-1",
+			did: VIEWER,
+			kind: "video",
+			source: "screen",
+		});
+		expect(await sharing).toBe(true);
+		expect(
+			device.produced.find((entry) => entry.appData.source === "screen")
+				?.encodings,
+		).toEqual([expect.objectContaining({ scalabilityMode: "L2T3_KEY" })]);
+
+		harness.engine.applyScreenQuality({ resolution: "1080", framerate: 30 });
+
+		expect(video.contentHint).toBe("motion");
+	});
+
+	it("sends the screen again in VP8 when the encoder sends no frames", async () => {
+		const device = new ChromiumDevice([VP8, VP9]);
+
+		device.screenStats = STALLED_STATS;
+
+		const harness = setup({
+			createDevice: () => device as unknown as types.Device,
+			probeVideoEncoding: vi.fn(async () => ({
+				supported: true,
+				powerEfficient: false,
+			})),
+		});
+
+		running.push(harness.engine);
+		vi.useFakeTimers({ shouldAdvanceTime: true });
+
+		const { socket } = await connect(harness);
+		const video = new FakeTrack("video");
+		const sharing = harness.engine.shareScreen(
+			{
+				video: video as unknown as MediaStreamTrack,
+				audio: null,
+				release() {},
+			},
+			{ resolution: "1080", framerate: 30 },
+		);
+
+		await reply(socket, "produce", {
+			$type: `${DEFS}producerInfo`,
+			producerId: "screen-1",
+			did: VIEWER,
+			kind: "video",
+			source: "screen",
+		});
+		expect(await sharing).toBe(true);
+
+		await vi.advanceTimersByTimeAsync(2_100 * 2);
+		expect(
+			device.produced.filter((entry) => entry.appData.source === "screen"),
+		).toHaveLength(1);
+
+		await vi.advanceTimersByTimeAsync(2_100);
+		await reply(socket, "produce", {
+			$type: `${DEFS}producerInfo`,
+			producerId: "screen-2",
+			did: VIEWER,
+			kind: "video",
+			source: "screen",
+		});
+
+		const closing = await pending(socket, "closeProducer");
+
+		expect(closing).toEqual(
+			expect.objectContaining({ producerId: "screen-1" }),
+		);
+		expect(
+			device.produced
+				.filter((entry) => entry.appData.source === "screen")
+				.map((entry) => entry.codec?.mimeType),
+		).toEqual(["video/VP9", "video/VP8"]);
+		expect(video.stopped).toBe(false);
 	});
 });
 

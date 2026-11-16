@@ -4,6 +4,7 @@ import {
 	INITIAL_SENDER_LOAD,
 	MAX_RECOVERY_POLLS,
 	type SenderLoad,
+	stepEncoderStall,
 	stepSenderLoad,
 	tunedEncodings,
 	tuningFor,
@@ -93,6 +94,23 @@ describe("stepSenderLoad", () => {
 			bounced,
 		);
 		expect(capped.recoveryPolls).toBe(MAX_RECOVERY_POLLS);
+	});
+});
+
+describe("stepEncoderStall", () => {
+	it("counts polls that capture frames but encode no key frame", () => {
+		expect(stepEncoderStall(0, { captureFps: 24, keyFrames: 0 })).toBe(1);
+		expect(stepEncoderStall(2, { captureFps: 24, keyFrames: 0 })).toBe(3);
+	});
+
+	it("resets once a key frame is encoded or capture stops", () => {
+		expect(stepEncoderStall(2, { captureFps: 24, keyFrames: 1 })).toBe(0);
+		expect(stepEncoderStall(2, { captureFps: 0, keyFrames: 0 })).toBe(0);
+		expect(stepEncoderStall(2, { captureFps: 24 })).toBe(0);
+	});
+
+	it("keeps the streak when no sample arrived", () => {
+		expect(stepEncoderStall(2, undefined)).toBe(2);
 	});
 });
 

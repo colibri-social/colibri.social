@@ -94,8 +94,10 @@ import {
 } from "./noise-suppressor";
 import { createProducerRegistry } from "./producer-registry";
 import {
+	ENCODER_STALL_POLLS,
 	INITIAL_SENDER_LOAD,
 	type SenderLoad,
+	stepEncoderStall,
 	stepSenderLoad,
 	tunedEncodings,
 	tuningFor,
@@ -122,6 +124,7 @@ import {
 	SCREEN_SCALABILITY_MODE,
 	SCREEN_SVC_SCALABILITY_MODE,
 	type ScreenCodecChoice,
+	screenHintFor,
 	sendableVideoCodecs,
 	supportsSimulcast,
 	type VideoEncodingProbe,
@@ -164,6 +167,8 @@ const MIC_CODEC_OPTIONS = {
 const OPEN = 1;
 
 const DEFS = "social.colibri.beta.voice.defs#";
+
+const QUIET_FRAMES: ReadonlySet<string> = new Set([`${DEFS}setSpeaking`]);
 
 const NODE_FAILURE_CODES: ReadonlySet<string> = new Set([
 	"InternalError",
@@ -270,6 +275,8 @@ type TunedSender = {
 	scalabilityMode?: string;
 	degradation?: RTCDegradationPreference;
 	load: SenderLoad;
+	stallStreak: number;
+	stalled: boolean;
 };
 
 type AudioEntry = {
@@ -614,7 +621,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 
 		const send = (frame: ClientVoiceFrame) => {
 			if (ws?.readyState === OPEN) {
-				log.debug(`send ${frame.$type}`);
+				if (!QUIET_FRAMES.has(frame.$type)) log.debug(`send ${frame.$type}`);
 				ws.send(encodeVoiceFrame(frame));
 				return;
 			}
@@ -897,6 +904,21 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				const sample = samples.find(
 					(entry) => entry.id === id && entry.direction === "send",
 				);
+
+				if (tuned.source === "screen" && !tuned.stalled) {
+					tuned.stallStreak = stepEncoderStall(tuned.stallStreak, sample);
+
+					if (tuned.stallStreak >= ENCODER_STALL_POLLS) {
+						tuned.stalled = true;
+						log.warn("the screen encoder sent no frames", {
+							codec: sample?.codec,
+							layers: tuned.scalabilityMode ?? "none",
+							hint: producer.track?.contentHint,
+						});
+						void fallBackToVp8(id);
+					}
+				}
+
 				const next = stepSenderLoad(tuned.load, sample, tuned.base.length);
 				const moved = next.level !== tuned.load.level;
 
@@ -913,11 +935,13 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 
 		const trackSender = (
 			producer: types.Producer,
-			sender: Omit<TunedSender, "load">,
+			sender: Omit<TunedSender, "load" | "stallStreak" | "stalled">,
 		) => {
 			tunedSenders.set(producer.id, {
 				...sender,
 				load: { ...INITIAL_SENDER_LOAD },
+				stallStreak: 0,
+				stalled: false,
 			});
 		};
 
@@ -2180,6 +2204,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				handlerName: loaded.handlerName,
 				target: screenEncodingTarget(quality, settings),
 				probe: probeVideoEncoding,
+				detail: screenContentHint(quality) === "detail",
 				...(screenVp8Only ? { candidates: ["video/vp8"] } : {}),
 			});
 		};
@@ -2323,7 +2348,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			if (screenProducer !== previous) return;
 			if (choice.mimeType.toLowerCase() === screenMimeType) return;
 			const epoch = mediaEpoch;
-			log.info("sending the screen again for a viewer", {
+			log.info("sending the screen again in VP8", {
 				codec: choice.mimeType,
 				layers: choice.scalabilityMode ?? "none",
 			});
@@ -2370,7 +2395,10 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			const producer = screenProducer;
 			const track = producer?.track;
 			if (!producer || !track) return;
-			track.contentHint = screenContentHint(quality);
+			track.contentHint = screenHintFor(
+				screenContentHint(quality),
+				tunedSenders.get(producer.id)?.scalabilityMode,
+			);
 			void track
 				.applyConstraints(screenVideoConstraints(quality))
 				.catch((error: unknown) => {
