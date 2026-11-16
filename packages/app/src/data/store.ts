@@ -112,6 +112,8 @@ import { connectVoice, voice } from "./voice";
 const PAGE_SIZE = 60;
 const STALE_OPEN_MS = 15_000;
 const CATCH_UP_PAGES = 4;
+const NOTIFIED_REFETCH_DELAY_MS = 1_000;
+const NOTIFIED_REFETCH_LIMIT = 5;
 const CATCH_UP_SPACING_MS = 1_000;
 const TYPING_MS = 6000;
 const OWN_REACTION_ECHO_MS = 15_000;
@@ -2226,6 +2228,23 @@ export const createDataStore = (
 				const newestKnown = patchy
 					? undefined
 					: (held ? held.latest : untrack(messages)).at(-1)?.rkey;
+				const knownBefore = new Set(
+					[...untrack(messages), ...(held?.latest ?? [])].map(
+						(message) => message.rkey,
+					),
+				);
+				const keepArrived = (
+					list: readonly MessageView[],
+					merged: MessageView[],
+				) => {
+					const kept = new Set(merged.map((message) => message.rkey));
+					const arrived = list.filter(
+						(message) =>
+							!knownBefore.has(message.rkey) && !kept.has(message.rkey),
+					);
+
+					return arrived.length > 0 ? insertSorted(merged, arrived) : merged;
+				};
 				const fetched = await newestSince(ref, newestKnown);
 				const page = {
 					...fetched,
@@ -2251,7 +2270,7 @@ export const createDataStore = (
 					const merged = refreshed(current.latest, current.cursor);
 					setGap({
 						after: current.after,
-						latest: merged.messages,
+						latest: keepArrived(current.latest, merged.messages),
 						cursor: merged.cursor,
 					});
 					remember();
@@ -2267,10 +2286,11 @@ export const createDataStore = (
 					remember();
 					return;
 				}
-				const merged = refreshed(untrack(messages), untrack(cursor));
+				const live = untrack(messages);
+				const merged = refreshed(live, untrack(cursor));
 				batch(() => {
 					setCursor(merged.cursor);
-					setMessages(merged.messages);
+					setMessages(keepArrived(live, merged.messages));
 				});
 			};
 
@@ -3337,11 +3357,70 @@ export const createDataStore = (
 				message,
 			} as const;
 			if (!messageListeners.get(ref)?.(event)) feedTail(event);
+			refetchNotified(ref, message.rkey);
+		};
+
+		const notifiedCopies = new Map<string, ReturnType<typeof setTimeout>>();
+		onCleanup(() => {
+			for (const timer of notifiedCopies.values()) clearTimeout(timer);
+			notifiedCopies.clear();
+		});
+
+		const notifiedKey = (ref: SpaceRef, rkey: string) => `${ref} ${rkey}`;
+
+		const refetchNotified = (ref: SpaceRef, rkey: string) => {
+			const key = notifiedKey(ref, rkey);
+
+			clearTimeout(notifiedCopies.get(key));
+
+			const timer = setTimeout(() => {
+				if (notifiedCopies.get(key) !== timer) return;
+				void source
+					.listMessages({
+						channel: ref,
+						around: rkey,
+						limit: NOTIFIED_REFETCH_LIMIT,
+					})
+					.then(
+						(page) => {
+							const message = page.items.find((entry) => entry.rkey === rkey);
+							if (!message || notifiedCopies.get(key) !== timer) return;
+							const event = {
+								$type: "messageEvent",
+								event: "update",
+								channel: ref,
+								message,
+							} as const;
+							if (!messageListeners.get(ref)?.(event)) feedTail(event);
+						},
+						(thrown: unknown) => {
+							log.warn("notified message refetch failed", {
+								code: classifyThrown(thrown, {
+									method: "channel.listMessages",
+								}).code,
+							});
+						},
+					)
+					.finally(() => {
+						if (notifiedCopies.get(key) === timer) notifiedCopies.delete(key);
+					});
+			}, NOTIFIED_REFETCH_DELAY_MS);
+
+			notifiedCopies.set(key, timer);
+		};
+
+		const forgetNotified = (ref: SpaceRef, rkey: string | undefined) => {
+			if (!rkey) return;
+			const key = notifiedKey(ref, rkey);
+
+			clearTimeout(notifiedCopies.get(key));
+			notifiedCopies.delete(key);
 		};
 
 		source.subscribe((event) => {
 			switch (event.$type) {
 				case "messageEvent": {
+					forgetNotified(event.channel, event.message?.rkey ?? event.rkey);
 					if (event.event === "create" && event.message) {
 						markUnread(event.message);
 						typingStops.get(event.channel)?.(event.message.author.did);
@@ -3373,6 +3452,7 @@ export const createDataStore = (
 						void loadSummaries(communityOfRef(event.space), event.space);
 					}
 					for (const rkey of event.rkeys) {
+						forgetNotified(event.space, rkey);
 						const detached = {
 							$type: "messageEvent",
 							event: "delete",
