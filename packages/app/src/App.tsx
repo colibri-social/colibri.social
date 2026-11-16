@@ -130,7 +130,9 @@ const RemoteApp = () => {
 					signOut: () => auth.signOut({ beforeSignOut: session.beforeSignOut }),
 				}}
 			>
-				<SignedInApp session={session} />
+				<ErrorBoundary fallback={(thrown) => <AppCrashed thrown={thrown} />}>
+					<SignedInApp session={session} />
+				</ErrorBoundary>
 			</AccountActionsContext.Provider>
 		</AuthGate>
 	);

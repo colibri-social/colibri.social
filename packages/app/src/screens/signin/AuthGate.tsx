@@ -65,7 +65,15 @@ export const AuthGate = (props: AuthGateProps) => {
 					when={props.auth.status() === "failed" && props.auth.startupError()}
 				>
 					{(error) => (
-						<StartupError error={error()} onRetry={props.auth.retryInit} />
+						<StartupError
+							error={error()}
+							onRetry={props.auth.retryInit}
+							onSignOut={
+								props.auth.hasStoredAccount()
+									? () => props.auth.signOut()
+									: undefined
+							}
+						/>
 					)}
 				</Match>
 				<Match when={props.auth.status() === "completing"}>

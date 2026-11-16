@@ -172,6 +172,7 @@ export type Auth = {
 	signIn: (handle: string, options?: { create?: boolean }) => Promise<void>;
 	reauthorize: () => Promise<void>;
 	signOut: (options?: SignOutOptions) => Promise<void>;
+	hasStoredAccount: () => boolean;
 	completeCallback: (params: URLSearchParams) => Promise<boolean>;
 	cancelSignIn: () => void;
 	retrySignIn: () => Promise<void>;
@@ -1001,6 +1002,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		signIn,
 		reauthorize,
 		signOut,
+		hasStoredAccount: () => !!local.get(SUB_KEY),
 		completeCallback,
 		cancelSignIn: () => setPhase(undefined),
 		retrySignIn: async () => {

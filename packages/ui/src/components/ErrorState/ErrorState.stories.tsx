@@ -11,6 +11,7 @@ type Args = {
 	onRetry: () => void;
 	onBack: () => void;
 	onFeedback: () => void;
+	onLogOut?: () => void;
 };
 
 const meta: Meta<Args> = {
@@ -164,6 +165,32 @@ export const WithExtraAction: Story = {
 			canvas.getByRole("button", { name: "Back to channels" }),
 		);
 		await expect(args.onBack).toHaveBeenCalledOnce();
+	},
+};
+
+export const WithLogOut: Story = {
+	args: { onLogOut: fn() },
+	render: (args) => (
+		<div class="flex h-[640px] w-full max-w-[402px] flex-col bg-background">
+			<ErrorState
+				title="Something went wrong"
+				description="Colibri couldn't start. Try again in a moment."
+				code="Unexpected"
+				onRetry={args.onRetry}
+				actions={
+					<Button block variant="tertiary" onClick={args.onLogOut}>
+						Log out
+					</Button>
+				}
+				onFeedback={args.onFeedback}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement, args }) => {
+		const canvas = within(canvasElement);
+		await expectNoLayoutIssues(canvasElement.firstElementChild as HTMLElement);
+		await userEvent.click(canvas.getByRole("button", { name: "Log out" }));
+		await expect(args.onLogOut).toHaveBeenCalledOnce();
 	},
 };
 

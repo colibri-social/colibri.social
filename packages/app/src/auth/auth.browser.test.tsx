@@ -297,6 +297,23 @@ describe("createAuth", () => {
 		expect(onSignedOut).toHaveBeenCalled();
 	});
 
+	it("signs out of a saved account after a failed startup", async () => {
+		const fake: FakeClientState = { calls: [], stored: fakeSession(DID) };
+		const storage = memoryStorage({ sub: DID });
+		const { auth, navigate } = setup(
+			{},
+			{ loadClient: hangingOnce(fake), startupTimeoutMs: 50, storage },
+		);
+		await auth.init();
+		expect(auth.status()).toBe("failed");
+		expect(auth.hasStoredAccount()).toBe(true);
+
+		await auth.signOut();
+		expect(auth.status()).toBe("signedOut");
+		expect(auth.hasStoredAccount()).toBe(false);
+		expect(navigate).toHaveBeenLastCalledWith("/app/login");
+	});
+
 	it("runs the sign-out cleanup before revoking", async () => {
 		const { auth, fake } = setup(
 			{ stored: fakeSession(DID) },

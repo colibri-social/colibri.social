@@ -7,6 +7,7 @@ import {
 	emulateWindowChrome,
 	windowChromeIssues,
 } from "../../../../ui/src/foundations/layout-test";
+import { AccountActionsContext } from "../../auth/account-actions";
 import { Providers } from "../../providers";
 import { dismissDocumentLaunchScreen, LaunchScreen } from "./LaunchScreen";
 import {
@@ -232,5 +233,63 @@ describe("startup error", () => {
 			.toBeVisible();
 		expect(windowChromeIssues(host)).toEqual([]);
 		await page.viewport(402, 874);
+	});
+
+	it("logs out through the handler it gets", async () => {
+		const onSignOut = vi.fn(() => Promise.resolve());
+		const host = mountHost();
+		dispose = render(
+			() => (
+				<Providers>
+					<StartupError
+						error={new ColibriError({ code: "Unexpected" })}
+						onRetry={() => {}}
+						onSignOut={onSignOut}
+					/>
+				</Providers>
+			),
+			host,
+		);
+		await userEvent.click(page.getByRole("button", { name: "Log out" }));
+		expect(onSignOut).toHaveBeenCalledOnce();
+	});
+
+	it("logs out through the signed-in account", async () => {
+		const signOut = vi.fn(() => Promise.resolve());
+		const host = mountHost();
+		dispose = render(
+			() => (
+				<Providers>
+					<AccountActionsContext.Provider value={{ signOut }}>
+						<StartupError
+							error={new ColibriError({ code: "Unexpected" })}
+							onRetry={() => {}}
+						/>
+					</AccountActionsContext.Provider>
+				</Providers>
+			),
+			host,
+		);
+		await userEvent.click(page.getByRole("button", { name: "Log out" }));
+		expect(signOut).toHaveBeenCalledOnce();
+	});
+
+	it("offers no log out without an account", async () => {
+		const host = mountHost();
+		dispose = render(
+			() => (
+				<Providers>
+					<StartupError
+						error={new ColibriError({ code: "Unexpected" })}
+						onRetry={() => {}}
+					/>
+				</Providers>
+			),
+			host,
+		);
+		await expect
+			.element(page.getByRole("button", { name: "Try again" }))
+			.toBeVisible();
+		expect(host.querySelector("[data-startup-sign-out]")).toBeNull();
 	});
 });

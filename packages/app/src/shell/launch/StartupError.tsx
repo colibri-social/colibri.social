@@ -3,8 +3,9 @@ import type {
 	ColibriErrorCode,
 	ErrorCopy,
 } from "@colibri-social/lib";
-import { ErrorState, FEEDBACK_URL } from "@colibri-social/ui";
-import { type JSX, Show } from "solid-js";
+import { Button, ErrorState, FEEDBACK_URL } from "@colibri-social/ui";
+import { createSignal, type JSX, Show } from "solid-js";
+import { useAccountActions } from "../../auth/account-actions";
 import { describeError } from "../../data/error-copy";
 import { openExternalUrl } from "../../native/open-external";
 import { usePlatform } from "../../screen/platform";
@@ -27,16 +28,29 @@ const STARTUP_COPY: Partial<Record<ColibriErrorCode, ErrorCopy>> = {
 	NetworkFailed: CANT_CONNECT,
 };
 
-const startupCopy = (error: ColibriError): ErrorCopy =>
-	STARTUP_COPY[error.code] ?? describeError(error);
+const startupCopy = (error: ColibriError): ErrorCopy => {
+	return STARTUP_COPY[error.code] ?? describeError(error);
+};
 
 export const StartupError = (props: {
 	error: ColibriError;
 	onRetry: () => unknown;
+	onSignOut?: () => Promise<void>;
 	report?: JSX.Element;
 }) => {
 	const platform = usePlatform();
+	const account = useAccountActions();
+	const [signingOut, setSigningOut] = createSignal(false);
 	const copy = () => startupCopy(props.error);
+	const signOut = () => props.onSignOut ?? account?.signOut;
+
+	const logOut = (run: () => Promise<void>) => {
+		if (signingOut()) return;
+
+		setSigningOut(true);
+		void run().finally(() => setSigningOut(false));
+	};
+
 	return (
 		<div
 			data-startup-error=""
@@ -51,6 +65,21 @@ export const StartupError = (props: {
 					description={copy().description}
 					code={props.error.code}
 					onRetry={props.onRetry}
+					actions={
+						<Show when={signOut()}>
+							{(run) => (
+								<Button
+									block
+									variant="tertiary"
+									data-startup-sign-out=""
+									loading={signingOut()}
+									onClick={() => logOut(run())}
+								>
+									Log out
+								</Button>
+							)}
+						</Show>
+					}
 					report={props.report}
 					onFeedback={() => openExternalUrl(FEEDBACK_URL)}
 				/>
