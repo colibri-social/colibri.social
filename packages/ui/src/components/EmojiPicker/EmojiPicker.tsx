@@ -74,6 +74,7 @@ export type EmojiPickerProps = {
 	onPick: (pick: EmojiPick, event: MouseEvent) => void;
 	usage?: Record<string, EmojiUsage>;
 	packs?: EmojiPack[];
+	customEmoji?: (id: string) => CustomEmoji | undefined;
 	skinTone?: SkinTone;
 	onSkinToneChange?: (tone: SkinTone) => void;
 	autofocus?: boolean;
@@ -104,6 +105,7 @@ const SEARCH_LIMIT = 96;
 const SECTION_TITLE_PX = 32;
 const INITIAL_SECTIONS = 2;
 const VARIATION_SELECTOR = "️";
+const FREQUENT_TITLE = "Frequently used";
 
 const metrics = {
 	desktop: { cell: 40, glyph: "text-[26px]", image: "size-[26px]", columns: 8 },
@@ -217,9 +219,20 @@ export const EmojiPicker = (props: EmojiPickerProps) => {
 					customs.set(emoji.id, customItem(emoji, pack));
 			}
 		}
-		const ranked = topEmoji(props.usage ?? {}, FREQUENT_COUNT, (uri) =>
-			customs.has(uri) ? uri : undefined,
-		);
+		const looseCustom = (uri: string) => {
+			const emoji = props.customEmoji?.(uri);
+			if (!emoji) return undefined;
+
+			const pack = { id: "frequent", name: FREQUENT_TITLE, emojis: [emoji] };
+
+			return customItem(emoji, pack);
+		};
+		const resolveCustom = (uri: string) => {
+			const item = customs.get(uri) ?? looseCustom(uri);
+			if (item) customs.set(uri, item);
+			return item ? uri : undefined;
+		};
+		const ranked = topEmoji(props.usage ?? {}, FREQUENT_COUNT, resolveCustom);
 		for (const char of ranked) {
 			const custom = isCustomEmojiKey(char) ? customs.get(char) : undefined;
 			if (custom) {
@@ -241,7 +254,7 @@ export const EmojiPicker = (props: EmojiPickerProps) => {
 		if (frequent.length > 0) {
 			sections.push({
 				id: "frequent",
-				title: "Frequently used",
+				title: FREQUENT_TITLE,
 				icon: () => <ClockCircleIcon />,
 				items: frequent,
 			});

@@ -75,6 +75,10 @@ const SMOOTH_MAX_VIEWPORTS = 3;
 const SCROLL_QUIET_MS = 150;
 const SCROLL_START_MS = 300;
 const JUMP_START_INSET = 16;
+const HOLD_MARGIN_PX = 8;
+const HOLD_START_MS = 1000;
+const HOLD_SETTLE_MS = 400;
+export const KEYBOARD_OFFSET_EVENT = "colibri-keyboard-offset";
 
 export type MessageListJumpOptions = {
 	align?: "start" | "center" | "end";
@@ -89,6 +93,8 @@ export type MessageListHandle = {
 	focusMessage: (key: string) => boolean;
 	isAtBottom: () => boolean;
 	scrollElement: () => HTMLElement | undefined;
+	holdInView: (key: string) => boolean;
+	releaseHold: () => void;
 };
 
 export type MessageListProps<T extends GroupableMessage> = {
@@ -121,6 +127,12 @@ export type MessageListProps<T extends GroupableMessage> = {
 	keepMounted?: readonly string[];
 	ref?: (handle: MessageListHandle) => void;
 	class?: string;
+};
+
+type ViewHold = {
+	key: string;
+	anchor: number;
+	until: number;
 };
 
 type Row<T extends GroupableMessage> = {
@@ -224,6 +236,7 @@ export const MessageList = <T extends GroupableMessage>(
 	const [jumpKey, setJumpKey] = createSignal<string>();
 	const [jumpedKey, setJumpedKey] = createSignal<string>();
 	const [settling, setSettling] = createSignal(true);
+	const [heldKey, setHeldKey] = createSignal<string>();
 
 	let distance = 0;
 	let autoScroll = false;
@@ -240,6 +253,9 @@ export const MessageList = <T extends GroupableMessage>(
 	let awaitingUnread = false;
 	let openAtTop = false;
 	let touching = false;
+	let viewHold: ViewHold | undefined;
+	let viewHoldTimer: ReturnType<typeof setTimeout> | undefined;
+	let keyboardOffset = 0;
 	let announceQueue: (string | undefined)[] = [];
 	let announceTimer: ReturnType<typeof setTimeout> | undefined;
 	let announceCooling = false;
@@ -327,6 +343,7 @@ export const MessageList = <T extends GroupableMessage>(
 			focusedKey(),
 			touchedKey(),
 			jumpKey(),
+			heldKey(),
 			...holds.held(),
 			...(props.keepMounted ?? []),
 		];
@@ -457,6 +474,85 @@ export const MessageList = <T extends GroupableMessage>(
 			`[data-message-key="${CSS.escape(key)}"]`,
 		) ?? undefined;
 
+	const releaseHold = () => {
+		clearTimeout(viewHoldTimer);
+		viewHoldTimer = undefined;
+		viewHold = undefined;
+		setHeldKey(undefined);
+	};
+
+	const armHoldRelease = () => {
+		if (!viewHold) return;
+		clearTimeout(viewHoldTimer);
+		viewHoldTimer = setTimeout(
+			releaseHold,
+			Math.max(HOLD_SETTLE_MS, viewHold.until - performance.now()),
+		);
+	};
+
+	const visibleBand = (element: HTMLElement) => {
+		const box = element.getBoundingClientRect();
+		return {
+			top: box.top + keyboardOffset,
+			bottom: box.bottom - (props.bottomInset ?? 0),
+		};
+	};
+
+	const placeHeld = (hold: ViewHold, element: HTMLElement) => {
+		const row = elementFor(hold.key);
+		if (!row) return;
+		const band = visibleBand(element);
+		const rect = row.getBoundingClientRect();
+		const lowest = band.bottom - HOLD_MARGIN_PX - rect.height;
+		const highest = band.top + HOLD_MARGIN_PX;
+		const wanted = Math.max(Math.min(band.top + hold.anchor, lowest), highest);
+		const delta = rect.top - wanted;
+		if (Math.abs(delta) > 0.5) element.scrollTop += delta;
+		observedTop = element.scrollTop;
+	};
+
+	const followHold = () => {
+		const element = scroller();
+		const hold = viewHold;
+		if (!hold || !element) return false;
+		if (!model().indexOf.has(hold.key)) {
+			releaseHold();
+			return false;
+		}
+		placeHeld(hold, element);
+		armHoldRelease();
+		return true;
+	};
+
+	const holdInView = (key: string) => {
+		const element = scroller();
+		const row = elementFor(key);
+		if (!element || !row || !model().indexOf.has(key)) return false;
+		if (autoScroll) finishAutoScroll(true);
+		pendingJump = undefined;
+		const hold: ViewHold = {
+			key,
+			anchor: row.getBoundingClientRect().top - visibleBand(element).top,
+			until: performance.now() + HOLD_START_MS,
+		};
+		viewHold = hold;
+		setHeldKey(key);
+		placeHeld(hold, element);
+		hold.anchor = row.getBoundingClientRect().top - visibleBand(element).top;
+		armHoldRelease();
+		return true;
+	};
+
+	const onKeyboardOffset = (event: Event) => {
+		const element = scroller();
+		const source = event.target;
+		const offset = (event as CustomEvent<unknown>).detail;
+		if (!element || typeof offset !== "number") return;
+		if (!(source instanceof Node) || !source.contains(element)) return;
+		keyboardOffset = offset;
+		followHold();
+	};
+
 	const focusKey = (key: string) => {
 		const index = model().indexOf.get(key);
 		if (index === undefined) return false;
@@ -494,6 +590,7 @@ export const MessageList = <T extends GroupableMessage>(
 		}
 		pendingJump = undefined;
 		releaseJump();
+		releaseHold();
 		const atPresent = index === model().keys.length - 1 && !props.hasNewer;
 		batch(() => {
 			setPinned(false);
@@ -538,6 +635,7 @@ export const MessageList = <T extends GroupableMessage>(
 		setUnseen(0);
 		pendingJump = undefined;
 		releaseJump();
+		releaseHold();
 		if (props.hasNewer) {
 			pinOnArrival = true;
 			props.onJumpToLatest?.();
@@ -771,17 +869,21 @@ export const MessageList = <T extends GroupableMessage>(
 
 	const onWheel = () => {
 		markUserScroll();
+		releaseHold();
 		interrupt();
 	};
 
 	const onScrollKey = (event: KeyboardEvent) => {
-		if (SCROLL_KEYS.has(event.key)) markUserScroll();
+		if (!SCROLL_KEYS.has(event.key)) return;
+		markUserScroll();
+		releaseHold();
 	};
 
 	const onScrollerPointerDown = (event: PointerEvent) => {
 		if (event.pointerType !== "mouse") return;
 		pointerHeld = true;
 		markUserScroll();
+		releaseHold();
 		const release = () => {
 			pointerHeld = false;
 			markUserScroll();
@@ -804,6 +906,7 @@ export const MessageList = <T extends GroupableMessage>(
 
 	const onTouchStart = () => {
 		touching = true;
+		releaseHold();
 		const moving = autoScroll;
 		interrupt();
 		const element = scroller();
@@ -820,8 +923,9 @@ export const MessageList = <T extends GroupableMessage>(
 		const height = element.clientHeight;
 		if (lastClientHeight && height !== lastClientHeight) {
 			catchUpScrolledUp();
-			if (untrack(pinned) && !autoScroll) stickToBottom();
-			else if (!untrack(settling) && !autoScroll)
+			const held = followHold();
+			if (!held && untrack(pinned) && !autoScroll) stickToBottom();
+			else if (!held && !untrack(settling) && !autoScroll)
 				element.scrollTop += lastClientHeight - height;
 		}
 		lastClientHeight = height;
@@ -835,6 +939,7 @@ export const MessageList = <T extends GroupableMessage>(
 		refreshStartMargin();
 		const element = scroller();
 		if (!element || delta === 0) return;
+		if (followHold()) return;
 		if (followsBottom()) {
 			stickToBottom();
 			return;
@@ -844,6 +949,7 @@ export const MessageList = <T extends GroupableMessage>(
 
 	const onFeedHeightChange = () => {
 		refreshStartMargin();
+		if (followHold()) return;
 		if (followsBottom()) stickToBottom();
 	};
 
@@ -1006,6 +1112,8 @@ export const MessageList = <T extends GroupableMessage>(
 		focusMessage: focusKey,
 		isAtBottom: () => untrack(pinned),
 		scrollElement: () => scroller(),
+		holdInView,
+		releaseHold,
 	};
 	props.ref?.(api);
 
@@ -1057,7 +1165,8 @@ export const MessageList = <T extends GroupableMessage>(
 			for (const entry of entries) {
 				if (entry.target === element) onScrollerResize();
 				else if (entry.target === top) onTopResize();
-				else if (entry.target === bottom && followsBottom()) stickToBottom();
+				else if (entry.target === bottom && !followHold() && followsBottom())
+					stickToBottom();
 			}
 		});
 		resize.observe(element);
@@ -1073,6 +1182,7 @@ export const MessageList = <T extends GroupableMessage>(
 		element.addEventListener("touchstart", onTouchStart, { passive: true });
 		element.addEventListener("touchend", onTouchEnd, { passive: true });
 		element.addEventListener("touchcancel", onTouchEnd, { passive: true });
+		window.addEventListener(KEYBOARD_OFFSET_EVENT, onKeyboardOffset);
 		queueMicrotask(() => {
 			refreshStartMargin();
 			chooseOpening();
@@ -1089,10 +1199,12 @@ export const MessageList = <T extends GroupableMessage>(
 			element.removeEventListener("touchstart", onTouchStart);
 			element.removeEventListener("touchend", onTouchEnd);
 			element.removeEventListener("touchcancel", onTouchEnd);
+			window.removeEventListener(KEYBOARD_OFFSET_EVENT, onKeyboardOffset);
 			cancelAnimationFrame(settleFrame);
 			clearTimeout(autoScrollTimer);
 			clearTimeout(highlightTimer);
 			clearTimeout(announceTimer);
+			clearTimeout(viewHoldTimer);
 		});
 	});
 

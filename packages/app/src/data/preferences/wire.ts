@@ -95,17 +95,63 @@ const decodeClient = (
 	};
 };
 
+const EMOJI_USAGE_HALF_LIFE_MS = 7 * 24 * 60 * 60 * 1000;
+
+const emojiFrecency = (use: EmojiUse, now: number) => {
+	return (
+		Math.log2(use.count) -
+		Math.max(0, now - use.lastUsed) / EMOJI_USAGE_HALF_LIFE_MS
+	);
+};
+
 export const pruneEmojiUsage = (
 	usage: Record<string, EmojiUse>,
 	limit = MAX_EMOJI_USAGE,
+	now = Date.now(),
 ): Record<string, EmojiUse> => {
 	const entries = Object.entries(usage);
 	if (entries.length <= limit) return usage;
+
 	return Object.fromEntries(
 		entries
-			.sort(([, a], [, b]) => b.count - a.count || b.lastUsed - a.lastUsed)
-			.slice(0, limit),
+			.map(([emoji, use]) => ({ emoji, use, score: emojiFrecency(use, now) }))
+			.sort((a, b) => b.score - a.score || b.use.lastUsed - a.use.lastUsed)
+			.slice(0, limit)
+			.map((entry) => [entry.emoji, entry.use]),
 	);
+};
+
+export const mergeEmojiUsage = (
+	...sources: Record<string, EmojiUse>[]
+): Record<string, EmojiUse> => {
+	const merged: Record<string, EmojiUse> = {};
+
+	for (const source of sources) {
+		for (const [emoji, use] of Object.entries(source)) {
+			const known = merged[emoji];
+
+			merged[emoji] = known
+				? {
+						count: Math.max(known.count, use.count),
+						lastUsed: Math.max(known.lastUsed, use.lastUsed),
+					}
+				: use;
+		}
+	}
+
+	return merged;
+};
+
+export const mergeComposerUsage = (
+	local: ComposerState,
+	incoming: ComposerState,
+): ComposerState => {
+	return {
+		...incoming,
+		emojiUsage: pruneEmojiUsage(
+			mergeEmojiUsage(local.emojiUsage, incoming.emojiUsage),
+		),
+	};
 };
 
 const asSkinTone = (value: unknown) =>

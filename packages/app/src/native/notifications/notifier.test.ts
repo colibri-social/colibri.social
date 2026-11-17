@@ -320,6 +320,75 @@ describe("native notifier", () => {
 		).toEqual({ cid: "did:plc:ada", bytes: [1, 2] });
 	});
 
+	it("notifies without the avatar when the download is slow", async () => {
+		vi.useFakeTimers();
+		try {
+			const port = fakePort({
+				native_notify_cache_avatar: "/cache/ada.jpg",
+				native_notify_take_activation: null,
+			});
+			const fetchBytes = vi.fn(() => new Promise<ArrayBuffer>(() => undefined));
+			const notifier = createNativeNotifier(
+				port,
+				createActivationBus(),
+				fetchBytes,
+				{ avatarWaitMs: 250 },
+			);
+			const shown = notifier.show(
+				notification({ avatar: "https://cdn.test/ada.jpg" }),
+			);
+
+			await vi.advanceTimersByTimeAsync(249);
+
+			expect(port.calls.some((call) => call.command === "native_notify")).toBe(
+				false,
+			);
+
+			await vi.advanceTimersByTimeAsync(1);
+			await shown;
+
+			const shows = port.calls.filter(
+				(call) => call.command === "native_notify",
+			);
+
+			expect(shows).toHaveLength(1);
+			expect(
+				(shows[0]?.args?.payload as { iconPath: unknown }).iconPath,
+			).toBeNull();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("waits before retrying an avatar that failed to download", async () => {
+		let now = 0;
+		const port = fakePort({ native_notify_take_activation: null });
+		const fetchBytes = vi.fn(async (): Promise<ArrayBuffer> => {
+			throw new Error("avatar 404");
+		});
+		const notifier = createNativeNotifier(
+			port,
+			createActivationBus(),
+			fetchBytes,
+			{ now: () => now, avatarRetryMs: 1000 },
+		);
+		const payload = notification({ avatar: "https://cdn.test/ada.jpg" });
+
+		await notifier.show(payload);
+		now = 999;
+		await notifier.show(payload);
+
+		expect(fetchBytes).toHaveBeenCalledTimes(1);
+
+		now = 1000;
+		await notifier.show(payload);
+
+		expect(fetchBytes).toHaveBeenCalledTimes(2);
+		expect(
+			port.calls.filter((call) => call.command === "native_notify"),
+		).toHaveLength(3);
+	});
+
 	it("routes clicks and the launch activation once each", async () => {
 		const launch = encodeActivation(notification({ thread: THREAD }));
 		const port = fakePort({

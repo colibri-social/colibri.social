@@ -223,6 +223,7 @@ export const buildSuggestions = (
 		render: renderer(":", controller),
 		command: ({ editor, range, props }) => {
 			if ((props as { type?: string }).type === "customEmoji") {
+				if (props.id) sources().onEmojiPick?.(props.id);
 				insertChip(editor, range, props);
 				return;
 			}

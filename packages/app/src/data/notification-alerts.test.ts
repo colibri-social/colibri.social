@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+	createRenderedMessages,
 	type NotificationAlertContext,
+	RENDERED_MESSAGE_LIMIT,
+	RENDERED_MESSAGE_TTL_MS,
 	STALE_ALERT_MS,
 	shouldAlertNotification,
 } from "./notification-alerts";
@@ -35,6 +38,7 @@ const context = (
 	channelMuted: false,
 	threadMuted: false,
 	authorBlocked: false,
+	renderedOnScreen: false,
 	voiceChannel: undefined,
 	now: NOW,
 	...overrides,
@@ -217,5 +221,54 @@ describe("shouldAlertNotification", () => {
 				visible: false,
 			}),
 		).toBe(false);
+	});
+});
+
+describe("rendered messages", () => {
+	it("stays quiet for a message already rendered on screen", () => {
+		expect(
+			shouldAlertNotification(
+				view({ kind: "mention" }),
+				context({ visible: false, renderedOnScreen: true }),
+			),
+		).toBe(false);
+	});
+
+	it("remembers a rendered message per conversation", () => {
+		const rendered = createRenderedMessages(() => NOW);
+
+		rendered.record(CHANNEL, "m1");
+
+		expect(rendered.has(CHANNEL, "m1")).toBe(true);
+		expect(rendered.has(THREAD, "m1")).toBe(false);
+		expect(rendered.has(CHANNEL, "m2")).toBe(false);
+	});
+
+	it("forgets a rendered message once its time is up", () => {
+		let now = NOW;
+		const rendered = createRenderedMessages(() => now);
+
+		rendered.record(CHANNEL, "m1");
+		now += RENDERED_MESSAGE_TTL_MS - 1;
+		rendered.record(CHANNEL, "m2");
+
+		expect(rendered.has(CHANNEL, "m1")).toBe(true);
+
+		now += 1;
+
+		expect(rendered.has(CHANNEL, "m1")).toBe(false);
+		expect(rendered.has(CHANNEL, "m2")).toBe(true);
+	});
+
+	it("drops the oldest entries past the limit", () => {
+		const rendered = createRenderedMessages(() => NOW);
+
+		for (let index = 0; index <= RENDERED_MESSAGE_LIMIT; index += 1) {
+			rendered.record(CHANNEL, `m${index}`);
+		}
+
+		expect(rendered.has(CHANNEL, "m0")).toBe(false);
+		expect(rendered.has(CHANNEL, "m1")).toBe(true);
+		expect(rendered.has(CHANNEL, `m${RENDERED_MESSAGE_LIMIT}`)).toBe(true);
 	});
 });

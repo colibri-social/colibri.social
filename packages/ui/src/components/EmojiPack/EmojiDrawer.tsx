@@ -20,6 +20,7 @@ import { createDirtyGuard } from "../../utils/dirty-guard";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { Button } from "../Button/Button";
+import { trackOpenOverlay } from "../ContextMenu/active-menu";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { IconButton } from "../IconButton/IconButton";
 import { DestructiveRow, ListGroup, NavRow } from "../List/List";
@@ -324,6 +325,10 @@ export const EmojiPopover = (props: EmojiPopoverProps) => {
 		if (next) props.onOpenChange(true);
 		else guard.attempt(() => props.onOpenChange(false));
 	};
+	trackOpenOverlay(
+		() => props.open,
+		() => change(false),
+	);
 	const overflowPadding = usePopperOverflowPadding(16);
 	let lastRect: DOMRect | undefined;
 	const anchorRect = (anchor?: HTMLElement) => {

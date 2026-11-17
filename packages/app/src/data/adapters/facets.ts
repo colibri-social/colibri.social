@@ -103,7 +103,13 @@ export const collapseWhitespace = (
 		const byteStart = offsets.get(facet.index.byteStart);
 		const byteEnd = offsets.get(facet.index.byteEnd);
 		if (byteStart === undefined || byteEnd === undefined) return [];
-		return [{ ...facet, index: { ...facet.index, byteStart, byteEnd } }];
+		return [
+			{
+				...facet,
+				index: { ...facet.index, byteStart, byteEnd },
+				features: facet.features.map((feature) => ({ ...feature })),
+			},
+		];
 	});
 	return { text: collapsed, facets: validFacets(collapsed, mapped) };
 };

@@ -1,5 +1,6 @@
 import {
 	ChipButton,
+	type CustomEmoji,
 	type EmojiPack,
 	NameColorProvider,
 	type RichEditorSources,
@@ -66,6 +67,7 @@ export type ChatContextValue = {
 	editSources?: RichEditorSources;
 	customEmoji?: (name: string) => RichTextCustomEmoji | undefined;
 	customEmojiByUri?: (uri: string) => RichTextCustomEmoji | undefined;
+	pickerEmoji?: (uri: string) => CustomEmoji | undefined;
 	refreshCustomEmoji?: (uri: string, src: string) => Promise<boolean>;
 	customEmojiUnavailable?: (reaction: ReactionEmoji) => boolean;
 	customEmojiFeature?: (
@@ -116,7 +118,12 @@ export type ChatContextValue = {
 	onSetHidden?: (message: ChatMessage, hidden: boolean) => void;
 	blockedShown?: (key: string) => boolean;
 	onBlockedShownChange?: (key: string, shown: boolean) => void;
-	onReact: (message: ChatMessage, emoji: string, add: boolean) => void;
+	onReact: (
+		message: ChatMessage,
+		emoji: string,
+		add: boolean,
+		uri?: string,
+	) => void;
 	onPickReaction?: (message: ChatMessage) => void;
 	onRetry: (message: ChatMessage) => void;
 	onJumpTo: (rkey: string) => void;

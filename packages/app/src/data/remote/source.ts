@@ -1,4 +1,4 @@
-import { COLLECTIONS } from "@colibri-social/lexicons";
+import { asSpaceRef, COLLECTIONS } from "@colibri-social/lexicons";
 import {
 	activityFrame,
 	type ClientFrame,
@@ -11,6 +11,7 @@ import {
 	spaceSkey,
 	typingFrame,
 	viewChannelFrame,
+	wroteToFrame,
 } from "@colibri-social/lib";
 import { createSignal } from "solid-js";
 import { resolvePdsHost } from "../../auth/identity";
@@ -142,7 +143,9 @@ export const createRemoteSource = async (
 		onScopesRejected: options.onScopesRejected,
 	});
 	const host = createHostMode({ transport, publish: true });
-	const records = createRecords(transport, host);
+	const records = createRecords(transport, host, (space) => {
+		options.live.send(wroteToFrame(asSpaceRef(space)));
+	});
 
 	void host.refresh();
 	const index = createMessageIndex();

@@ -22,7 +22,7 @@ import {
 	topLayerAttrs,
 } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
-import { trackActiveMenu } from "../ContextMenu/active-menu";
+import { trackActiveMenu, trackOpenOverlay } from "../ContextMenu/active-menu";
 import {
 	MenuItem,
 	type MenuItemTone,
@@ -621,6 +621,7 @@ export const DropdownMenu = (props: DropdownMenuProps) => {
 		props.onOpenChange?.(next);
 	};
 	if (!props.submenu) trackActiveMenu(open, () => setOpen(false));
+	if (!props.submenu) trackOpenOverlay(open, () => setOpen(false));
 	const overflowPadding = usePopperOverflowPadding();
 	const mobile = () => props.platform === "mobile";
 	let content: HTMLElement | undefined;

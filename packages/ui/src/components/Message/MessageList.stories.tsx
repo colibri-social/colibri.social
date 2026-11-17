@@ -1,6 +1,7 @@
 import { createMemo, createSignal, Show } from "solid-js";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import {
 	ANCHOR_HOLD_EVENT,
 	type AnchorHoldDetail,
@@ -9,6 +10,7 @@ import { MediaGrid, type MediaItem } from "../Attachments/MediaGrid";
 import { fixtureImage } from "../Attachments/story-fixtures";
 import { Button } from "../Button/Button";
 import {
+	KEYBOARD_OFFSET_EVENT,
 	MessageList,
 	type MessageListHandle,
 	OLDER_PREFETCH_VIEWPORTS,
@@ -688,6 +690,170 @@ export const KeyboardInset: Story = {
 			await expect(Math.abs(distanceOf(scroller) - before)).toBeLessThanOrEqual(
 				1,
 			);
+		});
+	},
+};
+
+const HELD_SHELL_PX = 760;
+let heldHandle: MessageListHandle | undefined;
+
+const heldRowNearTop = (canvas: HTMLElement, scroller: HTMLElement) => {
+	const box = scroller.getBoundingClientRect();
+	return articlesOf(canvas)
+		.filter((article) => {
+			const rect = article.getBoundingClientRect();
+			return rect.height > 0 && rect.top >= box.top + 60;
+		})
+		.sort(
+			(a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top,
+		)[0] as HTMLElement;
+};
+
+export const ReplyHoldsRowInView: Story = {
+	parameters: iphone,
+	render: () => {
+		const channel = createChannel({
+			source: createListMessages(300, { images: false }),
+			paging: false,
+		});
+		return (
+			<div
+				data-held-shell=""
+				class="flex flex-col bg-background"
+				style={{ height: `${HELD_SHELL_PX}px` }}
+			>
+				<div class="relative z-10 flex h-12 shrink-0 items-center bg-background px-4 text-sm text-foreground">
+					#general
+				</div>
+				<div data-held-follow="" class="flex min-h-0 flex-1 flex-col">
+					<ChannelView
+						channel={channel}
+						platform="mobile"
+						height="100%"
+						listProps={{
+							ref: (value) => {
+								heldHandle = value;
+							},
+						}}
+					/>
+					<div class="h-14 shrink-0 border-t border-border bg-background" />
+				</div>
+			</div>
+		);
+	},
+	play: async ({ canvasElement, step }) => {
+		await settled(canvasElement);
+		const scroller = scrollerOf(canvasElement);
+		const shell = canvasElement.querySelector<HTMLElement>(
+			"[data-held-shell]",
+		) as HTMLElement;
+		const follow = canvasElement.querySelector<HTMLElement>(
+			"[data-held-follow]",
+		) as HTMLElement;
+		const handle = heldHandle as MessageListHandle;
+		const offsetTo = (offset: number) => {
+			follow.style.transform = offset ? `translate3d(0, ${-offset}px, 0)` : "";
+			follow.dispatchEvent(
+				new CustomEvent(KEYBOARD_OFFSET_EVENT, {
+					bubbles: true,
+					detail: offset,
+				}),
+			);
+		};
+		const reset = async () => {
+			handle.releaseHold();
+			offsetTo(0);
+			shell.style.height = `${HELD_SHELL_PX}px`;
+			await frames(2);
+			handle.scrollToBottom({ smooth: false });
+			await frames(3);
+		};
+
+		await step("Shell resizes keep the held row in place", async () => {
+			const row = heldRowNearTop(canvasElement, scroller);
+			await expect(handle.holdInView(row.dataset.messageKey as string)).toBe(
+				true,
+			);
+			const before = row.getBoundingClientRect().top;
+			for (let index = 1; index <= 10; index++) {
+				shell.style.height = `${HELD_SHELL_PX - index * 30}px`;
+				await frames(1);
+				await expect(
+					Math.abs(row.getBoundingClientRect().top - before),
+				).toBeLessThan(1);
+			}
+			await expectNoLayoutIssues(shell);
+			await reset();
+		});
+
+		await step(
+			"A row the keyboard would cover is clamped into view",
+			async () => {
+				const row = articlesOf(canvasElement).at(-1) as HTMLElement;
+				await scrollTo(scroller, scroller.scrollTop - 200);
+				handle.holdInView(row.dataset.messageKey as string);
+				for (let index = 1; index <= 10; index++) {
+					shell.style.height = `${HELD_SHELL_PX - index * 30}px`;
+					await frames(1);
+					const rect = row.getBoundingClientRect();
+					const box = scroller.getBoundingClientRect();
+					await expect(rect.bottom).toBeLessThanOrEqual(box.bottom - 7);
+					await expect(rect.top).toBeGreaterThanOrEqual(box.top);
+				}
+				await reset();
+			},
+		);
+
+		await step(
+			"The Android transform phase keeps the row in place",
+			async () => {
+				const row = heldRowNearTop(canvasElement, scroller);
+				handle.holdInView(row.dataset.messageKey as string);
+				const before = row.getBoundingClientRect().top;
+				for (let index = 1; index <= 10; index++) {
+					offsetTo(index * 30);
+					await frames(1);
+					await expect(
+						Math.abs(row.getBoundingClientRect().top - before),
+					).toBeLessThan(1);
+				}
+				offsetTo(0);
+				shell.style.height = `${HELD_SHELL_PX - 300}px`;
+				await frames(2);
+				await expect(
+					Math.abs(row.getBoundingClientRect().top - before),
+				).toBeLessThan(1);
+				await reset();
+			},
+		);
+
+		await step("Touching the list releases the hold", async () => {
+			await scrollTo(scroller, scroller.scrollTop - 400);
+			const row = heldRowNearTop(canvasElement, scroller);
+			handle.holdInView(row.dataset.messageKey as string);
+			const before = row.getBoundingClientRect().top;
+			scroller.dispatchEvent(new TouchEvent("touchstart", { bubbles: true }));
+			scroller.dispatchEvent(new TouchEvent("touchend", { bubbles: true }));
+			shell.style.height = `${HELD_SHELL_PX - 200}px`;
+			await frames(2);
+			await expect(before - row.getBoundingClientRect().top).toBeGreaterThan(
+				150,
+			);
+			await reset();
+		});
+
+		await step("The hold ends once the keyboard settles", async () => {
+			await scrollTo(scroller, scroller.scrollTop - 400);
+			const row = heldRowNearTop(canvasElement, scroller);
+			handle.holdInView(row.dataset.messageKey as string);
+			const before = row.getBoundingClientRect().top;
+			await sleep(1100);
+			shell.style.height = `${HELD_SHELL_PX - 200}px`;
+			await frames(2);
+			await expect(before - row.getBoundingClientRect().top).toBeGreaterThan(
+				150,
+			);
+			await reset();
 		});
 	},
 };

@@ -1,9 +1,16 @@
 import { Popover as KobaltePopover } from "@kobalte/core/popover";
-import { type JSX, type ParentProps, Show, splitProps } from "solid-js";
+import {
+	createSignal,
+	type JSX,
+	type ParentProps,
+	Show,
+	splitProps,
+} from "solid-js";
 import { cx } from "../../utils/cx";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { createSlot } from "../../utils/slot";
+import { trackOpenOverlay } from "../ContextMenu/active-menu";
 
 export type PopoverPlacement =
 	| "top"
@@ -26,11 +33,19 @@ export type PopoverProps = ParentProps<{
 
 export const Popover = (props: PopoverProps) => {
 	const overflowPadding = usePopperOverflowPadding(16);
+	const [innerOpen, setInnerOpen] = createSignal(props.defaultOpen ?? false);
+	const open = () => props.open ?? innerOpen();
+	const setOpen = (next: boolean) => {
+		setInnerOpen(next);
+		props.onOpenChange?.(next);
+	};
+
+	trackOpenOverlay(open, () => setOpen(false));
+
 	return (
 		<KobaltePopover
-			open={props.open}
-			onOpenChange={props.onOpenChange}
-			defaultOpen={props.defaultOpen}
+			open={open()}
+			onOpenChange={setOpen}
 			placement={props.placement ?? "bottom-start"}
 			gutter={props.gutter ?? 8}
 			modal={props.modal ?? false}

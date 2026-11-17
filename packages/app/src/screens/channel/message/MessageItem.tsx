@@ -4,6 +4,7 @@ import {
 	copyMessageToClipboard,
 	copyText,
 	Emoji,
+	type EmojiPick,
 	EmojiPickerPopover,
 	ForwardedMessage,
 	formatMessageTime,
@@ -460,14 +461,23 @@ export const MessageItem = (props: MessageItemProps) => {
 	const frozen = () => !!chat.locked?.() || !sent() || legacy();
 	const writableOwn = () => own() && !anchor() && !frozen();
 
-	const react = (emoji: string, add: boolean) => {
+	const react = (emoji: string, add: boolean, uri?: string) => {
 		if (frozen()) return;
 		const usageKey = emoji.startsWith(":")
-			? (reactionFor(view()?.reactions, emoji)?.customEmoji?.uri ??
+			? (uri ??
+				reactionFor(view()?.reactions, emoji)?.customEmoji?.uri ??
 				chat.customEmoji?.(emoji.slice(1, -1))?.id)
 			: emoji;
 		if (add && usageKey) chat.onRecordEmoji?.(usageKey);
-		chat.onReact(message(), emoji, add);
+		chat.onReact(message(), emoji, add, uri);
+	};
+
+	const reactWithPick = (pick: EmojiPick) => {
+		if (pick.kind === "unicode") {
+			react(pick.emoji, true);
+			return;
+		}
+		react(`:${pick.emoji.name}:`, true, pick.emoji.id);
 	};
 
 	const toggleQuick = (emoji: string) => {
@@ -1236,13 +1246,9 @@ export const MessageItem = (props: MessageItemProps) => {
 						skinTone={session.skinTone()}
 						onSkinToneChange={session.setSkinTone}
 						packs={chat.emojiPacks?.()}
+						customEmoji={chat.pickerEmoji}
 						searchPlaceholder="Search reactions"
-						onPick={(pick) => {
-							react(
-								pick.kind === "unicode" ? pick.emoji : `:${pick.emoji.name}:`,
-								true,
-							);
-						}}
+						onPick={reactWithPick}
 					/>
 				)}
 			</Show>
@@ -1254,19 +1260,15 @@ export const MessageItem = (props: MessageItemProps) => {
 						frozen() ? [] : (chat.quickReactions?.() ?? DEFAULT_QUICK_REACTIONS)
 					}
 					onReact={frozen() ? undefined : toggleQuick}
-					emojiPicker={{ packs: chat.emojiPacks?.() }}
+					emojiPicker={{
+						packs: chat.emojiPacks?.(),
+						customEmoji: chat.pickerEmoji,
+						usage: session.usage(),
+						skinTone: session.skinTone(),
+						onSkinToneChange: session.setSkinTone,
+					}}
 					renderEmoji={renderQuickReactionEmoji}
-					onEmojiPick={
-						frozen()
-							? undefined
-							: (pick) =>
-									react(
-										pick.kind === "unicode"
-											? pick.emoji
-											: `:${pick.emoji.name}:`,
-										true,
-									)
-					}
+					onEmojiPick={frozen() ? undefined : reactWithPick}
 					onReply={replyAction()}
 					onEdit={editAction()}
 					onForward={forwardAction()}

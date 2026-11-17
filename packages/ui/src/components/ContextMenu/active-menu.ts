@@ -29,3 +29,29 @@ export const trackActiveMenu = (open: () => boolean, close: () => void) => {
 	});
 	onCleanup(() => releaseActiveMenu(close));
 };
+
+const openOverlays = new Set<() => void>();
+
+export const addOpenOverlay = (close: () => void) => {
+	openOverlays.add(close);
+
+	return () => {
+		openOverlays.delete(close);
+	};
+};
+
+export const closeAllOverlays = () => {
+	const closers = [...openOverlays];
+
+	openOverlays.clear();
+
+	for (const close of closers) close();
+};
+
+export const trackOpenOverlay = (open: () => boolean, close: () => void) => {
+	createEffect(() => {
+		if (!open()) return;
+
+		onCleanup(addOpenOverlay(close));
+	});
+};

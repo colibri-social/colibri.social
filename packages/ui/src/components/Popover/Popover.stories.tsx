@@ -2,6 +2,8 @@ import { InfoCircleIcon } from "@solar-icons/solid/bold/info-circle";
 import { expect, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { Button } from "../Button/Button";
+import { closeAllOverlays } from "../ContextMenu/active-menu";
+import { DropdownMenu } from "../DropdownMenu/DropdownMenu";
 import { IconButton } from "../IconButton/IconButton";
 import { Popover, PopoverContent, PopoverTrigger } from "./Popover";
 
@@ -94,5 +96,45 @@ export const TriggerToggles: Story = {
 		await waitFor(() => expect(expanded()).toEqual(["Second popover"]));
 		await userEvent.click(second);
 		await waitFor(() => expect(expanded()).toEqual([]));
+	},
+};
+
+export const ClosesWithAllOverlays: Story = {
+	render: () => (
+		<div class="flex min-h-[300px] items-start gap-4">
+			<Popover>
+				<PopoverTrigger as={Button} variant="secondary">
+					Open popover
+				</PopoverTrigger>
+				<PopoverContent aria-label="Profile" class="w-64">
+					<DropdownMenu
+						label="Member options"
+						trigger="Member options"
+						items={[{ label: "Mention" }, { label: "Copy handle" }]}
+					/>
+				</PopoverContent>
+			</Popover>
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		await userEvent.click(
+			within(canvasElement).getByRole("button", { name: "Open popover" }),
+		);
+
+		const dialog = await screen.findByRole("dialog", { name: "Profile" });
+
+		await waitFor(() => expect(dialog).toBeVisible());
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Member options" }),
+		);
+		await screen.findByRole("menu");
+		await waitFor(() => expect(dialog).toBeVisible());
+
+		closeAllOverlays();
+
+		await waitFor(() => {
+			expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		});
 	},
 };

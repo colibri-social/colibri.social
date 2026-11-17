@@ -12,6 +12,7 @@ import { isJumboEmojiText } from "../../utils/emoji";
 import { EMOJI_DATA_RECORD } from "../../utils/emoji-data";
 import { createLiveAnchor } from "../../utils/live-anchor";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
+import { trackOpenOverlay } from "../ContextMenu/active-menu";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { JUMBO_FONT_SCALE } from "../Emoji/Emoji";
 import { PopoverContent } from "../Popover/Popover";
@@ -85,6 +86,10 @@ export const EmojiInfo = (props: {
 		onLost: () => props.onClose(),
 	});
 	createEffect(() => props.onAnchorChange?.(live.anchor()));
+	trackOpenOverlay(
+		() => props.platform !== "mobile",
+		() => props.onClose(),
+	);
 	return (
 		<Show
 			when={props.platform === "mobile"}

@@ -23,7 +23,12 @@ import {
 	type Preferences,
 	type SettingsChange,
 } from "./types";
-import { MAX_RECENT_GIFS, muteKey, pruneEmojiUsage } from "./wire";
+import {
+	MAX_RECENT_GIFS,
+	mergeComposerUsage,
+	muteKey,
+	pruneEmojiUsage,
+} from "./wire";
 
 const log = createLogger("preferences");
 
@@ -76,9 +81,28 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 	let settled: Preferences | undefined;
 	let queue: Promise<void> = Promise.resolve();
 
+	const withLocalUsage = (next: Preferences): Preferences => {
+		return {
+			...next,
+			composer: mergeComposerUsage(preferences().composer, next.composer),
+		};
+	};
+
 	const adopt = (next: Preferences) => {
-		if (writes === 0) return commit(next);
-		if (muteWrites === 0) commit({ ...preferences(), mutes: next.mutes });
+		if (writes === 0) return commit(withLocalUsage(next));
+
+		const current = preferences();
+		const composer = {
+			...current.composer,
+			emojiUsage: mergeComposerUsage(next.composer, current.composer)
+				.emojiUsage,
+		};
+
+		commit({
+			...current,
+			composer,
+			mutes: muteWrites === 0 ? next.mutes : current.mutes,
+		});
 	};
 
 	const refresh = async () => {
@@ -124,7 +148,7 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 					failed = false;
 					return refresh().then(() => undefined);
 				}
-				if (result) commit(result);
+				if (result) commit(withLocalUsage(result));
 			});
 		return queue.then(() => ok);
 	};
@@ -153,17 +177,39 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 			"app settings",
 		);
 
+	const mergeRemoteUsage = async () => {
+		try {
+			const remote = await backend.load();
+			const current = preferences();
+
+			commit({
+				...current,
+				composer: {
+					...current.composer,
+					emojiUsage: mergeComposerUsage(remote.composer, current.composer)
+						.emojiUsage,
+				},
+			});
+		} catch (error) {
+			log.warn("could not merge emoji history", {
+				code: classifyThrown(error).code,
+			});
+		}
+	};
+
 	let composerTimer: ReturnType<typeof setTimeout> | undefined;
 	const flushComposer = () => {
 		if (!composerTimer) return Promise.resolve(true);
 		clearTimeout(composerTimer);
 		composerTimer = undefined;
 		writes -= 1;
-		return enqueue("emoji and GIF history", () =>
-			backend.putSettings(preferences(), {
+		return enqueue("emoji and GIF history", async () => {
+			await mergeRemoteUsage();
+
+			return backend.putSettings(preferences(), {
 				composer: preferences().composer,
-			}),
-		);
+			});
+		});
 	};
 	const updateComposer = (next: (current: ComposerState) => ComposerState) => {
 		commit({ ...preferences(), composer: next(preferences().composer) });

@@ -24,6 +24,7 @@ import {
 	claimActiveMenu,
 	hasActiveMenu,
 	releaseActiveMenu,
+	trackOpenOverlay,
 } from "./active-menu";
 
 export const menuContentClass =
@@ -180,6 +181,7 @@ export const ContextMenu = (props: ContextMenuProps) => {
 	let closeMenu: (() => void) | undefined;
 	const closeActive = () => closeMenu?.();
 	onCleanup(() => releaseActiveMenu(closeActive));
+	trackOpenOverlay(open, closeActive);
 	const change = (next: boolean) => {
 		if (next) claimActiveMenu(closeActive);
 		else releaseActiveMenu(closeActive);

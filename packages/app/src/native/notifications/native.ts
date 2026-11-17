@@ -10,7 +10,16 @@ import { type OsNotifier, targetOf } from "./types";
 
 const ACTIVATION_EVENT = "colibri-notification-activated";
 
+const AVATAR_WAIT_MS = 250;
+const AVATAR_RETRY_MS = 10 * 60_000;
+
 type NativeActivation = { channelUri: string; messageUri?: string | null };
+
+type NativeNotifierTiming = {
+	now?: () => number;
+	avatarWaitMs?: number;
+	avatarRetryMs?: number;
+};
 
 const log = createLogger("notifications");
 
@@ -28,8 +37,13 @@ export const createNativeNotifier = (
 			if (!response.ok) throw new Error(`avatar ${response.status}`);
 			return response.arrayBuffer();
 		}),
+	timing: NativeNotifierTiming = {},
 ): OsNotifier => {
+	const now = timing.now ?? Date.now;
+	const avatarWaitMs = timing.avatarWaitMs ?? AVATAR_WAIT_MS;
+	const avatarRetryMs = timing.avatarRetryMs ?? AVATAR_RETRY_MS;
 	const avatars = new Map<string, Promise<string | undefined>>();
+	const failedAvatars = new Map<string, number>();
 	let listening = false;
 	let lastKey: string | undefined;
 
@@ -61,7 +75,17 @@ export const createNativeNotifier = (
 	const avatarPath = (did: string, url: string | undefined) => {
 		if (!url) return Promise.resolve(undefined);
 		const cached = avatars.get(did);
+
 		if (cached) return cached;
+
+		const failedAt = failedAvatars.get(did);
+
+		if (failedAt !== undefined && now() - failedAt < avatarRetryMs) {
+			return Promise.resolve(undefined);
+		}
+
+		failedAvatars.delete(did);
+
 		const pending = fetchBytes(url)
 			.then((data) =>
 				port.invoke<string | null>("native_notify_cache_avatar", {
@@ -73,12 +97,24 @@ export const createNativeNotifier = (
 				(path) => path ?? undefined,
 				(thrown: unknown) => {
 					avatars.delete(did);
+					failedAvatars.set(did, now());
 					warn("native_notify_cache_avatar")(thrown);
 					return undefined;
 				},
 			);
 		avatars.set(did, pending);
+
 		return pending;
+	};
+
+	const avatarWithin = (did: string, url: string | undefined) => {
+		const pending = avatarPath(did, url);
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const timeout = new Promise<undefined>((resolve) => {
+			timer = setTimeout(() => resolve(undefined), avatarWaitMs);
+		});
+
+		return Promise.race([pending, timeout]).finally(() => clearTimeout(timer));
 	};
 
 	return {
@@ -87,7 +123,7 @@ export const createNativeNotifier = (
 		requestPermission: async () => "granted",
 		show: async (notification) => {
 			listen();
-			const iconPath = await avatarPath(
+			const iconPath = await avatarWithin(
 				notification.authorDid,
 				notification.avatar,
 			);

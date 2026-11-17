@@ -112,3 +112,49 @@ describe("normalizeEmojiUsage", () => {
 		expect(normalizeEmojiUsage("👍")).toEqual({});
 	});
 });
+
+describe("frecency ranking", () => {
+	const DAY = 24 * 60 * 60 * 1000;
+	const now = 100 * DAY;
+
+	it("ranks a recent emoji above an older one with a higher count", () => {
+		expect(
+			topEmoji(
+				{ "🎉": usage(8, now - 30 * DAY), "🔥": usage(2, now - DAY) },
+				2,
+				undefined,
+				now,
+			),
+		).toEqual(["🔥", "🎉"]);
+	});
+
+	it("halves the weight of a count every week", () => {
+		const store = {
+			"🎉": usage(4, now - 7 * DAY),
+			"🔥": usage(2, now),
+			"🙏": usage(3, now - 7 * DAY),
+		};
+		expect(topEmoji(store, 3, undefined, now)).toEqual(["🔥", "🎉", "🙏"]);
+	});
+
+	it("keeps the count order for very old entries", () => {
+		expect(
+			topEmoji(
+				{ "🎉": usage(2, 0), "🔥": usage(9, 0), "🙏": usage(5, 0) },
+				3,
+				undefined,
+				10_000 * DAY,
+			),
+		).toEqual(["🔥", "🙏", "🎉"]);
+	});
+
+	it("prunes the stalest entries first", () => {
+		expect(
+			pruneEmojiUsage(
+				{ "🎉": usage(20, now - 60 * DAY), "🔥": usage(1, now) },
+				1,
+				now,
+			),
+		).toEqual({ "🔥": usage(1, now) });
+	});
+});

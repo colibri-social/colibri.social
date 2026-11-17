@@ -30,9 +30,12 @@ const setup = () => {
 		appViewDid: APPVIEW,
 	});
 	const host = createHostMode({ transport });
-	const records = createRecords(transport, host);
+	const hinted: string[] = [];
+	const records = createRecords(transport, host, (space) => {
+		hinted.push(space);
+	});
 
-	return { fake, transport, host, records };
+	return { fake, transport, host, records, hinted };
 };
 
 const target = { space: SPACE, collection: MESSAGE, rkey: "1" };
@@ -91,6 +94,42 @@ describe("space record routing", () => {
 		expect(fake.callsTo(colibri.polyfill.applyWrites.main.nsid)).toHaveLength(
 			0,
 		);
+	});
+
+	it("hints the AppView after a provider write lands", async () => {
+		const { fake, records, hinted } = setup();
+
+		fake.on(colibri.polyfill.getStatus.main.nsid, status("native", true));
+		fake.on(CREATE, json({ uri: "at://x", cid: "bafy" }));
+		fake.on("com.atproto.space.deleteRecord", json({}));
+
+		await records.createInSpace(target, { text: "hi" });
+		await records.deleteInSpace(target);
+
+		expect(hinted).toEqual([SPACE, SPACE]);
+	});
+
+	it("skips the hint when the provider write fails", async () => {
+		const { fake, records, hinted } = setup();
+
+		fake.on(colibri.polyfill.getStatus.main.nsid, status("native", true));
+		fake.on(CREATE, xrpcError(500, "InternalServerError"));
+
+		await expect(
+			records.createInSpace(target, { text: "hi" }),
+		).rejects.toThrow();
+		expect(hinted).toEqual([]);
+	});
+
+	it("skips the hint for writes the AppView hosts", async () => {
+		const { fake, records, hinted } = setup();
+
+		fake.on(colibri.polyfill.getStatus.main.nsid, status("polyfill"));
+		fake.on(colibri.polyfill.applyWrites.main.nsid, created);
+
+		await records.createInSpace(target, { text: "hi" });
+
+		expect(hinted).toEqual([]);
 	});
 
 	it("holds the first write until the status arrives", async () => {

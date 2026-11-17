@@ -1,8 +1,13 @@
-import { KEYBOARD_LIFT_ATTRIBUTE, KEYBOARD_LIFT_VAR } from "@colibri-social/ui";
+import {
+	KEYBOARD_LIFT_ATTRIBUTE,
+	KEYBOARD_LIFT_VAR,
+	KEYBOARD_OFFSET_EVENT,
+} from "@colibri-social/ui";
 import { afterEach, expect, it } from "vitest";
 import {
 	installKeyboardInset,
 	KEYBOARD_INSET_VAR,
+	KEYBOARD_PROGRESS_EVENT,
 	keyboardPanelHeight,
 	reserveKeyboardSpace,
 	SHELL_INSET_VAR,
@@ -301,4 +306,29 @@ it("stacks the search strip on top of the keyboard while the panel searches", as
 	expect(shellInset()).toBe("300px");
 	reservation.release();
 	await until(() => signal.count() === 1);
+});
+
+it("announces the Android follow offset on every frame and zero at the commit", async () => {
+	const target = install();
+	const follower = document.createElement("div");
+	follower.setAttribute("data-keyboard-follow", "");
+	target.append(follower);
+	const seen: number[] = [];
+	const record = (event: Event) => {
+		if (event.target === follower)
+			seen.push((event as CustomEvent<number>).detail);
+	};
+	window.addEventListener(KEYBOARD_OFFSET_EVENT, record);
+	const progress = (detail: unknown) =>
+		window.dispatchEvent(new CustomEvent(KEYBOARD_PROGRESS_EVENT, { detail }));
+	progress({ phase: "start", from: 0, to: 300 });
+	progress({ phase: "progress", inset: 100.4 });
+	progress({ phase: "progress", inset: 300 });
+	expect(follower.style.transform).toBe("translate3d(0px, -300px, 0px)");
+	dispatch(300);
+	await frame();
+	window.removeEventListener(KEYBOARD_OFFSET_EVENT, record);
+	expect(seen).toEqual([0, 100, 300, 0]);
+	expect(follower.style.transform).toBe("");
+	expect(inset()).toBe("300px");
 });

@@ -90,8 +90,19 @@ const tooLargeOf = (error: unknown, method: string, size: number) => {
 	});
 };
 
-export const createRecords = (transport: Transport, host?: HostModeSignal) => {
+export const createRecords = (
+	transport: Transport,
+	host?: HostModeSignal,
+	onPdsWrite?: (space: string) => void,
+) => {
 	const repoOf = (target: { repo?: string }) => target.repo ?? transport.did;
+
+	const hinted = async <T>(space: string, write: () => Promise<T>) => {
+		const result = await write();
+		onPdsWrite?.(space);
+
+		return result;
+	};
 
 	const ownRepo = (target: { repo?: string }) => {
 		return repoOf(target) === transport.did;
@@ -134,15 +145,17 @@ export const createRecords = (transport: Transport, host?: HostModeSignal) => {
 		target: SpaceTarget,
 		record: Record<string, unknown>,
 	) =>
-		transport.pdsProcedure<{ uri: string; cid: string }>(nsid, {
-			body: {
-				space: target.space,
-				repo: repoOf(target),
-				collection: target.collection,
-				rkey: target.rkey,
-				record: { $type: target.collection, ...record },
-			},
-		});
+		hinted(target.space, () =>
+			transport.pdsProcedure<{ uri: string; cid: string }>(nsid, {
+				body: {
+					space: target.space,
+					repo: repoOf(target),
+					collection: target.collection,
+					rkey: target.rkey,
+					record: { $type: target.collection, ...record },
+				},
+			}),
+		);
 
 	const applyHosted = async (space: string, write: PolyfillWrite) => {
 		const output = await transport.procedure(
@@ -284,14 +297,16 @@ export const createRecords = (transport: Transport, host?: HostModeSignal) => {
 				target,
 				() =>
 					ignoreMissing(() =>
-						transport.pdsProcedure("com.atproto.space.deleteRecord", {
-							body: {
-								space: target.space,
-								repo: repoOf(target),
-								collection: target.collection,
-								rkey: target.rkey,
-							},
-						}),
+						hinted(target.space, () =>
+							transport.pdsProcedure("com.atproto.space.deleteRecord", {
+								body: {
+									space: target.space,
+									repo: repoOf(target),
+									collection: target.collection,
+									rkey: target.rkey,
+								},
+							}),
+						),
 					),
 				() =>
 					ignoreMissing(() =>

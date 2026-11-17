@@ -227,6 +227,8 @@ export const createNoteSources = (
 			const emoji = data.emoji.resolve(primary(), uri);
 			return usableSuggestion(emoji && data.emoji.suggestion(emoji));
 		},
+		emojiUsage: () => data.preferences.composer().emojiUsage,
+		onEmojiPick: (emoji) => data.preferences.recordEmoji(emoji),
 		searchMembers: (query, limit) => {
 			const needle = query.toLowerCase();
 			const results: MemberSuggestion[] = [];

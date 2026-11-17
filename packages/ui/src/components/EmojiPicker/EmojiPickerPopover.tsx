@@ -5,6 +5,7 @@ import { cx } from "../../utils/cx";
 import { createLiveAnchor } from "../../utils/live-anchor";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
+import { trackOpenOverlay } from "../ContextMenu/active-menu";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import type { PopoverPlacement } from "../Popover/Popover";
 import {
@@ -44,6 +45,7 @@ export const AnchoredPicker = (
 	let wrapper: HTMLSpanElement | undefined;
 	const desktopOpen = () =>
 		props.open && (props.platform ?? "desktop") === "desktop";
+	trackOpenOverlay(desktopOpen, () => props.onOpenChange(false));
 	const live = createLiveAnchor({
 		element: () => props.anchorElement ?? wrapper,
 		active: desktopOpen,

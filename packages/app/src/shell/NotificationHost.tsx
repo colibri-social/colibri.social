@@ -13,6 +13,7 @@ import {
 import { useLiveStatus } from "../data/live-context";
 import { watchMediaDevices } from "../data/media-devices";
 import {
+	createRenderedMessages,
 	notificationTarget,
 	shouldAlertNotification,
 } from "../data/notification-alerts";
@@ -80,6 +81,7 @@ export const NotificationHost = (props: {
 	const push = () => props.push ?? currentPush();
 	const liveStatus = useLiveStatus();
 	const handled = new Set<string>();
+	const rendered = createRenderedMessages();
 	const [shown, setShown] = createSignal<NotificationView>();
 	let disposed = false;
 
@@ -245,6 +247,17 @@ export const NotificationHost = (props: {
 				if (!event.channel) dismissOs(undefined);
 				return;
 			}
+			if (event.$type === "messageEvent") {
+				if (
+					event.event === "create" &&
+					event.message &&
+					appVisible() &&
+					data.viewing() === event.channel
+				) {
+					rendered.record(event.channel, event.message.rkey);
+				}
+				return;
+			}
 			if (event.$type !== "notificationEvent") return;
 			const view = event.notification;
 			if (handled.has(view.id)) return;
@@ -264,6 +277,9 @@ export const NotificationHost = (props: {
 					? data.isMuted(view.thread as SpaceRef)
 					: false,
 				authorBlocked: data.source.preferences.isBlocked(view.author.did),
+				renderedOnScreen:
+					!!view.message?.rkey &&
+					rendered.has(notificationTarget(view), view.message.rkey),
 				voiceChannel: voice.current()?.channel,
 				now: Date.now(),
 			});

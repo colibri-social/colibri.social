@@ -1,3 +1,4 @@
+import { closeAllOverlays } from "@colibri-social/ui";
 import { batch, createSignal, onCleanup, onMount } from "solid-js";
 import {
 	type ChromeMode,
@@ -24,6 +25,15 @@ export const createWindowState = (mode: () => ChromeMode) => {
 	onMount(() => {
 		if (mode() === "none") return;
 		let disposed = false;
+		let width = window.innerWidth;
+		let height = window.innerHeight;
+		const closeOverlaysOnResize = () => {
+			if (window.innerWidth === width && window.innerHeight === height) return;
+
+			width = window.innerWidth;
+			height = window.innerHeight;
+			closeAllOverlays();
+		};
 		const refresh = () =>
 			void Promise.all([
 				nativeWindow.isMaximized(),
@@ -35,19 +45,26 @@ export const createWindowState = (mode: () => ChromeMode) => {
 					setFullscreen(isFullscreen);
 				});
 			});
+		const onResize = () => {
+			closeOverlaysOnResize();
+			refresh();
+		};
 		refresh();
-		window.addEventListener("resize", refresh);
+		window.addEventListener("resize", onResize);
 		void nativeWindow.init().then((info) => {
 			if (disposed) return;
 			if (mode() === "linux") setLayout(controlsLayoutFrom(info.buttonLayout));
 		});
 		const unlisten = nativeWindow.listen<WindowState>(
 			WINDOW_STATE_EVENT,
-			apply,
+			(state) => {
+				closeOverlaysOnResize();
+				apply(state);
+			},
 		);
 		onCleanup(() => {
 			disposed = true;
-			window.removeEventListener("resize", refresh);
+			window.removeEventListener("resize", onResize);
 			void unlisten.then((stop) => stop());
 		});
 	});

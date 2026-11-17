@@ -19,6 +19,7 @@ import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { CountBadge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
+import { trackOpenOverlay } from "../ContextMenu/active-menu";
 import {
 	InboxContextMenu,
 	type InboxMenuActions,
@@ -80,6 +81,7 @@ const createOpenState = (props: {
 
 const InboxPopoverFrame = (props: InboxPopoverFrameProps) => {
 	const [open, setOpen] = createOpenState(props);
+	trackOpenOverlay(open, () => setOpen(false));
 	const overflowPadding = usePopperOverflowPadding(16);
 	const contentId = createUniqueId();
 	let button: HTMLButtonElement | undefined;

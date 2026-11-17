@@ -2,6 +2,8 @@ import type { SpaceNotificationLevel } from "./notifications";
 import { type NotificationView, VOICE_CHANNEL } from "./types";
 
 export const STALE_ALERT_MS = 5000;
+export const RENDERED_MESSAGE_TTL_MS = 60_000;
+export const RENDERED_MESSAGE_LIMIT = 200;
 
 export type NotificationAlertContext = {
 	viewer: string;
@@ -14,8 +16,14 @@ export type NotificationAlertContext = {
 	channelMuted: boolean;
 	threadMuted: boolean;
 	authorBlocked: boolean;
+	renderedOnScreen: boolean;
 	voiceChannel: string | undefined;
 	now: number;
+};
+
+export type RenderedMessages = {
+	record: (target: string, rkey: string) => void;
+	has: (target: string, rkey: string) => boolean;
 };
 
 export const isPingNotification = (
@@ -38,6 +46,7 @@ export const shouldAlertNotification = (
 	if (view.seenAt) return false;
 	if (view.author.did === context.viewer) return false;
 	if (context.authorBlocked) return false;
+	if (context.renderedOnScreen) return false;
 	if (context.visible && notificationTarget(view) === context.viewing)
 		return false;
 	const indexedAt = Date.parse(view.indexedAt);
@@ -52,4 +61,39 @@ export const shouldAlertNotification = (
 		!context.channelMuted &&
 		!context.threadMuted
 	);
+};
+
+export const createRenderedMessages = (
+	now: () => number = Date.now,
+	ttl = RENDERED_MESSAGE_TTL_MS,
+	limit = RENDERED_MESSAGE_LIMIT,
+): RenderedMessages => {
+	const entries = new Map<string, number>();
+
+	const keyOf = (target: string, rkey: string) => {
+		return `${target} ${rkey}`;
+	};
+
+	const prune = (at: number) => {
+		for (const [key, recordedAt] of entries) {
+			if (at - recordedAt < ttl && entries.size <= limit) return;
+			entries.delete(key);
+		}
+	};
+
+	return {
+		record: (target, rkey) => {
+			const at = now();
+			const key = keyOf(target, rkey);
+
+			entries.delete(key);
+			entries.set(key, at);
+			prune(at);
+		},
+		has: (target, rkey) => {
+			prune(now());
+
+			return entries.has(keyOf(target, rkey));
+		},
+	};
 };

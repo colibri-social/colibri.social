@@ -200,6 +200,7 @@ export const createConversation = (options: ConversationOptions) => {
 			}),
 		gifs: data.source,
 		packs: emojiPacks,
+		customEmoji: (uri) => data.emoji.pickerEmoji(community()?.did, uri),
 		onInsertEmoji: (emoji) => {
 			if (!desktop()) {
 				editor?.insertText(emoji, { focus: false });
@@ -226,7 +227,10 @@ export const createConversation = (options: ConversationOptions) => {
 			pinWhile(() => void current.send(gifMessage(gif)));
 		},
 	});
-	const reactionPicker = createReactionPicker({ packs: emojiPacks });
+	const reactionPicker = createReactionPicker({
+		packs: emojiPacks,
+		customEmoji: (uri) => data.emoji.pickerEmoji(community()?.did, uri),
+	});
 	const openForwardPlace = (target: ForwardPlace) => {
 		const chat = {
 			kind: "chat" as const,
@@ -305,6 +309,17 @@ export const createConversation = (options: ConversationOptions) => {
 		if (ref) data.setMuted(ref, next);
 	};
 	let list: MessageListHandle | undefined;
+
+	createEffect(
+		on(
+			replyTo,
+			(reply) => {
+				if (!reply) list?.releaseHold();
+			},
+			{ defer: true },
+		),
+	);
+
 	const pinWhile = (insert: () => void) => {
 		list?.scrollToBottom({ smooth: false });
 		insert();
@@ -891,16 +906,27 @@ export const createConversation = (options: ConversationOptions) => {
 		channel: options.channel,
 	});
 
-	const reactionEmojiRef = (message: ChatMessage, emoji: string) => {
+	const emojiRefOf = (ref: { uri: string; cid?: string }) =>
+		(ref.cid
+			? { uri: ref.uri, cid: ref.cid }
+			: { uri: ref.uri }) as ReactionEmojiRef;
+
+	const reactionEmojiRef = (
+		message: ChatMessage,
+		emoji: string,
+		pickedUri?: string,
+	) => {
+		const picked = pickedUri
+			? data.emoji.resolve(community()?.did, pickedUri)
+			: undefined;
+		if (picked) return emojiRefOf(picked.ref);
 		const existing = reactionFor(message.view?.reactions, emoji)?.customEmoji;
 		if (existing) return existing;
 		const name = reactionShortcode(emoji);
 		const current = community();
 		const found =
 			name && current ? data.emoji.find(current.did, name) : undefined;
-		if (!found) return undefined;
-		const { uri, cid } = found.ref;
-		return (cid ? { uri, cid } : { uri }) as ReactionEmojiRef;
+		return found ? emojiRefOf(found.ref) : undefined;
 	};
 
 	const threadBySpace = (space: string) =>
@@ -952,6 +978,7 @@ export const createConversation = (options: ConversationOptions) => {
 				? { id: emoji.id, name: emoji.name, src: emoji.image, alt: emoji.alt }
 				: undefined;
 		},
+		pickerEmoji: (uri) => data.emoji.pickerEmoji(community()?.did, uri),
 		refreshCustomEmoji: (uri, src) => data.emoji.refreshImage(uri, src),
 		customEmojiUnavailable: (reaction) => {
 			const uri = reaction.customEmoji?.uri;
@@ -1066,6 +1093,7 @@ export const createConversation = (options: ConversationOptions) => {
 			return request;
 		},
 		onReply: (message) => {
+			list?.holdInView(message.key);
 			setEditing(undefined);
 			setReplyTo(message);
 			editor?.focus("end");
@@ -1092,13 +1120,13 @@ export const createConversation = (options: ConversationOptions) => {
 			}
 		},
 		onPickReaction: (message) =>
-			reactionPicker.open((emoji) => {
+			reactionPicker.open((emoji, uri) => {
 				if (message.rkey)
 					void feed()?.react(
 						message.rkey,
 						emoji,
 						pickedReactionAdds(message.view?.reactions, emoji),
-						reactionEmojiRef(message, emoji),
+						reactionEmojiRef(message, emoji, uri),
 					);
 			}),
 		messageLink: (message) => {
@@ -1134,13 +1162,13 @@ export const createConversation = (options: ConversationOptions) => {
 			}
 			if (message.rkey) void current.remove(message.rkey);
 		},
-		onReact: (message, emoji, add) => {
+		onReact: (message, emoji, add, uri) => {
 			if (message.rkey)
 				void feed()?.react(
 					message.rkey,
 					emoji,
 					add,
-					reactionEmojiRef(message, emoji),
+					reactionEmojiRef(message, emoji, uri),
 				);
 		},
 		onRetry: (message) => void feed()?.retry(message.key),
@@ -1197,6 +1225,8 @@ export const createConversation = (options: ConversationOptions) => {
 			const emoji = data.emoji.resolve(community()?.did, uri);
 			return emoji ? data.emoji.suggestion(emoji) : undefined;
 		},
+		emojiUsage: () => session.usage(),
+		onEmojiPick: (emoji) => session.recordEmoji(emoji),
 		searchMembers: (query, limit) => {
 			const needle = query.toLowerCase();
 			const results = [];

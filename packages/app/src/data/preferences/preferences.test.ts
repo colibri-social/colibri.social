@@ -10,7 +10,7 @@ import {
 	type PreferenceBackend,
 	type Preferences,
 } from "./types";
-import { fromWire } from "./wire";
+import { fromWire, mergeEmojiUsage, pruneEmojiUsage } from "./wire";
 
 const VIEWER = "did:plc:viewer";
 const KEY = preferencesSnapshotKey(VIEWER);
@@ -589,6 +589,80 @@ describe("composer state", () => {
 		await vi.waitFor(() => expect(putSettings).toHaveBeenCalledOnce());
 	});
 
+	it("merges emoji usage from another device while a write is pending", async () => {
+		const memory = createMemoryPreferenceBackend();
+		const store = create(memory.backend);
+
+		store.recordEmoji("🦜");
+		store.adopt(
+			prefs({
+				composer: {
+					...DEFAULT_PREFERENCES.composer,
+					emojiUsage: { "🔥": { count: 4, lastUsed: 1_000 } },
+				},
+			}),
+		);
+		expect(Object.keys(store.composer().emojiUsage).sort()).toEqual([
+			"🔥",
+			"🦜",
+		]);
+
+		await store.settled();
+		expect(memory.state().composer.emojiUsage).toMatchObject({
+			"🔥": { count: 4, lastUsed: 1_000 },
+			"🦜": { count: 1 },
+		});
+	});
+
+	it("merges the stored usage before writing so devices keep each other's counts", async () => {
+		const memory = createMemoryPreferenceBackend({
+			composer: {
+				...DEFAULT_PREFERENCES.composer,
+				emojiUsage: {
+					"🦜": { count: 7, lastUsed: 2_000 },
+					"🎉": { count: 2, lastUsed: 3_000 },
+				},
+			},
+		});
+		const store = create(memory.backend);
+
+		store.recordEmoji("🦜");
+		await store.settled();
+		expect(memory.state().composer.emojiUsage["🦜"]?.count).toBe(7);
+		expect(memory.state().composer.emojiUsage["🎉"]).toEqual({
+			count: 2,
+			lastUsed: 3_000,
+		});
+		expect(store.composer().emojiUsage["🎉"]?.count).toBe(2);
+	});
+
+	it("keeps local usage when a settled write echoes an older state", () => {
+		const store = create(createMemoryPreferenceBackend().backend);
+
+		store.adopt(
+			prefs({
+				composer: {
+					...DEFAULT_PREFERENCES.composer,
+					emojiUsage: { "🦜": { count: 3, lastUsed: 5_000 } },
+				},
+			}),
+		);
+		store.adopt(
+			prefs({
+				composer: {
+					...DEFAULT_PREFERENCES.composer,
+					skinTone: 2,
+					emojiUsage: { "🦜": { count: 1, lastUsed: 4_000 } },
+				},
+			}),
+		);
+		expect(store.composer().skinTone).toBe(2);
+		expect(store.composer().emojiUsage["🦜"]).toEqual({
+			count: 3,
+			lastUsed: 5_000,
+		});
+	});
+
 	it("keeps recent GIFs unique and newest first", () => {
 		const store = create(createMemoryPreferenceBackend().backend);
 		const other = { ...GIF, id: "gif-2" };
@@ -714,5 +788,45 @@ describe("orderCommunities", () => {
 		orderCommunities(list, order);
 		expect(order).toEqual([did("a")]);
 		expect(dids(list)).toEqual([did("a"), did("b")]);
+	});
+});
+
+describe("emoji usage", () => {
+	const DAY = 24 * 60 * 60 * 1000;
+	const now = 100 * DAY;
+
+	it("keeps the highest count and the latest use per emoji", () => {
+		expect(
+			mergeEmojiUsage(
+				{
+					"🦜": { count: 5, lastUsed: 10 },
+					"🔥": { count: 1, lastUsed: 40 },
+				},
+				{
+					"🦜": { count: 3, lastUsed: 30 },
+					"🎉": { count: 2, lastUsed: 20 },
+				},
+			),
+		).toEqual({
+			"🦜": { count: 5, lastUsed: 30 },
+			"🔥": { count: 1, lastUsed: 40 },
+			"🎉": { count: 2, lastUsed: 20 },
+		});
+	});
+
+	it("prunes by count decayed with age", () => {
+		expect(
+			Object.keys(
+				pruneEmojiUsage(
+					{
+						"🦜": { count: 30, lastUsed: now - 70 * DAY },
+						"🔥": { count: 2, lastUsed: now - DAY },
+						"🎉": { count: 1, lastUsed: now },
+					},
+					2,
+					now,
+				),
+			),
+		).toEqual(["🔥", "🎉"]);
 	});
 });

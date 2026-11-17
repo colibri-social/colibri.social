@@ -1,4 +1,5 @@
 import {
+	type CustomEmoji,
 	Drawer,
 	DrawerContent,
 	type EmojiPack,
@@ -9,24 +10,31 @@ import { type Component, createSignal } from "solid-js";
 import { mediaSession } from "./session";
 
 export type ReactionPicker = {
-	open: (onPick: (emoji: string) => void) => void;
+	open: (onPick: (emoji: string, uri?: string) => void) => void;
 	close: () => void;
 	Sheet: Component;
 };
 
 export const createReactionPicker = (
-	options: { packs?: () => EmojiPack[] } = {},
+	options: {
+		packs?: () => EmojiPack[];
+		customEmoji?: (uri: string) => CustomEmoji | undefined;
+	} = {},
 ): ReactionPicker => {
 	const session = mediaSession();
 	const [open, setOpen] = createSignal(false);
-	let handler: ((emoji: string) => void) | undefined;
+	let handler: ((emoji: string, uri?: string) => void) | undefined;
 
 	const pick = (value: EmojiPick) => {
 		session.recordEmoji(
 			value.kind === "unicode" ? value.emoji : value.emoji.id,
 		);
 		setOpen(false);
-		handler?.(value.kind === "unicode" ? value.emoji : `:${value.emoji.name}:`);
+		if (value.kind === "unicode") {
+			handler?.(value.emoji);
+			return;
+		}
+		handler?.(`:${value.emoji.name}:`, value.emoji.id);
 	};
 
 	const Sheet: Component = () => (
@@ -38,6 +46,7 @@ export const createReactionPicker = (
 					skinTone={session.skinTone()}
 					onSkinToneChange={session.setSkinTone}
 					packs={options.packs?.()}
+					customEmoji={options.customEmoji}
 					onPick={pick}
 					searchPlaceholder="Search reactions"
 				/>

@@ -16,6 +16,7 @@ import { createLiveAnchor } from "../../utils/live-anchor";
 import { revealLayer, topLayerAttrs } from "../../utils/nested-layers";
 import { reducedMotionActive } from "../../utils/playback";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
+import { trackOpenOverlay } from "../ContextMenu/active-menu";
 import {
 	MemberDropdownMenu,
 	type MemberMenuActions,
@@ -131,6 +132,8 @@ export const ProfilePopover = (props: ProfilePopoverProps) => {
 		setInnerOpen(next);
 		props.onOpenChange?.(next);
 	};
+
+	trackOpenOverlay(open, () => setOpen(false));
 
 	const anchorScroll = createAnchorScroll({
 		active: open,

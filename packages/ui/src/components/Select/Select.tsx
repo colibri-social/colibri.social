@@ -6,6 +6,7 @@ import { cx } from "../../utils/cx";
 import { motionScale } from "../../utils/motion";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
 import { createSlot } from "../../utils/slot";
+import { trackOpenOverlay } from "../ContextMenu/active-menu";
 import { menuContentClass } from "../ContextMenu/Menu";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { RadioRow, RadioRowGroup } from "../List/List";
@@ -98,6 +99,8 @@ const DesktopSelect = (
 	},
 ) => {
 	const overflowPadding = usePopperOverflowPadding();
+	const [open, setOpen] = createSignal(false);
+	trackOpenOverlay(open, () => setOpen(false));
 	const label = createSlot(() => props.label);
 	const description = createSlot(() => props.description);
 	const error = createSlot(() => props.error);
@@ -106,6 +109,8 @@ const DesktopSelect = (
 
 	return (
 		<KobalteSelect<SelectOption>
+			open={open()}
+			onOpenChange={setOpen}
 			options={props.options}
 			optionValue="value"
 			optionTextValue="label"

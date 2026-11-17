@@ -2,6 +2,7 @@ import {
 	KEYBOARD_INSET_EVENT,
 	KEYBOARD_LIFT_ATTRIBUTE,
 	KEYBOARD_LIFT_VAR,
+	KEYBOARD_OFFSET_EVENT,
 	KEYBOARD_PANEL_ATTRIBUTE,
 	motionScale,
 	prefersReducedMotion,
@@ -243,6 +244,16 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 		);
 	};
 
+	const announceOffset = (movers: HTMLElement[], offset: number) => {
+		for (const mover of movers)
+			mover.dispatchEvent(
+				new CustomEvent(KEYBOARD_OFFSET_EVENT, {
+					bubbles: true,
+					detail: offset,
+				}),
+			);
+	};
+
 	const place = (
 		movers: HTMLElement[],
 		offset: number,
@@ -253,16 +264,19 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 			if (kind === "lift") mover.style.translate = lift ? `0 ${-lift}px` : "";
 			else mover.style.transform = lift ? `translate3d(0, ${-lift}px, 0)` : "";
 		}
+		announceOffset(movers, lift);
 	};
 
 	const endMotion = () => {
 		if (!motion) return;
-		for (const mover of motion.movers) {
-			if (motion.target.kind === "lift") mover.style.translate = "";
+		const { movers, target } = motion;
+		for (const mover of movers) {
+			if (target.kind === "lift") mover.style.translate = "";
 			else mover.style.transform = "";
 			mover.style.willChange = "";
 		}
 		motion = undefined;
+		announceOffset(movers, 0);
 	};
 
 	const applyShell = (inset: number) => {

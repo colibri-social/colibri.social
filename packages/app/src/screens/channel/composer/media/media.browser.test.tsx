@@ -219,4 +219,30 @@ describe("reaction picker", () => {
 		expect(onPick).toHaveBeenCalledWith("🔥");
 		await until(() => !dialogNamed("Add a reaction"));
 	});
+
+	it("returns the URI of a picked custom emoji", async () => {
+		const onPick = vi.fn();
+		const uri = "at://did:plc:viewer/blue.moji.collection.item/kek";
+		let picker: ReturnType<typeof createReactionPicker> | undefined;
+		mount(() => {
+			picker = createReactionPicker({
+				packs: () => [
+					{
+						id: "own",
+						name: "Your emoji",
+						emojis: [{ id: uri, name: "kek", src: PIXEL }],
+					},
+				],
+			});
+			return <picker.Sheet />;
+		});
+		picker?.open(onPick);
+		const sheet = await until(() => dialogNamed("Add a reaction"));
+		await settle();
+		const kek = await until(() =>
+			sheet.querySelector<HTMLButtonElement>('button[aria-label=":kek:"]'),
+		);
+		kek.click();
+		expect(onPick).toHaveBeenCalledWith(":kek:", uri);
+	});
 });

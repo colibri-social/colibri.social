@@ -7,6 +7,7 @@ import {
 	topLayerAttrs,
 } from "../../utils/nested-layers";
 import { usePopperOverflowPadding } from "../../utils/safe-area";
+import { trackOpenOverlay } from "../ContextMenu/active-menu";
 import { Drawer, DrawerContent } from "../Drawer/Drawer";
 import { groupMembers, type Member, MemberList } from "../Members/MemberList";
 import type { MemberRowVariant } from "../Members/MemberRow";
@@ -119,6 +120,7 @@ export const RoleMentionMembers = (
 const RoleMentionPopover = (props: RoleMentionProps) => {
 	const overflowPadding = usePopperOverflowPadding(16);
 	const [open, setOpen] = createSignal(false);
+	trackOpenOverlay(open, () => setOpen(false));
 	let content: HTMLDivElement | undefined;
 	const keepForNestedLayer = (
 		event: Event & { detail?: { originalEvent?: Event } },

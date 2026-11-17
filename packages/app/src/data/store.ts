@@ -3682,7 +3682,7 @@ export const createDataStore = (
 			}
 			void communities.refresh();
 			void source.preferences.refresh();
-			void emojiStore.library().refresh();
+			emojiStore.resume();
 			for (const community of spaces.keys()) {
 				void loadUnread(community);
 				void loadSummaries(community);

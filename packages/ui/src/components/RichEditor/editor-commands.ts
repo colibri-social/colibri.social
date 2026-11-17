@@ -511,12 +511,13 @@ export const emojiForShortcode = (shortcode: string) => {
 
 export type ShortcodeEmojiOptions = {
 	customEmoji: (name: string) => CustomEmojiSuggestion | undefined;
+	onEmojiPick: (emoji: string) => void;
 };
 
 export const ShortcodeEmoji = Extension.create<ShortcodeEmojiOptions>({
 	name: "shortcodeEmoji",
 	addOptions() {
-		return { customEmoji: () => undefined };
+		return { customEmoji: () => undefined, onEmojiPick: () => undefined };
 	},
 	addInputRules() {
 		const options = this.options;
@@ -542,11 +543,13 @@ export const ShortcodeEmoji = Extension.create<ShortcodeEmojiOptions>({
 						);
 						if (!node) return null;
 						state.tr.replaceWith(start, range.to, node);
+						options.onEmojiPick(custom.id);
 						return;
 					}
 					const emoji = emojiForShortcode(name);
 					if (!emoji) return null;
 					state.tr.insertText(emoji, start, range.to);
+					options.onEmojiPick(emoji);
 				},
 			}),
 		];

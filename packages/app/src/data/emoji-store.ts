@@ -4,6 +4,7 @@ import {
 	createLogger,
 } from "@colibri-social/lib";
 import type {
+	CustomEmoji,
 	CustomEmojiSuggestion,
 	EmojiPack,
 	RichTextCustomEmoji,
@@ -318,6 +319,9 @@ export const createEmojiStore = (
 	cache: { seed?: EmojiSeed; offer?: (emoji: EmojiSeed) => void } = {},
 ) => {
 	const catalogs = new Map<Did, EmojiCatalog>();
+	const [catalogsAdded, markCatalogAdded] = createSignal(undefined, {
+		equals: false,
+	});
 	let libraryLoad: EmojiLibrary | undefined;
 	const sightings = new Map<string, [Accessor<Sighting>, Setter<Sighting>]>();
 	const retries = createRetries();
@@ -386,14 +390,29 @@ export const createEmojiStore = (
 			{ onChange: offer, onSettle: retrying(community, "emoji.getCatalog") },
 		);
 		catalogs.set(community, created);
+		markCatalogAdded();
+
 		return created;
+	};
+
+	const syncOwnCatalog = () => {
+		const own = libraryLoad && untrack(libraryLoad.value)?.own;
+		const entry = catalogs.get(viewer());
+
+		if (own && entry && untrack(entry.value) !== own) entry.set(own);
 	};
 
 	const library = () => {
 		libraryLoad ??= createLoad(
 			() => source.getEmojiLibrary(),
 			cache.seed?.library,
-			{ onChange: offer, onSettle: retrying("library", "emoji.getLibrary") },
+			{
+				onChange: () => {
+					syncOwnCatalog();
+					offer();
+				},
+				onSettle: retrying("library", "emoji.getLibrary"),
+			},
 		);
 		return libraryLoad;
 	};
@@ -504,16 +523,15 @@ export const createEmojiStore = (
 		return nextFlush.done;
 	};
 
-	const sighting = (uri: string, owner: Did): Accessor<Sighting> => {
+	const sighting = (uri: string): Accessor<Sighting> => {
 		const existing = sightingOf(uri);
 		if (existing) return existing;
 		const seeded = cache.seed?.emojis?.[uri];
-		const first: Sighting =
-			batchUnsupported || catalogs.has(owner)
-				? { kind: "catalog" }
-				: seeded
-					? { kind: "found", emoji: seeded }
-					: { kind: "pending" };
+		const first: Sighting = batchUnsupported
+			? { kind: "catalog" }
+			: seeded
+				? { kind: "found", emoji: seeded }
+				: { kind: "pending" };
 		const created = createSignal<Sighting>(first);
 		sightings.set(uri, created);
 		if (first.kind !== "catalog") void enqueue(uri);
@@ -530,7 +548,6 @@ export const createEmojiStore = (
 	source.subscribe((event) => {
 		if (event.$type === "emojiLibraryEvent") {
 			library().set(event.library);
-			catalogs.get(viewer())?.set(event.library.own);
 			return;
 		}
 		if (event.$type !== "emojiEvent") return;
@@ -647,8 +664,15 @@ export const createEmojiStore = (
 		return rows;
 	};
 
+	const ownerCatalogOf = (owner: Did) => {
+		const entry = catalogs.get(owner);
+		if (!entry) catalogsAdded();
+
+		return entry;
+	};
+
 	const loadedEmoji = (uri: string, owner: Did) => {
-		const fromOwner = emojiIn(catalogs.get(owner)?.value()?.emojis, uri);
+		const fromOwner = emojiIn(ownerCatalogOf(owner)?.value()?.emojis, uri);
 		if (fromOwner) return fromOwner;
 		if (owner === viewer()) {
 			const fromLibrary = emojiIn(library().value()?.own.emojis, uri);
@@ -672,7 +696,7 @@ export const createEmojiStore = (
 				() => {
 					const known = loadedEmoji(uri, owner);
 					if (known || !owner) return known;
-					const seen = sighting(uri, owner)();
+					const seen = sighting(uri)();
 					if (seen.kind === "found") return seen.emoji;
 					if (seen.kind === "catalog")
 						return emojiIn(catalog(owner).value()?.emojis, uri);
@@ -687,6 +711,21 @@ export const createEmojiStore = (
 	};
 
 	const lookup = (id: string) => emojiByUri(id)();
+
+	const resume = () => {
+		misses.clear();
+		for (const load of catalogs.values()) void load.refresh();
+		void library().refresh();
+		if (batchUnsupported) return;
+
+		for (const [uri, [read]] of sightings) {
+			const kind = untrack(read).kind;
+			if (kind !== "missing" && kind !== "failed") continue;
+			retries.settle(missKey(uri));
+			retries.settle(retryKey(uri));
+			void enqueue(uri);
+		}
+	};
 
 	const ownerCatalog = (uri: string) => {
 		const owner = repoOfUri(uri);
@@ -756,7 +795,7 @@ export const createEmojiStore = (
 		const owner = repoOfUri(uri);
 		if (!owner) return "unavailable";
 		if (loadedEmoji(uri, owner)) return "unavailable";
-		const seen = sighting(uri, owner)();
+		const seen = sighting(uri)();
 		if (seen.kind === "catalog") return settle(catalog(owner));
 		if (libraryLoad?.loading()) return "loading";
 		if (seen.kind === "pending") return "loading";
@@ -816,6 +855,15 @@ export const createEmojiStore = (
 	const resolve = (community: Did | undefined, uri: string) => {
 		if (!emojiRegistry.forUri(uri) || !allows(community, uri)) return undefined;
 		return emojiByUri(uri)();
+	};
+
+	const pickerEmoji = (
+		community: Did | undefined,
+		uri: string,
+	): CustomEmoji | undefined => {
+		const emoji = resolve(community, uri);
+
+		return emoji && { id: emoji.id, name: emoji.name, src: emoji.image };
 	};
 
 	const find = (community: Did | undefined, name: string) => {
@@ -923,6 +971,8 @@ export const createEmojiStore = (
 		mention,
 		reactionShortcode,
 		resolve,
+		pickerEmoji,
+		resume,
 		refreshImage,
 		availability,
 		availabilityByName,

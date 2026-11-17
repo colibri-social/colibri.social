@@ -615,6 +615,7 @@ export const RichEditor = (props: RichEditorProps) => {
 				OrderedListAutoNumber,
 				ShortcodeEmoji.configure({
 					customEmoji: (name) => sources().customEmojiByName?.(name),
+					onEmojiPick: (emoji) => sources().onEmojiPick?.(emoji),
 				}),
 				UndoRedo,
 				Mention.configure({

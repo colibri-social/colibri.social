@@ -382,3 +382,155 @@ describe("emoji first sight", () => {
 		expect(source.listEmoji).not.toHaveBeenCalledWith(ARTIST);
 	});
 });
+
+describe("emoji from other apps", () => {
+	const fresh = emoji(VIEWER, "fresh");
+	const badger = emoji(ARTIST, "badger");
+
+	const setupBatch = (
+		getEmojis: (uris: readonly string[]) => Promise<EmojiBatchView>,
+		catalogs: Record<string, EmojiCatalogView> = {},
+	) => {
+		const listeners = new Set<(event: LiveEvent) => void>();
+		let library: EmojiLibraryView = {
+			own: catalogOf(VIEWER, []),
+			follows: [],
+		};
+		const source = {
+			listEmoji: vi.fn(async (did: Did) => catalogs[did] ?? catalogOf(did, [])),
+			getEmojis: vi.fn(getEmojis),
+			getEmojiLibrary: vi.fn(async () => library),
+			subscribe: (listener: (event: LiveEvent) => void) => {
+				listeners.add(listener);
+				return () => listeners.delete(listener);
+			},
+		} as unknown as DataSource;
+		const store = createRoot(() =>
+			createEmojiStore(
+				source,
+				() => VIEWER,
+				() => [{ did: SPACE, name: "Colibri HQ" } as unknown as CommunityView],
+			),
+		);
+		const setLibrary = (next: EmojiLibraryView) => {
+			library = next;
+		};
+
+		return { store, source, setLibrary };
+	};
+
+	it("asks the AppView when the owner's catalog lacks the emoji", async () => {
+		const { store, source } = setupBatch(async (uris) => ({
+			emojis: [fresh].filter((entry) => uris.includes(entry.id)),
+			unreachable: [],
+		}));
+
+		store.catalog(VIEWER);
+		await flush();
+
+		const resolved = store.emojiByUri(fresh.id);
+
+		expect(store.availability(SPACE, fresh.id)).toBe("loading");
+		await flush();
+		expect(source.getEmojis).toHaveBeenCalledWith([fresh.id]);
+		expect(resolved()?.name).toBe("fresh");
+	});
+
+	it("resolves once an owner catalog created later loads the emoji", async () => {
+		const { store } = setupBatch(
+			async () => ({ emojis: [], unreachable: [] }),
+			{
+				[ARTIST]: catalogOf(ARTIST, [badger]),
+			},
+		);
+		const resolved = store.emojiByUri(badger.id);
+
+		await flush();
+		expect(resolved()).toBeUndefined();
+		store.catalog(ARTIST);
+		await flush();
+		expect(resolved()?.name).toBe("badger");
+	});
+
+	it("asks again for a missing emoji after a resume", async () => {
+		vi.useFakeTimers();
+		try {
+			let indexed = false;
+			const { store, source } = setupBatch(async () => ({
+				emojis: indexed ? [badger] : [],
+				unreachable: [],
+			}));
+			const resolved = store.emojiByUri(badger.id);
+
+			await vi.advanceTimersByTimeAsync(0);
+			for (const delay of EMOJI_RETRY_DELAYS_MS)
+				await vi.advanceTimersByTimeAsync(delay);
+			expect(source.getEmojis).toHaveBeenCalledTimes(EMOJI_MISS_RETRIES + 1);
+			indexed = true;
+			store.resume();
+			await vi.advanceTimersByTimeAsync(0);
+			expect(source.getEmojis).toHaveBeenCalledTimes(EMOJI_MISS_RETRIES + 2);
+			expect(resolved()?.name).toBe("badger");
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("refreshes loaded catalogs on resume", async () => {
+		const catalogs: Record<string, EmojiCatalogView> = {
+			[SPACE]: catalogOf(SPACE, []),
+		};
+		const { store, source } = setupBatch(
+			async () => ({ emojis: [], unreachable: [] }),
+			catalogs,
+		);
+
+		store.catalog(SPACE);
+		await flush();
+		catalogs[SPACE] = catalogOf(SPACE, [emoji(SPACE, "party")]);
+		store.resume();
+		await flush();
+		expect(source.listEmoji).toHaveBeenCalledTimes(2);
+		expect(
+			store
+				.catalog(SPACE)
+				.value()
+				?.emojis.map((e) => e.name),
+		).toEqual(["party"]);
+	});
+
+	it("keeps your catalog in step with a library refresh", async () => {
+		const { store, setLibrary } = setupBatch(async () => ({
+			emojis: [],
+			unreachable: [],
+		}));
+
+		store.catalog(VIEWER);
+		store.library();
+		await flush();
+		setLibrary({ own: catalogOf(VIEWER, [fresh]), follows: [] });
+		await store.library().refresh();
+		expect(store.catalog(VIEWER).value()?.emojis).toEqual([fresh]);
+	});
+});
+
+describe("picker emoji", () => {
+	it("resolves a usage uri the Space policy allows and hides the rest", async () => {
+		const shipit = emoji(SPACE, "shipit");
+		const { store } = setup(
+			{ own: catalogOf(VIEWER, []), follows: [] },
+			"none",
+		);
+		const picked = () => store.pickerEmoji(undefined, shipit.id);
+
+		expect(store.pickerEmoji(SPACE, shipit.id)).toBeUndefined();
+		store.catalog(SPACE);
+		await flush();
+		expect(picked()).toEqual({
+			id: shipit.id,
+			name: "shipit",
+			src: "shipit.png",
+		});
+		expect(store.pickerEmoji(SPACE, shipit.id)).toBeUndefined();
+	});
+});

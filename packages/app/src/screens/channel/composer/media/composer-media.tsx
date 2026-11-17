@@ -25,6 +25,7 @@ export type ComposerMediaOptions = {
 	onInsertEmoji: (emoji: string) => void;
 	onInsertCustomEmoji?: (emoji: CustomEmoji) => void;
 	packs?: () => EmojiPack[];
+	customEmoji?: (uri: string) => CustomEmoji | undefined;
 	onSendGif: (gif: GifView) => void;
 	platform?: "mobile" | "desktop";
 	anchor?: () => HTMLElement | undefined;
@@ -195,6 +196,7 @@ export const createComposerMedia = (
 				get packs() {
 					return options.packs?.() ?? [];
 				},
+				customEmoji: options.customEmoji,
 			}}
 			gif={{
 				source,

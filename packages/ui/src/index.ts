@@ -35,6 +35,10 @@ export * from "./components/Composer/Composer";
 export * from "./components/Composer/ComposerBar";
 export * from "./components/Composer/TypingIndicator";
 export * from "./components/Connection/ConnectionCard";
+export {
+	closeAllOverlays,
+	trackOpenOverlay,
+} from "./components/ContextMenu/active-menu";
 export * from "./components/ContextMenu/CategoryMenu";
 export * from "./components/ContextMenu/ChannelMenu";
 export * from "./components/ContextMenu/InboxMenu";

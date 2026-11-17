@@ -245,6 +245,33 @@ it("alerts for the open channel while the window is blurred", async () => {
 	store.setViewing(undefined);
 });
 
+it("skips the alert for a message rendered while its channel was on screen", async () => {
+	const { source, store, os, play, channel } = mount();
+	await until(() => !!store.communities.value());
+	store.setViewing(channel.space);
+	await wait(50);
+	const view = notification(channel.space);
+	const message = view.message;
+	if (!message) throw new Error("the notification needs a message");
+	source.emit({
+		$type: "messageEvent",
+		event: "create",
+		channel: channel.space,
+		message,
+	});
+	setAppActive(false);
+	source.emit({ $type: "notificationEvent", notification: view });
+	await wait(150);
+	expect(os.shown).toHaveLength(0);
+	expect(play).not.toHaveBeenCalled();
+	source.emit({
+		$type: "notificationEvent",
+		notification: notification(channel.space),
+	});
+	await until(() => os.shown.length === 1);
+	store.setViewing(undefined);
+});
+
 it("only pings while hidden when device notifications are off", async () => {
 	const { source, store, os, play, channel } = mount({ enabled: false });
 	await until(() => !!store.communities.value());
