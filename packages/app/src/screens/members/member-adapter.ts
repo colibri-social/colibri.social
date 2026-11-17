@@ -4,9 +4,9 @@ import { displayNameOf } from "../../data/adapters/authors";
 import { uiPresence } from "../../data/adapters/presence";
 import { type StatusEmojiLookup, uiStatus } from "../../data/adapters/status";
 import {
+	displayRoleIdentity,
 	roleIdentity,
 	rolesOf,
-	topColoredRole,
 	topHoistedRole,
 	visibleRoles,
 } from "../../data/roles";
@@ -24,7 +24,6 @@ export const toListMember = (
 	},
 ): Member => {
 	const roles = rolesOf(member, options.roleByKey);
-	const colored = topColoredRole(roles);
 	const hoisted = topHoistedRole(roles);
 	const status = uiStatus(options.presence?.status, options.emoji);
 	return {
@@ -36,7 +35,7 @@ export const toListMember = (
 		statusEmoji: status?.emoji,
 		statusCustomEmoji: status?.customEmoji,
 		statusShowWhileOffline: status?.showWhileOffline,
-		role: colored ? roleIdentity(colored) : undefined,
+		role: displayRoleIdentity(roles),
 		hoistedRoleId: hoisted?.rkey,
 		bot: member.actor.isBot,
 		owner: options.ownerRole ? member.roles.includes(options.ownerRole) : false,

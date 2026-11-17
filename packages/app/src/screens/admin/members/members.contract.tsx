@@ -23,7 +23,7 @@ import {
 } from "solid-js";
 import type { ApplicationView, BannedActorView } from "../../../data/access";
 import { displayNameOf } from "../../../data/adapters/authors";
-import { roleIdentity, rolesOf, topColoredRole } from "../../../data/roles";
+import { displayRoleIdentity, rolesOf } from "../../../data/roles";
 import type { Did, MemberView } from "../../../data/types";
 import { defineContract, slot } from "../../../screen/define";
 import { usePlatform } from "../../../screen/platform";
@@ -108,14 +108,13 @@ export const members = defineContract({
 		const identity = (member: MemberView): MemberIdentityData => {
 			const current = space();
 			const roles = current ? rolesOf(member, current.roleByKey) : [];
-			const colored = topColoredRole(roles);
 			const owner = ownerRole();
 			return {
 				id: member.actor.did,
 				name: member.nickname ?? displayNameOf(member.actor),
 				handle: member.actor.handle,
 				avatarSrc: member.actor.avatar,
-				role: colored ? roleIdentity(colored) : undefined,
+				role: displayRoleIdentity(roles),
 				bot: member.actor.isBot,
 				owner: owner ? member.roles.includes(owner) : false,
 				badge: primaryBadgeOf(member.actor, { withoutBot: true }),

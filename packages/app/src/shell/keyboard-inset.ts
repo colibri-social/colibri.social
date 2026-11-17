@@ -308,6 +308,7 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 	const commit = (target: Target, inset: number) => {
 		if (target.kind === "shell") {
 			if (inset !== current) applyShell(inset);
+			else root.toggleAttribute("data-keyboard-open", inset > 0);
 			return;
 		}
 		const shellInset = effective(inset);

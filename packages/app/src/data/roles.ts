@@ -75,8 +75,31 @@ export const rolesOf = (
 		.filter((role): role is RoleView => !!role && isChipRole(role))
 		.sort((a, b) => b.position - a.position);
 
-export const topColoredRole = (roles: readonly RoleView[]) =>
-	roles.find((role) => isChipRole(role) && !!role.color);
+const tintedBadge = (
+	badge: RoleBadgeValue,
+	color: string | undefined,
+): RoleBadgeValue => {
+	return badge.kind === "icon" && !badge.color && color
+		? { ...badge, color }
+		: badge;
+};
+
+export const displayRoleIdentity = (
+	ranked: readonly RoleView[],
+): RoleIdentity | undefined => {
+	const colored = ranked.find((role) => !!role.color);
+	const badged = ranked.find((role) => !!roleBadge(role));
+	const badge = badged && roleBadge(badged);
+
+	if (!badged || !badge) return colored ? roleIdentity(colored) : undefined;
+
+	return {
+		id: badged.rkey,
+		name: badged.name,
+		color: colored?.color,
+		badge: tintedBadge(badge, badged.color || undefined),
+	};
+};
 
 export const topHoistedRole = (roles: readonly RoleView[]) =>
 	roles.find((role) => isChipRole(role) && role.hoisted);

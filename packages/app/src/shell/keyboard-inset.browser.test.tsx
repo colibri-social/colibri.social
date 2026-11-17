@@ -332,3 +332,29 @@ it("announces the Android follow offset on every frame and zero at the commit", 
 	expect(follower.style.transform).toBe("");
 	expect(inset()).toBe("300px");
 });
+
+it("clears the open attribute when a dialog closes before the keyboard", async () => {
+	install();
+	const dialog = document.createElement("div");
+	dialog.setAttribute("role", "dialog");
+	const field = document.createElement("input");
+	dialog.append(field);
+	document.body.append(dialog);
+	field.focus({ preventScroll: true });
+	dispatch(300);
+	await frame();
+	expect(document.documentElement.hasAttribute("data-keyboard-open")).toBe(
+		true,
+	);
+	dialog.remove();
+	window.dispatchEvent(
+		new CustomEvent(KEYBOARD_PROGRESS_EVENT, {
+			detail: { phase: "start", from: 300, to: 0 },
+		}),
+	);
+	dispatch(0);
+	await frame();
+	expect(document.documentElement.hasAttribute("data-keyboard-open")).toBe(
+		false,
+	);
+});

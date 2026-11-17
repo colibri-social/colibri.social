@@ -1,5 +1,5 @@
-import type { MessageAuthor, RoleIdentity } from "@colibri-social/ui";
-import { roleIdentity, rolesOf, topColoredRole } from "../roles";
+import type { MessageAuthor } from "@colibri-social/ui";
+import { displayRoleIdentity, rolesOf } from "../roles";
 import type { MemberView, ProfileView, RoleView } from "../types";
 import { displayNameOf } from "./display-name";
 
@@ -15,13 +15,6 @@ const memberRoles = (
 	member: MemberView | undefined,
 	roles: ReadonlyMap<string, RoleView>,
 ) => rolesOf(member, (rkey) => roles.get(rkey));
-
-const roleIdentityFor = (
-	ranked: readonly RoleView[],
-): RoleIdentity | undefined => {
-	const top = topColoredRole(ranked);
-	return top ? roleIdentity(top) : undefined;
-};
 
 const isOwnerMember = (
 	member: Pick<MemberView, "roles"> | undefined,
@@ -41,7 +34,7 @@ export const toMessageAuthor = (
 		avatarSrc: actor.avatar,
 		seed: profile.did,
 		nameColor: actor.theme?.accentColor,
-		role: roleIdentityFor(memberRoles(member, directory.roles)),
+		role: displayRoleIdentity(memberRoles(member, directory.roles)),
 		owner: !directory.hideOwnerBadge && isOwnerMember(member, directory.roles),
 	};
 };

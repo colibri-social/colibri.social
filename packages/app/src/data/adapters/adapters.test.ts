@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { setMediaOrigins } from "../remote/media-origin";
-import { isVisibleRole, rolesOf, topHoistedRole, visibleRoles } from "../roles";
+import {
+	displayRoleIdentity,
+	isVisibleRole,
+	rolesOf,
+	topHoistedRole,
+	visibleRoles,
+} from "../roles";
 import type {
 	AttachmentView,
 	Facet,
@@ -265,7 +271,7 @@ describe("authors", () => {
 		["plain", role("plain", 20)],
 	]);
 
-	it("takes color and badge from the single highest colored role", () => {
+	it("takes color from the highest colored role and badge from the highest badged role", () => {
 		const actor = profile("did:plc:ada", { theme: { accentColor: "#123456" } });
 		const members = new Map([
 			[actor.did, member(actor, ["mod", "admin", "plain"], "Ada L.")],
@@ -276,10 +282,10 @@ describe("authors", () => {
 			seed: "did:plc:ada",
 			nameColor: "#123456",
 			role: {
-				id: "admin",
-				name: "admin",
+				id: "mod",
+				name: "mod",
 				color: "#ff0000",
-				badge: undefined,
+				badge: { kind: "icon", name: "shield-check", color: "#00ff00" },
 			},
 			owner: false,
 		});
@@ -322,7 +328,7 @@ describe("authors", () => {
 			id: "mod",
 			name: "mod",
 			color: "#00ff00",
-			badge: { kind: "icon", name: "shield-check", color: undefined },
+			badge: { kind: "icon", name: "shield-check", color: "#00ff00" },
 		});
 		const ownerOnly = new Map([[actor.did, member(actor, ["owner"])]]);
 		expect(
@@ -395,6 +401,70 @@ describe("authors", () => {
 				} as Partial<ProfileView>),
 			),
 		).toBe("Matrix");
+	});
+});
+
+describe("displayRoleIdentity", () => {
+	const iconBadge = (icon: string, color?: string) =>
+		({
+			$type: "social.colibri.beta.community.defs#roleIconBadge",
+			icon,
+			color,
+		}) as RoleView["badge"];
+
+	it("shows the badge of a role without a color", () => {
+		expect(
+			displayRoleIdentity([
+				role("helper", 3, { color: "", badge: iconBadge("shield-check") }),
+			]),
+		).toEqual({
+			id: "helper",
+			name: "helper",
+			color: undefined,
+			badge: { kind: "icon", name: "shield-check", color: undefined },
+		});
+	});
+
+	it("keeps a color-only role as its own identity", () => {
+		expect(
+			displayRoleIdentity([role("admin", 10, { color: "#ff0000" })]),
+		).toEqual({
+			id: "admin",
+			name: "admin",
+			color: "#ff0000",
+			badge: undefined,
+		});
+	});
+
+	it("combines color and badge from different roles", () => {
+		expect(
+			displayRoleIdentity([
+				role("admin", 10, { color: "#ff0000" }),
+				role("helper", 3, { badge: iconBadge("shield-check", "#0000ff") }),
+			]),
+		).toEqual({
+			id: "helper",
+			name: "helper",
+			color: "#ff0000",
+			badge: { kind: "icon", name: "shield-check", color: "#0000ff" },
+		});
+	});
+
+	it("tints an uncolored icon badge with its own role's color", () => {
+		expect(
+			displayRoleIdentity([
+				role("admin", 10, { color: "#ff0000" }),
+				role("mod", 5, {
+					color: "#00ff00",
+					badge: iconBadge("shield-check"),
+				}),
+			])?.badge,
+		).toEqual({ kind: "icon", name: "shield-check", color: "#00ff00" });
+	});
+
+	it("returns nothing without a colored or badged role", () => {
+		expect(displayRoleIdentity([role("plain", 1)])).toBeUndefined();
+		expect(displayRoleIdentity([])).toBeUndefined();
 	});
 });
 
