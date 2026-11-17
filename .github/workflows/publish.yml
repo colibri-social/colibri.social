@@ -245,6 +245,20 @@ jobs:
         if: matrix.is-android
         run: echo "ANDROID_VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
 
+      - name: Render pre-release body (spaces only)
+        if: inputs.channel == 'spaces'
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          ANDROID_VERSION=$(node packages/wrapper/scripts/appstore-version.mjs "$VERSION")
+          {
+            echo "RELEASE_BODY<<RELEASE_BODY_EOF"
+            sed -e "s/{{VERSION}}/$VERSION/g" -e "s/{{ANDROID_VERSION}}/$ANDROID_VERSION/g" .github/release-notes/spaces.md
+            echo "RELEASE_BODY_EOF"
+          } >> "$GITHUB_ENV"
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -269,7 +283,7 @@ jobs:
           projectPath: "packages/wrapper"
           tagName: v${{ inputs.version }}
           releaseName: "Colibri Social ${{ inputs.version }}"
-          releaseBody: ""
+          releaseBody: ${{ env.RELEASE_BODY }}
           releaseDraft: false
           prerelease: true
           args: ${{ matrix.args }}${{ inputs.channel == 'spaces' && !matrix.is-android && format(' --config {0}/packages/wrapper/src-tauri/tauri.spaces.conf.json', github.workspace) || '' }}
