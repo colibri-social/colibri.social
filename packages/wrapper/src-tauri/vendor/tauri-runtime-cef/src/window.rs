@@ -1207,6 +1207,15 @@ impl<T: UserEvent> WindowDispatch<T> for CefWindowDispatcher<T> {
     })
   }
 
+  fn set_fullscreen_on_monitor(&self, position: PhysicalPosition<f64>) -> Result<()> {
+    self.set_position(Position::Physical(PhysicalPosition::new(
+      position.x as i32,
+      position.y as i32,
+    )))?;
+
+    self.set_fullscreen(true)
+  }
+
   #[cfg(target_os = "macos")]
   fn set_simple_fullscreen(&self, enable: bool) -> Result<()> {
     self.context.send_message(Message::Window {

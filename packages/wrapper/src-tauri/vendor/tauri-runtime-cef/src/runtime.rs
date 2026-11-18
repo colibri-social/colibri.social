@@ -1311,11 +1311,11 @@ impl<T: UserEvent> RuntimeHandle<T> for CefRuntimeHandle<T> {
     Ok(unsafe { DisplayHandle::borrow_raw(raw.0) })
   }
 
-  fn primary_monitor(&self) -> Option<Monitor> {
-    event_loop_getter!(self, PrimaryMonitor).ok().flatten()
+  fn primary_monitor(&self) -> Result<Option<Monitor>> {
+    event_loop_getter!(self, PrimaryMonitor)
   }
 
-  fn monitor_from_point(&self, x: f64, y: f64) -> Option<Monitor> {
+  fn monitor_from_point(&self, x: f64, y: f64) -> Result<Option<Monitor>> {
     let (tx, rx) = mpsc::channel();
     self
       .context
@@ -1323,12 +1323,10 @@ impl<T: UserEvent> RuntimeHandle<T> for CefRuntimeHandle<T> {
         tx, x, y,
       )))
       .and_then(|_| rx.recv().map_err(|_| Error::FailedToReceiveMessage))
-      .ok()
-      .flatten()
   }
 
-  fn available_monitors(&self) -> Vec<Monitor> {
-    event_loop_getter!(self, AvailableMonitors).unwrap_or_default()
+  fn available_monitors(&self) -> Result<Vec<Monitor>> {
+    event_loop_getter!(self, AvailableMonitors)
   }
 
   fn cursor_position(&self) -> Result<PhysicalPosition<f64>> {

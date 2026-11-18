@@ -323,6 +323,10 @@ impl WindowBuilder for WindowBuilderWrapper {
     Ok(self)
   }
 
+  fn no_redirection_bitmap(self, _enable: bool) -> Self {
+    self
+  }
+
   #[allow(unused_mut)]
   fn skip_taskbar(mut self, skip: bool) -> Self {
     #[cfg(windows)]

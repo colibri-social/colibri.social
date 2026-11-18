@@ -35,6 +35,8 @@ The fork also strips Chrome's browser features from the Linux app:
 - `src/cef_impl/request_context.rs` turns off printing, autofill, the password manager, translation and the download bubble through Chrome preferences.
 - `src/webview.rs` injects a script that cancels Ctrl+wheel zoom when zoom hotkeys are disabled.
 
+The fork also implements the tauri-runtime 2.12 traits: `RuntimeHandle` returns a `Result` from `primary_monitor`, `monitor_from_point` and `available_monitors`, `WindowDispatch::set_fullscreen_on_monitor` moves the window to the given position and makes it fullscreen, and `WindowBuilder::no_redirection_bitmap` does nothing.
+
 The Chrome command IDs come from Chromium's `chrome/app/chrome_command_ids.h`. Check them against the Chromium version of a new CEF release.
 
-To update the fork, copy the new rev from `~/.cargo/git/checkouts/` into `tauri-runtime-cef/`, reapply these changes, the icon change and the app ID and size changes, and bump the rev here and in `Cargo.toml`.
+To update the fork, copy the new rev from `~/.cargo/git/checkouts/` into `tauri-runtime-cef/`, reapply these changes, the icon change, the app ID and size changes and the tauri-runtime 2.12 changes, and bump the rev here and in `Cargo.toml`.
