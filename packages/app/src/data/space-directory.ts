@@ -1,4 +1,4 @@
-import { batch, createRoot, createSignal } from "solid-js";
+import { batch, createRoot, createSignal, untrack } from "solid-js";
 import { HostSignInError, waitForHostAuthorization } from "./hosting";
 import type { CreateCommunityInput, DataSource } from "./source";
 import type {
@@ -11,6 +11,11 @@ import type {
 } from "./types";
 
 type Updatable<T> = { update: (change: (current: T) => T) => void };
+
+type Refreshable<T> = Updatable<T> & {
+	value: () => T | undefined;
+	refresh: () => Promise<void>;
+};
 
 export type CreateSpaceRequest = CreateCommunityInput & {
 	picture?: File;
@@ -101,7 +106,7 @@ export type BridgeData = {
 
 export const createSpaceDirectory = (
 	source: DataSource,
-	communities: Updatable<CommunityView[]>,
+	communities: Refreshable<CommunityView[]>,
 ) =>
 	createRoot(() => {
 		const discoverable = createLoadable(() => source.listDiscoverable());
@@ -153,6 +158,15 @@ export const createSpaceDirectory = (
 			return source.getCommunity(outcome.community);
 		};
 
+		const watchCreated = async (community: CommunityView) => {
+			remember(community);
+			await communities.refresh();
+			const listed = untrack(communities.value)?.some(
+				(entry) => entry.did === community.did,
+			);
+			if (!listed) remember(community);
+		};
+
 		const create = async (
 			request: CreateSpaceRequest,
 		): Promise<CreateSpaceResult> => {
@@ -160,7 +174,7 @@ export const createSpaceDirectory = (
 			let community = host
 				? await adopt(input, host)
 				: await source.createCommunity(input);
-			remember(community);
+			await watchCreated(community);
 			let imagesFailed = false;
 			for (const [kind, file] of [
 				["picture", picture],

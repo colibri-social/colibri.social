@@ -21,6 +21,15 @@ const isOwnerMember = (
 	roles: ReadonlyMap<string, RoleView>,
 ) => !!member?.roles.some((rkey) => roles.get(rkey)?.protected);
 
+export const memberIdentity = (
+	member: MemberView,
+	directory: Pick<AuthorDirectory, "roles" | "hideOwnerBadge">,
+) => ({
+	role: displayRoleIdentity(memberRoles(member, directory.roles)),
+	owner: !directory.hideOwnerBadge && isOwnerMember(member, directory.roles),
+	bot: member.actor.isBot,
+});
+
 export const toMessageAuthor = (
 	profile: ProfileView,
 	directory: AuthorDirectory,

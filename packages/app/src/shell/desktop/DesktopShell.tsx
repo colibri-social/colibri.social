@@ -22,6 +22,7 @@ import { useData } from "../../data/store";
 import { TEXT_CHANNEL, VOICE_CHANNEL } from "../../data/types";
 import { MemberMenuProvider } from "../../screens/members/member-menu";
 import { ProfileSheetProvider } from "../../screens/profile/profile-sheet";
+import { hasNoSpaces } from "../../screens/spaces/spaces.contract";
 import SpacesScreen from "../../screens/spaces/spaces.screen";
 import VoiceScreen from "../../screens/voice/voice.screen";
 import { voiceChatAvailable } from "../../screens/voice/voice-chat";
@@ -101,6 +102,7 @@ export const DesktopShell = () => {
 	const outlets: Record<OutletName, Signal<HTMLElement | undefined>> = {
 		rail: createSignal<HTMLElement>(),
 		header: createSignal<HTMLElement>(),
+		main: createSignal<HTMLElement>(),
 	};
 	const outletSignal = (name: OutletName) => outlets[name];
 	const route = stack.route;
@@ -268,15 +270,29 @@ export const DesktopShell = () => {
 			: undefined;
 	});
 
+	const empty = () => hasNoSpaces(data);
+
+	const mainOutlet = (node: HTMLElement) => {
+		const [, setOutlet] = outletSignal("main");
+
+		setOutlet(node);
+		onCleanup(() => setOutlet(undefined));
+	};
+
 	const idle = (): JSX.Element => (
-		<Show when={loadFailure()} keyed fallback={<NoChannel />}>
-			{(failure) => (
-				<LoadErrorState
-					title={failure.title}
-					error={failure.error}
-					onRetry={failure.retry}
-				/>
-			)}
+		<Show
+			when={!empty()}
+			fallback={<div ref={mainOutlet} data-outlet="main" class="contents" />}
+		>
+			<Show when={loadFailure()} keyed fallback={<NoChannel />}>
+				{(failure) => (
+					<LoadErrorState
+						title={failure.title}
+						error={failure.error}
+						onRetry={failure.retry}
+					/>
+				)}
+			</Show>
 		</Show>
 	);
 
@@ -424,6 +440,7 @@ export const DesktopShell = () => {
 								/>
 							}
 							sidebar={<SpacesScreen args={{ slug: route().root.space }} />}
+							sidebarHidden={empty()}
 							dock={
 								<div ref={(element) => onMount(() => anchorToasts(element))}>
 									<Dock />

@@ -8,6 +8,7 @@ import {
 	createContext,
 	createSignal,
 	onCleanup,
+	untrack,
 	useContext,
 } from "solid-js";
 import { bindPan, type PanDirection } from "./gesture/pan";
@@ -52,6 +53,8 @@ export type PopGuard = {
 	blocked: () => boolean;
 	onBlocked: () => void;
 };
+
+export type SetRootOptions = { force?: boolean };
 
 export type StackOptions = {
 	history?: HistoryPort;
@@ -104,12 +107,14 @@ export const createStack = (options: StackOptions) => {
 	const leave = createLeaveGuard(() => target);
 
 	const blocksPop = (next: number, retry: () => void) => {
-		if (leave.bypassing()) return false;
-		if (popGuard && next < popGuard.depth && popGuard.blocked()) {
-			popGuard.onBlocked();
-			return true;
-		}
-		return leave.holds(next, retry);
+		return untrack(() => {
+			if (leave.bypassing()) return false;
+			if (popGuard && next < popGuard.depth && popGuard.blocked()) {
+				popGuard.onBlocked();
+				return true;
+			}
+			return leave.holds(next, retry);
+		});
 	};
 
 	const setPopGuard = (guard: PopGuard) => {
@@ -313,14 +318,16 @@ export const createStack = (options: StackOptions) => {
 		settle();
 	};
 
-	const setRoot = (next: Root) => {
-		const current = root();
-		if (current.tab !== next.tab || current.space !== next.space) {
-			for (const layer of mounted()) staleLayers.add(layer);
-			if (!moving()) setMounted((list) => list.slice(0, target));
-		}
-		setRootSignal(next);
-		if (target === 0 && !moving()) history.sync();
+	const setRoot = (next: Root, _options: SetRootOptions = {}) => {
+		untrack(() => {
+			const current = root();
+			if (current.tab !== next.tab || current.space !== next.space) {
+				for (const layer of mounted()) staleLayers.add(layer);
+				if (!moving()) setMounted((list) => list.slice(0, target));
+			}
+			setRootSignal(next);
+			if (target === 0 && !moving()) history.sync();
+		});
 	};
 
 	const push = (layer: Layer) => {

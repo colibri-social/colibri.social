@@ -22,6 +22,7 @@ export type AppShellProps = {
 	railLabel?: string;
 	header?: JSX.Element;
 	sidebar: JSX.Element;
+	sidebarHidden?: boolean;
 	dock?: JSX.Element;
 	children: JSX.Element;
 	members?: JSX.Element;
@@ -133,6 +134,7 @@ export const AppShell = (props: AppShellProps) => {
 						</nav>
 						<div
 							data-shell-sidebar=""
+							hidden={props.sidebarHidden}
 							class={cx(
 								"rail-join relative flex h-full w-(--channel-sidebar-width) min-w-(--channel-sidebar-width) flex-col rounded-tl-sheet border-t border-l border-muted bg-background",
 								squareFlushCorner,
@@ -169,7 +171,11 @@ export const AppShell = (props: AppShellProps) => {
 					<Show when={dock.has()}>
 						<div
 							data-shell-dock=""
-							class="relative z-30 w-0 min-w-full shrink-0 px-4 pb-4"
+							class={
+								props.sidebarHidden
+									? "absolute bottom-0 left-0 z-30 w-[calc(var(--shell-rail-width)+var(--channel-sidebar-width))] px-4 pb-4"
+									: "relative z-30 w-0 min-w-full shrink-0 px-4 pb-4"
+							}
 						>
 							{dock()}
 						</div>
@@ -181,6 +187,12 @@ export const AppShell = (props: AppShellProps) => {
 						"flex h-full min-w-(--min-chat-width,360px) flex-1 flex-col border-t border-l border-muted bg-card",
 						flushSystemFrameTop,
 						flushChromelessTop,
+						props.sidebarHidden && [
+							"overflow-hidden rounded-tl-sheet",
+							squareFlushCorner,
+							squareChromelessCorner,
+							squareSystemFrameCorner,
+						],
 					)}
 				>
 					<Show when={header.has()}>

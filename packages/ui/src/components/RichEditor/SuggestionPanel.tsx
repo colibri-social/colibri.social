@@ -15,7 +15,12 @@ import {
 import { ThreadIcon } from "../../icons/custom";
 import { cx } from "../../utils/cx";
 import { Avatar } from "../Avatar/Avatar";
+import {
+	type MemberIdentityData,
+	MemberNameLine,
+} from "../Members/MemberIdentity";
 import type { SuggestionItem, SuggestionTrigger } from "./suggestions";
+import type { MemberSuggestion } from "./types";
 
 export const suggestionOptionId = (listId: string, index: number) =>
 	`${listId}-option-${index}`;
@@ -41,6 +46,28 @@ const optionClass = cx(
 	"data-active:bg-popover-highlight",
 );
 
+const memberIdentityOf = (
+	member: Accessor<MemberSuggestion>,
+): MemberIdentityData => {
+	return {
+		get id() {
+			return member().did;
+		},
+		get name() {
+			return member().name;
+		},
+		get role() {
+			return member().role;
+		},
+		get owner() {
+			return member().owner;
+		},
+		get bot() {
+			return member().bot;
+		},
+	};
+};
+
 const SuggestionRow = (props: { item: SuggestionItem }): JSX.Element => (
 	<Switch>
 		<Match when={props.item.kind === "member" && props.item.member}>
@@ -54,9 +81,11 @@ const SuggestionRow = (props: { item: SuggestionItem }): JSX.Element => (
 						color={member().color}
 						presence={member().presence}
 					/>
-					<span class="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-						{member().name}
-					</span>
+					<MemberNameLine
+						size="sm"
+						class="flex-1 text-foreground"
+						member={memberIdentityOf(member)}
+					/>
 					<Show when={member().handle}>
 						<span class="max-w-[45%] shrink-0 truncate text-sm text-muted-foreground">
 							{member().handle}

@@ -9,7 +9,7 @@ import { Portal } from "solid-js/web";
 import type { ThreadLayer } from "../layers";
 import type { DesktopStack } from "./desktop-stack";
 
-export type OutletName = "rail" | "header";
+export type OutletName = "rail" | "header" | "main";
 
 export type DesktopShell = {
 	stack: DesktopStack;

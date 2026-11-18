@@ -1,5 +1,6 @@
 import type { ColibriRichTextFacet, TimestampStyle } from "@colibri-social/lib";
 import type { Presence } from "../Avatar/Avatar";
+import type { RoleIdentity } from "../Roles/RoleBadge";
 
 export type RichText = {
 	text: string;
@@ -13,6 +14,9 @@ export type MemberSuggestion = {
 	avatarSrc?: string;
 	presence?: Presence;
 	color?: string;
+	role?: RoleIdentity;
+	owner?: boolean;
+	bot?: boolean;
 };
 
 export type BridgedSuggestion = {

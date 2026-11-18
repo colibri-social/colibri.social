@@ -1,3 +1,4 @@
+import { classifyThrown, createLogger } from "@colibri-social/lib";
 import {
 	Button,
 	type HostingMode,
@@ -16,21 +17,23 @@ import {
 	toast,
 } from "@colibri-social/ui";
 import { CloseIcon } from "@solar-icons/solid/bold/close";
-import { createSignal, onCleanup, Show } from "solid-js";
+import { batch, createSignal, onCleanup, Show } from "solid-js";
 import { isNativeShell } from "../../auth/native";
 import { describeError } from "../../data/error-copy";
 import { HostSignInError, prepareExternalTab } from "../../data/hosting";
-import { spaceKey } from "../../data/ids";
+import { channelSlug, spaceKey } from "../../data/ids";
 import { COMMUNITY_NAME_MAX } from "../../data/source";
 import {
 	type CreateSpaceResult,
 	IMAGES_NOT_SAVED,
 } from "../../data/space-directory";
 import { useData } from "../../data/store";
+import type { CommunityView } from "../../data/types";
 import { openExternalUrl } from "../../native/open-external";
 import { defineContract, slot } from "../../screen/define";
 import { usePlatform } from "../../screen/platform";
 import { useStack } from "../../shell/stack";
+import { topmostTextChannel } from "../../shell/text-channel";
 import { useUnsavedChanges } from "../../shell/unsaved-changes";
 
 export type CreateSpaceArgs = Record<string, string>;
@@ -60,6 +63,16 @@ export const CREATE_SPACE_COPY = {
 	description: "A Space is where you and other people hang out.",
 } as const;
 
+const log = createLogger("create-space");
+
+const readyCopy = (name: string) => {
+	return `${name} is ready`;
+};
+
+const settingUpCopy = (name: string) => {
+	return `${name} is ready. Its channels are still being set up and will show up in a moment.`;
+};
+
 export const createSpace = defineContract({
 	id: "createSpace",
 	model: (_args: CreateSpaceArgs) => {
@@ -77,6 +90,8 @@ export const createSpace = defineContract({
 		const [setupError, setSetupError] = createSignal<HostSetupError>();
 		const [signedInAs, setSignedInAs] = createSignal<string>();
 		const [signInUrl, setSignInUrl] = createSignal<string>();
+		const [preparing, setPreparing] = createSignal(false);
+		const [created, setCreated] = createSignal(false);
 		const picture = createPreview();
 		let waiting: AbortController | undefined;
 		onCleanup(() => waiting?.abort());
@@ -117,27 +132,29 @@ export const createSpace = defineContract({
 
 		const depth = () =>
 			stack.mounted().findIndex((layer) => layer.kind === "createSpace") + 1;
+		const locked = () => {
+			return preparing() || (creating() && !setupStep());
+		};
 		onCleanup(
 			stack.setPopGuard({
 				get depth() {
 					return depth();
 				},
-				blocked: () => creating() && !setupStep(),
+				blocked: locked,
 				onBlocked: () => {},
 			}),
 		);
-		let created = false;
 		useUnsavedChanges({
 			depth,
 			dirty: () =>
-				!created &&
+				!created() &&
 				!creating() &&
 				(trimmedName().length > 0 || !!picture.file()),
 			description: () => "This Space won't be created.",
 		});
 
 		const close = () => {
-			if (creating() && !setupStep()) return;
+			if (locked()) return;
 			waiting?.abort();
 			stack.pop();
 		};
@@ -156,28 +173,53 @@ export const createSpace = defineContract({
 			setAccountError(undefined);
 		};
 
-		const finish = (result: CreateSpaceResult) => {
-			if (result.imagesFailed) toast.info(IMAGES_NOT_SAVED);
-			toast.success(`${result.community.name} is ready`);
-			setCreating(false);
-			created = true;
-			stack.setRoot({
-				tab: "spaces",
-				space: spaceKey(result.community),
-			});
+		const openSpace = (community: CommunityView) => {
+			const space = data.space(community);
+			const channel = topmostTextChannel(
+				space.channels.value() ?? [],
+				space.categories.value(),
+			);
+			stack.setRoot(
+				{ tab: "spaces", space: spaceKey(community) },
+				{ force: true },
+			);
 			stack.popTo(0);
+			if (!channel) return;
+			stack.push({
+				kind: "chat",
+				channelType: channel.type,
+				space: spaceKey(community),
+				channel: channelSlug(channel),
+			});
+		};
+
+		const finish = async (result: CreateSpaceResult) => {
+			setPreparing(true);
+			const ready = await data.whenSpaceReady(result.community);
+			batch(() => {
+				setCreated(true);
+				setPreparing(false);
+				setCreating(false);
+			});
+			if (result.imagesFailed) toast.info(IMAGES_NOT_SAVED);
+			if (ready) toast.success(readyCopy(result.community.name));
+			else toast.info(settingUpCopy(result.community.name));
+			openSpace(result.community);
 		};
 
 		const createOnColibri = async () => {
 			setCreating(true);
 			try {
-				finish(
+				await finish(
 					await data.directory.create({
 						name: trimmedName(),
 						picture: picture.file(),
 					}),
 				);
 			} catch (error) {
+				log.warn("create failed", {
+					code: classifyThrown(error, { method: "community.create" }).code,
+				});
 				toast.error(
 					error instanceof Error && error.message
 						? error.message
@@ -194,14 +236,16 @@ export const createSpace = defineContract({
 				return;
 			}
 			setAccountError(undefined);
+			setCreating(true);
 			const tab = prepareExternalTab(openExternalUrl, isNativeShell());
 			waiting?.abort();
 			const controller = new AbortController();
 			waiting = controller;
-			setSetupError(undefined);
-			setSignedInAs(undefined);
-			setSetupStep("signIn");
-			setCreating(true);
+			batch(() => {
+				setSetupError(undefined);
+				setSignedInAs(undefined);
+				setSetupStep("signIn");
+			});
 			try {
 				const result = await data.directory.create({
 					name: trimmedName(),
@@ -218,9 +262,12 @@ export const createSpace = defineContract({
 				});
 				if (controller.signal.aborted) return;
 				setSetupStep("done");
-				finish(result);
+				await finish(result);
 			} catch (error) {
 				if (controller.signal.aborted) return;
+				log.warn("create on own account failed", {
+					code: classifyThrown(error, { method: "community.adopt" }).code,
+				});
 				tab.close();
 				if (error instanceof HostSignInError) {
 					setSetupStep(undefined);
@@ -248,6 +295,7 @@ export const createSpace = defineContract({
 			name,
 			setName,
 			creating,
+			locked,
 			imageError,
 			setImageError,
 			cropping,
@@ -295,7 +343,7 @@ export const createSpace = defineContract({
 					label="Close"
 					icon={<CloseIcon />}
 					class="[&_svg]:size-6"
-					disabled={m.creating() && !m.settingUp()}
+					disabled={m.locked()}
 					onClick={m.close}
 				/>
 			</div>

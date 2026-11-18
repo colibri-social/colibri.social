@@ -32,6 +32,7 @@ import {
 import {
 	bridgePlatformName,
 	displayNameOf,
+	memberIdentity,
 	toMessageAuthor,
 	viaLabel,
 } from "./authors";
@@ -343,6 +344,23 @@ describe("authors", () => {
 				members: new Map([[other.did, member(other, ["mod"])]]),
 				roles: withOwner,
 			}).owner,
+		).toBe(false);
+	});
+
+	it("gives mention rows the same role, owner and bot identity", () => {
+		const roles = new Map([
+			["owner", role("owner", 99, { protected: true })],
+			["mod", role("mod", 5, { color: "#00ff00" })],
+		]);
+		const bot = profile("did:plc:bot", { isBot: true });
+		expect(memberIdentity(member(bot, ["owner", "mod"]), { roles })).toEqual({
+			role: { id: "mod", name: "mod", color: "#00ff00", badge: undefined },
+			owner: true,
+			bot: true,
+		});
+		expect(
+			memberIdentity(member(bot, ["owner"]), { roles, hideOwnerBadge: true })
+				.owner,
 		).toBe(false);
 	});
 

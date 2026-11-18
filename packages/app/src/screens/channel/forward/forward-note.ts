@@ -6,6 +6,7 @@ import type {
 	RichEditorSources,
 	RoleSuggestion,
 } from "@colibri-social/ui";
+import { memberIdentity } from "../../../data/adapters/authors";
 import { displayNameOf } from "../../../data/adapters/display-name";
 import { uiPresence } from "../../../data/adapters/presence";
 import { canReadChannel } from "../../../data/channel-permissions";
@@ -166,15 +167,25 @@ export const noteProblem = (
 	return undefined;
 };
 
+const identityDirectory = (space: NoteSpace | undefined) =>
+	space && {
+		roles: new Map((space.roles ?? []).map((role) => [role.rkey, role])),
+		hideOwnerBadge: space.community.hideOwnerBadge,
+	};
+
 const memberSuggestion = (
 	data: DataStore,
 	member: MemberView,
+	directory: ReturnType<typeof identityDirectory>,
 ): MemberSuggestion => ({
 	did: member.actor.did,
 	name: displayNameOf(member.actor, member),
 	handle: member.actor.handle,
 	avatarSrc: member.actor.avatar,
 	presence: uiPresence(data.presenceOf(member.actor.did as Did)),
+	...(directory
+		? memberIdentity(member, directory)
+		: { bot: member.actor.isBot }),
 });
 
 export const noteSpaceOf =
@@ -231,6 +242,7 @@ export const createNoteSources = (
 		onEmojiPick: (emoji) => data.preferences.recordEmoji(emoji),
 		searchMembers: (query, limit) => {
 			const needle = query.toLowerCase();
+			const directory = identityDirectory(only());
 			const results: MemberSuggestion[] = [];
 			for (const member of members()) {
 				if (data.preferences.isBlocked(member.actor.did)) continue;
@@ -239,7 +251,7 @@ export const createNoteSources = (
 					name.toLowerCase().includes(needle) ||
 					member.actor.handle.includes(needle)
 				) {
-					results.push(memberSuggestion(data, member));
+					results.push(memberSuggestion(data, member, directory));
 					if (results.length >= limit) break;
 				}
 			}
@@ -250,7 +262,8 @@ export const createNoteSources = (
 				const member = spaceOf(target).members?.find(
 					(entry) => entry.actor.did === did,
 				);
-				if (member) return memberSuggestion(data, member);
+				if (member)
+					return memberSuggestion(data, member, identityDirectory(only()));
 			}
 			return undefined;
 		},

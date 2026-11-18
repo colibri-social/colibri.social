@@ -13,7 +13,7 @@ import {
 	MediaPickers,
 } from "../MediaPickerSheet/MediaPickerSheet";
 import type { RichEditorHandle } from "../RichEditor/RichEditor";
-import type { RichEditorSources } from "../RichEditor/types";
+import type { MemberSuggestion, RichEditorSources } from "../RichEditor/types";
 import { AttachmentTray, type PendingAttachment } from "./AttachmentTray";
 import { CHARACTER_LIMIT, CharacterRing } from "./CharacterRing";
 import { Composer } from "./Composer";
@@ -288,12 +288,37 @@ export const DesktopSend: Story = {
 	},
 };
 
+const suggestionMembers = (): MemberSuggestion[] => {
+	return [
+		{
+			did: "did:plc:lou",
+			name: "Lou",
+			handle: "lou.gg",
+			owner: true,
+			role: {
+				name: "Admins",
+				color: "#f97316",
+				badge: { kind: "icon", name: "shield-star" },
+			},
+		},
+		{
+			did: "did:plc:lena",
+			name: "Lena",
+			handle: "lena.bsky.social",
+			role: { name: "Moderators", color: "#5cadff" },
+		},
+		{
+			did: "did:plc:lark",
+			name: "Lark the very talkative courier bot with a long name",
+			handle: "lark.bots.colibri.social",
+			bot: true,
+		},
+	];
+};
+
 const suggestionSources: RichEditorSources = {
 	searchMembers: (query, limit) =>
-		[
-			{ did: "did:plc:lou", name: "Lou", handle: "lou.gg" },
-			{ did: "did:plc:lena", name: "Lena", handle: "lena.bsky.social" },
-		]
+		suggestionMembers()
 			.filter((member) =>
 				member.name.toLowerCase().startsWith(query.toLowerCase()),
 			)
@@ -309,6 +334,14 @@ const expectSuggestionsAnchored = async (canvasElement: HTMLElement) => {
 	});
 	const panel = list.closest("[data-suggestions]");
 	const box = canvasElement.querySelector("[data-composer-box]");
+
+	await expect(
+		list.querySelectorAll("[data-suggestion-kind='member']"),
+	).toHaveLength(3);
+	await expect(list.querySelector("[data-owner-badge]")).not.toBeNull();
+	await expect(list.querySelector("[data-user-badge='bot']")).not.toBeNull();
+	await expectNoLayoutIssues(list);
+
 	const panelRect = rect(panel);
 	const boxRect = rect(box);
 	await expect(Math.abs(panelRect.left - boxRect.left)).toBeLessThanOrEqual(1);

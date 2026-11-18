@@ -1,16 +1,22 @@
 import { ChatSquareDotsIcon } from "@solar-icons/solid/bold/chat-square-dots";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
+import { UsersGroupRoundedIcon } from "@solar-icons/solid/bold/users-group-rounded";
 import { expect, fn, userEvent, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { Button } from "../Button/Button";
 import { StatusScreen } from "./StatusScreen";
 
-type Args = { onBack: () => void; onOther: () => void };
+type Args = {
+	onBack: () => void;
+	onOther: () => void;
+	onCreate: () => void;
+	onDiscover: () => void;
+};
 
 const meta: Meta<Args> = {
 	title: "Surfaces/Status screen",
-	args: { onBack: fn(), onOther: fn() },
+	args: { onBack: fn(), onOther: fn(), onCreate: fn(), onDiscover: fn() },
 	parameters: { viewport: { defaultViewport: "iphone" } },
 };
 
@@ -70,5 +76,43 @@ export const SpaceUnavailableLongName: Story = {
 	),
 	play: async ({ canvasElement }) => {
 		await expectNoLayoutIssues(canvasElement.firstElementChild as HTMLElement);
+	},
+};
+
+export const NoSpaces: Story = {
+	render: (args) => (
+		<div class="flex h-[640px] w-full max-w-[402px] flex-col bg-background">
+			<StatusScreen
+				tone="neutral"
+				icon={<UsersGroupRoundedIcon />}
+				title="You're not in any Spaces yet"
+				description="Create one to start chatting with your friends. If someone sends you an invite link, open it and you'll land right in their Space."
+				actions={
+					<>
+						<Button block onClick={args.onCreate}>
+							Create a Space
+						</Button>
+						<Button block variant="secondary" onClick={args.onDiscover}>
+							Discover Spaces
+						</Button>
+					</>
+				}
+			/>
+		</div>
+	),
+	play: async ({ canvasElement, args }) => {
+		const canvas = within(canvasElement);
+		await expect(
+			canvas.getByRole("heading", { name: "You're not in any Spaces yet" }),
+		).toBeVisible();
+		await expectNoLayoutIssues(canvasElement.firstElementChild as HTMLElement);
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Create a Space" }),
+		);
+		await expect(args.onCreate).toHaveBeenCalledOnce();
+		await userEvent.click(
+			canvas.getByRole("button", { name: "Discover Spaces" }),
+		);
+		await expect(args.onDiscover).toHaveBeenCalledOnce();
 	},
 };

@@ -34,8 +34,16 @@ export type MemberIdentityProps = {
 export const memberHandleLabel = (handle: string) =>
 	handle.startsWith("@") ? handle : `@${handle}`;
 
+export type MemberNameSize = "sm" | "base";
+
+const nameSizeClass: Record<MemberNameSize, string> = {
+	sm: "text-sm leading-5 font-medium",
+	base: "text-base leading-5 font-semibold",
+};
+
 export const MemberNameLine = (props: {
 	member: MemberIdentityData;
+	size?: MemberNameSize;
 	class?: string;
 }) => {
 	const badge = createSlot(() => props.member.badge);
@@ -49,7 +57,8 @@ export const MemberNameLine = (props: {
 			<span
 				data-member-name=""
 				class={cx(
-					"truncate text-base leading-5 font-semibold",
+					"truncate",
+					nameSizeClass[props.size ?? "base"],
 					nameColor() && nameColorClass,
 				)}
 				style={nameColorStyle(nameColor())}

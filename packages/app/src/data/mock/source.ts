@@ -64,7 +64,7 @@ import { mockThreadLastMessage } from "./thread-last-message";
 import { mockThreadRights } from "./thread-rights";
 import { mockUpload } from "./uploads";
 import { seedVoice } from "./voice";
-import { createWorld, MANAGING_APP } from "./world";
+import { createWorld, MANAGING_APP, type SpaceRecord } from "./world";
 
 export { pendingLatency, setLatency } from "./latency";
 
@@ -79,7 +79,10 @@ export type MockSourceOptions = {
 	preferencesSnapshotKey?: string;
 	legacyCommunities?: readonly LegacyCommunityView[];
 	hosting?: Readonly<Record<string, Partial<HostingView>>>;
+	starterLayoutDelayMs?: number;
 };
+
+const STARTER_LAYOUT_DELAY_MS = 400;
 
 const MOCK_CONTROLS: ControlsPreferences = {
 	showMessagePreviews: true,
@@ -133,6 +136,26 @@ export const createMockSource = (
 
 	const emit = (event: LiveEvent) => {
 		for (const listener of [...listeners]) listener(event);
+	};
+
+	const watched = new Set<Did>();
+	const indexStarterLayout = (record: SpaceRecord) => {
+		const { categories, channels } = record;
+		record.categories = [];
+		record.channels = [];
+		setTimeout(() => {
+			record.categories = categories;
+			record.channels = channels;
+			if (!watched.has(record.did)) return;
+			emit({ $type: "layoutInvalidatedEvent", community: record.did });
+			emit({
+				$type: "communityProgressEvent",
+				step: "done",
+				completed: 1,
+				total: 1,
+				community: record.did,
+			});
+		}, options.starterLayoutDelayMs ?? STARTER_LAYOUT_DELAY_MS);
 	};
 
 	const access = createMockAccess({ world, now, emit });
@@ -688,6 +711,7 @@ export const createMockSource = (
 				}
 				const record = createCommunityRecord(world, { ...input, name }, now);
 				world.spaces.push(record);
+				indexStarterLayout(record);
 				emit({
 					$type: "communityEvent",
 					event: "create",
@@ -734,11 +758,14 @@ export const createMockSource = (
 				bridges.revoke(input.community, input.registration);
 			}),
 		listCommunities: () =>
-			withLatency(() =>
-				world.spaces
-					.filter((space) => space.view.viewer.isMember)
-					.map((space) => space.view),
-			),
+			withLatency(() => {
+				const joined = world.spaces.filter(
+					(space) => space.view.viewer.isMember,
+				);
+				watched.clear();
+				for (const space of joined) watched.add(space.did);
+				return joined.map((space) => space.view);
+			}),
 		listCategories: (community) =>
 			withLatency(() => world.categoriesOf(spaceOf(community))),
 		listChannels: (community) =>

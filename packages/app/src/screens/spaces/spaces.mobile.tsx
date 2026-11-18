@@ -22,10 +22,12 @@ export default spaces.view({
 				class={`${spaceRailMobilePanelClass} min-w-0 flex-1 overflow-y-auto overscroll-contain pb-28`}
 			>
 				<Show
-					when={!m.missing()}
+					when={!m.empty() && !m.missing()}
 					fallback={
 						<div class="flex min-h-full flex-col">
-							<s.Missing />
+							<Show when={m.empty()} fallback={<s.Missing />}>
+								<s.NoSpaces />
+							</Show>
 						</div>
 					}
 				>

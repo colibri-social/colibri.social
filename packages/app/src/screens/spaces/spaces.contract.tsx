@@ -37,6 +37,7 @@ import {
 	type VoiceParticipant,
 } from "@colibri-social/ui";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
+import { UsersGroupRoundedIcon } from "@solar-icons/solid/bold/users-group-rounded";
 import { VolumeSmallIcon } from "@solar-icons/solid/bold/volume-small";
 import {
 	batch,
@@ -58,7 +59,7 @@ import {
 } from "../../data/error-copy";
 import { channelSlug, isVoiceChannel, skeyOf, spaceKey } from "../../data/ids";
 import { mutedTotals, spaceNotificationPrefs } from "../../data/notifications";
-import { type SpaceData, useData } from "../../data/store";
+import { type DataStore, type SpaceData, useData } from "../../data/store";
 import {
 	type CategoryView,
 	type ChannelView,
@@ -122,6 +123,10 @@ const attentionNotice = (attention: SpaceAttention | undefined) =>
 				<SpaceAttentionNotice attention={attention} onAction={close} />
 			)
 		: undefined;
+
+export const hasNoSpaces = (data: DataStore) => {
+	return !data.communities.loading() && data.communities.value()?.length === 0;
+};
 
 export const spaces = defineContract({
 	id: "spaces",
@@ -608,6 +613,7 @@ export const spaces = defineContract({
 			authorName,
 			ownerHandle,
 			missing,
+			empty: () => hasNoSpaces(data),
 			inviteDrawer,
 			openCreateSpace: () => stack.push({ kind: "createSpace" }),
 			legacyCommunities: () => data.legacy.list(),
@@ -696,6 +702,28 @@ export const spaces = defineContract({
 							</Button>
 						)}
 					</Show>
+				}
+			/>
+		)),
+		NoSpaces: slot((m) => (
+			<StatusScreen
+				tone="neutral"
+				icon={<UsersGroupRoundedIcon />}
+				title="You're not in any Spaces yet"
+				description="Create one to start chatting with your friends. If someone sends you an invite link, open it and you'll land right in their Space."
+				actions={
+					<>
+						<Button block onClick={m.openCreateSpace}>
+							Create a Space
+						</Button>
+						<Show when={m.openDiscover}>
+							{(open) => (
+								<Button block variant="secondary" onClick={open()}>
+									Discover Spaces
+								</Button>
+							)}
+						</Show>
+					</>
 				}
 			/>
 		)),

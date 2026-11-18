@@ -1,10 +1,21 @@
 import "../../app.css";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { page, userEvent } from "vitest/browser";
 import { layoutIssues } from "../../../../ui/src/foundations/layout-test";
-import { createMockSource, setLatency } from "../../data/mock/source";
-import { createDataStore, DataContext } from "../../data/store";
+import {
+	createMockSource,
+	type MockSource,
+	setLatency,
+} from "../../data/mock/source";
+import type { SpaceCache } from "../../data/space-cache";
+import {
+	createDataStore,
+	DataContext,
+	type DataStoreOptions,
+} from "../../data/store";
 import { Providers } from "../../providers";
+import { DesktopShell } from "../../shell/desktop/DesktopShell";
 import { MobileShell } from "../../shell/MobileShell";
 
 const until = async (check: () => boolean, timeout = 8000) => {
@@ -25,25 +36,57 @@ beforeEach(() => {
 	originalPath = location.pathname + location.search;
 });
 
-afterEach(() => {
+afterEach(async () => {
 	stop?.();
 	host?.remove();
+	document.body.replaceChildren();
 	history.replaceState(null, "", originalPath);
+	await page.viewport(402, 874);
 });
 
-const mount = async (path: string) => {
+const keepMemberships = (source: MockSource, count: number) => {
+	let kept = 0;
+	for (const space of source.world.spaces) {
+		if (!space.view.viewer.isMember) continue;
+		kept += 1;
+		if (kept <= count) continue;
+		space.view = {
+			...space.view,
+			viewer: { ...space.view.viewer, isMember: false },
+		};
+	}
+};
+
+const mount = async (
+	path: string,
+	options: {
+		desktop?: boolean;
+		memberships?: number;
+		starterLayoutDelayMs?: number;
+		store?: DataStoreOptions;
+	} = {},
+) => {
 	setLatency(0);
+	if (options.desktop) await page.viewport(1440, 900);
 	history.replaceState(null, "", path);
-	const source = createMockSource({ live: false });
-	const store = createDataStore(source);
+	const source = createMockSource({
+		live: false,
+		starterLayoutDelayMs: options.starterLayoutDelayMs,
+	});
+	if (options.memberships !== undefined) {
+		keepMemberships(source, options.memberships);
+	}
+	const store = createDataStore(source, options.store);
 	host = document.createElement("div");
-	host.style.cssText = "position:fixed;inset:0;width:402px;height:874px";
+	host.style.cssText = options.desktop
+		? "position:fixed;inset:0"
+		: "position:fixed;inset:0;width:402px;height:874px";
 	document.body.append(host);
 	stop = render(
 		() => (
 			<DataContext.Provider value={store}>
 				<Providers>
-					<MobileShell />
+					{options.desktop ? <DesktopShell /> : <MobileShell />}
 				</Providers>
 			</DataContext.Provider>
 		),
@@ -218,5 +261,120 @@ describe("create a Space", () => {
 		await wait(400);
 		buttonNamed(screen(root) as HTMLElement, "Close")?.click();
 		await until(() => location.pathname !== "/app/new");
+	});
+});
+
+const watchDiscard = () => {
+	let seen = false;
+	const check = () => {
+		if ((document.body.textContent ?? "").includes("Discard changes")) {
+			seen = true;
+		}
+	};
+	const observer = new MutationObserver(check);
+	observer.observe(document.body, {
+		childList: true,
+		subtree: true,
+		characterData: true,
+	});
+	return {
+		seen: () => {
+			check();
+			return seen;
+		},
+		stop: () => observer.disconnect(),
+	};
+};
+
+const CHANNEL_PATH = /^\/app\/c\/(did:plc:[^/]+)\/[^/]+\/([^/]+)$/;
+
+const openedChannel = (store: ReturnType<typeof createDataStore>) => {
+	const match = CHANNEL_PATH.exec(location.pathname);
+	if (!match) return undefined;
+	const [, did, slug] = match;
+	const community = store.spaceByKey(did ?? "");
+	if (!community) return undefined;
+	return store
+		.space(community)
+		.channels.value()
+		?.find((channel) => channel.space.endsWith(`/${slug}`));
+};
+
+describe.each([
+	{ shell: "desktop", memberships: 0 },
+	{ shell: "desktop", memberships: 1 },
+	{ shell: "mobile", memberships: 0 },
+	{ shell: "mobile", memberships: 1 },
+])("create from $memberships Spaces on $shell", ({ shell, memberships }) => {
+	it("waits for the channels, then opens #general without asking to discard changes", async () => {
+		const desktop = shell === "desktop";
+		const { store } = await mount("/app/new", {
+			desktop,
+			memberships,
+			starterLayoutDelayMs: 1200,
+		});
+		await expect.element(page.getByLabelText("Space name")).toBeVisible();
+		await userEvent.fill(page.getByLabelText("Space name"), "Owl Watch");
+		const discard = watchDiscard();
+		setLatency(150);
+		try {
+			await userEvent.click(page.getByRole("button", { name: "Create Space" }));
+			await wait(700);
+			expect(location.pathname).toBe("/app/new");
+			await until(() => openedChannel(store)?.name === "general", 8000);
+			await wait(400);
+			expect(discard.seen()).toBe(false);
+		} finally {
+			setLatency(0);
+			discard.stop();
+		}
+	});
+});
+
+const recordingCache = () => {
+	const patches: { community: string; channels?: unknown[] }[] = [];
+	const cache = {
+		snapshot: () => undefined,
+		load: async () => undefined,
+		offerViewer: () => {},
+		offerCommunities: () => {},
+		offerSpace: (community: string, patch: { channels?: unknown[] }) =>
+			patches.push({ community, channels: patch.channels }),
+		offerThreads: () => {},
+		offerThreadMembers: () => {},
+		offerPresence: () => {},
+		offerEmoji: () => {},
+	} as unknown as SpaceCache;
+	return { cache, patches };
+};
+
+describe("slow Space setup", () => {
+	it("opens the Space after the wait and fills in the channels later", async () => {
+		const { cache, patches } = recordingCache();
+		const { root, store } = await mount("/app/new", {
+			desktop: true,
+			memberships: 0,
+			starterLayoutDelayMs: 1500,
+			store: { spaces: cache, spaceSetup: { waitMs: 400, pollMs: 250 } },
+		});
+		await expect.element(page.getByLabelText("Space name")).toBeVisible();
+		await userEvent.fill(page.getByLabelText("Space name"), "Owl Watch");
+		await userEvent.click(page.getByRole("button", { name: "Create Space" }));
+		await until(() => /^\/app\/c\/did:plc:[^/]+$/.test(location.pathname));
+		const did = location.pathname.split("/")[3] ?? "";
+		await until(() =>
+			(document.body.textContent ?? "").includes(
+				"Its channels are still being set up",
+			),
+		);
+		await until(() => !!buttonNamed(root, /^general/), 6000);
+		expect(store.spaceByKey(did)?.name).toBe("Owl Watch");
+		const offered = patches.filter((patch) => patch.community === did);
+		expect(offered.some((patch) => patch.channels?.length === 0)).toBe(false);
+		await until(() =>
+			patches.some(
+				(patch) => patch.community === did && !!patch.channels?.length,
+			),
+		);
 	});
 });

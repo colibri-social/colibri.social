@@ -1,4 +1,4 @@
-import { batch, createSignal } from "solid-js";
+import { batch, createSignal, untrack } from "solid-js";
 import { readStored, writeStored } from "../../data/persist";
 import {
 	browserHistory,
@@ -7,7 +7,7 @@ import {
 } from "../history-sync";
 import { type Layer, type Root, routeRoot, sameLayer } from "../layers";
 import { createLeaveGuard } from "../leave-guard";
-import type { Navigator, PopGuard } from "../stack";
+import type { Navigator, PopGuard, SetRootOptions } from "../stack";
 import {
 	type DesktopRoute,
 	desktopRoute,
@@ -82,12 +82,14 @@ export const createDesktopStack = (
 	const leave = createLeaveGuard(() => layers().length);
 
 	const blocksPop = (next: number, retry: () => void) => {
-		if (leave.bypassing()) return false;
-		if (popGuard && next < popGuard.depth && popGuard.blocked()) {
-			popGuard.onBlocked();
-			return true;
-		}
-		return leave.holds(next, retry);
+		return untrack(() => {
+			if (leave.bypassing()) return false;
+			if (popGuard && next < popGuard.depth && popGuard.blocked()) {
+				popGuard.onBlocked();
+				return true;
+			}
+			return leave.holds(next, retry);
+		});
 	};
 
 	const history = createHistorySync({
@@ -147,20 +149,22 @@ export const createDesktopStack = (
 		return true;
 	};
 
-	const setRoot = (next: Root) => {
-		const current = route();
-		if (next.tab === "settings" || next.tab === "profile") {
-			apply(layers(), next);
-			return;
-		}
-		if (next.tab !== "spaces") return;
-		if (next.space === current.root.space) return;
-		if (current.notFound && !current.root.space) {
-			apply(layers(), next);
-			return;
-		}
-		if (blocksPop(0, () => setRoot(next))) return;
-		commit(desktopRoute({ tab: "spaces", space: next.space }, []));
+	const setRoot = (next: Root, options: SetRootOptions = {}) => {
+		untrack(() => {
+			const current = route();
+			if (next.tab === "settings" || next.tab === "profile") {
+				apply(layers(), next);
+				return;
+			}
+			if (next.tab !== "spaces") return;
+			if (next.space === current.root.space) return;
+			if (current.notFound && !current.root.space) {
+				apply(layers(), next);
+				return;
+			}
+			if (!options.force && blocksPop(0, () => setRoot(next))) return;
+			commit(desktopRoute({ tab: "spaces", space: next.space }, []));
+		});
 	};
 
 	const openBase = (chat: Layer, above: Layer[] = []) =>

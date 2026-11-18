@@ -38,6 +38,7 @@ import {
 import {
 	authorForDid,
 	displayNameOf,
+	memberIdentity,
 	toMessageAuthor,
 } from "../../data/adapters/authors";
 import { fromComposerValue, toTextValue } from "../../data/adapters/facets";
@@ -1229,6 +1230,7 @@ export const createConversation = (options: ConversationOptions) => {
 		onEmojiPick: (emoji) => session.recordEmoji(emoji),
 		searchMembers: (query, limit) => {
 			const needle = query.toLowerCase();
+			const roles = directory();
 			const results = [];
 			for (const member of memberMap().values()) {
 				if (data.preferences.isBlocked(member.actor.did)) continue;
@@ -1243,6 +1245,7 @@ export const createConversation = (options: ConversationOptions) => {
 						handle: member.actor.handle,
 						avatarSrc: member.actor.avatar,
 						presence: uiPresence(data.presenceOf(member.actor.did)),
+						...memberIdentity(member, roles),
 					});
 					if (results.length >= limit) break;
 				}
@@ -1257,6 +1260,8 @@ export const createConversation = (options: ConversationOptions) => {
 						name: displayNameOf(member.actor, member),
 						handle: member.actor.handle,
 						avatarSrc: member.actor.avatar,
+						presence: uiPresence(data.presenceOf(member.actor.did)),
+						...memberIdentity(member, directory()),
 					}
 				: undefined;
 		},

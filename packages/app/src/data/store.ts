@@ -118,6 +118,9 @@ const CATCH_UP_SPACING_MS = 1_000;
 const TYPING_MS = 6000;
 const OWN_REACTION_ECHO_MS = 15_000;
 const INVALIDATION_DELAY_MS = 50;
+const SPACE_SETUP_WAIT_MS = 20_000;
+const SPACE_SETUP_POLL_MS = 2_000;
+const SPACE_SETUP_GIVE_UP_MS = 120_000;
 export const BOOT_CAP_MS = 4_000;
 
 type Invalidation = { layout: boolean; roles: boolean; community: boolean };
@@ -467,6 +470,7 @@ export type DataStoreOptions = {
 	outbox?: { queue?: OutboxQueue; held?: () => boolean };
 	live?: { epoch: Accessor<number | undefined> };
 	now?: () => number;
+	spaceSetup?: { waitMs?: number; pollMs?: number };
 };
 
 type ReadState = { cursor?: string; hasUnread: boolean };
@@ -1220,10 +1224,15 @@ export const createDataStore = (
 				},
 			};
 			spaces.set(community.did, data);
+			let layoutSeen = !!cached?.channels?.length;
 			persist(() => {
+				const channels = channelList.value();
+				if (channels?.length) layoutSeen = true;
+				const layout = layoutSeen
+					? { categories: categories.value(), channels }
+					: {};
 				const patch = {
-					categories: categories.value(),
-					channels: channelList.value(),
+					...layout,
 					roles: roles.value(),
 					members: members.peek?.(),
 					unread: Object.fromEntries(
@@ -3738,6 +3747,72 @@ export const createDataStore = (
 			});
 		});
 
+		const setupWatches = new Set<() => void>();
+		onCleanup(() => {
+			for (const stop of [...setupWatches]) stop();
+		});
+		const refreshLayout = (community: Did) => {
+			for (const load of [
+				channelLoads.get(community),
+				categoryLoads.get(community),
+			]) {
+				if (!load) continue;
+				void (untrack(load.error) ? load.retry() : load.refresh());
+			}
+		};
+		const hasTextChannel = (community: Did) => {
+			return (channelLoads.get(community)?.value() ?? []).some(
+				(channel) => !isVoiceChannel(channel),
+			);
+		};
+		const whenSpaceReady = (community: CommunityView) => {
+			return new Promise<boolean>((resolve) => {
+				const did = community.did;
+				runWithOwner(owner, () => space(community));
+				createRoot((disposeWatch) => {
+					let settled = false;
+					const settle = (ready: boolean) => {
+						if (settled) return;
+						settled = true;
+						resolve(ready);
+					};
+					const poll = setInterval(
+						() => refreshLayout(did),
+						options.spaceSetup?.pollMs ?? SPACE_SETUP_POLL_MS,
+					);
+					const waited = setTimeout(() => {
+						log.warn("space setup is slow", { code: "Timeout" });
+						settle(false);
+					}, options.spaceSetup?.waitMs ?? SPACE_SETUP_WAIT_MS);
+					const abandoned = setTimeout(() => {
+						log.warn("space setup gave up", { code: "Timeout" });
+						stop();
+					}, SPACE_SETUP_GIVE_UP_MS);
+					const unsubscribe = source.subscribe((event) => {
+						if (event.$type !== "communityProgressEvent") return;
+						if (event.community === did && event.step === "done") {
+							refreshLayout(did);
+						}
+					});
+					const stop = () => {
+						clearInterval(poll);
+						clearTimeout(waited);
+						clearTimeout(abandoned);
+						unsubscribe();
+						setupWatches.delete(stop);
+						settle(false);
+						disposeWatch();
+					};
+					setupWatches.add(stop);
+					createEffect(() => {
+						if (!coreReady.get(did)?.() || !hasTextChannel(did)) return;
+						settle(true);
+						queueMicrotask(stop);
+					});
+				});
+			});
+		};
+
 		const accessStore = createAccessStore({ source, memberLoads });
 		const legacy = createLegacyCommunities({
 			source,
@@ -3773,6 +3848,7 @@ export const createDataStore = (
 			community: communityActions,
 			communities,
 			directory: createSpaceDirectory(source, communities),
+			whenSpaceReady,
 			space,
 			channel,
 			spaceByKey: (slug: string) =>

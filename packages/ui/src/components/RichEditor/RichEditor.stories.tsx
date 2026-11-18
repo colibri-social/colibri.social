@@ -36,6 +36,12 @@ const members: MemberSuggestion[] = [
 		handle: "lou.gg",
 		avatarSrc: storyImages.violetIcon(),
 		presence: "online",
+		owner: true,
+		role: {
+			name: "Admins",
+			color: "#f97316",
+			badge: { kind: "icon", name: "shield-star" },
+		},
 	},
 	{
 		did: "did:plc:lena",
@@ -43,8 +49,27 @@ const members: MemberSuggestion[] = [
 		handle: "lena.bsky.social",
 		avatarSrc: storyImages.amberIcon(),
 		presence: "idle",
+		role: { name: "Moderators", color: "#5cadff" },
 	},
 	{ did: "did:plc:kris", name: "Kris", handle: "kris.dev", presence: "dnd" },
+	{
+		did: "did:plc:courier",
+		name: "Courier",
+		handle: "courier.bots.colibri.social",
+		presence: "online",
+		bot: true,
+	},
+	{
+		did: "did:plc:maximiliane",
+		name: "Maximiliane Theodora von Hohenstein-Wartenberg the Third",
+		handle: "maximiliane.hohenstein-wartenberg.example.com",
+		presence: "offline",
+		role: {
+			name: "Bird watchers",
+			color: "#4ade80",
+			badge: { kind: "icon", name: "star" },
+		},
+	},
 ];
 
 const roles: RoleSuggestion[] = [
@@ -268,6 +293,85 @@ export const MentionAutocomplete: Story = {
 		await expect(currentValue(canvasElement).text).toBe(
 			"Ping @Lena and @Moderators in #gallery",
 		);
+	},
+};
+
+const memberOption = (list: HTMLElement, name: string) => {
+	const option = within(list)
+		.getAllByRole("option")
+		.find((entry) =>
+			entry.querySelector("[data-member-name]")?.textContent?.startsWith(name),
+		);
+
+	if (!option) throw new Error(`No suggestion row for ${name}`);
+
+	return option;
+};
+
+const nameColorOf = (option: HTMLElement) =>
+	option
+		.querySelector<HTMLElement>("[data-member-name]")
+		?.style.getPropertyValue("--name-color-dark");
+
+export const MentionRowIdentity: Story = {
+	render: () => <Harness platform="mobile" />,
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(field(canvasElement));
+		await userEvent.keyboard("@");
+		const list = await canvas.findByRole("listbox", { name: "Suggestions" });
+
+		await expect(
+			list.querySelectorAll("[data-suggestion-kind='member']"),
+		).toHaveLength(5);
+
+		const lou = memberOption(list, "Lou");
+
+		await expect(nameColorOf(lou)).toBeTruthy();
+		await expect(lou.querySelector("[data-role-badge]")).not.toBeNull();
+		await expect(lou.querySelector("[data-owner-badge]")).not.toBeNull();
+
+		const lena = memberOption(list, "Lena");
+
+		await expect(nameColorOf(lena)).toBeTruthy();
+		await expect(lena.querySelector("[data-role-badge]")).toBeNull();
+		await expect(lena.querySelector("[data-user-badge]")).toBeNull();
+
+		const kris = memberOption(list, "Kris");
+
+		await expect(nameColorOf(kris)).toBeFalsy();
+		await expect(kris.querySelector("[data-user-badge]")).toBeNull();
+
+		await expect(
+			memberOption(list, "Courier").querySelector("[data-user-badge='bot']"),
+		).not.toBeNull();
+
+		const long = memberOption(list, "Maximiliane");
+		const box = long.getBoundingClientRect();
+		const name = long.querySelector<HTMLElement>(
+			"[data-member-name]",
+		) as HTMLElement;
+		const badges = long.querySelectorAll<HTMLElement>(
+			"[data-role-badge], [data-user-badge]",
+		);
+
+		await expect(name.scrollWidth).toBeGreaterThan(name.clientWidth);
+		await expect(badges).toHaveLength(1);
+
+		for (const badge of badges) {
+			const rect = badge.getBoundingClientRect();
+
+			await expect(rect.width).toBeGreaterThan(0);
+			await expect(rect.left).toBeGreaterThanOrEqual(
+				name.getBoundingClientRect().right,
+			);
+			await expect(rect.right).toBeLessThanOrEqual(box.right);
+		}
+
+		await expect(
+			within(long).getByText("maximiliane.hohenstein-wartenberg.example.com"),
+		).toBeVisible();
+		await expectNoLayoutIssues(list);
 	},
 };
 

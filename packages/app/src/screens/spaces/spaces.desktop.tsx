@@ -25,6 +25,11 @@ export default spaces.view({
 					<s.RailItems platform="desktop" />
 				</SpaceRail>
 			</Outlet>
+			<Show when={m.empty()}>
+				<Outlet name="main">
+					<s.NoSpaces />
+				</Outlet>
+			</Show>
 			<div
 				data-spaces-desktop=""
 				class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
