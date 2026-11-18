@@ -27,7 +27,7 @@
 		"@solar-icons/solid": "^2.3.2",
 		"@solid-primitives/media": "^2.3.3",
 		"@solidjs/router": "^0.16.1",
-		"@tauri-apps/api": "^2.11.1",
+		"@tauri-apps/api": "^2.12.5",
 		"@tauri-apps/plugin-fs": "^2.5.2",
 		"@tauri-apps/plugin-haptics": "~2.3.3",
 		"@tauri-apps/plugin-http": "^2.8.2",
