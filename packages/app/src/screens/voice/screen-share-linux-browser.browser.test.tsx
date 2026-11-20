@@ -84,8 +84,12 @@ afterAll(() => {
 	});
 });
 
-const { ScreenShareHost, changeScreenShareSettings, toggleScreenShare } =
-	await import("./screen-share");
+const {
+	ScreenShareHost,
+	changeScreenShareSettings,
+	screenShareSettings,
+	toggleScreenShare,
+} = await import("./screen-share");
 
 type Capture = Parameters<typeof voice.shareScreen>[0];
 
@@ -104,7 +108,7 @@ afterEach(() => {
 	native.list.mockClear();
 	native.prepare.mockClear();
 	native.apps.mockImplementation(async () => native.audioApps);
-	changeScreenShareSettings({ shareAudio: false });
+	changeScreenShareSettings({ shareAudio: false, framerate: 30 });
 	vi.restoreAllMocks();
 });
 
@@ -197,6 +201,26 @@ it("shares the whole screen through the system dialog without a source list", as
 	capture.release();
 	expect(video.stop).toHaveBeenCalled();
 	expect(native.stop).not.toHaveBeenCalled();
+});
+
+it("shares at 60 per second and hides the frame rate whatever was stored", async () => {
+	changeScreenShareSettings({ framerate: 15 });
+	const { display } = await shareFrom("monitor");
+	const share = stubShare();
+	await openPicker();
+	await expect
+		.element(page.getByRole("button", { name: /Resolution/ }))
+		.toBeInTheDocument();
+	expect(page.getByRole("button", { name: /Frame rate/ }).query()).toBeNull();
+	expect(screenShareSettings().framerate).toBeUndefined();
+	await userEvent.click(page.getByRole("button", { name: "Continue" }));
+	const capture = await sharedCapture(share);
+	const request = display.mock.calls[0]?.[0] as {
+		video: MediaTrackConstraints;
+	};
+	expect(request.video.frameRate).toEqual({ ideal: 60, max: 60 });
+	expect(share.mock.calls[0]?.[1]).toMatchObject({ framerate: 60 });
+	capture.release();
 });
 
 it("adds the sound of the whole screen without the routing apps", async () => {

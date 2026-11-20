@@ -37,6 +37,8 @@ export const SCREEN_SHARE_FRAMERATES: readonly ScreenShareFramerate[] = [
 	15, 30, 60,
 ];
 
+export const DISPLAY_MEDIA_FRAMERATE: ScreenShareFramerate = 60;
+
 const DETAIL_FRAMERATE_CEILING = 30;
 
 const DISPLAY_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
@@ -158,10 +160,19 @@ export const screenCodecOptions = (
 	videoGoogleStartBitrate: Math.round(screenMaxBitrate(quality) / 2000),
 });
 
+const displayMediaConstraints = (
+	quality: ScreenShareQuality,
+): MediaTrackConstraints => {
+	return screenVideoConstraints({
+		...quality,
+		framerate: DISPLAY_MEDIA_FRAMERATE,
+	});
+};
+
 export const displayMediaRequest = (
 	options: ScreenShareOptions,
 ): DisplayMediaRequest => ({
-	video: screenVideoConstraints(options),
+	video: displayMediaConstraints(options),
 	audio: options.shareAudio ? DISPLAY_AUDIO_CONSTRAINTS : false,
 	systemAudio: options.shareAudio ? "include" : "exclude",
 	selfBrowserSurface: "exclude",
@@ -198,7 +209,7 @@ export const displayVideoRequest = (
 	surface?: DisplaySurfaceHint,
 ): DisplayMediaRequest => ({
 	video: {
-		...screenVideoConstraints(quality),
+		...displayMediaConstraints(quality),
 		...(surface ? { displaySurface: surface } : {}),
 	},
 	audio: false,

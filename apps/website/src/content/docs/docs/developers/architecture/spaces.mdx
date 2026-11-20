@@ -120,16 +120,19 @@ Colibri uses two policy types.
 **`com.atproto.memberspace.policy`** admits a list of members, with optional
 flags such as `publicRead`. A user's personal space uses it with no members. The
 space host authorizes the owner before it consults any policy, so the owner is
-the only reader. The profile space of a Colibri Space uses it with
-`publicRead: true`, so anyone can read the Space's name, description and images
-before joining.
+the only reader.
 
 **`com.atproto.managedspace.policy`** delegates the decision to an application.
-Every other ATproto space in a Colibri Space uses this, naming the AppView
-as `managingApp`. When someone asks the Space's PDS for a credential, the PDS
+Every ATproto space in a Colibri Space uses this, the profile space included,
+naming the AppView as `managingApp`. When someone asks the Space's PDS for a credential, the PDS
 calls
 [`com.atproto.managedspace.checkAccess`](/docs/developers/specification/appview) on the
 AppView and follows the answer. The AppView answers `{ read, write }`.
+
+Only members can read the profile space. The AppView reads it with the Space's
+own credentials and keeps the Space's name, description and images in its
+index. It serves them from there to people who haven't joined, for example in an
+invitation preview, along with signed links to the images.
 
 A ban is the AppView answering `read: false` when the Space's PDS asks whether
 that person may read. The refusal happens at the protocol layer, before any

@@ -115,6 +115,7 @@ const VoiceVideoStory = (props: {
 	platform: Platform;
 	speakers?: boolean;
 	screen?: boolean;
+	screenSettings?: ScreenShareSettings;
 	previewState?: CameraPreviewState;
 	onChange?: (key: string, value: unknown) => void;
 }) => {
@@ -130,11 +131,13 @@ const VoiceVideoStory = (props: {
 	const [confirm, setConfirm] = createSignal(false);
 	const [nonVideo, setNonVideo] = createSignal(true);
 	const [ownCamera, setOwnCamera] = createSignal(true);
-	const [screen, setScreen] = createSignal<ScreenShareSettings>({
-		resolution: "1080",
-		framerate: 30,
-		shareAudio: true,
-	});
+	const [screen, setScreen] = createSignal<ScreenShareSettings>(
+		props.screenSettings ?? {
+			resolution: "1080",
+			framerate: 30,
+			shareAudio: true,
+		},
+	);
 	const report = (key: string) => (value: unknown) =>
 		props.onChange?.(key, value);
 
@@ -258,6 +261,35 @@ export const VoiceVideoDesktop: Story = {
 		await userEvent.click(canvas.getByRole("switch", { name: /Share sound/ }));
 		await expect(args.onChange).toHaveBeenCalledWith("screenShare", {
 			shareAudio: false,
+		});
+		await expectNoLayoutIssues(frameOf(canvasElement));
+	},
+};
+
+export const VoiceVideoFixedFramerate: Story = {
+	name: "Voice video with a fixed frame rate",
+	parameters: desktop,
+	render: (args) => (
+		<VoiceVideoStory
+			platform="desktop"
+			screen
+			screenSettings={{ resolution: "1080", shareAudio: false }}
+			onChange={args.onChange}
+		/>
+	),
+	args: { onChange: fn() },
+	play: async ({ canvasElement, args }) => {
+		const canvas = within(canvasElement);
+		await expect(canvas.getByText("Screen sharing")).toBeVisible();
+		await expect(
+			canvas.getByRole("button", { name: /Resolution/ }),
+		).toBeVisible();
+		await expect(
+			canvas.queryByRole("button", { name: /Frame rate/ }),
+		).toBeNull();
+		await userEvent.click(canvas.getByRole("switch", { name: /Share sound/ }));
+		await expect(args.onChange).toHaveBeenCalledWith("screenShare", {
+			shareAudio: true,
 		});
 		await expectNoLayoutIssues(frameOf(canvasElement));
 	},

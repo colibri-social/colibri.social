@@ -20,7 +20,7 @@ export type ScreenShareFramerate = 15 | 30 | 60;
 
 export type ScreenShareSettings = {
 	resolution: ScreenShareResolution;
-	framerate: ScreenShareFramerate;
+	framerate?: ScreenShareFramerate;
 	shareAudio?: boolean;
 };
 
@@ -347,20 +347,24 @@ export const VoiceVideoSettings = (props: VoiceVideoSettingsProps) => {
 									})
 								}
 							/>
-							<Select
-								platform={props.platform}
-								label="Frame rate"
-								options={SCREEN_SHARE_FRAMERATES.map((framerate) => ({
-									value: String(framerate),
-									label: screenShareFramerateLabel(framerate),
-								}))}
-								value={String(screen().framerate)}
-								onChange={(value) =>
-									props.onScreenShareChange?.({
-										framerate: Number(value) as ScreenShareFramerate,
-									})
-								}
-							/>
+							<Show when={screen().framerate}>
+								{(framerate) => (
+									<Select
+										platform={props.platform}
+										label="Frame rate"
+										options={SCREEN_SHARE_FRAMERATES.map((option) => ({
+											value: String(option),
+											label: screenShareFramerateLabel(option),
+										}))}
+										value={String(framerate())}
+										onChange={(value) =>
+											props.onScreenShareChange?.({
+												framerate: Number(value) as ScreenShareFramerate,
+											})
+										}
+									/>
+								)}
+							</Show>
 						</div>
 						<p class="text-xs text-muted-foreground">
 							Higher settings look sharper and smoother, but need a faster

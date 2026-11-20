@@ -110,6 +110,7 @@ const PickerDemo = (props: {
 	loading?: boolean;
 	failed?: boolean;
 	audioApps?: ScreenShareAudioApp[];
+	settings?: ScreenShareSettings;
 }) => {
 	const [open, setOpen] = createSignal(false);
 	const [surface, setSurface] = createSignal<ScreenShareSurface>("screen");
@@ -117,11 +118,13 @@ const PickerDemo = (props: {
 	const [excluded, setExcluded] = createSignal<string[]>(
 		(props.audioApps ?? []).filter((app) => app.router).map((app) => app.id),
 	);
-	const [settings, setSettings] = createSignal<ScreenShareSettings>({
-		resolution: "1080",
-		framerate: 30,
-		shareAudio: false,
-	});
+	const [settings, setSettings] = createSignal<ScreenShareSettings>(
+		props.settings ?? {
+			resolution: "1080",
+			framerate: 30,
+			shareAudio: false,
+		},
+	);
 	return (
 		<div class="min-h-dvh bg-background p-4 text-foreground">
 			<Button variant="secondary" onClick={() => setOpen(true)}>
@@ -282,6 +285,35 @@ export const PickerBrowser: Story = {
 	},
 };
 
+export const PickerBrowserFixedFramerate: Story = {
+	name: "Picker in the browser with a fixed frame rate",
+	render: () => (
+		<PickerDemo
+			mode="browser"
+			settings={{ resolution: "1080", shareAudio: false }}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const dialog = await openPicker(canvasElement);
+		await expectNoLayoutIssues(dialog);
+		await expect(
+			within(dialog).getByRole("button", { name: /Resolution/ }),
+		).toBeVisible();
+		await expect(
+			within(dialog).queryByRole("button", { name: /Frame rate/ }),
+		).toBeNull();
+		await userEvent.click(
+			within(dialog).getByRole("switch", { name: /Share sound/ }),
+		);
+		await expect(spy.settings).toHaveBeenCalledWith({ shareAudio: true });
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Continue" }),
+		);
+		await expect(spy.share).toHaveBeenCalledWith(undefined);
+	},
+};
+
 export const PickerSystem: Story = {
 	name: "Picker with the system dialog",
 	render: () => <PickerDemo mode="system" />,
@@ -392,12 +424,17 @@ export const PickerSystemRouterSound: Story = {
 	},
 };
 
-const MenuDemo = (props: { sharing?: boolean }) => {
-	const [settings, setSettings] = createSignal<ScreenShareSettings>({
-		resolution: "1080",
-		framerate: 30,
-		shareAudio: false,
-	});
+const MenuDemo = (props: {
+	sharing?: boolean;
+	settings?: ScreenShareSettings;
+}) => {
+	const [settings, setSettings] = createSignal<ScreenShareSettings>(
+		props.settings ?? {
+			resolution: "1080",
+			framerate: 30,
+			shareAudio: false,
+		},
+	);
 	const menu = () => ({
 		settings: settings(),
 		sharing: props.sharing,
@@ -488,5 +525,31 @@ export const QualityMenuWhileSharing: Story = {
 				name: "Sound (restart to change)",
 			}),
 		).toHaveAttribute("aria-disabled", "true");
+	},
+};
+
+export const QualityMenuFixedFramerate: Story = {
+	name: "Quality menu with a fixed frame rate",
+	render: () => (
+		<MenuDemo settings={{ resolution: "1080", shareAudio: false }} />
+	),
+	play: async ({ canvasElement }) => {
+		resetSpies();
+		const panel = within(canvasElement).getByTestId("panel");
+		await userEvent.click(
+			panel.querySelector("[data-screen-share-menu]") as HTMLElement,
+		);
+		const menu = await screen.findByRole("menu", {
+			name: "Screen share settings",
+		});
+		await expectNoLayoutIssues(menu);
+		await expect(
+			within(menu).queryByRole("menuitemradio", { name: /per second/ }),
+		).toBeNull();
+		await expect(within(menu).queryByText("Frame rate")).toBeNull();
+		await userEvent.click(
+			within(menu).getByRole("menuitemradio", { name: "720p" }),
+		);
+		await expect(spy.settings).toHaveBeenCalledWith({ resolution: "720" });
 	},
 };

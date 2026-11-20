@@ -24,6 +24,7 @@ import { withDeadline } from "../../auth/deadline";
 import { VOICE_NOTICE_COPY } from "../../data/error-copy";
 import {
 	captureSurfaceKind,
+	DISPLAY_MEDIA_FRAMERATE,
 	type DisplaySurfaceHint,
 	displayMediaRequest,
 	displayVideoRequest,
@@ -104,14 +105,27 @@ export const screenShareAvailable = () =>
 
 const audioSupported = () => native() || supportsDisplayAudio();
 
+const nativeVideo = () =>
+	native() && !linuxApp() && picker()?.kind !== "browser";
+
 const options = (): ScreenShareOptions => {
 	const screen = voiceSettings().settings().screen;
-	return { ...screen, shareAudio: audioSupported() && screen.shareAudio };
+
+	return {
+		...screen,
+		framerate: nativeVideo() ? screen.framerate : DISPLAY_MEDIA_FRAMERATE,
+		shareAudio: audioSupported() && screen.shareAudio,
+	};
 };
 
 export const screenShareSettings = (): ScreenShareSettings => {
 	const screen = voiceSettings().settings().screen;
-	return audioSupported() ? screen : { ...screen, shareAudio: undefined };
+
+	return {
+		...screen,
+		framerate: nativeVideo() ? screen.framerate : undefined,
+		shareAudio: audioSupported() ? screen.shareAudio : undefined,
+	};
 };
 
 export const changeScreenShareSettings = (

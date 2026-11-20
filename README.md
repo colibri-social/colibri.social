@@ -20,7 +20,7 @@ This is a [pnpm](https://pnpm.io) monorepo.
 
 ## Quick start
 
-Requires Node.js `^24.22.3` and pnpm `11.17.0`. Run `corepack enable` to get the pinned pnpm version.
+Requires Node.js `^24.22.3` and pnpm `12.21.0`. Run `corepack enable` to get the pinned pnpm version.
 
 ```sh
 git clone https://github.com/colibri-social/colibri.social.git

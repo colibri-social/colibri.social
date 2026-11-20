@@ -43,20 +43,24 @@ export const screenShareMenuEntries = (
 			label: screenShareResolutionLabel(resolution),
 		})),
 	},
-	{ kind: "separator" },
-	{
-		kind: "radio",
-		label: SCREEN_SHARE_MENU_COPY.framerate,
-		value: String(props.settings.framerate),
-		onChange: (value) =>
-			props.onSettingsChange({
-				framerate: Number(value) as ScreenShareFramerate,
-			}),
-		options: SCREEN_SHARE_FRAMERATES.map((framerate) => ({
-			value: String(framerate),
-			label: screenShareFramerateLabel(framerate),
-		})),
-	},
+	...(props.settings.framerate === undefined
+		? []
+		: ([
+				{ kind: "separator" },
+				{
+					kind: "radio",
+					label: SCREEN_SHARE_MENU_COPY.framerate,
+					value: String(props.settings.framerate),
+					onChange: (value) =>
+						props.onSettingsChange({
+							framerate: Number(value) as ScreenShareFramerate,
+						}),
+					options: SCREEN_SHARE_FRAMERATES.map((framerate) => ({
+						value: String(framerate),
+						label: screenShareFramerateLabel(framerate),
+					})),
+				},
+			] satisfies DropdownMenuEntry[])),
 	...(props.settings.shareAudio === undefined
 		? []
 		: ([

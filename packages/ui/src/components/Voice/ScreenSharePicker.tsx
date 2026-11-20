@@ -246,20 +246,24 @@ const QualityFields = (props: {
 					})
 				}
 			/>
-			<Select
-				platform={props.platform}
-				label="Frame rate"
-				options={SCREEN_SHARE_FRAMERATES.map((framerate) => ({
-					value: String(framerate),
-					label: screenShareFramerateLabel(framerate),
-				}))}
-				value={String(props.settings.framerate)}
-				onChange={(value) =>
-					props.onSettingsChange({
-						framerate: Number(value) as ScreenShareFramerate,
-					})
-				}
-			/>
+			<Show when={props.settings.framerate}>
+				{(framerate) => (
+					<Select
+						platform={props.platform}
+						label="Frame rate"
+						options={SCREEN_SHARE_FRAMERATES.map((option) => ({
+							value: String(option),
+							label: screenShareFramerateLabel(option),
+						}))}
+						value={String(framerate())}
+						onChange={(value) =>
+							props.onSettingsChange({
+								framerate: Number(value) as ScreenShareFramerate,
+							})
+						}
+					/>
+				)}
+			</Show>
 		</div>
 		<p class="m-0 text-xs text-muted-foreground">
 			{SCREEN_SHARE_PICKER_COPY.quality}

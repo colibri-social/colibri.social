@@ -3,6 +3,7 @@ import type { NotificationView, SpaceRef, ThreadView } from "../../data/types";
 import {
 	belongsInSidebar,
 	capKeepingPinned,
+	lightsThreadsDot,
 	repliedThreads,
 	SIDEBAR_STALE_MS,
 	SIDEBAR_THREAD_LIMIT,
@@ -242,6 +243,48 @@ describe("sidebar threads", () => {
 			{ id: "d", kind: "reply" } as NotificationView,
 		]);
 		expect([...replied]).toEqual([thread]);
+	});
+});
+
+describe("threads header dot", () => {
+	const DAY = 24 * 60 * 60 * 1000;
+	const dot = (
+		overrides: Partial<Parameters<typeof lightsThreadsDot>[1]> = {},
+	) => ({
+		mentions: 0,
+		repliedTo: false,
+		viewer: "did:plc:viewer",
+		unread: true,
+		muted: false,
+		...overrides,
+	});
+	const unread = (following: boolean, ago = DAY) =>
+		({
+			...threadAt("unread", ago),
+			viewer: { hasUnread: true, following },
+		}) as ThreadView;
+
+	it("stays off for an unread thread you don't follow", () => {
+		expect(lightsThreadsDot(unread(false), dot())).toBe(false);
+	});
+
+	it("lights for an unread thread you follow, even one past the sidebar window", () => {
+		expect(lightsThreadsDot(unread(true), dot())).toBe(true);
+		expect(lightsThreadsDot(unread(true, SIDEBAR_STALE_MS + DAY), dot())).toBe(
+			true,
+		);
+	});
+
+	it("lights for an unfollowed thread that mentions you", () => {
+		expect(lightsThreadsDot(unread(false), dot({ mentions: 1 }))).toBe(true);
+	});
+
+	it("stays off for a muted thread", () => {
+		expect(lightsThreadsDot(unread(true), dot({ muted: true }))).toBe(false);
+	});
+
+	it("stays off for a followed thread with nothing unread", () => {
+		expect(lightsThreadsDot(unread(true), dot({ unread: false }))).toBe(false);
 	});
 });
 

@@ -23,6 +23,7 @@ import {
 	ConversationUnavailable,
 	createConversation,
 } from "../channel/conversation";
+import { channelThreadsUnread } from "../spaces/sidebar-threads";
 import { createThreadMenu } from "../threads/thread-menu";
 import { closePane } from "./close-pane";
 import { ThreadIntro } from "./thread-intro";
@@ -113,15 +114,8 @@ const FullThreadHeader = (props: { m: ThreadModel }) => {
 			channelType: m.parent()?.type,
 		});
 	};
-	const threadsUnread = () => {
-		const ref = parentRef();
-		return (
-			!!ref &&
-			(data.channel(ref).threads.value() ?? []).some(
-				(entry) => entry.viewer.hasUnread,
-			)
-		);
-	};
+	const threadsUnread = () =>
+		channelThreadsUnread(data, data.spaceByKey(m.options.space), parentRef());
 	const threadRef = () => m.thread()?.space;
 	const muted = () => {
 		const ref = threadRef();

@@ -17,6 +17,7 @@ import {
 } from "../../shell/desktop/context";
 import { LoadErrorState } from "../../shell/load-error";
 import { useStack } from "../../shell/stack";
+import { channelThreadsUnread } from "../spaces/sidebar-threads";
 import { voiceChatAvailable } from "../voice/voice-chat";
 import {
 	type Conversation,
@@ -51,7 +52,7 @@ const openThreads = (m: ChannelModel) =>
 	});
 
 const threadsUnread = (m: ChannelModel) =>
-	(m.feed()?.threads.value() ?? []).some((thread) => thread.viewer.hasUnread);
+	channelThreadsUnread(m.data, m.community(), m.view()?.space);
 
 const MobileHeader = (props: { m: ChannelModel }) => {
 	const m = props.m;

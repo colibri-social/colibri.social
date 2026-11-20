@@ -195,9 +195,9 @@ After that, the answer depends on the space type.
 | voice channel | `voice.chat` in the channel | `voice.connect` and `voice.chat` in the channel |
 | thread | may read the thread | may post in the thread |
 
-The profile space uses `com.atproto.memberspace.policy` with
-`publicRead: true`, so its PDS serves it to anyone without calling
-`checkAccess`.
+People who haven't joined a Space get its name, description and images from
+the AppView's index, for example in an invitation preview. The PDS refuses them
+a credential for the profile space itself.
 
 ## See also
 

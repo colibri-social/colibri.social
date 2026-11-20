@@ -198,6 +198,17 @@ describe("displayMediaRequest", () => {
 		expect(request.systemAudio).toBe("exclude");
 	});
 
+	it("asks for 60 per second whatever frame rate was stored", () => {
+		for (const framerate of SCREEN_SHARE_FRAMERATES) {
+			const request = displayMediaRequest({
+				resolution: "1080",
+				framerate,
+				shareAudio: false,
+			});
+			expect(request.video.frameRate).toEqual({ ideal: 60, max: 60 });
+		}
+	});
+
 	it("always excludes the app's own surface", () => {
 		const request = displayMediaRequest({
 			resolution: "720",
@@ -283,9 +294,16 @@ describe("displayVideoRequest", () => {
 			"window",
 		);
 		expect(request.video).toEqual({
-			frameRate: { ideal: 30, max: 30 },
+			frameRate: { ideal: 60, max: 60 },
 			displaySurface: "window",
 		});
+	});
+
+	it("asks for 60 per second whatever frame rate was stored", () => {
+		for (const framerate of SCREEN_SHARE_FRAMERATES) {
+			const request = displayVideoRequest({ resolution: "1080", framerate });
+			expect(request.video.frameRate).toEqual({ ideal: 60, max: 60 });
+		}
 	});
 });
 

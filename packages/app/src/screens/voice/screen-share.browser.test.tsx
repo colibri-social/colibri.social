@@ -38,8 +38,12 @@ vi.mock("../../native/screen-capture", () => ({
 	supportsNativeCapture: async () => true,
 }));
 
-const { ScreenShareHost, changeScreenShareSettings, toggleScreenShare } =
-	await import("./screen-share");
+const {
+	ScreenShareHost,
+	changeScreenShareSettings,
+	screenShareSettings,
+	toggleScreenShare,
+} = await import("./screen-share");
 
 let dispose: (() => void) | undefined;
 
@@ -50,6 +54,7 @@ afterEach(() => {
 	capture.start.mockClear();
 	capture.audioApps.mockReset();
 	capture.audioApps.mockImplementation(async () => []);
+	changeScreenShareSettings({ framerate: 30 });
 });
 
 const audioApp = (id: string, name: string, router: boolean) => ({
@@ -96,6 +101,26 @@ it("starts the native capture for the source picked in the picker", async () => 
 			undefined,
 		),
 	);
+});
+
+it("offers the frame rate for the native capture", async () => {
+	changeScreenShareSettings({ framerate: 15 });
+	const root = document.createElement("div");
+	document.body.append(root);
+	dispose = render(
+		() => (
+			<Providers>
+				<ScreenShareHost />
+			</Providers>
+		),
+		root,
+	);
+	await new Promise((resolve) => setTimeout(resolve, 0));
+	await toggleScreenShare();
+	await expect
+		.element(page.getByRole("button", { name: /Frame rate/ }))
+		.toBeInTheDocument();
+	expect(screenShareSettings().framerate).toBe(15);
 });
 
 it("leaves a sound router out of a whole screen share", async () => {

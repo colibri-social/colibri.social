@@ -1,8 +1,14 @@
 import { isFutureDated } from "@colibri-social/lib";
 import { skeyOf } from "../../data/ids";
 import { isPingNotification } from "../../data/notification-alerts";
+import { spaceNotificationPrefs } from "../../data/notifications";
 import type { DataStore, SpaceData } from "../../data/store";
-import type { NotificationView, SpaceRef, ThreadView } from "../../data/types";
+import type {
+	CommunityView,
+	NotificationView,
+	SpaceRef,
+	ThreadView,
+} from "../../data/types";
 
 export const SIDEBAR_THREAD_LIMIT = 5;
 export const SIDEBAR_STALE_MS = 3 * 24 * 60 * 60 * 1000;
@@ -21,13 +27,21 @@ const newestFirst = (a: ThreadView, b: ThreadView, now: number) => {
 	return aAt < bAt ? 1 : -1;
 };
 
-export type SidebarThreadContext = {
+export type ThreadRelevance = {
 	mentions: number;
 	repliedTo: boolean;
 	viewer?: string;
+	left?: boolean;
+};
+
+export type SidebarThreadContext = ThreadRelevance & {
 	now: number;
 	activeThread?: string;
-	left?: boolean;
+};
+
+export type ThreadDotState = ThreadRelevance & {
+	unread: boolean;
+	muted: boolean;
 };
 
 const isStale = (thread: ThreadView, now: number) => {
@@ -41,19 +55,31 @@ const anchorAuthorOf = (thread: ThreadView): string | undefined => {
 	return thread.anchor?.did;
 };
 
+const isRelevantThread = (
+	thread: ThreadView,
+	relevance: ThreadRelevance,
+) => {
+	if (relevance.left && !thread.viewer.following) return false;
+	if (thread.closedAt) return false;
+	return (
+		!!thread.viewer.following ||
+		relevance.mentions > 0 ||
+		relevance.repliedTo ||
+		(!!relevance.viewer && anchorAuthorOf(thread) === relevance.viewer)
+	);
+};
+
 export const belongsInSidebar = (
 	thread: ThreadView,
 	context: SidebarThreadContext,
 ) => {
 	if (context.activeThread === skeyOf(thread.space)) return true;
-	if (context.left && !thread.viewer.following) return false;
-	if (thread.closedAt || isStale(thread, context.now)) return false;
-	return (
-		!!thread.viewer.following ||
-		context.mentions > 0 ||
-		context.repliedTo ||
-		(!!context.viewer && anchorAuthorOf(thread) === context.viewer)
-	);
+	if (isStale(thread, context.now)) return false;
+	return isRelevantThread(thread, context);
+};
+
+export const lightsThreadsDot = (thread: ThreadView, state: ThreadDotState) => {
+	return state.unread && !state.muted && isRelevantThread(thread, state);
 };
 
 export const capKeepingPinned = <T extends { thread: ThreadView }>(
@@ -108,6 +134,45 @@ export type SidebarThreadState = {
 	mentions: number;
 };
 
+type ThreadState = SidebarThreadState & { relevance: ThreadRelevance };
+
+const threadStatesFor = (
+	data: DataStore,
+	space: SpaceData | undefined,
+	channel: SpaceRef,
+): ThreadState[] => {
+	const notifications = data.notifications.items();
+	const unseen = unseenThreadPings(notifications);
+	const replied = repliedThreads(notifications);
+	return sidebarThreads(data, channel).map((thread) => {
+		const live = space?.unread(skeyOf(thread.space));
+		const leftAt = data.threads.leftAt(thread.space);
+		const sinceLeft =
+			leftAt === undefined
+				? undefined
+				: threadPingsAfter(notifications, thread.space, leftAt);
+		const mentions = sinceLeft
+			? sinceLeft.filter((entry) => !entry.seenAt).length
+			: Math.max(
+					thread.viewer.unreadMentions ?? 0,
+					unseen.filter((entry) => entry.thread === thread.space).length,
+				);
+		return {
+			thread,
+			unread: thread.viewer.hasUnread || !!live?.hasUnread,
+			mentions,
+			relevance: {
+				mentions,
+				repliedTo: sinceLeft
+					? sinceLeft.some((entry) => entry.kind === "reply")
+					: replied.has(thread.space),
+				viewer: data.viewer.did,
+				left: sinceLeft !== undefined && sinceLeft.length === 0,
+			},
+		};
+	});
+};
+
 export const sidebarThreadsFor = (
 	data: DataStore,
 	space: SpaceData | undefined,
@@ -115,40 +180,33 @@ export const sidebarThreadsFor = (
 	activeThread?: string,
 	now: number = Date.now(),
 ): SidebarThreadState[] => {
-	const notifications = data.notifications.items();
-	const unseen = unseenThreadPings(notifications);
-	const replied = repliedThreads(notifications);
-	const listed = sidebarThreads(data, channel)
-		.flatMap((thread) => {
-			const live = space?.unread(skeyOf(thread.space));
-			const leftAt = data.threads.leftAt(thread.space);
-			const sinceLeft =
-				leftAt === undefined
-					? undefined
-					: threadPingsAfter(notifications, thread.space, leftAt);
-			const mentions = sinceLeft
-				? sinceLeft.filter((entry) => !entry.seenAt).length
-				: Math.max(
-						thread.viewer.unreadMentions ?? 0,
-						unseen.filter((entry) => entry.thread === thread.space).length,
-					);
-			const state = {
-				thread,
-				unread: thread.viewer.hasUnread || !!live?.hasUnread,
-				mentions,
-			};
-			const keep = belongsInSidebar(thread, {
-				mentions,
-				repliedTo: sinceLeft
-					? sinceLeft.some((entry) => entry.kind === "reply")
-					: replied.has(thread.space),
-				viewer: data.viewer.did,
+	const listed = threadStatesFor(data, space, channel)
+		.filter((state) =>
+			belongsInSidebar(state.thread, {
+				...state.relevance,
 				now,
 				activeThread,
-				left: sinceLeft !== undefined && sinceLeft.length === 0,
-			});
-			return keep ? [state] : [];
-		})
+			}),
+		)
+		.map(({ thread, unread, mentions }) => ({ thread, unread, mentions }))
 		.sort((a, b) => newestFirst(a.thread, b.thread, now));
+
 	return capKeepingPinned(listed, activeThread);
+};
+
+export const channelThreadsUnread = (
+	data: DataStore,
+	community: CommunityView | undefined,
+	channel: SpaceRef | undefined,
+) => {
+	if (!community || !channel) return false;
+	if (spaceNotificationPrefs(data).isMuted(community.did)) return false;
+
+	return threadStatesFor(data, data.space(community), channel).some((state) =>
+		lightsThreadsDot(state.thread, {
+			...state.relevance,
+			unread: state.unread,
+			muted: data.isMuted(state.thread.space),
+		}),
+	);
 };
