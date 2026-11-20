@@ -2,16 +2,16 @@
 	<svg
 		viewBox="0 0 800 420"
 		role="img"
-		aria-label="A member's repo and the community's repo, both synced by the AppView, with a permissioned space drawn as a view across both."
+		aria-label="A member's repo and the Space's repo, both synced by the AppView, with an ATproto space drawn as a view across both."
 		xmlns="http://www.w3.org/2000/svg"
 	>
-		<title>Where community records are stored</title>
+		<title>Where a Space's records are stored</title>
 		<desc>
 			Each member's own repo holds the records they author, including messages,
-			reactions and their personal preferences. The community is a single DID
+			reactions and their personal preferences. The Space is a single DID
 			whose repo holds its structure and its authoritative member and moderation
-			records, written by the AppView that holds its credentials. A permissioned
-			space is not a container. It is an access-controlled view across every
+			records, written by the AppView that holds its credentials. An ATproto
+			space is an access-controlled view across every
 			repo that writes into it, and the AppView reads each one directly using a
 			space credential.
 		</desc>
@@ -73,8 +73,8 @@
 		<g class="node-group">
 			<rect class="node" x="18" y="58" width="210" height="256" rx="14"></rect>
 			<text class="r-title" x="34" y="90">Your repo</text>
-			<text class="r-sub" x="34" y="109">on your own PDS</text>
-			<text class="r-ns" x="34" y="129">social.colibri.*</text>
+			<text class="r-sub" x="34" y="109">your own account</text>
+			<text class="r-ns" x="34" y="129">social.colibri.beta.*</text>
 
 			<circle class="dot" cx="36" cy="148" r="2"></circle>
 			<text class="r-rec" x="46" y="152">message</text>
@@ -83,7 +83,7 @@
 			<circle class="dot" cx="36" cy="194" r="2"></circle>
 			<text class="r-rec" x="46" y="198">label</text>
 			<circle class="dot" cx="36" cy="217" r="2"></circle>
-			<text class="r-rec" x="46" y="221">actor.profile</text>
+			<text class="r-rec" x="46" y="221">actor.block</text>
 			<circle class="dot" cx="36" cy="240" r="2"></circle>
 			<text class="r-rec" x="46" y="244">actor.mute</text>
 			<circle class="dot" cx="36" cy="263" r="2"></circle>
@@ -114,11 +114,11 @@
 				width="210"
 				height="256"
 				rx="14"></rect>
-			<text class="r-title" x="588" y="90">The community's repo</text>
+			<text class="r-title" x="588" y="90">The Space's repo</text>
 			<text class="r-sub r-sub-community" x="588" y="109"
-				>one DID, one community</text
+				>one DID, one Space</text
 			>
-			<text class="r-ns" x="588" y="129">social.colibri.*</text>
+			<text class="r-ns" x="588" y="129">social.colibri.beta.*</text>
 
 			<circle class="dot dot-community" cx="590" cy="148" r="2"></circle>
 			<text class="r-rec" x="600" y="152">community (self)</text>

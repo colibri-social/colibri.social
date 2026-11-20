@@ -18,8 +18,14 @@ const WELL_KNOWN_TIMEOUT_MS = 4_000;
 const APPVIEW_RESOLVE_TIMEOUT_MS = 6_000;
 const TYPEAHEAD_SERVICE = "https://typeahead.waow.tech";
 const TYPEAHEAD_LIMIT = 8;
-const PLC_DIRECTORY = "https://plc.directory";
+const DEFAULT_PLC_DIRECTORY = "https://plc.directory";
 const DID_DOC_TIMEOUT_MS = 6_000;
+
+export const plcDirectoryUrl = (): string => {
+	const raw: unknown = import.meta.env.VITE_COLIBRI_PLC_URL;
+	const configured = typeof raw === "string" ? raw.trim() : "";
+	return (configured || DEFAULT_PLC_DIRECTORY).replace(/\/+$/, "");
+};
 
 export type AccountSuggestion = {
 	did: string;
@@ -182,7 +188,7 @@ type DidDocument = {
 };
 
 const didDocumentUrl = (did: string): string | undefined => {
-	if (did.startsWith("did:plc:")) return `${PLC_DIRECTORY}/${did}`;
+	if (did.startsWith("did:plc:")) return `${plcDirectoryUrl()}/${did}`;
 	if (did.startsWith("did:web:")) {
 		const authority = did.slice("did:web:".length).replaceAll(":", "/");
 		return `https://${decodeURIComponent(authority)}/.well-known/did.json`;

@@ -1,0 +1,72 @@
+---
+title: Fix Sign-In Problems
+description: What the messages on the sign-in screen mean, and what to do when signing in to Colibri doesn't work.
+sidebar:
+  order: 4
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Signing in involves Colibri and the provider of your Atmosphere account. When sign-in fails, Colibri shows a message that tells you which of the two is involved. Find your message below.
+
+## Colibri can't find your handle
+
+Colibri couldn't find an account with the handle you typed.
+
+- Check the handle for typos. It usually looks like `name.bsky.social`.
+- Enter the full handle, including the part after the first dot.
+
+## Sign-in was cancelled
+
+The page of your account provider was closed, or the permissions weren't approved. Nothing was shared with Colibri. Start again and approve the permission screen to finish.
+
+## That sign-in took too long / That sign-in expired
+
+A sign-in has to be finished within a few minutes. Start again from **Start setup**.
+
+## Finish signing in with your account provider
+
+Your provider wants you to sign in on its own page first. Sign in there, then come back to Colibri and try again.
+
+## Your account provider isn't responding
+
+The provider of your account can't be reached at the moment. Colibri doesn't run that provider. Try signing in again in a few minutes.
+
+## Sign-in isn't working right now
+
+The problem is on Colibri's side. We've been notified, try again in a little while.
+
+## The browser didn't open
+
+The Colibri apps hand sign-in to your browser and show **Finish signing in in your browser**. If no browser window appeared, select **Try again**. To start over with a different handle, select **Back**.
+
+## Please sign in again
+
+You were signed out. Sign in again. Your messages and your Spaces are still there.
+
+## Colibri needs a quick approval
+
+Colibri is missing a permission it needs. Sign in once more and approve the permission screen. Check our explainer about [the permission screen](/docs/users/getting-started/sign-in#the-permission-screen) for more info.
+
+## Sign-up isn't available right now
+
+Creating a new account through Colibri is paused. Signing in with an account you already have still works.
+
+## A forgotten password
+
+Your password belongs to your account provider, and Colibri can't reset it. Use the password reset of your provider. If your provider has an account page, **Settings** > **My Atmosphere Account** opens it once you're signed in.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Sign In or Create an Account"
+    description="The sign-in steps from start to finish."
+    href="/docs/users/getting-started/sign-in"
+  />
+  <LinkCard
+    title="Introduction"
+    description="How your account, your provider and Colibri fit together."
+    href="/docs/users/getting-started/introduction"
+  />
+</CardGrid>

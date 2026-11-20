@@ -1,0 +1,138 @@
+---
+title: Storage
+description: What the AppView's database holds, which tables can be rebuilt, and how libSQL and Postgres differ.
+sidebar:
+  order: 5
+---
+
+The AppView keeps everything it knows in one SQL database. The schema, the
+migrations and the connection code live in `packages/db` of the
+[AppView repository](https://github.com/colibri-social/api), built on
+[Drizzle](https://orm.drizzle.team).
+
+Blobs are the one exception. The AppView proxies a member's attachments from
+that member's PDS, and it keeps the blobs of
+[polyfill-hosted](/docs/developers/architecture/hosting#the-spaces-polyfill)
+members in an S3-compatible bucket.
+
+## libSQL and Postgres
+
+`DATABASE_URL` selects the database. A URL that starts with `postgres://` or
+`postgresql://` opens Postgres. Any other value opens libSQL, and the default is
+the local file `file:./data/colibri.db`. `DATABASE_AUTH_TOKEN` authenticates
+against a remote libSQL server, and `DATABASE_MAX_CONNECTIONS` (20 by default)
+sizes the Postgres connection pool.
+
+Both dialects hold the same tables. The schema is written once, in
+`packages/db/src/schema/sqlite.ts`. Building the package generates
+`src/schema/pg.ts` from it, and a test compares the tables, columns, keys and
+indexes of the two. Each dialect has its own migration folder,
+`packages/db/migrations/sqlite` and `packages/db/migrations/pg`.
+
+The AppView applies pending migrations when it starts. On Postgres it takes an
+advisory lock first, so several nodes starting together run each migration
+once.
+
+A single AppView runs on either database. A cluster of several AppView nodes
+runs on Postgres.
+
+### Read replica
+
+`DATABASE_READ_URL` names a Postgres read replica. With it set, plain reads go
+to the replica, and writes and transactions go to `DATABASE_URL`. The variable
+has no effect on libSQL.
+
+A node that receives a live event from another node waits for the replica to
+replay the write behind that event, up to a short timeout, before it delivers
+the event. A client that reads in response then sees the new row.
+
+## The record store
+
+The record store is the synced copy of every ATproto space the AppView
+serves.
+
+| Table | Contents |
+| --- | --- |
+| `spaces` | One row per ATproto space: its URI, authority, type and key, the Space it belongs to, and its host |
+| `space_repos` | One row per repository in a space: the applied revision, the running set hash, the sync state, and the failure count and retry time |
+| `records` | Every record, keyed by space, author, collection and record key, with its CID and value |
+
+`space_credentials` and `notify_registrations` hold what sync needs to reach a
+space. `space_credentials`
+stores the current space credential and the key it is bound to, and
+`notify_registrations` stores the notification token the AppView issued for
+each space.
+
+[Sync](/docs/developers/architecture/sync) applies one pull in a single
+transaction. The records, the projections derived from them and the
+`space_repos` cursor change together, so the cursor never points past records
+the database does not hold.
+
+## Projections
+
+A projection is a typed table derived from `records`. The XRPC read methods for
+Spaces, channels and messages query projections.
+
+| Table | Derived from |
+| --- | --- |
+| `communities` | `social.colibri.beta.community` and `community.settings` |
+| `categories`, `channels`, `threads` | `category`, `channel` and `thread` records |
+| `roles`, `members` | `role` and `member` records |
+| `moderation_log` | `moderation` records |
+| `messages`, `reactions`, `labels` | `message`, `reaction` and `label` records |
+| `thread_follows` | `thread.follow` records |
+| `mutes`, `blocks`, `actor_settings`, `space_notifications`, `space_moderations`, `read_cursors`, `emoji_follows` | The records of each user's preferences space |
+| `bridge_registrations` | `bridge.registration` records |
+
+## What can be rebuilt
+
+Where a lost copy comes back from depends on the kind of data.
+
+**Projections come back from `records`.** The `rebuildProjections` function
+exported by `packages/projections` empties the projection tables, except
+`bridge_registrations`, and replays every stored record through the same code
+that applies a synced write.
+
+**Records come back from the repo hosts.** A repository with no applied
+revision and no set hash is fetched whole with `com.atproto.space.getRepo` on
+its next pull. This holds for every repository that lives on a PDS.
+
+**Everything else exists only in this database.** Back up these tables:
+
+| Tables | Contents |
+| --- | --- |
+| `records`, `polyfill_actors`, `polyfill_repos` | For a polyfill-hosted member, the AppView's copy of their space repositories is the only copy |
+| `polyfill_blobs` | The index of polyfill blobs in the bucket |
+| `community_credentials`, `host_oauth_sessions` | The encrypted password or OAuth session for each Space account |
+| `invitations`, `applications` | Invitation codes and pending join applications |
+| `notifications`, `notification_clears`, `push_subscriptions` | The notification inbox and registered push targets |
+| `left_threads`, `voice_moderation`, `voice_move_grants` | Thread departures and voice moderation state |
+| `bridge_pairings`, `bridge_remote_rooms`, `bridge_backfills` | Bridge pairing codes, the remote rooms a bridge reported, and backfill progress |
+| `community_migrations`, `legacy_records` | The progress of moves from legacy communities, and the legacy records served as read-only history |
+| `nodes`, `node_join_tokens`, `cluster_config`, `cluster_state` | The cluster's nodes and its shared configuration |
+
+`CREDENTIAL_ENCRYPTION_KEY` encrypts the stored passwords and OAuth sessions.
+A database backup is unusable for those rows without it.
+
+## Caches and transient state
+
+The AppView refills these tables on its own.
+
+| Tables | Contents |
+| --- | --- |
+| `identity_cache`, `profile_cache` | Resolved DID documents, handles and public profiles |
+| `link_previews` | Fetched link preview metadata |
+| `emoji_items`, `emoji_packs`, `emoji_pack_items`, `emoji_backfills` | The index of public custom emoji records |
+| `actor_activity` | What a person is listening to or playing |
+| `polyfill_pds_support` | Whether a PDS serves the space methods, as of the last probe |
+| `user_presence`, `presence_connections` | Online state and open connections |
+| `voice_calls`, `voice_participants` | Running calls and who is in them |
+| `host_oauth_states`, `host_authorizations` | Host sign-ins in progress |
+| `event_payloads` | Live events too large to pass between nodes inline |
+| `service_state`, `telemetry_state` | Small service values such as the Jetstream cursor and the telemetry instance ID |
+
+## See also
+
+- [Sync](/docs/developers/architecture/sync): how records reach the record store.
+- [Hosting](/docs/developers/architecture/hosting): the repositories and blobs the AppView hosts itself.
+- [Self-hosting](/docs/developers/self-hosting/getting-started): configuring the database for your own AppView.

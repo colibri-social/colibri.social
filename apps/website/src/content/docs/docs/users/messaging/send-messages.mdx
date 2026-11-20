@@ -1,0 +1,147 @@
+---
+title: Send Messages
+description: Write, format, edit and delete messages in a Colibri channel, mention people, and add emoji and GIFs.
+sidebar:
+  order: 1
+---
+
+import { Tabs, TabItem, CardGrid, LinkCard, Steps } from "@astrojs/starlight/components";
+
+Messages are at the center of Colibri. Everyone who can view the channel you send one in can read it.
+
+## Write a message
+
+<Steps>
+
+1. Open a text channel.
+
+2. Select the box at the bottom, which reads **Message** followed by the channel name.
+
+3. Type your message and send it.
+
+</Steps>
+
+<Tabs syncKey="device">
+  <TabItem label="Computer">
+    Press <kbd>Enter</kbd> to send. Press <kbd>Shift</kbd> + <kbd>Enter</kbd> to start a new line.
+  </TabItem>
+  <TabItem label="Phone">
+    Select the **purple button with the paper airplane icon** next to the box. The return key on your keyboard starts a new line.
+  </TabItem>
+</Tabs>
+
+A message holds up to 2,048 characters. Please note that emoji and letters with accents may count as more than one! When you paste a text that is longer, Colibri attaches it to your message as a text file named `message.txt`.
+
+If the box reads "**You can't send messages in this channel.**", your roles in the Space don't allow posting there.
+
+## Format your text
+
+Colibri supports Markdown-style formatting. You can wrap your text in the following marks to style it:
+
+| You type | You get |
+| --- | --- |
+| `**bold**` | Bold text |
+| `*italic*` | Italic text |
+| `__underline__` | Underlined text |
+| `~~strikethrough~~` | Text with a line through it |
+| `` `code` `` | Code inside a sentence |
+| ` ``` ` on the line before and after | A code block |
+| <code>\|\|spoiler\|\|</code> | Text that stays hidden until the reader clicks/taps it |
+| `> quote` | A quote |
+| `# Heading` | A heading. Use `##` and `###` for smaller ones |
+| `- item` | A list |
+| `-# small text` | Small, muted text |
+| `[text](https://example.com)` | A link with your own text |
+
+## Mention people, roles and channels
+
+Type one of these characters and pick from the list that opens:
+
+- `@` followed by a name mentions a member or a role. They get a notification.
+- `#` followed by a name links to a channel.
+- `:` followed by a name inserts an emoji.
+
+You can also mention entire roles. A role appears in the list when it's set as mentionable, or when you hold the **Mention all roles** permission!
+
+:::caution[TODO: screenshot]
+`mention-suggestions.png`: Message box with `@` typed and the list showing Members and Roles
+:::
+
+## Inserting a time
+
+A time you type in a message means something different for readers in other time zones. In Colibri, you can send a timestamp to prevent this: every reader sees it in their own local time.
+
+<Steps>
+
+1. Type `@time` and pick **Time** from the list.
+
+2. Describe the moment in the **When** field, for example `Tomorrow at 3pm` or `in two days`.
+
+3. Pick how it's shown, for example **Relative**, **Short time** or **Long date and time**.
+
+   :::caution[TODO: screenshot]
+   `timestamp-picker.png`: Time picker with the **When** field and the format list
+   :::
+
+</Steps>
+
+## Adding emoji and GIFs
+
+Select **Add an emoji** next to the message box to open the emoji picker. Search by name, pick a skin tone, or scroll through the categories. The emoji you use most are listed under **Frequently used**!
+
+Select **Send a GIF** to open the GIF picker. Search for a GIF, or browse **Trending** and **Categories**. To keep a GIF for later, select the star on it (on a phone, press and hold it). Saved GIFs are listed under **Favorites** for easy access!
+
+## Edit a message
+
+You can edit your own messages.
+
+<Tabs syncKey="device">
+  <TabItem label="Computer">
+    Point at the message and select **Edit**. To edit the last message you sent, press the up arrow key while the message box is empty.
+  </TabItem>
+  <TabItem label="Phone">
+    Press and hold the message and select **Edit message**.
+  </TabItem>
+</Tabs>
+
+Change the text and save. An edited message is marked with **(edited)**.
+
+## Delete a message
+
+<Steps>
+
+1. Open the menu of your message and select **Delete message**.
+
+2. Select **Delete message** again to confirm.
+
+</Steps>
+
+:::caution
+Deleting a message is permanent. It disappears for everyone in the channel.
+:::
+
+On a computer, you can hold <kbd>Shift</kbd> while you select **Delete message** to skip the confirmation dialog.
+
+## A message that failed to send
+
+A message that couldn't be delivered is marked **Failed to send.** Open its menu and select **Retry** to send it again, or **Delete message** to discard it.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Replies, Reactions and Forwarding"
+    description="Answer a message, react to it, or pass it on."
+    href="/docs/users/messaging/replies-and-reactions"
+  />
+  <LinkCard
+    title="Files, Images and Links"
+    description="Attach files and control link previews."
+    href="/docs/users/messaging/attachments"
+  />
+  <LinkCard
+    title="Custom Emoji"
+    description="Upload your own emoji and follow other people's."
+    href="/docs/users/messaging/custom-emoji"
+  />
+</CardGrid>

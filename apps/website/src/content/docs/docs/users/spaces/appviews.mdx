@@ -1,0 +1,70 @@
+---
+title: Where a Space Is Hosted
+description: Who runs the account and the server behind a Colibri Space, and what that means for its owner and its members.
+sidebar:
+  order: 8
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+A Space consists of an account that holds it, and a Colibri server that delivers it to your app.
+
+If a Space is a house, the account is the plot of land it stands on, and the server is the postal service that carries messages between the house and its members.
+
+For members, none of this needs any setup! This page is relevant to you if you own a Space, or if a Space you joined doesn't show up.
+
+## The account behind a Space
+
+Every Space has an account of its own. It holds the channels, the roles and the list of members. When you create a Space, **Who hosts this Space** sets who runs that account:
+
+- **Colibri hosts it**: Colibri runs the account for your Space. There is nothing to set up.
+- **Use an account I own**: the Space lives on an account you own, with a provider you chose. You sign in as that account while you create the Space. The provider has to support Spaces, and Colibri checks that for you. Use an account made only for this Space.
+
+Both kinds of Space work the same way for members.
+
+### Check how your Space is hosted
+
+The owner of a Space sees this under **Manage Space** > **Hosting**. The page reads **Hosted by Colibri** or **Hosted on your own account**. Only the owner can open it.
+
+## The server behind a Space
+
+A Colibri server delivers messages to your app, sends notifications and connects voice calls. Colibri is open source, so anyone can run such a server!
+
+A Space is served by one server, which is the server it was created on. The apps from colibri.social connect to the server that Colibri runs.
+
+What this means for you:
+
+- You can use every Space that lives on the server your app connects to.
+- You can sign in to any Colibri server with the same account and the same handle.
+- The server is set by the app you use. There is no switch for it inside the app.
+- To use a Space on a server that someone else runs, open the Colibri app that those people provide and sign in there with your account.
+
+Online status, typing indicators and voice channels stay within one server. People on another server don't see them.
+
+## A Space you joined doesn't appear
+
+The Space lives on a different server than the one your app connects to. Ask the person who invited you which Colibri app the Space uses.
+
+## You can read a Space and can't moderate it
+
+That depends on your roles in the Space, and has nothing to do with hosting. Ask the owner to check your roles, and read [Roles and Permissions](/docs/users/spaces/roles-and-permissions).
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Create a Space"
+    description="Where the hosting choice appears."
+    href="/docs/users/spaces/create-a-space"
+  />
+  <LinkCard
+    title="The Move to Private Spaces"
+    description="What changed when communities became Spaces."
+    href="/docs/users/spaces/moving-to-spaces"
+  />
+  <LinkCard
+    title="Self-Hosting"
+    description="Run a Colibri server of your own (developer documentation)."
+    href="/docs/developers/self-hosting/getting-started"
+  />
+</CardGrid>

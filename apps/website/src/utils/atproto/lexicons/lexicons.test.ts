@@ -1,9 +1,15 @@
+import { readFileSync } from "node:fs";
 import type {
 	LexiconDoc,
 	LexXrpcProcedure,
 	LexXrpcQuery,
 } from "@atproto/lexicon";
 import { describe, expect, it } from "vitest";
+import {
+	isUnderPrefix,
+	isXrpcMethod,
+	XRPC_PREFIXES,
+} from "../../../components/docs/xrpc-methods.ts";
 import { LEXICON_DOCS, lexicon } from "./index.ts";
 
 /**
@@ -23,6 +29,11 @@ const METHOD_TYPES = new Set(["query", "procedure"]);
 
 const methodDocs = LEXICON_DOCS.filter((doc) =>
 	METHOD_TYPES.has(doc.defs.main?.type ?? ""),
+);
+
+const APPVIEW_PAGE = new URL(
+	"../../../content/docs/docs/developers/specification/appview.mdx",
+	import.meta.url,
 );
 
 const mainOf = (doc: LexiconDoc) =>
@@ -83,5 +94,33 @@ describe("lexicon documents", () => {
 		});
 
 		expect(stale).toEqual([]);
+	});
+});
+
+describe("AppView reference page", () => {
+	it("places every method under exactly one rendered prefix", () => {
+		const prefixes = Object.values(XRPC_PREFIXES);
+		const misplaced = LEXICON_DOCS.filter(isXrpcMethod)
+			.filter((doc) => {
+				const owners = prefixes.filter((prefix) =>
+					isUnderPrefix(doc.id, prefix),
+				);
+
+				return owners.length !== 1;
+			})
+			.map((doc) => doc.id);
+
+		expect(misplaced).toEqual([]);
+	});
+
+	it("renders every prefix exactly once", () => {
+		const page = readFileSync(APPVIEW_PAGE, "utf8");
+		const wrong = Object.keys(XRPC_PREFIXES).filter((key) => {
+			const uses = page.split(`<XRPCMethods prefix={XRPC_PREFIXES.${key}}`);
+
+			return uses.length !== 2;
+		});
+
+		expect(wrong).toEqual([]);
 	});
 });

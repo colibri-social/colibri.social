@@ -1,0 +1,104 @@
+---
+title: Bridges
+description: How a bridge carries messages between a Colibri Space and another chat service, and what members and admins see.
+sidebar:
+  label: Overview
+  order: 1
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+A bridge connects a Colibri Space to a group on another chat service (e.g. Discord). Picture an interpreter standing in a doorway between two rooms: no matter what is said in one room, the interpreter repeats it in the other!
+
+A bridge carries messages, edits, deletions and reactions in both directions. It only works in the channels that an admin of the Space links to it.
+
+A bridge is a separate program that someone runs next to Colibri. Anyone can run one!
+
+:::note[Bridges are in beta]
+Bridges are free to use while they are in beta. After that, they will cost $5 a month per Space.
+:::
+
+## Bridges for members
+
+A message that arrives through a bridge shows the name and the picture its author has on the other service. It has no Colibri profile behind it.
+
+You can mention people who post through a bridge. Type `@` in a channel, and anyone who recently posted there through the bridge appears under **Bridged**. The bridge turns your mention into a mention on the other service, so the person is notified there.
+
+Reactions from the other service count once per person. Five people reacting with the same emoji over there show as five here.
+
+Every member can see which bridges are connected to the Space.
+
+## Bridges for admins
+
+A member with the **Manage Space** permission can:
+
+- pair a bridge with the Space, and disconnect it
+- link and unlink channels
+- import a channel's earlier history
+- turn moderation mirroring on and off
+- pause the bridge
+
+[Pairing a Bridge](/docs/users/bridges/pairing) has more information on each of these.
+
+A bridge can only write into the channels it's linked to, and it can only edit, delete or unreact what it wrote itself. Disconnecting a bridge stops it immediately. Messages it already carried over stay in the channel.
+
+## Carried-over content
+
+| Carried over | Left out |
+| --- | --- |
+| Messages, with replies, file attachments and forwards | Private threads |
+| Edits and deletions | Forum channels |
+| Reactions with standard emoji | Role mentions |
+| Threads beside linked channels | Custom emoji and stickers |
+| Mentions of people and of linked channels | Link previews |
+| Author names and pictures, in both directions | Typing indicators |
+| Moderation, as described under [Moderation](#moderation) | Earlier Colibri history |
+| Earlier history from the other service, as described under [History](#history) | |
+
+A role mention on the other service arrives in Colibri as plain `@name` text.
+
+## Threads
+
+A thread opened beside a linked channel is carried over along with the channel, from either side. Threads that only some roles or members can read are left out.
+
+Renaming a thread renames its copy. Deleting a thread in Colibri archives and locks its copy on the other service, which keeps that service's history.
+
+## Moderation
+
+When a moderator hides a message that came from Colibri, the bridge deletes its copy on the other service.
+
+An admin can also turn on **Mirror moderation** for a bridge. Moderation then crosses in both directions:
+
+- Hiding a message that came from the other service removes the original there.
+- When a moderator on the other service removes the copy of a Colibri message, the message is hidden in Colibri.
+
+Unhiding a message in Colibri doesn't restore anything on the other service.
+
+## History
+
+When an admin links a channel, they can bring in the earlier messages of the other side too: the last day, 7 days, 30 days or all of it.
+
+- Imported messages keep the time they were sent, so they sit in the channel's history in order.
+- They don't send notifications, and they don't mark the channel as unread.
+- Public threads opened in that range come across with their messages.
+- Reactions on imported messages aren't imported.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Pairing a Bridge"
+    description="Connect a bridge to your Space and link channels."
+    href="/docs/users/bridges/pairing"
+  />
+  <LinkCard
+    title="Moderate a Space"
+    description="Hide messages and remove members."
+    href="/docs/users/spaces/moderation"
+  />
+  <LinkCard
+    title="Building a Bridge"
+    description="Write a connector for another chat service (developer documentation)."
+    href="/docs/developers/bridges/building-a-bridge"
+  />
+</CardGrid>

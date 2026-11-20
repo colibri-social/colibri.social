@@ -8,9 +8,9 @@
 		<title>Colibri AppView architecture</title>
 		<desc>
 			The client sends requests through the user's PDS to the AppView and opens
-			a direct WebSocket to it for live events. The community's PDS asks the
+			a direct WebSocket to it for live events. The Space's PDS asks the
 			AppView whether a user may read a space, and the AppView writes the
-			community's records back to it. Holding a space credential, the AppView
+			Space's records back to it. Holding a space credential, the AppView
 			pulls each member's repository from that member's own host and stores what
 			it reads locally.
 		</desc>
@@ -100,7 +100,7 @@
 		<text class="e-label" x="240" y="244" text-anchor="middle">service auth</text
 		>
 		<text class="e-label" x="560" y="230" text-anchor="middle"
-			>community writes</text
+			>Space writes</text
 		>
 		<text class="e-label" x="560" y="288" text-anchor="middle"
 			>checkAccess</text
@@ -125,7 +125,7 @@
 		<g class="node-group">
 			<rect class="node" x="620" y="218" width="170" height="72" rx="12"></rect>
 			<text class="n-title" x="705" y="250" text-anchor="middle"
-				>Community PDS</text
+				>Space PDS</text
 			>
 			<text class="n-sub" x="705" y="269" text-anchor="middle"
 				>space authority</text
@@ -137,7 +137,7 @@
 				>Member repos</text
 			>
 			<text class="n-sub" x="105" y="447" text-anchor="middle"
-				>on their own hosts</text
+				>own PDS or polyfill</text
 			>
 		</g>
 		<g class="node-group">

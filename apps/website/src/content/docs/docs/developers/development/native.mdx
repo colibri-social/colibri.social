@@ -1,0 +1,129 @@
+---
+title: Testing native builds
+description: "How to build and test the native shell on macOS, Windows, Linux, Android and iOS, including emulator, Simulator and real-device workflows."
+sidebar:
+  order: 6
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+This page covers testing the **native shell**: windowing, notifications, deep links, the updater, and everything else that only exists once the client runs inside Tauri. To test an AppView change, run [the web client](/docs/developers/development/client) with `pnpm dev:app` against your local AppView. That loop is the supported way to test AppView-level changes.
+
+The shell renders the client's built output. Its build commands build `packages/app` for you.
+
+Run every Tauri command through `pnpm --filter @colibri-social/wrapper tauri ...`. That script is `packages/wrapper/scripts/tauri.mjs`, which wraps the Tauri CLI and handles the `DISABLE_SENTRY` flag documented in `packages/wrapper/README.md`.
+
+## Desktop (macOS, Windows, Linux)
+
+On desktop, run the dev server or the built binary on your own machine.
+
+| Command | What it builds |
+| --- | --- |
+| `pnpm dev:tauri` | A hot-reloading dev build |
+| `pnpm --filter @colibri-social/wrapper tauri build --no-bundle` | A quick compile, the same one CI runs on a pull request |
+| `pnpm --filter @colibri-social/wrapper build:macos:direct` | The Developer ID and Homebrew channel |
+| `pnpm --filter @colibri-social/wrapper build:macos:appstore` | The Mac App Store channel |
+| `pnpm --filter @colibri-social/wrapper tauri:windows:build` | An MSIX for the Microsoft Store |
+| `pnpm --filter @colibri-social/wrapper tauri build --features tauri/devtools` | A build with developer tools enabled |
+
+A full `tauri build` needs `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, because the updater plugin is enabled by default. Generate a throwaway keypair with `pnpm --filter @colibri-social/wrapper tauri signer generate`, or build against `tauri.appstore.conf.json`, which turns updater artifacts off.
+
+### Windows
+
+The bare executable from `tauri build --no-bundle` never completes the `social.colibri:/oauth/callback` deep link, so OAuth sign-in stays unfinished on it. Other deep links, such as `social.colibri:/invite/<code>`, route correctly on the same binary. Build and sideload an MSIX to test sign-in or deep links.
+
+To build and sideload an MSIX:
+
+<Steps>
+
+1. **Create `packages/wrapper/src-tauri/tauri.windows.conf.json`.** The file is gitignored, and the Microsoft Store job generates it at release time, so a fresh clone has none:
+
+   ```json
+   {
+   	"mainBinaryName": "ColibriSocial"
+   }
+   ```
+
+   The bundler derives the payload executable name from `productName` with spaces removed, so it looks for `ColibriSocial.exe`, while Tauri emits `colibri-social.exe` by default. With no override, the bundler packages any stale `ColibriSocial.exe` left in `src-tauri/target/x86_64-pc-windows-msvc/release/` by an earlier run.
+
+   Delete the file once you're done, because it renames the output of ordinary `tauri build` runs too.
+
+2. **Build the MSIX:**
+
+   ```sh
+   pnpm --filter @colibri-social/wrapper tauri:windows:build
+   ```
+
+3. **Sideload the loose layout.** This needs Developer Mode turned on, and it skips signing the package and trusting a certificate:
+
+   ```sh
+   powershell -c "Add-AppxPackage -Register packages/wrapper/src-tauri/target/appx/x64/AppxManifest.xml"
+   ```
+
+   The package registers against that folder in place, so deleting `target/appx/x64/` breaks the installed app.
+
+4. **Remove it again** when you're finished:
+
+   ```sh
+   powershell -c "Get-AppxPackage social.colibri.app | Remove-AppxPackage"
+   ```
+
+</Steps>
+
+## Android
+
+**Build:**
+
+```sh
+pnpm --filter @colibri-social/wrapper tauri android build --apk --debug
+```
+
+A debug APK covers everyday testing and needs no signing setup. CI builds the same APK on every pull request. A signed release build needs `packages/wrapper/src-tauri/gen/android/keystore.properties`, which is gitignored. Use one to test the release signing or bundling path.
+
+<Steps>
+
+1. **Emulator:** boot an AVD, then install the APK you just built:
+
+   ```sh
+   adb install -r packages/wrapper/src-tauri/gen/android/app/build/outputs/apk/debug/app-debug.apk
+   ```
+
+2. **Physical device:** enable USB debugging, connect over USB, and run the same `adb install -r` command against it.
+
+</Steps>
+
+`tauri android dev` and `pnpm dev:tauri:android` fail on the emulator. Build and install the APK there.
+
+If `DISABLE_SENTRY` is set in your shell, `tauri.mjs` passes `--no-default-features`, which changes the Cargo feature set. Unset it for a build meant to mirror production behavior.
+
+## iOS
+
+**Build:** build once from the CLI and open the generated Xcode project:
+
+```sh
+pnpm --filter @colibri-social/wrapper tauri ios build --open
+```
+
+This opens `packages/wrapper/src-tauri/gen/apple` in Xcode. Once the project is generated, opening the project or workspace there directly works too.
+
+<Steps>
+
+1. **Simulator:** pick a Simulator destination in Xcode and Run. Reuse one simulator across test passes, and reinstall over the existing app. Uninstalling wipes the app's local session and storage.
+
+2. **Physical device:** pick the device as the Xcode destination and Run. This needs a development signing certificate and provisioning profile. Automatic signing with an Apple ID is the simplest local setup. To reinstall a built `.app` without Xcode:
+
+   ```sh
+   xcrun devicectl device install app <path-to-app>
+   xcrun devicectl device process launch --device <device-id> <bundle-id>
+   ```
+
+</Steps>
+
+`tauri ios dev` and `pnpm dev:tauri:ios` fail on the Simulator. Build and run from Xcode there.
+
+If a Simulator build fails in a way unrelated to your changes, clean the `gen/apple` build output directory first. A stale output directory is a common cause.
+
+## See also
+
+- [Client development](/docs/developers/development/client): setup, the dev server, and running the native app in dev mode.
+- [Testing](/docs/developers/development/testing): the AppView and client test suite.

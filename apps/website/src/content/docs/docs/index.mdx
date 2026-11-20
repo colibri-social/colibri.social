@@ -1,70 +1,182 @@
 ---
-title: "Colibri Social Documentation"
-description: "Learn about Colibri's architecture, specification, and how to contribute."
+title: "Colibri Help"
+description: "Guides for people who use Colibri: signing in, Spaces, messages, notifications, voice channels and your account."
 ---
 
-Colibri (pronounced **/ˈkoʊ lɪ bri/**) is a chat app built on the AT Protocol.
-It uses the protocol as infrastructure rather than as a login provider, so your
-messages live in your own repository and travel with your identity.
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
 
-Colibri's communities are built on
-[permissioned spaces](/docs/architecture/spaces), a part of the protocol that
-lets a group of repositories agree on who may read them. Most of the rest of
-these docs builds on it.
+Colibri (pronounced **/ˈkoʊ lɪ bri/**) is a chat app where groups of people talk in private Spaces. These articles explain how Colibri works, and walk you through the various features!
 
-:::note[If you are a member, not a developer]
-[The Move to Private Communities](/docs/help/spaces-migration) covers what
-changed for you, in plain terms.
-:::
+## Getting started
 
-## Architecture
+<CardGrid>
+  <LinkCard
+    title="Introduction"
+    description="Spaces, channels and the account you bring with you."
+    href="/docs/users/getting-started/introduction"
+  />
+  <LinkCard
+    title="Sign In or Create an Account"
+    description="Sign in with your Atmosphere account and set up your profile."
+    href="/docs/users/getting-started/sign-in"
+  />
+  <LinkCard
+    title="Find Your Way Around"
+    description="Where your Spaces, channels, Inbox and menus are."
+    href="/docs/users/getting-started/finding-your-way"
+  />
+  <LinkCard
+    title="Fix Sign-In Problems"
+    description="What each sign-in message means and what to do next."
+    href="/docs/users/getting-started/sign-in-problems"
+  />
+</CardGrid>
 
-| Page | Contents |
-| --- | --- |
-| [Permissioned Spaces](/docs/architecture/spaces) | The protocol primitive Colibri is built on, and how access is granted |
-| [Communities](/docs/architecture/communities) | The six spaces a community is made of, and where each record lives |
-| [AppView](/docs/architecture/appview) | What the service does, what it runs on, and how the code is arranged |
-| [Sync](/docs/architecture/sync) | Keeping a copy of a space current without a relay |
-| [Storage](/docs/architecture/storage) | What the database holds, and which parts can be thrown away |
-| [Moderation](/docs/architecture/moderation) | What a community can do about content it does not own |
-| [Client](/docs/architecture/client) | The frontend that talks to an AppView |
+## Messages
 
-## Specification
+<CardGrid>
+  <LinkCard
+    title="Send Messages"
+    description="Write, format, edit and delete messages, and mention people."
+    href="/docs/users/messaging/send-messages"
+  />
+  <LinkCard
+    title="Replies, Reactions and Forwarding"
+    description="Answer a message, react to it, or pass it on to another channel."
+    href="/docs/users/messaging/replies-and-reactions"
+  />
+  <LinkCard
+    title="Files, Images and Links"
+    description="Attach files, describe images, hide spoilers and control link previews."
+    href="/docs/users/messaging/attachments"
+  />
+  <LinkCard
+    title="Threads"
+    description="Keep a side conversation together, next to the channel it belongs to."
+    href="/docs/users/messaging/threads"
+  />
+  <LinkCard
+    title="Custom Emoji"
+    description="Upload your own emoji, group them in packs and follow other people's."
+    href="/docs/users/messaging/custom-emoji"
+  />
+</CardGrid>
 
-| Page | Contents |
-| --- | --- |
-| [AppView](/docs/specification/appview) | Every XRPC method, both WebSockets, and the protocol callbacks |
-| [Lexicons](/docs/specification/lexicons) | The schemas themselves, grouped by kind |
-| [Facets](/docs/specification/facets) | How rich-text facets are encoded, rendered, and which take precedence |
+## Spaces
 
-## Development
+<CardGrid>
+  <LinkCard
+    title="Join a Space"
+    description="Use an invite link, request to join, and leave again."
+    href="/docs/users/spaces/join-a-space"
+  />
+  <LinkCard
+    title="Create a Space"
+    description="Start your own Space and give it a name, an icon and a description."
+    href="/docs/users/spaces/create-a-space"
+  />
+  <LinkCard
+    title="Channels and Categories"
+    description="Add, sort, edit and delete the rooms of your Space."
+    href="/docs/users/spaces/channels"
+  />
+  <LinkCard
+    title="Invite People"
+    description="Create invite links and decide how long they work."
+    href="/docs/users/spaces/invites"
+  />
+  <LinkCard
+    title="Roles and Permissions"
+    description="Decide what members can see and do."
+    href="/docs/users/spaces/roles-and-permissions"
+  />
+  <LinkCard
+    title="Moderate a Space"
+    description="Approve join requests, hide messages, and kick or ban members."
+    href="/docs/users/spaces/moderation"
+  />
+  <LinkCard
+    title="Transfer or Delete a Space"
+    description="Hand your Space to another member, or remove it for good."
+    href="/docs/users/spaces/transfer-or-delete"
+  />
+  <LinkCard
+    title="Where a Space Is Hosted"
+    description="Who runs the account and the server behind a Space."
+    href="/docs/users/spaces/appviews"
+  />
+</CardGrid>
 
-| Page | Contents |
-| --- | --- |
-| [Overview](/docs/development/overview) | The local stack and how dev mode differs from production |
-| [AppView](/docs/development/appview) | Running the TypeScript service, its build, and its configuration |
-| [Client](/docs/development/client) | The SolidJS client, the Astro website, and the native shell |
-| [Testing](/docs/development/testing) | Unit tests, the integration suite, and what CI runs |
-| [Running a PDS](/docs/development/pds) | The spaces-alpha PDS this depends on |
-| [Errors](/docs/development/errors) | How errors are declared and surfaced |
+## Notifications, voice and settings
 
-## Self-hosting
+<CardGrid>
+  <LinkCard
+    title="Notifications"
+    description="Choose what Colibri notifies you about, and mute what is too noisy."
+    href="/docs/users/notifications"
+  />
+  <LinkCard
+    title="Voice Channels"
+    description="Talk, turn on your camera and share your screen."
+    href="/docs/users/voice"
+  />
+</CardGrid>
 
-| Page | Contents |
-| --- | --- |
-| [Getting Started](/docs/self-hosting/getting-started) | Running your own AppView, and the reachability it requires |
+## Your account
 
-## Contributing
+<CardGrid>
+  <LinkCard
+    title="Edit Your Profile"
+    description="Change your name, picture, banner, pronouns and bio."
+    href="/docs/users/account/profile"
+  />
+  <LinkCard
+    title="Status and Online Status"
+    description="Show what you're up to, or appear away, busy or offline."
+    href="/docs/users/account/status"
+  />
+  <LinkCard
+    title="Block Someone"
+    description="Stop notifications from a person and collapse their messages."
+    href="/docs/users/account/blocking"
+  />
+  <LinkCard
+    title="Deleting Your Colibri Data"
+    description="Remove your profile, messages and memberships yourself."
+    href="/docs/users/account/delete-account"
+  />
+</CardGrid>
 
-| Page | Contents |
-| --- | --- |
-| [Overview](/docs/contributing/overview) | How to get involved |
+## Bridges
 
-## Help
+<CardGrid>
+  <LinkCard
+    title="Bridges"
+    description="How a bridge carries messages between a Space and another chat service."
+    href="/docs/users/bridges"
+  />
+  <LinkCard
+    title="Pairing a Bridge"
+    description="Connect a bridge to your Space, link channels, and disconnect it again."
+    href="/docs/users/bridges/pairing"
+  />
+</CardGrid>
 
-| Page | Contents |
-| --- | --- |
-| [The Move to Private Communities](/docs/help/spaces-migration) | What changes for members when a community goes private |
-| [Communities and AppViews](/docs/help/moderating-across-appviews) | A community lives on one instance |
-| [Legacy Communities](/docs/help/legacy-communities) | Communities created during the alpha |
-| [Deleting Your Account](/docs/help/delete-account) | Removing your Colibri data |
+## The move to Spaces
+
+<CardGrid>
+  <LinkCard
+    title="The Move to Private Spaces"
+    description="What changed when public communities became private Spaces."
+    href="/docs/users/spaces/moving-to-spaces"
+  />
+  <LinkCard
+    title="Legacy Communities"
+    description="What happens to a community created before Spaces, and how to move it."
+    href="/docs/users/spaces/legacy-communities"
+  />
+</CardGrid>
+
+## For developers
+
+To run your own Colibri server or build on Colibri, read the [developer documentation](/docs/developers).

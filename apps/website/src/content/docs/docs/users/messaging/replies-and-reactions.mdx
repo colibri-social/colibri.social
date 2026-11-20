@@ -1,0 +1,107 @@
+---
+title: Replies, Reactions and Forwarding
+description: Reply to a message, react with an emoji, forward a message to another channel, and copy a link to it.
+sidebar:
+  order: 2
+---
+
+import { Tabs, TabItem, CardGrid, LinkCard, Steps } from "@astrojs/starlight/components";
+
+Every message has a set of actions: you can reply to it, react to it, forward it, or copy it.
+
+## Open the actions of a message
+
+<Tabs syncKey="device">
+  <TabItem label="Computer">
+    Hover the message. A small toolbar appears with your most used reactions, **Add reaction**, **Reply**, **Forward** and **More actions**. Right-clicking the message opens the full menu.
+
+    :::caution[TODO: screenshot]
+    `message-toolbar-desktop.png`: Hover toolbar on a message
+    :::
+
+  </TabItem>
+  <TabItem label="Phone">
+    Press and hold the message. A sheet opens with your most used reactions at the top and every action below.
+
+    :::caution[TODO: screenshot]
+    `message-actions-phone.png`: Message actions sheet on a phone
+    :::
+
+  </TabItem>
+</Tabs>
+
+## Reply to a message
+
+A reply is a new message that points back at an earlier one, so everyone sees what you're answering to. The person you reply to gets a notification about the reply.
+
+<Steps>
+
+1. Open the actions of the message and select **Reply**.
+
+2. Write your answer and send it.
+
+</Steps>
+
+To back out before sending, select **Cancel reply** above the message box.
+
+On a phone, swiping left on a message also starts a reply. You can turn this on or off in **Settings** > **Chat** > **Swipe left to reply**. With it turned off, swiping left opens the member list.
+
+## React to a message
+
+A reaction is an emoji attached to a message. It's a quick way to answer without adding a message to the conversation.
+
+- To react, open the actions of the message and pick one of the emoji shown, or select **Add reaction** (on a phone, **More reactions**) to choose any emoji.
+- To join a reaction that is already under a message, select it.
+- To take your reaction back, select it again.
+- To see who reacted, open the menu of the message and select **View reactions** (on a phone, **Reactions**).
+
+### React with a double tap
+
+On a phone, a double tap on a message can react for you. You can turn this on in **Settings** > **Chat** > **Double tap a message**. You can set which emoji is used with the **When I double tap** setting:
+
+- **React with an emoji** adds the emoji you pick under **Reaction**.
+- **Edit or reply** edits your own messages and replies to everyone else's.
+
+## Forward a message
+
+Forwarding posts a copy of a message in another channel or thread, marked **Forwarded**.
+
+<Steps>
+
+1. Open the actions of the message and select **Forward**.
+
+2. Pick one or more channels or threads.
+
+3. Add a message of your own if you like, then select **Send**!
+
+</Steps>
+
+A message forwarded out of a private channel is marked **From a private channel**.
+
+## Copy a message or a link to it
+
+Open the menu of the message and select:
+
+- **Copy text** to copy what the message says, including the formatting.
+- **Copy message link** to copy a link that leads straight to the message. It only works for people who can view the channel.
+- **Copy image** or **Download image** on a message with an image.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Send Messages"
+    description="Write, format, edit and delete messages."
+    href="/docs/users/messaging/send-messages"
+  />
+  <LinkCard
+    title="Threads"
+    description="Give a side conversation its own place."
+    href="/docs/users/messaging/threads"
+  />
+  <LinkCard
+    title="Notifications"
+    description="Choose which replies and mentions notify you."
+    href="/docs/users/notifications"
+  />
+</CardGrid>

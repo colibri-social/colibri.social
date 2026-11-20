@@ -51,14 +51,22 @@ const stubGithub = (tag: string, version: string) => {
 	);
 };
 
+type Target = "darwin" | "linux" | "windows";
+
+const stableRoutes = {
+	darwin: () => import("../pages/darwin/[arch]/[version].ts"),
+	linux: () => import("../pages/linux/[arch]/[version].ts"),
+	windows: () => import("../pages/windows/[arch]/[version].ts"),
+};
+
 const call = async (
 	route: "stable" | "beta",
-	params: { target: string; arch: string; version: string },
+	params: { target: Target; arch: string; version: string },
 	query = "",
 ) => {
 	const module =
 		route === "stable"
-			? await import("../pages/[target]/[arch]/[version].ts")
+			? await stableRoutes[params.target]()
 			: await import("../pages/beta/[target]/[arch]/[version].ts");
 	const prefix = route === "beta" ? "/beta" : "";
 	const url = new URL(

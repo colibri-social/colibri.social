@@ -1,0 +1,29 @@
+---
+import { LEXICON_DOCS } from "@/utils/atproto/lexicons";
+import { resolveRef } from "./xrpc-methods.ts";
+
+interface Props {
+	defs: string;
+	names: Array<string>;
+}
+
+const { defs, names } = Astro.props;
+const frames = names.map((name) =>
+	resolveRef(LEXICON_DOCS, `${defs}#${name}`, defs),
+);
+---
+
+<div class="lex-def xrpc-frames not-content">
+	{
+		frames.map((frame) => (
+			<div class="lex-field">
+				<div class="lex-field-head">
+					<a class="lex-field-name lex-ref" href={frame.href}>
+						{frame.name}
+					</a>
+				</div>
+				{frame.description && <p class="lex-desc">{frame.description}</p>}
+			</div>
+		))
+	}
+</div>

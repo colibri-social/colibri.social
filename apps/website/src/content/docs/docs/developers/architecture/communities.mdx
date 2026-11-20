@@ -1,0 +1,179 @@
+---
+title: Colibri Spaces
+description: How a Colibri Space is put together out of ATproto spaces.
+sidebar:
+  order: 2
+---
+
+import { Steps } from "@astrojs/starlight/components";
+import CommunityRecordsDiagram from "../../../../../components/docs/CommunityRecordsDiagram.astro";
+
+A **Space** is where people gather into categories and channels to talk. In
+Colibri, a Space is itself an AT Protocol identity with its own DID.
+
+A Space is a set of gated [**ATproto spaces**](/docs/developers/architecture/spaces)
+whose authority is the Space's DID. Each member's messages live in that member's
+own repository, and a reader reaches them through the ATproto space that
+holds them.
+
+:::note[Space and community]
+The protocol and the lexicons call a Colibri Space a **community**, as in
+`social.colibri.beta.community.*`. These docs write "Space" with a capital
+letter for the product concept, "ATproto space" or lowercase "space" for
+the protocol primitive, and keep `community` wherever an identifier uses it.
+:::
+
+<CommunityRecordsDiagram />
+
+## Space types
+
+Colibri declares eight space types. Seven of them have the Space's DID as
+their authority.
+
+| Space type | Key | Holds | Who can read |
+| --- | --- | --- | --- |
+| `social.colibri.beta.community.profile` | `self` | the community record | anyone |
+| `social.colibri.beta.community.configuration` | `self` | settings, categories, bridge registrations, labels | members |
+| `social.colibri.beta.community.members` | `self` | members, roles, labels | members |
+| `social.colibri.beta.community.moderation` | `self` | the moderation log | holders of `moderation.viewLog` |
+| `social.colibri.beta.channel.text` | `tid` | channel, messages, reactions, labels | per channel |
+| `social.colibri.beta.channel.voice` | `tid` | the channel record, and the messages of the voice channel's chat | per channel |
+| `social.colibri.beta.channel.thread` | `tid` | thread, thread follows, messages, reactions, labels | per thread |
+
+The first four are created once, when the Space is created. The last three are
+space *types*, and a Space has one ATproto space of that type per channel
+or thread.
+
+The eighth type, `social.colibri.beta.actor.preferences`, belongs to a user.
+See [the personal space](#the-personal-space).
+
+### A channel is its space
+
+The ATproto space **is** the channel. Its key is the channel's identity,
+and the channel's own configuration lives at record key `self` inside it.
+
+Creating a channel creates an ATproto space, and deleting one deletes it.
+
+### A thread is its space
+
+A thread works the same way. Its configuration is the
+`social.colibri.beta.thread` record at key `self` in its own
+`social.colibri.beta.channel.thread` space. That record names the text channel
+the thread belongs to, and only the Space writes it.
+
+A thread is readable by everyone who can read its parent channel, unless its
+record lists `visibleToRoles` or `visibleToMembers`.
+
+### The personal space
+
+Each user also has one ATproto space of their own,
+`social.colibri.beta.actor.preferences`, whose authority is the user's own DID.
+It holds their mutes, blocks, settings, read cursors and emoji follows.
+
+Its policy is a member list with no members. The space host authorizes the
+owner before it consults the policy, so the owner is the only reader. The owner
+grants the AppView access with
+`social.colibri.beta.actor.grantSpaceAccess`.
+
+## Where records live
+
+The repository a record is written to identifies who is accountable for it.
+
+### Written by the Space
+
+The AppView holds the Space's credentials and writes these on its behalf.
+They are the Space's structure and its authoritative state. The AppView indexes
+one of these records only when the Space's own DID is its author.
+
+| Record | What it is |
+| --- | --- |
+| `social.colibri.beta.community` | The Space's name, description, picture and banner, and the `managingApp` that runs it. At key `self` in the profile space. |
+| `social.colibri.beta.community.settings` | Category order, join approval, link embeds, name colours (`overrideUserNameColors`), the owner badge (`hideOwnerBadge`), the custom emoji policy (`customEmoji`), and the labelers this Space honours. |
+| `social.colibri.beta.category` | A category, holding an ordered list of channel keys and its permission overrides. |
+| `social.colibri.beta.role` | A role and its permissions. |
+| `social.colibri.beta.member` | A member: their DID, their roles, their nickname and when they joined. Keyed by the subject's DID. |
+| `social.colibri.beta.channel` | A channel's configuration and permission overrides, at key `self` in the channel's own space. |
+| `social.colibri.beta.thread` | A thread's configuration, at key `self` in the thread's own space. |
+| `social.colibri.beta.bridge.registration` | A bridge the Space has paired with, and the channels it relays. In the configuration space. |
+| `social.colibri.beta.moderation` | The append-only log of bans, unbans and kicks. |
+
+`social.colibri.beta.member` is keyed by the subject's DID, so looking someone up
+is a direct fetch, and a Space cannot hold two member records for the same
+person.
+
+A bridge writes messages, reactions and threads through the AppView as the
+Space. Those records live in the Space's repository and carry a `bridged`
+attribution. See
+[Building a Bridge](/docs/developers/bridges/building-a-bridge).
+
+### Written by each member
+
+A member writes these to their own repository, and readers reach them through
+the ATproto space.
+
+| Record | Space | What it is |
+| --- | --- | --- |
+| `social.colibri.beta.message` | channel or thread | A message. |
+| `social.colibri.beta.reaction` | channel or thread | A reaction, targeting a message by author and key. |
+| `social.colibri.beta.label` | channel or thread | A label on some content. The AppView honours it when its author is one of the Space's labelers. |
+| `social.colibri.beta.thread.follow` | thread | Marks its author as following the thread. |
+| `social.colibri.beta.actor.mute` | preferences | One muted user, Space, channel or thread. |
+| `social.colibri.beta.actor.block` | preferences | One blocked user. |
+| `social.colibri.beta.actor.settings` | preferences | Notification level, Space order, GIF favourites, activity sharing. |
+| `social.colibri.beta.actor.clientPreferences` | preferences | Client settings that follow the user across devices. |
+| `social.colibri.beta.actor.composerState` | preferences | Emoji usage, skin tone and recent GIFs. |
+| `social.colibri.beta.actor.spaceNotification` | preferences | A notification level for one Space. The record key is the Space's DID. |
+| `social.colibri.beta.actor.spaceModeration` | preferences | Moderation view options for one Space. The record key is the Space's DID. |
+| `social.colibri.beta.channel.read` | preferences | Read cursors, one record per Space. |
+| `social.colibri.beta.emoji.follow` | preferences | A followed custom emoji pack or emoji. |
+
+`social.colibri.beta.actor.profile` is the one public record. It lives in the
+user's ordinary repository, outside any ATproto space.
+
+Your messages are stored in your own repository. You own them, they travel with
+your atproto identity, and deleting one is an ordinary record deletion. A reader
+needs a credential for the channel's space to see them.
+
+A member whose PDS cannot hold space repositories has them hosted by the
+AppView. See [Hosting](/docs/developers/architecture/hosting).
+
+## Joining
+
+Joining is the `social.colibri.beta.community.join` procedure, documented in
+the [AppView specification](/docs/developers/specification/appview). The AppView
+refuses a banned caller, checks the invitation when one is given, and then either
+writes the `member` record or stores a pending application for a Space that
+requires approval. A new member receives every role marked `default`.
+
+From then on, the AppView answers `read: true` when the Space's PDS asks whether
+you may read that Space's ATproto spaces.
+
+## What creating a Space does
+
+`social.colibri.beta.community.create` runs these steps.
+
+<Steps>
+
+1. Creates an account on the AppView's configured PDS and stores its password,
+   encrypted.
+2. Creates the profile, configuration, members and moderation spaces.
+3. Writes the community record, an Owner role holding every permission, a
+   Members role marked `default`, and a member record for the creator holding
+   both roles.
+4. Seeds a layout: a `general` text channel and a `General` voice
+   channel, each in its own space, grouped into a "Text channels" and a "Voice
+   channels" category, plus the settings record.
+
+</Steps>
+
+A channel's space is created before the record that describes it, so a failure
+part way through leaves an empty space behind.
+
+A Space can also live on an account that already exists on another PDS. See
+[Hosting](/docs/developers/architecture/hosting#bring-your-own-hosting).
+
+## See also
+
+- [ATproto Spaces](/docs/developers/architecture/spaces): what an ATproto space is and how access is granted.
+- [Moderation](/docs/developers/architecture/moderation): labels, bans, and the permission model.
+- [AppView](/docs/developers/architecture/appview): the service that writes these records and serves them back.

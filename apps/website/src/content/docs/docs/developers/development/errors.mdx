@@ -1,0 +1,160 @@
+---
+title: Errors
+description: "How a failure travels from the AppView to the user, and what to do when you need a new one."
+sidebar:
+  order: 7
+---
+
+import { Steps, FileTree } from "@astrojs/starlight/components";
+
+Every failure in the client is one type: `ColibriError`. It carries a code, a domain, an HTTP status where there was one, whether retrying could help, and the Sentry event ID once it has been reported. User-facing wording comes from a catalog keyed by the code, so the same failure reads the same way everywhere.
+
+<FileTree>
+
+- packages/lib/src/errors/
+  - codes.ts every code, its domain, and whether it is retryable
+  - error.ts the `ColibriError` class
+  - classify.ts turns responses and thrown values into a `ColibriError`
+  - copy.ts `createErrorCopy` and the default catalog
+  - delivery.ts tracks which reports Sentry has received
+  - oauth.ts what a data server reports while signing in
+- packages/lib/src/logging/
+  - logger.ts `createLogger` and the log buffer
+- packages/app/src/data/
+  - error-copy.ts the client's catalog: code to what the user reads
+  - remote/transport.ts `createTransport`, the request path
+- packages/app/src/sentry/
+  - report.ts `reportError`
+
+</FileTree>
+
+An AppView error is declared in the `errors` array of its lexicon. Names are specific, such as `CommunityNotFound`, `ChannelNotFound`, `RoleHierarchy`, `CredentialsUnavailable` and `Banned`. `codes.ts` lists every code the client handles, its domain, and whether it is retryable.
+
+## Failure paths
+
+An AppView error arrives as `{error, message}` with an HTTP status. The client sends every request through the `Transport` that `createTransport` builds in `packages/app/src/data/remote/transport.ts`. `transport.query()` and `transport.procedure()` resolve with the response body and throw a `ColibriError` on failure:
+
+```ts
+try {
+	const { preferences } = await transport.query(colibri.actor.getPreferences.main);
+	use(preferences);
+} catch (err) {
+	const error = classifyThrown(err);
+	log.warn("loading preferences failed", { code: error.code });
+}
+```
+
+`classifyResponse` builds the error from a failed response, and `classifyThrown` builds it from a thrown value such as a network failure. A query is attempted up to three times while its error is retryable. A procedure is attempted once.
+
+The request path leaves the wording to the surface that renders the failure. `describeError(err)` from `packages/app/src/data/error-copy.ts` returns the `title` and `description` for any thrown value, and `copyForCode(code)` returns them for a code.
+
+## Adding an error
+
+Which steps apply depends on where the failure comes from.
+
+### A new AppView error
+
+A lexicon's `errors` array declares what a method can return.
+
+<Steps>
+
+1. **Declare it in the lexicon.** In the AppView repository, under `packages/lexicons/lexicons/social/colibri/beta/`, add an entry to the method's `errors` array: a PascalCase `name` and a `description`. `packages/lexicons/src/conformance.test.ts` fails when the name isn't PascalCase or the description is missing, and it requires every method to declare an `errors` array.
+
+2. **Emit it from the handler.** Throw an `XRPCError` subclass from `@atproto/xrpc-server`, such as `InvalidRequestError`, with the lexicon's error name as the second argument. `apps/appview/src/errors.ts` and `apps/appview/src/routes/failures.ts` hold the conversions already in use, from a domain error (e.g. `CommunityCredentialError`, `MembershipError`, `ModerationError`) to the matching `XRPCError`. Reuse one of those where a matching domain error exists.
+
+3. **Add the code to the client.** In the client repository, add the name to `AppViewErrorCode` and `APPVIEW_CODES` in `packages/lib/src/errors/codes.ts`.
+
+4. **Write the copy** in both catalogs: `CATALOG` in `packages/lib/src/errors/copy.ts` and `APP_ERROR_COPY` in `packages/app/src/data/error-copy.ts`. A test next to each catalog fails when a code lacks copy.
+
+</Steps>
+
+No check compares the codes a handler throws with the lexicon it belongs to, so change the lexicon and the handler in the same pull request.
+
+Generic `500` responses are undeclared, as in atproto's own lexicons. They arrive as `InternalError`, which lives in the client's `codes.ts` like every other code.
+
+### A client-side error
+
+Failures that never touch the AppView (transport, session, media devices, voice, native, local storage) are hand-written. Add the code to the matching union in `codes.ts`, give it a domain in `DOMAIN_BY_CODE`, add it to `RETRYABLE_CODES` if retrying could plausibly work, and write its copy in both catalogs. To turn a raw thrown value into it, extend `classifyThrown`.
+
+## Choosing what the user reads
+
+Write the title as what happened from the user's side. Say what they can do about it in the description, or leave the description out.
+
+```ts
+Forbidden: {
+	title: "You can't do that here",
+	description:
+		"Your role in this Space doesn't allow it. A moderator can change that.",
+},
+```
+
+`packages/app/src/data/error-copy.test.ts` checks three things for every code: the catalog has an entry, the title does not contain the code, and neither line uses protocol terms such as "AppView", "PDS", "token" or "community".
+
+The server's own message stays on `serverMessage` for diagnostics. When an error carries field problems, `describeError` uses the first field message as the description.
+
+## Picking a surface
+
+| Failure | Surface |
+| --- | --- |
+| An action the user just took | `toast.error(copy.title, { description: copy.description })`, with `copy` from `describeError(err)` |
+| A message that failed to send, edit, delete or react | Already handled by `WriteFailureToasts` |
+| A panel that would otherwise be blank | `<LoadErrorState error={err} onRetry={...} />` |
+| Offline, reconnecting, read-only mode | Already handled by `ConnectionStatus` |
+| Unrecoverable, whole app | The root `ErrorBoundary` in `packages/app/src/App.tsx` |
+
+`LoadErrorState` in `packages/app/src/shell/load-error.tsx` looks up the copy and renders `ErrorState` from `@colibri-social/ui`. It passes `onRetry` only when the error is retryable. `ErrorState` itself takes plain props, so it also works outside the client:
+
+| Prop | Type | Purpose |
+| --- | --- | --- |
+| `title` | `JSX.Element` | The headline. Defaults to "Something went wrong". |
+| `description` | `JSX.Element` | The line below it |
+| `code` | `string` | Shown as "Error code: ..." |
+| `onRetry` | `() => unknown` | Renders the retry button. A returned promise keeps the button in its loading state until it settles. |
+| `retrying`, `retryLabel` | `boolean`, `string` | Force the loading state, and relabel the button |
+| `actions`, `report` | `JSX.Element` | Extra buttons, and a slot for a crash report |
+| `onFeedback`, `feedbackLabel` | `() => void`, `string` | Renders a feedback link |
+| `variant` | `"screen"` or `"inline"` | Full-screen or in-flow layout |
+
+The root boundary reports the failure with `reportError` at severity `fatal`, then renders `StartupError` with a `CrashReport` for the returned event ID.
+
+## Reporting
+
+`reportError(err, options)` in `packages/app/src/sentry/report.ts` classifies the value, sends it to Sentry and returns the `ColibriError` with its `eventId` set. It skips codes that `isReportableCode` excludes unless you pass `force: true`, and it suppresses repeats of the same fingerprint for 60 seconds.
+
+```ts
+const error = reportError(thrown, { method: "app.render", stage: "render", severity: "fatal" });
+```
+
+## Ignoring a failure
+
+Swallowing a failure is sometimes right. Make the decision visible in the code, add a comment stating why, and rethrow everything else so a failed read is never mistaken for an absent record:
+
+```ts
+try {
+	record = await getRecord(...);
+} catch (err) {
+	// We swallow x here because ...
+	if (!isRecordNotFound(err)) throw classifyThrown(err);
+}
+```
+
+## Logging
+
+`createLogger(scope)` gives you `debug`, `info`, `warn` and `error`, plus `child(suffix)` for a nested scope. Every entry goes into an in-memory ring buffer of 500 entries, which users can copy from the **Debug information** settings page. `warn` and `error` also become Sentry breadcrumbs. Messages and structured data are redacted for bearer tokens, JWTs and email addresses before being stored, and so is any field whose key names a secret.
+
+```ts
+const log = createLogger("voice");
+log.warn("microphone unavailable, joining listen-only", {
+	code: classifyThrown(err).code,
+});
+```
+
+Put detail in the second argument and keep the message constant, so entries stay groupable.
+
+Log the classified `code`. A code is stable enough to group on and safe to keep. An `Error` passed as a field is stored as its name and redacted message only. When a failure carries useful context, add it as its own field next to the code:
+
+```ts
+log.warn("resolving the PDS host failed", { code: classifyThrown(err).code, did });
+```
+
+To preserve the full error, call `reportError`. It sends the cause to Sentry.

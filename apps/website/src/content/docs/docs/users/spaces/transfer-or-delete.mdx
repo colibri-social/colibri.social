@@ -1,0 +1,76 @@
+---
+title: Transfer or Delete a Space
+description: Hand ownership of your Colibri Space to another member, or delete the Space and everything in it.
+sidebar:
+  order: 7
+---
+
+import { Steps, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Every Space has one owner. The owner can't leave the Space, so there are two ways to step away from it: hand it to someone else, or delete it.
+
+Both actions are in **Manage Space**, under **Danger zone**.
+
+## Transfer ownership
+
+Transferring makes another member the owner. You give up everything that came with owning the Space. Only the current owner can start a transfer.
+
+<Steps>
+
+1. Open the menu of the Space and select **Manage Space**, then **Transfer ownership**.
+
+2. Under **New owner**, search for the member and select them.
+
+3. Tick **I understand that this action cannot be undone**.
+
+4. Select **Transfer ownership**.
+
+</Steps>
+
+:::caution
+You can't take the Space back yourself. Only the new owner can return it, by transferring ownership to you.
+:::
+
+The new owner has to be a member of the Space, and can't be banned from it.
+
+## Delete a Space
+
+Deleting removes the Space and all the data that belongs to it, for every member. You need the **Delete Space** permission, which the owner always has.
+
+<Steps>
+
+1. Open the menu of the Space and select **Manage Space**, then **Delete Space**.
+
+2. Type the name of the Space to confirm.
+
+3. Select **Delete Space**.
+
+</Steps>
+
+:::caution
+A deleted Space can't be brought back.
+:::
+
+## Before you delete your Colibri data
+
+If you're the only owner of a Space, Colibri asks you to hand it over or delete it before you can delete your own Colibri data. [Deleting Your Colibri Data](/docs/users/account/delete-account#spaces-you-own) has more information on that step.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Roles and Permissions"
+    description="Share the work of running a Space without giving it away."
+    href="/docs/users/spaces/roles-and-permissions"
+  />
+  <LinkCard
+    title="Where a Space Is Hosted"
+    description="Who runs the account behind your Space."
+    href="/docs/users/spaces/appviews"
+  />
+  <LinkCard
+    title="Join a Space"
+    description="How members leave a Space."
+    href="/docs/users/spaces/join-a-space"
+  />
+</CardGrid>
