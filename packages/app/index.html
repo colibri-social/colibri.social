@@ -6,6 +6,16 @@
 			name="viewport"
 			content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
 		/>
+		<script>
+			if (typeof window.__colibriKeyboardInset === "function") {
+				const viewport = document.querySelector('meta[name="viewport"]');
+				if (viewport)
+					viewport.content = viewport.content.replace(
+						"interactive-widget=resizes-content",
+						"interactive-widget=resizes-visual",
+					);
+			}
+		</script>
 		<meta name="theme-color" content="#080808" />
 		<title>Colibri</title>
 		<script>
