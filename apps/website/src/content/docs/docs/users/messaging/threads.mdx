@@ -1,0 +1,130 @@
+---
+title: Threads
+description: Start a thread to keep a side conversation together, follow or mute it, and close, lock or move it.
+sidebar:
+  order: 4
+---
+
+import { CardGrid, LinkCard, Steps } from "@astrojs/starlight/components";
+
+A thread is a conversation that branches off a channel. Picture a group at a party stepping to a side table to keep talking about one thing. The main room stays free for everyone else, and anyone can walk over and join!
+
+A thread belongs to its channel, and who can read it follows that channel. You need the **Create threads** permission to start a thread.
+
+## Start a thread from a message
+
+Use this when a message deserves a longer discussion.
+
+<Steps>
+
+1. Open the menu of the message and select **Open thread**.
+
+2. If you want, give the thread a name under **Thread name (optional)**.
+
+3. Write the first message and send it.
+
+   :::caution[TODO: screenshot]
+   `thread-under-message.png`: A message with its thread shown underneath in the channel
+   :::
+
+</Steps>
+
+The thread appears under the message it was opened from.
+
+## Start a thread without a message
+
+<Steps>
+
+1. Open the menu of the channel and select **Start a thread**. You can also open the channel's thread list and select **New thread**.
+
+2. Name the thread, write the first message and send it.
+
+</Steps>
+
+## Find the threads of a channel
+
+Select **Threads** at the top of a channel to list its threads. A dot on the button means a thread has new activity you haven't seen yet!
+
+Filter the list with **All**, **Unread** and **Following**. Closed threads are grouped under **Closed** at the end. Select **Show** to see them.
+
+:::caution[TODO: screenshot]
+`thread-list.png`: Thread list with **All / Unread / Following** and the **Closed** group
+:::
+
+## Follow or mute a thread
+
+You get notifications for a thread once you've posted in it, if the thread has been made based on a message from you, or if you've been mentioned in one. For other threads, the thread's menu has two switches:
+
+- **Follow thread** notifies you about new messages in a thread you haven't posted in.
+- **Mute thread** silences a thread, mentions included.
+
+## Rename a thread
+
+Open the menu of the thread, select **Rename thread**, enter the new name and save.
+
+## Close or lock a thread
+
+Both entries are in the menu of the thread. The option only appears if you have the permisson to use these actions.
+
+- **Close thread** marks a conversation as finished and moves it to the **Closed** group. A closed thread reads **This thread is closed. Sending a message reopens it.** Select **Reopen thread** to open it again yourself.
+- **Lock thread** stops the conversation. A locked thread reads **This thread is locked. Only moderators can post here.** Select **Unlock thread** to lift it.
+
+## Move a thread to another channel
+
+<Steps>
+
+1. Open the menu of the thread and select **Move to channel**.
+
+2. Pick the destination channel and select **Move thread**.
+
+</Steps>
+
+:::caution
+Who can read a thread follows the channel it belongs to. Moving a thread changes who can read everything in it! The thread also stops showing under the message it was opened from.
+:::
+
+## Move messages into a thread
+
+A conversation that drifted off topic can be moved out of the channel afterwards. This needs the **Move messages** permission!
+
+<Steps>
+
+1. Open the menu of a message and select **Select messages**.
+
+2. Select every message that belongs to the conversation.
+
+3. Select **Move to** and pick a channel, an existing thread, or a new thread.
+
+4. Confirm the move.
+
+</Steps>
+
+Colibri warns you when the destination can be read by more people or by fewer people than the current channel.
+
+## Delete a thread
+
+Open the menu of the thread and select **Delete thread**, then confirm.
+
+:::caution
+Deleting a thread is permanent. Nobody can read its messages afterwards except the people who wrote them, and messages that were moved into the thread are removed with it.
+:::
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Replies, Reactions and Forwarding"
+    description="Answer a single message without starting a thread."
+    href="/docs/users/messaging/replies-and-reactions"
+  />
+  <LinkCard
+    title="Notifications"
+    description="How followed and muted threads notify you."
+    href="/docs/users/notifications"
+  />
+  <LinkCard
+    title="Roles and Permissions"
+    description="Who is allowed to create and manage threads."
+    href="/docs/users/spaces/roles-and-permissions"
+  />
+</CardGrid>

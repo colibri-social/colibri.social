@@ -1,0 +1,141 @@
+---
+title: Notifications
+description: Choose what Colibri notifies you about, mute noisy Spaces, channels and threads, and turn on notifications for your device.
+sidebar:
+  order: 1
+---
+
+import { Steps, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Colibri notifies you about three things: mentions, replies to your messages, and new messages in your Spaces. Two controls decide how much of that reaches you.
+
+- A **notification level** is a volume knob. It sets how much you hear from all your Spaces, or from one Space.
+- A **mute** is an off switch for one Space, category, channel or thread.
+
+## Notification triggers
+
+- **Mentions**: someone mentions you, or a role you hold.
+- **Replies**: someone replies to one of your messages.
+- **Messages**: any other new message in a channel you can read. In a thread, this covers the threads you follow and the threads you've posted in.
+
+Colibri sends no notification for your own messages, for messages from people you blocked, or for a channel you have open at that moment.
+
+## Get fewer notifications everywhere
+
+Your notification level applies to every Space you've joined.
+
+<Steps>
+
+1. Open **Settings** and select **Notifications**.
+
+2. Under **Notify me about**, pick a level.
+
+</Steps>
+
+| Level | What you get |
+| --- | --- |
+| **All messages** | Every new message in the Spaces you've joined. |
+| **Mentions and replies** | Only when someone mentions you or replies to you. |
+| **Nothing** | No notifications at all. |
+
+A new account starts on **All messages**.
+
+## Set a different level for one Space
+
+Use this for a busy Space where you only care about mentions, or for a small Space where you want to see everything.
+
+<Steps>
+
+1. Open the menu of the Space and select **Notification settings**.
+
+2. Under **Notify me about**, pick **All messages**, **Mentions and replies** or **Nothing**.
+
+   :::caution[TODO: screenshot]
+   `space-notification-level.png`: Space **Notification settings** with **Notify me about** options
+   :::
+
+</Steps>
+
+**Follow my default** returns the Space to the level from your settings.
+
+## Mute a noisy channel
+
+Open the menu of the channel and select **Mute channel**. A muted channel sends you no notifications, mentions included.
+
+The same works for a category, a Space and a thread:
+
+- **A category**: open the menu of the category and select **Mute category**. This mutes every channel in it.
+- **A Space**: open the menu of the Space and select **Mute Space**. This also hides the unread markers and mention counts of the Space.
+- **A thread**: open the menu of the thread and select **Mute thread**.
+
+Select the same entry again to unmute.
+
+:::tip
+When you join a Space through an invite link, the invite screen has a **Mute this Space** switch. Turn it on to join the Space muted!
+:::
+
+## Follow a thread
+
+You're notified about a thread once you've posted in it, if the thread has been made based on a message from you, or if you've been mentioned in one. To get notifications for a thread you only read, open the menu of the thread and turn on **Follow thread**. Turn it off to stop.
+
+## Turn on notifications on your device
+
+Each device has its own switch.
+
+<Steps>
+
+1. Open **Settings** and select **Notifications**.
+
+2. Turn on **Notifications on this device**.
+
+3. Allow notifications when your browser or your device asks.
+
+</Steps>
+
+If Colibri reports that it isn't allowed to show notifications, allow them for Colibri in your browser or system settings, then turn the switch on again.
+
+**Sound effects volume** on the same page sets how loud message pings and call sounds are.
+
+## Notification delivery
+
+What happens while Colibri is closed depends on where you use it:
+
+| Where | Notifications arrive |
+| --- | --- |
+| iPhone, iPad and Android apps, and the Mac app from the App Store | While Colibri is in the background or closed |
+| Browser | While Colibri is in the background or its tab is closed, in browsers that support push notifications |
+| Windows and Linux apps, and the Mac app downloaded from colibri.social | While Colibri is running |
+
+Colibri holds back the notification on your devices in three cases:
+
+- Your online status is **Do not disturb**.
+- You're active in Colibri on one of your devices.
+- The message is in the text chat of a voice channel.
+
+## The Inbox
+
+The **Inbox** collects your mentions and replies in one list, so nothing gets lost while you're away! Its **Mentions** and **Replies** tabs filter the list, and **Mark all as read** marks everything in it as read.
+
+## The badge on the app icon
+
+The badge on the Colibri icon counts your unread mentions and replies. Other new messages don't add to it, and mentions and replies in a muted Space are left out.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Status and Online Status"
+    description="Use Do not disturb to pause notifications."
+    href="/docs/users/account/status"
+  />
+  <LinkCard
+    title="Threads"
+    description="Follow and mute single threads."
+    href="/docs/users/messaging/threads"
+  />
+  <LinkCard
+    title="Block Someone"
+    description="Stop notifications from one person."
+    href="/docs/users/account/blocking"
+  />
+</CardGrid>

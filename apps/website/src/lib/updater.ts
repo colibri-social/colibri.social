@@ -161,10 +161,13 @@ const platformFor = (
 	(bundle ? manifest.platforms[`${target}-${arch}-${bundle}`] : undefined) ??
 	manifest.platforms[`${target}-${arch}`];
 
+type UpdateTarget = "darwin" | "linux" | "windows";
+
 export const updaterRoute =
-	(channel: UpdateChannel): APIRoute =>
+	(channel: UpdateChannel, fixedTarget?: UpdateTarget): APIRoute =>
 	async ({ params, url }) => {
-		const { target, arch, version } = params;
+		const { arch, version } = params;
+		const target = fixedTarget ?? params.target;
 		if (!target || !arch || !version) {
 			return new Response(null, { status: 400 });
 		}

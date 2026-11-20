@@ -1,0 +1,271 @@
+---
+title: AppView development
+description: "Run and work on the AppView: configuration, source layout, Docker files, and releases."
+sidebar:
+  order: 2
+---
+
+import { Steps, FileTree } from "@astrojs/starlight/components";
+
+The AppView lives in [colibri-social/api](https://github.com/colibri-social/api). It's a Node.js and TypeScript pnpm workspace, built on [`@atproto/xrpc-server`](https://github.com/bluesky-social/atproto) and [Drizzle](https://orm.drizzle.team). See the [architecture page](/docs/developers/architecture/appview) for how the pieces fit together, and the [specification](/docs/developers/specification/appview) for what the endpoints have to do.
+
+## Running it
+
+The workspace needs Node.js `>=24.22.3` and pnpm `10.33.3`. Run `corepack enable` to get the pinned pnpm version.
+
+<Steps>
+
+1. Clone it and install:
+
+   ```sh
+   git clone https://github.com/colibri-social/api.git
+   cd api
+   pnpm install
+   ```
+
+2. Create your configuration and fill it in:
+
+   ```sh
+   cp .env.example .env
+   ```
+
+   The AppView refuses to boot without six variables. `.env.example` carries the `openssl` commands that generate the two secrets.
+
+   | Variable | What it is |
+   | --- | --- |
+   | `APPVIEW_DID` | The `did:web` this AppView answers as. It must be a hostname. |
+   | `PUBLIC_URL` | Where this AppView is reachable. The PDS of a Space calls back here on every credential mint, and delivers space notifications here. |
+   | `SIGNING_KEY` | A secp256k1 private key, published in the DID document. |
+   | `CREDENTIAL_ENCRYPTION_KEY` | Encrypts the passwords of Space accounts at rest. |
+   | `PDS_URL` | The PDS this AppView creates Spaces on. It must run the spaces alpha, `ghcr.io/bluesky-social/atproto:pds-spaces-alpha`. See [Running a PDS](/docs/developers/development/pds). |
+   | `COMMUNITY_HANDLE_DOMAIN` | The domain Spaces get handles under, such as `my-space.communities.example.com`. |
+
+   Every other variable has a default. `DATABASE_URL` defaults to a local libSQL file, so the AppView starts with no database service. The [configuration reference](/docs/developers/self-hosting/getting-started#configuration) lists every variable.
+
+   :::caution[Use a hostname in `APPVIEW_DID`]
+   A PDS rejects `did:web:127.0.0.1%3A3000` as a service-auth audience with `aud must be a valid atproto DID or did#serviceId reference`, so the AppView refuses to boot on a bare-IP `did:web`.
+
+   Set `APPVIEW_DID=did:web:localhost%3A3000` for local work. The server still listens on `127.0.0.1`.
+   :::
+
+3. Run it:
+
+   ```sh
+   pnpm dev
+   ```
+
+   This runs `apps/appview/src/index.ts` under [tsx](https://tsx.is) in watch mode, with `.env` loaded from the repository root. The server listens on `PORT`, which defaults to `3000`.
+
+</Steps>
+
+Editing a workspace package restarts the AppView too. Every package declares a `colibri-source` export condition pointing at its own `src`:
+
+```json title="packages/community/package.json"
+"exports": {
+  ".": {
+    "types": "./dist/index.d.ts",
+    "colibri-source": "./src/index.ts",
+    "default": "./dist/index.js"
+  }
+}
+```
+
+:::caution[tsx does not typecheck]
+tsx strips types and runs. A type error surfaces as whatever happens at runtime.
+
+Run `pnpm typecheck` before you push. `pnpm start` in `apps/appview` runs the compiled output and needs `pnpm build` first.
+:::
+
+Check that it came up:
+
+```sh
+curl http://127.0.0.1:3000/health
+curl http://127.0.0.1:3000/.well-known/did.json
+```
+
+The second command returns the DID document derived from `APPVIEW_DID` and `SIGNING_KEY`.
+
+## Health
+
+`GET /health` answers `200` when the node takes requests and `503` in three other states:
+
+| Status | Body | Meaning |
+| --- | --- | --- |
+| `200` | `{"status":"ok","did":"...","database":"up"}` | The node is up and its database answers |
+| `503` | `{"status":"degraded","did":"...","database":"down"}` | The database does not answer a ping |
+| `503` | `{"status":"draining","did":"...","deadline":"..."}` | The node is draining and stops at `deadline` |
+| `503` | `{"status":"maintenance","did":"..."}` | The node is parked for maintenance. Every other path answers `503` with `"error":"NodeParked"`. |
+
+The image's health check and the compose health check both call this endpoint.
+
+## Browser origins
+
+The AppView answers `/xrpc` with CORS headers for the origins named in `CORS_ORIGINS`, a comma-separated list. `*` allows any origin. Every request carries its own service-auth token in an `Authorization` header, and no request is authenticated by a cookie.
+
+With `CORS_ORIGINS` unset, development allows `http://localhost:4321` and `http://127.0.0.1:4321`, where the website's dev server runs, and production allows no origin. The client's own dev server runs on port `5173`, so name it when you use `pnpm dev:app`:
+
+```ini title=".env"
+CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:4321
+```
+
+The headers go on error responses too, so a `401` reaches the browser as the error the AppView sent.
+
+| Header | Value |
+| --- | --- |
+| `Access-Control-Allow-Methods` | `GET`, `POST`, `OPTIONS` |
+| `Access-Control-Allow-Headers` | `authorization`, `atproto-proxy`, `atproto-accept-labelers`, `content-type`, `range`, `sentry-trace`, `baggage` |
+| `Access-Control-Expose-Headers` | `atproto-repo-rev`, `accept-ranges`, `content-range`, `colibri-node`, `colibri-node-region` |
+| `Access-Control-Max-Age` | `86400` |
+
+A preflight is answered with a `204`. A cluster node sets `colibri-node` to its `NODE_ID` and `colibri-node-region` to its `NODE_REGION` on every response.
+
+The WebSocket endpoints are unaffected. A browser applies no CORS check to a WebSocket handshake, and the AppView does not check `Origin` on one.
+
+## Storage
+
+libSQL is the default and needs no other service: `DATABASE_URL` defaults to `file:./data/colibri.db`. A `postgres://` URL switches the driver to Postgres.
+
+Both dialects share one hand-written schema, `packages/db/src/schema/sqlite.ts`. The build of `packages/db` runs `scripts/generate-pg-schema.mjs`, which writes `pg.ts` from it, and `parity.test.ts` asserts the two agree on column names, nullability, primary keys and indexes. After a schema change, run `pnpm db:generate` to regenerate `pg.ts` and the migrations for both dialects.
+
+## A PDS to create Spaces on
+
+Creating a Space needs a spaces-alpha PDS at `PDS_URL` and its admin password in `PDS_ADMIN_PASSWORD`. [Running a PDS](/docs/developers/development/pds) covers running one locally in Docker, though we recommend using [Snowglobe](/docs/developers/development/overview/#start-a-local-network-with-snowglobe) for local development.
+
+## Source layout
+
+<FileTree>
+- apps
+  - appview the server
+    - src
+      - config.ts environment parsing and validation
+      - context.ts wires the packages into one `AppContext`
+      - server.ts registers routes, CORS and `/health`
+      - routes/ one module per lexicon group
+      - views/ read models assembled for the API responses
+      - ws/ the events and voice WebSocket surfaces
+      - polyfill/ space repos hosted for members on a stock PDS
+      - cluster/ node registry, main role, failover, rollouts and provisioning
+      - jetstream.ts consumes Jetstream events
+  - admin `colibri-admin`, the command line for the database and a cluster of nodes
+  - bridge `colibri-bridge`, the process that runs the hosted Colibri bridge
+  - migrate `colibri-migrate`, moves one legacy community onto spaces
+- packages
+  - lexicons every Colibri schema, the space type declarations, and the types generated from them
+  - space client for `com.atproto.space` and its space policies
+  - space-sync keeps a local copy of a space current
+  - db Drizzle schema and migrations for libSQL and Postgres
+  - projections turns synced records into the typed read models the API serves
+  - identity service auth, DID documents, handle resolution
+  - community provisioning, credential custody, roles and permissions, access checks, moderation
+  - notifications notification indexing, Web Push, FCM and APNs
+  - blobs CID-verified blob proxy for permissioned blobs, with image variants
+  - embeds SSRF-guarded link previews and the GIF picker
+  - emoji custom emoji providers
+  - voice mediasoup voice SFU
+  - telemetry the anonymous daily heartbeat
+  - bridge-core the Colibri half of a bridge
+  - bridge-discord the connector of the hosted Colibri bridge
+- deploy playbooks and configuration for a cluster
+- docker
+  - plc a PLC directory for local development and the integration suite
+</FileTree>
+
+A new endpoint is a handler in `apps/appview/src/routes/`, registered in `registerXrpcRoutes` in `apps/appview/src/server.ts`, plus an `errors` entry in its lexicon.
+
+`colibri-migrate` takes a community DID and prints a report as JSON:
+
+```sh
+colibri-migrate --community did:plc:4z3bq7rjmuyqfdeslq7vfwdk --dry-run
+```
+
+## Running it with Docker
+
+`docker-compose.yml` runs the published image, `ghcr.io/colibri-social/api:stable`. Pass `--build` to build the image from your checkout with the `Dockerfile` in the repository:
+
+```sh
+cp .env.example .env
+docker compose up --build
+```
+
+That runs the AppView alone on libSQL against the `appview-data` volume, pointed at the PDS in `PDS_URL`. The compose file publishes the SFU media ports only. To reach port `3000` from the host, add a port mapping in a `docker-compose.override.yml`.
+
+Three overlays compose on top of it:
+
+| Overlay | What it adds |
+| --- | --- |
+| `docker-compose.postgres.yml` | Postgres, and a `DATABASE_URL` that points at it |
+| `docker-compose.pds.yml` | A local spaces-alpha PDS and a private PLC directory |
+| `docker-compose.integration.yml` | The same PDS and PLC, ephemeral, for `pnpm test:integration` |
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.pds.yml up
+```
+
+[Self-Hosting](/docs/developers/self-hosting/getting-started#compose-files-and-profiles) covers the `updater` and `blobs` profiles and `docker-compose.scaled.yml`.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `pnpm dev` | Runs the AppView from source in watch mode |
+| `pnpm build` | Generates the lexicon types, then compiles every package with `tsc --build` |
+| `pnpm typecheck` | Compiles the sources and typechecks the tests |
+| `pnpm test` | Runs the unit tests |
+| `pnpm test:integration` | Runs the integration suite against a spaces-alpha PDS |
+| `pnpm lint` | Runs Biome |
+| `pnpm lint:fix` | Runs Biome and applies its fixes |
+| `pnpm lexicons:codegen` | Regenerates the TypeScript types from the lexicon JSON |
+| `pnpm db:generate` | Regenerates the Postgres schema and the migrations |
+| `pnpm changeset` | Adds a changeset |
+
+[Testing](/docs/developers/development/testing) covers the test commands in detail.
+
+## Lexicons
+
+Every Colibri schema lives under `social.colibri.beta.*` in `packages/lexicons/lexicons`. The `com.atproto.space`, `memberspace`, `managedspace` and `personalspace` documents next to them are vendored from upstream at the commit in `packages/lexicons/lexicons/com/atproto/PINNED_COMMIT`.
+
+An NSID resolves through a `_lexicon` TXT record on its domain authority, which is every segment except the last, reversed. `social.colibri.beta.channel.text` resolves through `_lexicon.channel.beta.colibri.social`.
+
+```sh
+pnpm lexicons:check-dns
+pnpm lexicons:publish --dry-run
+pnpm lexicons:publish
+```
+
+`lexicons:check-dns` prints the TXT records publishing needs, one per domain authority. Pass a DID, as in `pnpm lexicons:check-dns did:plc:mprdjqjluoswa7awzggaggj3`, to check that each record points at it. `lexicons:publish` writes the schemas to `com.atproto.lexicon.schema` records and reads `LEXICON_PDS`, `LEXICON_IDENTIFIER` and `LEXICON_PASSWORD` from the environment.
+
+### Renaming the namespace
+
+`lexicons:renamespace` moves every Colibri schema from one NSID prefix to another. It moves the lexicon files to the paths of their new IDs and rewrites the prefix in the `.ts`, `.mjs`, `.md`, `.yml` and `.yaml` files of the repository. Pass `--dry-run` to print the changes without writing them, then regenerate the types:
+
+```sh
+pnpm lexicons:renamespace social.colibri.beta social.colibri --dry-run
+pnpm lexicons:renamespace social.colibri.beta social.colibri
+pnpm lexicons:codegen
+```
+
+## Releasing
+
+Releases run through [Changesets](https://github.com/changesets/changesets). Add a changeset to your pull request describing what changed:
+
+```sh
+pnpm changeset
+```
+
+Five packages are published to npm from this repository:
+
+- `@colibri-social/lexicons`
+- `@colibri-social/space`
+- `@colibri-social/space-sync`
+- `@colibri-social/bridge-core`
+- `@colibri-social/bridge-discord`
+
+A change to the lexicons is a protocol change, so treat it as a minor bump at least.
+
+Private packages are versioned and get no tag, set by `privatePackages` in `.changeset/config.json`. A single changeset can therefore name a private package and a published one together.
+
+## See also
+
+- [AppView Architecture](/docs/developers/architecture/appview): services and how they fit together.
+- [AppView Specification](/docs/developers/specification/appview): what every endpoint and event must do.
+- [Self-Hosting](/docs/developers/self-hosting/getting-started): running an instance for real users, with the full configuration reference.

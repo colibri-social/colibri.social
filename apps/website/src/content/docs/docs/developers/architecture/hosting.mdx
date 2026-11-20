@@ -1,0 +1,251 @@
+---
+title: Hosting
+description: Where space repositories and Space accounts live, covering the spaces polyfill and bring-your-own hosting.
+sidebar:
+  order: 8
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+A member's space repositories live on that member's PDS or on the AppView. A
+Space's account lives on the AppView's own PDS or on a PDS its owner chose.
+This page covers both.
+
+## The spaces polyfill
+
+A member's messages, reactions and preferences live in space repositories on
+their own PDS. That requires a PDS that serves the `com.atproto.space` methods.
+For a member whose PDS does not, the AppView hosts those repositories itself.
+This is the **spaces polyfill**.
+
+The polyfill covers a member's own repositories. A Space's account always needs
+a PDS that serves spaces. See
+[when a spaces PDS is required](#when-a-spaces-pds-is-required).
+
+### Detecting support
+
+The AppView probes a member's PDS to learn whether it serves spaces. It first
+reads the method list from `community.lexicon.service.describe` and looks for
+`com.atproto.space.getDelegationToken`. When the PDS offers no method list, the
+AppView compares the PDS's answer to that method with its answer to a method
+that does not exist.
+
+The result is cached per PDS: 24 hours for a PDS that serves spaces, and one
+hour for one that does not.
+
+### Host modes
+
+Every member has a host mode, and each of their space repositories has one too.
+A repository without its own mode follows the member's, and a member the
+AppView has never recorded is `native`.
+
+| Mode | Where the repository lives | Who accepts writes |
+| --- | --- | --- |
+| `native` | On the member's PDS. The AppView syncs from it. | The PDS |
+| `polyfill` | On the AppView | The AppView |
+| `migrating` | On the AppView, while the client copies it to the PDS | The AppView |
+
+A repository moves between modes along these transitions: `polyfill` to
+`migrating`, `migrating` to `native`, `migrating` back to `polyfill`, and
+`native` to `polyfill`.
+
+A member enters `polyfill` when one of these happens:
+
+- `social.colibri.beta.polyfill.getStatus` finds that their PDS does not serve
+  spaces.
+- Their first `social.colibri.beta.polyfill.applyWrites` arrives and the probe
+  says their PDS does not serve spaces.
+- A sync pull of one of their repositories fails in a way that shows the PDS
+  does not serve spaces, and a fresh probe confirms it.
+
+### Reading and writing
+
+`social.colibri.beta.polyfill.getStatus` reports the caller's mode and whether
+their PDS serves spaces. The client reads it and routes space reads and writes
+to the PDS or to the AppView.
+
+`social.colibri.beta.polyfill.applyWrites` creates, updates and deletes records
+in the caller's own repository in one space. The AppView authorizes the write
+with the same decision it gives the Space's PDS through `checkAccess`, validates
+each record against its lexicon, and applies the batch as one revision in one
+transaction. It then indexes the records the same way it indexes a synced write.
+
+A record keeps the URI it will have on the member's PDS after a migration.
+
+The polyfill accepts these collections:
+
+| Space | Collections |
+| --- | --- |
+| Text channel, voice channel, thread | `social.colibri.beta.message`, `social.colibri.beta.reaction`, `social.colibri.beta.label` |
+| Thread | `social.colibri.beta.thread.follow` |
+| The caller's preferences space | `actor.mute`, `actor.block`, `actor.settings`, `actor.clientPreferences`, `actor.composerState`, `actor.spaceNotification`, `actor.spaceModeration`, `channel.read`, `emoji.follow` |
+
+`social.colibri.beta.polyfill.getRecord` and `listRecords` read the caller's own
+hosted repository. A call for a repository the AppView does not host fails with
+`RepoNotHosted`.
+
+For each hosted repository, the AppView keeps a revision and a set hash over
+its records, the same hash a PDS signs in a commit. The
+[sync engine](/docs/developers/architecture/sync) skips hosted repositories.
+
+### Blobs
+
+`social.colibri.beta.polyfill.uploadBlob` stores an attachment for a member the
+AppView hosts. Blobs go to an S3-compatible bucket, configured with the
+`POLYFILL_S3_*` variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `POLYFILL_S3_BUCKET` | The bucket name. Leave it unset to turn uploads off. |
+| `POLYFILL_S3_ACCESS_KEY_ID`, `POLYFILL_S3_SECRET_ACCESS_KEY` | The bucket credentials. Set the bucket name and both credentials together. |
+| `POLYFILL_S3_ENDPOINT` | The endpoint of an S3-compatible service |
+| `POLYFILL_S3_REGION` | The region, `us-east-1` by default |
+| `POLYFILL_S3_FORCE_PATH_STYLE` | Set to `true` for services that need the bucket in the path (e.g. SeaweedFS, MinIO) |
+
+The AppView's Compose files ship a SeaweedFS bucket server in the `blobs`
+profile.
+
+A blob can be up to 75 MB. An upload without a configured bucket fails with
+`BlobStorageUnavailable`. The AppView deletes a blob that no record references
+within 24 hours of its upload.
+
+### Migrating to a PDS
+
+A member's repositories move to their PDS once it serves spaces. The client
+drives the move, and the AppView stays authoritative for each repository until
+its copy verifies.
+
+<Steps>
+
+1. The client reads `getStatus`. A mode of `polyfill` with
+   `pdsSupportsSpaces: true` starts a migration.
+
+2. The client calls `social.colibri.beta.polyfill.beginMigration`. The AppView
+   probes the PDS and fails with `SpacesUnsupported` when it does not serve
+   spaces. Otherwise the member and each of their hosted repositories enter
+   `migrating`, and the call returns the spaces that still have to move. Calling
+   it again resumes an interrupted migration.
+
+3. For each space, the client pages through
+   `social.colibri.beta.polyfill.listForMigration`, fetches every referenced blob
+   with `social.colibri.beta.polyfill.getBlob`, and writes the blobs and records
+   to its PDS.
+
+4. The client calls `social.colibri.beta.polyfill.completeMigration` for the
+   space. The AppView fetches and verifies the repository from the PDS and
+   compares its set hash with its own.
+
+5. On a match, the repository becomes `native` and the AppView seeds its sync
+   cursor from the fetched revision. On a mismatch, the repository returns to
+   `polyfill` and the response lists the differing records in `missing`. When
+   the PDS copy cannot be read, the repository returns to `polyfill` and the call
+   fails with `VerificationFailed`.
+
+</Steps>
+
+The AppView accepts writes to a `migrating` repository throughout. The member
+becomes `native` once every one of their repositories is `native`, and
+`getStatus` reports progress as `spacesTotal` and `spacesDone` until then.
+
+## Bring your own hosting
+
+`social.colibri.beta.community.create` creates a new account for the Space on
+the PDS at the AppView's `PDS_URL`. That needs `PDS_ADMIN_PASSWORD`, and the
+AppView keeps the account's generated password.
+
+A Space can live on an account that already exists on another PDS. The account
+keeps its DID, its handle and its PDS, and the caller becomes the Space's
+owner. The AppView creates the four ATproto spaces of a Space on that PDS
+and seeds the same starter layout `create` does.
+
+Wherever its account lives, a Space is served by the AppView named in the
+`managingApp` field of its `social.colibri.beta.community` record. See
+[One AppView per Space](/docs/developers/architecture/spaces#one-appview-per-space).
+
+### Signing in as the host account
+
+`social.colibri.beta.community.authorizeHost` starts an OAuth sign-in as the
+host account.
+
+<Steps>
+
+1. The client calls `authorizeHost` with the account's handle or DID and an
+   `intent` of `adopt` or `reconnect`. The AppView answers with an
+   `authorizeUrl` and a `request` identifier.
+
+2. The user opens the URL, signs in as that account on its own PDS, and allows
+   the AppView to act for it.
+
+3. The client polls `social.colibri.beta.community.getHostAuthorization` with
+   the `request`. Its `status` is `pending`, then `done` or `failed`. A failure
+   carries one of `cancelled`, `wrongAccount`, `spacesUnsupported`,
+   `alreadyHosts` or `failed`.
+
+</Steps>
+
+With `adopt`, the AppView turns the account into a new Space. With `reconnect`,
+an administrator of an existing Space restores the AppView's access after its
+sign-in lapsed or the account moved to another PDS.
+
+Host sign-in needs `HOST_OAUTH_PRIVATE_KEY`, an ES256 key the AppView signs its
+client assertions with. Without it, `authorizeHost` fails with
+`HostSignInUnavailable`. The AppView serves its OAuth client metadata at
+`/oauth/host/client-metadata.json`. `HOST_OAUTH_KEY_ID` names the key, and
+`HOST_OAUTH_RETURN_URL` sets where the browser lands after the sign-in.
+
+### Adopting with a password
+
+`social.colibri.beta.community.adopt` does the same with the account's
+identifier and password. The credentials must authenticate as the exact DID
+given. An app password does not work, because minting a delegation token
+requires full account access.
+
+`social.colibri.beta.community.registerCredentials` hands the AppView an
+identifier and password for a Space's account. The AppView checks them against
+the account's PDS before it stores them, and only an administrator of the Space
+can replace credentials the AppView already holds.
+
+The AppView stores passwords and OAuth sessions encrypted with AES-256-GCM
+under `CREDENTIAL_ENCRYPTION_KEY`.
+
+### Checking where a Space lives
+
+`social.colibri.beta.community.getHosting` describes a Space's account to its
+administrators. `kind` is `colibri` when the account lives on the AppView's PDS
+and the AppView holds its password, and `own` when the AppView acts through a
+sign-in. `needsSignIn` is `true` when the AppView lost access. New writes fail
+until an administrator reconnects the account.
+
+The AppView watches identity events for the accounts it holds credentials for.
+When an account's PDS changes, it marks the Space as needing a new sign-in.
+
+### Handing over a hosted account
+
+`social.colibri.beta.community.handOverHost` lets an administrator move an
+account that lives on the AppView's PDS to another PDS.
+
+The AppView sets the given email address on the account, so the codes the PDS
+sends for the move reach the administrator, and returns the account's handle
+and a new password once. The password works for 60 minutes. When the account
+has moved by then, the Space is marked as needing a sign-in on its new PDS. When
+it has not, the AppView replaces the password.
+
+The call fails with `HandOverUnavailable` when the account does not live on the
+AppView's PDS, when it has already moved, or when the AppView has no
+`PDS_ADMIN_PASSWORD`.
+
+## When a spaces PDS is required
+
+| Account | Requirement |
+| --- | --- |
+| A member | Any PDS. The polyfill hosts the member's space repositories when the PDS does not serve spaces. |
+| A Space created with `create` | The PDS at `PDS_URL` must serve spaces. |
+| A Space adopted with `authorizeHost` or `adopt` | The account's PDS must implement the `com.atproto.space` policy methods. Adoption fails with `SpacesUnsupported` when it does not. |
+
+## See also
+
+- [ATproto Spaces](/docs/developers/architecture/spaces): credentials, policies and delegation tokens.
+- [Sync](/docs/developers/architecture/sync): how the AppView reads repositories that live on a PDS.
+- [Storage](/docs/developers/architecture/storage): the tables behind the polyfill and the stored credentials.
+- [AppView Specification](/docs/developers/specification/appview): the `polyfill.*` and hosting methods.
+- [Self-hosting](/docs/developers/self-hosting/getting-started): configuring your own AppView.

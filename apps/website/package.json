@@ -4,7 +4,7 @@
 	"type": "module",
 	"version": "0.3.0",
 	"engines": {
-		"node": "^24.13.0"
+		"node": "^24.22.3"
 	},
 	"scripts": {
 		"sync-assets": "pnpm --filter @colibri-social/assets fetch-all && node scripts/sync-shared-assets.mjs",
@@ -45,6 +45,7 @@
 		"sharp": "^0.34.5",
 		"shiki": "^4.0.2",
 		"solid-js": "^1.9.11",
+		"starlight-sidebar-topics": "0.9.0",
 		"starlight-theme-rapide": "^0.5.2",
 		"tailwind-merge": "^3.4.0",
 		"tailwindcss": "^4.1.18",

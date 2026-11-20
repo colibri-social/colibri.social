@@ -1,0 +1,173 @@
+---
+import { Badge } from "@astrojs/starlight/components";
+import { LEXICON_DOCS } from "@/utils/atproto/lexicons";
+import LexiconField from "./LexiconField.astro";
+import LexiconRefBase from "./LexiconRefBase.astro";
+import LexiconSchema from "./LexiconSchema.astro";
+import type { LexField } from "./lexicon-utils.ts";
+import { LEXICONS_PAGE, methodsUnder, resolveRef } from "./xrpc-methods.ts";
+
+interface Props {
+	prefix: string;
+}
+
+const { prefix } = Astro.props;
+
+const methods = await Promise.all(
+	methodsUnder(LEXICON_DOCS, prefix).map(async (method) => {
+		const messageSchema = method.def.message?.schema as LexField | undefined;
+		const frames =
+			messageSchema?.type === "union"
+				? (messageSchema.refs as Array<string>).map((ref) =>
+						resolveRef(LEXICON_DOCS, ref, method.nsid),
+					)
+				: [];
+
+		return {
+			...method,
+			frames,
+			messageSchema: frames.length > 0 ? undefined : messageSchema,
+			params: method.def.parameters as LexField | undefined,
+			errors: (method.def.errors ?? []) as Array<LexField>,
+			notes: Astro.slots.has(method.name)
+				? await Astro.slots.render(method.name)
+				: undefined,
+		};
+	}),
+);
+---
+
+<nav class="xrpc-index not-content" aria-label={`${prefix} methods`}>
+	<ul>
+		{
+			methods.map((method) => (
+				<li>
+					<a class="xrpc-index-link" href={`#${method.anchor}`}>{method.name}</a>
+				</li>
+			))
+		}
+	</ul>
+</nav>
+
+{
+	methods.map((method) => (
+		<section class="xrpc-method">
+			<div class="lex-doc not-content">
+				<h3 class="lex-doc-title" id={method.anchor}>
+					<a class="xrpc-method-link" href={`#${method.anchor}`}>
+						{method.nsid}
+					</a>
+				</h3>
+				<div class="xrpc-method-meta">
+					<Badge text={method.kind.toUpperCase()} />
+					<span class="xrpc-endpoint">
+						<span class="xrpc-verb">{method.verb}</span>
+						<span>/xrpc/{method.nsid}</span>
+					</span>
+					<span class="lex-chip">
+						{method.authenticated ? "service auth" : "no service auth"}
+					</span>
+				</div>
+				{method.def.description && (
+					<p class="lex-desc">{method.def.description}</p>
+				)}
+
+				<div class="lex-def">
+					<LexiconRefBase base={LEXICONS_PAGE}>
+						{method.params?.properties && (
+							<div class="lex-section">
+								<span class="lex-section-label">Parameters</span>
+								<div class="lex-fields">
+									{Object.entries(method.params.properties).map(
+										([key, value]) => (
+											<LexiconField
+												name={key}
+												def={value as LexField}
+												required={method.params?.required?.includes(key)}
+												docId={method.nsid}
+											/>
+										),
+									)}
+								</div>
+							</div>
+						)}
+
+						{method.def.input && (
+							<div class="lex-section">
+								<span class="lex-section-label">Input</span>
+								<LexiconSchema
+									schema={method.def.input.schema}
+									encoding={method.def.input.encoding}
+									description={method.def.input.description}
+									docId={method.nsid}
+								/>
+							</div>
+						)}
+
+						{method.def.output && (
+							<div class="lex-section">
+								<span class="lex-section-label">Output</span>
+								<LexiconSchema
+									schema={method.def.output.schema}
+									encoding={method.def.output.encoding}
+									description={method.def.output.description}
+									docId={method.nsid}
+								/>
+							</div>
+						)}
+
+						{method.messageSchema && (
+							<div class="lex-section">
+								<span class="lex-section-label">Message</span>
+								<LexiconSchema
+									schema={method.messageSchema}
+									docId={method.nsid}
+								/>
+							</div>
+						)}
+					</LexiconRefBase>
+
+					{method.frames.length > 0 && (
+						<div class="lex-section">
+							<span class="lex-section-label">Message</span>
+							<div class="lex-fields">
+								{method.frames.map((frame) => (
+									<div class="lex-field">
+										<div class="lex-field-head">
+											<a class="lex-field-name lex-ref" href={frame.href}>
+												{frame.name}
+											</a>
+										</div>
+										{frame.description && (
+											<p class="lex-desc">{frame.description}</p>
+										)}
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+
+					{method.errors.length > 0 && (
+						<div class="lex-section">
+							<span class="lex-section-label">Errors</span>
+							<div class="lex-fields">
+								{method.errors.map((error) => (
+									<div class="lex-field">
+										<div class="lex-field-head">
+											<span class="lex-field-name">{error.name}</span>
+										</div>
+										{error.description && (
+											<p class="lex-desc">{error.description}</p>
+										)}
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+
+				</div>
+			</div>
+			{method.notes && <div class="xrpc-notes" set:html={method.notes} />}
+		</section>
+	))
+}

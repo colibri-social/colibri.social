@@ -1,0 +1,205 @@
+---
+title: Moderation
+description: What a Space can do about content it does not want, when it does not own that content.
+sidebar:
+  order: 6
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+A message lives in its author's own repository, and only its author can delete
+it.
+
+A Space controls **who may read its ATproto spaces** and **what it says
+about the content in them**.
+
+## Operations are labels
+
+Hiding a message, moving it, marking it a spoiler and suppressing its embeds are
+all [`social.colibri.beta.label`](/docs/developers/specification/lexicons) records,
+written into the same ATproto space as the content they describe.
+
+A label shares the access boundary of the record it labels, so a label on a
+message in a private channel is readable only by people who can read that
+channel.
+
+Retracting a label writes a **negating label** and leaves the original in
+place, so a reader moving forward through the log sees that the label was
+withdrawn.
+
+| Label | What the AppView does |
+| --- | --- |
+| `hidden` | Withholds the record |
+| `moved` | Withholds the record from this space and serves it in the space named by the label's `destination` |
+| `spoiler` | Passes the label through for the client to honour |
+| `embeds-suppressed` | Passes the label through for the client to honour |
+
+### `hidden` is withheld
+
+A message carrying a `hidden` label from a labeler the Space honours is
+**not served**. It is absent from `listMessages`, from `listReactions`,
+from notifications, from unread counts and from the events socket.
+
+A moderator and the author still receive it:
+
+- A moderator holding `label.apply` in that channel receives it with its label
+  attached, since reviewing and retracting a hide requires seeing what was
+  hidden.
+- The author receives their own, with its label attached. The record is in their
+  repository and they can read it from there at any time.
+
+A reply whose parent is withheld gets a `deletedMessageView` stand-in in place
+of the parent, identical to the one an author's own deletion produces.
+
+Hiding stops **this AppView** from serving the record. The message stays in its
+author's repository, and anyone holding a credential for the space can read it
+directly from the repo host, or run an AppView that ignores the label. Describe
+such a message as hidden in a client's UI.
+
+### `moved` is served elsewhere
+
+`social.colibri.beta.thread.moveMessages` moves messages into another thread or
+channel. It writes one `moved` label per message into the source space, each
+naming the `destination` space, and labels written in one move share a `batch`
+value.
+
+The AppView withholds a moved message from the space it was written in and
+serves it in the destination at its own record key, so it reads among the
+destination's messages by send time.
+
+### `spoiler` and `embeds-suppressed` are passed through
+
+These are display instructions. The AppView forwards them on
+`messageView.labels` and the client honours them.
+
+## A Space can be moderated by more than itself
+
+A labeler is an admitted member of the space writing labels into its own
+repository. The protocol treats it like any other member.
+
+`social.colibri.beta.community.settings` carries a `labelers` list, which is the set
+of DIDs whose labels this Space honours in addition to its own. The AppView
+ignores labels from anyone else when it serves a read.
+
+## Banning is a credential decision
+
+Banning someone deletes their `social.colibri.beta.member` record and stops the
+Space issuing them credentials. The next time their client asks the Space's PDS
+to read one of its ATproto spaces, the PDS asks the AppView, and the
+AppView answers `read: false`.
+
+The refusal happens at the protocol layer, before any data moves.
+
+Their existing messages stay in their own repository, where they can be
+labelled and filtered.
+
+`social.colibri.beta.moderation` records that the ban happened. It is the audit
+log, and it holds `ban`, `unban` and `kick` entries.
+
+Whether someone is currently banned is decided by the most recent `ban` or
+`unban` entry for them, ordered by record key. The key is a TID and therefore
+monotonic. `createdAt` is author supplied, and two entries can share a
+millisecond.
+
+## Roles and permissions
+
+A role carries a list of permissions and a `position`. A higher position
+outranks a lower one. Every member holds the roles marked `default`, which
+includes the Members role created with the Space.
+
+A channel record and a category record each carry `permissionOverrides`. One
+override names either a role or a member, and lists the permissions it allows
+and the permissions it denies there. A deny in an override wins over an allow in
+the same override.
+
+The AppView resolves a permission in a channel in this order:
+
+<Steps>
+
+1. The Space's own DID and every holder of the protected Owner role have every
+   permission. A banned account has none.
+2. A caller who is not a member, or who lacks `channel.view` in the channel,
+   has no permission there.
+3. The channel's override for the member.
+4. The channel's overrides for the member's roles, from the highest position
+   down, with default roles last.
+5. The category's overrides, in the same order as steps 3 and 4.
+6. The base: the permission lists of the member's roles.
+
+</Steps>
+
+Outside a channel, only steps 1 and 6 apply.
+
+An override can carry these permissions: `channel.view`, `channel.update`,
+`channel.delete`, `message.send`, `thread.create`, `thread.manage`,
+`thread.move`, `mention.roles`, `label.apply`, `voice.connect`, `voice.speak`,
+`voice.listen`, `voice.camera`, `voice.screenshare`, `voice.chat` and
+`voice.moderate`.
+
+Every action taken *against another person* is additionally guarded by
+hierarchy: you must strictly outrank them. The Space itself outranks everyone,
+and someone with no roles outranks nobody. Two members whose highest roles share
+a position cannot ban each other.
+
+:::note[Deprecated fields]
+The lexicons mark `ownerOnly`, `allowedRoles`, `allowedMembers`,
+`visibleToRoles` and `visibleToMembers` on channel and category records, and
+`channelOverrides` on role records, as deprecated. The AppView reads them only
+for a channel or category record that has no `permissionOverrides`.
+:::
+
+## Reading and posting are separate
+
+Reading a channel is the `channel.view` permission. Posting is `message.send`
+in a text channel and `voice.connect` in a voice channel.
+
+A read-only announcement channel denies `message.send` to the Members role and
+allows it to the roles that post there, while `channel.view` stays with
+everyone.
+
+A channel is private when it, or its category, denies `channel.view` to the
+default role. The AppView refuses space credentials for it to every member
+whose `channel.view` resolves to a deny.
+
+A thread follows its parent channel. A thread whose record lists
+`visibleToRoles` or `visibleToMembers` is readable only by those roles and
+members, by holders of the Owner role, and by the Space itself. Writing in a
+thread needs the right to post in the parent channel, and a locked thread also
+needs `thread.manage`.
+
+## Access decisions fail closed
+
+`com.atproto.managedspace.checkAccess` is the endpoint the Space's PDS
+calls before issuing a credential for a managed space. It takes the `space`, the
+account asking as `repo`, and the attested `clientId` when there is one, and
+answers `{ read, write }`. It answers from the AppView's local projections and
+makes no outbound call of its own.
+
+The AppView checks these in order:
+
+- A caller other than the space's authority gets `read: false, write: false`.
+- A request without a `repo` gets the same.
+- A space whose authority is not a Space on this AppView gets the same.
+- The Space's own DID is allowed everything.
+- A banned account is refused everything.
+- An unrecognised space type is refused.
+
+After that, the answer depends on the space type.
+
+| Space | Read | Write |
+| --- | --- | --- |
+| profile | members | nobody but the Space |
+| configuration, members | members | nobody but the Space |
+| moderation | members holding `moderation.viewLog` | nobody but the Space |
+| text channel | `channel.view` in the channel | `message.send` in the channel |
+| voice channel | `voice.chat` in the channel | `voice.connect` and `voice.chat` in the channel |
+| thread | may read the thread | may post in the thread |
+
+The profile space uses `com.atproto.memberspace.policy` with
+`publicRead: true`, so its PDS serves it to anyone without calling
+`checkAccess`.
+
+## See also
+
+- [ATproto Spaces](/docs/developers/architecture/spaces): how a credential refusal enforces access.
+- [Colibri Spaces](/docs/developers/architecture/communities): the ATproto spaces these decisions are made about.

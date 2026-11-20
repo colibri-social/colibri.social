@@ -304,8 +304,9 @@ content cannot always be fully recalled once it has been distributed across the 
 you with strong self-service control, since you own your repository and can export or delete records directly.
 
 **Erasure is self-service.** You can delete your Colibri data and everything we hold about you from
-**Settings > Delete account** in the app, or at [colibri.social/app/delete-account](/app/delete-account) if you no
-longer have the app installed. That removes your Colibri records and your AppView data (index entries, notifications,
+**Settings > Advanced > Delete my Colibri data** in the app, or at
+[colibri.social/app/settings/deleteAccount](/app/settings/deleteAccount) if you no longer have the app installed.
+That removes your Colibri records and your AppView data (index entries, notifications,
 read state, presence, push subscriptions, invitations). It does **not** delete the atproto account you sign in with,
 which only your PDS operator can remove, see Section 2. Bans and kicks recorded against you are retained under
 Art. 17(3)(e) GDPR, since deleting them with the account would make them evadable.

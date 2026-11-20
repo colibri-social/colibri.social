@@ -1,0 +1,277 @@
+---
+title: Facets
+description: How Colibri rich-text facets are encoded, rendered, and which take precedence.
+---
+
+Colibri messages store their text as plain UTF-8. All formatting is carried separately as a list of **facets**: annotations that each apply one or more features to a byte range of that text.
+
+Keeping formatting out of the text itself means the raw message stays readable and searchable, and a client that doesn't understand a given feature can always fall back to rendering the plain text.
+
+:::note
+The AppView stores facets as written and does not render them. It reads two kinds of feature when it indexes a message: [`mention`](#mention) and [`role`](#role) features produce notifications. When it serves a message, it removes [`customEmoji`](#customemoji) features that the Space's `customEmoji` setting disallows. Rendering is the client's job, and the rest of this page describes the rules a client follows. Colibri's own renderer lives in `packages/ui/src/components/RichText`.
+:::
+
+## The facet shape
+
+A facet is an `index` (the byte range it covers) plus a list of `features` (what to do with that range):
+
+```ts title="social.colibri.beta.richtext.facet"
+{
+	index: {
+		byteStart: number; // inclusive, zero-based
+		byteEnd: number;   // exclusive
+	};
+	features: Feature[]; // one or more features applied to this range
+}
+```
+
+- **Offsets are byte offsets into the UTF-8 encoded text.** A multi-byte character (an emoji, an accented letter) advances the index by its byte length. A renderer slices the encoded bytes. Slicing a JavaScript string by these offsets makes ranges drift on non-ASCII text.
+- `byteStart` is inclusive, `byteEnd` is exclusive, both zero-based.
+- A single facet may carry **multiple features** over the same range (e.g. bold *and* italic).
+
+## Feature types
+
+Features fall into two groups that are rendered very differently:
+
+| Group | Features | Rendered as |
+| --- | --- | --- |
+| **Inline** | `bold`, `italic`, `underline`, `strikethrough`, `code`, `spoiler`, `mention`, `bridgedMention`, `role`, `link`, `channel`, `time`, `customEmoji` | Wrappers/elements *within* a line of text |
+| **Block** | `codeblock`, `quote`, `heading`, `list`, `subtext` | Block-level elements that own their whole range |
+
+The distinction drives the whole [resolution algorithm](#precedence-and-resolution): block features define the document's structure, and inline features decorate the text inside it.
+
+### Inline features
+
+#### `bold`, `italic`, `underline`, `strikethrough`
+
+The basic text marks. No properties. Rendered as `<strong>`, `<em>`, `<u>` and `<s>` respectively. They combine freely (see [combining marks](#combining-inline-marks)).
+
+#### `code`
+
+Inline monospace code. No properties. Rendered as an inline `<code>` element. The text inside is shown literally, other inline marks may still be applied around it.
+
+#### `spoiler`
+
+Click-to-reveal text. No properties. Rendered hidden (text and background masked) until the reader clicks it or reveals it with the keyboard.
+
+#### `mention`
+
+A reference to a user.
+
+```ts title="#mention"
+{ did: string } // DID of the mentioned user
+```
+
+The facet's covered text is the visible label (e.g. `@alice`). The renderer resolves `did` against the Space's members. A known member renders as an interactive mention with a profile popover, and an unknown DID renders as a styled mention without navigation.
+
+The AppView reads this feature when it indexes the message and creates a mention notification for that user.
+
+#### `bridgedMention`
+
+A mention of someone on another service, whose messages a [bridge](/docs/developers/bridges/building-a-bridge) relays.
+
+```ts title="#bridgedMention"
+{
+	registration: string;
+	platform: string;
+	remoteId: string;
+}
+```
+
+`registration` is the record key of the bridge registration the person is reached through, `platform` names the service they are on, and `remoteId` is their id on that service.
+
+The renderer resolves the person's current name through the bridge and shows it as a mention chip marked with the platform. When it cannot resolve the person, it shows the covered text as the label.
+
+#### `role`
+
+A reference to a role in the same Space.
+
+```ts title="#role"
+{ role: string } // record key of the referenced role
+```
+
+A bare record key is unambiguous here. Roles are only ever written by the Space itself, and a channel space's authority *is* its Space.
+
+The covered text is the visible label (for example `@Moderators`). Resolved against the Space's roles and rendered as a coloured chip using the role's `color`. An unresolved key renders as a styled `@Unknown Role` chip.
+
+Unlike a user mention, a role mention fans out at index time: the AppView notifies every member holding the role. Whether the ping fires is gated. A role is pingable by anyone when its record's `mentionable` flag is set, roles not marked mentionable can only be pinged by authors holding the `mention.roles` permission. The chip renders for everyone regardless, the gate only governs the notification.
+
+#### `channel`
+
+A reference to a channel in the same Space.
+
+```ts title="#channel"
+{ channel: string } // space key of the referenced channel
+```
+
+A [channel is its space](/docs/developers/architecture/communities#a-channel-is-its-space), so the reference is that space's key. As with a role, the key alone is unambiguous, because the Space that is the authority of the message's channel space is the same Space the referenced channel belongs to.
+
+Rendered as `#name`, linking to the channel. The name is resolved at render time, so renaming a channel updates every existing reference to it. An unresolved key still renders styled but non-navigable.
+
+:::note[No references into another Space]
+A `#channel` feature can only name a channel in the message's own Space. A Space's data lives in [ATproto spaces](/docs/developers/architecture/spaces) and a reader needs a credential per space, so a reference into a Space the reader has no credential for resolves to nothing. A link into another Space is an ordinary `#link`.
+:::
+
+A channel URL pasted into the composer is upgraded to a `#channel` feature, and a reader that encounters a channel URL inside a plain `#link` feature renders it the same way.
+
+#### `link`
+
+A hyperlink.
+
+```ts title="#link"
+{ uri: string } // the link target
+```
+
+Rendered as an `<a>` opening in a new tab. The covered text is the link label. When the label text matches `uri` (a "bare" URL), the client may rewrite the displayed href, for example, rewriting a Bluesky URL to the reader's preferred Bluesky client.
+
+#### `time`
+
+A timestamp, rendered in the reader's locale and timezone.
+
+```ts title="#time"
+{
+	datetime: string; // ISO 8601 timestamp
+	style?: "time-short" | "time-long" | "date-short" | "date-long"
+	      | "datetime-short" | "datetime-long" | "relative";
+}
+```
+
+`relative` renders a live "in 5 minutes" / "2 hours ago" label. The covered text is replaced by the formatted timestamp.
+
+#### `customEmoji`
+
+A custom emoji.
+
+```ts title="#customEmoji"
+{
+	uri: string;
+	cid?: string;
+}
+```
+
+`uri` is the AT URI of the emoji record. Its collection identifies the emoji lexicon, for example `blue.moji.collection.item`. `cid` is the version of the record the message was written against.
+
+The covered text is the emoji's fallback: a Unicode alternative when the emoji has one, otherwise its `:name:` shortcode. The renderer replaces the covered text with the emoji's image. It shows the fallback text when the emoji cannot be resolved, and inside a `code` or `link` range.
+
+The Space's `customEmoji` setting decides which emoji render there. `all` allows custom emoji from any source, `local` only the Space's own emoji, and `none` disables them. The AppView strips the disallowed features before it serves a message, so the fallback text shows.
+
+### Block features
+
+Each block feature covers a whole line (or, for `codeblock`, a whole multi-line region). Inline features may still apply *inside* a block's range.
+
+#### `heading`
+
+```ts title="#heading"
+{ level: 1 | 2 | 3 }
+```
+
+Rendered as `<h1>`, `<h2>`, or `<h3>`. Levels are clamped: `1` (or lower) = `<h1>`, `2` = `<h2>`, `3` (or higher) = `<h3>`.
+
+#### `list`
+
+```ts title="#list"
+{
+  ordered: boolean, // true = numbered, false = bulleted
+  indent?: number,  // nesting depth, 0 is the outermost level
+}
+```
+
+Each `list` facet is one list item. Consecutive list facets are grouped into a single list when the text between them is whitespace holding a single newline. A blank line, or any intervening content, ends the list and starts a new one.
+
+Within a group, `indent` decides the nesting. An item deeper than the one before it opens a new `<ul>`/`<ol>` inside that item, and a shallower one closes levels until it fits. `indent` is capped at `10` and may be omitted at the outermost level. The item's own indentation is still part of `text`, so an item at depth 1 keeps the spaces that put it there. When no item in a message carries `indent`, the depths come from those indent widths instead.
+
+Each level takes `ordered` from its first item, so a bulleted list nests inside a numbered one.
+
+#### `quote`
+
+A block quote. No properties. Rendered as a `<blockquote>`.
+
+#### `subtext`
+
+Small, muted text. No properties. Rendered as a block-level element in a smaller, dimmed style.
+
+#### `codeblock`
+
+A multi-line, preformatted code block.
+
+```ts title="#codeblock"
+{ lang?: string } // optional language hint for syntax highlighting
+```
+
+Rendered as `<pre><code>`. Unlike every other feature, the text inside a `codeblock` is emitted **verbatim**. Inline facets are not applied within it, so markup characters show literally.
+
+## Precedence and resolution
+
+Because features can overlap and even conflict, rendering follows a defined order. A conformant renderer should reproduce these results.
+
+### 1. Normalize first
+
+Before rendering, facets are normalized:
+
+- Facets that share the **exact same byte range** are merged into one, and duplicate features within a range are removed. A `quote` facet is the exception: it is kept apart from a same-range facet carrying another block feature, so that the block it contains survives the merge and can be [nested inside it](#3-one-block-wrapper-per-range).
+- Facets are sorted by `byteStart`, then `byteEnd`.
+
+### 2. Block structure wins the outer layer
+
+Block features are extracted first and define the top-level structure of the message. The text is walked as an alternating sequence of block regions and the inline runs between them.
+
+Inline features are still rendered **inside** a block's range (a heading can contain bold text, a bare link, etc.), but block features are ignored during the inline pass. Newlines that merely separate blocks are consumed and not rendered as blank lines.
+
+### 3. One block wrapper per range
+
+A `quote` **wraps**. A quote is rendered as the `<blockquote>` and any block sharing its range is rendered inside it, so `> # title` is a blockquote containing an `<h1>`.
+
+If a single range carries more than one of the remaining block features, one wins, in this order:
+
+<div class="not-content">
+
+**`list` > `codeblock` > `heading` > `subtext`**
+
+</div>
+
+The highest-precedence block feature present is rendered, the others on that range are dropped.
+
+### 4. Inline entities are terminal
+
+Within an inline segment, five features take over the entire segment and suppress any other inline marks on it. If more than one is present, they win in this order:
+
+<div class="not-content">
+
+**`channel` > `mention` > `bridgedMention` > `role` > `time`**
+
+</div>
+
+A segment that is both a `mention` and `bold` renders as a mention only. These entity features produce a single leaf element and never nest other marks.
+
+### 5. Combining inline marks
+
+If no entity feature is present, the remaining marks (`bold`, `italic`, `underline`, `strikethrough`, `code`, `spoiler`, `link`) are applied as nested wrappers around the text, so they compose: a range that is bold *and* italic renders as bold italic text.
+
+Marks nest by rank. `bold`, `italic`, `underline`, `strikethrough` and `code` sit innermost, in the order the facets list them. `link` wraps them, and `spoiler` wraps everything, so a spoiler hides a link inside it.
+
+A [`customEmoji`](#customemoji) feature on the segment swaps the text for the emoji's image before the marks are applied, unless the segment also carries `code` or `link`.
+
+### 6. Overlapping ranges are split
+
+Partially overlapping facets (as opposed to identical ranges, which were merged in step 1) are resolved by splitting the text at every facet boundary. Each resulting segment is rendered with the features of every facet that fully covers it. For example, if `bold` covers bytes `0` to `6` and `italic` covers `3` to `9`, the result is three segments: `0` to `3` bold, `3` to `6` bold and italic, `6` to `9` italic.
+
+## Worked example
+
+Text: `Hello world` with `Hello` bold and `world` a mention.
+
+```ts
+{
+	text: "Hello world",
+	facets: [
+		{ index: { byteStart: 0, byteEnd: 5 },  features: [{ $type: "social.colibri.beta.richtext.facet#bold" }] },
+		{ index: { byteStart: 6, byteEnd: 11 }, features: [{ $type: "social.colibri.beta.richtext.facet#mention", did: "did:plc:..." }] },
+	],
+}
+```
+
+Renders as **Hello** (bold) followed by a mention chip for `world`. If the mention facet also carried `bold`, the mention would still render as a plain mention chip, because [inline entities are terminal](#4-inline-entities-are-terminal).
+
+## See also
+
+- [Lexicons](/docs/developers/specification/lexicons): the full lexicon schemas, including `social.colibri.beta.richtext.facet`.
+- [AppView Specification](/docs/developers/specification/appview): messages and the `facets` field on the wire.

@@ -3,6 +3,7 @@ import { ogImageFor } from "./url";
 
 export const onRequest = defineRouteMiddleware((context) => {
 	const route = context.locals.starlightRoute;
+	route.siteTitleHref = "/docs/";
 	const image = ogImageFor(
 		{ kind: "docs", slug: route.entry.id },
 		context.site ?? context.url,

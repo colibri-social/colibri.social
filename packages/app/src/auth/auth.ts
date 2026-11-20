@@ -52,6 +52,7 @@ import { createOAuthFetch } from "./fetch";
 import {
 	handleResolver,
 	normalizeHandle,
+	plcDirectoryUrl,
 	resolveHandleToDid,
 } from "./identity";
 import {
@@ -184,6 +185,7 @@ export type Auth = {
 const defaultLoadClient: LoadOAuthClient = async (options) => {
 	const shared = {
 		handleResolver,
+		plcDirectoryUrl: plcDirectoryUrl(),
 		fetch: createOAuthFetch(),
 		databaseOptions: options.database,
 		onSessionDeleted: options.onSessionDeleted,

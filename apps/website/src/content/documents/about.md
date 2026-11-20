@@ -34,11 +34,11 @@ A few reasons. First, the modern internet is rapidly becoming more and more clos
 sure that the internet and its communities stay open, and provide you with the tools to own your images, data, and
 identity, and we want to support this. Second, it saves on development time. Figuring out a real-time chat system is no
 easy feat, and ATproto just so happened to be a decent fit for the prototype. And because the whole thing is open, you
-aren't tied to us: anyone can [run their own Colibri AppView](/docs/self-hosting/getting-started) and host their own communities.
+aren't tied to us: anyone can [run their own Colibri AppView](/docs/developers/self-hosting/getting-started) and host their own communities.
 
 ## I like what I'm reading. Can I help out?
 
 Yes, please! All the pieces of software we've made, the [AppView](https://github.com/colibri-social/appview) and
 [Website & App](https://github.com/colibri-social/colibri.social), are open source. We encourage contributions from the
 community, be it new features, small fixes or adjustments, or even large additions to the system. Have a look at the
-[contributing guide](/docs/contributing/overview) to get started.
+[contributing guide](/docs/developers/contributing/overview) to get started.

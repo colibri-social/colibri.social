@@ -1,0 +1,92 @@
+---
+title: Legacy Communities
+description: What happens to a community created before Spaces, what moves over, and how its owner moves it.
+sidebar:
+  order: 10
+---
+
+import { Steps, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+A legacy community is a community that was created before Colibri switched to Spaces. It stays in your list of Spaces with a lock on it, but it can't be opened until it has been moved to Spaces.
+
+Moving works like moving house. The owner starts the move, Colibri carries over the rooms, the residents and the old conversations, and everyone finds the new place in their list afterwards.
+
+[The Move to Private Spaces](/docs/users/spaces/moving-to-spaces) has more information on the change behind this.
+
+## If you're a member
+
+<Steps>
+
+1. Select the locked community. Colibri tells you that it isn't on Spaces yet and names the person to ask.
+
+2. Ask that person to open Colibri and move the community.
+
+</Steps>
+
+Once it has moved, it shows up in your list with its channels and history. You're a member of the new Space with the roles you had!
+
+## If you're the owner
+
+<Steps>
+
+1. Select the locked community in your list of Spaces.
+
+2. Select **Review the move**. Colibri lists what moves over and what stays behind.
+
+3. Select **Move to Spaces**.
+
+</Steps>
+
+Colibri shows each step of the move while it runs. You can close the window. The move keeps going, and the Space appears in your list when it's done.
+
+:::tip
+If the move stops partway, nothing is lost! Select **Try again** to continue where it stopped.
+:::
+
+## Data that moves over
+
+- Channels, categories and members
+- Roles and who can post where
+- Bans
+- Message history from current members, as read-only messages
+
+Members join the Space automatically with their roles.
+
+## Data that stays behind
+
+- Invite links. Create new ones in the Space.
+- Pending join requests
+- Messages from people who left
+
+## Read-only history
+
+In each channel, a line marks the point of the move. The messages above it are the history that came from the community. You can read them. Replying to them, reacting to them, editing them and forwarding them are turned off.
+
+## Communities that can't move
+
+Colibri shows one of two messages for a community it can't move:
+
+- **Nobody who can move this community is still in it, so it can't move to Spaces.** The people who could move it have left.
+- **Colibri can't reach this community right now. Try again in a little while.** Open the community again later.
+
+In both cases, **Remove from sidebar** takes the community out of your list.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="The Move to Private Spaces"
+    description="What changed, and why you sign in again."
+    href="/docs/users/spaces/moving-to-spaces"
+  />
+  <LinkCard
+    title="Invite People"
+    description="Create new invite links after the move."
+    href="/docs/users/spaces/invites"
+  />
+  <LinkCard
+    title="Roles and Permissions"
+    description="Check the roles that moved over."
+    href="/docs/users/spaces/roles-and-permissions"
+  />
+</CardGrid>
