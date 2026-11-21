@@ -327,7 +327,10 @@ pub async fn screen_capture_start_audio(
     kind: SourceKind,
     audio_apps: Option<Vec<String>>,
 ) -> Result<CaptureSession, NativeError> {
-    activate(&state, |sender| start_audio_backend(kind, audio_apps, sender)).await
+    activate(&state, |sender| {
+        start_audio_backend(kind, audio_apps, sender)
+    })
+    .await
 }
 
 async fn activate<F, Fut>(state: &CaptureState, start: F) -> Result<CaptureSession, NativeError>

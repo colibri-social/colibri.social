@@ -363,6 +363,21 @@ describe("message rendering", () => {
 		).toBeUndefined();
 	});
 
+	it("keeps reactions where the viewer can't post", async () => {
+		await mount(`/app/c/${OWLS}/${TEXT}/prompts`);
+		const article = await findArticle("Lanterns");
+		await userEvent.hover(article);
+		await until(() => !!article.querySelector("[data-message-toolbar]"));
+		const toolbar = article.querySelector(
+			"[data-message-toolbar]",
+		) as HTMLElement;
+		expect(buttonIn(toolbar, "Add reaction")).toBeTruthy();
+		const bar = article.querySelector("[data-reaction-bar]") as HTMLElement;
+		expect(
+			bar.querySelector<HTMLButtonElement>("[data-reaction]")?.disabled,
+		).toBe(false);
+	});
+
 	it("keeps reply where the viewer can post", async () => {
 		await mount(DEV_PATH);
 		const article = await findArticle("Signals docs");

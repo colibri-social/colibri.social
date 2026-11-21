@@ -31,7 +31,11 @@ fn owned(ptr: *const c_char) -> Option<String> {
     if ptr.is_null() {
         None
     } else {
-        Some(unsafe { CStr::from_ptr(ptr) }.to_string_lossy().into_owned())
+        Some(
+            unsafe { CStr::from_ptr(ptr) }
+                .to_string_lossy()
+                .into_owned(),
+        )
     }
 }
 
@@ -60,7 +64,8 @@ pub async fn apns_register() -> Result<ApnsRegistration, NativeError> {
     .await
     .map_err(|e| NativeError::failed(e.to_string()))?;
 
-    let token = outcome.map_err(|message| NativeError::new(NativeErrorCode::Unsupported, message))?;
+    let token =
+        outcome.map_err(|message| NativeError::new(NativeErrorCode::Unsupported, message))?;
     Ok(ApnsRegistration {
         token,
         environment: environment(),

@@ -160,6 +160,14 @@ fn stage<R: Runtime>(app: &AppHandle<R>, name: &str) -> Result<Staged, NativeErr
 }
 
 async fn download(url: reqwest::Url, target: &Path) -> Result<Option<String>, NativeError> {
+    download_reporting(url, target, |_, _| {}).await
+}
+
+async fn download_reporting(
+    url: reqwest::Url,
+    target: &Path,
+    mut report: impl FnMut(usize, Option<u64>),
+) -> Result<Option<String>, NativeError> {
     let mut response = reqwest::Client::new()
         .get(url)
         .send()
@@ -176,11 +184,13 @@ async fn download(url: reqwest::Url, target: &Path) -> Result<Option<String>, Na
         .get(reqwest::header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .map(str::to_string);
+    let length = response.content_length();
     let mut output = std::io::BufWriter::new(std::fs::File::create(target).map_err(failed)?);
     let mut total = 0usize;
     while let Some(chunk) = response.chunk().await.map_err(failed)? {
         output.write_all(&chunk).map_err(failed)?;
         total += chunk.len();
+        report(total, length);
     }
     output.flush().map_err(failed)?;
     if total == 0 {
@@ -206,6 +216,59 @@ pub async fn save_url<R: Runtime>(
         staged.rename(&file_name(name.as_deref(), &mime))?;
     }
     persist(&app, &staged, mime).await
+}
+
+#[cfg(desktop)]
+const PLAYER_FOLDER: &str = "player";
+
+#[cfg(desktop)]
+const PROGRESS_STEPS: u64 = 100;
+
+#[cfg(desktop)]
+#[derive(Clone, serde::Serialize)]
+pub struct DownloadProgress {
+    received: u64,
+    total: Option<u64>,
+}
+
+#[cfg(desktop)]
+#[tauri::command]
+pub async fn open_media_url<R: Runtime>(
+    app: AppHandle<R>,
+    url: String,
+    name: Option<String>,
+    r#type: Option<String>,
+    on_progress: tauri::ipc::Channel<DownloadProgress>,
+) -> Result<(), NativeError> {
+    let source = parse_source(&url)?;
+    let requested = r#type.as_deref().and_then(valid_mime);
+    let dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(failed)?
+        .join(PLAYER_FOLDER);
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).map_err(failed)?;
+    let partial = dir.join(".partial");
+    let mut last_step = None;
+    let header = download_reporting(source, &partial, |received, total| {
+        let received = received as u64;
+        let step = total
+            .filter(|total| *total > 0)
+            .map_or(received >> 20, |total| {
+                received.min(total) * PROGRESS_STEPS / total
+            });
+        if last_step == Some(step) {
+            return;
+        }
+        last_step = Some(step);
+        let _ = on_progress.send(DownloadProgress { received, total });
+    })
+    .await?;
+    let mime = resolve_mime(requested.as_deref(), header.as_deref());
+    let file = dir.join(file_name(name.as_deref(), &mime));
+    std::fs::rename(&partial, &file).map_err(failed)?;
+    crate::open_external::open_path(&app, &file)
 }
 
 fn staged_name(staged: &Staged) -> String {

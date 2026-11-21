@@ -6,18 +6,17 @@ use block2::RcBlock;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2::{define_class, msg_send, ClassType, DefinedClass, MainThreadOnly};
+use objc2_app_kit::NSApplication;
 use objc2_foundation::{
     MainThreadMarker, NSArray, NSBundle, NSError, NSObject, NSObjectProtocol, NSString, NSURL,
 };
-use objc2_app_kit::NSApplication;
 use objc2_user_notifications::{
     UNAuthorizationOptions, UNMutableNotificationContent, UNNotification, UNNotificationAttachment,
     UNNotificationPresentationOptions, UNNotificationRequest, UNNotificationResponse,
-    UNPushNotificationTrigger, UNUserNotificationCenter,
-    UNUserNotificationCenterDelegate,
+    UNPushNotificationTrigger, UNUserNotificationCenter, UNUserNotificationCenterDelegate,
 };
 
-use super::{NotificationPayload, Activation};
+use super::{Activation, NotificationPayload};
 use crate::native_error::NativeError;
 
 fn is_bundled() -> bool {
@@ -103,11 +102,9 @@ define_class!(
                 completion_handler.call((UNNotificationPresentationOptions::empty(),));
                 return;
             }
-            completion_handler.call((
-                UNNotificationPresentationOptions::Banner
-                    | UNNotificationPresentationOptions::Sound
-                    | UNNotificationPresentationOptions::List,
-            ));
+            completion_handler.call((UNNotificationPresentationOptions::Banner
+                | UNNotificationPresentationOptions::Sound
+                | UNNotificationPresentationOptions::List,));
         }
 
         #[unsafe(method(userNotificationCenter:didReceiveNotificationResponse:withCompletionHandler:))]
@@ -127,8 +124,10 @@ define_class!(
                     .map(|value| value.to_string())
             };
             let activation = Activation {
-                message_uri: pushed("messageUri").unwrap_or_else(|| request.identifier().to_string()),
-                channel_uri: pushed("channelUri").unwrap_or_else(|| content.threadIdentifier().to_string()),
+                message_uri: pushed("messageUri")
+                    .unwrap_or_else(|| request.identifier().to_string()),
+                channel_uri: pushed("channelUri")
+                    .unwrap_or_else(|| content.threadIdentifier().to_string()),
             };
 
             if let Some(callback) = self.ivars().on_activate.borrow().as_ref() {
@@ -213,22 +212,26 @@ pub fn dismiss_channel(channel_uri: String) -> Result<(), NativeError> {
     let center = UNUserNotificationCenter::currentNotificationCenter();
     let wanted = NSString::from_str(&channel_uri);
 
-    let handler = RcBlock::new(move |delivered: std::ptr::NonNull<NSArray<UNNotification>>| {
-        let delivered = unsafe { delivered.as_ref() };
-        let mut doomed: Vec<Retained<NSString>> = Vec::new();
+    let handler = RcBlock::new(
+        move |delivered: std::ptr::NonNull<NSArray<UNNotification>>| {
+            let delivered = unsafe { delivered.as_ref() };
+            let mut doomed: Vec<Retained<NSString>> = Vec::new();
 
-        for notification in delivered {
-            let request = notification.request();
-            if request.content().threadIdentifier() == wanted {
-                doomed.push(request.identifier());
+            for notification in delivered {
+                let request = notification.request();
+                if request.content().threadIdentifier() == wanted {
+                    doomed.push(request.identifier());
+                }
             }
-        }
 
-        if !doomed.is_empty() {
-            UNUserNotificationCenter::currentNotificationCenter()
-                .removeDeliveredNotificationsWithIdentifiers(&NSArray::from_retained_slice(&doomed));
-        }
-    });
+            if !doomed.is_empty() {
+                UNUserNotificationCenter::currentNotificationCenter()
+                    .removeDeliveredNotificationsWithIdentifiers(&NSArray::from_retained_slice(
+                        &doomed,
+                    ));
+            }
+        },
+    );
 
     center.getDeliveredNotificationsWithCompletionHandler(&handler);
 
@@ -273,5 +276,4 @@ mod tests {
         });
         assert!(result.is_err());
     }
-
 }

@@ -47,9 +47,11 @@ import type {
 } from "../../../data/types";
 import { externalAnchorOf } from "../../../native/open-external";
 import {
+	canOpenInPlayer,
 	downloadMedia,
 	fetchMedia,
 	lightboxImageActions,
+	openMediaInPlayer,
 } from "./image-actions";
 import { InviteEmbed } from "./invite-embed";
 import { PackEmbed } from "./pack-embed";
@@ -219,6 +221,22 @@ export const MediaWithLightbox = (props: {
 						mimeType: item.mimeType,
 					});
 				}}
+				onOpenInPlayer={
+					canOpenInPlayer()
+						? (at, progress) => {
+								const item = props.items[at];
+								if (!item) return;
+								return openMediaInPlayer(
+									{
+										src: item.downloadHref ?? item.src,
+										name: item.name,
+										mimeType: item.mimeType,
+									},
+									progress,
+								);
+							}
+						: undefined
+				}
 			/>
 			<Show when={mounted()}>
 				<Lightbox

@@ -2,27 +2,30 @@ use tauri::Manager;
 
 #[cfg(target_os = "android")]
 mod android_jni;
-#[cfg(target_os = "macos")]
-mod app_menu;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod apns;
+#[cfg(target_os = "macos")]
+mod app_menu;
 #[cfg(any(target_os = "linux", all(test, unix)))]
 mod appimage_env;
 #[cfg(target_os = "linux")]
 mod linux_cef;
 #[cfg(target_os = "macos")]
 mod macos_media;
-mod push;
-#[cfg(any(target_os = "android", test))]
-mod received_files;
-mod open_external;
-mod save_file;
 #[cfg(desktop)]
 mod notifications;
+mod open_external;
+mod push;
 #[cfg(desktop)]
 mod quit_guard;
+#[cfg(any(target_os = "android", test))]
+mod received_files;
+mod save_file;
 #[cfg(desktop)]
-#[cfg_attr(not(any(target_os = "macos", target_os = "windows", target_os = "linux")), allow(dead_code))]
+#[cfg_attr(
+    not(any(target_os = "macos", target_os = "windows", target_os = "linux")),
+    allow(dead_code)
+)]
 mod screen_capture;
 #[cfg(desktop)]
 mod titlebar;
@@ -319,6 +322,8 @@ pub fn run() {
             web_auth::start_web_auth,
             save_file::save_url,
             open_external::open_external_url,
+            #[cfg(desktop)]
+            save_file::open_media_url,
             #[cfg(any(target_os = "macos", target_os = "ios"))]
             apns::apns_register,
             #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -468,7 +473,10 @@ pub fn run() {
             }
         }
         #[cfg(desktop)]
-        if let tauri::RunEvent::ExitRequested { code: None, api, .. } = &_event {
+        if let tauri::RunEvent::ExitRequested {
+            code: None, api, ..
+        } = &_event
+        {
             if !quit_guard::released() {
                 api.prevent_exit();
                 quit_guard::hold(_app);

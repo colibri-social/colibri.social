@@ -55,10 +55,7 @@ const anchorAuthorOf = (thread: ThreadView): string | undefined => {
 	return thread.anchor?.did;
 };
 
-const isRelevantThread = (
-	thread: ThreadView,
-	relevance: ThreadRelevance,
-) => {
+const isRelevantThread = (thread: ThreadView, relevance: ThreadRelevance) => {
 	if (relevance.left && !thread.viewer.following) return false;
 	if (thread.closedAt) return false;
 	return (

@@ -97,6 +97,7 @@ export type ChatContextValue = {
 	quickReactions?: Accessor<string[]>;
 	onRecordEmoji?: (emoji: string) => void;
 	canPost?: Accessor<boolean>;
+	canReact?: Accessor<boolean>;
 	locked?: Accessor<boolean>;
 	developerMode?: Accessor<boolean>;
 	viewerRoles?: Accessor<readonly string[]>;

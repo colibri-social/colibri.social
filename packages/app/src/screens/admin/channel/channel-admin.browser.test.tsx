@@ -399,7 +399,7 @@ describe("channel settings", () => {
 		const editor = await openPage(root, "Members");
 		await until(() => !!overrideRow(editor, "voice.connect"));
 		expect(overrideRow(editor, "voice.speak")).not.toBeNull();
-		expect(overrideRow(editor, "message.send")).toBeNull();
+		expect(overrideRow(editor, "message.send")).not.toBeNull();
 		expect(overrideRow(editor, "thread.create")).toBeNull();
 	});
 

@@ -20,7 +20,12 @@ import {
 import { ForwardedMessage } from "./ForwardedMessage";
 import { HiddenMessage } from "./HiddenMessage";
 import { LinkEmbed, LinkEmbedSkeleton } from "./LinkEmbed";
-import { MediaGrid, MediaGridSkeleton, type MediaItem } from "./MediaGrid";
+import {
+	MediaGrid,
+	MediaGridSkeleton,
+	type MediaItem,
+	type MediaPlayerProgress,
+} from "./MediaGrid";
 import { type RichTextBlock, SocialPostEmbed } from "./SocialPostEmbed";
 import { fixtureImage, fixtureImages } from "./story-fixtures";
 import { TextAttachment } from "./TextAttachment";
@@ -1337,6 +1342,7 @@ const BROKEN_IMAGE = "data:image/png;base64,AAAA";
 const BROKEN_VIDEO = "data:video/mp4;base64,AAAAAAAAAAAA";
 const mediaError = fn();
 const mediaRetry = fn();
+const mediaOpenInPlayer = fn();
 
 const RefreshingGrid = () => {
 	const [items, setItems] = createSignal([
@@ -1392,6 +1398,7 @@ const MediaErrorCases = (props: { desktop?: boolean }) => (
 					]}
 					onMediaError={(index) => mediaError(index)}
 					onRetry={mediaRetry}
+					onOpenInPlayer={mediaOpenInPlayer}
 				/>
 			}
 		/>
@@ -1423,6 +1430,7 @@ export const MediaError: Story = {
 	play: async ({ canvasElement }) => {
 		mediaError.mockClear();
 		mediaRetry.mockClear();
+		mediaOpenInPlayer.mockClear();
 		const canvas = within(canvasElement);
 		const image = await brokenTileIn(
 			canvasElement,
@@ -1438,6 +1446,14 @@ export const MediaError: Story = {
 		);
 		await expect(video).toHaveTextContent("Couldn't load this video");
 		await expect(video.querySelector("[data-video-player]")).toBeNull();
+		await expect(image.querySelector("[data-media-open-player]")).toBeNull();
+		await userEvent.click(
+			within(video).getByRole("button", { name: "Open in video player" }),
+		);
+		await expect(mediaOpenInPlayer).toHaveBeenCalledWith(
+			0,
+			expect.any(Function),
+		);
 		const calls = mediaError.mock.calls.length;
 		await userEvent.click(
 			within(image).getByRole("button", { name: "Try again" }),
@@ -1474,6 +1490,87 @@ export const MediaErrorDesktop: Story = {
 		);
 		await expectFocusRingVisible(
 			within(tile).getByRole("button", { name: "Try again" }),
+		);
+	},
+};
+
+type PlayerDownloadControl = {
+	report: MediaPlayerProgress;
+	finish: () => void;
+};
+
+const playerDownloads: PlayerDownloadControl[] = [];
+
+const PlayerDownloadCase = () => (
+	<Screen>
+		<Message
+			name="Dennis"
+			text="A screen recording the app can't play"
+			attachments={
+				<MediaGrid
+					items={[
+						fixtureImage(1, 1320, 2868, {
+							kind: "video",
+							mimeType: "video/mp4",
+							src: BROKEN_VIDEO,
+							name: "recording.mp4",
+						}),
+					]}
+					onMediaError={(index) => mediaError(index)}
+					onOpenInPlayer={(_, report) =>
+						new Promise<void>((finish) => {
+							playerDownloads.push({ report, finish });
+						})
+					}
+				/>
+			}
+		/>
+	</Screen>
+);
+
+export const OpenInPlayerDownload: Story = {
+	parameters: mobile,
+	render: () => <PlayerDownloadCase />,
+	play: async ({ canvasElement }) => {
+		playerDownloads.length = 0;
+		const tile = await brokenTileIn(
+			canvasElement,
+			"A screen recording the app can't play",
+		);
+		const open = within(tile).getByRole("button", {
+			name: "Open in video player",
+		});
+		await userEvent.click(open);
+		await expect(playerDownloads).toHaveLength(1);
+		const progress = await within(tile).findByRole("progressbar", {
+			name: "Downloading recording.mp4",
+		});
+		await expect(progress).toHaveAttribute("aria-valuenow", "0");
+		const [download] = playerDownloads;
+		download?.report(0.42);
+		await waitFor(() =>
+			expect(progress).toHaveAttribute("aria-valuenow", "42"),
+		);
+		await userEvent.click(open);
+		await expect(playerDownloads).toHaveLength(1);
+		await expectNoLayoutIssues(canvasElement);
+		download?.report(1);
+		await within(tile).findByRole("status", {
+			name: "Opening recording.mp4",
+		});
+		download?.finish();
+		await waitFor(() =>
+			expect(tile.querySelector("[data-media-player-download]")).toBeNull(),
+		);
+		await userEvent.click(open);
+		const [, unknown] = playerDownloads;
+		unknown?.report(undefined);
+		await within(tile).findByRole("status", {
+			name: "Downloading recording.mp4",
+		});
+		unknown?.finish();
+		await waitFor(() =>
+			expect(tile.querySelector("[data-media-player-download]")).toBeNull(),
 		);
 	},
 };

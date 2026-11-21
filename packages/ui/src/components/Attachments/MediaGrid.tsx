@@ -110,6 +110,7 @@ export type MediaTileProps = {
 	onMediaError?: MediaErrorHandler;
 	onRetry?: (index: number) => void;
 	onDownload?: (index: number) => void;
+	onOpenInPlayer?: MediaOpenInPlayer;
 	onNaturalSize?: (size: { width: number; height: number }) => void;
 	class?: string;
 	style?: JSX.CSSProperties;
@@ -119,30 +120,86 @@ export type MediaErrorHandler = (index: number) => unknown;
 
 type MediaStatus = "ok" | "refreshing" | "broken";
 
+export type MediaPlayerProgress = (fraction: number | undefined) => void;
+
+export type MediaOpenInPlayer = (
+	index: number,
+	progress: MediaPlayerProgress,
+) => unknown;
+
+type PlayerDownload = { fraction: number | undefined };
+
 const MediaBroken = (props: {
 	kind: MediaKind | undefined;
+	name: string | undefined;
 	onRetry: () => void;
-}) => (
-	<div
-		data-media-error=""
-		class="@container absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 bg-muted p-2 text-center text-muted-foreground"
-	>
-		<span aria-hidden="true" class="[&>svg]:size-5">
-			<DangerTriangleIcon />
-		</span>
-		<span class="sr-only @min-[140px]:not-sr-only @min-[140px]:text-xs @min-[140px]:font-medium">
-			{`Couldn't load this ${kindLabel(props.kind)}`}
-		</span>
-		<button
-			type="button"
-			data-media-retry=""
-			class="cursor-pointer rounded-control-xs border-0 bg-transparent px-1 py-0.5 text-xs font-semibold text-foreground underline-offset-2 outline-none hover:underline focus-ring"
-			onClick={() => props.onRetry()}
+	onOpenInPlayer?: (progress: MediaPlayerProgress) => unknown;
+}) => {
+	const [download, setDownload] = createSignal<PlayerDownload>();
+	const subject = () => props.name ?? kindLabel(props.kind);
+	const openInPlayer = async (
+		open: (progress: MediaPlayerProgress) => unknown,
+	) => {
+		if (download()) return;
+
+		setDownload({ fraction: 0 });
+
+		try {
+			await open((fraction) => setDownload({ fraction }));
+		} finally {
+			setDownload(undefined);
+		}
+	};
+
+	return (
+		<div
+			data-media-error=""
+			class="@container absolute inset-0 z-10 flex flex-col items-center justify-center gap-1 bg-muted p-2 text-center text-muted-foreground"
 		>
-			Try again
-		</button>
-	</div>
-);
+			<span aria-hidden="true" class="[&>svg]:size-5">
+				<DangerTriangleIcon />
+			</span>
+			<span class="sr-only @min-[140px]:not-sr-only @min-[140px]:text-xs @min-[140px]:font-medium">
+				{`Couldn't load this ${kindLabel(props.kind)}`}
+			</span>
+			<button
+				type="button"
+				data-media-retry=""
+				class="cursor-pointer rounded-control-xs border-0 bg-transparent px-1 py-0.5 text-xs font-semibold text-foreground underline-offset-2 outline-none hover:underline focus-ring"
+				onClick={() => props.onRetry()}
+			>
+				Try again
+			</button>
+			<Show when={props.kind === "video" && props.onOpenInPlayer}>
+				{(open) => (
+					<button
+						type="button"
+						data-media-open-player=""
+						class="cursor-pointer rounded-control-xs border-0 bg-transparent px-1 py-0.5 text-xs font-semibold text-foreground underline-offset-2 outline-none hover:underline focus-ring"
+						onClick={() => void openInPlayer(open())}
+					>
+						Open in video player
+					</button>
+				)}
+			</Show>
+			<Show when={download()}>
+				{(state) => (
+					<span data-media-player-download="" class="contents">
+						<UploadProgress
+							progress={state().fraction ?? 1}
+							label={`Downloading ${subject()}`}
+							sendingLabel={
+								state().fraction === undefined
+									? `Downloading ${subject()}`
+									: `Opening ${subject()}`
+							}
+						/>
+					</span>
+				)}
+			</Show>
+		</div>
+	);
+};
 
 const VideoFrame = (props: {
 	src: string;
@@ -396,7 +453,16 @@ export const MediaTile = (props: MediaTileProps) => {
 				</span>
 			</Show>
 			<Show when={status() === "broken"}>
-				<MediaBroken kind={props.item.kind} onRetry={retry} />
+				<MediaBroken
+					kind={props.item.kind}
+					name={props.item.name}
+					onRetry={retry}
+					onOpenInPlayer={
+						props.onOpenInPlayer
+							? (progress) => props.onOpenInPlayer?.(props.index, progress)
+							: undefined
+					}
+				/>
 			</Show>
 			<Show
 				when={!props.loading && inlineVideo() && working() && attempt()}
@@ -602,6 +668,7 @@ export type MediaGridProps = {
 	onMediaError?: MediaErrorHandler;
 	onRetry?: (index: number) => void;
 	onDownload?: (index: number) => void;
+	onOpenInPlayer?: MediaOpenInPlayer;
 	loading?: boolean;
 	maxTiles?: number;
 	class?: string;
@@ -679,6 +746,7 @@ export const MediaGrid = (props: MediaGridProps) => {
 									onMediaError={props.onMediaError}
 									onRetry={props.onRetry}
 									onDownload={props.onDownload}
+									onOpenInPlayer={props.onOpenInPlayer}
 									onNaturalSize={known() ? undefined : setNatural}
 									class={cx("w-full", radius())}
 									style={tileStyle()}
@@ -720,6 +788,7 @@ export const MediaGrid = (props: MediaGridProps) => {
 										onMediaError={props.onMediaError}
 										onRetry={props.onRetry}
 										onDownload={props.onDownload}
+										onOpenInPlayer={props.onOpenInPlayer}
 										class="flex-1"
 										overflow={
 											overflow() > 0 && tile().index === max() - 1

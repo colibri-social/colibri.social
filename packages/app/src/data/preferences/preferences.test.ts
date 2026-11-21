@@ -155,6 +155,21 @@ describe("createPreferenceStore", () => {
 		);
 	});
 
+	it("matches a GIF favorite by its URL", async () => {
+		const putSettings = vi.fn(async () => prefs());
+		const store = create({
+			...createMemoryPreferenceBackend().backend,
+			putSettings,
+		});
+		store.adopt(prefs({ gifFavorites: [GIF] }));
+
+		await store.setGifFavorite({ ...GIF, id: GIF.url }, false);
+
+		expect(putSettings).toHaveBeenCalledWith(expect.anything(), {
+			gifFavorites: [],
+		});
+	});
+
 	it("reloads the server state after a failed write", async () => {
 		const memory = createMemoryPreferenceBackend({ shareActivity: false });
 		const store = create({

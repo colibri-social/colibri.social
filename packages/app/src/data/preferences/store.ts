@@ -436,11 +436,11 @@ export const createPreferenceStore = (options: PreferenceStoreOptions) => {
 			update({ shareActivity: share }, "activity sharing"),
 		setGifFavorite: (gif: GifView, favorite: boolean) => {
 			const current = preferences().gifFavorites;
-			const known = current.some((entry) => entry.id === gif.id);
+			const known = current.some((entry) => entry.url === gif.url);
 			const gifFavorites = !favorite
-				? current.filter((entry) => entry.id !== gif.id)
+				? current.filter((entry) => entry.url !== gif.url)
 				: known
-					? current.map((entry) => (entry.id === gif.id ? gif : entry))
+					? current.map((entry) => (entry.url === gif.url ? gif : entry))
 					: [...current, gif];
 			return update({ gifFavorites }, "GIF favorites");
 		},

@@ -103,7 +103,13 @@ export const ROLE_PERMISSION_GROUPS: readonly RolePermissionGroup[] = [
 				key: "message.send",
 				name: "Send messages",
 				description:
-					"Write in text channels and their threads. Without this, channels are read-only.",
+					"Write in text channels, voice channel chats and threads. Without this, they're read-only.",
+			},
+			{
+				key: "message.react",
+				name: "Add reactions",
+				description:
+					"React to messages with emoji, even in read-only channels.",
 			},
 		],
 	},
@@ -211,7 +217,7 @@ export const ROLE_PERMISSION_GROUPS: readonly RolePermissionGroup[] = [
 				key: "voice.chat",
 				name: "See text chat",
 				description:
-					"Read and write in a voice channel's text chat. Without this, the chat is hidden.",
+					"Read a voice channel's text chat. Writing in it also needs Send messages. Without this, the chat is hidden.",
 			},
 			{
 				key: "voice.moderate",
@@ -263,6 +269,7 @@ export const CHANNEL_SCOPED_PERMISSIONS: readonly string[] = [
 	"channel.update",
 	"channel.delete",
 	"message.send",
+	"message.react",
 	"thread.create",
 	"thread.manage",
 	"thread.move",
@@ -277,12 +284,7 @@ export const CHANNEL_SCOPED_PERMISSIONS: readonly string[] = [
 	"voice.moderate",
 ];
 
-const TEXT_ONLY = new Set([
-	"message.send",
-	"thread.create",
-	"thread.manage",
-	"thread.move",
-]);
+const TEXT_ONLY = new Set(["thread.create", "thread.manage", "thread.move"]);
 
 const appliesTo = (key: string, scope: ChannelPermissionScope) => {
 	if (!CHANNEL_SCOPED_PERMISSIONS.includes(key)) return false;

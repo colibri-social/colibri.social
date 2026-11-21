@@ -1,3 +1,4 @@
+import { createLogger } from "@colibri-social/lib";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { PlayIcon } from "@solar-icons/solid/bold/play";
 import {
@@ -76,6 +77,8 @@ const matches = (query: string) =>
 const fadeClass =
 	"transition-opacity duration-[calc(160ms*var(--motion-scale))] ease-out motion-reduce:transition-none reduced-motion:transition-none";
 
+const log = createLogger("media");
+
 const controlButton =
 	"pressable flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-control-sm border-0 bg-transparent p-0 text-white outline-none hover:bg-white/15 focus-ring [&_svg]:size-5";
 
@@ -100,6 +103,7 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 	const [controls, setControls] = createSignal(true);
 	const [scrubbing, setScrubbing] = createSignal(false);
 	const [fullscreen, setFullscreen] = createSignal(false);
+	const [volumeHover, setVolumeHover] = createSignal(false);
 	const [fineHover] = createSignal(
 		matches("(hover: hover) and (pointer: fine)"),
 	);
@@ -275,6 +279,11 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 		if (failed()) return;
 		setFailed(true);
 		setWaiting(false);
+		log.warn("video playback failed", {
+			code: video?.error?.code ?? null,
+			networkState: video?.networkState ?? null,
+			mimeType: props.mimeType ?? null,
+		});
 		if (video) props.onReady?.(video);
 		props.onError?.();
 	};
@@ -481,7 +490,7 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 					data-video-controls=""
 					inert={!showControls()}
 					class={cx(
-						"absolute inset-x-0 bottom-0 flex flex-col gap-0.5 bg-linear-to-t from-black/75 via-black/40 to-transparent px-2 pt-8 pb-1.5",
+						"@container absolute inset-x-0 bottom-0 flex flex-col gap-0.5 bg-linear-to-t from-black/75 via-black/40 to-transparent px-2 pt-8 pb-1.5",
 						fullscreen() && "px-safe-offset-3 pb-safe-offset-2",
 						fadeClass,
 						showControls() ? "opacity-100" : "pointer-events-none opacity-0",
@@ -524,11 +533,20 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 							<AnimatedPlayPauseIcon playing={playing()} />
 						</button>
 						<span class="px-1 text-xs font-semibold whitespace-nowrap text-white/90 tabular-nums">
-							{formatClock(time())} / {formatClock(duration())}
+							{formatClock(time())}
+							<span data-video-duration="" class="@max-[240px]:hidden">
+								{" / "}
+								{formatClock(duration())}
+							</span>
 						</span>
 						<span class="flex-1" />
 						<div
-							class="group/volume flex items-center"
+							class="group/volume flex min-w-0 items-center"
+							data-hover={volumeHover() ? "" : undefined}
+							onPointerEnter={(event) => {
+								if (event.pointerType === "mouse") setVolumeHover(true);
+							}}
+							onPointerLeave={() => setVolumeHover(false)}
 							onFocusIn={volumeFocus.onFocusIn}
 							onFocusOut={volumeFocus.onFocusOut}
 							onPointerDown={volumeFocus.onPointerDown}
@@ -537,8 +555,8 @@ export const VideoPlayer = (props: VideoPlayerProps) => {
 								<div
 									data-video-volume=""
 									class={cx(
-										"ring-room-y w-0 overflow-hidden opacity-0 transition-[width,opacity] duration-[calc(160ms*var(--motion-scale))] ease-out motion-reduce:transition-none reduced-motion:transition-none",
-										"group-data-keyboard-focus/volume:w-16 group-data-keyboard-focus/volume:opacity-100 group-hover/volume:w-16 group-hover/volume:opacity-100",
+										"ring-room-y w-0 min-w-0 shrink overflow-hidden opacity-0 transition-[width,opacity] duration-[calc(160ms*var(--motion-scale))] ease-out motion-reduce:transition-none reduced-motion:transition-none",
+										"group-data-keyboard-focus/volume:w-16 group-data-keyboard-focus/volume:opacity-100 group-data-hover/volume:w-16 group-data-hover/volume:opacity-100",
 									)}
 								>
 									<Scrubber

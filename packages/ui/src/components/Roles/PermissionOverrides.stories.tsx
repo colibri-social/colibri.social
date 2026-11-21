@@ -379,7 +379,9 @@ export const VoiceChannelScope: Story = {
 
 		await expect(keys).toContain("voice.speak");
 		await expect(keys).toContain("voice.connect");
-		await expect(keys).not.toContain("message.send");
+		await expect(keys).toContain("message.react");
+		await expect(keys).toContain("message.send");
+		await expect(keys).toContain("voice.chat");
 		await expect(keys).not.toContain("thread.create");
 		await expectNoLayoutIssues(canvasElement);
 	},
@@ -419,6 +421,7 @@ export const TextChannelScope: Story = {
 		}
 
 		await expect(keys).toContain("message.send");
+		await expect(keys).toContain("message.react");
 		await expect(keys.some((key) => key?.startsWith("voice."))).toBe(false);
 		await expect(keys).not.toContain("community.manage");
 	},
@@ -436,6 +439,7 @@ export const CategoryScopeDesktop: Story = {
 		const keys = keysShown(canvasElement);
 
 		await expect(keys).toContain("message.send");
+		await expect(keys).toContain("message.react");
 		await expect(keys).toContain("voice.speak");
 		await expect(stateOf(canvasElement, "channel.view")).toBe("deny");
 		await expect(stateOf(canvasElement, "voice.connect")).toBe("allow");

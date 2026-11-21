@@ -710,6 +710,53 @@ describe("gif embeds", () => {
 		});
 	});
 
+	it("saves a video GIF embed as a favorite that plays its video", () => {
+		expect(
+			gifOfEmbed({
+				uri: "https://x.com/someone/status/1",
+				title: "someone on X",
+				media: [
+					{
+						kind: "gifv",
+						url: "https://appview.test/video/cat.mp4",
+						previewUrl: "https://appview.test/image/cat.jpg",
+						mimeType: "video/mp4",
+						width: 480,
+						height: 270,
+					},
+				],
+			} as LinkEmbed),
+		).toEqual({
+			id: "https://x.com/someone/status/1",
+			url: "https://x.com/someone/status/1",
+			previewUrl: "https://appview.test/image/cat.jpg",
+			videoUrl: "https://appview.test/video/cat.mp4",
+			mimeType: "video/mp4",
+			width: 480,
+			height: 270,
+			title: "someone on X",
+		});
+	});
+
+	it("skips embeds with several or non-GIF videos", () => {
+		const clip = {
+			kind: "gifv",
+			url: "https://appview.test/video/cat.mp4",
+		};
+		expect(
+			gifOfEmbed({
+				uri: "https://x.com/someone/status/2",
+				media: [clip, clip],
+			} as LinkEmbed),
+		).toBeUndefined();
+		expect(
+			gifOfEmbed({
+				uri: "https://x.com/someone/status/3",
+				media: [{ ...clip, kind: "video" }],
+			} as LinkEmbed),
+		).toBeUndefined();
+	});
+
 	it("skips still images and plain links", () => {
 		expect(
 			gifOfEmbed({

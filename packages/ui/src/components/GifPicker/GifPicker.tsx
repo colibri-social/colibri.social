@@ -18,6 +18,8 @@ import { useHaptics } from "../../utils/haptics";
 import { createSlot } from "../../utils/slot";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
 import { Button } from "../Button/Button";
+import { Video } from "../Media/Video";
+import { VideoSource } from "../Media/VideoSource";
 import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
 import { Loadable, Skeleton } from "../Skeleton/Skeleton";
 import { SearchField } from "../TextField/TextField";
@@ -29,6 +31,8 @@ export type Gif = {
 	width: number;
 	height: number;
 	title?: string;
+	videoUrl?: string;
+	mimeType?: string;
 };
 
 export type GifCategory = {
@@ -75,6 +79,13 @@ const tabOptions = [
 	{ value: "favorites", label: "Favorites" },
 	{ value: "categories", label: "Categories" },
 ];
+
+const tileMediaClass = (loaded: boolean) => {
+	return cx(
+		"size-full object-cover transition-opacity duration-[calc(160ms*var(--motion-scale))] ease-(--ease-out-quick)",
+		!loaded && "opacity-0",
+	);
+};
 
 const ratioOf = (gif: Gif) =>
 	gif.width > 0 && gif.height > 0 ? gif.height / gif.width : 1;
@@ -309,7 +320,7 @@ export const GifPicker = (props: GifPickerProps) => {
 	);
 
 	const isFavorite = (gif: Gif) =>
-		(props.favorites ?? []).some((favorite) => favorite.id === gif.id);
+		(props.favorites ?? []).some((favorite) => favorite.url === gif.url);
 
 	const toggleFavorite = (gif: Gif) => {
 		const next = !isFavorite(gif);
@@ -372,17 +383,37 @@ export const GifPicker = (props: GifPickerProps) => {
 					class="block size-full cursor-pointer overflow-hidden rounded-control-sm bg-secondary outline-none focus-ring"
 				>
 					<Show when={near()}>
-						<AnimatedImage
-							src={tile.gif.previewUrl}
-							alt=""
-							decoding="async"
-							draggable={false}
-							onLoad={() => setLoaded(true)}
-							class={cx(
-								"size-full object-cover transition-opacity duration-[calc(160ms*var(--motion-scale))] ease-(--ease-out-quick)",
-								!loaded() && "opacity-0",
+						<Show
+							when={tile.gif.videoUrl}
+							fallback={
+								<AnimatedImage
+									src={tile.gif.previewUrl}
+									alt=""
+									decoding="async"
+									draggable={false}
+									onLoad={() => setLoaded(true)}
+									class={tileMediaClass(loaded())}
+								/>
+							}
+						>
+							{(videoUrl) => (
+								<Video
+									data-gif-video=""
+									tabindex={-1}
+									muted
+									loop
+									autoplay
+									playsinline
+									preload="auto"
+									poster={tile.gif.previewUrl}
+									draggable={false}
+									onLoadedData={() => setLoaded(true)}
+									class={tileMediaClass(loaded())}
+								>
+									<VideoSource src={videoUrl()} mimeType={tile.gif.mimeType} />
+								</Video>
 							)}
-						/>
+						</Show>
 					</Show>
 				</button>
 				<Show when={props.onToggleFavorite}>

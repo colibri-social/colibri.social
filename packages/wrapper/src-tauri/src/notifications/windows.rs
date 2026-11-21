@@ -70,12 +70,11 @@ fn register_app_id(app_id: &str, display_name: &str, icon_path: Option<&str>) ->
         return Err(status.0);
     }
 
-    let result = set_registry_string(key, "DisplayName", display_name).and_then(|()| {
-        match icon_path {
+    let result =
+        set_registry_string(key, "DisplayName", display_name).and_then(|()| match icon_path {
             Some(icon_path) => set_registry_string(key, "IconUri", icon_path),
             None => Ok(()),
-        }
-    });
+        });
 
     unsafe {
         let _ = RegCloseKey(key);

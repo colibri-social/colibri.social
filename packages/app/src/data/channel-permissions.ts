@@ -29,13 +29,20 @@ export type SpaceRoles = readonly RoleView[];
 export const BASELINE_PERMISSIONS: readonly string[] = [
 	"channel.view",
 	"message.send",
+	"message.react",
 	"voice.connect",
 ];
 
-export const postingPermission = (
+const TEXT_POSTING: readonly ChannelPermission[] = ["message.send"];
+const VOICE_POSTING: readonly ChannelPermission[] = [
+	"message.send",
+	"voice.chat",
+];
+
+export const postingPermissions = (
 	channel: Pick<ChannelView, "type">,
-): ChannelPermission => {
-	return channel.type === VOICE_CHANNEL ? "voice.connect" : "message.send";
+): readonly ChannelPermission[] => {
+	return channel.type === VOICE_CHANNEL ? VOICE_POSTING : TEXT_POSTING;
 };
 
 const answerOf = (
@@ -190,4 +197,24 @@ export const viewerCan = (
 	}
 
 	return !!community?.viewer.permissions?.includes(permission);
+};
+
+const listsReact = (permissions: readonly string[] | undefined) => {
+	return !!permissions?.includes("message.react");
+};
+
+export const viewerCanReact = (
+	community: CommunityView | undefined,
+	channel: ChannelView | undefined,
+	channels: readonly ChannelView[],
+	fallback: boolean,
+) => {
+	const known =
+		listsReact(community?.viewer.permissions) ||
+		channels.some((entry) => listsReact(entry.viewer.permissions));
+	if (!known) return fallback;
+	if (!viewerCan(community, channel, "message.react")) return false;
+	if (channel?.type !== VOICE_CHANNEL) return true;
+
+	return viewerCan(community, channel, "voice.chat");
 };

@@ -1741,7 +1741,10 @@ describe("createRemoteSource", () => {
 			{ id: "gif-2", url: "https://gif.test/2.gif" } as never,
 			true,
 		);
-		source.setGifFavorite({ id: "gif-1" } as never, false);
+		source.setGifFavorite(
+			{ id: "gif-1", url: "https://gif.test/1.gif" } as never,
+			false,
+		);
 		expect(source.gifFavorites().map((gif) => gif.id)).toEqual(["gif-2"]);
 		await source.preferences.settled();
 

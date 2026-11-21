@@ -33,6 +33,26 @@ pub fn open_external_url<R: Runtime>(app: AppHandle<R>, url: String) -> Result<(
     }
 }
 
+#[cfg(desktop)]
+pub fn open_path<R: Runtime>(
+    app: &AppHandle<R>,
+    path: &std::path::Path,
+) -> Result<(), NativeError> {
+    #[cfg(target_os = "linux")]
+    {
+        let _ = app;
+        linux::open(&path.to_string_lossy()).map_err(|error| NativeError::failed(error.to_string()))
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        use tauri_plugin_opener::OpenerExt;
+        app.opener()
+            .open_path(path.to_string_lossy(), None::<&str>)
+            .map_err(|error| NativeError::failed(error.to_string()))
+    }
+}
+
 #[cfg(any(target_os = "linux", test))]
 mod child_env {
     use std::ffi::{OsStr, OsString};

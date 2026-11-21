@@ -2,6 +2,7 @@ import { classifyThrown, createLogger } from "@colibri-social/lib";
 import { toast } from "@colibri-social/ui";
 import { classifyNativeError } from "../../../auth/native";
 import { describeError } from "../../../data/error-copy";
+import { isLinuxApp } from "../../../data/screen-share";
 import { isNativeShell } from "../../../shell/desktop/window-chrome";
 
 const log = createLogger("image-actions");
@@ -100,6 +101,11 @@ const isAndroid = () => {
 	);
 };
 
+type DownloadProgress = {
+	received: number;
+	total?: number | null;
+};
+
 type SavedFile = {
 	name: string;
 	type: string;
@@ -107,6 +113,7 @@ type SavedFile = {
 };
 
 const SAVE_COMMAND = "save_url";
+const PLAYER_COMMAND = "open_media_url";
 
 const webUrlOf = (src: string) => {
 	try {
@@ -334,6 +341,45 @@ export const downloadMedia = async (target: MediaTarget) => {
 
 	saveInBrowser(blob, name);
 	toast.success(`Downloaded ${name}`);
+};
+
+export const canOpenInPlayer = () => {
+	return isLinuxApp(
+		typeof navigator === "undefined" ? undefined : navigator.userAgent,
+		isNativeShell(),
+	);
+};
+
+export const openMediaInPlayer = async (
+	target: MediaTarget,
+	progress: (fraction: number | undefined) => void,
+) => {
+	const url = webUrlOf(target.src);
+
+	if (!url) return;
+
+	const { Channel, invoke } = await import("@tauri-apps/api/core");
+	const onProgress = new Channel<DownloadProgress>();
+
+	onProgress.onmessage = ({ received, total }) =>
+		progress(total ? Math.min(1, received / total) : undefined);
+
+	try {
+		await invoke(PLAYER_COMMAND, {
+			url,
+			name: nativeFileName(target),
+			type: target.mimeType,
+			onProgress,
+		});
+	} catch (thrown) {
+		const error = classifyNativeError(thrown, PLAYER_COMMAND);
+
+		log.warn("media.open_player failed", { code: error.code });
+
+		toast.error("Couldn't open the video", {
+			description: "Download it instead, then open it from your files.",
+		});
+	}
 };
 
 export const downloadImage = (target: ImageTarget) => {

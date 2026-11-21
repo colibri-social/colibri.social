@@ -30,8 +30,7 @@ pub enum Launch {
 
 pub fn native_wayland() -> bool {
     *NATIVE_WAYLAND.get_or_init(|| {
-        std::env::var_os("WAYLAND_DISPLAY").is_some()
-            && std::env::var_os("COLIBRI_X11").is_none()
+        std::env::var_os("WAYLAND_DISPLAY").is_some() && std::env::var_os("COLIBRI_X11").is_none()
     })
 }
 

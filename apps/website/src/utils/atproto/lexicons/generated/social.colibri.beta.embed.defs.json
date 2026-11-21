@@ -441,6 +441,19 @@
 				"title": {
 					"type": "string",
 					"description": "Human-readable title."
+				},
+				"videoUrl": {
+					"type": "string",
+					"format": "uri",
+					"description": "Silent looping video for a GIF that is served as a video. previewUrl is its poster."
+				},
+				"mimeType": {
+					"type": "string",
+					"description": "Content type of videoUrl.",
+					"knownValues": [
+						"video/mp4",
+						"video/webm"
+					]
 				}
 			}
 		},

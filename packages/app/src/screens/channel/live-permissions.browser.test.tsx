@@ -11,6 +11,8 @@ import { MobileShell } from "../../shell/MobileShell";
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
 const TEXT = "social.colibri.beta.channel.text";
 const GENERAL = `/app/c/${HQ}/${TEXT}/general`;
+const OWLS = "did:plc:nightowlsartclub3e5f7g9h";
+const PROMPTS = `/app/c/${OWLS}/${TEXT}/prompts`;
 
 const until = async (check: () => boolean, timeout = 8000) => {
 	const started = performance.now();
@@ -37,9 +39,9 @@ afterEach(() => {
 	setLatency(80, 260);
 });
 
-const mount = async () => {
+const mount = async (path = GENERAL, did = HQ) => {
 	setLatency(0);
-	history.replaceState(null, "", GENERAL);
+	history.replaceState(null, "", path);
 
 	const base = createMockSource({ live: false });
 	const listeners = new Set<(event: LiveEvent) => void>();
@@ -73,18 +75,28 @@ const mount = async () => {
 
 	await until(() => !!store.communities.value());
 
-	const hq = store.communities.value()?.find((entry) => entry.did === HQ);
-	if (!hq) throw new Error("hq missing");
+	const community = store.communities
+		.value()
+		?.find((entry) => entry.did === did);
+	if (!community) throw new Error("space missing");
 
 	const emit = (event: LiveEvent) => {
 		for (const listener of listeners) listener(event);
 	};
 
-	return { root: host, space: store.space(hq), emit };
+	return { root: host, space: store.space(community), emit };
 };
 
 const chat = (root: HTMLElement) =>
 	root.querySelector<HTMLElement>('[data-pane-index="1"]') as HTMLElement;
+
+const reactionButton = (root: HTMLElement) =>
+	chat(root)?.querySelector<HTMLButtonElement>(
+		"[data-reaction-bar] [data-reaction]",
+	);
+
+const addReaction = (root: HTMLElement) =>
+	chat(root)?.querySelector("[data-reaction-bar] [aria-label='Add reaction']");
 
 const editable = (root: HTMLElement) =>
 	chat(root)?.querySelector<HTMLElement>("[data-composer] [contenteditable]");
@@ -134,5 +146,45 @@ describe("live channel permissions", () => {
 		await until(
 			() => editable(root)?.textContent?.includes("half a thought") ?? false,
 		);
+	});
+
+	it("keeps reactions in a read-only channel until a channel update takes them away", async () => {
+		const { root, space, emit } = await mount(PROMPTS, OWLS);
+
+		await until(() => !!reactionButton(root));
+		expect(editable(root)).toBeFalsy();
+		expect(reactionButton(root)?.disabled).toBe(false);
+		expect(addReaction(root)).toBeTruthy();
+
+		const view = space.channelBySlug("prompts");
+		if (!view) throw new Error("prompts missing");
+
+		emit({
+			$type: "channelEvent",
+			event: "update",
+			community: OWLS,
+			channel: {
+				...view,
+				viewer: {
+					...view.viewer,
+					permissions: (view.viewer.permissions ?? []).filter(
+						(permission) => permission !== "message.react",
+					),
+				},
+			},
+		});
+
+		await until(() => reactionButton(root)?.disabled === true);
+		expect(addReaction(root)).toBeNull();
+
+		emit({
+			$type: "channelEvent",
+			event: "update",
+			community: OWLS,
+			channel: view,
+		});
+
+		await until(() => reactionButton(root)?.disabled === false);
+		expect(addReaction(root)).toBeTruthy();
 	});
 });

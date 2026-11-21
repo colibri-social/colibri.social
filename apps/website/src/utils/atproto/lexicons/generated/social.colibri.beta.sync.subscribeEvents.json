@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "subscription",
-			"description": "Live updates for one account over a WebSocket. Frames are JSON text, each an object tagged with $type. The client sends the social.colibri.beta.sync.defs frames subscribe, unsubscribe, heartbeat, typing, viewChannel, activity, wroteTo, setPresence and voiceSelfState. The connection is sent nothing for a community or channel it did not subscribe to.",
+			"description": "Live updates for one account over a WebSocket. Frames are JSON text, each an object tagged with $type. The client sends the social.colibri.beta.sync.defs frames subscribe, unsubscribe, heartbeat, typing, viewChannel, activity, wroteTo and setPresence. The connection is sent nothing for a community or channel it did not subscribe to.",
 			"parameters": {
 				"type": "params",
 				"properties": {

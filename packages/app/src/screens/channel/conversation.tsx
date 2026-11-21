@@ -48,7 +48,7 @@ import {
 	reactionFor,
 	reactionShortcode,
 } from "../../data/adapters/reactions";
-import { viewerCan } from "../../data/channel-permissions";
+import { viewerCan, viewerCanReact } from "../../data/channel-permissions";
 import { describeError, VOICE_CHAT_UNAVAILABLE } from "../../data/error-copy";
 import { channelSlug, skeyOf, spaceKey } from "../../data/ids";
 import {
@@ -637,6 +637,13 @@ export const createConversation = (options: ConversationOptions) => {
 	};
 
 	const canModerate = () => viewerCan(community(), view(), "label.apply");
+	const canReact = () =>
+		viewerCanReact(
+			community(),
+			view(),
+			space()?.channels.value() ?? [],
+			writable(),
+		);
 
 	const [shownBlocked, setShownBlocked] = createSignal<ReadonlySet<string>>(
 		new Set(),
@@ -1049,6 +1056,7 @@ export const createConversation = (options: ConversationOptions) => {
 			),
 		onRecordEmoji: (emoji) => session.recordEmoji(emoji),
 		canPost: () => writable(),
+		canReact,
 		locked: () => !!options.thread?.()?.locked && !writable(),
 		developerMode: () => data.controls().developerMode,
 		viewerRoles: () => memberMap().get(data.viewer.did)?.roles ?? [],

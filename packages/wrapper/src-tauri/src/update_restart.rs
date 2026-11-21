@@ -199,7 +199,8 @@ mod staging {
 
         #[test]
         fn discard_ignores_a_missing_folder() {
-            let folder = std::env::temp_dir().join(format!("colibri-missing-{}", std::process::id()));
+            let folder =
+                std::env::temp_dir().join(format!("colibri-missing-{}", std::process::id()));
             discard(&folder);
             assert!(!folder.exists());
         }

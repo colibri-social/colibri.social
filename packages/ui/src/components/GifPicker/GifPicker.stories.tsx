@@ -1,9 +1,10 @@
-import { createSignal, type JSX } from "solid-js";
+import { createSignal, type JSX, Show } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectFocusRingVisible } from "../../foundations/focus-ring-test";
 import { GifGlyph } from "../../icons/animated/brand";
 import { IconButton } from "../IconButton/IconButton";
+import { createStoryClip } from "../Media/story-clip";
 import { createFakeGifSource, fixtureGifs } from "./fixtures";
 import { type Gif, GifPicker, type GifPickerProps } from "./GifPicker";
 import { GifPickerPopover } from "./GifPickerPopover";
@@ -31,9 +32,13 @@ const Surface = (props: { children: JSX.Element; wide?: boolean }) => (
 );
 
 const WithFavorites = (
-	props: Omit<GifPickerProps, "onPick" | "favorites" | "onToggleFavorite">,
+	props: Omit<GifPickerProps, "onPick" | "favorites" | "onToggleFavorite"> & {
+		initialFavorites?: Gif[];
+	},
 ) => {
-	const [favorites, setFavorites] = createSignal<Gif[]>([]);
+	const [favorites, setFavorites] = createSignal<Gif[]>(
+		props.initialFavorites ?? [],
+	);
 	return (
 		<GifPicker
 			{...props}
@@ -41,7 +46,9 @@ const WithFavorites = (
 			favorites={favorites()}
 			onToggleFavorite={(gif, favorite) =>
 				setFavorites((list) =>
-					favorite ? [gif, ...list] : list.filter((item) => item.id !== gif.id),
+					favorite
+						? [gif, ...list]
+						: list.filter((item) => item.url !== gif.url),
 				)
 			}
 		/>
@@ -268,6 +275,81 @@ export const MobileLongPress: Story = {
 			expect.objectContaining({ id: "gif-1" }),
 			expect.anything(),
 		);
+	},
+};
+
+const VIDEO_GIF_PAGE = "https://x.com/colibri/status/1";
+
+export const VideoFavorite: Story = {
+	render: () => {
+		const clip = createStoryClip();
+		return (
+			<Surface>
+				<Show when={clip()}>
+					{(loaded) => (
+						<WithFavorites
+							source={createFakeGifSource()}
+							initialFavorites={[
+								{
+									id: VIDEO_GIF_PAGE,
+									url: VIDEO_GIF_PAGE,
+									previewUrl: loaded().poster,
+									videoUrl: loaded().src,
+									mimeType: "video/webm",
+									width: 640,
+									height: 360,
+									title: "Video GIF",
+								},
+								...fixtureGifs(1, 2, "Saved"),
+							]}
+						/>
+					)}
+				</Show>
+			</Surface>
+		);
+	},
+	play: async ({ canvasElement, step }) => {
+		const canvas = within(canvasElement);
+		await userEvent.click(
+			await canvas.findByRole(
+				"radio",
+				{ name: "Favorites" },
+				{ timeout: 5000 },
+			),
+		);
+		const button = await canvas.findByRole("button", { name: "Video GIF" });
+		const tile = button.closest("[data-gif-tile]") as HTMLElement;
+		await step(
+			"plays the video muted and looping over its poster",
+			async () => {
+				const video = await waitFor(() => {
+					const element = tile.querySelector<HTMLVideoElement>(
+						"video[data-gif-video]",
+					);
+					if (!element) throw new Error("video not rendered");
+					return element;
+				});
+				await expect(video.muted).toBe(true);
+				await expect(video.loop).toBe(true);
+				await expect(video.autoplay).toBe(true);
+				await expect(video.poster).not.toBe("");
+				await waitFor(() => expect(video.readyState).toBeGreaterThanOrEqual(2));
+				await expect(tiles(canvasElement)).toHaveLength(2);
+			},
+		);
+		await step("sends the page link when picked", async () => {
+			await userEvent.click(button);
+			await expect(onPick).toHaveBeenCalledWith(
+				expect.objectContaining({ url: VIDEO_GIF_PAGE }),
+				expect.anything(),
+			);
+		});
+		await step("removes the favorite with the star", async () => {
+			const star = within(tile).getByRole("button", { name: "Favorite" });
+			await expect(star).toHaveAttribute("aria-pressed", "true");
+			await userEvent.click(star);
+			await waitFor(() => expect(tiles(canvasElement)).toHaveLength(1));
+		});
 	},
 };
 

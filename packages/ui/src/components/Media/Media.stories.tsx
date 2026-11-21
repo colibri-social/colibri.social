@@ -1,6 +1,7 @@
 import { createSignal, type JSX, Show } from "solid-js";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { HapticsProvider } from "../../utils/haptics";
 import { Scrubber } from "./Scrubber";
 import { createStoryClip } from "./story-clip";
@@ -335,6 +336,62 @@ export const Desktop: Story = {
 		);
 		mute.blur();
 		await expect(group).not.toHaveAttribute("data-keyboard-focus");
+		await waitFor(() => expect(width()).toBe(0));
+	},
+};
+
+const expectControlsInside = async (root: HTMLElement) => {
+	const fullscreen = within(root).getByRole("button", { name: "Fullscreen" });
+	const player = root.getBoundingClientRect();
+	const button = fullscreen.getBoundingClientRect();
+
+	await expectNoLayoutIssues(root);
+	await expect(button.left).toBeGreaterThanOrEqual(player.left);
+	await expect(button.right).toBeLessThanOrEqual(player.right);
+	await expect(button.top).toBeGreaterThanOrEqual(player.top);
+	await expect(button.bottom).toBeLessThanOrEqual(player.bottom);
+};
+
+export const NarrowPlayer: Story = {
+	render: () => (
+		<Screen desktop>
+			<Section title="A 220px player keeps every control inside">
+				<div class="w-[220px]">
+					<ClipPlayer desktop />
+				</div>
+			</Section>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		const { root } = await playerIn(canvasElement);
+		const slider = root.querySelector("[data-video-volume]") as HTMLElement;
+		const group = slider.parentElement as HTMLElement;
+		const duration = root.querySelector("[data-video-duration]") as Element;
+		const mute = within(root).getByRole("button", { name: /^(Mute|Unmute)$/ });
+		const opacity = () => Number(getComputedStyle(slider).opacity);
+		const width = () => slider.getBoundingClientRect().width;
+
+		await expect(root.getBoundingClientRect().width).toBe(220);
+		await expect(getComputedStyle(duration).display).toBe("none");
+		await expectControlsInside(root);
+
+		await userEvent.hover(group);
+		await expect(group).toHaveAttribute("data-hover");
+		await waitFor(() => expect(opacity()).toBe(1));
+		await expect(width()).toBeGreaterThan(0);
+		await expectControlsInside(root);
+
+		await userEvent.unhover(group);
+		await waitFor(() => expect(width()).toBe(0));
+
+		document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+		mute.focus();
+		await expect(group).toHaveAttribute("data-keyboard-focus");
+		await waitFor(() => expect(opacity()).toBe(1));
+		await expect(width()).toBeGreaterThan(0);
+		await expectControlsInside(root);
+
+		mute.blur();
 		await waitFor(() => expect(width()).toBe(0));
 	},
 };

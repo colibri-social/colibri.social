@@ -329,12 +329,15 @@ export const MessageItem = (props: MessageItemProps) => {
 		}
 		return uris;
 	});
-	const loneMediaEmbed = createMemo(() => {
+	const loneLinkEmbed = createMemo(() => {
 		if (view()?.forward) return undefined;
 		const links = linkUris(message().facets);
 		if (links.length !== 1 || message().text.trim() !== links[0])
 			return undefined;
-		const embed = embeds().find((entry) => entry.uri === links[0]);
+		return embeds().find((entry) => entry.uri === links[0]);
+	});
+	const loneMediaEmbed = createMemo(() => {
+		const embed = loneLinkEmbed();
 		return embed && inlineMediaOf(embed) ? embed : undefined;
 	});
 	const loneMediaLink = () => !!loneMediaEmbed();
@@ -459,10 +462,11 @@ export const MessageItem = (props: MessageItemProps) => {
 	};
 
 	const frozen = () => !!chat.locked?.() || !sent() || legacy();
+	const reactable = () => !frozen() && chat.canReact?.() !== false;
 	const writableOwn = () => own() && !anchor() && !frozen();
 
 	const react = (emoji: string, add: boolean, uri?: string) => {
-		if (frozen()) return;
+		if (!reactable()) return;
 		const usageKey = emoji.startsWith(":")
 			? (uri ??
 				reactionFor(view()?.reactions, emoji)?.customEmoji?.uri ??
@@ -787,7 +791,7 @@ export const MessageItem = (props: MessageItemProps) => {
 	};
 
 	const gif = createMemo(() => {
-		const lone = loneMediaEmbed();
+		const lone = loneLinkEmbed();
 		const value =
 			gifOfAttachments(view()?.attachments) ?? (lone && gifOfEmbed(lone));
 		if (!value || !chat.onToggleGif) return undefined;
@@ -923,16 +927,16 @@ export const MessageItem = (props: MessageItemProps) => {
 			<MessageToolbar
 				own={own()}
 				recentReactions={
-					frozen()
-						? []
-						: (chat.quickReactions?.() ?? DEFAULT_QUICK_REACTIONS).slice(0, 3)
+					reactable()
+						? (chat.quickReactions?.() ?? DEFAULT_QUICK_REACTIONS).slice(0, 3)
+						: []
 				}
 				renderEmoji={renderToolbarEmoji}
-				onReact={frozen() ? undefined : toggleQuick}
+				onReact={reactable() ? toggleQuick : undefined}
 				onAddReaction={
-					frozen()
-						? undefined
-						: (event) => setPickerAnchor(event.currentTarget as HTMLElement)
+					reactable()
+						? (event) => setPickerAnchor(event.currentTarget as HTMLElement)
+						: undefined
 				}
 				onEdit={editAction()}
 				onReply={replyAction()}
@@ -1054,11 +1058,11 @@ export const MessageItem = (props: MessageItemProps) => {
 					<ReactionBar
 						reactions={reactions()}
 						renderEmoji={renderReactionEmoji}
-						disabled={!sent() || frozen()}
+						disabled={!reactable()}
 						onToggle={(emoji, mine) => react(emoji, !mine)}
 						onShowReactors={openReactors}
 						onAdd={
-							frozen()
+							!reactable()
 								? undefined
 								: desktop()
 									? (event?: MouseEvent) => {
@@ -1123,12 +1127,16 @@ export const MessageItem = (props: MessageItemProps) => {
 			<MessageGestures
 				longPress
 				onLongPress={openDrawer}
-				doubleTap={sent() && controls().doubleTapEnabled}
+				doubleTap={
+					sent() &&
+					controls().doubleTapEnabled &&
+					(controls().doubleTapAction !== "react" || reactable())
+				}
 				doubleTapAction={controls().doubleTapAction}
 				doubleTapEmoji={controls().doubleTapReactionEmoji}
 				canEdit={writableOwn()}
 				canReply={canReply()}
-				onReact={frozen() ? undefined : toggleQuick}
+				onReact={reactable() ? toggleQuick : undefined}
 				onEdit={() => chat.onEdit(message())}
 				onReply={() => chat.onReply(message())}
 			>
@@ -1232,7 +1240,7 @@ export const MessageItem = (props: MessageItemProps) => {
 					onSave={saveEmbeds}
 				/>
 			</Show>
-			<Show when={pickerAnchor()}>
+			<Show when={reactable() && pickerAnchor()}>
 				{(anchorElement) => (
 					<EmojiPickerPopover
 						open
@@ -1257,9 +1265,11 @@ export const MessageItem = (props: MessageItemProps) => {
 					open={drawerOpen()}
 					onOpenChange={setDrawerOpen}
 					quickReactions={
-						frozen() ? [] : (chat.quickReactions?.() ?? DEFAULT_QUICK_REACTIONS)
+						reactable()
+							? (chat.quickReactions?.() ?? DEFAULT_QUICK_REACTIONS)
+							: []
 					}
-					onReact={frozen() ? undefined : toggleQuick}
+					onReact={reactable() ? toggleQuick : undefined}
 					emojiPicker={{
 						packs: chat.emojiPacks?.(),
 						customEmoji: chat.pickerEmoji,
@@ -1268,7 +1278,7 @@ export const MessageItem = (props: MessageItemProps) => {
 						onSkinToneChange: session.setSkinTone,
 					}}
 					renderEmoji={renderQuickReactionEmoji}
-					onEmojiPick={frozen() ? undefined : reactWithPick}
+					onEmojiPick={reactable() ? reactWithPick : undefined}
 					onReply={replyAction()}
 					onEdit={editAction()}
 					onForward={forwardAction()}
@@ -1305,7 +1315,7 @@ export const MessageItem = (props: MessageItemProps) => {
 					onEmojiError={refreshReactionEmoji}
 					active={reactorsEmoji()}
 					onActiveChange={setReactorsEmoji}
-					onRemove={(emoji) => react(emoji, false)}
+					onRemove={reactable() ? (emoji) => react(emoji, false) : undefined}
 					onCustomEmojiOpen={
 						chat.onCustomEmojiOpen
 							? (reaction, anchor) => openReactionEmoji(reaction.emoji, anchor)

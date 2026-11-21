@@ -4,7 +4,7 @@ import {
 	holderPermissions,
 	isPrivateCategory,
 	isPrivateChannel,
-	postingPermission,
+	postingPermissions,
 } from "../channel-permissions";
 import { skeyOf } from "../ids";
 import type {
@@ -65,13 +65,17 @@ export const defaultMemberRole = (memberCount: number): RoleView => {
 	};
 };
 
-const privateOverrides = (posting: string): PermissionOverride[] => {
+const privateOverrides = (posting: readonly string[]): PermissionOverride[] => {
 	return [
 		{ role: DEFAULT_ROLE, allow: [], deny: ["channel.view"] },
-		{ role: "owner", allow: ["channel.view", posting], deny: [] },
-		{ role: "mods", allow: ["channel.view", posting], deny: [] },
+		{ role: "owner", allow: ["channel.view", ...posting], deny: [] },
+		{ role: "mods", allow: ["channel.view", ...posting], deny: [] },
 	];
 };
+
+const joinLockedOverrides: PermissionOverride[] = [
+	{ role: DEFAULT_ROLE, allow: [], deny: ["voice.connect"] },
+];
 
 const END_AGO: Record<string, number> = {
 	"hq:welcome": 60 * 24 * 30,
@@ -459,9 +463,8 @@ export const createWorld = (now: number) => {
 		};
 		const channels: ChannelRecord[] = seed.channels.map((channel) => {
 			const ref = channelRefs.get(`${seed.key}:${channel.skey}`) as SpaceRef;
-			const readOnly =
-				seed.key === "owls" &&
-				(channel.skey === "prompts" || channel.skey === "quiet-studio");
+			const readOnly = seed.key === "owls" && channel.skey === "prompts";
+			const joinLocked = seed.key === "owls" && channel.skey === "quiet-studio";
 			const channelView: ChannelView = {
 				space: ref,
 				type:
@@ -481,9 +484,10 @@ export const createWorld = (now: number) => {
 			if (channel.category) channelView.category = channel.category;
 			if (channel.private) {
 				channelView.permissionOverrides = privateOverrides(
-					postingPermission(channelView),
+					postingPermissions(channelView),
 				);
 			}
+			if (joinLocked) channelView.permissionOverrides = joinLockedOverrides;
 			const key = `${seed.key}:${channel.skey}`;
 			const build =
 				channel.kind === "voice"
@@ -637,7 +641,8 @@ export const createWorld = (now: number) => {
 			viewer: {
 				...view.viewer,
 				canRead: can("channel.view"),
-				canPost: can(postingPermission(view)) && view.viewer.canPost !== false,
+				canPost:
+					postingPermissions(view).every(can) && view.viewer.canPost !== false,
 				permissions: holderPermissions(
 					holder,
 					space.roles,

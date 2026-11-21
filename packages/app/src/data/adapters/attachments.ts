@@ -241,9 +241,26 @@ export const inlineMediaOf = (embed: LinkEmbed): MediaItem | undefined => {
 	return undefined;
 };
 
+const videoGifOfEmbed = (embed: LinkEmbed): GifView | undefined => {
+	const only = embed.media?.length === 1 ? embed.media[0] : undefined;
+	if (only?.kind !== "gifv") return undefined;
+
+	return {
+		id: embed.uri,
+		url: embed.uri,
+		previewUrl: only.previewUrl ?? embed.image?.url ?? only.url,
+		videoUrl: only.url,
+		mimeType: only.mimeType ?? "video/mp4",
+		width: only.width ?? 0,
+		height: only.height ?? 0,
+		title: embed.title,
+	};
+};
+
 export const gifOfEmbed = (embed: LinkEmbed): GifView | undefined => {
 	const media = inlineMediaOf(embed);
-	if (media?.kind !== "gif") return undefined;
+	if (media?.kind !== "gif") return videoGifOfEmbed(embed);
+
 	return {
 		id: embed.uri,
 		url: embed.uri,

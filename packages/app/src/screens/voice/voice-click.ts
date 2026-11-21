@@ -7,8 +7,9 @@ const isConnectedHere = (channelUri: string) =>
 	voice.current()?.channel === channelUri &&
 	voice.connection().state === "connected";
 
-export const canJoinVoice = (channel: ChannelView) =>
-	channel.viewer.canPost !== false;
+export const canJoinVoice = (channel: ChannelView) => {
+	return channel.viewer.permissions?.includes("voice.connect") ?? true;
+};
 
 export const clickVoiceChannel = (options: {
 	space: string;

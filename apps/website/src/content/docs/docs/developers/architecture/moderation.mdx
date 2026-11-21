@@ -131,10 +131,10 @@ The AppView resolves a permission in a channel in this order:
 Outside a channel, only steps 1 and 6 apply.
 
 An override can carry these permissions: `channel.view`, `channel.update`,
-`channel.delete`, `message.send`, `thread.create`, `thread.manage`,
-`thread.move`, `mention.roles`, `label.apply`, `voice.connect`, `voice.speak`,
-`voice.listen`, `voice.camera`, `voice.screenshare`, `voice.chat` and
-`voice.moderate`.
+`channel.delete`, `message.send`, `message.react`, `thread.create`,
+`thread.manage`, `thread.move`, `mention.roles`, `label.apply`, `voice.connect`,
+`voice.speak`, `voice.listen`, `voice.camera`, `voice.screenshare`, `voice.chat`
+and `voice.moderate`.
 
 Every action taken *against another person* is additionally guarded by
 hierarchy: you must strictly outrank them. The Space itself outranks everyone,
@@ -150,12 +150,21 @@ for a channel or category record that has no `permissionOverrides`.
 
 ## Reading and posting are separate
 
-Reading a channel is the `channel.view` permission. Posting is `message.send`
-in a text channel and `voice.connect` in a voice channel.
+Reading a channel is the `channel.view` permission, and posting is
+`message.send`. In a voice channel, reading the text chat is `voice.chat`, and
+posting there needs both `voice.chat` and `message.send`. Joining the call is
+`voice.connect`, which posting in the chat doesn't need.
 
 A read-only announcement channel denies `message.send` to the Members role and
 allows it to the roles that post there, while `channel.view` stays with
-everyone.
+everyone. A voice channel whose chat is read-only denies `message.send` the same
+way.
+
+Reacting is `message.react`, and it resolves on its own. A member can hold it in
+a channel that denies them `message.send`, and the other way around. Reacting in
+a voice channel's chat also needs `voice.chat`. Every member holds
+`message.react` by default, like `channel.view`, `message.send` and
+`voice.connect`.
 
 A channel is private when it, or its category, denies `channel.view` to the
 default role. The AppView refuses space credentials for it to every member
@@ -191,9 +200,15 @@ After that, the answer depends on the space type.
 | profile | members | nobody but the Space |
 | configuration, members | members | nobody but the Space |
 | moderation | members holding `moderation.viewLog` | nobody but the Space |
-| text channel | `channel.view` in the channel | `message.send` in the channel |
-| voice channel | `voice.chat` in the channel | `voice.connect` and `voice.chat` in the channel |
-| thread | may read the thread | may post in the thread |
+| text channel | `channel.view` in the channel | `message.send` or `message.react` in the channel |
+| voice channel | `voice.chat` in the channel | `voice.chat`, plus `message.send` or `message.react`, in the channel |
+| thread | may read the thread | may post or react in the thread |
+
+A write credential covers every collection in the space, so a member who may
+only react still gets one. The AppView checks each record against its own
+collection when it indexes the record: a `social.colibri.beta.reaction` record
+needs `message.react`, and every other record needs the right to post. It skips
+the records that fail.
 
 People who haven't joined a Space get its name, description and images from
 the AppView's index, for example in an invitation preview. The PDS refuses them
