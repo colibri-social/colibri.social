@@ -1,3 +1,4 @@
+import { ColibriError } from "@colibri-social/lib";
 import type {
 	BridgeBackfillStatus,
 	BridgeLink,
@@ -206,6 +207,47 @@ export const createBridgeStore = (world: World, now: number) => {
 		return registration;
 	};
 
+	const install = (community: Did, address: string) => {
+		const handle = address.trim().replace(/^@/, "").toLowerCase();
+		if (!/^(did:[a-z]+:.+|[a-z0-9-]+(\.[a-z0-9-]+)+)$/.test(handle)) {
+			throw new ColibriError({
+				code: "InvalidRequest",
+				method: "mock",
+				context: { unknownCode: "BridgeNotFound" },
+			});
+		}
+		const bridge = handle.startsWith("did:")
+			? asDid(handle)
+			: asDid(`did:web:${handle}`);
+		if (
+			listFor(community).some(
+				(entry) => entry.bridge === bridge && entry.remoteSpace === community,
+			)
+		) {
+			throw new ColibriError({
+				code: "InvalidRequest",
+				method: "mock",
+				context: { unknownCode: "AlreadyRegistered" },
+			});
+		}
+		const registration: BridgeRegistrationView = {
+			id: tidFor(Date.now(), world.nextClock()),
+			community,
+			bridge,
+			...(handle.startsWith("did:") ? {} : { bridgeHandle: handle as never }),
+			platform: "external",
+			remoteSpace: community,
+			remoteSpaceName: handle,
+			links: [],
+			channels: [],
+			enabled: true,
+			createdBy: world.viewerDid,
+			createdAt: asDatetime(Date.now()),
+		};
+		registrations.set(community, [registration, ...listFor(community)]);
+		return registration;
+	};
+
 	const backfillFor = (
 		link: BridgeLink,
 		previous: BridgeRegistrationView,
@@ -232,6 +274,7 @@ export const createBridgeStore = (world: World, now: number) => {
 		community: Did;
 		registration: string;
 		links?: BridgeLink[];
+		channels?: SpaceRef[];
 		enabled?: boolean;
 		mirrorModeration?: boolean;
 	}) => {
@@ -246,6 +289,7 @@ export const createBridgeStore = (world: World, now: number) => {
 				.map((link) => backfillFor(link, previous))
 				.filter((status): status is BridgeBackfillStatus => !!status);
 		}
+		if (input.channels) next.channels = input.channels;
 		if (input.enabled !== undefined) next.enabled = input.enabled;
 		if (input.mirrorModeration !== undefined)
 			next.mirrorModeration = input.mirrorModeration;
@@ -306,6 +350,7 @@ export const createBridgeStore = (world: World, now: number) => {
 		},
 		pairing,
 		redeem,
+		install,
 		update,
 		revoke: (community: Did, registration: string) => {
 			find(community, registration);

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { layoutIssues } from "../../../../../ui/src/foundations/layout-test";
 import { createMockSource, setLatency } from "../../../data/mock/source";
 import { createDataStore, DataContext } from "../../../data/store";
+import { TEXT_CHANNEL } from "../../../data/types";
 import { Providers } from "../../../providers";
 import { MobileShell } from "../../../shell/MobileShell";
 
@@ -139,18 +140,18 @@ describe("bridges", () => {
 		await until(() => location.pathname === `/app/c/${HQ}/manage/bridges`);
 	});
 
-	it("connects with a code from the I have a code page", async () => {
+	it("connects with a code from the Add manually page", async () => {
 		const { root } = await mount(`/app/c/${HQ}/manage/bridge-new`);
 		await until(() => !!page(root, "bridge-new"));
 		buttonNamed(
 			page(root, "bridge-new") as HTMLElement,
-			"I have a code",
+			"Add manually",
 		)?.click();
 		await until(() => !!page(root, "bridge-code"));
 		const view = page(root, "bridge-code") as HTMLElement;
 		const connect = buttonNamed(view, "Connect") as HTMLButtonElement;
 		expect(connect.disabled).toBe(true);
-		typeInto(fieldLabelled(view, "Pairing Code"), "TELE2345");
+		typeInto(fieldLabelled(view, "Code or Address"), "TELE2345");
 		await until(() => !connect.disabled);
 		connect.click();
 		await until(() => !!dialogNamed(/^Connect /));
@@ -163,11 +164,11 @@ describe("bridges", () => {
 		await until(() => !!page(root, "bridge-new"));
 		buttonNamed(
 			page(root, "bridge-new") as HTMLElement,
-			"I have a code",
+			"Add manually",
 		)?.click();
 		await until(() => !!page(root, "bridge-code"));
 		const view = page(root, "bridge-code") as HTMLElement;
-		typeInto(fieldLabelled(view, "Pairing Code"), "TELE2345");
+		typeInto(fieldLabelled(view, "Code or Address"), "TELE2345");
 		await wait(300);
 		buttonNamed(view, "Back to New Bridge")?.click();
 		await until(() => !!dialogNamed("Discard changes?"));
@@ -189,5 +190,73 @@ describe("bridges", () => {
 			"Discard changes",
 		)?.click();
 		await until(() => location.pathname.endsWith("/manage/bridge-new"));
+	});
+
+	it("adds a bridge by its address and opens a channel for it", async () => {
+		const { root, store } = await mount(`/app/c/${HQ}/manage/bridge-code`);
+		await until(() => !!page(root, "bridge-code"));
+		const view = page(root, "bridge-code") as HTMLElement;
+		const connect = buttonNamed(view, "Connect") as HTMLButtonElement;
+		typeInto(fieldLabelled(view, "Code or Address"), "bad_name.example");
+		await until(() => !connect.disabled);
+		connect.click();
+		await until(() => !!dialogNamed("Connect bad_name.example?"));
+		buttonNamed(
+			dialogNamed("Connect bad_name.example?") as HTMLElement,
+			"Connect",
+		)?.click();
+		await until(() =>
+			(view.textContent ?? "").includes("couldn't find a bridge"),
+		);
+		typeInto(fieldLabelled(view, "Code or Address"), "bolt.example.com");
+		await until(() => !connect.disabled);
+		connect.click();
+		await until(() => !!dialogNamed("Connect bolt.example.com?"));
+		const confirm = dialogNamed("Connect bolt.example.com?") as HTMLElement;
+		expect(confirm.textContent).toContain(
+			"can read and post only in the channels you pick next",
+		);
+		buttonNamed(confirm, "Connect")?.click();
+		await until(() => !!page(root, "bridge"), 6000);
+		const bridgePage = page(root, "bridge") as HTMLElement;
+		await until(() =>
+			(bridgePage.textContent ?? "").includes(
+				"Pick the channels bolt.example.com can read and post in.",
+			),
+		);
+		expect(bridgePage.textContent).toContain("Connected by address");
+		expect(bridgePage.textContent).not.toContain("has not reported any rooms");
+		const triggers = () =>
+			Array.from(
+				bridgePage.querySelectorAll<HTMLElement>("[data-bridge-link]"),
+			).map((row) => row.querySelector<HTMLElement>("button"));
+		await until(() => triggers().length > 0);
+		expect(triggers()[0]?.textContent).toContain("Not linked");
+		const bridges = store.directory.bridges(HQ);
+		const registration = bridges
+			.registrations()
+			?.find((entry) => entry.remoteSpaceName === "bolt.example.com");
+		const community = store.communities
+			.value()
+			?.find((entry) => entry.did === HQ);
+		const channel = community
+			? store
+					.space(community)
+					.channels.value()
+					?.find((entry) => entry.type === TEXT_CHANNEL)
+			: undefined;
+		expect(registration).toBeDefined();
+		expect(channel).toBeDefined();
+		await bridges.update(registration?.id as string, {
+			channels: [channel?.space as never],
+		});
+		await until(() =>
+			triggers().some((trigger) =>
+				(trigger?.textContent ?? "").includes("Let the bridge read and reply"),
+			),
+		);
+		expect(
+			bridgePage.querySelector('button[aria-label^="Import earlier messages"]'),
+		).toBeNull();
 	});
 });

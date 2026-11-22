@@ -117,7 +117,7 @@ const mount = (
 	const store = createDataStore(source);
 	const os = fakeNotifier(options.permission);
 	const play = vi.fn();
-	const [root, setRoot] = createSignal<Root>({ tab: "inbox" });
+	const [root, setRoot] = createSignal<Root>({ tab: "profile" });
 	const [mounted, setMounted] = createSignal<Layer[]>([]);
 	const stack = {
 		root,
@@ -362,6 +362,54 @@ it("drops a showing toast once settings open so it can't navigate over them", as
 	setMounted([{ kind: "settings" }]);
 	await until(() => toasts().length === 0);
 	expect(stack.push).not.toHaveBeenCalled();
+});
+
+it("shows no toast over Manage Space and drops one when it opens", async () => {
+	const { source, store, play, channel, setMounted } = mount();
+	await until(() => !!store.communities.value());
+	source.emit({
+		$type: "notificationEvent",
+		notification: notification(channel.space),
+	});
+	await until(() => toasts().length === 1);
+	setMounted([{ kind: "admin", space: HQ, page: "bridges" }]);
+	await until(() => toasts().length === 0);
+	play.mockClear();
+	source.emit({
+		$type: "notificationEvent",
+		notification: notification(channel.space, { id: "while-managing" }),
+	});
+	await wait(150);
+	expect(toasts()).toHaveLength(0);
+	expect(play).not.toHaveBeenCalled();
+});
+
+it("pings without a toast while the inbox is open and drops one when it opens", async () => {
+	const { source, store, play, channel, setRoot, setMounted } = mount();
+	await until(() => !!store.communities.value());
+	source.emit({
+		$type: "notificationEvent",
+		notification: notification(channel.space),
+	});
+	await until(() => toasts().length === 1);
+	setMounted([{ kind: "inbox" }]);
+	await until(() => toasts().length === 0);
+	play.mockClear();
+	source.emit({
+		$type: "notificationEvent",
+		notification: notification(channel.space, { id: "inbox-modal" }),
+	});
+	await wait(150);
+	expect(toasts()).toHaveLength(0);
+	expect(play).toHaveBeenCalledWith("ping");
+	setMounted([]);
+	setRoot({ tab: "inbox" });
+	source.emit({
+		$type: "notificationEvent",
+		notification: notification(channel.space, { id: "inbox-tab" }),
+	});
+	await wait(150);
+	expect(toasts()).toHaveLength(0);
 });
 
 it("marks a cold-launch activation read by channel and rkey before the inbox loads", async () => {

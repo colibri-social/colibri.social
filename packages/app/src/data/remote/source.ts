@@ -568,6 +568,12 @@ export const createRemoteSource = async (
 					body: input,
 				})
 			).registration,
+		installBridge: async (input) =>
+			(
+				await transport.procedure(colibri.bridge.install.main, {
+					body: input,
+				})
+			).registration,
 		updateBridge: async (input) =>
 			(
 				await transport.procedure(colibri.bridge.update.main, {

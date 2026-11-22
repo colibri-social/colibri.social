@@ -295,6 +295,15 @@
 					},
 					"description": "Channels kept in sync."
 				},
+				"channels": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "An open channel."
+					},
+					"description": "Channels the bridge may read and post in without a room on the other service."
+				},
 				"backfills": {
 					"type": "array",
 					"items": {

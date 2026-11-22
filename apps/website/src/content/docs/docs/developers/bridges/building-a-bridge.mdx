@@ -8,7 +8,7 @@ sidebar:
 
 import { Steps } from "@astrojs/starlight/components";
 
-`@colibri-social/bridge-core` does the Colibri half of a bridge. It signs requests, follows the channels admins link, maps messages between the two services, retries failed writes, and skips its own echoes. You write a **connector**, which does the other service's half.
+`@colibri-social/bridge-core` does the Colibri half of a bridge. It signs requests, follows the channels admins link or open to it, maps messages between the two services, retries failed writes, and skips its own echoes. You write a **connector**, which does the other service's half.
 
 The Colibri bridge for Discord is built this way. Its connector lives in [`packages/bridge-discord`](https://github.com/colibri-social/api/tree/main/packages/bridge-discord) and makes a good reference for a full implementation.
 
@@ -16,7 +16,7 @@ The Colibri bridge for Discord is built this way. Its connector lives in [`packa
 
 A bridge is a separate process with its own [DID](https://atproto.com/specs/did) and signing key. It talks to the AppView over the network and has no account on a PDS.
 
-When someone posts on the other service, the bridge calls [`social.colibri.beta.bridge.postMessage`](/docs/developers/bridges/reference#postmessage). The AppView checks that the registration belongs to the calling bridge, is enabled, and links the channel. It then writes the message into the channel **as the Space**, through the same writer the Space uses for its own records.
+When someone posts on the other service, the bridge calls [`social.colibri.beta.bridge.postMessage`](/docs/developers/bridges/reference#postmessage). The AppView checks that the registration belongs to the calling bridge, is enabled, and links or opens the channel. It then writes the message into the channel **as the Space**, through the same writer the Space uses for its own records.
 
 Every bridged record carries a `bridged` attribution with the author's name, avatar and id on the other service:
 
@@ -216,6 +216,56 @@ const { code, expiresAt } = await context.pair({
 Show the code only to the admin who asked for it. Check that they're an admin on the other service first. Anyone who can get a code can offer to relay that remote space to a Space.
 
 `context.linkedRooms(remoteSpace)` lists the Colibri channels currently linked to a remote space, for a status command.
+
+### Command-driven bridges
+
+A bridge that keeps its own mapping between channels, and sets it up through commands typed in a channel, needs no pairing code and no remote rooms. Admins add it to a Space by its handle, which calls [`install`](/docs/developers/bridges/reference#install). The bridge receives a `bridgeEvent` and finds the registration in `getConfiguration`. Its `remoteSpace` is the Space's DID, and its `platform` is `external`.
+
+Admins then pick the channels the bridge can use under **Let the bridge read and reply**. These are the registration's [open channels](/docs/developers/bridges/reference#registration), stored in `channels`. The bridge receives every message posted in them and can post, edit, delete, react and open threads there, the same as in a linked channel.
+
+`context.channels(community, registration)` lists the Space's text channels that every member can read, including ones the bridge can't use yet. Call it to show a list of channels in a setup command or to check a channel's name:
+
+```ts
+const channels = await context.channels(
+	"did:plc:4z3bq7rjmuyqfdeslq7vfwdk",
+	"3lzy2ji4nms2k",
+);
+```
+
+It returns [`channelView`](/docs/developers/bridges/reference#listchannels) objects. Only the channels in `channels` are open to the bridge. Tell admins in your setup instructions which channels to pick before they run your commands.
+
+To read the commands, implement `receiveChannelMessage` on your connector. The bridge calls it for every new message in an open channel, with the `community`, `registration`, `channel`, the message's `rkey`, its `author`, and its text as `markdown`. Edits, imported history and messages your bridge posted itself don't reach it. Answer with `context.reply()`, which posts under the name you give and returns the new message's record key:
+
+```ts title="src/connector.ts"
+import type {
+	BridgeContext,
+	ChannelListeningConnector,
+	OpenChannelMessage,
+} from "@colibri-social/bridge-core";
+
+export class SlackConnector implements ChannelListeningConnector {
+	readonly platform = "slack";
+	private context?: BridgeContext;
+
+	async start(context: BridgeContext) {
+		this.context = context;
+	}
+
+	async receiveChannelMessage(message: OpenChannelMessage) {
+		if (message.markdown.trim() !== "!bridge status") return;
+		await this.context?.reply({
+			community: message.community,
+			registration: message.registration,
+			channel: message.channel,
+			author: { id: "bridge", name: "Bridge" },
+			markdown: "This channel is connected.",
+			replyTo: { did: message.author.did, rkey: message.rkey },
+		});
+	}
+}
+```
+
+The example leaves out the other methods of `NetworkConnector`. A channel that is both linked and open relays as usual and also reaches `receiveChannelMessage`.
 
 ### Disconnecting
 

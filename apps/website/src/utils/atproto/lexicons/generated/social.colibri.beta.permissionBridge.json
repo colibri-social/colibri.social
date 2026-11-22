@@ -15,6 +15,7 @@
 						"social.colibri.beta.bridge.createPairing",
 						"social.colibri.beta.bridge.getConfiguration",
 						"social.colibri.beta.bridge.putRemoteRooms",
+						"social.colibri.beta.bridge.listChannels",
 						"social.colibri.beta.bridge.uploadBlob",
 						"social.colibri.beta.bridge.postMessage",
 						"social.colibri.beta.bridge.editMessage",

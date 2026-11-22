@@ -8,6 +8,7 @@ import type {
 	BridgeRemoteRoom,
 	CommunityView,
 	Did,
+	SpaceRef,
 } from "./types";
 
 type Updatable<T> = { update: (change: (current: T) => T) => void };
@@ -93,10 +94,12 @@ export type BridgeData = {
 	rooms: (registration: string) => Promise<BridgeRemoteRoom[]>;
 	lookUp: (code: string) => Promise<BridgePairingView>;
 	connect: (code: string) => Promise<BridgeRegistrationView>;
+	install: (bridge: string) => Promise<BridgeRegistrationView>;
 	update: (
 		registration: string,
 		changes: {
 			links?: BridgeLink[];
+			channels?: SpaceRef[];
 			enabled?: boolean;
 			mirrorModeration?: boolean;
 		},
@@ -241,6 +244,14 @@ export const createSpaceDirectory = (
 					const registration = await source.redeemBridgePairing({
 						community,
 						code,
+					});
+					replace(registration);
+					return registration;
+				},
+				install: async (bridge) => {
+					const registration = await source.installBridge({
+						community,
+						bridge,
 					});
 					replace(registration);
 					return registration;

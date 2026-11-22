@@ -43,7 +43,8 @@ import { DISCONNECT_COPY } from "../bridges/pairing";
 import { AdminNavHeader } from "../desktop/page-header";
 import { SPACE_PERMISSIONS, useAdminSpace } from "../space-admin";
 
-const UNLINKED = "";
+const UNLINKED = "unlinked";
+const OPEN = "open";
 
 const numberFormat = new Intl.NumberFormat("en");
 const dateFormat = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" });
@@ -93,28 +94,45 @@ export const bridge = defineContract({
 			);
 		});
 		const [draftLinks, setDraftLinks] = createSignal<BridgeLink[]>();
+		const [draftChannels, setDraftChannels] = createSignal<SpaceRef[]>();
 		const [depths, setDepths] = createSignal<Record<string, HistoryDepth>>({});
 		const [busy, setBusy] = createSignal(false);
 		const [confirmOpen, setConfirmOpen] = createSignal(false);
 
 		const links = () => draftLinks() ?? registration()?.links ?? [];
+		const savedChannels = () => (registration()?.channels ?? []) as SpaceRef[];
+		const openChannels = () => draftChannels() ?? savedChannels();
+		const installed = () => {
+			const current = registration();
+			return !!current && current.remoteSpace === current.community;
+		};
 		const roomOptions = createMemo((): SelectOption[] => [
 			{ value: UNLINKED, label: "Not linked" },
+			{ value: OPEN, label: "Let the bridge read and reply" },
 			...(rooms() ?? []).map((room) => ({
 				value: room.id,
 				label: room.parent ? `${room.name} (${room.parent})` : room.name,
 			})),
 		]);
-		const linkedRoom = (channel: SpaceRef) =>
-			links().find((link) => link.channel === channel)?.remoteRoom ?? UNLINKED;
+		const linkedRoom = (channel: SpaceRef) => {
+			const link = links().find((entry) => entry.channel === channel);
+			if (link) return link.remoteRoom;
+			return openChannels().includes(channel) ? OPEN : UNLINKED;
+		};
+		const linkedToRoom = (channel: SpaceRef) => {
+			const value = linkedRoom(channel);
+			return value !== UNLINKED && value !== OPEN;
+		};
 		const setRoom = (channel: SpaceRef, roomId: string) => {
 			const others = links().filter((link) => link.channel !== channel);
 			const room = (rooms() ?? []).find((entry) => entry.id === roomId);
+			const closed = openChannels().filter((entry) => entry !== channel);
 			setDraftLinks(
 				room
 					? [...others, { channel, remoteRoom: room.id, remoteName: room.name }]
 					: others,
 			);
+			setDraftChannels(roomId === OPEN ? [...closed, channel] : closed);
 		};
 		const depthOf = (channel: SpaceRef) => depths()[channel] ?? "none";
 		const setDepth = (channel: SpaceRef, depth: HistoryDepth) =>
@@ -135,7 +153,9 @@ export const bridge = defineContract({
 		const edited = () =>
 			importsChosen() ||
 			JSON.stringify(sortLinks(links())) !==
-				JSON.stringify(sortLinks(registration()?.links ?? []));
+				JSON.stringify(sortLinks(registration()?.links ?? [])) ||
+			JSON.stringify([...openChannels()].sort()) !==
+				JSON.stringify([...savedChannels()].sort());
 
 		const run = async (
 			changes: Parameters<NonNullable<ReturnType<typeof data>>["update"]>[1],
@@ -161,8 +181,9 @@ export const bridge = defineContract({
 				const backfill = historyRequest(depthOf(link.channel as SpaceRef), now);
 				return backfill ? { ...link, backfill } : link;
 			});
-			if (await run({ links: requested })) {
+			if (await run({ links: requested, channels: openChannels() })) {
 				setDraftLinks(undefined);
+				setDraftChannels(undefined);
 				setDepths({});
 				toast.success("Links saved");
 			}
@@ -170,6 +191,7 @@ export const bridge = defineContract({
 
 		const reset = () => {
 			setDraftLinks(undefined);
+			setDraftChannels(undefined);
 			setDepths({});
 		};
 
@@ -217,7 +239,9 @@ export const bridge = defineContract({
 			rooms,
 			channels,
 			roomOptions,
+			installed,
 			linkedRoom,
+			linkedToRoom,
 			setRoom,
 			depthOf,
 			setDepth,
@@ -286,7 +310,9 @@ export const bridge = defineContract({
 								{registration().remoteSpaceName}
 							</span>
 							<span class="truncate text-xs text-muted-foreground">
-								{`${platformName(registration().platform)} bridge run by ${registration().bridgeHandle ?? registration().bridge}`}
+								{m.installed()
+									? "Connected by address"
+									: `${platformName(registration().platform)} bridge run by ${registration().bridgeHandle ?? registration().bridge}`}
 							</span>
 						</div>
 					</div>
@@ -306,7 +332,11 @@ export const bridge = defineContract({
 						/>
 						<ToggleRow
 							title="Mirror moderation"
-							description={`Hiding a relayed message here also removes it on ${platformName(registration().platform)}, and messages its moderators remove are hidden here. The bridge needs permission to manage messages there.`}
+							description={
+								m.installed()
+									? "Hiding a relayed message here also removes it on the other services, and messages their moderators remove are hidden here."
+									: `Hiding a relayed message here also removes it on ${platformName(registration().platform)}, and messages its moderators remove are hidden here. The bridge needs permission to manage messages there.`
+							}
 							checked={registration().mirrorModeration ?? false}
 							disabled={m.busy()}
 							onChange={(mirrorModeration) => void m.run({ mirrorModeration })}
@@ -332,12 +362,17 @@ export const bridge = defineContract({
 							<Skeleton class="h-10 w-full rounded-control" />
 						</div>
 					</Match>
-					<Match when={(m.rooms() ?? []).length === 0}>
-						<p class="m-0 text-sm text-muted-foreground">
-							{`The bridge has not reported any rooms yet. Make sure it is running and can see the channels on ${platformName(m.registration()?.platform ?? "")}.`}
-						</p>
-					</Match>
 					<Match when={m.rooms()}>
+						<Show when={m.installed()}>
+							<p class="m-0 text-sm text-muted-foreground">
+								{`Pick the channels ${m.registration()?.remoteSpaceName ?? "this bridge"} can read and post in. Then set the bridge up from inside those channels, following its own instructions.`}
+							</p>
+						</Show>
+						<Show when={!m.installed() && (m.rooms() ?? []).length === 0}>
+							<p class="m-0 text-sm text-muted-foreground">
+								{`The bridge has not reported any rooms yet. Make sure it is running and can see the channels on ${platformName(m.registration()?.platform ?? "")}.`}
+							</p>
+						</Show>
 						<div class="flex flex-col gap-4">
 							<For each={m.channels()}>
 								{(channel) => (
@@ -351,7 +386,7 @@ export const bridge = defineContract({
 											onChange={(value) => m.setRoom(channel.space, value)}
 											disabled={m.busy()}
 										/>
-										<Show when={m.linkedRoom(channel.space) !== UNLINKED}>
+										<Show when={m.linkedToRoom(channel.space)}>
 											<Select
 												platform={usePlatform()()}
 												aria-label={`Import earlier messages into ${channel.name}`}

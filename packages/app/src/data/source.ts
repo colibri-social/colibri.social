@@ -430,6 +430,7 @@ type BridgeTarget = { community: Did; registration: string };
 
 type UpdateBridgeInput = BridgeTarget & {
 	links?: BridgeLink[];
+	channels?: SpaceRef[];
 	enabled?: boolean;
 	mirrorModeration?: boolean;
 };
@@ -507,6 +508,10 @@ export type DataSource = AccessSource &
 		redeemBridgePairing: (input: {
 			community: Did;
 			code: string;
+		}) => Promise<BridgeRegistrationView>;
+		installBridge: (input: {
+			community: Did;
+			bridge: string;
 		}) => Promise<BridgeRegistrationView>;
 		updateBridge: (input: UpdateBridgeInput) => Promise<BridgeRegistrationView>;
 		revokeBridge: (input: BridgeTarget) => Promise<void>;

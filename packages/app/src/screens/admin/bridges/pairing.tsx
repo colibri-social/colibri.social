@@ -1,3 +1,4 @@
+import { classifyThrown } from "@colibri-social/lib";
 import { ConfirmDialog, toast } from "@colibri-social/ui";
 import { createMemo, createSignal } from "solid-js";
 import type { BridgePairingView } from "../../../data/types";
@@ -13,6 +14,16 @@ export const DISCONNECT_COPY = {
 	description:
 		"The bridge stops relaying straight away. Messages it already relayed stay where they are. To reconnect, pair it again with a new code.",
 } as const;
+
+const ADDRESS_ERRORS: Record<string, string> = {
+	BridgeNotFound:
+		"We couldn't find a bridge at that address. Check the spelling and try again.",
+	AlreadyRegistered: "This bridge is already connected to this Space.",
+};
+
+const isBridgeAddress = (value: string) => {
+	return value.includes(".") || value.startsWith("did:");
+};
 
 const BRIDGES_UNAVAILABLE = {
 	missing: {
@@ -72,6 +83,7 @@ export const createPairingFlow = (
 	const [connected, setConnected] = createSignal(false);
 
 	const trimmed = () => code().trim();
+	const [address, setAddress] = createSignal<string>();
 
 	useUnsavedChanges({
 		depth: () =>
@@ -91,8 +103,15 @@ export const createPairingFlow = (
 	const submit = async () => {
 		const data = bridge.data();
 		if (!trimmed() || busy() || !data) return;
-		setBusy(true);
 		setError(undefined);
+		if (isBridgeAddress(trimmed())) {
+			setPairing(undefined);
+			setAddress(trimmed().replace(/^@/, ""));
+			setConfirmOpen(true);
+			return;
+		}
+		setAddress(undefined);
+		setBusy(true);
 		try {
 			setPairing(await data.lookUp(trimmed()));
 			setConfirmOpen(true);
@@ -106,13 +125,24 @@ export const createPairingFlow = (
 	const connect = async () => {
 		const data = bridge.data();
 		if (!data) return;
+		const target = address();
 		try {
-			const registration = await data.connect(trimmed());
+			const registration = target
+				? await data.install(target)
+				: await data.connect(trimmed());
 			setConnected(true);
 			toast.success("Bridge connected");
 			setConfirmOpen(false);
 			showBridge(bridge.stack, bridge.args.space, registration.id);
 		} catch (failure) {
+			const known =
+				ADDRESS_ERRORS[
+					String(classifyThrown(failure).context.unknownCode ?? "")
+				];
+			if (target && known) {
+				setError(known);
+				return;
+			}
 			toast.error("Couldn't connect the bridge.");
 			throw failure;
 		}
@@ -127,6 +157,7 @@ export const createPairingFlow = (
 		busy,
 		error,
 		pairing,
+		address,
 		confirmOpen,
 		setConfirmOpen,
 		canSubmit: () => trimmed().length > 0 && !busy(),
@@ -141,8 +172,11 @@ export const PairingConfirm = (props: { flow: PairingFlow }) => (
 	<ConfirmDialog
 		open={props.flow.confirmOpen()}
 		onOpenChange={props.flow.setConfirmOpen}
-		title={`Connect ${props.flow.pairing()?.remoteSpaceName ?? "this bridge"}?`}
+		title={`Connect ${props.flow.address() ?? props.flow.pairing()?.remoteSpaceName ?? "this bridge"}?`}
 		description={(() => {
+			const address = props.flow.address();
+			if (address)
+				return `${address} can read and post only in the channels you pick next. Every member can see which bridges are connected.`;
 			const found = props.flow.pairing();
 			if (!found) return undefined;
 			const platform = platformName(found.platform);

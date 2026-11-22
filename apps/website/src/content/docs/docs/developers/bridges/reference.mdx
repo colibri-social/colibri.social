@@ -29,9 +29,16 @@ A code is eight characters long, works once, and expires after 10 minutes. A bri
 
 ### `getConfiguration`
 
-Query. Lists every registration the calling bridge holds, in every Space, with each one's links. Call it at startup and whenever a `bridgeEvent` frame arrives.
+Query. Lists every registration the calling bridge holds, in every Space, with each one's links and open channels. Call it at startup and whenever a `bridgeEvent` frame arrives.
 
 - **Output:** `registrations`, an array of [`registrationView`](#registrationview)
+
+### `listChannels`
+
+Query. Lists the text channels of a Space that every member can read, so a bridge can offer them before an admin opens or links any. Channels restricted to some roles or members are left out.
+
+- **Input:** `community`, `registration`
+- **Output:** `channels`, an array of `social.colibri.beta.community.defs#channelView`
 
 ### `putRemoteRooms`
 
@@ -56,12 +63,12 @@ Procedure. Swaps the avatar on every message and thread attributed to one remote
 
 ### `postMessage`
 
-Procedure. Posts a message into a linked channel, written by the Space and attributed to someone on the other service.
+Procedure. Posts a message into a linked or open channel, written by the Space and attributed to someone on the other service.
 
 - **Input:** `community`, `registration`, `channel`, `author` ([`remoteAuthor`](#remoteauthor)), `text`, `facets`, `parent`, `parentUri`, `attachments`, `forward`, `remoteMessage`, `createdAt`
 - **Output:** `rkey`
 
-`channel` is a linked channel or a thread beside one. `parent` is the `did` and `rkey` of the message being replied to. `parentUri` names the same message as a record URI in the channel, and the AppView prefers it over `parent` when it is valid. `createdAt` is when the message was sent on the other service, and defaults to now. `forward` has the shape of the `forward` field on `social.colibri.beta.message`. `remoteMessage` is the message's id on the other service, stored in the attribution.
+`channel` is a linked or open channel, or a thread beside one. `parent` is the `did` and `rkey` of the message being replied to. `parentUri` names the same message as a record URI in the channel, and the AppView prefers it over `parent` when it is valid. `createdAt` is when the message was sent on the other service, and defaults to now. `forward` has the shape of the `forward` field on `social.colibri.beta.message`. `remoteMessage` is the message's id on the other service, stored in the attribution.
 
 ### `editMessage`
 
@@ -77,7 +84,7 @@ Procedure. Deletes a message the bridge posted.
 
 ### `addReaction`
 
-Procedure. Adds a reaction to a message in a linked channel, attributed to someone on the other service.
+Procedure. Adds a reaction to a message in a linked or open channel, attributed to someone on the other service.
 
 - **Input:** `community`, `registration`, `channel`, `author` ([`remoteAuthor`](#remoteauthor)), `target` (`did` and `rkey` of the message), `uri`, `emoji`
 - **Output:** `rkey`
@@ -92,7 +99,7 @@ Procedure. Removes a reaction the bridge added.
 
 ### `createThread`
 
-Procedure. Opens a thread beside a linked channel, written by the Space and attributed to someone on the other service.
+Procedure. Opens a thread beside a linked or open channel, written by the Space and attributed to someone on the other service.
 
 - **Input:** `community`, `registration`, `channel`, `name`, `author` ([`remoteAuthor`](#remoteauthor)), `anchor`, `remoteThread`, `createdAt`
 - **Output:** `thread`, the thread's space
@@ -158,6 +165,14 @@ Procedure. Redeems a code and writes a registration with no links.
 - **Input:** `community`, `code`
 - **Output:** `registration`, a [`registrationView`](#registrationview)
 
+### `install`
+
+Procedure. Connects a bridge to a Space by its handle or DID, with no pairing code. The registration starts with no links and no open channels. Its `remoteSpace` is the Space's DID, its `remoteSpaceName` is the bridge's handle, and its `platform` is `external`. The bridge receives a `bridgeEvent` and picks up the registration with `getConfiguration`.
+
+- **Input:** `community`, `bridge` (a handle or DID)
+- **Output:** `registration`, a [`registrationView`](#registrationview)
+- **Errors:** `Forbidden`, `CommunityNotFound`, `BridgeNotFound`, `AlreadyRegistered`
+
 ### `listRegistrations`
 
 Query. Lists the bridges connected to a Space.
@@ -174,12 +189,12 @@ Query. Lists the rooms a bridge last reported with `putRemoteRooms`.
 
 ### `update`
 
-Procedure. Replaces a registration's links, pauses and resumes it, or turns moderation mirroring on and off. Omitted fields keep their value.
+Procedure. Replaces a registration's links or open channels, pauses and resumes it, or turns moderation mirroring on and off. Omitted fields keep their value.
 
-- **Input:** `community`, `registration`, `links` (array of [`link`](#link)), `enabled`, `mirrorModeration`
+- **Input:** `community`, `registration`, `links` (array of [`link`](#link)), `channels` (array of space references), `enabled`, `mirrorModeration`
 - **Output:** `registration`
 
-To ask for a history import, set `backfill` on a link with a new `requestedAt`.
+To ask for a history import, set `backfill` on a link with a new `requestedAt`. Open channels have no history import.
 
 ### `revoke`
 
@@ -189,13 +204,13 @@ Procedure. Deletes a registration. The bridge's next call fails, and messages it
 
 ## Events
 
-A bridge subscribes to [`social.colibri.beta.sync.subscribeEvents`](/docs/developers/specification/appview) with service auth, the same way a client does. It may only subscribe to channels linked to one of its enabled registrations, and to threads beside them that every reader of the channel can see. The AppView drops the subscription when a channel is unlinked or a thread turns private.
+A bridge subscribes to [`social.colibri.beta.sync.subscribeEvents`](/docs/developers/specification/appview) with service auth, the same way a client does. It may only subscribe to channels linked to or open on one of its enabled registrations, and to threads beside them that every reader of the channel can see. The AppView drops the subscription when a channel is unlinked or closed, or a thread turns private.
 
 The frames a bridge acts on are:
 
-- `messageEvent`, for messages created, edited and deleted in a linked channel or thread
+- `messageEvent`, for messages created, edited and deleted in a linked or open channel or thread
 - `reactionEvent`, for reactions added and removed
-- `threadEvent`, for threads opened, renamed and deleted beside a linked channel
+- `threadEvent`, for threads opened, renamed and deleted beside a linked or open channel
 - `labelEvent`, for labels applied to messages, such as `hidden`
 - `bridgeEvent`, when one of the bridge's registrations changes
 
@@ -261,9 +276,11 @@ The `social.colibri.beta.richtext.facet#bridgedMention` feature, a mention of so
 
 The `social.colibri.beta.bridge.registration` record, written by the Space in its configuration space. Every member can read it.
 
+Besides `links`, a registration holds an optional `channels` array of space references. These are **open channels**: the bridge can read them, over REST and `subscribeEvents`, and write to them with `postMessage` and the other write methods, without a remote room behind them. An admin sets them with [`update`](#update).
+
 ### `registrationView`
 
-`id`, `community`, `communityName`, `bridge`, `bridgeHandle`, `platform`, `remoteSpace`, `remoteSpaceName`, `links`, `backfills` (array of [`backfillStatus`](#backfillstatus)), `enabled`, `mirrorModeration`, `createdBy`, `createdAt`, `updatedAt`.
+`id`, `community`, `communityName`, `bridge`, `bridgeHandle`, `platform`, `remoteSpace`, `remoteSpaceName`, `links`, `channels`, `backfills` (array of [`backfillStatus`](#backfillstatus)), `enabled`, `mirrorModeration`, `createdBy`, `createdAt`, `updatedAt`.
 
 ### `pairingView`
 
@@ -309,17 +326,18 @@ A rate-limited request fails with HTTP 429 and a `Retry-After` header.
 | `CommunityNotFound` | The Space doesn't exist on this AppView. |
 | `RegistrationNotFound` | The registration doesn't exist in that Space. |
 | `RegistrationDisabled` | An admin paused the registration. |
-| `ChannelNotLinked` | The channel isn't linked to the registration, or the thread isn't beside a linked channel. |
+| `ChannelNotLinked` | The channel isn't linked to or open on the registration, or the thread isn't beside such a channel. |
 | `ThreadNotFound` | The thread to change doesn't exist. |
 | `MessageNotFound` | The anchor message for a new thread isn't in the channel. |
 | `ModerationMirrorOff` | `hideMessage` was called while moderation mirroring is off. |
 | `BackfillNotRequested` | No admin asked for a history import on the channel, or `reportBackfill` named an older request. |
 | `OutsideBackfillRange` | An imported message was sent before `since` or after `requestedAt`. |
-| `ChannelNotFound` | A link in `update` names a channel the Space doesn't have. |
+| `ChannelNotFound` | A link or open channel in `update` names a channel the Space doesn't have. |
 | `RecordNotFound` | The message or reaction to change doesn't exist. |
 | `NotBridged` | The record or thread wasn't written for this registration, or `hideMessage` named a message the Space wrote. |
 | `AlreadyReacted` | The same remote author already reacted with that emoji. |
-| `AlreadyRegistered` | The bridge is already connected to this Space for that remote space. |
+| `AlreadyRegistered` | The bridge is already connected to this Space for that remote space. For `install`, the bridge is already installed in the Space. |
+| `BridgeNotFound` | `install` named a handle or DID that doesn't resolve to a bridge. |
 | `PairingNotFound` | The code is wrong, used, or expired. |
 | `BlobTooLarge` | The upload is over 20 MB. |
 | `RateLimited` | The registration is over its write limit. |

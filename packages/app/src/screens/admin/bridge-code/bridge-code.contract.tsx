@@ -57,9 +57,9 @@ export const bridgeCode = defineContract({
 				}}
 			>
 				<TextField
-					label="Pairing Code"
-					placeholder="ABCDEFG123"
-					description="Start pairing from the other service, then enter the code it gives you."
+					label="Code or Address"
+					placeholder="ABCD1234 or bolt.example.com"
+					description="Enter the code the other service gave you, or the address of a bridge, like bolt.example.com."
 					value={m.flow.code()}
 					onChange={m.flow.setCode}
 					error={m.flow.error()}

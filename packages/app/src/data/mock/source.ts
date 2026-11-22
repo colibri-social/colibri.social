@@ -743,6 +743,13 @@ export const createMockSource = (
 				}
 				return bridges.redeem(input.community, input.code);
 			}),
+		installBridge: (input) =>
+			withLatency(() => {
+				if (!allowedIn(spaceOf(input.community), "community.manage")) {
+					throw new Error("Forbidden");
+				}
+				return bridges.install(input.community, input.bridge);
+			}),
 		updateBridge: (input) =>
 			withLatency(() => {
 				if (!allowedIn(spaceOf(input.community), "community.manage")) {

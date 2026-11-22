@@ -44,7 +44,7 @@ export const bridgeNew = defineContract({
 				action={
 					m.unavailable()
 						? undefined
-						: { type: "text", label: "I have a code", onClick: m.haveCode }
+						: { type: "text", label: "Add manually", onClick: m.haveCode }
 				}
 			/>
 		)),

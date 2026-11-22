@@ -94,12 +94,17 @@ export const NotificationHost = (props: {
 	createEffect(() => setSoundEffectsSink(voiceSettings().settings().speaker));
 	onCleanup(watchMediaDevices(refreshSoundEffectsSink));
 
+	const openLayers = () => {
+		return props.stack.mounted().slice(0, props.stack.depth());
+	};
 	const settingsOpen = () =>
 		props.stack.root().tab === "settings" ||
-		props.stack
-			.mounted()
-			.slice(0, props.stack.depth())
-			.some((layer) => layer.kind === "settings");
+		openLayers().some(
+			(layer) => layer.kind === "settings" || layer.kind === "admin",
+		);
+	const inboxOpen = () =>
+		props.stack.root().tab === "inbox" ||
+		openLayers().some((layer) => layer.kind === "inbox");
 
 	const content = (view: NotificationView) => {
 		const described = describeNotification(data, view);
@@ -287,7 +292,7 @@ export const NotificationHost = (props: {
 			if (visible) {
 				if (settingsOpen()) return;
 				play("ping");
-				showToast(view);
+				if (!inboxOpen()) showToast(view);
 				return;
 			}
 			if (push()?.active()) return;
@@ -306,7 +311,7 @@ export const NotificationHost = (props: {
 	});
 
 	createEffect(() => {
-		if (settingsOpen()) toast.dismiss(MESSAGE_TOAST_ID);
+		if (settingsOpen() || inboxOpen()) toast.dismiss(MESSAGE_TOAST_ID);
 	});
 
 	createEffect(() => {

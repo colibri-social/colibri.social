@@ -165,6 +165,7 @@
 						"social.colibri.beta.thread.moveMessages",
 						"social.colibri.beta.bridge.getPairing",
 						"social.colibri.beta.bridge.redeemPairing",
+						"social.colibri.beta.bridge.install",
 						"social.colibri.beta.bridge.listRegistrations",
 						"social.colibri.beta.bridge.update",
 						"social.colibri.beta.bridge.revoke",
