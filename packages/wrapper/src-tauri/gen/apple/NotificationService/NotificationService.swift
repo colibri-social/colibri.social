@@ -135,7 +135,10 @@ final class NotificationService: UNNotificationServiceExtension {
 			customIdentifier: senderId
 		)
 
-		let groupName = content.subtitle.isEmpty ? nil : INSpeakableString(spokenPhrase: content.subtitle)
+		let spokenGroup = [info["conversationName"] as? String, content.subtitle]
+			.compactMap { $0 }
+			.first { !$0.isEmpty }
+		let groupName = spokenGroup.map { INSpeakableString(spokenPhrase: $0) }
 		let recipients = groupName.map { _ in
 			[
 				sender,

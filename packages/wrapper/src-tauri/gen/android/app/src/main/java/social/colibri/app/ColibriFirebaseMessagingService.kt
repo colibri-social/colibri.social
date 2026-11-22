@@ -132,7 +132,10 @@ class ColibriFirebaseMessagingService : FirebaseMessagingService() {
 		val body = data["body"] ?: ""
 		val deepLink = notificationDeepLink(channelUri, threadUri, messageUri) ?: data["deepLink"]
 		val spaceName = data["spaceName"] ?: data["communityName"]
-		val conversationTitle = data["subtitle"]?.takeIf { it.isNotEmpty() } ?: spaceName
+		val conversationTitle =
+			data["conversationName"]?.takeIf { it.isNotEmpty() }
+				?: data["subtitle"]?.takeIf { it.isNotEmpty() }
+				?: spaceName
 		val spaceAvatarUrl = data["spaceAvatarUrl"] ?: data["communityAvatarUrl"]
 		val authorName = data["authorName"] ?: data["title"] ?: "Someone"
 		val authorAvatarUrl = data["authorAvatarUrl"]
