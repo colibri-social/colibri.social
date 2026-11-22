@@ -1,0 +1,84 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.handOverHost",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Gives an administrator access to a community account that lives on this AppView's server, so they can move it to another server. The AppView sets the given email on the account, so codes the server sends reach the administrator, and returns a new password once. The password works for 60 minutes. If the account has not moved by then, the AppView replaces it and signs out every session.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"email"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community."
+						},
+						"email": {
+							"type": "string",
+							"maxLength": 254,
+							"description": "The address that receives the server's codes for the move."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"identifier",
+						"password",
+						"expiresAt"
+					],
+					"properties": {
+						"identifier": {
+							"type": "string",
+							"description": "The account's handle, to sign in with."
+						},
+						"password": {
+							"type": "string",
+							"description": "The account's new password. It is not shown again."
+						},
+						"expiresAt": {
+							"type": "string",
+							"format": "datetime",
+							"description": "When the password stops working."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks permission for this community."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at that identifier."
+				},
+				{
+					"name": "HandOverUnavailable",
+					"description": "The account does not live on this AppView's server, already moved, or the AppView cannot manage accounts there."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS or third-party call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

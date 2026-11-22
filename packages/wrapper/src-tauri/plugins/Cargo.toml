@@ -10,6 +10,7 @@ links = "tauri-plugin-keyboard-inset"
 
 [dependencies]
 tauri = { version = "2.11.3" }
+serde = { version = "1", features = ["derive"] }
 
 [build-dependencies]
 tauri-plugin = { version = "2.6.3", features = ["build"] }

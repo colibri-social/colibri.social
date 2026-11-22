@@ -5,7 +5,7 @@ use windows::Graphics::Capture::{GraphicsCaptureItem, GraphicsCaptureSession};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
 
-use super::{CaptureQuality, CaptureSource, FrameSender, SourceId, SourceKind};
+use super::{AudioApp, CaptureQuality, CaptureSource, FrameSender, SourceId, SourceKind};
 use crate::native_error::NativeError;
 
 mod audio;
@@ -13,6 +13,7 @@ mod capture;
 mod encoder;
 mod enumerate;
 mod item;
+mod sessions;
 mod thumbnail;
 
 pub use capture::Capture;
@@ -240,16 +241,39 @@ pub async fn list_sources() -> Result<(Vec<CaptureSource>, HashMap<String, Vec<u
     .map_err(|error| NativeError::failed(error.to_string()))?
 }
 
+pub async fn list_audio_apps(_source: Option<SourceId>) -> Result<Vec<AudioApp>, NativeError> {
+    tauri::async_runtime::spawn_blocking(sessions::list_apps)
+        .await
+        .map_err(|error| NativeError::failed(format!("could not list audio apps: {error}")))?
+}
+
+fn audio_targets(
+    kind: SourceKind,
+    target: audio::Target,
+    audio_apps: Option<&[String]>,
+) -> Vec<audio::Target> {
+    match (kind, audio_apps) {
+        (SourceKind::Display, Some(ids)) => sessions::chosen_processes(ids)
+            .into_iter()
+            .map(audio::Target::Process)
+            .collect(),
+        _ => vec![target],
+    }
+}
+
 pub fn start(
     source: &SourceId,
     quality: CaptureQuality,
     capture_audio: bool,
+    audio_apps: Option<Vec<String>>,
     sender: FrameSender,
 ) -> Result<Capture, NativeError> {
     item::join_multithreaded_apartment();
 
     let (handle, target) = resolve(source)?;
-    capture::start(handle, quality, capture_audio, target, sender)
+    let targets = audio_targets(source.kind, target, audio_apps.as_deref());
+    let capture_audio = capture_audio && !targets.is_empty();
+    capture::start(handle, quality, capture_audio, targets, sender)
 }
 
 #[cfg(test)]

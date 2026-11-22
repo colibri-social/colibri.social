@@ -1,0 +1,162 @@
+---
+title: Pairing a Bridge
+description: Connect a bridge to your Space with a code or its address, link channels, import history, and pause or disconnect the bridge again.
+sidebar:
+  label: Pairing
+  order: 2
+---
+
+import { Steps, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Pairing connects a running bridge to your Space. It works like pairing two devices with a code: one side shows a code, and the other side types it in. It takes an admin on each side, one on the other service to get the code and one in Colibri to enter it.
+
+Some bridges have no pairing code. You [add them by their address](#add-a-bridge-by-address) instead.
+
+The examples on this page use the Colibri bridge for Discord. Other bridges follow the same steps with their own command for getting a code.
+
+## Before you start
+
+- In Colibri, you need the **Manage Space** permission.
+- On the other service, you need to be an admin. In Discord, that means the **Manage Server** permission.
+
+## Pair a bridge
+
+<Steps>
+
+1. Add the [Discord bot](https://discord.com/oauth2/authorize?client_id=1552595021247684679) to your server.
+
+2. On the other service, ask the bridge for a pairing code. In Discord, run:
+
+   ```
+   /colibri connect
+   ```
+
+   The bridge replies with an eight-character code that only you can see. The code works once and expires after 10 minutes.
+
+3. In Colibri, open the menu of your Space and select **Manage Space**, then **Bridges**.
+
+4. Select **New bridge**, then **Add manually**.
+
+5. Enter the code under **Code or Address** and select **Connect**.
+
+6. Colibri asks whether to connect, and names the bridge, the service, and the server on that service. Check that these are the ones you expect, then select **Connect**.
+
+</Steps>
+
+Colibri opens the page of the new bridge. The bridge carries nothing over until you link channels.
+
+:::note
+If Colibri reports that the pairing code didn't work, check the code for typos. An expired or used code needs a new one from the other service.
+:::
+
+## Add a bridge by address
+
+A bridge that works through commands inside a channel has no pairing code. Add it with its address instead, such as `bolt.example.com`. The bridge's own instructions name its address.
+
+<Steps>
+
+1. In Colibri, open the menu of your Space and select **Manage Space**, then **Bridges**.
+
+2. Select **New bridge**, then **Add manually**.
+
+3. Enter the bridge's address under **Code or Address** and select **Connect**.
+
+4. Colibri asks whether to connect the bridge, and names it by its address. Select **Connect**.
+
+</Steps>
+
+Colibri opens the page of the new bridge. The bridge can't read or post anywhere until you [pick its channels](#let-a-bridge-read-and-reply).
+
+:::note
+If Colibri can't find a bridge at that address, check the spelling. If the bridge is already connected to the Space, it's listed under **Bridges**.
+:::
+
+## Link channels
+
+After pairing, the bridge reports the rooms it can see on the other service. Each Colibri channel links to at most one room.
+
+<Steps>
+
+1. In **Bridges**, select **Manage bridge** on the bridge you paired.
+
+2. Under **Linked channels**, pick a room for each Colibri channel you want to connect. Leave a channel on **Not linked** to keep it out. To let the bridge use a channel without a room, see [Let a bridge read and reply](#let-a-bridge-read-and-reply).
+
+3. To bring over earlier messages, pick how far back to go in the second menu of that channel: **Last day**, **Last 7 days**, **Last 30 days** or **All history**. Leave it on **Don't import** to carry over new messages only.
+
+4. Select **Save** in the bar that appears with **You have unsaved changes**.
+
+</Steps>
+
+The bridge picks up the new links straight away! From Discord, run `/colibri status` to list the channels the bridge is connected to.
+
+If the list of rooms is empty, the bridge hasn't reported any yet. Check that it's running and that it can see the channels on the other service.
+
+### Let a bridge read and reply
+
+Set a channel to **Let the bridge read and reply** to give the bridge access without linking a room. The bridge can then read every message in the channel and post into it. It decides itself what to relay and where, for example after someone types a setup command in the channel.
+
+A channel set to **Let the bridge read and reply** has no history import.
+
+A bridge you added by address reports no rooms, so each channel offers only **Not linked** and **Let the bridge read and reply**. Pick the channels the bridge can read and post in and select **Save**. Then set the bridge up from inside those channels, following its own instructions.
+
+### Permissions the Discord bot needs
+
+In Discord, the bot needs these permissions in each linked channel:
+
+| For | Permissions |
+| --- | --- |
+| Messages | **View Channel**, **Send Messages**, **Read Message History** and **Manage Webhooks** |
+| Reactions | **Add Reactions** |
+| Threads | **Create Public Threads**, **Send Messages in Threads** and **Manage Threads** |
+| [Mirror moderation](#mirror-moderation) | **Manage Messages** |
+
+## Import history
+
+A linked channel can import the earlier messages of its room. Pick a range under the room and select **Save**. The bridge imports the messages oldest first, along with the public threads opened in that range, while new messages keep flowing.
+
+A bar under the channel shows how far the import has got. The bridge picks up where it stopped after a restart. If an import fails, pick a range again to start a new one. Messages that were already imported or carried over are skipped.
+
+Imported messages keep the time they were sent and appear in the channel's history as they arrive. They don't notify anyone, and they don't mark the channel as unread. Reactions on them aren't imported.
+
+In Discord, importing needs **Read Message History**.
+
+## Mirror moderation
+
+Turn on **Mirror moderation** to let moderation cross the bridge in both directions. Hiding a bridged message in Colibri then removes its original on the other service, and messages that moderators there remove are hidden in Colibri.
+
+The bridge needs permission to remove other people's messages on the other service. In Discord, that's **Manage Messages**. [Moderation](/docs/users/bridges#moderation) has more information on what crosses in each direction.
+
+## Pause a bridge
+
+Turn off **Relay messages** to stop the bridge and keep your links. The bridge can't write anything while it's paused, and messages posted in the meantime aren't carried over later. Turn the switch back on to resume.
+
+## Disconnect a bridge
+
+<Steps>
+
+1. In **Bridges**, select **Disconnect bridge** on the bridge. The same entry is at the end of the bridge's own page.
+
+2. Select **Disconnect** to confirm.
+
+</Steps>
+
+The bridge stops straight away. Messages it already carried over stay in your channels.
+
+Admins on the other service can disconnect too. In Discord, run `/colibri disconnect`, which needs the **Manage Server** permission. Pick a Space in the `community` option to disconnect only that one, or leave it empty to disconnect the server from every Space it's paired with. Removing the bot from the server disconnects every Space as well.
+
+To connect the same bridge again, pair it again with a new code, or add it by its address again.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Bridges"
+    description="What a bridge carries over and what members see."
+    href="/docs/users/bridges"
+  />
+  <LinkCard
+    title="Roles and Permissions"
+    description="Who holds the Manage Space permission."
+    href="/docs/users/spaces/roles-and-permissions"
+  />
+</CardGrid>

@@ -1,0 +1,72 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.listRemoteRooms",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists the rooms a bridge reported on the other service, for linking them to channels.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"registration"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community the registration belongs to."
+					},
+					"registration": {
+						"type": "string",
+						"format": "tid",
+						"description": "Record key of the registration."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"rooms"
+					],
+					"properties": {
+						"rooms": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.bridge.defs#remoteRoom",
+								"description": "A room."
+							},
+							"description": "The rooms, in the order the bridge reported them."
+						},
+						"updatedAt": {
+							"type": "string",
+							"format": "datetime",
+							"description": "When the bridge last reported its rooms."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the community.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "RegistrationNotFound",
+					"description": "The community has no bridge registration with that id."
+				}
+			]
+		}
+	}
+}

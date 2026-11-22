@@ -1,0 +1,73 @@
+import type { MessageAuthor } from "@colibri-social/ui";
+import { displayRoleIdentity, rolesOf } from "../roles";
+import type { MemberView, ProfileView, RoleView } from "../types";
+import { displayNameOf } from "./display-name";
+
+export { displayNameOf };
+
+export type AuthorDirectory = {
+	members: ReadonlyMap<string, MemberView>;
+	roles: ReadonlyMap<string, RoleView>;
+	hideOwnerBadge?: boolean;
+};
+
+const memberRoles = (
+	member: MemberView | undefined,
+	roles: ReadonlyMap<string, RoleView>,
+) => rolesOf(member, (rkey) => roles.get(rkey));
+
+const isOwnerMember = (
+	member: Pick<MemberView, "roles"> | undefined,
+	roles: ReadonlyMap<string, RoleView>,
+) => !!member?.roles.some((rkey) => roles.get(rkey)?.protected);
+
+export const memberIdentity = (
+	member: MemberView,
+	directory: Pick<AuthorDirectory, "roles" | "hideOwnerBadge">,
+) => ({
+	role: displayRoleIdentity(memberRoles(member, directory.roles)),
+	owner: !directory.hideOwnerBadge && isOwnerMember(member, directory.roles),
+	bot: member.actor.isBot,
+});
+
+export const toMessageAuthor = (
+	profile: ProfileView,
+	directory: AuthorDirectory,
+): MessageAuthor => {
+	const member = profile.bridge
+		? undefined
+		: directory.members.get(profile.did);
+	const actor = member?.actor ?? profile;
+	return {
+		name: displayNameOf(actor, member),
+		avatarSrc: actor.avatar,
+		seed: profile.did,
+		nameColor: actor.theme?.accentColor,
+		role: displayRoleIdentity(memberRoles(member, directory.roles)),
+		owner: !directory.hideOwnerBadge && isOwnerMember(member, directory.roles),
+	};
+};
+
+export const authorForDid = (
+	did: string,
+	directory: AuthorDirectory,
+): MessageAuthor | undefined => {
+	const member = directory.members.get(did);
+	if (!member) return undefined;
+	return toMessageAuthor(member.actor, directory);
+};
+
+const PLATFORM_NAMES: Record<string, string> = {
+	matrix: "Matrix",
+	telegram: "Telegram",
+	slack: "Slack",
+	irc: "IRC",
+	xmpp: "XMPP",
+};
+
+export const bridgePlatformName = (platform: string) =>
+	PLATFORM_NAMES[platform.toLowerCase()] ??
+	platform.charAt(0).toUpperCase() + platform.slice(1);
+
+export const viaLabel = (profile: ProfileView) =>
+	profile.bridge ? bridgePlatformName(profile.bridge.platform) : undefined;

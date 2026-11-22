@@ -1,0 +1,56 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.listChannels",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists a community's channels as a flat list, for clients that do not need the category grouping.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community to list channels of."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"channels"
+					],
+					"properties": {
+						"channels": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.community.defs#channelView"
+							},
+							"description": "The community's channels."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks permission to view this community's channels."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists with that DID."
+				}
+			]
+		}
+	}
+}

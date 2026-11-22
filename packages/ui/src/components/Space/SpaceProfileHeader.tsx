@@ -1,0 +1,81 @@
+import { type JSX, Show } from "solid-js";
+import { cx } from "../../utils/cx";
+import { createSlot } from "../../utils/slot";
+import { Banner, hasSpaceBanner } from "../Banner/Banner";
+import { SpaceIcon } from "./SpaceIcon";
+import { MemberCountChip, OwnerChip } from "./SpaceMeta";
+
+export type SpaceProfileHeaderProps = {
+	name: string;
+	iconSrc?: string;
+	bannerSrc?: string;
+	bannerColor?: string;
+	memberCount: number;
+	memberLabel?: string;
+	ownerHandle?: string;
+	description?: string;
+	actions?: JSX.Element;
+	children?: JSX.Element;
+	nameId?: string;
+	class?: string;
+};
+
+export const SpaceProfileHeader = (props: SpaceProfileHeaderProps) => {
+	const actions = createSlot(() => props.actions);
+	const children = createSlot(() => props.children);
+
+	return (
+		<div
+			data-space-profile-header=""
+			data-banner={hasSpaceBanner(props) ? "" : undefined}
+			class={cx("flex flex-col", props.class)}
+		>
+			<Show when={hasSpaceBanner(props)}>
+				<Banner
+					ratio="space"
+					src={props.bannerSrc}
+					tintFrom={props.iconSrc}
+					color={props.bannerColor}
+				/>
+			</Show>
+			<div
+				class={cx("relative px-3", hasSpaceBanner(props) ? "-mt-8" : "pt-4")}
+			>
+				<SpaceIcon
+					name={props.name}
+					src={props.iconSrc}
+					size={64}
+					class="border-4 border-popover"
+				/>
+			</div>
+			<div class="flex flex-col gap-4 px-4 pt-4">
+				<div class="flex flex-col gap-2">
+					<h2
+						id={props.nameId}
+						class="truncate text-xl leading-[26px] font-bold text-foreground"
+					>
+						{props.name}
+					</h2>
+					<div class="flex min-w-0 flex-wrap items-center gap-2">
+						<MemberCountChip
+							count={props.memberCount}
+							label={props.memberLabel}
+						/>
+						<Show when={props.ownerHandle}>
+							{(handle) => <OwnerChip handle={handle()} />}
+						</Show>
+					</div>
+					<Show when={props.description}>
+						<p class="text-base leading-prose text-pretty text-muted-foreground select-text">
+							{props.description}
+						</p>
+					</Show>
+				</div>
+				<Show when={actions.has()}>
+					<div class="flex flex-col gap-2">{actions()}</div>
+				</Show>
+				<Show when={children.has()}>{children()}</Show>
+			</div>
+		</div>
+	);
+};

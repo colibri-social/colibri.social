@@ -1,0 +1,31 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.notification.getUnreadCount",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets how many of the requesting user's notifications are unread.",
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"count"
+					],
+					"properties": {
+						"count": {
+							"type": "integer",
+							"description": "Number of unread notifications."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				}
+			]
+		}
+	}
+}

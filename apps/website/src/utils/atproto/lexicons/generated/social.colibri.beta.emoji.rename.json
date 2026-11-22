@@ -1,0 +1,93 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.emoji.rename",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Renames a community's custom emoji. Providers that key records by name move the record to a new key and repoint pack memberships, so the emoji's URI changes.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"emoji",
+						"name"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community that owns the emoji."
+						},
+						"emoji": {
+							"type": "string",
+							"format": "at-uri",
+							"description": "The emoji's record URI in the community's repo."
+						},
+						"name": {
+							"type": "string",
+							"minLength": 2,
+							"maxLength": 32,
+							"description": "The emoji's name without colons. Lowercase letters, digits and underscores."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"emoji"
+					],
+					"properties": {
+						"emoji": {
+							"type": "ref",
+							"ref": "social.colibri.beta.emoji.defs#emojiView",
+							"description": "The emoji as stored."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the community.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "EmojiNotFound",
+					"description": "No emoji of this community exists at the given URI."
+				},
+				{
+					"name": "InvalidName",
+					"description": "The name is not 2 to 32 characters of lowercase letters, digits and underscores."
+				},
+				{
+					"name": "NameTaken",
+					"description": "The community already has an emoji with this name."
+				},
+				{
+					"name": "UnsupportedProvider",
+					"description": "The emoji provider is unknown, or it does not support the requested operation."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

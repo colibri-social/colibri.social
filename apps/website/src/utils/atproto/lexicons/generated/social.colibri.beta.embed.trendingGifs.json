@@ -1,0 +1,63 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.embed.trendingGifs",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets trending GIFs from the GIF picker's provider.",
+			"parameters": {
+				"type": "params",
+				"properties": {
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 100,
+						"default": 50,
+						"description": "Maximum number of GIFs to return."
+					},
+					"cursor": {
+						"type": "string",
+						"description": "Pagination cursor from a previous call."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"gifs"
+					],
+					"properties": {
+						"cursor": {
+							"type": "string",
+							"description": "Pagination cursor for the next page."
+						},
+						"gifs": {
+							"type": "array",
+							"description": "Currently trending GIFs.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.embed.defs#gifView"
+							}
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "GifsNotConfigured",
+					"description": "This AppView has no GIF provider key configured."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "The GIF provider failed."
+				}
+			]
+		}
+	}
+}

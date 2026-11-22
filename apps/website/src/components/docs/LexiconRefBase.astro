@@ -1,0 +1,11 @@
+---
+interface Props {
+	base: string;
+}
+
+const { base } = Astro.props;
+const html = await Astro.slots.render("default");
+const rebased = html.replaceAll('href="#', `href="${base}#`);
+---
+
+<Fragment set:html={rebased} />

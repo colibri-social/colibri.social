@@ -1,41 +1,33 @@
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { initBranchWind } from "@/scripts/branchWind";
 import { initAmbientPetals, initHeroPetals } from "@/scripts/heroPetals";
-
-gsap.registerPlugin(ScrollTrigger);
-
-if (import.meta.env.DEV) {
-	(window as unknown as { __gsap: typeof gsap }).__gsap = gsap;
-}
+import { initCardStars, initSkyTwinkle } from "@/scripts/sky";
 
 const reduceMotion = window.matchMedia(
 	"(prefers-reduced-motion: reduce)",
 ).matches;
 
-function sizeSky() {
-	const sky = document.querySelector<HTMLElement>(".hero-sky");
-	const hero = document.querySelector<HTMLElement>(".hero");
-	if (!sky || !hero) return;
-	const apply = () => {
-		sky.style.height = `${hero.offsetHeight}px`;
-	};
-	apply();
-	window.addEventListener("resize", apply);
-}
+const canHover = window.matchMedia(
+	"(hover: hover) and (pointer: fine)",
+).matches;
 
-function heroReveal() {
-	gsap.to(".hero-reveal", {
-		opacity: 1,
-		y: 0,
-		duration: 0.9,
-		ease: "power3.out",
-		stagger: 0.12,
-	});
-}
+async function parallax() {
+	const targets = Array.from(
+		document.querySelectorAll<HTMLElement>("[data-parallax]"),
+	).filter((el) => el.getClientRects().length > 0);
 
-function parallax() {
-	for (const el of gsap.utils.toArray<HTMLElement>("[data-parallax]")) {
+	if (!targets.length) return;
+
+	const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
+		import("gsap"),
+		import("gsap/ScrollTrigger"),
+	]);
+
+	gsap.registerPlugin(ScrollTrigger);
+
+	if (import.meta.env.DEV) {
+		(window as unknown as { __gsap: typeof gsap }).__gsap = gsap;
+	}
+
+	for (const el of targets) {
 		const speed = Number.parseFloat(el.dataset.parallax || "0.1");
 		gsap.to(el, {
 			yPercent: -speed * 100,
@@ -50,22 +42,20 @@ function parallax() {
 	}
 }
 
-function branchInteractions() {
-	const wind = initBranchWind();
-	const canHover = window.matchMedia(
-		"(hover: hover) and (pointer: fine)",
-	).matches;
+async function branchInteractions() {
 	if (!canHover) return;
 
+	const { initBranchWind } = await import("@/scripts/branchWind");
+	const wind = initBranchWind();
 	const petalsApi = initHeroPetals();
 
-	const regions = gsap.utils
-		.toArray<HTMLElement>("[data-branch-hit]")
-		.map((el) => ({
-			el,
-			side: (el.dataset.branchHit ?? "right") as "left" | "right",
-			inside: false,
-		}));
+	const regions = Array.from(
+		document.querySelectorAll<HTMLElement>("[data-branch-hit]"),
+	).map((el) => ({
+		el,
+		side: (el.dataset.branchHit ?? "right") as "left" | "right",
+		inside: false,
+	}));
 
 	let pointerVX = 0;
 	let pointerVY = 0;
@@ -110,11 +100,172 @@ function branchInteractions() {
 	);
 }
 
-sizeSky();
-
-if (!reduceMotion) {
-	heroReveal();
-	initAmbientPetals();
-	parallax();
-	branchInteractions();
+function detectPlatform() {
+	const nav = navigator as Navigator & {
+		userAgentData?: { platform?: string };
+	};
+	const ua = nav.userAgent || "";
+	const platform = nav.userAgentData?.platform || nav.platform || "";
+	if (/android/i.test(ua)) return "Android";
+	if (
+		/iPhone|iPad|iPod/i.test(ua) ||
+		(/Mac/i.test(platform) && nav.maxTouchPoints > 1)
+	) {
+		return "iOS";
+	}
+	if (/Win/i.test(platform) || /Windows/i.test(ua)) return "Windows";
+	if (/Mac/i.test(platform) || /Mac OS X/i.test(ua)) return "macOS";
+	if (/Linux|X11|CrOS/i.test(platform + ua)) return "Linux";
+	return null;
 }
+
+function downloadLabels() {
+	const os = detectPlatform();
+	for (const el of document.querySelectorAll<HTMLElement>("[data-download]")) {
+		el.textContent = os ? `Download for ${os}` : "Download Colibri";
+	}
+}
+
+const MONTHLY_BADGES: Record<number, { label: string; color: string }> = {
+	5: { label: "$5 BACKER", color: "#22d3ee" },
+	10: { label: "$10 SUPPORTER", color: "#e870df" },
+	25: { label: "$25 SPONSOR", color: "#60a5fa" },
+};
+const ONE_TIME_BADGE_COLOR = "#2dd4bf";
+
+function supportCard() {
+	const card = document.querySelector<HTMLElement>("[data-support-card]");
+	if (!card) return;
+	const badge = card.querySelector<HTMLElement>("[data-support-badge]");
+	const status = card.querySelector<HTMLElement>("[data-support-status]");
+	const link = card.querySelector<HTMLAnchorElement>("[data-support-link]");
+	const freqButtons = card.querySelectorAll<HTMLElement>("[data-freq]");
+	const amountButtons = card.querySelectorAll<HTMLElement>("[data-amount]");
+	const state = { freq: "month", amount: 10 };
+
+	const render = () => {
+		for (const b of freqButtons) {
+			b.setAttribute("aria-pressed", String(b.dataset.freq === state.freq));
+		}
+
+		for (const b of amountButtons) {
+			b.setAttribute(
+				"aria-pressed",
+				String(Number(b.dataset.amount) === state.amount),
+			);
+		}
+
+		const monthly = state.freq === "month";
+		const tier = MONTHLY_BADGES[state.amount];
+
+		if (badge) {
+			badge.textContent = monthly ? tier.label : "DONATOR";
+			badge.style.background = monthly ? tier.color : ONE_TIME_BADGE_COLOR;
+		}
+
+		if (status) {
+			status.textContent = monthly
+				? `I’m supporting Colibri with $${state.amount} per month!`
+				: `I chipped in $${state.amount} to keep Colibri in the air!`;
+		}
+
+		if (link) {
+			const interval = monthly ? "month" : "oneTime";
+			link.href = `https://opencollective.com/colibri-social/donate?interval=${interval}&amount=${state.amount}`;
+		}
+	};
+
+	for (const b of freqButtons) {
+		b.addEventListener("click", () => {
+			state.freq = b.dataset.freq ?? "month";
+			render();
+		});
+	}
+	for (const b of amountButtons) {
+		b.addEventListener("click", () => {
+			state.amount = Number(b.dataset.amount);
+			render();
+		});
+	}
+	render();
+}
+
+function exclusiveFaq() {
+	const items =
+		document.querySelectorAll<HTMLDetailsElement>("[data-faq] details");
+	for (const item of items) {
+		item.addEventListener("toggle", () => {
+			if (!item.open) return;
+			for (const other of items) {
+				if (other !== item && other.open) other.open = false;
+			}
+		});
+	}
+}
+
+downloadLabels();
+supportCard();
+exclusiveFaq();
+
+function extendPetalsOverFooter() {
+	const layer = document.querySelector<HTMLElement>(".petal-layer");
+	const footer = document.querySelector<HTMLElement>(".site-footer");
+	if (!layer || !footer) return;
+	const apply = () => {
+		layer.style.setProperty("--footer-height", `${footer.offsetHeight}px`);
+	};
+	apply();
+	new ResizeObserver(apply).observe(footer);
+}
+
+extendPetalsOverFooter();
+
+function revealMilkyWay() {
+	const landing = document.querySelector<HTMLElement>(".landing");
+	const src = landing?.dataset.milkywaySrc;
+
+	if (!landing || !src) return;
+
+	const image = new Image();
+
+	image.crossOrigin = "anonymous";
+	image.src = src;
+
+	image
+		.decode()
+		.catch(() => undefined)
+		.then(() => landing.setAttribute("data-milkyway-ready", ""));
+}
+
+function startEffects() {
+	initSkyTwinkle(reduceMotion);
+
+	const ctaStars =
+		document.querySelector<HTMLCanvasElement>("[data-cta-stars]");
+
+	if (ctaStars) initCardStars(ctaStars, reduceMotion);
+
+	if (reduceMotion) return;
+
+	initAmbientPetals();
+	void parallax();
+	void branchInteractions();
+}
+
+function whenIdle(callback: () => void) {
+	const schedule = () => {
+		if ("requestIdleCallback" in window) {
+			requestIdleCallback(callback, { timeout: 2000 });
+		} else {
+			setTimeout(callback, 200);
+		}
+	};
+
+	if (document.readyState === "complete") schedule();
+	else window.addEventListener("load", schedule, { once: true });
+}
+
+if (document.readyState === "complete") revealMilkyWay();
+else window.addEventListener("load", revealMilkyWay, { once: true });
+
+whenIdle(startEffects);

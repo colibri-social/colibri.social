@@ -15,15 +15,22 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.14</string>
+	<string>0.6.0</string>
 	<key>CFBundleVersion</key>
-	<string>0.1.14</string>
+	<string>0.6.0.16</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>Colibri uses your camera for video in voice channels and calls.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Colibri uses your microphone for voice channels and calls.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Colibri saves images and videos you download to your photo library.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+	</dict>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
@@ -52,10 +59,19 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>social.colibri</string>
+				<string>social.colibri.spaces</string>
 			</array>
 			<key>CFBundleURLName</key>
 			<string>social.colibri</string>
 		</dict>
+	</array>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>INSendMessageIntent</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
 	</array>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>Colibri captures the screen or app window you pick so you can share it in a voice channel.</string>

@@ -4,9 +4,8 @@ services:
       context: .
       dockerfile: apps/website/Dockerfile
       args:
-        - INVITE_API_KEY=${INVITE_API_KEY}
-        - APPVIEW_DOMAIN=${APPVIEW_DOMAIN}
         - SAME_TLD_DID=${SAME_TLD_DID}
+        - MAINTENANCE=${MAINTENANCE:-false}
         - REDIS_PASSWORD=${REDIS_PASSWORD}
         - SENTRY_DSN=${SENTRY_DSN}
         - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
@@ -14,17 +13,17 @@ services:
         - TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN}
         - TURSO_DATABASE_URL=${TURSO_DATABASE_URL}
         - PUBLIC_VAPID_KEY=${PUBLIC_VAPID_KEY}
-    container_name: colibri-app
+    container_name: colibri-spaces-alpha
     restart: unless-stopped
     environment:
-      - INVITE_API_KEY=${INVITE_API_KEY}
-      - APPVIEW_DOMAIN=${APPVIEW_DOMAIN}
       - SAME_TLD_DID=${SAME_TLD_DID}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - SENTRY_DSN=${SENTRY_DSN}
       - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
       - TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN}
       - TURSO_DATABASE_URL=${TURSO_DATABASE_URL}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_SPONSORS_TOKEN=${GITHUB_SPONSORS_TOKEN}
     networks:
       - default
 

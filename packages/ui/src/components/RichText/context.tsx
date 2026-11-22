@@ -1,0 +1,149 @@
+import type { ColibriRichTextFacet } from "@colibri-social/lib";
+import {
+	createContext,
+	type JSX,
+	type ParentProps,
+	useContext,
+} from "solid-js";
+
+export type TextWithFacets = {
+	text: string;
+	facets?: Array<ColibriRichTextFacet>;
+};
+
+export type RichTextPlatform = "mobile" | "desktop";
+
+export type RichTextMember = {
+	did: string;
+	name?: string;
+};
+
+export type RichTextRole = {
+	rkey: string;
+	name: string;
+	color?: string;
+};
+
+export type RichTextChannel =
+	| {
+			state: "ready";
+			name: string;
+			category?: string;
+			space?: { name: string; iconSrc?: string };
+			href?: string;
+	  }
+	| { state: "loading" }
+	| { state: "locked" };
+
+export type RichTextLinkTarget =
+	| { kind: "channel"; channel: string; space?: string }
+	| {
+			kind: "thread";
+			channel: string;
+			thread: string;
+			href?: string;
+			space?: string;
+	  }
+	| {
+			kind: "message";
+			space: string;
+			foreign?: boolean;
+			channel: string;
+			thread?: string;
+			rkey: string;
+			href: string;
+	  }
+	| {
+			kind: "pack";
+			did: string;
+			rkey: string;
+			href: string;
+			name?: string;
+	  }
+	| { kind: "internal"; href: string }
+	| { kind: "external"; href: string };
+
+export type RichTextExternalLink = {
+	label: string;
+	disguised: boolean;
+};
+
+export type RichTextHighlighter = (
+	lang: string | undefined,
+	code: string,
+) => Promise<string | null | undefined> | string | null | undefined;
+
+export type RichTextCustomEmoji = {
+	name: string;
+	src: string;
+	alt?: string;
+	id?: string;
+	pending?: boolean;
+};
+
+export const CUSTOM_EMOJI_FEATURE =
+	"social.colibri.beta.richtext.facet#customEmoji";
+
+export type RichTextCustomEmojiFeature = {
+	$type: typeof CUSTOM_EMOJI_FEATURE;
+	uri: string;
+	cid?: string;
+};
+
+export type RichTextForeignFeature = { $type?: string } & Record<
+	string,
+	unknown
+>;
+
+export type RichTextBridgedPerson = {
+	registration?: string;
+	platform: string;
+	remoteId?: string;
+};
+
+export type RichTextResolvers = {
+	platform?: RichTextPlatform;
+	member?: (did: string) => RichTextMember | undefined;
+	wrapMention?: (member: RichTextMember, chip: JSX.Element) => JSX.Element;
+	role?: (rkey: string) => RichTextRole | undefined;
+	wrapRole?: (role: RichTextRole, chip: JSX.Element) => JSX.Element;
+	channel?: (channel: string) => RichTextChannel | undefined;
+	channelIn?: (space: string, channel: string) => RichTextChannel | undefined;
+	threadName?: (
+		channel: string,
+		thread: string,
+		space?: string,
+	) => string | undefined;
+	onChannelOpen?: (channel: string, event: MouseEvent) => void;
+	onLockedChannel?: (channel: string) => void;
+	linkTarget?: (uri: string) => RichTextLinkTarget | undefined;
+	rewriteUrl?: (uri: string) => string;
+	onLinkOpen?: (href: string, event: MouseEvent) => void;
+	onExternalLink?: (href: string, link: RichTextExternalLink) => void;
+	onNavigate?: (href: string, event: MouseEvent) => void;
+	bridgePlatformName?: (platform: string) => string;
+	bridgedMember?: (person: RichTextBridgedPerson) => RichTextMember | undefined;
+	plainUnresolvedMentions?: boolean;
+	highlight?: RichTextHighlighter;
+	emojiInfo?: boolean;
+	customEmoji?: (name: string) => RichTextCustomEmoji | undefined;
+	customEmojiFeature?: (
+		feature: RichTextForeignFeature,
+	) => RichTextCustomEmoji | undefined;
+	onCustomEmojiOpen?: (
+		emoji: RichTextCustomEmoji,
+		anchor?: HTMLElement,
+	) => void;
+};
+
+const RichTextContext = createContext<RichTextResolvers>({});
+
+export const RichTextProvider = (
+	props: ParentProps<{ value: RichTextResolvers }>,
+) => (
+	<RichTextContext.Provider value={props.value}>
+		{props.children}
+	</RichTextContext.Provider>
+);
+
+export const useRichText = () => useContext(RichTextContext);

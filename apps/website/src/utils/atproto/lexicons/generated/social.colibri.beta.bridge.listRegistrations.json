@@ -1,0 +1,57 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.listRegistrations",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists the bridges connected to a community.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community to list bridges for."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"registrations"
+					],
+					"properties": {
+						"registrations": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.bridge.defs#registrationView",
+								"description": "A registration."
+							},
+							"description": "The community's bridges, newest first."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the community.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				}
+			]
+		}
+	}
+}

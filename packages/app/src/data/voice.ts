@@ -1,0 +1,599 @@
+import type { VoiceParticipant } from "@colibri-social/ui";
+import {
+	type Accessor,
+	batch,
+	createEffect,
+	createRoot,
+	createSignal,
+	on,
+	untrack,
+} from "solid-js";
+import { displayNameOf } from "./adapters/display-name";
+import { uiPresence } from "./adapters/presence";
+import type { VoiceNoticeKey } from "./error-copy";
+import { createSimulatedConnection } from "./mock/voice-connection";
+import { profileBannerFill } from "./profile-theme";
+import type { ScreenShareQuality } from "./screen-share";
+import type { DataStore } from "./store";
+import type { Did, SpaceRef } from "./types";
+import type { VoiceDebugSnapshot } from "./voice/debug-stats";
+import {
+	ALL_VOICE_PERMISSIONS,
+	type ScreenCapture,
+	type VoiceConnection,
+	type VoiceConnectionMonitor,
+	type VoiceModeration,
+	type VoiceMoveDestination,
+	type VoiceMoveNotice,
+	type VoicePermissions,
+	type VoiceVideo,
+} from "./voice/types";
+import {
+	createVoiceSoundPlayer,
+	type VoiceSound,
+	type VoiceSoundPlayer,
+} from "./voice-sounds";
+
+export type VoiceCall = { space: string; channel: string };
+
+export type VoiceGuestChannel = { community: string } & VoiceMoveDestination;
+
+export type VoiceController = {
+	current: Accessor<VoiceCall | undefined>;
+	participants: (channelUri: string) => VoiceParticipant[];
+	muted: Accessor<boolean>;
+	deafened: Accessor<boolean>;
+	camera: Accessor<boolean>;
+	cameraPending: Accessor<boolean>;
+	screenSharing: Accessor<boolean>;
+	micMissing: Accessor<boolean>;
+	permissions: Accessor<VoicePermissions>;
+	micDenied: Accessor<boolean>;
+	listenDenied: Accessor<boolean>;
+	cameraDenied: Accessor<boolean>;
+	screenshareDenied: Accessor<boolean>;
+	guestChannel: Accessor<VoiceGuestChannel | undefined>;
+	expanded: Accessor<boolean>;
+	startedAt: Accessor<number | undefined>;
+	connection: Accessor<VoiceConnection>;
+	videos: Accessor<readonly VoiceVideo[]>;
+	moderationOf: (did: string) => VoiceModeration;
+	inCall: (did: string) => boolean;
+	channelOf: (did: string) => string | undefined;
+	floatingDismissed: Accessor<boolean>;
+	setFloatingDismissed(dismissed: boolean): void;
+	focusedKey: Accessor<string | null>;
+	setFocusedKey(key: string | null): void;
+	join(call: VoiceCall, opts?: { muted?: boolean }): void;
+	leave(): void;
+	toggleMute(): void;
+	toggleDeafen(): void;
+	toggleCamera(): void;
+	shareScreen(
+		capture: ScreenCapture,
+		quality: ScreenShareQuality,
+	): Promise<boolean>;
+	stopScreenShare(): void;
+	applyScreenQuality(quality: ScreenShareQuality): void;
+	reportTileView(key: string, view: { height: number; visible: boolean }): void;
+	expand(): void;
+	collapse(): void;
+	cue(sound: VoiceSound): void;
+	debugSnapshot(): Promise<VoiceDebugSnapshot | null>;
+};
+
+type VoiceStore = Pick<
+	DataStore,
+	| "communities"
+	| "space"
+	| "viewer"
+	| "presenceOf"
+	| "inVoice"
+	| "isSpeaking"
+	| "setVoice"
+>;
+
+const communityOf = (channelUri: string) => channelUri.split("/")[2] ?? "";
+
+const NO_VIDEOS: readonly VoiceVideo[] = [];
+
+export type VoiceNotifier = (key: VoiceNoticeKey, retry?: () => void) => void;
+
+export type VoiceMoveNotifier = (move: VoiceMoveNotice | null) => void;
+
+export const createVoice = (
+	player: VoiceSoundPlayer = createVoiceSoundPlayer(),
+	monitor: () => VoiceConnectionMonitor = createSimulatedConnection,
+	notifier: VoiceNotifier = () => {},
+) =>
+	createRoot(() => {
+		let playSound = player;
+		let notifyWith = notifier;
+		let notifyMove: VoiceMoveNotifier = () => {};
+		const notify = (key: VoiceNoticeKey, retry?: () => void) =>
+			notifyWith(key, retry);
+		const [link, setLink] = createSignal<VoiceConnectionMonitor>(monitor());
+		const [floatingDismissed, setFloatingDismissed] = createSignal(false);
+		const [focusedKey, setFocusedKey] = createSignal<string | null>(null);
+		const play = (sound: VoiceSound) => playSound(sound);
+		const [store, setStore] = createSignal<VoiceStore>();
+		const [current, setCurrent] = createSignal<VoiceCall>();
+		const [selfMuted, setSelfMuted] = createSignal(false);
+		const [deafened, setDeafened] = createSignal(false);
+		const [camera, setCamera] = createSignal(false);
+		const [cameraPending, setCameraPending] = createSignal(false);
+		let cameraRequest = 0;
+		const [expanded, setExpanded] = createSignal(false);
+		const [startedAt, setStartedAt] = createSignal<number>();
+		const [guestChannel, setGuestChannel] = createSignal<VoiceGuestChannel>();
+
+		const micMissing = () => !!current() && link().micAvailable?.() === false;
+		const permissions = (): VoicePermissions =>
+			(current() ? link().permissions?.() : undefined) ?? ALL_VOICE_PERMISSIONS;
+		const micDenied = () => !permissions().has("voice.speak");
+		const listenDenied = () => !permissions().has("voice.listen");
+		const cameraDenied = () => !permissions().has("voice.camera");
+		const screenshareDenied = () => !permissions().has("voice.screenshare");
+		const muted = () =>
+			selfMuted() || deafened() || micMissing() || micDenied();
+
+		const moderationOf = (did: string): VoiceModeration => {
+			const live = current() ? link().moderation?.()[did] : undefined;
+			if (live) return live;
+			const voice = store()?.presenceOf(did as Did)?.voice;
+			return {
+				serverMuted: !!voice?.serverMuted,
+				serverDeafened: !!voice?.serverDeafened,
+			};
+		};
+
+		const viewerDid = () => store()?.viewer.did;
+
+		const speakingIn = (channelUri: string, did: Did) => {
+			if (current()?.channel !== channelUri) return false;
+			const speakers = link().speakers;
+			if (speakers) return speakers().has(did);
+			return !!store()?.isSpeaking(did);
+		};
+
+		const sharingIn = (channelUri: string, did: Did) =>
+			current()?.channel === channelUri &&
+			!!link()
+				.videos?.()
+				.some((video) => video.did === did && video.source === "screen");
+
+		const channelOf = (did: string) =>
+			store()?.presenceOf(did as Did)?.voice?.channel;
+
+		const publish = () => {
+			const data = store();
+			if (!data) return;
+			const call = current();
+			void data
+				.setVoice(
+					call
+						? {
+								channel: call.channel as SpaceRef,
+								muted: muted() || undefined,
+								deafened: deafened() || undefined,
+							}
+						: undefined,
+				)
+				.catch(() => {});
+		};
+
+		const reset = () =>
+			batch(() => {
+				setCurrent(undefined);
+				setSelfMuted(false);
+				setDeafened(false);
+				setCamera(false);
+				cameraRequest += 1;
+				setCameraPending(false);
+				setExpanded(false);
+				setStartedAt(undefined);
+				setFloatingDismissed(false);
+				setFocusedKey(null);
+				setGuestChannel(undefined);
+				link().stop();
+			});
+
+		const session = () => ({
+			channel: current()?.channel ?? "",
+			muted: muted(),
+			deafened: deafened(),
+		});
+
+		const syncLink = () => {
+			if (!current()) return;
+			link().setMuted?.(muted());
+			link().setDeafened?.(deafened());
+		};
+
+		const participants = (channelUri: string): VoiceParticipant[] => {
+			const data = store();
+			if (!data) return [];
+			const community = data.communities
+				.value()
+				?.find((entry) => entry.did === communityOf(channelUri));
+			const space = community ? data.space(community) : undefined;
+			space?.members.value();
+			return data.inVoice(channelUri).map((did: Did) => {
+				const member = space?.memberByDid(did);
+				const voice = data.presenceOf(did)?.voice;
+				const self = did === data.viewer.did;
+				const actor = member?.actor ?? (self ? data.viewer : undefined);
+				return {
+					id: did,
+					pending: !actor || undefined,
+					name: actor
+						? displayNameOf(actor, member)
+						: member?.nickname?.trim() || did,
+					avatarSrc: actor?.avatar,
+					bannerFill: profileBannerFill(actor?.theme),
+					presence: uiPresence(data.presenceOf(did)),
+					speaking: speakingIn(channelUri, did),
+					muted: voice?.muted,
+					deafened: voice?.deafened,
+					streaming: !!voice?.screen || sharingIn(channelUri, did) || undefined,
+					...moderated(channelUri, did, voice),
+				};
+			});
+		};
+
+		const moderated = (
+			channelUri: string,
+			did: Did,
+			voice: { serverMuted?: boolean; serverDeafened?: boolean } | undefined,
+		) => {
+			const live =
+				current()?.channel === channelUri
+					? link().moderation?.()[did]
+					: undefined;
+			return {
+				serverMuted: live ? live.serverMuted || undefined : voice?.serverMuted,
+				serverDeafened: live
+					? live.serverDeafened || undefined
+					: voice?.serverDeafened,
+			};
+		};
+
+		const others = (channelUri: string) => {
+			const data = store();
+			if (!data) return [];
+			return data
+				.inVoice(channelUri)
+				.filter((did: Did) => did !== data.viewer.did);
+		};
+
+		createEffect(
+			on(
+				() => current()?.channel,
+				(channel) => {
+					if (!channel) return;
+					let previous = new Set(others(channel));
+					createEffect(
+						on(
+							() => others(channel),
+							(next) => {
+								const nextSet = new Set(next);
+								const joined = next.some((did) => !previous.has(did));
+								const left = [...previous].some((did) => !nextSet.has(did));
+								previous = nextSet;
+								if (joined) play("join");
+								else if (left) play("leave");
+							},
+							{ defer: true },
+						),
+					);
+				},
+			),
+		);
+
+		const ended = () => {
+			if (!current()) return;
+			reset();
+			play("leave");
+			publish();
+		};
+
+		const moved = (channel: string, destination?: VoiceMoveDestination) => {
+			const active = current();
+			if (!active || active.channel === channel) return;
+			batch(() => {
+				setGuestChannel(
+					destination
+						? { community: communityOf(channel), ...destination }
+						: undefined,
+				);
+				setCurrent({ ...active, channel });
+				setCamera(false);
+				cameraRequest += 1;
+				setCameraPending(false);
+				setStartedAt(Date.now());
+				setFocusedKey(null);
+			});
+			link().start(session());
+			play("join");
+			notify(
+				destination?.view.viewer.canRead === false ? "movedPrivate" : "moved",
+			);
+			publish();
+		};
+
+		createEffect(
+			on(
+				() => [current()?.channel, permissions()] as const,
+				([channel, next], previous) => {
+					if (!channel || previous?.[0] !== channel) return;
+					const before = previous[1];
+					if (before === next) return;
+					const lost = (key: Parameters<VoicePermissions["has"]>[0]) =>
+						before.has(key) && !next.has(key);
+					syncLink();
+					publish();
+					if (lost("voice.speak")) notify("speakDenied");
+					if (lost("voice.listen")) notify("listenDenied");
+					if (lost("voice.camera") && untrack(camera)) {
+						notify("cameraDenied");
+						batch(() => {
+							setCamera(false);
+							cameraRequest += 1;
+							setCameraPending(false);
+						});
+					}
+					if (lost("voice.screenshare") && untrack(screenSharing)) {
+						notify("screenshareDenied");
+						link().stopScreen?.();
+					}
+				},
+				{ defer: true },
+			),
+		);
+
+		let detach: (() => void) | undefined;
+		const attach = (active: VoiceConnectionMonitor) => {
+			detach?.();
+			const releaseEnded = active.onEnded?.((reason) => {
+				const call = current();
+				if (!call) return;
+				const wasMuted = selfMuted();
+				notify(
+					reason,
+					reason === "nodesDown"
+						? () => controller.join(call, { muted: wasMuted })
+						: undefined,
+				);
+				ended();
+			});
+			const releaseMoved = active.onMoved?.(moved);
+			const releaseNotice = active.onNotice?.(notify);
+			const releaseMove = active.onMove?.((move) => notifyMove(move));
+			const releaseScreenShare = active.onScreenShare?.((sharing) => {
+				if (current()) play(sharing ? "screenShared" : "screenUnshared");
+			});
+			const releaseMic = active.onMicAvailable?.(() => {
+				if (current()) publish();
+			});
+			const releaseCameraOff = active.onCameraOff?.(() =>
+				batch(() => {
+					setCamera(false);
+					cameraRequest += 1;
+					setCameraPending(false);
+				}),
+			);
+			detach = () => {
+				releaseEnded?.();
+				releaseMoved?.();
+				releaseNotice?.();
+				releaseMove?.();
+				releaseScreenShare?.();
+				releaseMic?.();
+				releaseCameraOff?.();
+			};
+		};
+		attach(link());
+
+		const selfModeration = () => {
+			const did = viewerDid();
+			return did
+				? moderationOf(did)
+				: { serverMuted: false, serverDeafened: false };
+		};
+
+		const screenSharing = () => !!current() && !!link().screenSharing?.();
+
+		const controller: VoiceController = {
+			current,
+			participants,
+			muted,
+			deafened,
+			camera,
+			cameraPending,
+			screenSharing,
+			micMissing,
+			permissions,
+			micDenied,
+			listenDenied,
+			cameraDenied,
+			screenshareDenied,
+			guestChannel,
+			expanded,
+			startedAt,
+			connection: () => link().connection(),
+			videos: () => (current() ? (link().videos?.() ?? NO_VIDEOS) : NO_VIDEOS),
+			moderationOf,
+			inCall: (did) => {
+				const call = current();
+				return !!call && channelOf(did) === call.channel;
+			},
+			channelOf,
+			floatingDismissed,
+			setFloatingDismissed,
+			focusedKey,
+			setFocusedKey,
+			join: (call, opts) => {
+				const active = current();
+				if (active?.channel === call.channel) {
+					setExpanded(true);
+					return;
+				}
+				if (active) play("leave");
+				batch(() => {
+					setCurrent({ ...call });
+					setGuestChannel(undefined);
+					if (opts?.muted !== undefined) setSelfMuted(opts.muted);
+					setCamera(false);
+					cameraRequest += 1;
+					setCameraPending(false);
+					setStartedAt(Date.now());
+					setExpanded(true);
+					setFloatingDismissed(false);
+					setFocusedKey(null);
+				});
+				link().start(session());
+				play("join");
+				publish();
+			},
+			leave: () => {
+				if (!current()) return;
+				reset();
+				play("leave");
+				publish();
+			},
+			toggleMute: () => {
+				if (current() && micDenied()) {
+					notify("speakDenied");
+					return;
+				}
+				if (current() && selfModeration().serverMuted) {
+					notify("serverMuted");
+					return;
+				}
+				if (micMissing()) return;
+				batch(() => {
+					if (deafened()) {
+						setDeafened(false);
+						setSelfMuted(false);
+						return;
+					}
+					setSelfMuted(!selfMuted());
+				});
+				play(muted() ? "mute" : "unmute");
+				syncLink();
+				if (current()) publish();
+			},
+			toggleDeafen: () => {
+				if (current() && listenDenied()) {
+					notify("listenDenied");
+					return;
+				}
+				if (current() && selfModeration().serverDeafened) {
+					notify("serverDeafened");
+					return;
+				}
+				setDeafened(!deafened());
+				play(deafened() ? "deafen" : "undeafen");
+				syncLink();
+				if (current()) publish();
+			},
+			toggleCamera: () => {
+				const call = current();
+				if (!call || cameraPending()) return;
+				if (!camera() && cameraDenied()) {
+					notify("cameraDenied");
+					return;
+				}
+				const next = !camera();
+				setCamera(next);
+				play(next ? "camOn" : "camOff");
+				const apply = link().setCamera;
+				if (!apply) return;
+				const request = ++cameraRequest;
+				if (next) setCameraPending(true);
+				void apply(next).then((on) => {
+					if (request !== cameraRequest) return;
+					setCameraPending(false);
+					if (current() === call && camera() === next && on !== next) {
+						setCamera(on);
+					}
+				});
+			},
+			shareScreen: async (capture, quality) => {
+				const share = link().shareScreen;
+				const denied = !!current() && screenshareDenied();
+				if (denied) notify("screenshareDenied");
+				if (!current() || !share || denied) {
+					capture.video.stop();
+					capture.audio?.stop();
+					capture.release();
+					return false;
+				}
+				return share(capture, quality);
+			},
+			stopScreenShare: () => link().stopScreen?.(),
+			applyScreenQuality: (quality) => link().applyScreenQuality?.(quality),
+			reportTileView: (key, view) => {
+				if (current()) link().reportTileView?.(key, view);
+			},
+			expand: () => {
+				if (current()) setExpanded(true);
+			},
+			collapse: () => setExpanded(false),
+			cue: play,
+			debugSnapshot: () => {
+				const read = link().debugSnapshot;
+
+				return current() && read ? read() : Promise.resolve(null);
+			},
+		};
+
+		const connect = (data: VoiceStore) =>
+			batch(() => {
+				reset();
+				setStore(() => data);
+			});
+
+		const setPlayer = (next: VoiceSoundPlayer) => {
+			playSound = next;
+		};
+
+		const setMonitor = (next: VoiceConnectionMonitor) => {
+			const restart = !!current();
+			link().stop();
+			setLink(() => next);
+			attach(next);
+			if (restart) next.start(session());
+		};
+
+		const setNotifier = (next: VoiceNotifier) => {
+			notifyWith = next;
+		};
+
+		const setMoveNotifier = (next: VoiceMoveNotifier) => {
+			notifyMove = next;
+		};
+
+		return {
+			controller,
+			connect,
+			setPlayer,
+			setMonitor,
+			setNotifier,
+			setMoveNotifier,
+		};
+	});
+
+const instance = createVoice();
+
+export const voice = instance.controller;
+
+export const connectVoice = instance.connect;
+
+export const setVoiceSoundPlayer = instance.setPlayer;
+
+export const setVoiceConnectionMonitor = instance.setMonitor;
+
+export const setVoiceNotifier = instance.setNotifier;
+
+export const setVoiceMoveNotifier = instance.setMoveNotifier;

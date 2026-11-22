@@ -1,0 +1,30 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.emoji.follow",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "Marks its author as following a custom emoji pack or a single custom emoji. Presence means following and deleting it means unfollowing. The user writes it into their own social.colibri.beta.actor.preferences space, so only they and the AppView can read it. The subject is referenced by URI without a CID, so renames, new images and pack membership changes reach the follower.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": [
+					"subject",
+					"createdAt"
+				],
+				"properties": {
+					"subject": {
+						"type": "string",
+						"format": "at-uri",
+						"description": "The followed pack or emoji record. Any collection a supported emoji provider uses for a pack or an item."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the user started following."
+					}
+				}
+			}
+		}
+	}
+}

@@ -1,6 +1,8 @@
 use std::sync::Mutex;
 
-use tauri::{Emitter, Manager, WebviewWindow, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
+
+type WebviewWindow = tauri::WebviewWindow<crate::AppRuntime>;
 
 use crate::native_error::NativeError;
 
@@ -73,6 +75,17 @@ mod button_layout {
 pub struct TitlebarInfo {
     pub state: TitlebarState,
     pub button_layout: Option<ButtonLayout>,
+    pub fixed_frame: bool,
+}
+
+#[cfg(target_os = "linux")]
+fn fixed_frame() -> bool {
+    crate::linux_cef::native_wayland()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn fixed_frame() -> bool {
+    false
 }
 
 #[derive(Default)]
@@ -137,6 +150,7 @@ pub async fn titlebar_init(window: WebviewWindow) -> Result<TitlebarInfo, Native
     Ok(TitlebarInfo {
         state,
         button_layout,
+        fixed_frame: fixed_frame(),
     })
 }
 
@@ -209,6 +223,10 @@ pub async fn titlebar_set_native_decorations(
     window: WebviewWindow,
     enabled: bool,
 ) -> Result<TitlebarState, NativeError> {
+    if fixed_frame() {
+        return Ok(read_state(&window));
+    }
+
     #[cfg(target_os = "macos")]
     macos::set_native_decorations(&window, enabled)?;
 
@@ -237,7 +255,9 @@ pub async fn titlebar_set_native_decorations(
 
 pub fn setup(window: &WebviewWindow) {
     #[cfg(any(target_os = "linux", windows))]
-    let _ = window.set_decorations(false);
+    if !fixed_frame() {
+        let _ = window.set_decorations(false);
+    }
 
     #[cfg(target_os = "macos")]
     macos::setup(window);
@@ -260,7 +280,8 @@ pub fn setup(window: &WebviewWindow) {
         WindowEvent::Resized(_)
         | WindowEvent::Moved(_)
         | WindowEvent::Focused(_)
-        | WindowEvent::ThemeChanged(_) => {
+        | WindowEvent::ThemeChanged(_)
+        | WindowEvent::ScaleFactorChanged { .. } => {
             #[cfg(target_os = "macos")]
             macos::reapply(&listener);
 

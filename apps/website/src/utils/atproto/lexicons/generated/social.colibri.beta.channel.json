@@ -1,0 +1,89 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A channel's configuration. Lives at key 'self' in the channel's own space. The space type says whether it is a text or voice channel, and the space key is the channel's identity.",
+			"key": "literal:self",
+			"record": {
+				"type": "object",
+				"required": [
+					"name"
+				],
+				"properties": {
+					"name": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 32,
+						"description": "The channel's name."
+					},
+					"description": {
+						"type": "string",
+						"maxLength": 256,
+						"description": "The channel's topic."
+					},
+					"ownerOnly": {
+						"type": "boolean",
+						"default": false,
+						"description": "Deprecated, superseded by permissionOverrides. Honoured only while permissionOverrides is absent."
+					},
+					"allowedRoles": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "record-key",
+							"description": "A role permitted to post."
+						},
+						"description": "Deprecated, superseded by permissionOverrides. Honoured only while permissionOverrides is absent."
+					},
+					"allowedMembers": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "did",
+							"description": "A member permitted to post."
+						},
+						"description": "Deprecated, superseded by permissionOverrides. Honoured only while permissionOverrides is absent."
+					},
+					"linkEmbeds": {
+						"type": "boolean",
+						"description": "Whether link previews are shown here. Absent means the community default."
+					},
+					"migratedFrom": {
+						"type": "string",
+						"format": "at-uri",
+						"description": "Set on a channel created by migrating a repo-backed community. Points at the legacy channel record whose history is served alongside this channel."
+					},
+					"visibleToRoles": {
+						"type": "array",
+						"description": "Deprecated, superseded by permissionOverrides. Honoured only while permissionOverrides is absent.",
+						"items": {
+							"type": "string",
+							"format": "record-key",
+							"description": "A role permitted to read."
+						}
+					},
+					"visibleToMembers": {
+						"type": "array",
+						"description": "Deprecated, superseded by permissionOverrides. Honoured only while permissionOverrides is absent.",
+						"items": {
+							"type": "string",
+							"format": "did",
+							"description": "A member permitted to read."
+						}
+					},
+					"permissionOverrides": {
+						"type": "array",
+						"items": {
+							"type": "ref",
+							"ref": "social.colibri.beta.defs#permissionOverride"
+						},
+						"maxLength": 200,
+						"description": "Per-role and per-member permission overrides in this channel."
+					}
+				}
+			}
+		}
+	}
+}

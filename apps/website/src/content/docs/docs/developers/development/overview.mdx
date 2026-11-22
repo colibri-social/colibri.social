@@ -1,0 +1,134 @@
+---
+title: Overview
+description: "Set up a local Colibri stack: the AppView, a PDS for its Spaces, and the client."
+sidebar:
+  order: 1
+---
+
+import { Steps, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+This section covers running Colibri on your own machine to work on it. To run an instance for other people, read [Self-Hosting](/docs/developers/self-hosting/getting-started). The [architecture pages](/docs/developers/architecture/appview) explain how the parts fit together.
+
+## What you're going to run
+
+Colibri is split across two repositories, and local development normally involves both:
+
+| Repository | Contains | Runs as |
+| --- | --- | --- |
+| [colibri-social/api](https://github.com/colibri-social/api) | The AppView, a Node.js and TypeScript pnpm workspace, and the compose files for its dependencies | `pnpm dev` on port `3000` |
+| [colibri-social/colibri.social](https://github.com/colibri-social/colibri.social) | The client, its component library, the website that hosts it, the native shell, and this documentation | `pnpm dev:app` on port `5173` |
+
+The AppView stores its data in a libSQL file by default, so it starts with no database service. You'll need two more things:
+
+- **A PDS running the spaces alpha**, which hosts the account of every Space you create. `PDS_URL` is required. [Snowglobe](#start-a-local-network-with-snowglobe) runs one together with test accounts, and the AppView repository ships a [compose overlay](#start-a-local-pds) that runs one on its own.
+- **Postgres**, which is optional. An overlay switches the AppView to it. See [AppView development](/docs/developers/development/appview#storage).
+
+To work on the client's interface alone, skip the AppView. `VITE_COLIBRI_MOCK=1 pnpm dev:app` runs the client on built-in mock data with no sign-in.
+
+## Prerequisites
+
+- **Node.js** `>=24.22.3`, which the AppView repository requires.
+- **pnpm** through `corepack enable`. Both repositories pin `12.21.0` in `packageManager`.
+- **Docker** and **Docker Compose**, for the local network and Postgres.
+
+## Start a local network with Snowglobe
+
+[Snowglobe](https://snowglobe.at) runs a private AT Protocol network on your machine: a PDS, a PLC directory, Jetstream, and test accounts. Every service gets an `https://*.local.snowglobe.at` name and a certificate from a local certificate authority. Snowglobe contains no AppView, so the Colibri AppView runs next to it and joins the network as an app.
+
+Snowglobe runs on Linux, on Windows under WSL 2, and on macOS with Docker Desktop, Apple silicon included.
+
+The AppView repository includes everything Snowglobe needs. `snowglobe.yml` in its root describes a network named `colibri` with one spaces alpha PDS, the accounts `alice` and `bob`, and the AppView as an app on port `3000`. It publishes every `social.colibri.beta.*` lexicon to an account on the network. Snowglobe is a dev dependency, so `pnpm exec snowglobe` runs it without a global install.
+
+<Steps>
+
+1. Clone the AppView repository and install its dependencies:
+
+   ```sh
+   git clone https://github.com/colibri-social/api.git
+   cd api
+   pnpm install
+   ```
+
+2. Start the network and trust its certificate authority:
+
+   ```sh
+   pnpm snowglobe:up
+   pnpm exec snowglobe trust
+   ```
+
+   `snowglobe:up` runs the images as `linux/amd64`, the only platform the spaces alpha PDS image is published for. On an ARM machine, Docker runs them under emulation.
+
+   `snowglobe trust` adds the certificate authority to the system store that Chrome, Edge, and Safari read. On macOS, that's your login keychain. A Firefox-based browser keeps its own list. Import `~/.local/share/snowglobe/ca/ca.crt` there under **Settings** > **Privacy & Security** > **View Certificates** > **Authorities**.
+
+   Wait for `snowglobe:up` to return before you open the client. The lexicons are published at the end of the command.
+
+3. Copy `.env.snowglobe.example` to `.env` and fill in the three empty values:
+
+   ```sh
+   cp .env.snowglobe.example .env
+   ```
+
+   Generate `SIGNING_KEY` and `CREDENTIAL_ENCRYPTION_KEY` with the `openssl` commands in `.env.example`. Copy `PDS_ADMIN_PASSWORD` from `SG_PDS_ADMIN_PASSWORD` in `~/.local/share/snowglobe/colibri/secrets.env`.
+
+4. Run the AppView with the network's settings:
+
+   ```sh
+   pnpm dev:snowglobe
+   ```
+
+   `dev:snowglobe` wraps `pnpm dev` in `snowglobe run`, which sets the variables from the `env` block of `snowglobe.yml` and `NODE_EXTRA_CA_CERTS`, so the AppView trusts the network's certificates.
+
+5. Check that the AppView answers on its network name:
+
+   ```sh
+   curl --cacert ~/.local/share/snowglobe/ca/ca.crt \
+     https://appview.app.colibri.local.snowglobe.at/health
+   ```
+
+6. In the client repository, start the dev server with the network's AppView and PLC directory:
+
+   ```sh
+   VITE_COLIBRI_APPVIEW_URL=https://appview.app.colibri.local.snowglobe.at \
+   VITE_COLIBRI_PLC_URL=https://plc.colibri.local.snowglobe.at \
+     pnpm dev:app
+   ```
+
+7. Open **`http://127.0.0.1:5173/app/`** and sign in as `alice.colibri.local.snowglobe.at`. The passwords of both accounts are in `~/.local/share/snowglobe/colibri/accounts.env`.
+
+</Steps>
+
+### Troubleshooting sign-in
+
+- **The sign-in request to `plc.directory` fails.** The client looks up accounts in the public PLC directory unless `VITE_COLIBRI_PLC_URL` names the network's own.
+- **`/oauth/par` answers `invalid_scope` with "Unable to resolve Lexicon schema social.colibri.beta.permissionAccount".** The PDS found no published lexicon. Run `pnpm snowglobe:up` again. The PDS stores a failed lookup for five minutes. **A restart does not fix this.** Wait five minutes, or run `pnpm exec snowglobe down -v` and `pnpm snowglobe:up` to start from an empty network.
+- **The browser rejects the certificate.** Run `pnpm exec snowglobe trust` and restart the browser, or import the certificate authority by hand in a Firefox-based browser.
+- **Creating a Space fails with `UpstreamFailure`.** The `image` in `snowglobe.yml` is Snowglobe's built-in `spaces-alpha` name, which is pinned to a build without `com.atproto.space.createSpace`. Set it to `ghcr.io/bluesky-social/atproto:pds-spaces-alpha`.
+
+`pnpm snowglobe:down` stops the network and keeps its data. `pnpm exec snowglobe down -v` deletes the data as well. `pnpm exec snowglobe account carol CAROL` adds another account.
+
+The next two sections set up the same pieces with the compose overlay from the AppView repository, as an alternative to Snowglobe.
+
+## Where to go next
+
+<CardGrid>
+  <LinkCard
+    title="AppView development"
+    href="/docs/developers/development/appview"
+    description="Running the AppView, its configuration, and its Docker files."
+  />
+  <LinkCard
+    title="Client development"
+    href="/docs/developers/development/client"
+    description="The SolidJS client, the Astro website, and the native shell."
+  />
+  <LinkCard
+    title="Running a PDS"
+    href="/docs/developers/development/pds"
+    description="The PDS that hosts Spaces, and how to run one locally."
+  />
+  <LinkCard
+    title="Contributing"
+    href="/docs/developers/contributing/overview"
+    description="Changesets, checks, and how to get your work merged."
+  />
+</CardGrid>

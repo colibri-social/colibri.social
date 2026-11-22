@@ -1,0 +1,72 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.getHostAuthorization",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Reports the outcome of a sign-in started with authorizeHost. Only the user who started it can read it.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"request"
+				],
+				"properties": {
+					"request": {
+						"type": "string",
+						"description": "The request returned by authorizeHost."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"status"
+					],
+					"properties": {
+						"status": {
+							"type": "string",
+							"knownValues": [
+								"pending",
+								"done",
+								"failed"
+							],
+							"description": "pending until the user finishes signing in, then done or failed."
+						},
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The adopted or reconnected community, once done."
+						},
+						"failure": {
+							"type": "string",
+							"knownValues": [
+								"cancelled",
+								"wrongAccount",
+								"spacesUnsupported",
+								"alreadyHosts",
+								"failed"
+							],
+							"description": "Why the sign-in failed."
+						},
+						"signedInAs": {
+							"type": "string",
+							"description": "The account the user signed in as, when it was not the expected one."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "RequestNotFound",
+					"description": "No sign-in with that request exists for the requesting user."
+				}
+			]
+		}
+	}
+}

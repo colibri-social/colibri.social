@@ -1,0 +1,26 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index 9b1289e66449ca7252cc4bd86922f8f400759460..f560d409a230530a98c1f672f2d585f43ccd48ec 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -769,7 +769,7 @@ function scrollIntoViewport(targetElement, opts) {
+           targetElement
+         );
+         targetElement = scrollParent;
+-        scrollParent = getScrollParent(targetElement);
++        scrollParent = targetElement.parentElement ? getScrollParent(targetElement.parentElement) : null;
+       }
+     }
+   }
+diff --git a/dist/index.js b/dist/index.js
+index 503080597f7d15c7dce8f4a057c6faf6a3ad929f..4ff726fe96a51ef78a8da8ac783f289dfdeaaefb 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -767,7 +767,7 @@ function scrollIntoViewport(targetElement, opts) {
+           targetElement
+         );
+         targetElement = scrollParent;
+-        scrollParent = getScrollParent(targetElement);
++        scrollParent = targetElement.parentElement ? getScrollParent(targetElement.parentElement) : null;
+       }
+     }
+   }

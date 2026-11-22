@@ -1,6 +1,6 @@
 ### 🔗 Linked issue
 
-<!-- Please ensure there is an open issue and mention its number. For example, "Closes #123" -->
+<!-- Please ensure there is an open issue and mention its number. For example, "Closes #123". Typos, broken links and small docs fixes don't need an issue. -->
 
 ### 🧭 Context
 
@@ -12,8 +12,7 @@
 
 <!-- Describe your changes in detail. Why is this change required? What problem does it solve? -->
 
-<!-- If you used AI tools to help with this contribution, please ensure the PR description and code reflect your own understanding.
-     Write in your own voice rather than copying AI-generated text. -->
+<!-- Everything in this pull request has to be written by you. See AI_POLICY.md. -->
 
 <!----------------------------------------------------------------------
 Before creating the pull request, please make sure you do the following:

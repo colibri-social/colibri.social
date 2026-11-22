@@ -1,0 +1,75 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.emoji.putFollow",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Pushes one social.colibri.beta.emoji.follow record to the AppView, so it takes effect immediately instead of waiting for a sync notification. The client writes or deletes the record in its own preferences space first, then calls this. The AppView starts tracking the subject's owner and answers with the followed item as the picker shows it.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"rkey"
+					],
+					"properties": {
+						"rkey": {
+							"type": "string",
+							"format": "record-key",
+							"description": "The follow record's key."
+						},
+						"subject": {
+							"type": "string",
+							"format": "at-uri",
+							"description": "The followed pack or emoji. Absent means the record was deleted."
+						},
+						"createdAt": {
+							"type": "string",
+							"format": "datetime",
+							"description": "The record's createdAt. Defaults to the time of the call when subject is present."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {
+						"follow": {
+							"type": "ref",
+							"ref": "social.colibri.beta.emoji.defs#followView",
+							"description": "The followed item. Absent after an unfollow."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "EmojiNotFound",
+					"description": "The subject is an emoji that does not exist."
+				},
+				{
+					"name": "PackNotFound",
+					"description": "The subject is a pack that does not exist."
+				},
+				{
+					"name": "UnsupportedProvider",
+					"description": "The subject's collection belongs to no supported emoji provider."
+				},
+				{
+					"name": "OwnEmoji",
+					"description": "The subject is in the requesting user's own repo."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "The subject owner's repo could not be read."
+				}
+			]
+		}
+	}
+}

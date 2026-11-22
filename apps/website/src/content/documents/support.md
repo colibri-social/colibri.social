@@ -32,9 +32,27 @@ suggest and vote on features there:
 
 ## Report abuse or a safety concern
 
-If you've come across harmful content, a bad-faith community, or anything that
-puts people at risk, including security issues, email **pds@colibri.social**
-and we'll look into it as quickly as we can.
+If something in a Space breaks that Space's own rules, tell its moderators
+first. They can hide messages and remove people for everyone.
+
+If you've come across illegal or harmful content, a bad-faith Space, or
+anything that puts people at risk, including security issues, email
+**pds@colibri.social**. Include:
+
+- why you consider the content illegal or against the [Terms of Service](/tos)
+- where it is: the Space, the channel and the message, or a screenshot that shows them
+- your name and email address, unless the report is about child sexual abuse material
+- a line confirming that you believe the report is accurate
+
+We confirm that we got your report, look at the reported content, and tell you
+what we decided.
+
+## Disagree with a decision
+
+If we restricted your content, your Space or your access, we tell you what we
+did and why. If you disagree, or if we took no action on your report and you
+think we should have, reply to our message or email **pds@colibri.social**
+within six months and we'll look at it again.
 
 ## Response times
 
@@ -46,5 +64,5 @@ to you. Thanks for your patience.
 
 Many common questions are already covered in our
 [FAQ](/faq), and if you want to understand how Colibri works under the hood,
-the [documentation](/docs) goes deep on the AT Protocol, communities, and
+the [documentation](/docs) goes deep on the AT Protocol, Spaces, and
 self-hosting.

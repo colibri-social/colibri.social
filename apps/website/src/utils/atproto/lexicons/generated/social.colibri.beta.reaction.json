@@ -1,0 +1,45 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.reaction",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A reaction to a message in the same channel space.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": [
+					"emoji",
+					"target"
+				],
+				"properties": {
+					"emoji": {
+						"type": "string",
+						"maxLength": 64,
+						"description": "The reaction, as an emoji or a custom shortcode."
+					},
+					"target": {
+						"type": "ref",
+						"ref": "social.colibri.beta.defs#recordRef",
+						"description": "The message being reacted to."
+					},
+					"uri": {
+						"type": "string",
+						"format": "at-uri",
+						"description": "The message being reacted to, as a record URI in the same space. Readers prefer it over `target` when it is valid."
+					},
+					"customEmoji": {
+						"type": "ref",
+						"ref": "social.colibri.beta.richtext.facet#customEmoji",
+						"description": "The emoji record behind a custom shortcode, so viewers who don't have the emoji can still show it."
+					},
+					"bridged": {
+						"type": "ref",
+						"ref": "social.colibri.beta.bridge.defs#attribution",
+						"description": "Who reacted on another service. Honoured only when the community itself wrote the record."
+					}
+				}
+			}
+		}
+	}
+}

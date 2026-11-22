@@ -1,61 +1,45 @@
 # Colibri
 
-![Let your community spread it's wings](https://colibri.social/og.png)
+![Let your community spread its wings](https://colibri.social/og.png)
 
-Colibri is an open source chat platform built on the [AT Protocol](https://atproto.com) for communities big and small. It gives you the ability to create communities, manage members, and communicate through text, voice, and forum channels, all while maintaining true ownership of your data.
+Colibri is an open source chat app built on the [AT Protocol](https://atproto.com). People create Spaces, manage members and roles, and talk in text and voice channels, and their messages live in their own repositories. This repository holds the client, its component library, the native shell and the website behind [colibri.social](https://colibri.social). The AppView lives in [colibri-social/api](https://github.com/colibri-social/api).
 
-Visit us at [colibri.social](https://colibri.social). You can learn more on our [about page](https://colibri.social/about).
+## Packages
 
-## Repository layout
+This is a [pnpm](https://pnpm.io) monorepo.
 
-This is a [pnpm](https://pnpm.io) monorepo. The deployable app lives in `apps/`, and the code it shares lives in `packages/`.
+| Package                                                                     | Path                         | Description                                                             |
+| --------------------------------------------------------------------------- | ---------------------------- | ----------------------------------------------------------------------- |
+| [`@colibri-social/website`](apps/website/README.md)                         | `apps/website`               | The marketing site and the docs. It serves the web client at `/app`.    |
+| `@colibri-social/app`                                                       | `packages/app`               | The SolidJS client                                                      |
+| `@colibri-social/ui`                                                        | `packages/ui`                | The component library, with its Storybook                               |
+| [`@colibri-social/wrapper`](packages/wrapper/README.md)                     | `packages/wrapper`           | The native app shell, built with Tauri                                  |
+| [`@colibri-social/lib`](packages/lib/README.md)                             | `packages/lib`               | Shared code: XRPC types, errors, logging, facets and markdown           |
+| [`@colibri-social/assets`](packages/assets/README.md)                       | `packages/assets`            | Shared static assets: fonts, sounds, logos and emoji                    |
+| [`@colibri-social/standard-renderer`](packages/standard-renderer/README.md) | `packages/standard-renderer` | A renderer for [standard.site](https://standard.site) documents         |
 
-| Package                                               | Path              | Description                                                             |
-| ----------------------------------------------------- | ----------------- | ----------------------------------------------------------------------- |
-| [`@colibri-social/website`](apps/website/README.md)   | `apps/website`    | Marketing site, docs, and host for the web client.                      |
-| [`@colibri-social/client`](packages/client/README.md) | `packages/client` | The SolidJS client                                                      |
-| [`@colibri-social/lib`](packages/lib/README.md)       | `packages/lib`    | Shared code: helpers, XRPC types, events, facets, and markdown          |
-| [`@colibri-social/assets`](packages/assets/README.md) | `packages/assets` | Shared static assets (fonts, sounds, logos, emoji) and their manifests. |
+## Quick start
 
-## Getting started
+Requires Node.js `^24.22.3` and pnpm `12.21.0`. Run `corepack enable` to get the pinned pnpm version.
 
-### Prerequisites
+```sh
+git clone https://github.com/colibri-social/colibri.social.git
+cd colibri.social
+pnpm install
+pnpm dev:app
+```
 
-- Node.js `^24.13.0`
-- pnpm `10.33.0` (run `corepack enable` to have the right one picked up automatically)
+Open `http://127.0.0.1:5173`. The client talks to `https://spaces-api.colibri.social` by default. To use another AppView, copy `packages/app/.env.example` to `packages/app/.env` and set `VITE_COLIBRI_APPVIEW_URL`.
 
-### Setup
+## Documentation
 
-1. Clone and install:
+The docs live at [colibri.social/docs](https://colibri.social/docs).
 
-   ```bash
-   git clone https://github.com/colibri-social/colibri.social.git
-   cd colibri.social
-   pnpm install
-   ```
-
-2. Create a `.env` file in the repo root by copying `.env.example`.
-3. Start the client dev server:
-
-   ```bash
-   pnpm dev:client
-   ```
-
-   The app will be available at `http://127.0.0.1:4321`. You must also run the AppView development server alondside this, please see the [AppView repository](https://github.com/colibri-social/appview) for more information.
-
-## Common scripts
-
-Run from the repository root:
-
-- `pnpm test`: run the test suite (packages without tests are skipped)
-- `pnpm lint`: check the whole workspace with [Biome](https://biomejs.dev)
-- `pnpm lint:fix`: check and auto-fix
-- `pnpm format`: format the whole workspace with Biome
-- `pnpm lexicons:export`: re-export the lexicons to JSON after changing one
-
-## Contributing
-
-Contributions are welcome! Please feel free to open issues and pull requests.
+- [Development overview](https://colibri.social/docs/developers/development/overview): run the client, an AppView and a PDS together.
+- [Client development](https://colibri.social/docs/developers/development/client): setup, environment variables, tests, the website, linting and changesets.
+- [Testing native builds](https://colibri.social/docs/developers/development/native): build and install the desktop, Android and iOS apps.
+- [Client architecture](https://colibri.social/docs/developers/architecture/client): how the client talks to an AppView.
+- [Contributing](https://colibri.social/docs/developers/contributing/overview): pull requests, checks and conventions.
 
 ## License
 

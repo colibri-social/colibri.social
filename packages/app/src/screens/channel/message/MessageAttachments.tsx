@@ -1,0 +1,567 @@
+import { classifyThrown, createLogger } from "@colibri-social/lib";
+import {
+	AudioAttachment,
+	BlueskyPostEmbed,
+	BlueskyPostEmbedSkeleton,
+	FileAttachment,
+	Lightbox,
+	type LightboxAuthor,
+	LinkEmbed,
+	MediaGrid,
+	type MediaItem,
+	type RichTextExternalLink,
+	SocialPostEmbed,
+	TextAttachment,
+	textAttachmentFormatOf,
+} from "@colibri-social/ui";
+import {
+	createMemo,
+	createResource,
+	createSignal,
+	For,
+	type JSX,
+	Match,
+	Show,
+	Switch,
+} from "solid-js";
+import {
+	inlineMediaOf,
+	lightboxMediaOf,
+	linkEmbedMedia,
+	type SplitAttachments,
+	toLinkEmbedProps,
+	toSocialPostProps,
+} from "../../../data/adapters/attachments";
+import {
+	blueskyMediaItems,
+	canonicalBlueskyPostUrl,
+	parseBlueskyPostUrl,
+	toBlueskyPost,
+} from "../../../data/adapters/bluesky-post";
+import { blueskyClientOf } from "../../../data/bluesky-client";
+import { useMediaLinkRefresher } from "../../../data/media-link-context";
+import { useData } from "../../../data/store";
+import type {
+	BlueskyPostView,
+	CommunityView,
+	LinkEmbed as LinkEmbedView,
+} from "../../../data/types";
+import { externalAnchorOf } from "../../../native/open-external";
+import {
+	canOpenInPlayer,
+	downloadMedia,
+	fetchMedia,
+	lightboxImageActions,
+	openMediaInPlayer,
+} from "./image-actions";
+import { InviteEmbed } from "./invite-embed";
+import { PackEmbed } from "./pack-embed";
+
+type MessageFile = SplitAttachments["files"][number];
+
+const TEXT_PREVIEW_MAX_BYTES = 64 * 1024;
+
+const log = createLogger("message-attachments");
+
+const previewsAsText = (file: MessageFile) => {
+	return (
+		!!file.href &&
+		file.size <= TEXT_PREVIEW_MAX_BYTES &&
+		textAttachmentFormatOf(file.name, file.mimeType) !== undefined
+	);
+};
+
+const loadText = async (href: string, mimeType?: string) => {
+	try {
+		const blob = await fetchMedia(href, mimeType);
+
+		return await blob.text();
+	} catch (thrown) {
+		const error = classifyThrown(thrown, { method: "attachment.text" });
+
+		log.warn("attachment.text failed", { code: error.code });
+
+		throw error;
+	}
+};
+
+const TextFile = (props: { file: MessageFile; onDownload?: () => void }) => {
+	const [text] = createResource(
+		() => props.file.href,
+		(href) => loadText(href, props.file.mimeType),
+	);
+
+	return (
+		<TextAttachment
+			name={props.file.name}
+			size={props.file.size}
+			mimeType={props.file.mimeType}
+			spoiler={props.file.spoiler}
+			text={text.state === "ready" ? text() : undefined}
+			failed={text.state === "errored"}
+			onDownload={props.onDownload}
+		/>
+	);
+};
+
+const routeEmbedLink = (
+	event: MouseEvent,
+	onExternalLink?: (href: string, link: RichTextExternalLink) => void,
+) => {
+	if (!onExternalLink || event.defaultPrevented || event.button !== 0) return;
+	const anchor = externalAnchorOf(event);
+	if (!anchor?.closest("[data-link-embed], [data-bluesky-embed]")) return;
+	event.preventDefault();
+	onExternalLink(anchor.href, {
+		label: anchor.textContent?.trim() ?? anchor.href,
+		disguised: false,
+	});
+};
+
+export type LoadBlueskyPost = (
+	url: string,
+) => Promise<BlueskyPostView | undefined>;
+
+export type RemoveEmbed = (uri: string, event: MouseEvent) => void;
+
+export type InviteLink = { url: string; code: string };
+
+const sameUris = (previous: readonly string[], next: readonly string[]) =>
+	previous.length === next.length &&
+	previous.every((uri, index) => uri === next[index]);
+
+const sameFields = (previous: object, next: object) => {
+	const before = previous as Record<string, unknown>;
+	const after = next as Record<string, unknown>;
+	const keys = Object.keys(after);
+	return (
+		keys.length === Object.keys(before).length &&
+		keys.every((key) => before[key] === after[key])
+	);
+};
+
+const keepEqual = <T extends object>(
+	previous: readonly T[] | undefined,
+	next: T[],
+) => {
+	const kept = next.map((item, index) => {
+		const before = previous?.[index];
+		return before && sameFields(before, item) ? before : item;
+	});
+	return previous &&
+		kept.length === previous.length &&
+		kept.every((item, index) => item === previous[index])
+		? (previous as T[])
+		: kept;
+};
+
+export const keepSplitIdentity = (
+	previous: SplitAttachments | undefined,
+	next: SplitAttachments,
+): SplitAttachments => {
+	const media = keepEqual(previous?.media, next.media);
+	const audio = keepEqual(previous?.audio, next.audio);
+	const files = keepEqual(previous?.files, next.files);
+	return previous &&
+		media === previous.media &&
+		audio === previous.audio &&
+		files === previous.files
+		? previous
+		: { media, audio, files };
+};
+
+export const hasAttachmentContent = (
+	split: SplitAttachments,
+	embeds: readonly LinkEmbedView[],
+	blueskyLinks: readonly string[] = [],
+	inviteLinks: readonly InviteLink[] = [],
+	packLinks: readonly string[] = [],
+) =>
+	split.media.length > 0 ||
+	split.audio.length > 0 ||
+	split.files.length > 0 ||
+	embeds.length > 0 ||
+	blueskyLinks.length > 0 ||
+	inviteLinks.length > 0 ||
+	packLinks.length > 0;
+
+export const MediaWithLightbox = (props: {
+	items: MediaItem[];
+	author?: LightboxAuthor;
+	timestamp?: string;
+	locale?: string;
+}) => {
+	const [open, setOpen] = createSignal(false);
+	const [mounted, setMounted] = createSignal(false);
+	const [index, setIndex] = createSignal(0);
+	const links = useMediaLinkRefresher();
+	const srcAt = (at: number) => props.items[at]?.src;
+	return (
+		<>
+			<MediaGrid
+				items={props.items}
+				onMediaError={(at) => {
+					const src = srcAt(at);
+					return src && links ? links.refresh(src) : undefined;
+				}}
+				onRetry={(at) => {
+					const src = srcAt(at);
+					if (src) links?.retry(src);
+				}}
+				onOpen={(next) => {
+					setIndex(next);
+					setMounted(true);
+					setOpen(true);
+				}}
+				onDownload={(at) => {
+					const item = props.items[at];
+					if (!item) return;
+					void downloadMedia({
+						src: item.downloadHref ?? item.src,
+						name: item.name,
+						mimeType: item.mimeType,
+					});
+				}}
+				onOpenInPlayer={
+					canOpenInPlayer()
+						? (at, progress) => {
+								const item = props.items[at];
+								if (!item) return;
+								return openMediaInPlayer(
+									{
+										src: item.downloadHref ?? item.src,
+										name: item.name,
+										mimeType: item.mimeType,
+									},
+									progress,
+								);
+							}
+						: undefined
+				}
+			/>
+			<Show when={mounted()}>
+				<Lightbox
+					items={props.items}
+					{...lightboxImageActions(() => props.items)}
+					open={open()}
+					onOpenChange={setOpen}
+					index={index()}
+					onIndexChange={setIndex}
+					author={props.author}
+					timestamp={props.timestamp}
+					locale={props.locale}
+				/>
+			</Show>
+		</>
+	);
+};
+
+const embedMedia = (embed: LinkEmbedView): MediaItem[] => {
+	const media = linkEmbedMedia(embed);
+	if (media.length > 0) return lightboxMediaOf(media);
+	if (!embed.image) return [];
+	return [
+		{
+			src: embed.image.url,
+			kind: "image",
+			width: embed.image.width,
+			height: embed.image.height,
+			alt: embed.image.alt ?? embed.title,
+		},
+	];
+};
+
+const EmbedWithLightbox = (props: {
+	embed: LinkEmbedView;
+	author?: LightboxAuthor;
+	timestamp?: string;
+	locale?: string;
+	onRemove?: RemoveEmbed;
+}) => {
+	const [open, setOpen] = createSignal(false);
+	const [mounted, setMounted] = createSignal(false);
+	const [index, setIndex] = createSignal(0);
+	const post = () => toSocialPostProps(props.embed, { locale: props.locale });
+	const postItems = () => {
+		const view = post();
+		return view ? lightboxMediaOf(view.media ?? []) : [];
+	};
+	const quoteItems = () => lightboxMediaOf(post()?.quote?.media ?? []);
+	const items = () =>
+		post() ? [...postItems(), ...quoteItems()] : embedMedia(props.embed);
+	const openAt = (next: number) => {
+		setIndex(next);
+		setMounted(true);
+		setOpen(true);
+	};
+	const remove = () =>
+		props.onRemove
+			? (event: MouseEvent) => props.onRemove?.(props.embed.uri, event)
+			: undefined;
+	return (
+		<>
+			<Show
+				when={post()}
+				fallback={
+					<LinkEmbed
+						{...toLinkEmbedProps(props.embed)}
+						onRemove={remove()}
+						onOpenMedia={openAt}
+						onOpenImage={items().length > 0 ? () => openAt(0) : undefined}
+					/>
+				}
+			>
+				{(view) => (
+					<SocialPostEmbed
+						{...view()}
+						onRemove={remove()}
+						onOpenMedia={openAt}
+						onOpenQuoteMedia={(next) => openAt(postItems().length + next)}
+					/>
+				)}
+			</Show>
+			<Show when={mounted()}>
+				<Lightbox
+					items={items()}
+					{...lightboxImageActions(items)}
+					open={open()}
+					onOpenChange={setOpen}
+					index={index()}
+					onIndexChange={setIndex}
+					author={props.author}
+					timestamp={props.timestamp}
+					locale={props.locale}
+				/>
+			</Show>
+		</>
+	);
+};
+
+export const BlueskyEmbed = (props: {
+	url: string;
+	fallback?: LinkEmbedView;
+	load?: LoadBlueskyPost;
+	author?: LightboxAuthor;
+	timestamp?: string;
+	locale?: string;
+	onRemove?: RemoveEmbed;
+}) => {
+	const data = useData();
+	const client = () => blueskyClientOf(data.preferences);
+	const [post] = createResource(
+		() =>
+			props.load
+				? canonicalBlueskyPostUrl(props.url, client().base)
+				: undefined,
+		(url) => props.load?.(url).catch(() => undefined),
+	);
+	const [open, setOpen] = createSignal(false);
+	const [mounted, setMounted] = createSignal(false);
+	const [index, setIndex] = createSignal(0);
+	const fallback = () => (
+		<Show when={props.fallback}>
+			{(embed) => (
+				<EmbedWithLightbox
+					embed={embed()}
+					author={props.author}
+					timestamp={props.timestamp}
+					locale={props.locale}
+					onRemove={props.onRemove}
+				/>
+			)}
+		</Show>
+	);
+	return (
+		<Switch fallback={fallback()}>
+			<Match when={post.loading}>
+				<BlueskyPostEmbedSkeleton />
+			</Match>
+			<Match when={post()}>
+				{(view) => (
+					<>
+						<BlueskyPostEmbed
+							post={toBlueskyPost(view(), client())}
+							client={client()}
+							onRemove={
+								props.onRemove
+									? (event) => props.onRemove?.(props.url, event)
+									: undefined
+							}
+							onOpenImage={(next) => {
+								setIndex(next);
+								setMounted(true);
+								setOpen(true);
+							}}
+						/>
+						<Show when={mounted()}>
+							<Lightbox
+								items={blueskyMediaItems(view())}
+								{...lightboxImageActions(() => blueskyMediaItems(view()))}
+								open={open()}
+								onOpenChange={setOpen}
+								index={index()}
+								onIndexChange={setIndex}
+								author={props.author}
+								timestamp={props.timestamp}
+								locale={props.locale}
+							/>
+						</Show>
+					</>
+				)}
+			</Match>
+		</Switch>
+	);
+};
+
+export const MessageAttachments = (props: {
+	split: SplitAttachments;
+	embeds: readonly LinkEmbedView[];
+	blueskyLinks?: readonly string[];
+	loadBlueskyPost?: LoadBlueskyPost;
+	blueskyHost?: string;
+	inviteLinks?: readonly InviteLink[];
+	onOpenSpace?: (community: CommunityView) => void;
+	packLinks?: readonly string[];
+	platform?: "mobile" | "desktop";
+	onRemoveEmbed?: RemoveEmbed;
+	author?: LightboxAuthor;
+	timestamp?: string;
+	locale?: string;
+	onExternalLink?: (href: string, link: RichTextExternalLink) => void;
+}): JSX.Element => {
+	const embedUris = createMemo(
+		() => props.embeds.map((embed) => embed.uri),
+		undefined,
+		{ equals: sameUris },
+	);
+	const embedByUri = createMemo(
+		() => new Map(props.embeds.map((embed) => [embed.uri, embed])),
+	);
+	return (
+		<div
+			data-message-attachments=""
+			class="flex min-w-0 flex-col gap-2"
+			onClick={(event) => routeEmbedLink(event, props.onExternalLink)}
+		>
+			<Show when={props.split.media.length > 0}>
+				<MediaWithLightbox
+					items={props.split.media}
+					author={props.author}
+					timestamp={props.timestamp}
+					locale={props.locale}
+				/>
+			</Show>
+			<For each={props.split.audio}>
+				{(audio) => (
+					<AudioAttachment
+						{...audio}
+						onDownload={
+							audio.href
+								? () =>
+										void downloadMedia({
+											src: audio.href ?? "",
+											name: audio.name,
+										})
+								: undefined
+						}
+					/>
+				)}
+			</For>
+			<For each={props.split.files}>
+				{(file) => {
+					const download = file.href
+						? () =>
+								void downloadMedia({
+									src: file.href ?? "",
+									name: file.name,
+									mimeType: file.mimeType,
+								})
+						: undefined;
+
+					return (
+						<Show
+							when={previewsAsText(file)}
+							fallback={<FileAttachment {...file} onDownload={download} />}
+						>
+							<TextFile file={file} onDownload={download} />
+						</Show>
+					);
+				}}
+			</For>
+			<For each={embedUris()}>
+				{(uri) => (
+					<Show when={embedByUri().get(uri)}>
+						{(embed) => (
+							<Switch
+								fallback={
+									<EmbedWithLightbox
+										embed={embed()}
+										author={props.author}
+										timestamp={props.timestamp}
+										locale={props.locale}
+										onRemove={props.onRemoveEmbed}
+									/>
+								}
+							>
+								<Match when={inlineMediaOf(embed())}>
+									{(media) => (
+										<div data-inline-media="">
+											<MediaWithLightbox
+												items={[media()]}
+												author={props.author}
+												timestamp={props.timestamp}
+												locale={props.locale}
+											/>
+										</div>
+									)}
+								</Match>
+								<Match
+									when={
+										props.loadBlueskyPost &&
+										parseBlueskyPostUrl(uri, props.blueskyHost)
+									}
+								>
+									<BlueskyEmbed
+										url={uri}
+										fallback={embed()}
+										load={props.loadBlueskyPost}
+										author={props.author}
+										timestamp={props.timestamp}
+										locale={props.locale}
+										onRemove={props.onRemoveEmbed}
+									/>
+								</Match>
+							</Switch>
+						)}
+					</Show>
+				)}
+			</For>
+			<For each={props.blueskyLinks ?? []}>
+				{(url) => (
+					<BlueskyEmbed
+						url={url}
+						load={props.loadBlueskyPost}
+						author={props.author}
+						timestamp={props.timestamp}
+						locale={props.locale}
+						onRemove={props.onRemoveEmbed}
+					/>
+				)}
+			</For>
+			<For each={props.inviteLinks ?? []}>
+				{(link) => (
+					<InviteEmbed
+						url={link.url}
+						code={link.code}
+						onOpenSpace={props.onOpenSpace}
+					/>
+				)}
+			</For>
+			<For each={props.packLinks ?? []}>
+				{(url) => (
+					<PackEmbed url={url} platform={props.platform ?? "desktop"} />
+				)}
+			</For>
+		</div>
+	);
+};

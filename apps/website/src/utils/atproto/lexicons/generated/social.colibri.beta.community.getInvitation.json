@@ -1,0 +1,50 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.getInvitation",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Resolves an invitation code, so a client can show what it leads to before the user accepts. This is readable without membership.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"code"
+				],
+				"properties": {
+					"code": {
+						"type": "string",
+						"description": "The invitation code to resolve."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"invitation",
+						"community"
+					],
+					"properties": {
+						"invitation": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#invitationView",
+							"description": "The resolved invitation."
+						},
+						"community": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#communityView",
+							"description": "The community the invitation leads to."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "InvitationNotFound",
+					"description": "No invitation exists with that code."
+				}
+			]
+		}
+	}
+}

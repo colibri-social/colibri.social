@@ -25,24 +25,26 @@ const buildFacet = (
 	byteEnd: number,
 	...features: Array<Feature>
 ): ColibriRichTextFacet => ({
-	$type: "social.colibri.richtext.facet",
+	$type: "social.colibri.beta.richtext.facet",
 	index: {
-		$type: "app.bsky.richtext.facet#byteSlice",
+		$type: "social.colibri.beta.richtext.facet#byteSlice",
 		byteStart,
 		byteEnd,
 	},
 	features,
 });
 
-const BOLD: Feature = { $type: "social.colibri.richtext.facet#bold" };
-const QUOTE: Feature = { $type: "social.colibri.richtext.facet#quote" };
-const CODEBLOCK: Feature = { $type: "social.colibri.richtext.facet#codeblock" };
+const BOLD: Feature = { $type: "social.colibri.beta.richtext.facet#bold" };
+const QUOTE: Feature = { $type: "social.colibri.beta.richtext.facet#quote" };
+const CODEBLOCK: Feature = {
+	$type: "social.colibri.beta.richtext.facet#codeblock",
+};
 const heading = (level: number): Feature => ({
-	$type: "social.colibri.richtext.facet#heading",
+	$type: "social.colibri.beta.richtext.facet#heading",
 	level,
 });
 const list = (ordered: boolean): Feature => ({
-	$type: "social.colibri.richtext.facet#list",
+	$type: "social.colibri.beta.richtext.facet#list",
 	ordered,
 });
 
@@ -204,13 +206,13 @@ describe("facetsToSource", () => {
 
 	it("returns instead of hanging on a zero-length codeblock facet", () => {
 		const facet: ColibriRichTextFacet = {
-			$type: "social.colibri.richtext.facet",
+			$type: "social.colibri.beta.richtext.facet",
 			index: {
-				$type: "app.bsky.richtext.facet#byteSlice",
+				$type: "social.colibri.beta.richtext.facet#byteSlice",
 				byteStart: 0,
 				byteEnd: 0,
 			},
-			features: [{ $type: "social.colibri.richtext.facet#codeblock" }],
+			features: [{ $type: "social.colibri.beta.richtext.facet#codeblock" }],
 		};
 		expect(facetsToSource("abc", [facet]).source).toBe("abc");
 	});
@@ -488,5 +490,275 @@ describe("parseMarkdown link policy", () => {
 		});
 		expect(text).toBe("a");
 		expect(facets.flatMap((f) => f.features.map(kindOf))).toEqual(["link"]);
+	});
+});
+
+describe("bare link source", () => {
+	const link = (uri: string): Feature => ({
+		$type: "social.colibri.beta.richtext.facet#link",
+		uri,
+	});
+	const URI = "https://colibri.social/docs";
+
+	it("writes a link whose text is its url as the bare url", () => {
+		const text = `read ${URI} now`;
+		expect(
+			facetsToSource(text, [buildFacet(5, 5 + URI.length, link(URI))]).source,
+		).toBe(text);
+	});
+
+	it("writes a bare at uri as plain text", () => {
+		const uri = "at://did:plc:abc/app.bsky.feed.post/3k";
+		expect(
+			facetsToSource(uri, [buildFacet(0, uri.length, link(uri))]).source,
+		).toBe(uri);
+	});
+
+	it("keeps the markdown when the label differs", () => {
+		expect(facetsToSource("docs", [buildFacet(0, 4, link(URI))]).source).toBe(
+			`[docs](${URI})`,
+		);
+	});
+
+	it("keeps the markdown when the url touches other text", () => {
+		const text = `a${URI}`;
+		expect(
+			facetsToSource(text, [buildFacet(1, 1 + URI.length, link(URI))]).source,
+		).toBe(`a[${URI}](${URI})`);
+	});
+
+	it("keeps the markdown when a trailing full stop would fall off", () => {
+		const uri = `${URI}.`;
+		expect(
+			facetsToSource(uri, [buildFacet(0, uri.length, link(uri))]).source,
+		).toBe(`[${uri}](${uri})`);
+	});
+
+	it("keeps the markdown for a non-web scheme", () => {
+		const uri = "mailto:hi@colibri.social";
+		expect(
+			facetsToSource(uri, [buildFacet(0, uri.length, link(uri))]).source,
+		).toBe(`[${uri}](${uri})`);
+	});
+});
+
+describe("backslash escapes", () => {
+	it.each([
+		["\\*hi*", "*hi*"],
+		["\\**hi**", "**hi**"],
+		["\\_hi_", "_hi_"],
+		["\\~~hi~~", "~~hi~~"],
+		["\\`hi`", "`hi`"],
+		["\\||hi||", "||hi||"],
+		["\\# hi", "# hi"],
+		["\\- hi", "- hi"],
+		["1\\. hi", "1. hi"],
+		["\\> hi", "> hi"],
+		["\\-# hi", "-# hi"],
+		["\\[a](https://b.example)", "[a](https://b.example)"],
+	])("turns %s into plain %s", (source, text) => {
+		const parsed = parseMarkdown(source, []);
+
+		expect(parsed.text).toBe(text);
+		expect(parsed.facets).toEqual([]);
+	});
+
+	it("keeps an escaped backslash and formats what follows", () => {
+		const parsed = parseMarkdown("\\\\*hi*", []);
+
+		expect(parsed.text).toBe("\\hi");
+		expect(summarize(parsed.facets)).toEqual(["1-3:italic"]);
+	});
+
+	it("keeps a backslash before a letter", () => {
+		expect(parseMarkdown("a\\b", []).text).toBe("a\\b");
+	});
+
+	it("keeps backslashes inside inline code", () => {
+		const parsed = parseMarkdown("`\\*`", []);
+
+		expect(parsed.text).toBe("\\*");
+		expect(summarize(parsed.facets)).toEqual(["0-2:code"]);
+	});
+
+	it("keeps backslashes inside a code block", () => {
+		expect(parseMarkdown("```\n\\*a*\n```", []).text).toBe("\\*a*");
+	});
+
+	it("drops the backslash inside a quote", () => {
+		const parsed = parseMarkdown("> \\*hi*", []);
+
+		expect(parsed.text).toBe("*hi*");
+		expect(summarize(parsed.facets)).toEqual(["0-4:quote"]);
+	});
+
+	it("keeps an escaped pipe inside a spoiler", () => {
+		const parsed = parseMarkdown("||a\\||b||", []);
+
+		expect(parsed.text).toBe("a||b");
+		expect(summarize(parsed.facets)).toEqual(["0-4:spoiler"]);
+	});
+
+	it("drops the backslash before a url and skips the autolink", () => {
+		const parsed = parseMarkdown("see \\https://example.com", [], {
+			autolink: true,
+		});
+
+		expect(parsed.text).toBe("see https://example.com");
+		expect(parsed.facets).toEqual([]);
+	});
+});
+
+describe("autolink option", () => {
+	it("links absolute urls", () => {
+		const parsed = parseMarkdown("see **https://example.com**", [], {
+			autolink: true,
+		});
+
+		expect(parsed.text).toBe("see https://example.com");
+		expect(summarize(parsed.facets)).toEqual(["4-23:bold", "4-23:link"]);
+	});
+
+	it("leaves bare domains alone", () => {
+		const parsed = parseMarkdown("mu.social and example.com", [], {
+			autolink: true,
+		});
+
+		expect(parsed.facets).toEqual([]);
+	});
+
+	it("leaves markdown link targets alone", () => {
+		const parsed = parseMarkdown("[a](https://example.com)", [], {
+			autolink: true,
+		});
+
+		expect(summarize(parsed.facets)).toEqual(["0-1:link"]);
+	});
+});
+
+describe("escape round trip", () => {
+	it.each([
+		"\\*hi*",
+		"\\**hi**",
+		"\\_hi_",
+		"\\~~hi~~",
+		"\\`hi`",
+		"\\||hi||",
+		"\\# hi",
+		"\\- hi",
+		"\\> hi",
+		"\\-# hi",
+		"\\[a](https://b.example)",
+		"\\\\*hi*",
+		"**a\\\\**",
+		"see \\https://example.com now",
+		"*a* and \\*b*",
+		"`\\*` stays",
+	])("restores %s", (source) => {
+		const first = parseMarkdown(source, [], { autolink: true });
+		const rebuilt = facetsToSource(first.text, first.facets).source;
+		const second = parseMarkdown(rebuilt, [], { autolink: true });
+
+		expect(second).toEqual(first);
+	});
+
+	it("does not escape plain text", () => {
+		const parsed = parseMarkdown("it's fine - really, 1.5 * 2", []);
+
+		expect(facetsToSource(parsed.text, parsed.facets).source).toBe(
+			"it's fine - really, 1.5 * 2",
+		);
+	});
+});
+
+describe("embed suppression", () => {
+	const URI = "https://colibri.social/docs";
+	const link = (uri: string): Feature => ({
+		$type: "social.colibri.beta.richtext.facet#link",
+		uri,
+	});
+	const suppressed = (source: string) =>
+		parseMarkdown(source, [], { autolink: true }).suppressedEmbeds;
+
+	it("flags a masked link with an angle bracket destination", () => {
+		const parsed = parseMarkdown(`[docs](<${URI}>)`, [], { autolink: true });
+
+		expect(parsed.text).toBe("docs");
+		expect(parsed.suppressedEmbeds).toEqual([URI]);
+	});
+
+	it("allows whitespace before the angle bracket", () => {
+		expect(suppressed(`[docs](  <${URI}>)`)).toEqual([URI]);
+	});
+
+	it("flags an angle bracket autolink", () => {
+		const parsed = parseMarkdown(`see <${URI}> now`, [], { autolink: true });
+
+		expect(parsed.text).toBe(`see ${URI} now`);
+		expect(summarize(parsed.facets)).toEqual([`4-${4 + URI.length}:link`]);
+		expect(parsed.suppressedEmbeds).toEqual([URI]);
+	});
+
+	it("leaves plain masked links and bare urls alone", () => {
+		expect(suppressed(`[docs](${URI}) and ${URI}`)).toEqual([]);
+	});
+
+	it("ignores an escaped angle bracket", () => {
+		expect(suppressed(`\\<${URI}>`)).toEqual([]);
+	});
+
+	it("ignores angle brackets inside a code span", () => {
+		expect(suppressed(`\`<${URI}>\``)).toEqual([]);
+		expect(suppressed(`\`[docs](<${URI}>)\``)).toEqual([]);
+	});
+
+	it("lists each url once", () => {
+		expect(suppressed(`<${URI}> [docs](<${URI}>)`)).toEqual([URI]);
+	});
+
+	it("skips links the policy rejects", () => {
+		const parsed = parseMarkdown(`<${URI}>`, [], {
+			allowLink: () => false,
+		});
+
+		expect(parsed.suppressedEmbeds).toEqual([]);
+	});
+
+	it("keeps the list through normalizeWhitespace", () => {
+		const parsed = normalizeWhitespace(parseMarkdown(`  <${URI}>  `, []));
+
+		expect(parsed.text).toBe(URI);
+		expect(parsed.suppressedEmbeds).toEqual([URI]);
+	});
+
+	it("writes a suppressed bare url as an angle bracket autolink", () => {
+		const text = `read ${URI} now`;
+
+		expect(
+			facetsToSource(text, [buildFacet(5, 5 + URI.length, link(URI))], [URI])
+				.source,
+		).toBe(`read <${URI}> now`);
+	});
+
+	it("writes a suppressed masked link with an angle bracket destination", () => {
+		expect(
+			facetsToSource("docs", [buildFacet(0, 4, link(URI))], [URI]).source,
+		).toBe(`[docs](<${URI}>)`);
+	});
+
+	it.each([
+		`see <${URI}> now`,
+		`[docs](<${URI}>) and ${URI}`,
+		`<${URI}>.`,
+		`**[docs](<${URI}>)**`,
+	])("round trips %s", (source) => {
+		const first = parseMarkdown(source, [], { autolink: true });
+		const rebuilt = facetsToSource(
+			first.text,
+			first.facets,
+			first.suppressedEmbeds,
+		).source;
+
+		expect(parseMarkdown(rebuilt, [], { autolink: true })).toEqual(first);
 	});
 });

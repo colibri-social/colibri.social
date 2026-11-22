@@ -13,15 +13,17 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches/ ./patches/
 COPY packages/assets/package.json ./packages/assets/
 COPY packages/lib/package.json ./packages/lib/
-COPY packages/client/package.json ./packages/client/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/app/package.json ./packages/app/
+COPY packages/standard-renderer/package.json ./packages/standard-renderer/
 COPY apps/website/package.json ./apps/website/
 
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store
 
 # Declare build args
-ARG APPVIEW_DOMAIN
 ARG SAME_TLD_DID
+ARG MAINTENANCE
 
 ARG SENTRY_DSN
 ARG SENTRY_AUTH_TOKEN
@@ -31,8 +33,8 @@ ARG TURSO_DATABASE_URL
 ARG PUBLIC_VAPID_KEY
 
 # Make them available to Astro's build step
-ENV APPVIEW_DOMAIN=$APPVIEW_DOMAIN
 ENV SAME_TLD_DID=$SAME_TLD_DID
+ENV MAINTENANCE=${MAINTENANCE:-false}
 
 ENV SENTRY_DSN=${SENTRY_DSN}
 ENV SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
@@ -40,18 +42,13 @@ ENV SENTRY_RELEASE=${SENTRY_RELEASE}
 ENV TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN}
 ENV TURSO_DATABASE_URL=${TURSO_DATABASE_URL}
 ENV PUBLIC_VAPID_KEY=${PUBLIC_VAPID_KEY}
+ENV VITE_SENTRY_DSN=${SENTRY_DSN}
+ENV VITE_APP_VERSION=${SENTRY_RELEASE}
 
 COPY packages/ ./packages/
 COPY apps/ ./apps/
 
-# Swaps the workspace link for the published client, so the website builds
-# against the same artifact npm consumers get
-ENV pnpm_config_link_workspace_packages=false
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    CLIENT_VERSION="$(node -p 'require("/app/packages/client/package.json").version')" && \
-    pnpm --filter @colibri-social/website add \
-      "@colibri-social/client@${CLIENT_VERSION}" \
-      --save-exact --yes --store-dir=/pnpm/store
+RUN SENTRY_AUTH_TOKEN= pnpm --filter @colibri-social/app build
 
 RUN --mount=type=cache,id=astro-cache,target=/app/apps/website/node_modules/.astro \
     --mount=type=cache,id=vite-cache,target=/app/node_modules/.vite \

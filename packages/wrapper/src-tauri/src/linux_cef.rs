@@ -1,0 +1,394 @@
+use std::io::{BufRead, BufReader, ErrorKind, Write};
+use std::os::unix::fs::PermissionsExt;
+use std::os::unix::net::{UnixListener, UnixStream};
+use std::os::unix::process::CommandExt;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
+
+use tauri::{AppHandle, Manager};
+use tauri_runtime_cef::{CefConfig, DenyReason, LinuxWindowing, PermissionKind, Verdict};
+
+use crate::appimage_env::{self, FORCED_GDK_BACKEND_MARKER, RELAUNCH_GUARD};
+use crate::AppRuntime;
+
+const IDENTIFIER: &str = "social.colibri.app";
+const DEEP_LINK_SCHEMES: [&str; 2] = ["social.colibri", "social.colibri.spaces"];
+const ACTIVATE: &str = "activate";
+const MAIN_WINDOW: &str = "main";
+const PIPEWIRE_CAPTURER: &str = "WebRTCPipeWireCapturer";
+
+static APP: OnceLock<AppHandle<AppRuntime>> = OnceLock::new();
+static PENDING: Mutex<Vec<String>> = Mutex::new(Vec::new());
+static NATIVE_WAYLAND: OnceLock<bool> = OnceLock::new();
+static INJECTED_LIBRARY_DIR: OnceLock<PathBuf> = OnceLock::new();
+static FORCED_GDK_BACKEND: OnceLock<bool> = OnceLock::new();
+
+pub enum Launch {
+    Primary,
+    Handled,
+}
+
+pub fn native_wayland() -> bool {
+    *NATIVE_WAYLAND.get_or_init(|| {
+        std::env::var_os("WAYLAND_DISPLAY").is_some() && std::env::var_os("COLIBRI_X11").is_none()
+    })
+}
+
+pub fn forced_gdk_backend() -> bool {
+    FORCED_GDK_BACKEND.get().copied().unwrap_or(false)
+}
+
+pub fn injected_library_dir() -> Option<&'static Path> {
+    INJECTED_LIBRARY_DIR.get().map(PathBuf::as_path)
+}
+
+pub fn bootstrap() -> Launch {
+    relaunch_if_inherited_from_older_appimage();
+    std::env::remove_var(RELAUNCH_GUARD);
+    drop_inherited_gdk_backend();
+
+    let wayland = native_wayland();
+    let force_x11 = !wayland && std::env::var_os("GDK_BACKEND").is_none();
+    if force_x11 {
+        std::env::set_var("GDK_BACKEND", "x11");
+        std::env::set_var(FORCED_GDK_BACKEND_MARKER, "x11");
+    }
+    let _ = FORCED_GDK_BACKEND.set(force_x11);
+    if std::env::var_os("APPDIR").is_some_and(|dir| !dir.is_empty()) {
+        std::env::remove_var("GTK_THEME");
+    }
+    expose_cef_library_dir();
+
+    tauri_runtime_cef::configure(CefConfig {
+        linux_windowing: if wayland {
+            LinuxWindowing::Wayland
+        } else {
+            LinuxWindowing::X11
+        },
+        identifier: IDENTIFIER.into(),
+        custom_schemes: vec![
+            "tauri".into(),
+            "ipc".into(),
+            "asset".into(),
+            "capture-thumb".into(),
+        ],
+        deep_link_schemes: DEEP_LINK_SCHEMES.map(String::from).to_vec(),
+        command_line_args: chromium_switches(wayland_session(|name| std::env::var_os(name))),
+        ..Default::default()
+    });
+
+    if std::env::args().any(|arg| arg.starts_with("--type=")) {
+        tauri_runtime_cef::run_cef_helper_process();
+        return Launch::Handled;
+    }
+
+    if forward_to_primary() {
+        return Launch::Handled;
+    }
+
+    match UnixListener::bind(socket_path()) {
+        Ok(listener) => listen(listener),
+        Err(error) => {
+            if forward_to_primary() {
+                return Launch::Handled;
+            }
+            eprintln!("could not open the single-instance socket: {error}");
+        }
+    }
+
+    tauri_runtime_cef::set_permission_policy(|request, responder| {
+        let trusted = request.webview_label == MAIN_WINDOW
+            && request
+                .origin
+                .as_ref()
+                .is_some_and(|origin| origin.is_app_local());
+        if !trusted {
+            return responder.deny(DenyReason::PolicyDenied);
+        }
+
+        let verdicts = request
+            .kinds
+            .iter()
+            .map(|kind| {
+                if matches!(
+                    kind,
+                    PermissionKind::Microphone
+                        | PermissionKind::Camera
+                        | PermissionKind::ScreenCapture
+                        | PermissionKind::Notifications
+                        | PermissionKind::ClipboardRead
+                ) {
+                    Verdict::Allow
+                } else {
+                    Verdict::Deny
+                }
+            })
+            .collect();
+        responder.decide(verdicts);
+    });
+
+    Launch::Primary
+}
+
+pub fn attach(app: &AppHandle<AppRuntime>) {
+    if let Err(error) = gtk::init() {
+        eprintln!("could not initialize GTK: {error}");
+    }
+    tauri_runtime_cef::install_x_error_handlers();
+
+    let pending = {
+        let Ok(mut pending) = PENDING.lock() else {
+            return;
+        };
+        let _ = APP.set(app.clone());
+        std::mem::take(&mut *pending)
+    };
+    for message in pending {
+        handle(app, message);
+    }
+}
+
+fn relaunch_if_inherited_from_older_appimage() {
+    if std::env::args_os().any(|arg| arg.to_string_lossy().starts_with("--type=")) {
+        return;
+    }
+    let Ok(exe) = std::env::current_exe() else {
+        return;
+    };
+    let vars: Vec<_> = std::env::vars_os().collect();
+    let Some(plan) = appimage_env::relaunch(&vars, &exe) else {
+        return;
+    };
+    let mut command = std::process::Command::new(&plan.program);
+    command
+        .args(std::env::args_os().skip(1))
+        .env_clear()
+        .envs(plan.env);
+    if let Some(dir) = plan.working_dir {
+        command.current_dir(dir);
+    }
+    let error = command.exec();
+    eprintln!("could not relaunch the AppImage with a clean environment: {error}");
+}
+
+fn drop_inherited_gdk_backend() {
+    let Some(marker) = std::env::var_os(FORCED_GDK_BACKEND_MARKER) else {
+        return;
+    };
+    std::env::remove_var(FORCED_GDK_BACKEND_MARKER);
+    let appimage = std::env::var_os("APPDIR").is_some_and(|dir| !dir.is_empty());
+    if !appimage && std::env::var_os("GDK_BACKEND").is_some_and(|value| value == marker) {
+        std::env::remove_var("GDK_BACKEND");
+    }
+}
+
+fn expose_cef_library_dir() {
+    let Some(exe_dir) = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(PathBuf::from))
+    else {
+        return;
+    };
+    let Some(dir) = [exe_dir.clone(), exe_dir.join("../lib/colibri-social")]
+        .into_iter()
+        .find(|dir| dir.join("libcef.so").exists())
+    else {
+        return;
+    };
+    let _ = INJECTED_LIBRARY_DIR.set(dir.clone());
+    let mut paths = vec![dir];
+    if let Some(existing) = std::env::var_os("LD_LIBRARY_PATH") {
+        paths.extend(std::env::split_paths(&existing));
+    }
+    if let Ok(joined) = std::env::join_paths(paths) {
+        std::env::set_var("LD_LIBRARY_PATH", joined);
+    }
+}
+
+fn wayland_session(var: impl Fn(&str) -> Option<std::ffi::OsString>) -> bool {
+    let set = |name: &str| var(name).is_some_and(|value| !value.is_empty());
+    set("WAYLAND_DISPLAY")
+        || var("XDG_SESSION_TYPE").is_some_and(|value| value.eq_ignore_ascii_case("wayland"))
+}
+
+fn chromium_switches(wayland_session: bool) -> Vec<(String, Option<String>)> {
+    let mut switches = vec![
+        ("--no-first-run".to_owned(), None),
+        ("disable-pinch".to_owned(), None),
+        (
+            "autoplay-policy".to_owned(),
+            Some("no-user-gesture-required".to_owned()),
+        ),
+        (
+            "disable-features".to_owned(),
+            Some("LocalNetworkAccessChecksWebSockets".to_owned()),
+        ),
+    ];
+    if wayland_session {
+        switches.push((
+            "enable-features".to_owned(),
+            Some(PIPEWIRE_CAPTURER.to_owned()),
+        ));
+    }
+    if let Ok(port) = std::env::var("COLIBRI_DEVTOOLS") {
+        let port = port
+            .parse::<u16>()
+            .ok()
+            .filter(|port| *port >= 1024)
+            .unwrap_or(9222);
+        switches.push(("remote-debugging-port".to_owned(), Some(port.to_string())));
+    }
+    switches
+}
+
+fn is_deep_link(arg: &str) -> bool {
+    DEEP_LINK_SCHEMES.iter().any(|scheme| {
+        arg.strip_prefix(scheme)
+            .is_some_and(|rest| rest.starts_with(':'))
+    })
+}
+
+pub fn release_instance_socket() {
+    let _ = std::fs::remove_file(socket_path());
+}
+
+fn socket_path() -> PathBuf {
+    let dir = std::env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    dir.join(format!("{IDENTIFIER}.instance.sock"))
+}
+
+fn launch_messages() -> Vec<String> {
+    let links: Vec<String> = std::env::args()
+        .skip(1)
+        .filter(|arg| is_deep_link(arg))
+        .collect();
+    if links.is_empty() {
+        vec![ACTIVATE.to_owned()]
+    } else {
+        links
+    }
+}
+
+fn forward_to_primary() -> bool {
+    let path = socket_path();
+    match UnixStream::connect(&path) {
+        Ok(mut stream) => {
+            let payload: String = launch_messages()
+                .into_iter()
+                .map(|message| message + "\n")
+                .collect();
+            stream.write_all(payload.as_bytes()).is_ok()
+        }
+        Err(error) => {
+            if error.kind() == ErrorKind::ConnectionRefused {
+                let _ = std::fs::remove_file(&path);
+            }
+            false
+        }
+    }
+}
+
+fn listen(listener: UnixListener) {
+    let _ = std::fs::set_permissions(socket_path(), std::fs::Permissions::from_mode(0o600));
+    std::thread::spawn(move || {
+        for stream in listener.incoming().flatten() {
+            for line in BufReader::new(stream).lines().map_while(Result::ok) {
+                let line = line.trim();
+                if line == ACTIVATE || is_deep_link(line) {
+                    deliver(line.to_owned());
+                }
+            }
+        }
+    });
+}
+
+fn deliver(message: String) {
+    let Ok(mut pending) = PENDING.lock() else {
+        return;
+    };
+    match APP.get() {
+        Some(app) => {
+            let app = app.clone();
+            drop(pending);
+            let target = app.clone();
+            let _ = app.run_on_main_thread(move || handle(&target, message));
+        }
+        None => pending.push(message),
+    }
+}
+
+fn handle(app: &AppHandle<AppRuntime>, message: String) {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+        if window.is_minimized().unwrap_or(false) {
+            let _ = window.unminimize();
+        }
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+
+    if message != ACTIVATE {
+        use tauri_plugin_deep_link::DeepLinkExt;
+        app.deep_link()
+            .handle_cli_arguments([String::new(), message].into_iter());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::OsString;
+
+    fn env(pairs: &'static [(&'static str, &'static str)]) -> impl Fn(&str) -> Option<OsString> {
+        move |name| {
+            pairs
+                .iter()
+                .find(|(key, _)| *key == name)
+                .map(|(_, value)| OsString::from(value))
+        }
+    }
+
+    fn enabled_features(switches: &[(String, Option<String>)]) -> Vec<&str> {
+        switches
+            .iter()
+            .filter(|(name, _)| name == "enable-features")
+            .filter_map(|(_, value)| value.as_deref())
+            .collect()
+    }
+
+    #[test]
+    fn a_wayland_display_marks_a_wayland_session() {
+        assert!(wayland_session(env(&[("WAYLAND_DISPLAY", "wayland-0")])));
+    }
+
+    #[test]
+    fn an_xwayland_launch_still_counts_as_a_wayland_session() {
+        assert!(wayland_session(env(&[
+            ("DISPLAY", ":0"),
+            ("XDG_SESSION_TYPE", "wayland"),
+        ])));
+    }
+
+    #[test]
+    fn a_plain_x11_session_is_not_wayland() {
+        assert!(!wayland_session(env(&[
+            ("DISPLAY", ":0"),
+            ("XDG_SESSION_TYPE", "x11"),
+        ])));
+        assert!(!wayland_session(env(&[("WAYLAND_DISPLAY", "")])));
+    }
+
+    #[test]
+    fn wayland_sessions_enable_the_pipewire_capturer() {
+        assert_eq!(
+            enabled_features(&chromium_switches(true)),
+            [PIPEWIRE_CAPTURER]
+        );
+    }
+
+    #[test]
+    fn x11_sessions_leave_enable_features_alone() {
+        assert!(enabled_features(&chromium_switches(false)).is_empty());
+    }
+}

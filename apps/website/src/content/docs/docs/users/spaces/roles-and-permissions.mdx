@@ -1,0 +1,162 @@
+---
+title: Roles and Permissions
+description: How roles decide what members can see and do in a Space, and how channel and category permissions combine with them.
+sidebar:
+  order: 5
+---
+
+import { Steps, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+A permission is the right to do one thing in a Space, for example to send messages or to create channels. A role is a named set of permissions that you hand to members.
+
+Think of a role as a key ring. Each permission is a key, and a member can carry several key rings. A member can open every door that any of their keys fits!
+
+Roles live in **Manage Space** under **Roles**. To get there, open the menu of the Space and select **Manage Space**.
+
+## The owner
+
+The person who creates a Space is its owner. The owner can do everything in the Space, no matter what their roles say.
+
+A crown next to the owner's name marks them as **Space Owner**. To hide it, turn off **Show owner crown** under **Roles**. This needs the **Manage Space** permission.
+
+## The Members role
+
+Every Space has a role named **Members**. Everyone who joins the Space gets it. You can change what it allows, but you can't delete it.
+
+In a new Space, **Members** allows:
+
+- **View channels**
+- **Send messages**
+- **Add reactions**
+- **Create threads**
+- **Join voice channels**, **Speak**, **Listen**, **Use camera**, **Share screen** and **See text chat**
+
+:::caution
+A permission you turn on for **Members** applies to everyone in the Space.
+:::
+
+## Create a role
+
+You need the **Manage roles** permission.
+
+<Steps>
+
+1. In **Manage Space**, select **Roles**, then **Create role**.
+
+2. Enter a **Role name** and pick a **Color**.
+
+3. Turn on **Display separately** to list members with this role in their own group in the member list.
+
+4. Turn on **Mentionable** to let other members mention the role with `@`.
+
+5. Open **Permissions** and turn on what the role allows.
+
+6. Open **Members** and add the people who get the role.
+
+   :::caution[TODO: screenshot]
+   `role-permissions.png`: Role editor on the **Permissions** page with switches and descriptions
+   :::
+
+</Steps>
+
+## Give a member a role
+
+Open the menu of the member and select **Roles**, then turn roles on or off. You can also add people from the role itself, under **Members**.
+
+## Role order
+
+The order of the list under **Roles** is a ranking, with the highest role at the top.
+
+- With **Manage roles**, you can edit and assign the roles below your own highest role.
+- Roles at or above your highest role are locked for you.
+- You can only turn on permissions that you hold yourself.
+
+Kicking and banning follow the same ranking. A member can remove someone whose highest role is below their own.
+
+## Permissions and their consequences
+
+| Group | Permission | What it allows |
+| --- | --- | --- |
+| Space | **Manage Space** | Edit the Space's name, description, icon, banner and join settings. |
+| Space | **Delete Space** | Delete the Space and everything in it. |
+| Approvals | **Manage approvals** | Approve or reject requests to join. |
+| Categories | **Create categories**, **Edit categories**, **Delete categories** | Create, rename, reorder and delete categories. |
+| Channels | **View channels** | See channels and read their messages. Without it, channels stay hidden. |
+| Channels | **Create channels**, **Edit channels**, **Delete channels** | Create channels, rename them, change their settings and delete them. |
+| Messages | **Send messages** | Write in text channels, voice channel chats and threads. Without it, they're read-only. In a voice channel's text chat, this also needs **See text chat**. |
+| Messages | **Add reactions** | React to messages with emoji, even in read-only channels. In a voice channel's text chat, this also needs **See text chat**. |
+| Members | **Kick members**, **Ban members**, **Unban members** | Remove members, ban them, and lift bans. |
+| Roles | **Manage roles** | Create, edit and assign roles below your own highest role. |
+| Moderation | **Apply labels** | Hide and unhide messages. |
+| Moderation | **View moderation log** | See the Space's history of kicks, bans and unbans. |
+| Invitations | **Create invitations**, **Delete invitations** | Create invite links and delete them. |
+| Voice | **Join voice channels** | Connect to voice channels. |
+| Voice | **Speak** | Talk in voice channels. Without it, members join muted and can't unmute themselves. |
+| Voice | **Listen** | Hear others in voice channels. Without it, members join deafened and still see cameras and shared screens. |
+| Voice | **Use camera**, **Share screen** | Turn on the camera and share the screen in voice channels. |
+| Voice | **See text chat** | Read a voice channel's text chat. Without it, the chat is hidden. |
+| Voice | **Moderate voice** | Mute, deafen, move and disconnect members in voice channels. |
+| Mentions | **Mention all roles** | Mention roles that aren't marked as mentionable. |
+| Threads | **Create threads** | Open threads beside a channel. |
+| Threads | **Manage threads** | Rename, move and delete threads opened by anyone. |
+| Threads | **Move messages** | Move other people's messages into another thread or channel. |
+
+## Channel and category permissions
+
+Roles apply to the whole Space. A channel or a category can make an exception for one role or one member. For example, an announcements channel can let only one role send messages, or a channel can hide itself from everyone except a few members.
+
+<Steps>
+
+1. Open the menu of the channel and select **Edit channel**. For a category, select **Edit category**.
+
+2. Select **Channel permissions** or **Category permissions**.
+
+3. Select **Add role or member** and pick who the exception is for.
+
+4. Set each permission to **Allow**, **Deny** or **Inherit**.
+
+   :::caution[TODO: screenshot]
+   `channel-permissions.png`: Channel permissions with **Allow / Deny / Inherit** for one role
+   :::
+
+</Steps>
+
+**Inherit** leaves the permission as the category and the roles already set it. An exception on a category applies to every channel in that category.
+
+## Combining permissions
+
+For each permission in a channel, Colibri checks these in order and uses the first one that says **Allow** or **Deny**:
+
+1. The channel's setting for you as a single member.
+2. The channel's settings for your roles, from your highest role down. **Members** comes last.
+3. The category's setting for you as a single member.
+4. The category's settings for your roles, in the same order.
+5. The permissions of your roles.
+
+Two rules of thumb follow from this. A setting for a single member wins over a setting for a role, and a channel wins over its category.
+
+A member who can't view a channel can't do anything else in it. **View channels** is checked first, and the other permissions only count for members who pass it.
+
+## Private channels and categories
+
+When you create a channel, turn on **Make channel private?** to show it only to the members and roles you pick. **Make category private?** does the same for a category, and the channels inside follow it unless they have their own setting.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Channels and Categories"
+    description="Create channels and make them private."
+    href="/docs/users/spaces/channels"
+  />
+  <LinkCard
+    title="Moderate a Space"
+    description="Put moderation permissions to use."
+    href="/docs/users/spaces/moderation"
+  />
+  <LinkCard
+    title="Transfer or Delete a Space"
+    description="Hand the owner's seat to another member."
+    href="/docs/users/spaces/transfer-or-delete"
+  />
+</CardGrid>

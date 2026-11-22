@@ -13,7 +13,7 @@ import {
 } from "./release-notes.js";
 
 const changeset = (summary: string, bump = "minor") =>
-	`---\n"@colibri-social/client": ${bump}\n---\n\n${summary}\n`;
+	`---\n"@colibri-social/wrapper": ${bump}\n---\n\n${summary}\n`;
 
 const platformsOf = (raw: string) =>
 	extractWhatsNewBlock(
@@ -327,7 +327,7 @@ describe("parseChangesetFile", () => {
 		const parsed = parseChangesetFile(changeset("Adds voice channels"));
 
 		expect(parsed.releases).toEqual([
-			{ name: "@colibri-social/client", type: "minor" },
+			{ name: "@colibri-social/wrapper", type: "minor" },
 		]);
 		expect(parsed.summary).toBe("Adds voice channels");
 		expect(parsed.block).toBeUndefined();
@@ -335,11 +335,11 @@ describe("parseChangesetFile", () => {
 
 	it("reads multiple releases", () => {
 		const parsed = parseChangesetFile(
-			'---\n"@colibri-social/client": patch\n"@colibri-social/assets": patch\n---\n\nA fix\n',
+			'---\n"@colibri-social/wrapper": patch\n"@colibri-social/assets": patch\n---\n\nA fix\n',
 		);
 
 		expect(parsed.releases.map((release) => release.name)).toEqual([
-			"@colibri-social/client",
+			"@colibri-social/wrapper",
 			"@colibri-social/assets",
 		]);
 	});
@@ -371,7 +371,7 @@ describe("parseChangesetFile", () => {
 		expect(parsed.summary).toContain("---");
 		expect(parsed.summary).toContain("More detail");
 		expect(parsed.releases).toEqual([
-			{ name: "@colibri-social/client", type: "minor" },
+			{ name: "@colibri-social/wrapper", type: "minor" },
 		]);
 	});
 

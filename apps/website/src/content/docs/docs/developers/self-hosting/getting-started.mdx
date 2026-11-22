@@ -1,0 +1,502 @@
+---
+title: "Getting Started"
+description: "Run your own Colibri AppView from the published image, configure it, and build a client for it."
+sidebar:
+  order: 1
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+This guide covers running your own Colibri **AppView**. Deploying the colibri.social website is covered only as far as [connecting a client](#connecting-a-client) needs it.
+
+The AppView lives in [colibri-social/api](https://github.com/colibri-social/api). To work on its code, read [AppView development](/docs/developers/development/appview).
+
+Colibri stores the data of a Space in [ATproto spaces](/docs/developers/architecture/spaces), which puts two requirements on an instance:
+
+1. **Your AppView must be reachable from the PDS of every Space it manages.** Apart from the public profile space, the spaces of a Space name your AppView in a `managing-app` policy, so the PDS calls your AppView before it issues a credential. While your AppView is unreachable, its Spaces are unreadable. See [Sync](/docs/developers/architecture/sync).
+2. **A Space lives on the AppView that manages it.** Everyone in a Space uses that instance, because an AppView holding no credential for gated data cannot index it.
+
+## What you'll run
+
+- The **AppView**, which serves the XRPC API, the WebSocket endpoints and the voice SFU in one process.
+- A **PDS running the spaces alpha**, which hosts the account of every Space your instance creates.
+
+Alternatively, you'll soon be able to use a PDS from a hosted service. We'll update this page with more information.
+
+Storage defaults to libSQL in a file on the `appview-data` volume. Postgres is available as an overlay.
+
+## Prerequisites
+
+- **A PDS you control** running the spaces alpha (`ghcr.io/bluesky-social/atproto:pds-spaces-alpha`), plus its admin password. See [Which PDS needs the spaces alpha](#which-pds-needs-the-spaces-alpha).
+- **A domain with TLS**, for example `appview.example.com`. The AppView identifies itself with a `did:web` derived from a hostname and serves its DID document at `/.well-known/did.json`. It refuses to boot on a `did:web` made from a bare IP address.
+- **Wildcard DNS for Space handles.** Spaces get handles under `COMMUNITY_HANDLE_DOMAIN`, answered by the PDS, so `*.${COMMUNITY_HANDLE_DOMAIN}` must resolve to the PDS under a covering certificate.
+- **Docker** and **Docker Compose** on a Linux `amd64` server. The published image is built for `linux/amd64`.
+
+## Which PDS needs the spaces alpha
+
+- **The PDS at `PDS_URL`** must run the spaces alpha. Every Space created with `social.colibri.beta.community.create` is an account on it, and the AppView creates that account's spaces there.
+- **The PDS of an account you bring yourself** must implement the `com.atproto.space` policy methods. `social.colibri.beta.community.authorizeHost` and `social.colibri.beta.community.adopt` put a Space on an existing account and fail with `SpacesUnsupported` on a PDS without them.
+- **A member's own PDS** can be a stock PDS. The AppView hosts the space repos of members whose PDS has no spaces support, and stores their uploads in the bucket set with `POLYFILL_S3_*`.
+
+[Hosting](/docs/developers/architecture/hosting) explains how the AppView hosts member repos and how a Space runs on an account you bring yourself.
+
+## Run it
+
+<Steps>
+
+1. Clone the repository and create your configuration:
+
+   ```sh
+   git clone https://github.com/colibri-social/api.git
+   cd api
+   cp .env.example .env
+   ```
+
+2. Fill in `.env`. The AppView refuses to boot without `APPVIEW_DID`, `PUBLIC_URL`, `SIGNING_KEY`, `CREDENTIAL_ENCRYPTION_KEY`, `PDS_URL` and `COMMUNITY_HANDLE_DOMAIN`. The file carries the `openssl` commands that generate the two secrets. Set `PDS_ADMIN_PASSWORD` too, so the AppView can create Spaces.
+
+3. Start it:
+
+   ```sh
+   docker compose up -d
+   ```
+
+   Compose pulls `ghcr.io/colibri-social/api:stable` and runs the AppView on libSQL against the `appview-data` volume.
+
+4. Route your domain to port `3000` of the `appview` container through a TLS-terminating reverse proxy. `docker-compose.yml` publishes the SFU media ports only, so run the proxy on the same Docker network or add a port mapping in a `docker-compose.override.yml`.
+
+5. Confirm the AppView is healthy:
+
+   ```sh
+   curl https://appview.example.com/health
+   ```
+
+6. Confirm the DID document resolves and lists `#colibri_appview`:
+
+   ```sh
+   curl https://appview.example.com/.well-known/did.json
+   ```
+
+7. Confirm the AppView identifies itself:
+
+   ```sh
+   curl https://appview.example.com/xrpc/social.colibri.beta.server.describeServer
+   ```
+
+</Steps>
+
+The AppView registers `PUBLIC_URL` as its notification endpoint when it calls `com.atproto.space.authorizeSpaceSync`. The PDS calls `com.atproto.space.confirmRegistration` and `com.atproto.space.notifySpaceUpdate` on it, and only accepts an HTTPS URL on a public address. When the PDS cannot reach it, write notifications never arrive and every Space on your instance falls back to the sweep interval, `SYNC_SWEEP_SECONDS`.
+
+## The image
+
+The [Image workflow](https://github.com/colibri-social/api/blob/main/.github/workflows/image.yml) publishes `ghcr.io/colibri-social/api` for `linux/amd64` on every push to `main`.
+
+| Tag | Published |
+| --- | --- |
+| `edge` | On every push to `main` |
+| `sha-<commit>` | On every push to `main`, named after the first seven characters of the commit |
+| `<version>` | When the version in `apps/appview/package.json` changes |
+| `stable` | Together with each `<version>` tag |
+
+`docker-compose.yml` runs `stable`. Set `IMAGE` in `.env` to run another tag:
+
+```ini title=".env"
+IMAGE=ghcr.io/colibri-social/api:edge
+```
+
+To build the image from your checkout, run `docker compose up -d --build`.
+
+The image also contains `colibri-admin`, the command line for the database and for a cluster of AppView nodes. Run `docker compose exec appview colibri-admin --help` to list its commands.
+
+## Compose files and profiles
+
+`docker-compose.yml` is the base. It defines the `appview` service and two optional profiles:
+
+| Profile | What it adds |
+| --- | --- |
+| `updater` | A container that pulls the AppView image on an interval and restarts the AppView when a newer image arrived |
+| `blobs` | A [SeaweedFS](https://github.com/seaweedfs/seaweedfs) server that provides the S3 bucket for `POLYFILL_S3_*` |
+
+Three overlay files compose on top of the base:
+
+| Overlay | What it adds |
+| --- | --- |
+| `docker-compose.postgres.yml` | Postgres, and a `DATABASE_URL` that points at it |
+| `docker-compose.pds.yml` | A local spaces-alpha PDS and a private PLC directory, for development |
+| `docker-compose.integration.yml` | The same pair, ephemeral, for the integration suite |
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml up -d
+```
+
+`docker-compose.scaled.yml` is a separate stack for a cluster. See [Running a cluster](#running-a-cluster).
+
+### Automatic updates
+
+The `updater` profile keeps a single AppView current:
+
+```sh
+docker compose --profile updater up -d
+```
+
+The updater pulls the image named by `IMAGE` every six hours and restarts the AppView when the pulled image differs from the running one. Set `UPDATE_INTERVAL_SECONDS` in `.env` to change the interval. An AppView with no other node to send clients to drains for 15 seconds before it stops.
+
+### File storage for members on a stock PDS
+
+The `blobs` profile runs the bucket that holds uploads from members whose PDS cannot host space files. Set the profile, a bucket name and both keys in `.env`, and leave `POLYFILL_S3_ENDPOINT` unset:
+
+```ini title=".env"
+COMPOSE_PROFILES=blobs
+POLYFILL_S3_BUCKET=colibri-blobs
+POLYFILL_S3_ACCESS_KEY_ID=<access key>
+POLYFILL_S3_SECRET_ACCESS_KEY=<secret key>
+```
+
+The compose files point the endpoint at the SeaweedFS container, which creates the bucket on the first upload. Any S3-compatible bucket works in its place: set `POLYFILL_S3_ENDPOINT` to it and leave the profile out. With no bucket configured, uploads from those members fail with `BlobStorageUnavailable`.
+
+### Moving from libSQL to Postgres
+
+`colibri-admin db copy` copies every table from a libSQL database into Postgres and checks the row counts. Stop the AppView while it runs. The libSQL database has to be on the current migrations, so let the AppView start once on libSQL after an update before you copy.
+
+Set `POSTGRES_PASSWORD` and `POSTGRES_REPLICATION_PASSWORD` in `.env` first. `docker-compose.scaled.yml` refuses to start without them.
+
+<Steps>
+
+1. Stop the AppView and start Postgres:
+
+   ```sh
+   docker compose stop appview
+   docker compose -f docker-compose.scaled.yml up -d postgres
+   ```
+
+2. Copy the data:
+
+   ```sh
+   docker compose -f docker-compose.scaled.yml run --rm --no-deps appview \
+     colibri-admin db copy --from file:/data/colibri.db \
+     --to "postgres://colibri:$POSTGRES_PASSWORD@postgres:5432/colibri"
+   ```
+
+   The copy creates the Postgres tables and refuses a target that already has rows. Pass `--truncate` to empty the target first.
+
+3. Start the AppView on Postgres:
+
+   ```sh
+   docker compose -f docker-compose.scaled.yml up -d
+   ```
+
+</Steps>
+
+The libSQL file stays in the data volume. Starting `docker-compose.yml` again runs the AppView on it.
+
+## Voice
+
+Voice runs on a [mediasoup](https://mediasoup.org) SFU inside the AppView process. WebRTC media flows directly between clients and the host, outside your reverse proxy.
+
+- **Announced IP.** Set `SFU_ANNOUNCED_IP` to the public IP of the host. It is required behind NAT, which covers most cloud hosts.
+- **Media ports.** Each SFU worker listens on one port for both UDP and TCP, counting up from `SFU_RTC_PORT` (default `40000`). `SFU_WORKER_COUNT` defaults to the number of CPUs. Open `SFU_RTC_PORT` through `SFU_RTC_PORT + SFU_WORKER_COUNT - 1` for UDP and TCP. The compose files publish `40000` through `40031`.
+- **TURN for restrictive networks.** `SFU_ICE_SERVERS` takes a JSON array of [`RTCIceServer`](https://developer.mozilla.org/en-US/docs/Web/API/RTCIceServer) objects that clients receive. With `TURN_KEY_ID` and `TURN_KEY_API_TOKEN` set, every transport also gets its own Cloudflare TURN credentials, valid for 24 hours.
+
+Set `VOICE_ENABLED=false` to run an AppView without voice.
+
+## Connecting a client
+
+The client reads its AppView at build time from `VITE_COLIBRI_APPVIEW_URL`. A build with the variable unset uses `https://spaces-api.colibri.social`. **We are actively working to improve this.**
+
+The client derives the AppView's DID from the host of that URL, as `did:web:<host>`. The host must therefore be the one in your `APPVIEW_DID`.
+
+<Steps>
+
+1. Clone the client repository and install its dependencies:
+
+   ```sh
+   git clone https://github.com/colibri-social/colibri.social.git
+   cd colibri.social
+   pnpm install
+   ```
+
+2. Build the workspace with your AppView URL:
+
+   ```sh
+   VITE_COLIBRI_APPVIEW_URL=https://appview.example.com pnpm build
+   ```
+
+   `packages/app/.env.example` lists the variables the client build reads. A `packages/app/.env` file works in place of the inline variable.
+
+3. Deploy the website from `apps/website`. It serves the client at `/app`, and it serves the OAuth client metadata for your AppView at `/c/<appview host>/oauth-client-metadata.json`, with scopes pinned to `did:web:<appview host>`. The `client_id` in that document starts with the `SITE` origin from `apps/website/src/site.ts`, so set `SITE` to the origin you deploy to.
+
+4. Allow the client's origin on the AppView:
+
+   ```ini title=".env"
+   CORS_ORIGINS=https://chat.example.com
+   ```
+
+</Steps>
+
+The native shell bundles the same build. [Testing native builds](/docs/developers/development/native) covers building it.
+
+## Telemetry
+
+Once a day, the main node sends an anonymous heartbeat to `COLIBRI_TELEMETRY_URL`. It holds a random instance ID, the version, flavor and roles, the database and Node.js major versions, the operating system, whether voice is set up, and four counts: nodes, Spaces, users seen in the last 30 days, and voice minutes in the last day. Each count is rounded to `0`, `1-10`, `11-100`, `101-1k`, `1k-10k` or `10k+`.
+
+The first start logs a notice, and the first heartbeat goes out an hour later. Set `COLIBRI_TELEMETRY_DISABLED=1` or `DO_NOT_TRACK=1` to turn it off.
+
+## Running a cluster
+
+`docker-compose.scaled.yml` runs the AppView as the main node of a cluster. A cluster has one main node holding the Postgres primary and any number of sub, failover and voice nodes, which share a Tailscale tailnet. The file defines:
+
+| Service | Profile | What it is |
+| --- | --- | --- |
+| `postgres` | | `ghcr.io/colibri-social/postgres:18`, the official Postgres image with pgBackRest added |
+| `appview` | | The AppView with the roles in `ROLES`, on Postgres |
+| `seaweedfs` | `blobs` | The S3 bucket for `POLYFILL_S3_*` |
+| `caddy` | `caddy` | A reverse proxy on ports 80 and 443 for `PUBLIC_HOST` |
+| `alloy` | `monitoring` | Grafana Alloy, which ships metrics and container logs |
+| `replica`, `sub`, `voice` | `local-cluster` | A Postgres replica, a sub node and a voice node on one machine, for trying a cluster locally |
+
+The `deploy/` directory holds what the stack and the main node use:
+
+| Directory | Contents |
+| --- | --- |
+| `deploy/ansible` | The playbooks the main node runs over SSH to provision other nodes. They ship inside the image. |
+| `deploy/caddy` | The Caddyfile for the `caddy` profile |
+| `deploy/traefik` | `compose.traefik.yml`, which routes the AppView through an existing Traefik in place of Caddy |
+| `deploy/postgres` | The Postgres image, the primary's init script, and `backup.sh` |
+| `deploy/observability` | Configuration for Alloy, Prometheus, Loki and Grafana |
+| `deploy/uptime-kuma` | The logo and styles of the status page |
+| `deploy/seaweedfs` | The entrypoint of the `blobs` profile |
+| `deploy/updater` | The script behind the `updater` profile |
+
+A node takes one or more of five roles in `ROLES`:
+
+| Role | What the node does |
+| --- | --- |
+| `main` | Tries for the lock on the Postgres primary. The node holding it takes writes and provisions and updates the other nodes. |
+| `failover` | Takes the main role when no `main` node answers, and promotes its own Postgres when the primary stays unreachable |
+| `api` | Serves XRPC requests |
+| `live` | Serves the event socket |
+| `voice` | Runs the voice SFU |
+
+Start the main node with Caddy in front:
+
+```sh
+docker compose -f docker-compose.scaled.yml --profile caddy up -d
+```
+
+`colibri-admin` manages the cluster from inside the main node's AppView container. `colibri-admin node add` provisions a server, `colibri-admin node shutdown` drains one, `colibri-admin rollout now` starts a rolling update, and `colibri-admin db status` reports which Postgres is the primary. Commands that interrupt clients or delete data are marked in `colibri-admin --help` and ask for confirmation.
+
+[Running a Cluster](/docs/developers/self-hosting/cluster) is the operator guide: setting up the main node, adding and retiring nodes, rolling updates, the main role, Cloudflare, database failover, backups, monitoring and the status page.
+
+## Configuration
+
+The AppView reads its configuration from environment variables, parsed in `apps/appview/src/config.ts`. Compose passes `.env` into the container. An invalid value stops the AppView at boot with a message naming the variable.
+
+### Required
+
+| Variable | Purpose |
+| --- | --- |
+| `APPVIEW_DID` | The `did:web` this instance answers as, for example `did:web:appview.example.com`. The host must be a name. |
+| `PUBLIC_URL` | Where this AppView is reachable from the public internet |
+| `SIGNING_KEY` | A secp256k1 private key as 64 hex characters. Its public half is published in the DID document. |
+| `CREDENTIAL_ENCRYPTION_KEY` | 32 bytes in base64. Encrypts the passwords and OAuth sessions of Space accounts at rest. |
+| `PDS_URL` | The spaces-alpha PDS where Spaces are created |
+| `COMMUNITY_HANDLE_DOMAIN` | The domain Space handles live under. `*.` of it must resolve to the PDS. |
+
+### Server
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NODE_ENV` | `development` | `development`, `production` or `test`. The image sets `production`. |
+| `HOST` | `0.0.0.0` | The address the HTTP server binds |
+| `PORT` | `3000` | The port the HTTP server listens on |
+| `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug` or `trace` |
+| `CORS_ORIGINS` | unset | Browser origins allowed to call `/xrpc`, comma-separated, or `*` for any. Unset, development allows `http://localhost:4321` and `http://127.0.0.1:4321`, and production allows none. |
+| `SERVICE_AUTH_MAX_LIFETIME_SECONDS` | `300` | Rejects service auth tokens that expire further in the future than this |
+| `APPVIEW_FLAVOR` | `vanilla` | The flavor `describeServer` reports for this build |
+| `DEFAULT_COMMUNITY_DID` | unset | The DID of a Space that `describeServer` reports as `defaultCommunity`. Clients join it after a user creates their profile for the first time. |
+
+### Database
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | `file:./data/colibri.db` | A libSQL URL, or a `postgres://` URL to use Postgres. In a cluster it lists every Postgres host that can be the primary. |
+| `DATABASE_AUTH_TOKEN` | unset | The auth token for a remote libSQL database |
+| `DATABASE_MAX_CONNECTIONS` | `20` | The size of the Postgres connection pool |
+| `DATABASE_READ_URL` | unset | A Postgres read replica. Reads go there, and writes and transactions go to `DATABASE_URL`. |
+
+### PDS and Space accounts
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PDS_ADMIN_PASSWORD` | unset | The admin password of the PDS at `PDS_URL`. Without it the AppView serves reads and cannot create a Space or repair one whose password stopped working. |
+| `PDS_REQUIRES_INVITE` | `false` | Set to `true` when the PDS requires an invite code to create an account |
+| `COMMUNITY_EMAIL_DOMAIN` | unset | The domain of the email addresses given to Space accounts |
+| `HOST_OAUTH_PRIVATE_KEY` | unset | An ES256 private key in PKCS#8 PEM or JWK form. It turns on the host sign-in behind `community.authorizeHost`. Newlines may be written as `\n`. |
+| `HOST_OAUTH_KEY_ID` | `host-oauth-1` | The key ID published with that key |
+| `HOST_OAUTH_RETURN_URL` | unset | Where the browser lands after a host sign-in, for example `https://chat.example.com/app` |
+
+### Network and sync
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PLC_URL` | `https://plc.directory` | The PLC directory used to resolve `did:plc` identities |
+| `JETSTREAM_URL` | `wss://jetstream.us-west.bsky.network` | A Jetstream v2 host |
+| `JETSTREAM_ENABLED` | `true` | Set to `false` to run without Jetstream |
+| `SYNC_WORKERS` | `16` | How many repos sync at once |
+| `SYNC_SWEEP_SECONDS` | `300` | The interval of the sweep that syncs every space |
+| `SYNC_WORKER_THREADS` | `0` | Worker threads for commit verification and CAR recovery. `0` runs that work on the main thread. |
+| `SYNC_MAX_CAR_BYTES` | `67108864` | The largest repo, in bytes, the AppView accepts |
+| `THREAD_IDLE_SECONDS` | `604800` | A thread with no activity for this long leaves the sweep |
+| `HANDLE_CACHE_TTL_SECONDS` | `86400` | How long a resolved handle is cached |
+| `HANDLE_NEGATIVE_CACHE_TTL_SECONDS` | `300` | How long a failed handle resolution is cached |
+| `IDENTITY_CONCURRENCY` | `12` | How many handles resolve at once |
+| `PROFILE_FETCH_CONCURRENCY` | `8` | How many profiles are fetched at once |
+
+### Files
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `BLOB_CACHE_MAX_BYTES` | `268435456` | The size of the in-memory blob cache |
+| `BLOB_DISK_CACHE_DIR` | `./data/blob-cache` | Where rendered image previews are kept across restarts |
+| `BLOB_DISK_CACHE_MAX_BYTES` | `10737418240` | The size of that disk cache. `0` turns it off. |
+| `BLOB_DISK_ORIGINAL_MAX_BYTES` | `4294967296` | The space for files over 16 MB kept on disk inside `BLOB_DISK_CACHE_DIR`. `0` turns it off. |
+| `BLOB_RENDER_CONCURRENCY` | half the CPU cores | How many images the node resizes at once |
+| `POLYFILL_S3_ENDPOINT` | unset | The endpoint of an S3-compatible bucket. The compose files default it to the SeaweedFS container. |
+| `POLYFILL_S3_REGION` | `us-east-1` | The bucket's region |
+| `POLYFILL_S3_BUCKET` | unset | The bucket for uploads from members on a stock PDS. Setting any of the bucket, the key ID or the secret key requires all three. |
+| `POLYFILL_S3_ACCESS_KEY_ID` | unset | The access key ID |
+| `POLYFILL_S3_SECRET_ACCESS_KEY` | unset | The secret access key |
+| `POLYFILL_S3_FORCE_PATH_STYLE` | `false` | Set to `true` for hosts that need the bucket in the path (e.g. SeaweedFS, MinIO). The compose files default it to `true`. |
+
+### Notifications and media
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | unset | Web Push. All three are needed. Generate the keys with `npx web-push generate-vapid-keys`. |
+| `FCM_SERVICE_ACCOUNT_JSON` | unset | Android push through Firebase Cloud Messaging |
+| `APNS_KEY`, `APNS_KEY_ID`, `APNS_TEAM_ID` | unset | iOS and macOS push. `APNS_KEY` is the `.p8` auth key, base64-encoded or as PEM with newlines written as `\n`. |
+| `APNS_TOPIC` | `social.colibri.app` | The bundle ID pushes are sent to |
+| `PUSH_ACTION_SECRET` | unset | At least 32 characters. Signs the token that lets a notification action mark its channel read without a session. Unset, pushes carry no read action. |
+| `KLIPY_API_KEY` | unset | A [Klipy](https://partner.klipy.com/) key. Enables the GIF picker. |
+| `VIDEO_ARTWORK_ENABLED` | `false` | Also searches YouTube for listening artwork |
+
+With no push provider configured, background notifications are off.
+
+### Voice
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `VOICE_ENABLED` | `true` | Set to `false` to turn voice off |
+| `SFU_WORKER_COUNT` | the number of CPUs | How many SFU workers run |
+| `SFU_LISTEN_IP` | `0.0.0.0` | The address the SFU binds |
+| `SFU_ANNOUNCED_IP` | unset | The public IP announced in ICE candidates |
+| `SFU_RTC_PORT` | `40000` | The first media port. Each worker takes the next one. |
+| `SFU_ICE_SERVERS` | unset | A JSON array of `RTCIceServer` objects sent to clients |
+| `SFU_INITIAL_OUTGOING_BITRATE` | `3500000` | The starting outgoing bitrate of a transport, in bits per second |
+| `SFU_PARTICIPANTS_PER_WORKER` | `20` | Past this many participants per worker, a call takes another worker, up to `SFU_WORKER_COUNT` |
+| `TURN_KEY_ID`, `TURN_KEY_API_TOKEN` | unset | A Cloudflare TURN key. With both set, every transport gets its own relay credentials. |
+| `VOICE_MIGRATION_NOTICE_SECONDS` | `60` | How long a call on a draining node keeps running before it moves to another voice node |
+
+### Observability
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SENTRY_DSN` | unset | Sends errors and traces to Sentry |
+| `SENTRY_TRACES_SAMPLE_RATE` | `0.1` | The share of ordinary requests whose traces reach Sentry. Failed requests and requests over one second are always traced. |
+| `METRICS_HOST` | `127.0.0.1` | The address the Prometheus metrics endpoint binds |
+| `METRICS_PORT` | `9464` | The port of `/metrics`. `0` turns metrics off. |
+| `COLIBRI_TELEMETRY_URL` | `https://telemetry.colibri.social/v1/heartbeat` | Where the [telemetry](#telemetry) heartbeat goes |
+| `COLIBRI_TELEMETRY_DISABLED`, `DO_NOT_TRACK` | unset | Either one turns the heartbeat off when set to anything other than `0` |
+
+### Cluster nodes
+
+A single AppView needs none of these.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ROLES` | `main,api,live,voice` | What this node runs: any of `main`, `failover`, `api`, `live`, `voice` |
+| `NODE_ID` | unset | Makes this AppView a cluster node. It registers itself, sends heartbeats and appears in `listNodes`. |
+| `NODE_REGION` | unset | The node's region, for example `eu` |
+| `NODE_PUBLIC_URL` | `PUBLIC_URL` | The node's own public URL |
+| `NODE_TAILNET_URL` | `http://<hostname>:<CLUSTER_PORT>` | Where other nodes reach this one over the tailnet |
+| `CLUSTER_PORT` | `3100` | The port nodes talk to each other on. Publish it on the tailnet address only. |
+| `MAIN_NODE_URL` | unset | The main node's tailnet URL, for nodes without the `main` role |
+| `CLUSTER_JOIN_TOKEN` | unset | A one-time token from `colibri-admin node add`, traded for a secret kept in `NODE_SECRET_FILE` |
+| `NODE_SECRET_FILE` | `./data/node-secret` | Where that secret is stored |
+| `LOCAL_POSTGRES_URL` | unset | The node's own Postgres, which a failover node promotes |
+| `FAILOVER_AFTER_SECONDS` | `60` | How long the primary must be unreachable before a failover node promotes its own Postgres |
+| `DRAIN_GRACE_MINUTES` | `120` | How long a node waits for clients to move to other nodes before it shuts down |
+| `WRITE_QUEUE_SECONDS` | `90` | How long a node holds writes while the main node is unavailable |
+
+### Provisioning and updates
+
+The main node uses these to provision other nodes over SSH and to roll out new images.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NODE_IMAGE` | `ghcr.io/colibri-social/api:stable` | The image nodes run and the tag checked for updates |
+| `UPDATE_POLL_MINUTES` | `15` | Minutes between checks for a new `NODE_IMAGE`. `0` turns rolling updates off. |
+| `STACK_DIR` | `/opt/colibri` | Where the main node's own stack lives, for updating itself |
+| `ANSIBLE_DIR` | `deploy/ansible` | Where the playbooks are |
+| `SSH_USER` | `root` | The user the main node connects as |
+| `SSH_KEY_FILE` | `/run/secrets/colibri_ssh_key` | The SSH key for the other servers |
+| `TAILSCALE_AUTH_KEY` | unset | Joins new nodes to the tailnet |
+| `POSTGRES_REPLICATION_PASSWORD` | unset | The password replicas connect to the primary with |
+| `POSTGRES_IMAGE` | `ghcr.io/colibri-social/postgres:18` | The Postgres image nodes run |
+| `REGISTRY_USER`, `REGISTRY_TOKEN` | unset | Credentials for a private image |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE_ID` | unset | Lets `node add --ip` create a DNS record for a node, and `node remove` delete it |
+| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_LB_ID` | unset | An existing Cloudflare load balancer on the API host, which the main node keeps in step with the node registry |
+| `CLOUDFLARE_GEO_REGIONS` | unset | Overrides the mapping from node regions to Cloudflare regions, for example `eu=WEU,EEU;lab=ENAM` |
+
+### Backups
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `BACKUP_REPO_HOST` | unset | The SFTP host of the pgBackRest repository. Setting it turns on WAL archiving. |
+| `BACKUP_REPO_PORT` | `23` | The SFTP port |
+| `BACKUP_REPO_USER` | unset | The SFTP user |
+| `BACKUP_REPO_PATH` | `/home/colibri` | The repository folder |
+| `BACKUP_CIPHER_PASS` | unset | The encryption passphrase for backups |
+| `BACKUP_SSH_KEY_FILE` | `/run/secrets/backup_ssh_key` | The SSH key for the repository |
+
+### Monitoring and status page
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `GRAFANA_ADMIN_PASSWORD` | unset | The password of Grafana's `admin` user |
+| `ALERT_WEBHOOK_URL` | unset | Where Grafana sends alerts |
+| `PROMETHEUS_REMOTE_WRITE_URL` | unset | Where Alloy sends metrics. `colibri-admin monitoring deploy` sets it. |
+| `PROMETHEUS_IMAGE` | `prom/prometheus:v3.15.1` | The Prometheus image |
+| `GRAFANA_IMAGE` | `grafana/grafana:13.2.5` | The Grafana image |
+| `ALLOY_IMAGE` | `grafana/alloy:v1.21.2` | The Alloy image |
+| `LOKI_IMAGE` | `grafana/loki:3.7.9` | The Loki image |
+| `KUMA_URL` | unset | Uptime Kuma on the tailnet |
+| `KUMA_PUBLIC_URL` | unset | The public host of the status page |
+| `KUMA_USERNAME`, `KUMA_PASSWORD` | unset | The Uptime Kuma account the main node uses |
+| `KUMA_STATUS_SLUG` | `colibri` | The slug of the status page |
+| `KUMA_IMAGE` | `louislam/uptime-kuma:2.5.7-slim` | The Uptime Kuma image |
+
+### Compose-only variables
+
+Compose reads these from `.env` to configure the services.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `IMAGE` | `ghcr.io/colibri-social/api:stable` | The image the `appview` service runs |
+| `APPVIEW_MEM_LIMIT` | `2g` | The memory limit of the `appview` service in `docker-compose.yml` |
+| `UPDATE_INTERVAL_SECONDS` | `21600` | The interval of the `updater` profile |
+| `COMPOSE_PROFILES` | unset | The profiles to start, for example `blobs` |
+| `POSTGRES_PASSWORD` | `colibri` in the Postgres overlay | The password of the `colibri` database user. `docker-compose.scaled.yml` requires it. |
+
+:::danger[What to back up]
+`CREDENTIAL_ENCRYPTION_KEY` decrypts the password of every Space account you hold. After losing it, every Space needs its password reset through the PDS admin API.
+
+If you run the PDS yourself, its PLC rotation key can update the DID document of every Space on it. Losing that key is unrecoverable.
+:::
+
+## See also
+
+- [AppView Architecture](/docs/developers/architecture/appview): what you are running.
+- [Hosting](/docs/developers/architecture/hosting): member repos on a stock PDS, and Spaces on an account you bring yourself.
+- [ATproto Spaces](/docs/developers/architecture/spaces): the credential exchange that makes reachability a requirement.
+- [Sync](/docs/developers/architecture/sync): what the sweep interval controls.
+- [Development](/docs/developers/development/overview): running the stack to work on it.

@@ -1,0 +1,748 @@
+---
+const chatIcon =
+	"M13.0867 21.3877L13.6288 20.4718C14.0492 19.7614 14.2595 19.4062 14.5972 19.2098C14.9349 19.0134 15.36 19.0061 16.2104 18.9915C17.4658 18.9698 18.2531 18.8929 18.9134 18.6194C20.1386 18.1119 21.1119 17.1386 21.6194 15.9134C22 14.9946 22 13.8297 22 11.5V10.5C22 7.22657 22 5.58985 21.2632 4.38751C20.8509 3.71473 20.2853 3.14908 19.6125 2.7368C18.4101 2 16.7734 2 13.5 2H10.5C7.22657 2 5.58985 2 4.38751 2.7368C3.71473 3.14908 3.14908 3.71473 2.7368 4.38751C2 5.58985 2 7.22657 2 10.5V11.5C2 13.8297 2 14.9946 2.3806 15.9134C2.88807 17.1386 3.86144 18.1119 5.08658 18.6194C5.74689 18.8929 6.53422 18.9698 7.78958 18.9915C8.63992 19.0061 9.06509 19.0134 9.40279 19.2098C9.74049 19.4063 9.95073 19.7614 10.3712 20.4718L10.9133 21.3877C11.3965 22.204 12.6035 22.204 13.0867 21.3877ZM16 12C16.5523 12 17 11.5523 17 11C17 10.4477 16.5523 10 16 10C15.4477 10 15 10.4477 15 11C15 11.5523 15.4477 12 16 12ZM13 11C13 11.5523 12.5523 12 12 12C11.4477 12 11 11.5523 11 11C11 10.4477 11.4477 10 12 10C12.5523 10 13 10.4477 13 11ZM8 12C8.55228 12 9 11.5523 9 11C9 10.4477 8.55228 10 8 10C7.44772 10 7 10.4477 7 11C7 11.5523 7.44772 12 8 12Z";
+
+const volumeIcon =
+	"M5.00304 11.7155C5.04093 9.87326 5.05988 8.95215 5.68099 8.16363C5.79436 8.0197 5.9607 7.8487 6.10011 7.73274C6.86393 7.09741 7.8724 7.09741 9.88932 7.09741C10.6099 7.09741 10.9702 7.09741 11.3137 7.00452C11.385 6.98522 11.4556 6.96296 11.5253 6.93781C11.8608 6.81675 12.1616 6.60837 12.7632 6.19161C15.137 4.54738 16.3239 3.72527 17.3201 4.08241C17.5111 4.15088 17.6959 4.24972 17.861 4.37162C18.7222 5.00744 18.7877 6.48675 18.9185 9.44537C18.967 10.5409 19 11.4785 19 12C19 12.5215 18.967 13.4591 18.9185 14.5546C18.7877 17.5132 18.7222 18.9926 17.861 19.6284C17.6959 19.7503 17.5111 19.8491 17.3201 19.9176C16.3239 20.2747 15.137 19.4526 12.7632 17.8084C12.1616 17.3916 11.8608 17.1833 11.5253 17.0622C11.4556 17.037 11.385 17.0148 11.3137 16.9955C10.9702 16.9026 10.6099 16.9026 9.88932 16.9026C7.8724 16.9026 6.86393 16.9026 6.10011 16.2673C5.9607 16.1513 5.79436 15.9803 5.68099 15.8364C5.05988 15.0478 5.04093 14.1267 5.00304 12.2845C5.00104 12.1878 5 12.0928 5 12C5 11.9072 5.00104 11.8122 5.00304 11.7155Z";
+
+const volumeLoudIcons = [
+	"M9.64844 6.19164C11.9868 4.54764 13.1563 3.72547 14.1377 4.08227C14.3259 4.15074 14.5082 4.2504 14.6709 4.37231C15.5192 5.00819 15.584 6.48716 15.7129 9.44555C15.7606 10.541 15.793 11.4787 15.793 12.0002C15.793 12.5218 15.7606 13.4594 15.7129 14.5549C15.584 17.5133 15.5192 18.9923 14.6709 19.6282C14.5082 19.7501 14.3259 19.8497 14.1377 19.9182C13.1563 20.275 11.9868 19.4528 9.64844 17.8088C9.05567 17.3921 8.75916 17.1838 8.42871 17.0627C8.36014 17.0376 8.29091 17.0146 8.2207 16.9954C7.88238 16.9025 7.52711 16.9026 6.81738 16.9026C4.83047 16.9026 3.83649 16.9029 3.08398 16.2678C2.94663 16.1519 2.78259 15.9801 2.6709 15.8362C2.05918 15.0477 2.04026 14.1264 2.00293 12.2844C2.00097 12.1878 2 12.0929 2 12.0002C2 11.9076 2.00097 11.8127 2.00293 11.7161C2.04026 9.87406 2.05918 8.95276 2.6709 8.1643C2.78259 8.02038 2.94663 7.84862 3.08398 7.73266C3.83649 7.09753 4.83047 7.09789 6.81738 7.09789C7.52711 7.09789 7.88238 7.098 8.2207 7.00512C8.29091 6.98584 8.36014 6.96285 8.42871 6.93774C8.75916 6.81667 9.05567 6.6084 9.64844 6.19164Z",
+	"M19.2744 5.42406C19.5925 5.15898 20.0658 5.2018 20.3311 5.51977L19.8369 5.93188C20.3264 5.524 20.332 5.52077 20.332 5.52074L20.3369 5.5266C20.339 5.52917 20.341 5.53294 20.3438 5.53637C20.3494 5.54342 20.357 5.55207 20.3652 5.56274C20.3819 5.58427 20.4037 5.61322 20.4297 5.64965C20.4819 5.72277 20.5519 5.82636 20.6328 5.96117C20.7947 6.23097 21.0014 6.62684 21.2051 7.15649C21.6132 8.21784 22.0049 9.80904 22.0049 12.0002C22.0049 14.1914 21.6132 15.7826 21.2051 16.844C21.0014 17.3736 20.7947 17.7695 20.6328 18.0393C20.5519 18.1741 20.4819 18.2777 20.4297 18.3508C20.4037 18.3873 20.3819 18.4162 20.3652 18.4377C20.357 18.4484 20.3494 18.457 20.3438 18.4641C20.341 18.4675 20.339 18.4713 20.3369 18.4739L20.332 18.4788C20.3308 18.4779 20.3046 18.4584 19.7549 18.0002L20.3311 18.4807C20.0659 18.7987 19.5926 18.8415 19.2744 18.5764C18.9762 18.3277 18.9201 17.8963 19.1328 17.5813L19.1748 17.5256L19.1758 17.5237L19.1777 17.5217L19.1787 17.5198C19.1841 17.5128 19.1944 17.4991 19.209 17.4788C19.2387 17.4371 19.2861 17.3671 19.3457 17.2678C19.4651 17.0689 19.6335 16.7511 19.8047 16.3059C20.1465 15.4173 20.5049 14.0086 20.5049 12.0002C20.5049 9.99187 20.1465 8.58319 19.8047 7.69457C19.6335 7.2494 19.4651 6.93158 19.3457 6.73266C19.2861 6.6334 19.2387 6.56336 19.209 6.52172L19.1787 6.48071L19.1328 6.41918C18.9201 6.10411 18.9762 5.67273 19.2744 5.42406Z",
+	"M17.7568 8.41625C18.0897 8.21905 18.5103 8.34655 18.6953 8.70141V8.70336L18.6963 8.70434L18.6982 8.70727L18.7012 8.7141L18.71 8.73266C18.7166 8.74638 18.725 8.7635 18.7344 8.78442C18.7532 8.8266 18.7776 8.88418 18.8047 8.95629C18.8588 9.10056 18.9254 9.30584 18.9902 9.57543C19.1201 10.1156 19.2412 10.9122 19.2412 12.0002C19.2412 13.0886 19.1201 13.8858 18.9902 14.426C18.9254 14.6958 18.8588 14.9009 18.8047 15.0452C18.7777 15.1172 18.7532 15.1739 18.7344 15.2161C18.725 15.2371 18.7166 15.255 18.71 15.2688L18.7012 15.2864L18.6982 15.2932L18.6963 15.2961L18.6953 15.2981C18.6924 15.2966 18.6521 15.2736 18.0918 14.9416L18.6953 15.2981C18.5103 15.6531 18.0898 15.7824 17.7568 15.5852C17.4268 15.3896 17.3062 14.9475 17.4844 14.594L17.4893 14.5842C17.4955 14.5701 17.5075 14.5419 17.5234 14.4993C17.5555 14.4137 17.6042 14.2689 17.6543 14.0608C17.7543 13.645 17.8623 12.9707 17.8623 12.0002C17.8623 11.0302 17.7542 10.3565 17.6543 9.94067C17.6042 9.73252 17.5555 9.5877 17.5234 9.50219C17.5074 9.45954 17.4956 9.43138 17.4893 9.41723L17.4844 9.40746C17.3062 9.05402 17.4269 8.61191 17.7568 8.41625Z",
+];
+
+const cursorIcon =
+	"M16.5744 19.1999L12.6361 15.2616L11.4334 16.4643C10.2022 17.6955 9.58656 18.3111 8.92489 18.1658C8.26322 18.0204 7.96225 17.2035 7.3603 15.5696L5.3527 10.1205C4.15187 6.86106 3.55146 5.23136 4.39141 4.39141C5.23136 3.55146 6.86106 4.15187 10.1205 5.35271L15.5696 7.3603C17.2035 7.96225 18.0204 8.26322 18.1658 8.92489C18.3111 9.58656 17.6955 10.2022 16.4643 11.4334L15.2616 12.6361L19.1999 16.5744C19.6077 16.9821 19.8116 17.186 19.9058 17.4135C20.0314 17.7168 20.0314 18.0575 19.9058 18.3608C19.8116 18.5882 19.6077 18.7921 19.1999 19.1999C18.7921 19.6077 18.5882 19.8116 18.3608 19.9058C18.0575 20.0314 17.7168 20.0314 17.4135 19.9058C17.186 19.8116 16.9821 19.6077 16.5744 19.1999Z";
+
+const voiceChannels = [
+	{ id: "gaming", name: "Gaming" },
+	{ id: "chill", name: "Chill" },
+];
+---
+
+<div class="channel-tour" data-channel-tour aria-hidden="true">
+	<div class="viewport" data-viewport>
+		<div class="panel" data-panel>
+			<div class="list">
+				<div>
+					<div class="wrap">
+						<span class="pill"></span>
+						<div class="row active" data-row="general">
+							<span class="icon">
+								<svg viewBox="0 0 24 24"
+									><path
+										fill-rule="evenodd"
+										clip-rule="evenodd"
+										d={chatIcon}
+										fill="currentColor"></path></svg
+								>
+							</span>
+							<span class="name">general</span>
+						</div>
+					</div>
+					<div class="threads">
+						<div class="wrap unread">
+							<span class="pill"></span>
+							<div class="row thread-row" data-row="thread">
+								<span class="icon">
+									<svg viewBox="0 0 192 192"
+										><g
+											transform="translate(96.44 96.27) rotate(45) translate(-50 -72)"
+											fill="currentColor"
+											><path
+												d="M100 132.001C100 138.629 94.6274 144.001 88 144.001H12C5.37258 144.001 0 138.629 0 132.001C0 125.374 5.37258 120.001 12 120.001H88C94.6274 120.001 100 125.374 100 132.001Z"
+											></path><path
+												d="M91.1314 86.871C92.9987 90.8753 91.2662 95.6351 87.2619 97.5024L15.1314 134.984C11.1271 136.851 6.36727 135.119 4.50002 131.115C2.63278 127.11 2.49568 123.201 6.5 121.333L80.5 83.0015C84.5043 81.1342 89.2642 82.8667 91.1314 86.871Z"
+											></path><rect
+												x="6.57284"
+												y="87.4715"
+												width="90.5854"
+												height="16.7031"
+												rx="8.35153"
+												transform="rotate(-30 6.57284 87.4715)"></rect><path
+												d="M0 12C0 5.37258 5.37258 0 12 0H88C94.6274 0 100 5.37258 100 12C100 18.6274 94.6274 24 88 24H12C5.37258 24 0 18.6274 0 12Z"
+											></path><path
+												d="M8.86859 57.1305C7.00134 53.1262 8.73378 48.3663 12.7381 46.4991L84.8686 9.01733C88.8729 7.15009 93.6327 8.88253 95.5 12.8868C97.3672 16.8912 97.5043 20.8009 93.5 22.6682L19.5 61C15.4957 62.8672 10.7358 61.1348 8.86859 57.1305Z"
+											></path></g
+										></svg
+									>
+								</span>
+								<span class="name">weekend game night</span>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="wrap unread">
+					<span class="pill"></span>
+					<div class="row" data-row="memes">
+						<span class="icon">
+							<svg viewBox="0 0 24 24"
+								><path
+									fill-rule="evenodd"
+									clip-rule="evenodd"
+									d={chatIcon}
+									fill="currentColor"></path></svg
+							>
+						</span>
+						<span class="name">memes</span>
+					</div>
+				</div>
+				{
+					voiceChannels.map(({ id, name }) => (
+						<div class="voice" data-voice={id}>
+							<div class="wrap">
+								<div class="row voice-row" data-row={id}>
+									<span class="icon quiet">
+										<svg viewBox="0 0 24 24">
+											<path d={volumeIcon} fill="currentColor" />
+										</svg>
+									</span>
+									<span class="icon loud">
+										<svg viewBox="0 0 24 24">
+											{volumeLoudIcons.map((d) => (
+												<path d={d} fill="currentColor" />
+											))}
+										</svg>
+									</span>
+									<span class="name">{name}</span>
+								</div>
+							</div>
+							<div class="parts">
+								<div class="parts-inner">
+									<ul>
+										<li class="part">
+											<span class="avatar">Y</span>
+											<span class="name">You</span>
+										</li>
+									</ul>
+								</div>
+							</div>
+						</div>
+					))
+				}
+			</div>
+		</div>
+	</div>
+	<div class="cursor" data-cursor>
+		<svg viewBox="0 0 24 24">
+			<path
+				d={cursorIcon}
+				fill="#fff"
+				stroke="#0b0b0c"
+				stroke-width="1.1"
+				stroke-linejoin="round"></path>
+		</svg>
+	</div>
+</div>
+
+<style>
+	.channel-tour {
+		--tour-hover: rgba(23, 23, 23, 0.6);
+		--tour-avatar-fg: #2a1a00;
+		--tour-ease: cubic-bezier(0.45, 0, 0.2, 1);
+		--tour-move: 700ms;
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		color: #fff;
+		font-family: var(--font-sans);
+		font-weight: 500;
+	}
+
+	.viewport {
+		--fade-t: 0px;
+		--fade-b: 0px;
+		position: absolute;
+		inset: 0;
+		-webkit-mask-image: linear-gradient(
+			to bottom,
+			transparent 0,
+			#000 var(--fade-t),
+			#000 calc(100% - var(--fade-b)),
+			transparent 100%
+		);
+		mask-image: linear-gradient(
+			to bottom,
+			transparent 0,
+			#000 var(--fade-t),
+			#000 calc(100% - var(--fade-b)),
+			transparent 100%
+		);
+	}
+
+	.viewport.fade-top {
+		--fade-t: 18px;
+	}
+
+	.viewport.fade-bottom {
+		--fade-b: 18px;
+	}
+
+	.panel {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		box-sizing: border-box;
+		width: 252px;
+		padding: 8px;
+		border-radius: 14px;
+		background: var(--site-page);
+		border: 1px solid var(--site-muted);
+		box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+		transform-origin: 50% 0;
+		transform: translate(-50%, var(--pan, 10px)) scale(var(--s, 0.78));
+		transition: transform var(--tour-move) var(--tour-ease);
+		user-select: none;
+	}
+
+	.list {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.wrap {
+		position: relative;
+		display: flex;
+	}
+
+	.pill {
+		position: absolute;
+		left: -8px;
+		top: 12px;
+		width: 4px;
+		height: 8px;
+		border-radius: 0 999px 999px 0;
+		background: #fff;
+		opacity: 0;
+		transform: scaleY(0.4);
+		transition:
+			opacity 0.2s,
+			transform 0.2s;
+	}
+
+	.wrap.unread > .pill {
+		opacity: 1;
+		transform: none;
+	}
+
+	.row {
+		position: relative;
+		box-sizing: border-box;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		min-width: 0;
+		height: 32px;
+		padding: 6px 8px;
+		border-radius: 8px;
+		overflow: hidden;
+		color: #a1a1a1;
+		transition:
+			background-color 0.15s,
+			transform 0.12s;
+	}
+
+	.row.hover {
+		background: var(--tour-hover);
+	}
+
+	.row.active {
+		background: var(--site-popover);
+	}
+
+	.row.pressed {
+		transform: scale(0.97);
+	}
+
+	.icon {
+		display: flex;
+		flex: none;
+		width: 16px;
+		height: 16px;
+		color: #a1a1a1;
+	}
+
+	.icon svg {
+		width: 16px;
+		height: 16px;
+	}
+
+	.name {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		font-size: 16px;
+		line-height: 20px;
+		font-weight: 500;
+		color: #a1a1a1;
+	}
+
+	.row.active .name,
+	.wrap.unread .name {
+		font-weight: 600;
+		color: #fff;
+	}
+
+	.row.active .icon,
+	.wrap.unread .icon {
+		color: #fff;
+	}
+
+	.threads {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		margin-left: 16px;
+		padding: 2px 0 0 8px;
+		border-left: 1px solid var(--site-line);
+	}
+
+	.thread-row .name {
+		font-size: 14px;
+	}
+
+	.voice-row {
+		padding: 6px;
+		border-left: 2px solid transparent;
+		border-radius: 8px;
+		transition:
+			background-color 0.15s,
+			transform 0.12s,
+			border-color 0.2s;
+	}
+
+	.voice-row .name {
+		font-weight: 600;
+	}
+
+	.voice.joined .voice-row {
+		border-left-color: var(--site-primary);
+		border-radius: 0 8px 8px 0;
+		background-image: linear-gradient(
+			90deg,
+			color-mix(in srgb, var(--site-primary) 32%, transparent),
+			color-mix(in srgb, var(--site-primary) 6%, transparent)
+		);
+	}
+
+	.voice.joined .voice-row .name {
+		color: #fff;
+	}
+
+	.voice.joined .voice-row .icon {
+		color: var(--site-primary);
+	}
+
+	.voice .loud {
+		display: none;
+	}
+
+	.voice.joined .loud {
+		display: flex;
+	}
+
+	.voice.joined .quiet {
+		display: none;
+	}
+
+	.voice {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.parts {
+		display: grid;
+		grid-template-rows: 0fr;
+		transition: grid-template-rows 0.26s var(--tour-ease);
+	}
+
+	.voice.joined .parts {
+		grid-template-rows: 1fr;
+	}
+
+	.parts-inner {
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.parts ul {
+		margin: 0;
+		padding: 4px 0 0 24px;
+		list-style: none;
+		border-left: 2px solid var(--site-primary);
+	}
+
+	.part {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 4px;
+	}
+
+	.avatar {
+		display: grid;
+		place-items: center;
+		flex: none;
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		background: var(--site-gold);
+		color: var(--tour-avatar-fg);
+		font-size: 12px;
+		font-weight: 700;
+		transform: scale(0.4);
+		opacity: 0;
+		transition:
+			transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.08s,
+			opacity 0.2s 0.08s;
+	}
+
+	.voice.joined .avatar {
+		transform: none;
+		opacity: 1;
+	}
+
+	.part .name {
+		font-weight: 600;
+	}
+
+	.channel-tour :global(.rip) {
+		position: absolute;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.14);
+		pointer-events: none;
+		transform: translate(-50%, -50%) scale(0);
+		animation: channel-tour-rip 520ms ease-out forwards;
+	}
+
+	@keyframes channel-tour-rip {
+		to {
+			transform: translate(-50%, -50%) scale(1);
+			opacity: 0;
+		}
+	}
+
+	.cursor {
+		position: absolute;
+		top: 0;
+		left: 0;
+		z-index: 2;
+		width: 22px;
+		height: 22px;
+		pointer-events: none;
+		opacity: 0;
+		transition:
+			transform var(--tour-move) var(--tour-ease),
+			opacity 0.2s;
+	}
+
+	.cursor.shown {
+		opacity: 1;
+	}
+
+	.cursor.instant,
+	.panel.instant {
+		transition: none;
+	}
+
+	.cursor svg {
+		display: block;
+		width: 22px;
+		height: 22px;
+		margin: -4px 0 0 -4px;
+		filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+		transform-origin: 4px 4px;
+		transition: transform 0.12s;
+	}
+
+	.cursor.down svg {
+		transform: scale(0.8);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.panel,
+		.parts,
+		.avatar,
+		.row,
+		.pill,
+		.voice-row {
+			transition: none;
+		}
+
+		.cursor,
+		.channel-tour :global(.rip) {
+			display: none;
+		}
+	}
+</style>
+
+<script>
+	type RowId = "general" | "thread" | "memes" | "gaming" | "chill";
+	type VoiceId = Extract<RowId, "gaming" | "chill">;
+	type Point = { x: number; y: number };
+
+	const SCALE = 0.78;
+	const MARGIN = 10;
+	const MOVE = 700;
+	const SETTLE = 220;
+	const PRESS = 140;
+	const PAUSE = 1100;
+	const REDUCED_STEP = 2200;
+	const TOUR: ReadonlyArray<RowId> = [
+		"thread",
+		"memes",
+		"gaming",
+		"general",
+		"chill",
+	];
+
+	const isVoice = (id: RowId): id is VoiceId =>
+		id === "gaming" || id === "chill";
+
+	function initChannelTour(root: HTMLElement) {
+		const card = root.closest<HTMLElement>(".card");
+		const viewport = root.querySelector<HTMLElement>("[data-viewport]");
+		const panel = root.querySelector<HTMLElement>("[data-panel]");
+		const cursor = root.querySelector<HTMLElement>("[data-cursor]");
+		if (!card || !viewport || !panel || !cursor) return;
+
+		const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+		const state: {
+			active: Exclude<RowId, VoiceId>;
+			joined: VoiceId | null;
+			unread: Partial<Record<RowId, boolean>>;
+			step: number;
+			focus: RowId;
+		} = {
+			active: "general",
+			joined: null,
+			unread: { thread: true, memes: true },
+			step: 0,
+			focus: "general",
+		};
+
+		let hovering = false;
+		let timers: Array<ReturnType<typeof setTimeout>> = [];
+		let scroll = 0;
+		let cursorPlaced = false;
+
+		const later = (fn: () => void, ms: number) => {
+			timers.push(setTimeout(fn, ms));
+		};
+
+		const clearTimers = () => {
+			for (const timer of timers) clearTimeout(timer);
+			timers = [];
+		};
+
+		const rowEl = (id: RowId) =>
+			panel.querySelector<HTMLElement>(`[data-row="${id}"]`);
+
+		const offsetIn = (el: HTMLElement): Point => {
+			let x = 0;
+			let y = 0;
+			let node: Element | null = el;
+			while (node instanceof HTMLElement && node !== panel) {
+				x += node.offsetLeft;
+				y += node.offsetTop;
+				node = node.offsetParent;
+			}
+			return { x, y };
+		};
+
+		const viewportHeight = () => root.clientHeight;
+		const contentHeight = () => panel.offsetHeight * SCALE + MARGIN * 2;
+
+		const panFor = (row: HTMLElement) => {
+			const offset = offsetIn(row);
+			const center = MARGIN + (offset.y + row.offsetHeight / 2) * SCALE;
+			const max = Math.max(0, contentHeight() - viewportHeight());
+			return Math.min(max, Math.max(0, center - viewportHeight() / 2));
+		};
+
+		const setPan = (value: number) => {
+			scroll = value;
+			panel.style.setProperty("--pan", `${MARGIN - value}px`);
+			panel.style.setProperty("--s", String(SCALE));
+			viewport.classList.toggle("fade-top", value > 1);
+			viewport.classList.toggle(
+				"fade-bottom",
+				contentHeight() - viewportHeight() - value > 1,
+			);
+		};
+
+		const localPoint = (row: HTMLElement): Point => ({
+			x: Math.min(row.offsetWidth * 0.55, 110),
+			y: row.offsetHeight * 0.62,
+		});
+
+		const pointOn = (row: HTMLElement): Point => {
+			const offset = offsetIn(row);
+			const local = localPoint(row);
+			return {
+				x:
+					root.clientWidth / 2 +
+					(offset.x + local.x - panel.offsetWidth / 2) * SCALE,
+				y: MARGIN - scroll + (offset.y + local.y) * SCALE,
+			};
+		};
+
+		const placeCursor = (point: Point) => {
+			cursor.style.transform = `translate(${point.x}px, ${point.y}px)`;
+		};
+
+		const instantly = (fn: () => void) => {
+			cursor.classList.add("instant");
+			panel.classList.add("instant");
+			fn();
+			void panel.offsetWidth;
+			cursor.classList.remove("instant");
+			panel.classList.remove("instant");
+		};
+
+		const render = () => {
+			for (const row of panel.querySelectorAll<HTMLElement>("[data-row]")) {
+				const id = row.dataset.row as RowId;
+				if (isVoice(id)) continue;
+				row.classList.toggle("active", id === state.active);
+				row.parentElement?.classList.toggle(
+					"unread",
+					Boolean(state.unread[id]) && id !== state.active,
+				);
+			}
+			for (const voice of panel.querySelectorAll<HTMLElement>("[data-voice]")) {
+				voice.classList.toggle("joined", voice.dataset.voice === state.joined);
+			}
+		};
+
+		const apply = (id: RowId) => {
+			if (isVoice(id)) {
+				state.joined = id;
+			} else {
+				state.active = id;
+				state.unread[id] = false;
+			}
+			state.focus = id;
+			state.step = (state.step + 1) % TOUR.length;
+			if (state.step === 0 && state.active !== "memes") {
+				state.unread.memes = true;
+			}
+			render();
+		};
+
+		const ripple = (row: HTMLElement) => {
+			const local = localPoint(row);
+			const size = row.offsetWidth * 2.2;
+			const dot = document.createElement("span");
+			dot.className = "rip";
+			dot.style.left = `${local.x}px`;
+			dot.style.top = `${local.y}px`;
+			dot.style.width = `${size}px`;
+			dot.style.height = `${size}px`;
+			row.appendChild(dot);
+			dot.addEventListener("animationend", () => dot.remove());
+		};
+
+		const clearRowStates = () => {
+			for (const row of panel.querySelectorAll<HTMLElement>("[data-row]")) {
+				row.classList.remove("hover", "pressed");
+			}
+			cursor.classList.remove("down");
+		};
+
+		const tourStep = () => {
+			if (!hovering) return;
+			const id = TOUR[state.step];
+			const row = rowEl(id);
+			if (!row) return;
+			setPan(panFor(row));
+			placeCursor(pointOn(row));
+			later(() => {
+				row.classList.add("hover");
+				later(() => {
+					cursor.classList.add("down");
+					row.classList.add("pressed");
+					ripple(row);
+					apply(id);
+					later(() => {
+						cursor.classList.remove("down");
+						row.classList.remove("pressed");
+						later(() => {
+							setPan(panFor(row));
+							placeCursor(pointOn(row));
+						}, 300);
+						later(() => {
+							row.classList.remove("hover");
+							tourStep();
+						}, PAUSE);
+					}, PRESS);
+				}, SETTLE);
+			}, MOVE);
+		};
+
+		const reducedStep = () => {
+			if (!hovering) return;
+			const id = TOUR[state.step];
+			apply(id);
+			const row = rowEl(id);
+			if (row) setPan(panFor(row));
+			later(reducedStep, REDUCED_STEP);
+		};
+
+		const enter = () => {
+			if (hovering) return;
+			hovering = true;
+			clearTimers();
+			if (reduce.matches) {
+				later(reducedStep, 600);
+				return;
+			}
+			if (!cursorPlaced) {
+				cursorPlaced = true;
+				instantly(() =>
+					placeCursor({
+						x: root.clientWidth * 0.84,
+						y: viewportHeight() * 0.86,
+					}),
+				);
+			}
+			cursor.classList.add("shown");
+			later(tourStep, 250);
+		};
+
+		const leave = () => {
+			hovering = false;
+			clearTimers();
+			cursor.classList.remove("shown");
+			clearRowStates();
+		};
+
+		const relayout = () => {
+			const row = rowEl(state.focus);
+			if (!row) return;
+			instantly(() => {
+				setPan(panFor(row));
+				if (cursorPlaced) placeCursor(pointOn(row));
+			});
+		};
+
+		card.addEventListener("pointerenter", enter);
+		card.addEventListener("pointerleave", leave);
+
+		render();
+		relayout();
+		new ResizeObserver(relayout).observe(root);
+		document.fonts.ready.then(relayout);
+	}
+
+	for (const root of document.querySelectorAll<HTMLElement>(
+		"[data-channel-tour]",
+	)) {
+		initChannelTour(root);
+	}
+</script>

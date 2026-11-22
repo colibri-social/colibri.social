@@ -1,0 +1,469 @@
+---
+title: AppView
+description: The XRPC methods, WebSockets and protocol callbacks a Colibri AppView implements.
+---
+
+import XRPCEndpointCard from "@/components/docs/XRPCEndpointCard.astro";
+import XRPCFrames from "@/components/docs/XRPCFrames.astro";
+import XRPCMethods from "@/components/docs/XRPCMethods.astro";
+import { XRPC_PREFIXES } from "@/components/docs/xrpc-methods.ts";
+
+The Colibri AppView serves an assembled view of Spaces that live in
+[ATproto spaces](/docs/developers/architecture/spaces). It holds each
+Space's credentials and writes the records a Space authors. The Space's PDS asks
+it whether an account may read or write before issuing a credential.
+
+This page describes the interface.
+[AppView Architecture](/docs/developers/architecture/appview) describes the
+implementation.
+
+Every method lives under `/xrpc/`. The method reference under each namespace
+heading is generated from the published
+[lexicons](/docs/developers/specification/lexicons), and each type name in it
+links to its definition on that page.
+
+## Service identity
+
+Proxy requests through the user's own PDS and address the AppView by its service
+reference. The hosted AppView is:
+
+```
+did:web:spaces-api.colibri.social#colibri_appview
+```
+
+Push registration targets the notification service:
+
+```
+did:web:spaces-api.colibri.social#colibri_notifs
+```
+
+Both references resolve to the same endpoint. A self-hosted AppView uses its own
+`did:web` with the same two fragments.
+
+## Authentication
+
+A method marked `service auth` needs an
+[atproto service auth](https://atproto.com/specs/xrpc#inter-service-authentication-jwt)
+token. The token is a JWT signed by the caller's repo signing key. Its `aud` is
+the AppView's DID or one of its service references, and its `lxm` is the NSID of
+the method being called. A method carries that mark when its lexicon declares
+the `AuthRequired` error.
+
+Let the PDS mint the token. Send the request to the user's PDS with an
+`atproto-proxy: did:web:spaces-api.colibri.social#colibri_appview` header, and
+the PDS attaches `Authorization: Bearer <jwt>` to the proxied request.
+
+A method marked `no service auth` answers without a token.
+`social.colibri.beta.community.getInvitation` reads a token when the request
+carries one.
+
+:::danger[Tokens have a maximum lifetime]
+The AppView refuses a token whose `exp` is more than
+`SERVICE_AUTH_MAX_LIFETIME_SECONDS` in the future. The default is 300 seconds.
+It checks the expiry before it resolves the issuer's signing key.
+
+Mint tokens with a short expiry. One minute is enough.
+:::
+
+Both WebSockets accept the same token in one of three places:
+
+- an `Authorization: Bearer <jwt>` header
+- the `colibri.auth.bearer` WebSocket subprotocol, followed by the token as the next subprotocol value
+- an `auth` query parameter
+
+A request without a valid token is answered with HTTP 401 before the WebSocket
+opens.
+
+Three kinds of URL carry their own signature and need no token:
+[media links](#media-links) for blobs, the image and video URLs inside an embed
+view, and the `readToken` a push notification hands to
+`social.colibri.beta.notification.markReadFromNotification`.
+
+## Errors
+
+Every method declares its errors in its lexicon. The AppView returns them in the
+standard XRPC error shape:
+
+```json
+{ "error": "Forbidden", "message": "this action requires member.ban" }
+```
+
+Read the `error` field to tell errors apart. Most named errors share HTTP status
+400.
+
+These errors appear on most methods:
+
+| Error | Meaning |
+| --- | --- |
+| `AuthRequired` | The request has no token, or a token this AppView does not accept |
+| `Forbidden` | The caller is banned, is not a member, or lacks the permission or the rank |
+| `CommunityNotFound` | No Space matches the given DID |
+| `CredentialsUnavailable` | The AppView's stored credentials for the Space are missing or unusable |
+| `UpstreamFailure` | A PDS or third-party call the AppView depends on failed |
+
+A node that cannot take writes answers a procedure with HTTP 503 and the error
+`ReadOnly`. The events socket reports the same state in its `writeState` frame.
+
+## Writing records
+
+A user's own records live in the user's own repo inside a space. That covers
+messages, reactions, read cursors and preferences. Where the repo lives decides
+which method writes to it, and `social.colibri.beta.polyfill.getStatus` reports
+it as a `mode`:
+
+- **`native`**: the user's PDS hosts the repo. Write with `com.atproto.space.createRecord`, `putRecord` and `deleteRecord` on the PDS, naming the channel's space.
+- **`polyfill`** and **`migrating`**: the AppView hosts the repo. Write with [`social.colibri.beta.polyfill.applyWrites`](#socialcolibribetapolyfillapplywrites).
+
+A bridge sends a message with
+[`social.colibri.beta.bridge.postMessage`](#socialcolibribetabridgepostmessage).
+The Space writes that message and attributes it to the person on the other
+service.
+
+Records a Space authors go through the procedures on this page. That covers its
+profile, settings, roles, categories, channels, members and moderation log. The
+AppView checks the caller's permission, authenticates as the Space and makes the
+write.
+
+## Server
+
+`social.colibri.beta.server.describeServer` identifies a host as a Colibri
+AppView and lists the optional features it has turned on. `features` holds
+`embeds` and `emoji` on every deployment. `voice`, `push`, `gifs` and `nodes`
+appear when the deployment has them configured.
+
+<XRPCMethods prefix={XRPC_PREFIXES.server} />
+
+## Spaces
+
+The `social.colibri.beta.community` namespace covers a Space's lifecycle,
+membership, invitations, moderation, hosting and reads. See
+[Communities](/docs/developers/architecture/communities) for how a Space's
+spaces fit together, [Moderation](/docs/developers/architecture/moderation) for
+the permission model, and
+[Hosting](/docs/developers/architecture/hosting) for `adopt`, `authorizeHost`
+and `handOverHost`.
+
+An action against another member requires the caller to outrank the target. The
+AppView compares each side's highest role position, and equal positions do not
+outrank. The owner outranks everyone. A failed check answers `RoleHierarchy`.
+
+<XRPCMethods prefix={XRPC_PREFIXES.community} />
+
+## Categories
+
+Categories group a Space's channels for display. The Space's
+`social.colibri.beta.community.settings` record holds `categoryOrder`, and each
+category record holds `channelOrder` for the channels inside it.
+
+<XRPCMethods prefix={XRPC_PREFIXES.category} />
+
+## Channels
+
+A channel is an ATproto space of its own. The space key is the channel's
+identity, and its configuration is the `social.colibri.beta.channel` record at
+key `self` inside that space.
+
+A channel the caller may not read is absent from every listing.
+`social.colibri.beta.channel.getChannel` and
+`social.colibri.beta.channel.listMessages` answer `Forbidden` for it.
+
+<XRPCMethods prefix={XRPC_PREFIXES.channel}>
+	<Fragment slot="listMessages">
+		A message that carries a `hidden` label from a labeler the Space honours is
+		withheld, so a page can hold fewer than `limit` messages. Keep following
+		`cursor` until it is absent. Members who hold `label.apply` and the
+		message's own author receive hidden messages in full, with the label
+		attached.
+	</Fragment>
+</XRPCMethods>
+
+## Threads
+
+A thread is an ATproto space opened beside a text channel. Its messages are read
+with `social.colibri.beta.channel.listMessages`, which takes a thread's space
+reference in `channel`.
+
+<XRPCMethods prefix={XRPC_PREFIXES.thread} />
+
+## Roles
+
+Role procedures follow the same hierarchy rule as member actions. A caller
+creates, edits and deletes only roles below their own highest role position.
+
+<XRPCMethods prefix={XRPC_PREFIXES.role} />
+
+## Actors and preferences
+
+Every user has one ATproto space of type
+`social.colibri.beta.actor.preferences`, which holds their settings, mutes,
+blocks and read state. The client writes a record to that space first and then
+pushes the same data with the matching `put` procedure, so the change applies
+before the next sync. `social.colibri.beta.actor.getPreferences` returns the
+AppView's synced copy.
+
+`social.colibri.beta.actor.grantSpaceAccess` hands the AppView a delegation
+token for that space. Call it again before the returned `expiresAt`.
+
+<XRPCMethods prefix={XRPC_PREFIXES.actor} />
+
+## Notifications
+
+A notification's `kind` is `mention`, `reply` or `message`. Push delivery is registered per device with `registerPush` and
+`unregisterPush`, which target the `#colibri_notifs` service reference.
+
+<XRPCMethods prefix={XRPC_PREFIXES.notification} />
+
+## Emoji
+
+The emoji methods manage a user's emoji library and a Space's custom emoji and
+packs. `putFollow` pushes a follow of another owner's emoji to the AppView.
+
+<XRPCMethods prefix={XRPC_PREFIXES.emoji} />
+
+## Embeds and GIFs
+
+`getMetadata` builds a link preview, and `searchGifs`, `trendingGifs` and
+`gifCategories` back the GIF picker. The AppView fetches every link itself, so
+the previewed site never sees the client's address. `getImage` and `getVideo`
+serve the signed URLs found inside an embed view.
+
+<XRPCMethods prefix={XRPC_PREFIXES.embed} />
+
+## Blobs
+
+`social.colibri.beta.blob.get` serves a blob from an ATproto space. The
+response is the raw bytes.
+
+<XRPCMethods prefix={XRPC_PREFIXES.blob} />
+
+### Media links
+
+An `<img>` or `<video>` element cannot send an `Authorization` header, so a blob
+in an ATproto space is also reachable through a media link. A media link is
+the same URL with `viewer`, `exp` and `sig` added. The AppView mints one for
+every attachment it puts in a view. Use the URL as it arrives.
+
+`sig` is an HMAC over `did`, `cid`, `space`, `viewer` and `exp`. The AppView
+resolves the named viewer's access to the space on every request, so a viewer
+who loses read access loses the link before `exp` passes.
+
+A link's expiry falls on a 15-minute boundary, which gives the same blob one
+cacheable URL for that window. A fresh link lasts between 60 and 75 minutes.
+Past `exp` the AppView answers `AuthRequired`. Read the view again to get a new
+link.
+
+A caller that sends a service auth token for `social.colibri.beta.blob.get`
+leaves `viewer`, `exp` and `sig` off.
+
+## Voice
+
+`social.colibri.beta.voice.moderate` mutes, deafens, moves or disconnects
+someone in a voice channel. Everything else about a call runs over
+[the voice socket](#the-voice-socket).
+
+<XRPCMethods prefix={XRPC_PREFIXES.voice} />
+
+## The voice socket
+
+`social.colibri.beta.voice.subscribeSignals` is a WebSocket that carries
+[mediasoup](https://mediasoup.org) client signalling. Frames are JSON objects
+tagged with a `$type` from `social.colibri.beta.voice.defs`.
+
+:::caution[Join first]
+A connection must send `join` before any other frame. Any other frame is
+answered with a `NotJoined` error. A second `join` on the same connection leaves
+the first channel.
+:::
+
+The client sends these frames:
+
+<XRPCFrames
+	defs="social.colibri.beta.voice.defs"
+	names={[
+		"join",
+		"leave",
+		"heartbeat",
+		"getRtpCapabilities",
+		"createTransport",
+		"connectTransport",
+		"produce",
+		"closeProducer",
+		"consume",
+		"resumeConsumer",
+		"setConsumerPreference",
+		"setSelfState",
+		"setSpeaking",
+		"rttReport",
+		"moveNow",
+	]}
+/>
+
+The frames the server sends are listed under
+[`subscribeSignals`](#socialcolibribetavoicesubscribesignals).
+
+A `moderationChanged` frame with `serverMuted` or `serverDeafened` set reports a
+state that `setSelfState` cannot lift.
+
+## The events socket
+
+`social.colibri.beta.sync.subscribeEvents` is a WebSocket that carries
+everything that happens while a client is connected: messages, reactions,
+structure changes, presence, typing, notifications and voice participation.
+
+Frames are JSON objects in both directions. Each one is tagged with a `$type`
+that names a definition in `social.colibri.beta.sync.defs`:
+
+```json
+{ "$type": "social.colibri.beta.sync.defs#heartbeat" }
+```
+
+<XRPCMethods prefix={XRPC_PREFIXES.sync} />
+
+### Subscriptions
+
+A connection receives events only for the Spaces and channels it subscribed to.
+Events addressed to the connected user, such as notifications, arrive without a
+subscription. A new connection first receives a `writeState` frame.
+
+Send a `subscribe` frame that names Spaces in `communities` and channels or
+threads in `channels`. The server answers with `subscribed`, which lists what
+the connection now receives. Entries the user may not read are absent from that
+list, so compare it against what was requested.
+
+Subscribing to a Space also subscribes the connection to every channel in it
+that the user may read. When the user's access changes, the server revises the
+channel topics and sends a new `subscribed` frame.
+
+`unsubscribe` removes topics, and removing a Space removes its channels.
+
+### Client frames
+
+<XRPCFrames
+	defs="social.colibri.beta.sync.defs"
+	names={[
+		"subscribe",
+		"unsubscribe",
+		"heartbeat",
+		"typing",
+		"viewChannel",
+		"activity",
+		"wroteTo",
+		"setPresence",
+	]}
+/>
+
+A frame that is not valid JSON, has an unknown `$type` or fails its lexicon is
+answered with an `error` frame named `InvalidFrame`. More than 20 `wroteTo`
+frames in 10 seconds are answered with `RateLimited`.
+
+The server pings every 30 seconds and closes a connection that did not answer
+the previous ping.
+
+## Bridges
+
+A bridge is an account that links channels in a Space to rooms on another
+service. Bridge methods take a service auth token signed by the bridge's own
+account. See [Building a bridge](/docs/developers/bridges/building-a-bridge) and
+the [Bridge reference](/docs/developers/bridges/reference).
+
+<XRPCMethods prefix={XRPC_PREFIXES.bridge} />
+
+## Hosted space repos
+
+The AppView hosts a member's space repos while the member's PDS cannot host
+spaces. The `social.colibri.beta.polyfill` methods read and write those repos
+and move them to the PDS once it supports spaces. See
+[Hosting](/docs/developers/architecture/hosting).
+
+<XRPCMethods prefix={XRPC_PREFIXES.polyfill} />
+
+## Protocol callbacks
+
+A Space's PDS calls three methods on the AppView.
+`com.atproto.managedspace.checkAccess` takes service auth from the space
+authority. The two notification methods take the `token` the AppView registered
+for the space.
+
+### `com.atproto.managedspace.checkAccess`
+
+Answers whether an account may read or write a space. The Space's PDS calls it
+before minting a credential, so bans, membership and channel visibility are
+enforced here.
+
+`repo` is the account asking, and `clientId` is the attested OAuth client when
+the request carried a client attestation.
+
+The AppView answers `read: false` and `write: false` when `repo` is absent, when
+the Space is unknown, and when the caller is not the authority of the space it
+asks about.
+
+<XRPCEndpointCard
+	method="GET"
+	nsid="com.atproto.managedspace.checkAccess"
+	queryParams={{
+		space: { type: "space-ref", required: true },
+		repo: { type: "did", required: false },
+		clientId: { type: "uri", required: false }
+	}}
+	response={{
+		read: { type: "boolean", required: true },
+		write: { type: "boolean", required: true }
+	}}
+	authenticated={true}
+/>
+
+### `com.atproto.space.confirmRegistration`
+
+Confirms a notification registration. The AppView registers by sending
+`notify: { endpoint, token }` with `com.atproto.space.authorizeSpaceSync`, where
+`endpoint` is its `PUBLIC_URL` and `token` is a random secret it keeps per
+space. The space host calls this method on that endpoint before it accepts the
+registration. The AppView checks that it issued `token` for `space` and echoes
+`challenge` back.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="com.atproto.space.confirmRegistration"
+	body={{
+		space: { type: "space-ref", required: true },
+		token: { type: "string", required: true },
+		challenge: { type: "string", required: true }
+	}}
+	response={{
+		challenge: { type: "string", required: true }
+	}}
+	authenticated={false}
+/>
+
+### `com.atproto.space.notifySpaceUpdate`
+
+Tells the AppView that something changed in a space. The AppView answers
+`InvalidRequest` for a `token` it did not issue for that `space`. See
+[Sync](/docs/developers/architecture/sync) for how notifications and the
+periodic sweep work together.
+
+<XRPCEndpointCard
+	method="POST"
+	nsid="com.atproto.space.notifySpaceUpdate"
+	body={{
+		space: { type: "space-ref", required: true },
+		token: { type: "string", required: true },
+		update: { type: "object", required: true }
+	}}
+	authenticated={false}
+/>
+
+`update.$type` names one of four updates:
+
+| `$type` | Fields | What the AppView does |
+| --- | --- | --- |
+| `com.atproto.space.defs#repoWrite` | `repo`, `repoRev`, `data`, `spaceRev`, `prevSpaceRev?` | Queues a pull of `repo` |
+| `com.atproto.space.defs#repoRemoved` | `repo`, `spaceRev`, `prevSpaceRev?` | Stops treating `repo` as part of the space |
+| `com.atproto.space.notifySpaceUpdate#spaceDeleted` | none | Checks with the space host that the space is deleted |
+| `com.atproto.space.notifySpaceUpdate#registrationExpired` | `spaceRev` | Renews the notification registration |
+
+## See also
+
+- [AppView Architecture](/docs/developers/architecture/appview): what implements this.
+- [Lexicons](/docs/developers/specification/lexicons): the record and method schemas.
+- [Facets](/docs/developers/specification/facets): how rich text is encoded.

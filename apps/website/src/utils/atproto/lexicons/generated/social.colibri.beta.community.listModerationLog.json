@@ -1,0 +1,72 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.listModerationLog",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists a community's moderation audit log.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community to list the moderation log for."
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 100,
+						"default": 50,
+						"description": "Maximum number of log entries to return."
+					},
+					"cursor": {
+						"type": "string",
+						"description": "Pagination cursor from a previous response."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"entries"
+					],
+					"properties": {
+						"cursor": {
+							"type": "string",
+							"description": "Pagination cursor for the next page, if more entries exist."
+						},
+						"entries": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.community.defs#moderationView",
+								"description": "A moderation log entry."
+							},
+							"description": "Log entries, most recent first."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the moderation.viewLog permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				}
+			]
+		}
+	}
+}

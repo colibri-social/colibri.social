@@ -1,0 +1,91 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.polyfill.defs",
+	"defs": {
+		"hostMode": {
+			"type": "string",
+			"description": "Where a member's repos live. polyfill: the AppView hosts them because the member's PDS cannot. migrating: the client is copying them to the PDS, and the AppView stays authoritative until each copy verifies. native: the PDS hosts them and the AppView syncs from it.",
+			"knownValues": [
+				"polyfill",
+				"migrating",
+				"native"
+			]
+		},
+		"recordView": {
+			"type": "object",
+			"required": [
+				"uri",
+				"cid",
+				"value"
+			],
+			"properties": {
+				"uri": {
+					"type": "string",
+					"format": "at-uri",
+					"description": "The record's URI, the same one it keeps after a migration."
+				},
+				"cid": {
+					"type": "string",
+					"format": "cid",
+					"description": "The CID of the record or blob."
+				},
+				"value": {
+					"type": "unknown",
+					"description": "The record itself."
+				}
+			},
+			"description": "A record in a repo the AppView hosts."
+		},
+		"migrationRecord": {
+			"type": "object",
+			"required": [
+				"collection",
+				"rkey",
+				"cid",
+				"value"
+			],
+			"properties": {
+				"collection": {
+					"type": "string",
+					"format": "nsid",
+					"description": "The record's collection."
+				},
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The record key."
+				},
+				"cid": {
+					"type": "string",
+					"format": "cid",
+					"description": "The CID of the record or blob."
+				},
+				"value": {
+					"type": "unknown",
+					"description": "The record itself."
+				}
+			},
+			"description": "A record to replay on the user's PDS during a migration."
+		},
+		"migrationProgress": {
+			"type": "object",
+			"required": [
+				"spacesTotal",
+				"spacesDone"
+			],
+			"properties": {
+				"spacesTotal": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "How many spaces hold a repo that has to move."
+				},
+				"spacesDone": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "How many of those repos have verified on the PDS."
+				}
+			},
+			"description": "How far a migration has come."
+		}
+	}
+}

@@ -1,16 +1,46 @@
 use tauri::Manager;
 
+#[cfg(target_os = "android")]
+mod android_jni;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+mod apns;
+#[cfg(target_os = "macos")]
+mod app_menu;
+#[cfg(any(target_os = "linux", all(test, unix)))]
+mod appimage_env;
 #[cfg(target_os = "linux")]
-mod linux_media;
+mod linux_cef;
 #[cfg(target_os = "macos")]
 mod macos_media;
 #[cfg(desktop)]
 mod notifications;
+mod open_external;
+mod push;
 #[cfg(desktop)]
-#[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
+mod quit_guard;
+#[cfg(any(target_os = "android", test))]
+mod received_files;
+mod save_file;
+#[cfg(desktop)]
+#[cfg_attr(
+    not(any(target_os = "macos", target_os = "windows", target_os = "linux")),
+    allow(dead_code)
+)]
 mod screen_capture;
 #[cfg(desktop)]
 mod titlebar;
+#[cfg(all(desktop, feature = "updater"))]
+mod update_restart;
+
+#[cfg(target_os = "linux")]
+pub type AppRuntime = tauri_runtime_cef::CefRuntime<tauri::EventLoopMessage>;
+#[cfg(not(target_os = "linux"))]
+pub type AppRuntime = tauri::Wry;
+
+#[cfg(desktop)]
+const WINDOW_STATE_FLAGS: tauri_plugin_window_state::StateFlags =
+    tauri_plugin_window_state::StateFlags::all()
+        .difference(tauri_plugin_window_state::StateFlags::DECORATIONS);
 
 pub mod native_error {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
@@ -18,6 +48,7 @@ pub mod native_error {
         Cancelled,
         Unsupported,
         InvalidRequest,
+        PermissionDenied,
         Failed,
     }
 
@@ -191,18 +222,30 @@ fn init_sentry() -> Option<sentry::ClientInitGuard> {
     )))
 }
 
+#[cfg(all(desktop, feature = "updater"))]
+fn updater_disabled() -> bool {
+    std::env::var("COLIBRI_DISABLE_UPDATER").is_ok_and(|value| value == "1")
+        || std::env::args().any(|arg| arg == "--no-update-check")
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    if let linux_cef::Launch::Handled = linux_cef::bootstrap() {
+        return;
+    }
+
     #[cfg(feature = "sentry")]
     let _sentry = init_sentry();
 
-    let mut builder = tauri::Builder::default();
+    let mut builder = tauri::Builder::<AppRuntime>::new();
 
     #[cfg(target_os = "ios")]
     {
         builder = builder
             .plugin(tauri_plugin_ios_webview_insets::init())
-            .plugin(tauri_plugin_keyboard_inset::init());
+            .plugin(tauri_plugin_keyboard_inset::init())
+            .plugin(tauri_plugin_keyboard_inset::init_save_file());
     }
 
     // The single-instance plugin must be the first one registered. With the
@@ -220,7 +263,10 @@ pub fn run() {
                 #[cfg(any(target_os = "linux", windows))]
                 if _argv.len() != 2 {
                     use tauri_plugin_deep_link::DeepLinkExt;
-                    if let Some(url) = _argv.iter().find(|arg| arg.starts_with("social.colibri:")) {
+                    if let Some(url) = _argv.iter().find(|arg| {
+                        arg.starts_with("social.colibri:")
+                            || arg.starts_with("social.colibri.spaces:")
+                    }) {
                         app.deep_link()
                             .handle_cli_arguments([String::new(), url.clone()].into_iter());
                     }
@@ -228,10 +274,7 @@ pub fn run() {
             }))
             .plugin(
                 tauri_plugin_window_state::Builder::default()
-                    .with_state_flags(
-                        tauri_plugin_window_state::StateFlags::all()
-                            - tauri_plugin_window_state::StateFlags::DECORATIONS,
-                    )
+                    .with_state_flags(WINDOW_STATE_FLAGS)
                     .build(),
             )
             .plugin(tauri_plugin_dialog::init())
@@ -240,25 +283,55 @@ pub fn run() {
 
         #[cfg(feature = "updater")]
         {
-            builder = builder
-                .plugin(tauri_plugin_updater::Builder::new().build())
-                .plugin(tauri_plugin_process::init())
-                .plugin(tauri_plugin_fs::init());
+            if !updater_disabled() {
+                builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+            }
+            builder = builder.plugin(tauri_plugin_fs::init());
         }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .menu(app_menu::build)
+            .on_menu_event(app_menu::handle);
+    }
+
+    #[cfg(mobile)]
+    {
+        builder = builder.plugin(tauri_plugin_haptics::init());
     }
 
     #[cfg(target_os = "android")]
     {
-        builder = builder.plugin(tauri_plugin_fcm::init());
+        builder = builder
+            .plugin(tauri_plugin_fcm::init())
+            .register_asynchronous_uri_scheme_protocol(
+                received_files::SCHEME,
+                received_files::serve,
+            );
     }
 
-    builder
+    let app = builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             web_auth::start_web_auth,
+            save_file::save_url,
+            open_external::open_external_url,
+            #[cfg(desktop)]
+            save_file::open_media_url,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            apns::apns_register,
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            apns::apns_remove_delivered,
+            #[cfg(target_os = "ios")]
+            apns::activation::apns_take_activation,
+            push::push_set_live,
+            push::push_dismiss_read,
             #[cfg(desktop)]
             titlebar::titlebar_init,
             #[cfg(desktop)]
@@ -278,11 +351,19 @@ pub fn run() {
             #[cfg(desktop)]
             screen_capture::screen_capture_start,
             #[cfg(desktop)]
+            screen_capture::screen_capture_start_audio,
+            #[cfg(desktop)]
             screen_capture::screen_capture_stop,
             #[cfg(desktop)]
             screen_capture::screen_capture_permission,
             #[cfg(desktop)]
             screen_capture::screen_capture_open_settings,
+            #[cfg(desktop)]
+            screen_capture::screen_capture_picker,
+            #[cfg(desktop)]
+            screen_capture::screen_capture_prepare_display,
+            #[cfg(desktop)]
+            screen_capture::screen_capture_list_audio_apps,
             #[cfg(desktop)]
             notifications::native_notify_supported,
             #[cfg(desktop)]
@@ -290,37 +371,20 @@ pub fn run() {
             #[cfg(desktop)]
             notifications::native_notify_dismiss,
             #[cfg(desktop)]
-            notifications::native_notify_cache_avatar
+            notifications::native_notify_cache_avatar,
+            #[cfg(desktop)]
+            notifications::native_notify_take_activation,
+            #[cfg(desktop)]
+            notifications::native_notify_clear_all,
+            #[cfg(desktop)]
+            quit_guard::ready_to_exit,
+            #[cfg(all(desktop, feature = "updater"))]
+            update_restart::update_installs_on_restart,
+            #[cfg(all(desktop, feature = "updater"))]
+            update_restart::update_stage,
+            #[cfg(all(desktop, feature = "updater"))]
+            update_restart::restart_app
         ])
-        .register_uri_scheme_protocol("emoji", |ctx, request| {
-            let not_found = || {
-                tauri::http::Response::builder()
-                    .status(404)
-                    .body(Vec::new())
-                    .unwrap()
-            };
-            let rel = request.uri().path().trim_start_matches('/').to_string();
-            if rel.contains("..") {
-                return not_found();
-            }
-            let Ok(dir) = ctx.app_handle().path().resource_dir() else {
-                return not_found();
-            };
-            let candidates = [
-                dir.join("twemoji").join(&rel),
-                dir.join("assets").join("twemoji").join(&rel),
-            ];
-            for path in candidates {
-                if let Ok(bytes) = std::fs::read(&path) {
-                    return tauri::http::Response::builder()
-                        .header("Content-Type", "image/png")
-                        .header("Access-Control-Allow-Origin", "*")
-                        .body(bytes)
-                        .unwrap();
-                }
-            }
-            not_found()
-        })
         .register_uri_scheme_protocol("capture-thumb", |ctx, request| {
             let not_found = || {
                 tauri::http::Response::builder()
@@ -359,24 +423,72 @@ pub fn run() {
                     eprintln!("deep-link scheme registration failed: {error}");
                 }
             }
+            #[cfg(target_os = "linux")]
+            linux_cef::attach(app.handle());
+            #[cfg(all(target_os = "linux", feature = "updater"))]
+            update_restart::discard_stale(app.handle());
+
             #[cfg(desktop)]
             if let Some(window) = app.get_webview_window("main") {
                 #[cfg(target_os = "macos")]
                 macos_media::enable_media(&window);
 
                 titlebar::setup(&window);
-
-                #[cfg(target_os = "linux")]
-                linux_media::enable_media(&window);
             }
 
             #[cfg(desktop)]
             notifications::setup(app.handle());
 
+            #[cfg(target_os = "ios")]
+            apns::activation::setup(app.handle());
+
+            #[cfg(target_os = "macos")]
+            apns::setup();
+
+            #[cfg(target_os = "macos")]
+            quit_guard::install_terminate_guard(app.handle());
+
             #[cfg(not(any(target_os = "linux", windows, desktop)))]
             let _ = app;
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .on_window_event(|_window, _event| {
+            #[cfg(desktop)]
+            if let tauri::WindowEvent::CloseRequested { api, .. } = _event {
+                if _window.label() == "main" && !quit_guard::released() {
+                    api.prevent_close();
+                    quit_guard::hold(_window.app_handle());
+                }
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    let on_event = |_app: &tauri::AppHandle<AppRuntime>, _event: tauri::RunEvent| {
+        #[cfg(target_os = "linux")]
+        if let tauri::RunEvent::ExitRequested { code: Some(_), .. } = &_event {
+            use tauri_plugin_window_state::AppHandleExt;
+            if let Err(error) = _app.save_window_state(WINDOW_STATE_FLAGS) {
+                eprintln!("could not save the window state: {error}");
+            }
+        }
+        #[cfg(desktop)]
+        if let tauri::RunEvent::ExitRequested {
+            code: None, api, ..
+        } = &_event
+        {
+            if !quit_guard::released() {
+                api.prevent_exit();
+                quit_guard::hold(_app);
+            }
+        }
+    };
+
+    #[cfg(all(target_os = "linux", feature = "updater"))]
+    {
+        app.run_return(on_event);
+        update_restart::after_exit();
+    }
+    #[cfg(not(all(target_os = "linux", feature = "updater")))]
+    app.run(on_event);
 }

@@ -1,0 +1,77 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.listApplications",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists pending requests to join a community that requires approval.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community to list applications for."
+					},
+					"includeDismissed": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether to include applications a moderator has hidden from the active queue."
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 100,
+						"default": 50,
+						"description": "Maximum number of applications to return."
+					},
+					"cursor": {
+						"type": "string",
+						"description": "Pagination cursor from a previous response."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"applications"
+					],
+					"properties": {
+						"cursor": {
+							"type": "string",
+							"description": "Pagination cursor for the next page, if more applications exist."
+						},
+						"applications": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.community.defs#applicationView",
+								"description": "A pending application."
+							},
+							"description": "Applications matching the request."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the approval.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				}
+			]
+		}
+	}
+}

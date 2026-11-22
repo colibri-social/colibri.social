@@ -1,0 +1,120 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.thread.create",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Opens a thread beside a text channel. This creates a space for the thread, then writes the thread's configuration record at key 'self' inside it. The anchor message is referenced rather than copied, so it stays in its author's repo in the channel where it was written.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"channel",
+						"name"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the thread's channel belongs to."
+						},
+						"channel": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The text channel to open the thread beside."
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 128,
+							"description": "The thread's title."
+						},
+						"anchor": {
+							"type": "ref",
+							"ref": "social.colibri.beta.defs#spaceRecordRef",
+							"description": "The message to open the thread from. Absent opens a thread from scratch, which has no marker in the channel river and is reachable from the channel's thread list and the sidebar."
+						},
+						"visibleToRoles": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "record-key",
+								"description": "A role."
+							},
+							"description": "Roles that may read this thread. Empty means everyone who may read the channel may read the thread."
+						},
+						"visibleToMembers": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A member."
+							},
+							"description": "Members that may read this thread beyond visibleToRoles."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"thread"
+					],
+					"properties": {
+						"thread": {
+							"type": "ref",
+							"ref": "social.colibri.beta.thread.defs#threadView",
+							"description": "The thread."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the thread.create permission or may not post in the channel."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community matches the given DID."
+				},
+				{
+					"name": "ChannelNotFound",
+					"description": "No channel matches the given space reference."
+				},
+				{
+					"name": "MessageNotFound",
+					"description": "The anchor message does not exist in the given channel."
+				},
+				{
+					"name": "RoleHierarchy",
+					"description": "The requesting user cannot grant a role that outranks their own."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				},
+				{
+					"name": "PdsUnavailable",
+					"description": "The community's PDS is unreachable or the AppView has no administrative access to it."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "The community's PDS failed while creating the thread's space."
+				}
+			]
+		}
+	}
+}

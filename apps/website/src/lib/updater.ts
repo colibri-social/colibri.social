@@ -145,10 +145,29 @@ const isNewer = (candidate: string, current: string): boolean => {
 	return comparePrerelease(a.prerelease, b.prerelease) > 0;
 };
 
+const BUNDLE_TYPES = new Set(["appimage", "deb", "rpm", "app", "msi", "nsis"]);
+
+const bundleFrom = (url: URL): string | null => {
+	const bundle = url.searchParams.get("bundle")?.toLowerCase();
+	return bundle && BUNDLE_TYPES.has(bundle) ? bundle : null;
+};
+
+const platformFor = (
+	manifest: Manifest,
+	target: string,
+	arch: string,
+	bundle: string | null,
+): ManifestPlatform | undefined =>
+	(bundle ? manifest.platforms[`${target}-${arch}-${bundle}`] : undefined) ??
+	manifest.platforms[`${target}-${arch}`];
+
+type UpdateTarget = "darwin" | "linux" | "windows";
+
 export const updaterRoute =
-	(channel: UpdateChannel): APIRoute =>
-	async ({ params }) => {
-		const { target, arch, version } = params;
+	(channel: UpdateChannel, fixedTarget?: UpdateTarget): APIRoute =>
+	async ({ params, url }) => {
+		const { arch, version } = params;
+		const target = fixedTarget ?? params.target;
 		if (!target || !arch || !version) {
 			return new Response(null, { status: 400 });
 		}
@@ -156,7 +175,7 @@ export const updaterRoute =
 		const manifest = await fetchLatestManifest(channel);
 		if (!manifest) return new Response(null, { status: 204 });
 
-		const platform = manifest.platforms[`${target}-${arch}`];
+		const platform = platformFor(manifest, target, arch, bundleFrom(url));
 		if (!platform) return new Response(null, { status: 404 });
 
 		if (!isNewer(manifest.version, version)) {

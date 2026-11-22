@@ -1,0 +1,70 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.ban",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Bans a member from a community. This removes their member record and stops the community issuing them space credentials. Their existing content is not deleted: it stays in their own repo, where it can still be labelled or filtered.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"subject"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community to ban the member from."
+						},
+						"subject": {
+							"type": "string",
+							"format": "did",
+							"description": "The member to ban."
+						},
+						"reason": {
+							"type": "string",
+							"maxLength": 512,
+							"description": "Human-readable reason for the ban."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the member.ban permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "AlreadyBanned",
+					"description": "The subject is already banned from this community."
+				},
+				{
+					"name": "RoleHierarchy",
+					"description": "The subject holds a role at or above the caller's highest role position."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

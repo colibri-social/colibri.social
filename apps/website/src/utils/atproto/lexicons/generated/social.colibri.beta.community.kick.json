@@ -1,0 +1,70 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.kick",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Removes a member from a community. The member may rejoin unless the community requires approval to join.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"subject"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community to remove the member from."
+						},
+						"subject": {
+							"type": "string",
+							"format": "did",
+							"description": "The member to remove."
+						},
+						"reason": {
+							"type": "string",
+							"maxLength": 512,
+							"description": "Human-readable reason for the kick."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the member.kick permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "MemberNotFound",
+					"description": "The subject does not hold a member record in this community."
+				},
+				{
+					"name": "RoleHierarchy",
+					"description": "The subject holds a role at or above the caller's highest role position."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

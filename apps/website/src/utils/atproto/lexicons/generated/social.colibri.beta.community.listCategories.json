@@ -1,0 +1,56 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.listCategories",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets the community's category layout, each category with its channels already nested. This is what a client needs to draw the sidebar in one call.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community to list categories of."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"categories"
+					],
+					"properties": {
+						"categories": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.community.defs#categoryView"
+							},
+							"description": "The community's categories, in display order."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks permission to view this community's categories."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists with that DID."
+				}
+			]
+		}
+	}
+}

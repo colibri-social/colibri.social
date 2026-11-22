@@ -12,8 +12,8 @@ use objc2_video_toolbox::{
     kVTCompressionPropertyKey_AllowFrameReordering, kVTCompressionPropertyKey_AverageBitRate,
     kVTCompressionPropertyKey_ExpectedFrameRate,
     kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration, kVTCompressionPropertyKey_ProfileLevel,
-    kVTCompressionPropertyKey_RealTime, kVTProfileLevel_H264_High_AutoLevel, VTCompressionSession,
-    VTEncodeInfoFlags, VTSession, VTSessionSetProperty,
+    kVTCompressionPropertyKey_RealTime, kVTProfileLevel_H264_ConstrainedBaseline_AutoLevel,
+    VTCompressionSession, VTEncodeInfoFlags, VTSession, VTSessionSetProperty,
 };
 
 use crate::native_error::NativeError;
@@ -245,7 +245,7 @@ impl Encoder {
             set_property(
                 &session,
                 kVTCompressionPropertyKey_ProfileLevel,
-                as_cf_type(kVTProfileLevel_H264_High_AutoLevel),
+                as_cf_type(kVTProfileLevel_H264_ConstrainedBaseline_AutoLevel),
             )?;
             set_property(
                 &session,

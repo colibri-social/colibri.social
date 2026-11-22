@@ -32,7 +32,7 @@ export interface PreviewSupport {
 	reason: string;
 }
 
-export const previewSupport = (): PreviewSupport => {
+const previewSupport = (): PreviewSupport => {
 	if (process.env.COLIBRI_NO_ICON_PREVIEW) {
 		return { enabled: false, reason: "COLIBRI_NO_ICON_PREVIEW is set" };
 	}
@@ -94,7 +94,7 @@ const chunked = (keys: (more: number) => string, payload: string): string => {
 	return out;
 };
 
-export const inlineImage = (name: string): string | null => {
+const inlineImage = (name: string): string | null => {
 	const png = render(name);
 	if (!png) return null;
 

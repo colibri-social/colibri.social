@@ -1,0 +1,57 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.undismissApplication",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Restores a dismissed application to the active queue. This is an AppView-local change and is never written to the community's repo.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"subject"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the application belongs to."
+						},
+						"subject": {
+							"type": "string",
+							"format": "did",
+							"description": "The applicant whose application to restore."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the approval.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "ApplicationNotFound",
+					"description": "No pending application exists for the subject in this community."
+				}
+			]
+		}
+	}
+}

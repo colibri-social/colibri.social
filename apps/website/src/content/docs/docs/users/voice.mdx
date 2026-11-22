@@ -1,0 +1,145 @@
+---
+title: Voice Channels
+description: Join a voice channel, mute and deafen yourself, turn on your camera, share your screen, and fix common voice problems.
+sidebar:
+  order: 2
+---
+
+import { Steps, Tabs, TabItem, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+A voice channel is a room you walk into. Whoever is in the room hears each other, and you leave by walking out!
+
+While you're connected, you can also turn on your camera, share your screen, and write in the channel's own text chat.
+
+## Join a voice channel
+
+<Steps>
+
+1. Select the voice channel in the channel list.
+
+2. If Colibri first shows who is in the channel, select **Join voice**.
+
+3. Allow microphone access when your browser or your device asks.
+
+</Steps>
+
+To leave, select **Leave call** or **Disconnect**.
+
+You can keep reading and writing in other channels while you're connected! Please note that you can only be in one voice channel at a time.
+
+Step 2 depends on a setting. With **Confirm before joining** turned on under **Settings** > **Voice & video**, opening a voice channel shows who's there before you connect. With it turned off, selecting the channel connects you straight away.
+
+## Mute, deafen and other call controls
+
+| Control | What it does |
+| --- | --- |
+| **Mute** / **Unmute** | Turns your microphone off and on. |
+| **Deafen** / **Undeafen** | Turns the sound of the call off and on for you. |
+| **Turn on camera** / **Turn off camera** | Shows or hides your camera for everyone in the channel. |
+| **Share screen** / **Stop sharing** | Starts or stops sharing your screen. |
+| **Open chat** / **Close chat** | Shows or hides the text chat of the voice channel. |
+
+:::caution[TODO: screenshot]
+`voice-call-controls.png`: A call with the control bar and one participant marked **Live**
+:::
+
+## Check your camera before others see it
+
+Open your own menu in the call and select **Preview camera**. Only you can see the preview.
+
+## Share your screen
+
+Screen sharing works in the desktop apps and in desktop browsers that support it. It isn't available on phones and tablets.
+
+<Tabs>
+  <TabItem label="Desktop app">
+    <Steps>
+
+    1. Select **Share screen**. The **Share your screen** window opens.
+
+    2. Pick what everyone in the call sees: a screen, a window, or an app.
+
+    3. Pick a **Resolution** and a **Frame rate**. Higher settings look sharper and smoother, and they need a faster connection.
+
+    4. Turn on **Share sound** to let others hear what's playing on your screen.
+
+    5. Select **Share**.
+
+    </Steps>
+  </TabItem>
+  <TabItem label="Browser">
+    <Steps>
+
+    1. Select **Share screen**.
+
+    2. Pick a **Resolution** and a **Frame rate**.
+
+    3. Select **Continue**.
+
+    4. Your browser asks which screen or window to share. Pick one and confirm.
+
+    </Steps>
+  </TabItem>
+</Tabs>
+
+Select **Stop sharing** to end it.
+
+:::tip
+Browsers cannot share audio from other apps when sharing them. Use the desktop apps if you want to transmit audio from other apps.
+:::
+
+## Make someone louder or quieter
+
+Open the menu of a member in the call to change how that member sounds for you:
+
+- **Volume** sets how loud their voice is.
+- **Stream volume** sets how loud their shared screen is.
+- **Mute stream** silences their shared screen.
+
+These only change what you hear.
+
+## Visibility of a call
+
+Members who can view the voice channel see who is in it, in the channel list, without joining. Next to each name, an icon shows whether that person is muted or deafened, and a **Live** badge shows that they're sharing their screen.
+
+The ring around an avatar that shows who is talking appears only for people in the call you're in.
+
+## A control that is switched off
+
+Roles decide what you can do in a voice channel. Without a permission, the control tells you so:
+
+| You see | Permission you're missing |
+| --- | --- |
+| **You can't join this voice channel.** | **Join voice channels** |
+| **Speaking not allowed** | **Speak** |
+| **Listening not allowed** | **Listen** |
+| **Camera not allowed** | **Use camera** |
+| **Screen sharing not allowed** | **Share screen** |
+
+Without **See text chat**, the text chat of the voice channel is hidden. Without **Send messages**, you can read the chat and react to messages, and you can't write in it.
+
+If the control reads **Muted by a moderator** or **Deafened by a moderator**, a moderator of the Space did that, and it stays that way until they lift it. Ask the owner of the Space about your roles. [Roles and Permissions](/docs/users/spaces/roles-and-permissions) has more information on how they're set.
+
+## Pick your microphone, speaker and camera
+
+**Settings** > **Voice & video** holds your **Microphone**, **Speaker** and **Camera** and their volumes.
+
+- Select **Test microphone** to check your microphone level.
+- **Noise suppression** removes background noise like fans, hum and typing before others hear you.
+- **Voice gate** mutes your microphone between sentences.
+- **Resolution**, **Frame rate** and **Share sound** set the defaults for screen sharing.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Channels and Categories"
+    description="Create a voice channel."
+    href="/docs/users/spaces/channels"
+  />
+  <LinkCard
+    title="Moderate a Space"
+    description="Mute, move and disconnect people in voice."
+    href="/docs/users/spaces/moderation"
+  />
+</CardGrid>

@@ -1,0 +1,61 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.category.delete",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Deletes a category. Its channels are not deleted: they become uncategorised until moved to another category.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"category"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the category belongs to."
+						},
+						"category": {
+							"type": "string",
+							"format": "record-key",
+							"description": "The category's record key."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the category.delete permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "CategoryNotFound",
+					"description": "No category exists at the given record key."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

@@ -60,21 +60,26 @@ const appleBundleVersion = bundleVersion || version;
 
 patch("gen/apple/project.yml", (text) =>
 	text
-		.replace(/CFBundleShortVersionString: .*/, `CFBundleShortVersionString: ${version}`)
-		.replace(/CFBundleVersion: ".*"/, `CFBundleVersion: "${appleBundleVersion}"`),
+		.replace(/CFBundleShortVersionString: .*/g, `CFBundleShortVersionString: ${version}`)
+		.replace(/CFBundleVersion: ".*"/g, `CFBundleVersion: "${appleBundleVersion}"`),
 );
 
-patch("gen/apple/colibri-social_iOS/Info.plist", (text) =>
-	text
-		.replace(
-			/(<key>CFBundleShortVersionString<\/key>\s*<string>)[^<]*(<\/string>)/,
-			`$1${version}$2`,
-		)
-		.replace(
-			/(<key>CFBundleVersion<\/key>\s*<string>)[^<]*(<\/string>)/,
-			`$1${appleBundleVersion}$2`,
-		),
-);
+for (const plist of [
+	"gen/apple/colibri-social_iOS/Info.plist",
+	"gen/apple/NotificationService/Info.plist",
+]) {
+	patch(plist, (text) =>
+		text
+			.replace(
+				/(<key>CFBundleShortVersionString<\/key>\s*<string>)[^<]*(<\/string>)/,
+				`$1${version}$2`,
+			)
+			.replace(
+				/(<key>CFBundleVersion<\/key>\s*<string>)[^<]*(<\/string>)/,
+				`$1${appleBundleVersion}$2`,
+			),
+	);
+}
 
 if (bundleVersion) {
 	patch("tauri.appstore.conf.json", (text) => {

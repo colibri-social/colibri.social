@@ -4,8 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to build (e.g. 0.1.0-rc.3)."
+        description: "Version to build (e.g. 0.1.0-rc.3, or 0.5.0-spaces.1 on the spaces channel)."
         required: true
+      channel:
+        description: "Release channel. spaces ships to TestFlight, the spaces Play track, the Store flight, a beta updater feed and the -beta cask and bucket entries."
+        type: choice
+        default: stable
+        options:
+          - stable
+          - spaces
       appstore:
         description: "Also build and upload the Apple App Store packages."
         type: boolean
@@ -40,12 +47,37 @@ on:
         default: true
 
 concurrency:
-  group: publish-${{ inputs.version }}-${{ inputs.appstore_only }}-${{ inputs.msstore_only }}-${{ inputs.appstore_platform }}-${{ inputs.play_track }}
+  group: publish-${{ inputs.channel }}-${{ inputs.version }}-${{ inputs.appstore_only }}-${{ inputs.msstore_only }}-${{ inputs.appstore_platform }}-${{ inputs.play_track }}
   cancel-in-progress: false
 
+env:
+  SPACES_PLAY_TRACK: Spaces
+  SPACES_TESTFLIGHT_GROUP: External
+
 jobs:
+  channel:
+    name: Check release channel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Match the version to the channel
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$CHANNEL" = "spaces" ]; then
+            if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.0-spaces\.[0-9]+$'; then
+              echo "::error::spaces releases need a version like 0.5.0-spaces.1, got $VERSION"
+              exit 1
+            fi
+          elif echo "$VERSION" | grep -q -- '-spaces\.'; then
+            echo "::error::$VERSION is a spaces version, dispatch it with channel=spaces"
+            exit 1
+          fi
+
   publish-tauri:
     name: Publish (${{ matrix.label }})
+    needs: channel
     if: ${{ !inputs.appstore_only && !inputs.msstore_only }}
     permissions:
       contents: write
@@ -82,7 +114,7 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v6
         with:
-          node-version: lts/*
+          node-version-file: .node-version
           cache: "pnpm"
 
       - name: install frontend dependencies
@@ -92,7 +124,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/assets/files/twemoji
-          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/assets/package.json') }}
           restore-keys: twemoji-${{ runner.os }}-
 
       - name: Fetch twemoji assets
@@ -105,7 +137,7 @@ jobs:
         if: (matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm') && !matrix.is-android
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils libpipewire-0.3-dev libclang-dev
 
       # Android Prerequisites: JDK & Android NDK/SDK configuration
       - name: set up JDK 17 (Android only)
@@ -118,6 +150,8 @@ jobs:
       - name: setup Android SDK (Android only)
         if: matrix.is-android
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Verify prebuilt Assets.car (macOS only)
         if: matrix.platform == 'macos-latest'
@@ -129,9 +163,10 @@ jobs:
         with:
           xcode-version: "26.6"
 
-      - name: install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.99.1
           targets: |
             ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
             ${{ matrix.is-android && 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android' || '' }}
@@ -210,6 +245,20 @@ jobs:
         if: matrix.is-android
         run: echo "ANDROID_VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
 
+      - name: Render pre-release body (spaces only)
+        if: inputs.channel == 'spaces'
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          ANDROID_VERSION=$(node packages/wrapper/scripts/appstore-version.mjs "$VERSION")
+          {
+            echo "RELEASE_BODY<<RELEASE_BODY_EOF"
+            sed -e "s/{{VERSION}}/$VERSION/g" -e "s/{{ANDROID_VERSION}}/$ANDROID_VERSION/g" .github/release-notes/spaces.md
+            echo "RELEASE_BODY_EOF"
+          } >> "$GITHUB_ENV"
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -234,11 +283,19 @@ jobs:
           projectPath: "packages/wrapper"
           tagName: v${{ inputs.version }}
           releaseName: "Colibri Social ${{ inputs.version }}"
-          releaseBody: ""
+          releaseBody: ${{ env.RELEASE_BODY }}
           releaseDraft: false
           prerelease: true
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }}${{ inputs.channel == 'spaces' && !matrix.is-android && format(' --config {0}/packages/wrapper/src-tauri/tauri.spaces.conf.json', github.workspace) || '' }}
           mobile: ${{ matrix.mobile }}
+
+      - name: Verify AppImage uses host PipeWire (Linux only)
+        if: (matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm') && !matrix.is-android
+        run: |
+          set -euo pipefail
+          for APPIMAGE in packages/wrapper/src-tauri/target/release/bundle/appimage/*.AppImage; do
+            bash packages/wrapper/scripts/verify-appimage.sh "$APPIMAGE"
+          done
 
       - name: Verify macOS signing and notarization
         if: matrix.platform == 'macos-latest'
@@ -258,12 +315,17 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: colibri-social
           SENTRY_PROJECT: rust-native-app
+          INCLUDE_SOURCES: ${{ (matrix.platform == 'ubuntu-24.04' || matrix.platform == 'ubuntu-24.04-arm') && 'false' || 'true' }}
         run: |
           if [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
             echo "SENTRY_AUTH_TOKEN is not set, skipping debug symbol upload."
             exit 0
           fi
-          pnpm dlx @sentry/cli debug-files upload --include-sources packages/wrapper/src-tauri/target
+          SOURCES_FLAG=()
+          if [ "$INCLUDE_SOURCES" = "true" ]; then
+            SOURCES_FLAG=(--include-sources)
+          fi
+          pnpm dlx @sentry/cli debug-files upload "${SOURCES_FLAG[@]}" packages/wrapper/src-tauri/target
 
       - name: Route AAB to Play, remove from release (Android only)
         if: matrix.is-android
@@ -289,6 +351,7 @@ jobs:
 
   mas:
     name: Mac App Store
+    needs: channel
     if: ${{ (inputs.appstore || inputs.appstore_only) && inputs.appstore_platform != 'ios' && !inputs.msstore_only }}
     runs-on: macos-latest
     permissions:
@@ -308,7 +371,7 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v6
         with:
-          node-version: lts/*
+          node-version-file: .node-version
           cache: "pnpm"
 
       - name: install frontend dependencies
@@ -318,7 +381,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/assets/files/twemoji
-          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/assets/package.json') }}
           restore-keys: twemoji-${{ runner.os }}-
 
       - name: Fetch twemoji assets
@@ -335,9 +398,10 @@ jobs:
         with:
           xcode-version: "26.6"
 
-      - name: install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.99.1
           targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Rust cache
@@ -440,10 +504,10 @@ jobs:
           exit 1
 
       - name: Render App Store release notes
-        if: steps.validate.outputs.validated == 'true'
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
         run: |
           set -euo pipefail
-          NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
+          NOTES_VERSION=$(node -p "require('./packages/wrapper/package.json').version")
           node --experimental-strip-types scripts/render-release-notes.ts \
             --version="$NOTES_VERSION" --platform=macos --max=4000 \
             --out="$RUNNER_TEMP/whats-new.txt"
@@ -459,8 +523,23 @@ jobs:
         if: steps.validate.outputs.validated == 'true'
         run: pip install --disable-pip-version-check codemagic-cli-tools==0.69.0
 
+      - name: Upload to TestFlight
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'spaces'
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          app-store-connect publish \
+            --path "$PKG_PATH" \
+            --testflight \
+            --expire-build-submitted-for-review \
+            --beta-group "$SPACES_TESTFLIGHT_GROUP" \
+            --whats-new "Colibri Spaces beta ${{ inputs.version }}" \
+            --max-build-processing-wait 45
+
       - name: Upload and submit to App Store
-        if: steps.validate.outputs.validated == 'true'
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
           APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
@@ -493,6 +572,7 @@ jobs:
 
   ios:
     name: iOS App Store
+    needs: channel
     if: ${{ (inputs.appstore || inputs.appstore_only) && inputs.appstore_platform != 'macos' && !inputs.msstore_only }}
     runs-on: macos-latest
     permissions:
@@ -508,7 +588,7 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v6
         with:
-          node-version: lts/*
+          node-version-file: .node-version
           cache: "pnpm"
 
       - name: install frontend dependencies
@@ -518,7 +598,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/assets/files/twemoji
-          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/assets/package.json') }}
           restore-keys: twemoji-${{ runner.os }}-
 
       - name: Fetch twemoji assets
@@ -532,9 +612,10 @@ jobs:
         with:
           xcode-version: "26.6"
 
-      - name: install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.99.1
           targets: aarch64-apple-ios
 
       - name: Rust cache
@@ -564,11 +645,43 @@ jobs:
           node packages/wrapper/scripts/set-version.mjs "$IOS_VERSION" --bundle-version="$GITHUB_RUN_NUMBER"
           echo "IOS_VERSION=$IOS_VERSION" >> "$GITHUB_ENV"
 
-      - name: Build and sign App Store IPA
+      - name: install iOS signing certificate and profiles
         env:
           IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
-          IOS_MOBILE_PROVISION: ${{ secrets.IOS_PROVISIONPROFILE }}
+          IOS_PROVISIONPROFILE: ${{ secrets.IOS_PROVISIONPROFILE }}
+          IOS_NSE_PROVISIONPROFILE: ${{ secrets.IOS_NSE_PROVISIONPROFILE }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/colibri-ios.keychain-db"
+          KEYCHAIN_PASSWORD=$(uuidgen)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+
+          echo "$IOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/distribution.p12"
+          security import "$RUNNER_TEMP/distribution.p12" -k "$KEYCHAIN" \
+            -P "$IOS_CERTIFICATE_PASSWORD" -A
+          rm -f "$RUNNER_TEMP/distribution.p12"
+
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+
+          EXISTING=$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')
+          security list-keychains -d user -s "$KEYCHAIN" $EXISTING
+          security default-keychain -s "$KEYCHAIN"
+          security find-identity -v -p codesigning "$KEYCHAIN" | grep -qF "Apple Distribution"
+
+          echo "$IOS_PROVISIONPROFILE" | base64 --decode > "$RUNNER_TEMP/app.mobileprovision"
+          echo "$IOS_NSE_PROVISIONPROFILE" | base64 --decode > "$RUNNER_TEMP/nse.mobileprovision"
+          test -s "$RUNNER_TEMP/app.mobileprovision"
+          test -s "$RUNNER_TEMP/nse.mobileprovision"
+          echo "IOS_APP_PROFILE=$RUNNER_TEMP/app.mobileprovision" >> "$GITHUB_ENV"
+          echo "IOS_NSE_PROFILE=$RUNNER_TEMP/nse.mobileprovision" >> "$GITHUB_ENV"
+
+      - name: Build and sign App Store IPA
+        env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_DEVELOPMENT_TEAM: "8V8SWK3942"
@@ -607,10 +720,10 @@ jobs:
           exit 1
 
       - name: Render App Store release notes
-        if: steps.validate.outputs.validated == 'true'
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
         run: |
           set -euo pipefail
-          NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
+          NOTES_VERSION=$(node -p "require('./packages/wrapper/package.json').version")
           node --experimental-strip-types scripts/render-release-notes.ts \
             --version="$NOTES_VERSION" --platform=ios --max=4000 \
             --out="$RUNNER_TEMP/whats-new.txt"
@@ -626,8 +739,23 @@ jobs:
         if: steps.validate.outputs.validated == 'true'
         run: pip install --disable-pip-version-check codemagic-cli-tools==0.69.0
 
+      - name: Upload to TestFlight
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'spaces'
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          app-store-connect publish \
+            --path "$IPA_PATH" \
+            --testflight \
+            --expire-build-submitted-for-review \
+            --beta-group "$SPACES_TESTFLIGHT_GROUP" \
+            --whats-new "Colibri Spaces beta ${{ inputs.version }}" \
+            --max-build-processing-wait 45
+
       - name: Upload and submit to App Store
-        if: steps.validate.outputs.validated == 'true'
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
           APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
@@ -683,6 +811,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TOKEN: ${{ steps.app-token.outputs.token }}
           VERSION: ${{ inputs.version }}
+          CASK: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
+          CONFLICTS: ${{ inputs.channel == 'spaces' && 'colibri-social' || 'colibri-social-beta' }}
         run: |
           set -euo pipefail
           TAG="v$VERSION"
@@ -699,8 +829,8 @@ jobs:
           git clone --depth 1 "https://x-access-token:$TOKEN@github.com/colibri-social/homebrew-tap.git" "$TAP_DIR"
           echo "TAP_DIR=$TAP_DIR" >> "$GITHUB_ENV"
           mkdir -p "$TAP_DIR/Casks"
-          cat > "$TAP_DIR/Casks/colibri-social.rb" <<RUBY
-          cask "colibri-social" do
+          cat > "$TAP_DIR/Casks/$CASK.rb" <<RUBY
+          cask "$CASK" do
             version "$VERSION"
             sha256 "$SHA"
 
@@ -708,6 +838,8 @@ jobs:
             name "Colibri Social"
             desc "Next-generation social chat app built on the AT Protocol"
             homepage "https://colibri.social"
+
+            conflicts_with cask: "$CONFLICTS"
 
             app "Colibri Social.app"
 
@@ -727,9 +859,10 @@ jobs:
       - name: Verify cask install
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
+          CASK: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
         run: |
           set -euo pipefail
-          brew install --cask colibri-social/tap/colibri-social
+          brew install --cask "colibri-social/tap/$CASK"
           APP="/Applications/Colibri Social.app"
           test -d "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
@@ -739,14 +872,15 @@ jobs:
       - name: Push cask
         env:
           VERSION: ${{ inputs.version }}
+          CASK: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
         run: |
           set -euo pipefail
           cd "$TAP_DIR"
           git config user.name "colibri-release[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/colibri-social.rb
+          git add "Casks/$CASK.rb"
           git diff --cached --quiet && exit 0
-          git commit -m "colibri-social $VERSION"
+          git commit -m "$CASK $VERSION"
           git branch -M main
           git push origin HEAD:main
 
@@ -768,6 +902,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TOKEN: ${{ steps.app-token.outputs.token }}
           VERSION: ${{ inputs.version }}
+          MANIFEST: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
         run: |
           set -euo pipefail
           TAG="v$VERSION"
@@ -788,13 +923,13 @@ jobs:
             architecture: { "64bit": { url: $url, hash: $hash } },
             post_install: ["Remove-Item \"$dir\\`$PLUGINSDIR\" -Recurse -Force -ErrorAction SilentlyContinue"],
             shortcuts: [["Colibri Social.exe", "Colibri Social"]]
-          }' > bucket/bucket/colibri-social.json
+          }' > "bucket/bucket/$MANIFEST.json"
           cd bucket
           git config user.name "colibri-release[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add bucket/colibri-social.json
+          git add "bucket/$MANIFEST.json"
           git diff --cached --quiet && exit 0
-          git commit -m "colibri-social $VERSION"
+          git commit -m "$MANIFEST $VERSION"
           git branch -M main
           git push origin HEAD:main
 
@@ -809,7 +944,7 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v6
         with:
-          node-version: lts/*
+          node-version-file: .node-version
 
       - name: Download AAB artifact
         uses: actions/download-artifact@v4
@@ -821,32 +956,32 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p whatsnew
-          NOTES_VERSION=$(node -p "require('./packages/client/package.json').version")
+          NOTES_VERSION=$(node -p "require('./packages/wrapper/package.json').version")
           node --experimental-strip-types scripts/render-release-notes.ts \
             --version="$NOTES_VERSION" --platform=android --max=500 \
-            ${{ inputs.play_track == 'production' && '--strict' || '' }} \
+            ${{ inputs.channel == 'stable' && inputs.play_track == 'production' && '--strict' || '' }} \
             --out=whatsnew/whatsnew-en-US
           cat whatsnew/whatsnew-en-US
 
       - name: Compute Play release name (production only)
-        if: inputs.play_track == 'production'
+        if: inputs.channel == 'stable' && inputs.play_track == 'production'
         env:
           VERSION: ${{ inputs.version }}
         run: echo "PLAY_RELEASE_NAME=$VERSION ($(date -u +%F))" >> "$GITHUB_ENV"
 
       - name: Upload to Play (testing track)
-        if: inputs.play_track != 'production'
+        if: inputs.channel == 'spaces' || inputs.play_track != 'production'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: social.colibri.app
           releaseFiles: dl/*.aab
-          track: ${{ inputs.play_track }}
+          track: ${{ inputs.channel == 'spaces' && env.SPACES_PLAY_TRACK || inputs.play_track }}
           status: completed
           whatsNewDirectory: whatsnew
 
       - name: Upload to Play (production, staged rollout)
-        if: inputs.play_track == 'production'
+        if: inputs.channel == 'stable' && inputs.play_track == 'production'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
@@ -859,7 +994,7 @@ jobs:
           whatsNewDirectory: whatsnew
 
       - name: Mirror onto the testing tracks
-        if: inputs.play_mirror_testing
+        if: inputs.play_mirror_testing && inputs.channel == 'stable'
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           SOURCE_TRACK: ${{ inputs.play_track }}
@@ -878,7 +1013,8 @@ jobs:
             --notes=whatsnew/whatsnew-en-US
 
   msstore-build:
-    if: ${{ inputs.msstore_only || !inputs.appstore_only }}
+    needs: channel
+    if: ${{ (inputs.msstore_only || !inputs.appstore_only) && (inputs.channel == 'stable' || vars.MSSTORE_SPACES_FLIGHT_ID != '') }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -889,7 +1025,7 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v6
         with:
-          node-version: lts/*
+          node-version-file: .node-version
           cache: "pnpm"
 
       - name: install frontend dependencies
@@ -899,7 +1035,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/assets/files/twemoji
-          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/client/package.json') }}
+          key: twemoji-${{ runner.os }}-${{ hashFiles('packages/assets/scripts/fetch-emoji-assets.mjs', 'packages/assets/package.json') }}
           restore-keys: twemoji-${{ runner.os }}-
 
       - name: Fetch twemoji assets
@@ -908,8 +1044,10 @@ jobs:
       - name: Build frontend dependencies
         run: pnpm --filter "@colibri-social/wrapper^..." build
 
-      - name: install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -1014,8 +1152,18 @@ jobs:
 
       - name: Publish MSIX to Microsoft Store
         shell: pwsh
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          SPACES_FLIGHT_ID: ${{ vars.MSSTORE_SPACES_FLIGHT_ID }}
         run: |
           $bundle = Get-ChildItem -Path dl -Filter *.msixbundle | Select-Object -First 1
           if (-not $bundle) { throw "No .msixbundle found in dl/" }
-          Write-Host "Publishing $($bundle.Name) to product 9P8Q77FCCSWR"
-          msstore publish $bundle.FullName -id 9P8Q77FCCSWR --uploadTimeout 600 --verbose
+          if ($env:CHANNEL -eq "spaces") {
+            $flightId = "$env:SPACES_FLIGHT_ID".Trim()
+            if ([string]::IsNullOrWhiteSpace($flightId)) { throw "Repository variable MSSTORE_SPACES_FLIGHT_ID is empty or unset." }
+            Write-Host "Publishing $($bundle.Name) to flight $flightId of product 9P8Q77FCCSWR"
+            msstore publish $bundle.FullName -id 9P8Q77FCCSWR -f $flightId --uploadTimeout 600 --verbose
+          } else {
+            Write-Host "Publishing $($bundle.Name) to product 9P8Q77FCCSWR"
+            msstore publish $bundle.FullName -id 9P8Q77FCCSWR --uploadTimeout 600 --verbose
+          }

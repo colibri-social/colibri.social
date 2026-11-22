@@ -1,0 +1,43 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.embed.gifCategories",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists the categories shown in the GIF picker.",
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"categories"
+					],
+					"properties": {
+						"categories": {
+							"type": "array",
+							"description": "The GIF picker's categories.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.embed.defs#gifCategory"
+							}
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "GifsNotConfigured",
+					"description": "This AppView has no GIF provider key configured."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "The GIF provider failed."
+				}
+			]
+		}
+	}
+}

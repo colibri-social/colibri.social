@@ -1,0 +1,68 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.polyfill.getRecord",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Reads one record from the requesting user's repo in a space the AppView hosts for them.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"space",
+					"collection",
+					"rkey"
+				],
+				"properties": {
+					"space": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "The space holding the repo."
+					},
+					"collection": {
+						"type": "string",
+						"format": "nsid",
+						"description": "The record's collection."
+					},
+					"rkey": {
+						"type": "string",
+						"format": "record-key",
+						"description": "The record key."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "ref",
+					"ref": "social.colibri.beta.polyfill.defs#recordView"
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "SpaceNotFound",
+					"description": "No space matches the given space reference."
+				},
+				{
+					"name": "NotAuthorized",
+					"description": "The caller may not write to or read from this repo in the space."
+				},
+				{
+					"name": "RepoNotHosted",
+					"description": "The AppView does not host the caller's repo in this space, because it lives on the caller's PDS. Write to the PDS instead."
+				},
+				{
+					"name": "RecordNotFound",
+					"description": "No record matches."
+				}
+			]
+		}
+	}
+}

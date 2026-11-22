@@ -1,0 +1,59 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.delete",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Deletes a channel's space. Messages members wrote in it stay in their own repos and become unreadable to everyone but their authors.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"channel"
+					],
+					"properties": {
+						"channel": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The channel to delete."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the channel.delete permission."
+				},
+				{
+					"name": "ChannelNotFound",
+					"description": "No channel matches the given space reference."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				},
+				{
+					"name": "PdsUnavailable",
+					"description": "The community's PDS is unreachable or the AppView has no administrative access to it."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "The community's PDS failed while deleting the channel's space."
+				}
+			]
+		}
+	}
+}

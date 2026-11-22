@@ -1,0 +1,68 @@
+import type { AudienceRole, MemberIdentityData } from "@colibri-social/ui";
+import { createMemo } from "solid-js";
+import { displayNameOf } from "../../../data/adapters/authors";
+import { rankOf } from "../../../data/member-permissions";
+import {
+	displayRoleIdentity,
+	isVisibleRole,
+	roleIdentity,
+} from "../../../data/roles";
+import type { SpaceData } from "../../../data/store";
+import { useData } from "../../../data/store";
+import type { CommunityView, Did } from "../../../data/types";
+import { uiPresence } from "../../members/member-adapter";
+
+export type Audience = { roles: string[]; members: string[] };
+
+export const createAudienceOptions = (
+	community: () => CommunityView | undefined,
+	space: () => SpaceData | undefined,
+) => {
+	const data = useData();
+	const roles = createMemo(() =>
+		[...(space()?.roles.value() ?? [])].sort((a, b) => b.position - a.position),
+	);
+	const isOwner = () => !!community()?.viewer.isOwner;
+	const rank = createMemo(() =>
+		rankOf(community()?.viewer.roles ?? [], roles(), isOwner()),
+	);
+	const roleOptions = createMemo((): AudienceRole[] =>
+		roles()
+			.filter(isVisibleRole)
+			.map((role) => ({ ...roleIdentity(role), id: role.rkey })),
+	);
+	const memberOptions = createMemo((): MemberIdentityData[] =>
+		(space()?.members.value() ?? []).map((member) => {
+			const ranked = roles().filter(
+				(role) => member.roles.includes(role.rkey) && isVisibleRole(role),
+			);
+
+			return {
+				id: member.actor.did,
+				name: displayNameOf(member.actor, member),
+				handle: member.actor.handle,
+				avatarSrc: member.actor.avatar,
+				presence: uiPresence(data.presenceOf(member.actor.did)),
+				role: displayRoleIdentity(ranked),
+				bot: member.actor.isBot,
+			};
+		}),
+	);
+	const canSelectRole = (rkey: string) => {
+		if (isOwner()) return true;
+		const role = roles().find((entry) => entry.rkey === rkey);
+		return !!role && !role.protected && role.position < rank();
+	};
+	const canSelectMember = (did: string) => {
+		if (isOwner()) return true;
+		if (did === data.viewer.did) return false;
+		const member = space()?.memberByDid(did as Did);
+		return rankOf(member?.roles ?? [], roles()) < rank();
+	};
+	return {
+		roles: roleOptions,
+		members: memberOptions,
+		canSelectRole,
+		canSelectMember,
+	};
+};

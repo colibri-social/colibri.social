@@ -1,0 +1,32 @@
+@media (pointer: fine) {
+	@supports not selector(::-webkit-scrollbar) {
+		* {
+			scrollbar-width: thin;
+			scrollbar-color: var(--accent) transparent;
+		}
+	}
+
+	::-webkit-scrollbar {
+		width: 10px;
+		height: 10px;
+		background: transparent;
+	}
+
+	::-webkit-scrollbar-track,
+	::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+
+	::-webkit-scrollbar-thumb {
+		min-height: 32px;
+		border: 2px solid transparent;
+		border-radius: 9999px;
+		background-color: var(--accent);
+		background-clip: padding-box;
+	}
+
+	::-webkit-scrollbar-thumb:hover,
+	::-webkit-scrollbar-thumb:active {
+		background-color: var(--muted-foreground);
+	}
+}

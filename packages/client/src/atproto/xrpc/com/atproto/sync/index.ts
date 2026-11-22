@@ -1,1 +1,0 @@
-export { getRecord } from "./getRecord";

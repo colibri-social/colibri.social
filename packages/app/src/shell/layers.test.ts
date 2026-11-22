@@ -1,0 +1,355 @@
+import { describe, expect, it } from "vitest";
+import { DISCOVERY_ENABLED } from "./features";
+import {
+	messagePath,
+	messageTargetOf,
+	parsePath,
+	pathAt,
+	type Route,
+	rootPath,
+	routeRoot,
+	sameLayer,
+	withoutMessages,
+} from "./layers";
+
+const DID = "did:plc:hq";
+const TEXT = "social.colibri.beta.channel.text";
+
+describe("paths", () => {
+	it("round-trips Space management pages with their parents", () => {
+		const route = parsePath(`/app/c/${DID}/manage/role/r1`);
+		expect(route.layers).toEqual([
+			{ kind: "admin", space: DID, page: "overview" },
+			{ kind: "admin", space: DID, page: "roles" },
+			{ kind: "admin", space: DID, page: "role", id: "r1" },
+		]);
+		expect(pathAt(route, 3)).toBe(`/app/c/${DID}/manage/role/r1`);
+		expect(pathAt(route, 1)).toBe(`/app/c/${DID}/manage/overview`);
+		expect(parsePath(`/app/c/${DID}/manage/channel/general`).layers).toEqual([
+			{ kind: "admin", space: DID, page: "channel", id: "general" },
+		]);
+		expect(parsePath(`/app/c/${DID}/manage/nope`).layers).toEqual([
+			{ kind: "notFound", path: `/app/c/${DID}/manage/nope` },
+		]);
+		expect(
+			parsePath(`/app/c/${DID}/manage/bridge-connect/matrix`).layers.map(
+				(layer) => (layer.kind === "admin" ? layer.page : layer.kind),
+			),
+		).toEqual(["overview", "bridges", "bridge-new", "bridge-connect"]);
+	});
+
+	it("round-trips create and invite paths", () => {
+		for (const path of ["/app/new", "/app/invite/abc123"]) {
+			const route = parsePath(path);
+			expect(route.root.tab).toBe("spaces");
+			expect(pathAt(route, 1)).toBe(path);
+		}
+	});
+
+	it.skipIf(DISCOVERY_ENABLED)("treats the discover path as unknown", () => {
+		expect(parsePath("/app/discover").layers).toEqual([
+			{ kind: "notFound", path: "/app/discover" },
+		]);
+	});
+
+	it.skipIf(!DISCOVERY_ENABLED)("round-trips the discover path", () => {
+		const route = parsePath("/app/discover");
+		expect(route.root.tab).toBe("spaces");
+		expect(pathAt(route, 1)).toBe("/app/discover");
+	});
+
+	it("opens home on the sign-in return path", () => {
+		expect(parsePath("/app/login")).toEqual({
+			root: { tab: "spaces" },
+			layers: [],
+		});
+		expect(parsePath("/app/login/extra").layers[0]?.kind).toBe("notFound");
+	});
+
+	it("round-trips the emoji pack path", () => {
+		const path = "/app/emoji/did:plc:abc/3kowls";
+		const route = parsePath(path);
+		expect(route).toEqual({
+			root: { tab: "spaces" },
+			layers: [{ kind: "pack", did: "did:plc:abc", rkey: "3kowls" }],
+		});
+		expect(pathAt(route, 1)).toBe(path);
+	});
+
+	it("opens shared emoji pack links from the web origin", () => {
+		expect(parsePath("/emoji/did%3Aplc%3Aabc/3kowls").layers).toEqual([
+			{ kind: "pack", did: "did:plc:abc", rkey: "3kowls" },
+		]);
+	});
+
+	it("opens shared invite links from the web origin", () => {
+		expect(parsePath("/invite/abc123")).toEqual({
+			root: { tab: "spaces" },
+			layers: [{ kind: "join", code: "abc123" }],
+		});
+	});
+
+	it("round-trips every layer depth", () => {
+		const route: Route = {
+			root: { tab: "spaces", space: DID },
+			layers: [
+				{ kind: "chat", space: DID, channel: "general", channelType: TEXT },
+				{ kind: "members", space: DID, channel: "general", channelType: TEXT },
+			],
+		};
+		expect(pathAt(route, 0)).toBe(`/app/c/${DID}`);
+		expect(pathAt(route, 1)).toBe(`/app/c/${DID}/${TEXT}/general`);
+		expect(pathAt(route, 2)).toBe(`/app/c/${DID}/${TEXT}/general/members`);
+		expect(parsePath(`/app/c/${DID}/${TEXT}/general/members`)).toEqual(route);
+	});
+
+	it("matches the current client's thread paths", () => {
+		expect(parsePath(`/app/c/${DID}/${TEXT}/general/t/abc`).layers[1]).toEqual({
+			kind: "thread",
+			space: DID,
+			channel: "general",
+			channelType: TEXT,
+			thread: "abc",
+		});
+	});
+
+	it("round-trips a thread's members below the thread", () => {
+		const target = { space: DID, channel: "general", channelType: TEXT };
+		const route: Route = {
+			root: { tab: "spaces", space: DID },
+			layers: [
+				{ kind: "chat", ...target },
+				{ kind: "thread", ...target, thread: "abc" },
+				{ kind: "members", ...target, thread: "abc" },
+			],
+		};
+		expect(pathAt(route, 3)).toBe(
+			`/app/c/${DID}/${TEXT}/general/t/abc/members`,
+		);
+		expect(parsePath(pathAt(route, 3))).toEqual(route);
+		expect(parsePath(`${pathAt(route, 3)}/extra`).layers[0]?.kind).toBe(
+			"notFound",
+		);
+		expect(sameLayer(route.layers[2], { kind: "members", ...target })).toBe(
+			false,
+		);
+	});
+
+	it("round-trips thread drafts with and without an anchor", () => {
+		const chat = {
+			kind: "chat" as const,
+			space: DID,
+			channel: "general",
+			channelType: TEXT,
+		};
+		const anchored: Route = {
+			root: { tab: "spaces", space: DID },
+			layers: [chat, { ...chat, kind: "threadDraft", anchor: "3l2abc" }],
+		};
+		expect(pathAt(anchored, 2)).toBe(
+			`/app/c/${DID}/${TEXT}/general/t/new/3l2abc`,
+		);
+		expect(parsePath(pathAt(anchored, 2))).toEqual(anchored);
+		const blank: Route = {
+			root: { tab: "spaces", space: DID },
+			layers: [chat, { ...chat, kind: "threadDraft" }],
+		};
+		expect(pathAt(blank, 2)).toBe(`/app/c/${DID}/${TEXT}/general/t/new`);
+		expect(parsePath(pathAt(blank, 2))).toEqual(blank);
+	});
+
+	it("round-trips the thread list and a thread opened from it", () => {
+		const target = { space: DID, channel: "general", channelType: TEXT };
+		const route: Route = {
+			root: { tab: "spaces", space: DID },
+			layers: [
+				{ kind: "chat", ...target },
+				{ kind: "threads", ...target },
+				{ kind: "thread", ...target, thread: "abc", via: "threads" },
+			],
+		};
+		expect(pathAt(route, 2)).toBe(`/app/c/${DID}/${TEXT}/general/threads`);
+		expect(pathAt(route, 3)).toBe(
+			`/app/c/${DID}/${TEXT}/general/threads/t/abc`,
+		);
+		expect(parsePath(pathAt(route, 3))).toEqual(route);
+		expect(parsePath(pathAt(route, 2))).toEqual({
+			...route,
+			layers: route.layers.slice(0, 2),
+		});
+	});
+
+	it("parses tab roots", () => {
+		expect(parsePath("/app/inbox")).toEqual({
+			root: { tab: "inbox" },
+			layers: [],
+		});
+		expect(rootPath({ tab: "settings" })).toBe("/app/settings");
+	});
+
+	it("parses the profile editor over the Profile tab", () => {
+		const route = parsePath("/app/profile/edit");
+		expect(route).toEqual({
+			root: { tab: "profile" },
+			layers: [{ kind: "editProfile" }],
+		});
+		expect(pathAt(route, 0)).toBe("/app/profile");
+		expect(pathAt(route, 1)).toBe("/app/profile/edit");
+	});
+
+	it("opens the Spaces tab at the app roots", () => {
+		for (const path of ["/", "/app", "/app/"]) {
+			expect(parsePath(path)).toEqual({ root: { tab: "spaces" }, layers: [] });
+		}
+	});
+
+	it("routes unknown paths to a not found layer that keeps the URL", () => {
+		for (const path of [
+			"/nope/x",
+			"/app/nope",
+			"/app/c/not-a-did",
+			"/app/inbox/extra",
+			"/app/new/extra",
+			"/invite/abc/extra",
+			"/emoji/lou.gg/3kowls",
+			"/emoji/did:plc:abc",
+			"/app/emoji/did:plc:abc/3kowls/extra",
+			`/app/c/${DID}/${TEXT}/general/bogus`,
+			`/app/c/${DID}/${TEXT}/general/t/abc/bogus`,
+			`/app/c/${DID}/${TEXT}/general/threads/x/abc`,
+			`/app/c/${DID}/${TEXT}`,
+			"/app/%E0%A4%A",
+		]) {
+			const route = parsePath(path);
+			expect(route).toEqual({
+				root: { tab: "spaces" },
+				layers: [{ kind: "notFound", path }],
+			});
+			expect(pathAt(route, 1)).toBe(path);
+		}
+	});
+
+	it("keeps settings sub-pages on the Settings tab", () => {
+		expect(parsePath("/app/settings/appearance")).toEqual({
+			root: { tab: "settings" },
+			layers: [{ kind: "settings", page: "appearance" }],
+		});
+	});
+
+	it("encodes unusual channel keys", () => {
+		const route = parsePath(`/app/c/${DID}/${TEXT}/c%2Fd`);
+		expect(route.layers[0]).toMatchObject({ channel: "c/d" });
+		expect(pathAt(route, 1)).toBe(`/app/c/${DID}/${TEXT}/c%2Fd`);
+	});
+});
+
+describe("message permalinks", () => {
+	const chat = `/app/c/${DID}/${TEXT}/general`;
+
+	it("parses a channel message link into a chat layer with the message", () => {
+		const route = parsePath(`${chat}/m/3kmsg`);
+		expect(route.root).toEqual({ tab: "spaces", space: DID });
+		expect(route.layers).toEqual([
+			{
+				kind: "chat",
+				space: DID,
+				channel: "general",
+				channelType: TEXT,
+				message: "3kmsg",
+			},
+		]);
+		expect(messageTargetOf(route)).toEqual({
+			space: DID,
+			channel: "general",
+			channelType: TEXT,
+			rkey: "3kmsg",
+		});
+	});
+
+	it("parses a thread message link into a thread layer with the message", () => {
+		const route = parsePath(`${chat}/t/3kthread/m/3kmsg`);
+		expect(route.layers).toEqual([
+			{ kind: "chat", space: DID, channel: "general", channelType: TEXT },
+			{
+				kind: "thread",
+				space: DID,
+				channel: "general",
+				channelType: TEXT,
+				thread: "3kthread",
+				message: "3kmsg",
+			},
+		]);
+		expect(messageTargetOf(route)).toEqual({
+			space: DID,
+			channel: "general",
+			channelType: TEXT,
+			thread: "3kthread",
+			rkey: "3kmsg",
+		});
+	});
+
+	it("builds links that parse back to the same message", () => {
+		const target = {
+			space: DID,
+			channel: "general",
+			channelType: TEXT,
+			thread: "3kthread",
+			rkey: "3kmsg",
+		};
+		expect(messagePath(target)).toBe(`${chat}/t/3kthread/m/3kmsg`);
+		expect(messageTargetOf(parsePath(messagePath(target)))).toEqual(target);
+		const { thread: _thread, ...inChannel } = target;
+		expect(messagePath(inChannel)).toBe(`${chat}/m/3kmsg`);
+		expect(messageTargetOf(parsePath(messagePath(inChannel)))).toEqual(
+			inChannel,
+		);
+	});
+
+	it("keeps the message out of the layer path and identity", () => {
+		const route = parsePath(`${chat}/t/3kthread/m/3kmsg`);
+		expect(pathAt(route, 1)).toBe(chat);
+		expect(pathAt(route, 2)).toBe(`${chat}/t/3kthread`);
+		expect(
+			sameLayer(route.layers[1], parsePath(`${chat}/t/3kthread`).layers[1]),
+		).toBe(true);
+		expect(withoutMessages(route)).toEqual(parsePath(`${chat}/t/3kthread`));
+		expect(messageTargetOf(parsePath(chat))).toBeUndefined();
+	});
+
+	it("rejects malformed message links", () => {
+		for (const path of [
+			`${chat}/m`,
+			`${chat}/m/3kmsg/extra`,
+			`${chat}/t/3kthread/m`,
+			`${chat}/t/3kthread/m/3kmsg/extra`,
+		]) {
+			expect(parsePath(path).layers[0]?.kind).toBe("notFound");
+		}
+	});
+});
+
+describe("route roots", () => {
+	it("leaves the root out of overlay routes", () => {
+		expect(routeRoot(parsePath(`/app/emoji/${DID}/pack`))).toBeUndefined();
+		expect(routeRoot(parsePath("/app/invite/abc"))).toBeUndefined();
+		expect(routeRoot(parsePath("/app/new"))).toBeUndefined();
+		expect(routeRoot(parsePath("/app/nowhere/at/all"))).toBeUndefined();
+	});
+
+	it("keeps a cold-load root for overlay paths", () => {
+		expect(parsePath(`/app/emoji/${DID}/pack`).root).toEqual({
+			tab: "spaces",
+		});
+	});
+
+	it("keeps the root of every other route", () => {
+		expect(routeRoot(parsePath(`/app/c/${DID}`))).toEqual({
+			tab: "spaces",
+			space: DID,
+		});
+		expect(routeRoot(parsePath("/app/settings/support"))).toEqual({
+			tab: "settings",
+		});
+		expect(routeRoot(parsePath("/app"))).toEqual({ tab: "spaces" });
+	});
+});

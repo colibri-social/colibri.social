@@ -1,0 +1,74 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.install",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Connects a bridge to a community by its handle or DID, for bridges that set up rooms with commands in the channels they can use. Writes a registration with no linked or open channels.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"bridge"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community to connect the bridge to."
+						},
+						"bridge": {
+							"type": "string",
+							"format": "at-identifier",
+							"description": "The bridge's handle or DID."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"registration"
+					],
+					"properties": {
+						"registration": {
+							"type": "ref",
+							"ref": "social.colibri.beta.bridge.defs#registrationView",
+							"description": "The registration."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the community.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "BridgeNotFound",
+					"description": "The handle or DID does not resolve to an identity."
+				},
+				{
+					"name": "AlreadyRegistered",
+					"description": "This bridge is already installed in this community."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

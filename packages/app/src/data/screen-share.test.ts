@@ -1,0 +1,320 @@
+import type {
+	ScreenShareFramerate,
+	ScreenShareResolution,
+} from "@colibri-social/ui";
+import { describe, expect, it } from "vitest";
+import {
+	captureSurfaceKind,
+	DEFAULT_SCREEN_SHARE,
+	displayMediaRequest,
+	displayVideoRequest,
+	isLinuxApp,
+	isScreenShareOptions,
+	SCREEN_SHARE_FRAMERATES,
+	SCREEN_SHARE_RESOLUTIONS,
+	screenCodecOptions,
+	screenContentHint,
+	screenDegradationPreference,
+	screenEncodings,
+	screenEncodingTarget,
+	screenMaxBitrate,
+	screenVideoConstraints,
+	supportsDisplayAudio,
+} from "./screen-share";
+
+const TAURI_MACOS =
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)";
+const SAFARI_MACOS =
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15";
+const CHROME_DESKTOP =
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+const EDGE_WINDOWS =
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0";
+const FIREFOX =
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:133.0) Gecko/20100101 Firefox/133.0";
+
+describe("screenVideoConstraints", () => {
+	it("caps height for fixed resolutions without constraining width", () => {
+		const constraints = screenVideoConstraints({
+			resolution: "1080",
+			framerate: 30,
+		});
+
+		expect(constraints.height).toEqual({ ideal: 1080, max: 1080 });
+		expect(constraints.width).toBeUndefined();
+	});
+
+	it("leaves height unconstrained at source resolution", () => {
+		const constraints = screenVideoConstraints({
+			resolution: "source",
+			framerate: 60,
+		});
+
+		expect(constraints.height).toBeUndefined();
+		expect(constraints.frameRate).toEqual({ ideal: 60, max: 60 });
+	});
+
+	it("never uses exact so a smaller source still shares", () => {
+		for (const resolution of SCREEN_SHARE_RESOLUTIONS) {
+			for (const framerate of SCREEN_SHARE_FRAMERATES) {
+				const serialized = JSON.stringify(
+					screenVideoConstraints({ resolution, framerate }),
+				);
+				expect(serialized).not.toContain("exact");
+			}
+		}
+	});
+});
+
+describe("screenMaxBitrate", () => {
+	it("returns a bitrate for every ladder combination", () => {
+		for (const resolution of SCREEN_SHARE_RESOLUTIONS) {
+			for (const framerate of SCREEN_SHARE_FRAMERATES) {
+				expect(screenMaxBitrate({ resolution, framerate })).toBeGreaterThan(0);
+			}
+		}
+	});
+
+	it("rises with framerate at a fixed resolution", () => {
+		const at = (framerate: ScreenShareFramerate): number =>
+			screenMaxBitrate({ resolution: "1080", framerate });
+
+		expect(at(15)).toBeLessThan(at(30));
+		expect(at(30)).toBeLessThan(at(60));
+	});
+
+	it("rises with resolution at a fixed framerate", () => {
+		const at = (resolution: ScreenShareResolution): number =>
+			screenMaxBitrate({ resolution, framerate: 30 });
+
+		expect(at("720")).toBeLessThan(at("1080"));
+		expect(at("1080")).toBeLessThan(at("1440"));
+	});
+});
+
+describe("screenEncodings and screenCodecOptions", () => {
+	it("produces a single encoding capped at the ladder bitrate and framerate", () => {
+		const quality = { resolution: "1440", framerate: 30 } as const;
+		expect(screenEncodings(quality, undefined, false)).toEqual([
+			{ maxBitrate: screenMaxBitrate(quality), maxFramerate: 30 },
+		]);
+	});
+
+	it("adds temporal layers when a scalability mode is given", () => {
+		const quality = { resolution: "1080", framerate: 60 } as const;
+		expect(screenEncodings(quality, "L1T3", false)).toEqual([
+			{
+				maxBitrate: screenMaxBitrate(quality),
+				maxFramerate: 60,
+				scalabilityMode: "L1T3",
+			},
+		]);
+	});
+
+	it("sends a half resolution layer below the preset by default", () => {
+		const quality = { resolution: "1080", framerate: 30 } as const;
+		const top = screenMaxBitrate(quality);
+		expect(screenEncodings(quality, "L1T3")).toEqual([
+			{
+				scaleResolutionDownBy: 2,
+				maxBitrate: Math.round(top * 0.3),
+				maxFramerate: 30,
+				scalabilityMode: "L1T3",
+			},
+			{
+				scaleResolutionDownBy: 1,
+				maxBitrate: top,
+				maxFramerate: 30,
+				scalabilityMode: "L1T3",
+			},
+		]);
+	});
+
+	it("sizes the encoder target from the capture or the chosen resolution", () => {
+		const quality = { resolution: "1080", framerate: 30 } as const;
+		expect(screenEncodingTarget(quality)).toEqual({
+			width: 1920,
+			height: 1080,
+			framerate: 30,
+			bitrate: screenMaxBitrate(quality),
+		});
+		expect(
+			screenEncodingTarget(
+				{ resolution: "source", framerate: 60 },
+				{ width: 2560, height: 1600 },
+			),
+		).toMatchObject({ width: 2560, height: 1600, framerate: 60 });
+	});
+
+	it("starts the encoder at half the ceiling in kbps", () => {
+		const quality = { resolution: "1080", framerate: 30 } as const;
+		expect(screenCodecOptions(quality)).toEqual({
+			videoGoogleStartBitrate: Math.round(screenMaxBitrate(quality) / 2000),
+		});
+	});
+});
+
+describe("content hint and degradation preference", () => {
+	it("favours detail at 15 and 30 fps", () => {
+		for (const framerate of [15, 30] as const) {
+			const quality = { resolution: "1080", framerate } as const;
+			expect(screenContentHint(quality)).toBe("detail");
+			expect(screenDegradationPreference(quality)).toBe("maintain-resolution");
+		}
+	});
+
+	it("favours motion at 60 fps", () => {
+		const quality = { resolution: "1080", framerate: 60 } as const;
+		expect(screenContentHint(quality)).toBe("motion");
+		expect(screenDegradationPreference(quality)).toBe("maintain-framerate");
+	});
+});
+
+describe("displayMediaRequest", () => {
+	it("asks for audio and system audio when sharing sound", () => {
+		const request = displayMediaRequest({
+			resolution: "1080",
+			framerate: 30,
+			shareAudio: true,
+		});
+
+		expect(request.audio).toEqual({
+			echoCancellation: false,
+			noiseSuppression: false,
+			autoGainControl: false,
+			channelCount: 2,
+		});
+		expect(request.systemAudio).toBe("include");
+	});
+
+	it("excludes system audio when not sharing sound", () => {
+		const request = displayMediaRequest({
+			resolution: "1080",
+			framerate: 30,
+			shareAudio: false,
+		});
+
+		expect(request.audio).toBe(false);
+		expect(request.systemAudio).toBe("exclude");
+	});
+
+	it("asks for 60 per second whatever frame rate was stored", () => {
+		for (const framerate of SCREEN_SHARE_FRAMERATES) {
+			const request = displayMediaRequest({
+				resolution: "1080",
+				framerate,
+				shareAudio: false,
+			});
+			expect(request.video.frameRate).toEqual({ ideal: 60, max: 60 });
+		}
+	});
+
+	it("always excludes the app's own surface", () => {
+		const request = displayMediaRequest({
+			resolution: "720",
+			framerate: 15,
+			shareAudio: false,
+		});
+
+		expect(request.selfBrowserSurface).toBe("exclude");
+	});
+});
+
+describe("isLinuxApp", () => {
+	it("only recognises the Linux app", () => {
+		const linux = "Mozilla/5.0 (X11; Linux x86_64) Chrome/150.0";
+		expect(isLinuxApp(linux, true)).toBe(true);
+		expect(isLinuxApp(linux, false)).toBe(false);
+		expect(
+			isLinuxApp("Mozilla/5.0 (Linux; Android 15) Chrome/150.0", true),
+		).toBe(false);
+		expect(isLinuxApp("Mozilla/5.0 (Windows NT 10.0) Chrome/150.0", true)).toBe(
+			false,
+		);
+		expect(isLinuxApp(undefined, true)).toBe(false);
+	});
+});
+
+describe("isScreenShareOptions", () => {
+	it("accepts the defaults and every ladder combination", () => {
+		expect(isScreenShareOptions(DEFAULT_SCREEN_SHARE)).toBe(true);
+		for (const resolution of SCREEN_SHARE_RESOLUTIONS) {
+			for (const framerate of SCREEN_SHARE_FRAMERATES) {
+				expect(
+					isScreenShareOptions({ resolution, framerate, shareAudio: true }),
+				).toBe(true);
+			}
+		}
+	});
+
+	it("rejects unknown values", () => {
+		for (const value of [
+			undefined,
+			null,
+			{ resolution: "4k", framerate: 30, shareAudio: false },
+			{ resolution: "1080", framerate: 24, shareAudio: false },
+			{ resolution: "1080", framerate: 30 },
+		]) {
+			expect(isScreenShareOptions(value)).toBe(false);
+		}
+	});
+});
+
+describe("supportsDisplayAudio", () => {
+	it("accepts Chromium engines", () => {
+		expect(supportsDisplayAudio(CHROME_DESKTOP)).toBe(true);
+		expect(supportsDisplayAudio(EDGE_WINDOWS)).toBe(true);
+	});
+
+	it("rejects WebKit, which has no display audio at all", () => {
+		expect(supportsDisplayAudio(SAFARI_MACOS)).toBe(false);
+		expect(supportsDisplayAudio(TAURI_MACOS)).toBe(false);
+	});
+
+	it("rejects Firefox and a missing user agent", () => {
+		expect(supportsDisplayAudio(FIREFOX)).toBe(false);
+		expect(supportsDisplayAudio(undefined)).toBe(false);
+	});
+});
+
+describe("displayVideoRequest", () => {
+	it("asks for video only, with the quality constraints of the share", () => {
+		const request = displayVideoRequest({ resolution: "720", framerate: 60 });
+		expect(request.audio).toBe(false);
+		expect(request.systemAudio).toBe("exclude");
+		expect(request.video).toEqual({
+			frameRate: { ideal: 60, max: 60 },
+			height: { ideal: 720, max: 720 },
+		});
+	});
+
+	it("passes the surface the person chose as a hint", () => {
+		const request = displayVideoRequest(
+			{ resolution: "source", framerate: 30 },
+			"window",
+		);
+		expect(request.video).toEqual({
+			frameRate: { ideal: 60, max: 60 },
+			displaySurface: "window",
+		});
+	});
+
+	it("asks for 60 per second whatever frame rate was stored", () => {
+		for (const framerate of SCREEN_SHARE_FRAMERATES) {
+			const request = displayVideoRequest({ resolution: "1080", framerate });
+			expect(request.video.frameRate).toEqual({ ideal: 60, max: 60 });
+		}
+	});
+});
+
+describe("captureSurfaceKind", () => {
+	it("maps a monitor to the whole screen", () => {
+		expect(captureSurfaceKind("monitor")).toBe("display");
+	});
+
+	it("treats a window and anything unknown as one window", () => {
+		expect(captureSurfaceKind("window")).toBe("window");
+		expect(captureSurfaceKind("browser")).toBe("window");
+		expect(captureSurfaceKind(undefined)).toBe("window");
+	});
+});

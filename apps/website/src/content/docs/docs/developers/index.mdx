@@ -1,0 +1,69 @@
+---
+title: "Developer Documentation"
+description: "Learn about Colibri's architecture, specification, and how to contribute."
+---
+
+Colibri (pronounced **/ˈkoʊ lɪ bri/**) is a chat app built on the AT Protocol.
+Your messages live in your own repository and travel with your identity.
+
+A Colibri Space is built on
+[ATproto spaces](/docs/developers/architecture/spaces), a part of the protocol that
+lets a group of repositories agree on who may read them. Most of these docs
+build on it.
+
+:::note[If you use Colibri and don't develop for it]
+Start with the [user documentation](/docs).
+:::
+
+## Architecture
+
+| Page | Contents |
+| --- | --- |
+| [ATproto Spaces](/docs/developers/architecture/spaces) | The protocol primitive Colibri is built on, and how access is granted |
+| [Colibri Spaces](/docs/developers/architecture/communities) | The ATproto spaces a Colibri Space is made of, and where each record lives |
+| [AppView](/docs/developers/architecture/appview) | Information about our backend |
+| [Sync](/docs/developers/architecture/sync) | Keeping a copy of an ATproto space current without a relay |
+| [Storage](/docs/developers/architecture/storage) | Information about the database options |
+| [Moderation](/docs/developers/architecture/moderation) | Labels, bans, permissions, and access decisions |
+| [Client](/docs/developers/architecture/client) | The frontend that talks to an AppView |
+| [Hosting](/docs/developers/architecture/hosting) | The spaces polyfill, and bring-your-own hosting |
+
+## Specification
+
+| Page | Contents |
+| --- | --- |
+| [AppView](/docs/developers/specification/appview) | Every XRPC method, both WebSockets, and the protocol callbacks |
+| [Lexicons](/docs/developers/specification/lexicons) | The schemas themselves, grouped by kind |
+| [Facets](/docs/developers/specification/facets) | How rich-text facets are encoded, rendered, and which take precedence |
+
+## Bridges
+
+| Page | Contents |
+| --- | --- |
+| [Building a Bridge](/docs/developers/bridges/building-a-bridge) | Writing a connector for another chat service with `@colibri-social/bridge-core` |
+| [Bridge Reference](/docs/developers/bridges/reference) | The `social.colibri.beta.bridge` methods, the bridged attribution, limits, and errors |
+
+## Development
+
+| Page | Contents |
+| --- | --- |
+| [Overview](/docs/developers/development/overview) | The local stack: the AppView, a PDS, and the client |
+| [AppView](/docs/developers/development/appview) | Running the TypeScript service, its source layout, and its configuration |
+| [Client](/docs/developers/development/client) | The SolidJS client, its component library, the Astro website, and the native shell |
+| [Testing](/docs/developers/development/testing) | Unit tests, the integration suite, and what CI runs |
+| [Testing native builds](/docs/developers/development/native) | Building and testing the native shell on desktop and mobile |
+| [Running a PDS](/docs/developers/development/pds) | The spaces-alpha PDS the AppView depends on |
+| [Errors](/docs/developers/development/errors) | How errors are declared and surfaced |
+
+## Self-hosting
+
+| Page | Contents |
+| --- | --- |
+| [Getting Started](/docs/developers/self-hosting/getting-started) | Running your own AppView, and the reachability it requires |
+| [Running a Cluster](/docs/developers/self-hosting/cluster) | Several AppView nodes behind one address: rollouts, the main role, failover, monitoring, and backups |
+
+## Contributing
+
+| Page | Contents |
+| --- | --- |
+| [Overview](/docs/developers/contributing/overview) | How to get involved |

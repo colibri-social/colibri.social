@@ -1,0 +1,75 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.negateLabel",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Retracts a label by writing a negating one. The original label record is left in place.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"space",
+						"subject",
+						"val"
+					],
+					"properties": {
+						"space": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The space the labelled record lives in."
+						},
+						"subject": {
+							"type": "ref",
+							"ref": "social.colibri.beta.label#subject",
+							"description": "The labelled record."
+						},
+						"val": {
+							"type": "string",
+							"description": "The label value to retract."
+						},
+						"reason": {
+							"type": "string",
+							"maxLength": 512,
+							"description": "Human-readable reason for the retraction."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the label.apply permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "SpaceNotFound",
+					"description": "No space exists at the given reference."
+				},
+				{
+					"name": "LabelNotFound",
+					"description": "No active label matching the subject and value exists to negate."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

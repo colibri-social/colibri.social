@@ -1,0 +1,82 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.putImage",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Sets a community's picture or banner. The bytes are uploaded to the community's own repo, which is why this goes through the AppView: a community's blobs can only be written with the community credentials the AppView holds, and a space record must reference a blob living in the repo that holds the record. Replaces whatever was there before.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"kind"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community to set the image on."
+					},
+					"kind": {
+						"type": "string",
+						"description": "Which image to set.",
+						"knownValues": [
+							"picture",
+							"banner"
+						]
+					}
+				}
+			},
+			"input": {
+				"encoding": "image/*",
+				"description": "The raw image bytes. The content type must be one of image/jpeg, image/png, image/gif or image/webp, and is sniffed rather than trusted."
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#communityView",
+							"description": "The community with the new image resolved, so one call is enough to re-render."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the community.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists with that DID."
+				},
+				{
+					"name": "UnsupportedImage",
+					"description": "The bytes are not one of the accepted image types."
+				},
+				{
+					"name": "ImageTooLarge",
+					"description": "The image exceeds the size limit for this kind."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView's stored credentials for this community are missing or unusable."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS or third-party call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

@@ -1,0 +1,18 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.voice",
+	"defs": {
+		"main": {
+			"type": "space",
+			"description": "A voice channel. Holds its configuration record and the messages, reactions and labels of its text chat. Call state is off-protocol.",
+			"key": "tid",
+			"title": "Colibri voice channel",
+			"collections": [
+				"social.colibri.beta.channel",
+				"social.colibri.beta.message",
+				"social.colibri.beta.reaction",
+				"social.colibri.beta.label"
+			]
+		}
+	}
+}

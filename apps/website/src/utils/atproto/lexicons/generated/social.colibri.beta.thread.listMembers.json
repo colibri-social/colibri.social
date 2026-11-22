@@ -1,0 +1,57 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.thread.listMembers",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists who belongs to a thread: the author of the message it was opened from, everyone who has posted in it, everyone mentioned in it directly or through a role, and everyone who follows it. Only current members who may read the thread are listed.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"thread"
+				],
+				"properties": {
+					"thread": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "The thread to list members of."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"members"
+					],
+					"properties": {
+						"members": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"format": "did",
+								"description": "A member of the thread."
+							},
+							"description": "The thread's members: the anchor author first, then posters by most recent activity, then everyone else."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user may not read this thread."
+				},
+				{
+					"name": "ThreadNotFound",
+					"description": "No thread matches the given space reference."
+				}
+			]
+		}
+	}
+}

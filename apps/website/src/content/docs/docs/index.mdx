@@ -1,51 +1,182 @@
 ---
-title: "Colibri Social Documentation"
-description: "Learn about Colibri's architecture, specification, and how to contribute."
+title: "Colibri Help"
+description: "Guides for people who use Colibri: signing in, Spaces, messages, notifications, voice channels and your account."
 ---
 
-Colibri (pronounced **/ˈkoʊ lɪ bri/**) is a next-generation social chat app built on the AT protocol. It functions entirely by using ATproto as infrastructure and utilizes the protocol to its limits.
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
 
-This documentation aims to provide an overview over the architecture of the project, the specifications for lexicons, associated labels and the AppView, as well as helpful pages about contributing to Colibri.
+Colibri (pronounced **/ˈkoʊ lɪ bri/**) is a chat app where groups of people talk in private Spaces. These articles explain how Colibri works, and walk you through the various features!
 
-## Architecture
+## Getting started
 
-| Page | Contents |
-| --- | --- |
-| [AppView Architecture](/docs/architecture/appview) | Architectural and technical details about our AppView implementation |
-| [Client Architecture](/docs/architecture/client) | Architectural and technical details about our client implementation |
-| [Communities](/docs/architecture/communities) | How communities work and where their records are stored |
+<CardGrid>
+  <LinkCard
+    title="Introduction"
+    description="Spaces, channels and the account you bring with you."
+    href="/docs/users/getting-started/introduction"
+  />
+  <LinkCard
+    title="Sign In or Create an Account"
+    description="Sign in with your Atmosphere account and set up your profile."
+    href="/docs/users/getting-started/sign-in"
+  />
+  <LinkCard
+    title="Find Your Way Around"
+    description="Where your Spaces, channels, Inbox and menus are."
+    href="/docs/users/getting-started/finding-your-way"
+  />
+  <LinkCard
+    title="Fix Sign-In Problems"
+    description="What each sign-in message means and what to do next."
+    href="/docs/users/getting-started/sign-in-problems"
+  />
+</CardGrid>
 
-## Specification
+## Messages
 
-| Page | Contents |
-| --- | --- |
-| [AppView Specification](/docs/specification/appview) | The XRPC endpoints and event stream an AppView must implement |
-| [Lexicons](/docs/specification/lexicons) | The AT Protocol record schemas Colibri defines |
-| [Facets](/docs/specification/facets) | How rich-text facets are encoded, rendered, and which take precedence |
+<CardGrid>
+  <LinkCard
+    title="Send Messages"
+    description="Write, format, edit and delete messages, and mention people."
+    href="/docs/users/messaging/send-messages"
+  />
+  <LinkCard
+    title="Replies, Reactions and Forwarding"
+    description="Answer a message, react to it, or pass it on to another channel."
+    href="/docs/users/messaging/replies-and-reactions"
+  />
+  <LinkCard
+    title="Files, Images and Links"
+    description="Attach files, describe images, hide spoilers and control link previews."
+    href="/docs/users/messaging/attachments"
+  />
+  <LinkCard
+    title="Threads"
+    description="Keep a side conversation together, next to the channel it belongs to."
+    href="/docs/users/messaging/threads"
+  />
+  <LinkCard
+    title="Custom Emoji"
+    description="Upload your own emoji, group them in packs and follow other people's."
+    href="/docs/users/messaging/custom-emoji"
+  />
+</CardGrid>
 
-## Development
+## Spaces
 
-| Page | Contents |
-| --- | --- |
-| [Overview](/docs/development/overview) | The local stack, prerequisites, and how dev mode differs from production |
-| [AppView Development](/docs/development/appview) | Running the Rust service, its dependencies, migrations, and tests |
-| [Client Development](/docs/development/client) | The SolidJS client, the Astro website, and the native shell |
-| [Running a PDS](/docs/development/pds) | The PDS communities live on, why it's required, and how to run one |
+<CardGrid>
+  <LinkCard
+    title="Join a Space"
+    description="Use an invite link, request to join, and leave again."
+    href="/docs/users/spaces/join-a-space"
+  />
+  <LinkCard
+    title="Create a Space"
+    description="Start your own Space and give it a name, an icon and a description."
+    href="/docs/users/spaces/create-a-space"
+  />
+  <LinkCard
+    title="Channels and Categories"
+    description="Add, sort, edit and delete the rooms of your Space."
+    href="/docs/users/spaces/channels"
+  />
+  <LinkCard
+    title="Invite People"
+    description="Create invite links and decide how long they work."
+    href="/docs/users/spaces/invites"
+  />
+  <LinkCard
+    title="Roles and Permissions"
+    description="Decide what members can see and do."
+    href="/docs/users/spaces/roles-and-permissions"
+  />
+  <LinkCard
+    title="Moderate a Space"
+    description="Approve join requests, hide messages, and kick or ban members."
+    href="/docs/users/spaces/moderation"
+  />
+  <LinkCard
+    title="Transfer or Delete a Space"
+    description="Hand your Space to another member, or remove it for good."
+    href="/docs/users/spaces/transfer-or-delete"
+  />
+  <LinkCard
+    title="Where a Space Is Hosted"
+    description="Who runs the account and the server behind a Space."
+    href="/docs/users/spaces/appviews"
+  />
+</CardGrid>
 
-## Self-hosting
+## Notifications, voice and settings
 
-| Page | Contents |
-| --- | --- |
-| [Getting Started](/docs/self-hosting/getting-started) | Running your own AppView and connecting a client to it |
+<CardGrid>
+  <LinkCard
+    title="Notifications"
+    description="Choose what Colibri notifies you about, and mute what is too noisy."
+    href="/docs/users/notifications"
+  />
+  <LinkCard
+    title="Voice Channels"
+    description="Talk, turn on your camera and share your screen."
+    href="/docs/users/voice"
+  />
+</CardGrid>
 
-## Contributing
+## Your account
 
-| Page | Contents |
-| --- | --- |
-| [Overview](/docs/contributing/overview) | How to get involved and contribute to Colibri |
+<CardGrid>
+  <LinkCard
+    title="Edit Your Profile"
+    description="Change your name, picture, banner, pronouns and bio."
+    href="/docs/users/account/profile"
+  />
+  <LinkCard
+    title="Status and Online Status"
+    description="Show what you're up to, or appear away, busy or offline."
+    href="/docs/users/account/status"
+  />
+  <LinkCard
+    title="Block Someone"
+    description="Stop notifications from a person and collapse their messages."
+    href="/docs/users/account/blocking"
+  />
+  <LinkCard
+    title="Deleting Your Colibri Data"
+    description="Remove your profile, messages and memberships yourself."
+    href="/docs/users/account/delete-account"
+  />
+</CardGrid>
 
-## Help
+## Bridges
 
-| Page | Contents |
-| --- | --- |
-| [Legacy Communities](/docs/help/legacy-communities) | Migrating communities created before the current schema |
+<CardGrid>
+  <LinkCard
+    title="Bridges"
+    description="How a bridge carries messages between a Space and another chat service."
+    href="/docs/users/bridges"
+  />
+  <LinkCard
+    title="Pairing a Bridge"
+    description="Connect a bridge to your Space, link channels, and disconnect it again."
+    href="/docs/users/bridges/pairing"
+  />
+</CardGrid>
+
+## The move to Spaces
+
+<CardGrid>
+  <LinkCard
+    title="The Move to Private Spaces"
+    description="What changed when public communities became private Spaces."
+    href="/docs/users/spaces/moving-to-spaces"
+  />
+  <LinkCard
+    title="Legacy Communities"
+    description="What happens to a community created before Spaces, and how to move it."
+    href="/docs/users/spaces/legacy-communities"
+  />
+</CardGrid>
+
+## For developers
+
+To run your own Colibri server or build on Colibri, read the [developer documentation](/docs/developers).

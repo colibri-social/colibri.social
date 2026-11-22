@@ -1,0 +1,85 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.setStatus",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Sets the requesting user's off-protocol presence. An absent field leaves the current value unchanged.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {
+						"text": {
+							"type": "string",
+							"description": "The status text. An empty string clears it. Absent leaves the current value unchanged.",
+							"maxLength": 64
+						},
+						"emoji": {
+							"type": "string",
+							"description": "A Unicode emoji shown beside the status. An empty string clears it. Absent leaves the current value unchanged."
+						},
+						"customEmoji": {
+							"type": "ref",
+							"ref": "social.colibri.beta.richtext.facet#customEmoji",
+							"description": "A custom emoji shown beside the status. The uri must name an emoji item record. Absent leaves the current value unchanged. Takes precedence over removeCustomEmoji."
+						},
+						"removeCustomEmoji": {
+							"type": "boolean",
+							"description": "Removes the custom emoji. Ignored when customEmoji is also given."
+						},
+						"expiresAt": {
+							"type": "string",
+							"format": "datetime",
+							"description": "When the status clears. Absent leaves the current value unchanged. Takes precedence over removeExpiresAt."
+						},
+						"removeExpiresAt": {
+							"type": "boolean",
+							"description": "Removes the status expiry, so the status stays until it is changed. Ignored when expiresAt is also given."
+						},
+						"showWhileOffline": {
+							"type": "boolean",
+							"description": "Whether a client shows the status while the user is offline. Absent leaves the current value unchanged."
+						},
+						"onlineState": {
+							"type": "string",
+							"description": "Derived online state. Absent leaves the current value unchanged.",
+							"knownValues": [
+								"online",
+								"away",
+								"dnd",
+								"offline"
+							]
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"presence"
+					],
+					"properties": {
+						"presence": {
+							"type": "ref",
+							"ref": "social.colibri.beta.actor.defs#presence",
+							"description": "The requesting user's presence, after the update."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "A field is present but does not hold an allowed value."
+				}
+			]
+		}
+	}
+}

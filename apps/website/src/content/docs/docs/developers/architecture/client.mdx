@@ -1,0 +1,72 @@
+---
+title: Client
+description: The frontend that talks to an AppView, how it is packaged, and how it reaches the AppView.
+sidebar:
+  order: 7
+---
+
+Colibri's client is the frontend that connects to an AppView. It is a private
+[Vite](https://vite.dev) app written in [SolidJS](https://solidjs.com), and it
+lives in `packages/app` of the
+[colibri.social repository](https://github.com/colibri-social/colibri.social).
+
+The client is split across three workspace packages:
+
+| Package | Contents |
+| --- | --- |
+| `packages/app` | Screens, routing, sign-in, data loading, and everything that talks to an AppView or a PDS |
+| `packages/ui` | The component library the screens are built from |
+| `packages/lib` | Shared protocol code: lexicon bindings, error classification, OAuth scopes |
+
+## Usage on different platforms
+
+Every platform runs the same build of `packages/app`. The website is an
+[Astro](https://astro.build) app that serves that build at `/app`. The desktop
+and mobile apps are a [Tauri](https://tauri.app) shell in `packages/wrapper`
+that bundles the same build.
+
+## Requests
+
+When you sign in with your atproto account, the client opens an OAuth session
+with your PDS. From that point, it sends each AppView request to your PDS with
+an `atproto-proxy` header naming the AppView. The PDS mints a service auth token
+for that one method and forwards the request.
+
+Where a space record is written depends on your PDS. The client asks the AppView for
+`social.colibri.beta.polyfill.getStatus` and writes messages, reactions and
+preferences to your PDS when it can host space repositories, or to the AppView
+when it cannot. See [Hosting](/docs/developers/architecture/hosting).
+
+## Live events
+
+Alongside the proxied HTTP requests, the client holds a single long-lived
+[`subscribeEvents`](/docs/developers/specification/appview#the-events-socket)
+WebSocket open to the AppView. New messages, membership changes, typing
+indicators, and profile updates arrive as events pushed over this socket.
+
+This socket is the one connection that goes to the AppView directly. Browsers
+can't attach service-proxy headers to a `WebSocket`, so the client requests a
+service auth token from your PDS with `com.atproto.server.getServiceAuth` and
+passes it as a WebSocket subprotocol. The client keeps the connection alive with
+periodic heartbeat frames.
+
+## Choosing an AppView
+
+The AppView a client talks to is set when the client is built. Set
+`VITE_COLIBRI_APPVIEW_URL` to the AppView's origin in `packages/app/.env`
+before building:
+
+```sh title="packages/app/.env"
+VITE_COLIBRI_APPVIEW_URL=https://appview.example.com
+```
+
+When the variable is empty or not a valid URL, the client uses
+`https://spaces-api.colibri.social`. The client derives the AppView's
+`did:web` from the host of that URL, so the AppView's `APPVIEW_DID` must match
+it.
+
+## See also
+
+- [AppView](/docs/developers/architecture/appview): the backend the client talks to.
+- [AppView Specification](/docs/developers/specification/appview): the XRPC endpoints and event types the client consumes.
+- [Client development](/docs/developers/development/client): running and building the client locally.

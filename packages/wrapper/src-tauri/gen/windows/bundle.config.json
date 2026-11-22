@@ -11,6 +11,9 @@
 		"protocolHandlers": [
 			{
 				"name": "social.colibri"
+			},
+			{
+				"name": "social.colibri.spaces"
 			}
 		]
 	},

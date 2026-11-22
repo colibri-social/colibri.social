@@ -64,7 +64,7 @@ jobs:
           [ "$CURR" != "$PREV" ] && echo "changed=true" >> "$GITHUB_OUTPUT" || echo "changed=false" >> "$GITHUB_OUTPUT"
 
       - name: Publish workflow
-        if: steps.changesets.outputs.hasChangesets == 'false' && steps.bump.outputs.changed == 'true'
+        if: steps.changesets.outputs.hasChangesets == 'false' && steps.bump.outputs.changed == 'true' && vars.AUTO_PUBLISH == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run publish.yml --ref main -f version="${{ steps.bump.outputs.version }}" -f play_track=production

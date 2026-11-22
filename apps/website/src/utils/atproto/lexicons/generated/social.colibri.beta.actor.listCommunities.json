@@ -1,0 +1,35 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.listCommunities",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets the requesting user's communities, in their preferred order.",
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"communities"
+					],
+					"properties": {
+						"communities": {
+							"type": "array",
+							"description": "The requesting user's communities, in preferred sidebar order.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.community.defs#communityView"
+							}
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				}
+			]
+		}
+	}
+}

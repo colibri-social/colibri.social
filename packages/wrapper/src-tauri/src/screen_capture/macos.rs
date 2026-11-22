@@ -13,12 +13,13 @@ use objc2_screen_capture_kit::{
     SCStreamConfiguration, SCWindow,
 };
 
-use super::{CaptureQuality, CaptureSource, FrameSender, SourceId, SourceKind};
+use super::{AudioApp, CaptureQuality, CaptureSource, FrameSender, SourceId, SourceKind};
 use crate::native_error::NativeError;
 
 mod audio;
 mod encoder;
 mod permission;
+mod sessions;
 mod stream;
 
 pub use stream::Capture;
@@ -292,6 +293,7 @@ fn thumbnail_configuration(width: u32, height: u32) -> Retained<SCStreamConfigur
         config.setHeight(high);
         config.setShowsCursor(false);
         config.setScalesToFit(true);
+        config.setIgnoreShadowsSingleWindow(true);
     }
     config
 }
@@ -374,23 +376,72 @@ fn primary_display(content: &ShareableContent) -> Option<Retained<SCDisplay>> {
     unsafe { content.content.displays() }.iter().next()
 }
 
+fn running_apps(content: &ShareableContent) -> Vec<sessions::RunningApp> {
+    unsafe { content.content.applications() }
+        .iter()
+        .filter_map(|app| sessions::RunningApp::from_application(&app))
+        .collect()
+}
+
+fn audio_apps(content: &ShareableContent) -> Vec<AudioApp> {
+    let playing = sessions::playing_processes();
+    sessions::audio_apps(
+        &running_apps(content),
+        playing.as_deref(),
+        std::process::id() as i32,
+    )
+}
+
+fn display_without(
+    content: &ShareableContent,
+    display: &SCDisplay,
+    excluded: &[String],
+) -> Retained<SCContentFilter> {
+    let empty: Retained<NSArray<SCWindow>> = NSArray::new();
+    let apps: Vec<Retained<SCRunningApplication>> = unsafe { content.content.applications() }
+        .iter()
+        .filter(|app| excluded.contains(&unsafe { app.bundleIdentifier() }.to_string()))
+        .collect();
+
+    if apps.is_empty() {
+        return unsafe {
+            SCContentFilter::initWithDisplay_excludingWindows(
+                SCContentFilter::alloc(),
+                display,
+                &empty,
+            )
+        };
+    }
+
+    let apps = NSArray::from_retained_slice(&apps);
+    unsafe {
+        SCContentFilter::initWithDisplay_excludingApplications_exceptingWindows(
+            SCContentFilter::alloc(),
+            display,
+            &apps,
+            &empty,
+        )
+    }
+}
+
 fn content_filter(
     content: &ShareableContent,
     source: &SourceId,
+) -> Result<Retained<SCContentFilter>, NativeError> {
+    content_filter_without(content, source, &[])
+}
+
+fn content_filter_without(
+    content: &ShareableContent,
+    source: &SourceId,
+    excluded: &[String],
 ) -> Result<Retained<SCContentFilter>, NativeError> {
     match source.kind {
         SourceKind::Display => {
             let display = find_display(content, &source.native).ok_or_else(|| {
                 NativeError::invalid_request("that screen is no longer connected")
             })?;
-            let empty: Retained<NSArray<SCWindow>> = NSArray::new();
-            Ok(unsafe {
-                SCContentFilter::initWithDisplay_excludingWindows(
-                    SCContentFilter::alloc(),
-                    &display,
-                    &empty,
-                )
-            })
+            Ok(display_without(content, &display, excluded))
         }
         SourceKind::Window => {
             let wanted: u32 = source
@@ -451,15 +502,90 @@ pub async fn list_sources() -> Result<(Vec<CaptureSource>, HashMap<String, Vec<u
     .map_err(|error| NativeError::failed(error.to_string()))?
 }
 
+pub async fn list_audio_apps(_source: Option<SourceId>) -> Result<Vec<AudioApp>, NativeError> {
+    tauri::async_runtime::spawn_blocking(|| Ok(audio_apps(&shareable_content()?)))
+        .await
+        .map_err(|error| NativeError::failed(format!("could not list audio apps: {error}")))?
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AudioScope {
+    Silent,
+    Filtered,
+    OwningApp,
+}
+
+fn audio_scope(kind: SourceKind, capture_audio: bool, chosen: Option<&[String]>) -> AudioScope {
+    match (kind, capture_audio) {
+        (_, false) => AudioScope::Silent,
+        (SourceKind::Display, true) if chosen.is_some_and(<[String]>::is_empty) => {
+            AudioScope::Silent
+        }
+        (SourceKind::Window, true) => AudioScope::OwningApp,
+        (SourceKind::Display | SourceKind::Application, true) => AudioScope::Filtered,
+    }
+}
+
+fn owning_app_filter(
+    content: &ShareableContent,
+    source: &SourceId,
+) -> Option<Retained<SCContentFilter>> {
+    let wanted: u32 = source.native.parse().ok()?;
+    let window = unsafe { content.content.windows() }
+        .iter()
+        .find(|window| unsafe { window.windowID() } == wanted)?;
+    let app = unsafe { window.owningApplication() }?;
+    if unsafe { app.processID() } == std::process::id() as i32 {
+        return None;
+    }
+    let display = primary_display(content)?;
+    let apps = NSArray::from_retained_slice(&[app]);
+    let empty: Retained<NSArray<SCWindow>> = NSArray::new();
+    Some(unsafe {
+        SCContentFilter::initWithDisplay_includingApplications_exceptingWindows(
+            SCContentFilter::alloc(),
+            &display,
+            &apps,
+            &empty,
+        )
+    })
+}
+
 pub fn start(
     source: &SourceId,
     quality: CaptureQuality,
     capture_audio: bool,
+    audio_apps_chosen: Option<Vec<String>>,
     sender: FrameSender,
 ) -> Result<Capture, NativeError> {
     let content = shareable_content()?;
-    let filter = content_filter(&content, source)?;
-    stream::start(&filter, quality, capture_audio, sender)
+    let chosen = match source.kind {
+        SourceKind::Display => audio_apps_chosen,
+        _ => None,
+    };
+    let scope = audio_scope(source.kind, capture_audio, chosen.as_deref());
+    let excluded = match (scope, chosen.as_deref()) {
+        (AudioScope::Filtered, Some(chosen)) => {
+            sessions::excluded_bundles(&audio_apps(&content), chosen)
+        }
+        _ => Vec::new(),
+    };
+    let filter = content_filter_without(&content, source, &excluded)?;
+    match scope {
+        AudioScope::Silent => stream::start(&filter, quality, stream::AudioSource::Silent, sender),
+        AudioScope::Filtered => {
+            stream::start(&filter, quality, stream::AudioSource::Shared, sender)
+        }
+        AudioScope::OwningApp => match owning_app_filter(&content, source) {
+            Some(app_filter) => stream::start(
+                &filter,
+                quality,
+                stream::AudioSource::Separate(&app_filter),
+                sender,
+            ),
+            None => stream::start(&filter, quality, stream::AudioSource::Silent, sender),
+        },
+    }
 }
 
 #[cfg(test)]
@@ -497,6 +623,49 @@ mod tests {
     #[test]
     fn a_small_window_is_never_scaled_up() {
         assert_eq!(thumbnail_size(120, 80), (120, 80));
+    }
+
+    #[test]
+    fn a_window_share_takes_audio_from_its_own_app_only() {
+        assert_eq!(
+            audio_scope(SourceKind::Window, true, None),
+            AudioScope::OwningApp
+        );
+        assert_eq!(
+            audio_scope(SourceKind::Window, true, Some(&[])),
+            AudioScope::OwningApp
+        );
+    }
+
+    #[test]
+    fn a_screen_or_app_share_filters_audio_like_its_video() {
+        assert_eq!(
+            audio_scope(SourceKind::Display, true, None),
+            AudioScope::Filtered
+        );
+        assert_eq!(
+            audio_scope(SourceKind::Display, true, Some(&["bundle-a".to_string()])),
+            AudioScope::Filtered
+        );
+        assert_eq!(
+            audio_scope(SourceKind::Application, true, None),
+            AudioScope::Filtered
+        );
+    }
+
+    #[test]
+    fn no_audio_is_captured_when_none_is_wanted() {
+        for kind in [
+            SourceKind::Display,
+            SourceKind::Window,
+            SourceKind::Application,
+        ] {
+            assert_eq!(audio_scope(kind, false, None), AudioScope::Silent);
+        }
+        assert_eq!(
+            audio_scope(SourceKind::Display, true, Some(&[])),
+            AudioScope::Silent
+        );
     }
 
     #[test]

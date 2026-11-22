@@ -1,0 +1,41 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.composerState",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "Emoji usage, skin tone and recent GIFs, kept apart from social.colibri.beta.actor.clientPreferences because it changes with every message.",
+			"key": "literal:self",
+			"record": {
+				"type": "object",
+				"required": [],
+				"properties": {
+					"emojiUsage": {
+						"type": "array",
+						"maxLength": 50,
+						"items": {
+							"type": "ref",
+							"ref": "social.colibri.beta.actor.defs#emojiUse"
+						},
+						"description": "The emoji the user picks most, with counts."
+					},
+					"skinTone": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 5,
+						"description": "The skin tone for emoji that support one. 0 is the default yellow."
+					},
+					"recentGifs": {
+						"type": "array",
+						"maxLength": 24,
+						"items": {
+							"type": "ref",
+							"ref": "social.colibri.beta.embed.defs#gifView"
+						},
+						"description": "The GIFs the user sent last, newest first, stored whole."
+					}
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,72 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.migrate",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Starts moving a repo-backed community onto spaces and returns once the move is queued. Structure, roles, members and bans are recreated in spaces stamped with migratedFrom. Message history of current members is copied from their public repos and served alongside as read-only legacy messages. The move runs in the background and reports progress through social.colibri.beta.sync.defs#communityProgressEvent. Calling it again while it runs returns the current state, and calling it after a failed attempt resumes from the last finished step.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "at-identifier",
+							"description": "The legacy community to migrate, by handle or DID. Only a community that holds its own DID can be migrated, so the DID is the whole address: the record to read is always social.colibri.community at self in that repo."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#legacyCommunityView",
+							"description": "The legacy community, in state migrating with its progress."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks permission to migrate this community."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the legacy record's DID."
+				},
+				{
+					"name": "AlreadyExists",
+					"description": "This legacy community has already been migrated."
+				},
+				{
+					"name": "NotMigratable",
+					"description": "The community cannot move onto spaces, for example because it lives inside its owner's repo."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView's stored credentials for this community are missing or unusable."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS or third-party call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

@@ -1,1 +1,0 @@
-export { sendHum } from "./sendHum";

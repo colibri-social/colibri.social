@@ -9,10 +9,10 @@ import { fileURLToPath } from "node:url";
 const root = dirname(
 	fileURLToPath(new URL("../package.json", import.meta.url)),
 );
-const clientPkg = JSON.parse(
-	await readFile(join(root, "..", "client", "package.json"), "utf8"),
+const assetsPkg = JSON.parse(
+	await readFile(join(root, "package.json"), "utf8"),
 );
-const version = (clientPkg.dependencies["@twemoji/api"] ?? "").replace(
+const version = (assetsPkg.devDependencies["@twemoji/api"] ?? "").replace(
 	/^[^0-9]*/,
 	"",
 );
@@ -40,7 +40,7 @@ async function stampVersion() {
 }
 
 if (!version) {
-	console.error("  ! Could not resolve @twemoji/api version from client.");
+	console.error("  ! Could not resolve @twemoji/api version from assets.");
 	process.exit(1);
 }
 

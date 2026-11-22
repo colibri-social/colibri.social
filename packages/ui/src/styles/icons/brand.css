@@ -1,0 +1,21 @@
+@keyframes ui-icon-brand-flap {
+	0%,
+	100% {
+		transform: scaleX(1);
+	}
+	30% {
+		transform: scaleX(0.55);
+	}
+	55% {
+		transform: scaleX(1);
+	}
+	75% {
+		transform: scaleX(0.78);
+	}
+}
+
+[data-animated-icon="bluesky"] {
+	&[data-hover] :is([data-part="wing-left"], [data-part="wing-right"]) {
+		animation: ui-icon-brand-flap calc(640ms * var(--motion-scale)) ease-in-out;
+	}
+}

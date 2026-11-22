@@ -25,8 +25,8 @@ import {
 } from "../packages/lib/src/release-notes.ts";
 import {
 	CHANGESET_DIR,
-	CLIENT_PACKAGE,
-	clientBump,
+	RELEASE_PACKAGE,
+	releaseBump,
 } from "./lib/changesets.ts";
 import { iconLabel, supportsInlineImages } from "./lib/icon-preview.ts";
 import { iconExists, searchIcons } from "./lib/icons.ts";
@@ -89,11 +89,11 @@ const main = async () => {
 	const name = created[0];
 	const path = new URL(name, CHANGESET_DIR);
 	const contents = await readFile(path, "utf8");
-	const bump = clientBump(parseChangesetFile(contents));
+	const bump = releaseBump(parseChangesetFile(contents));
 
 	if (!bump) {
 		console.log(
-			`\nCreated .changeset/${name}. It does not touch ${CLIENT_PACKAGE}, so there is nothing to announce in-app.`,
+			`\nCreated .changeset/${name}. It does not touch ${RELEASE_PACKAGE}, so there is nothing to announce in-app.`,
 		);
 		return;
 	}
@@ -153,13 +153,13 @@ const main = async () => {
 
 	const icon = await autocomplete<string>({
 		message: "Icon",
-		placeholder: "Type to search Phosphor icons",
+		placeholder: "Type to search Solar icons",
 		maxItems: MAX_ICON_RESULTS,
 		filter: () => true,
 		options() {
 			const search = this.userInput.trim();
 			const { matches, total } = searchIcons(
-				search === "" ? "sparkle" : search,
+				search === "" ? "star" : search,
 				MAX_ICON_RESULTS,
 			);
 

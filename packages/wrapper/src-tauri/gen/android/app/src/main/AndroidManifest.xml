@@ -5,6 +5,9 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
     <uses-feature
     android:name="android.hardware.microphone"
     android:required="false"
@@ -25,7 +28,7 @@
     android:usesCleartextTraffic="${usesCleartextTraffic}"
   >
         <activity
-      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+      android:configChanges="orientation|keyboardHidden|keyboard|navigation|touchscreen|screenSize|locale|layoutDirection|smallestScreenSize|screenLayout|density|fontScale|uiMode"
       android:launchMode="singleTask"
       android:label="@string/main_activity_title"
       android:name=".MainActivity"
@@ -44,6 +47,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="social.colibri" />
+                <data android:scheme="social.colibri.spaces" />
             </intent-filter>
             <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
             <intent-filter >
@@ -53,6 +57,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="social.colibri" />
+                <data android:scheme="social.colibri.spaces" />
                 
                 
                 
@@ -91,9 +96,18 @@
       android:name=".MarkReadReceiver"
       android:exported="false"
     />
+        <service
+      android:name=".CallService"
+      android:exported="false"
+      android:foregroundServiceType="phoneCall"
+    />
+        <receiver
+      android:name=".CallActionReceiver"
+      android:exported="false"
+    />
         <meta-data
       android:name="com.google.firebase.messaging.default_notification_channel_id"
-      android:value="colibri_messages"
+      android:value="colibri_messages_ping"
     />
     </application>
 </manifest>

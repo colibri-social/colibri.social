@@ -1,0 +1,68 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.settings",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A community's operational settings. Separate from the profile record so the two have different read audiences.",
+			"key": "literal:self",
+			"record": {
+				"type": "object",
+				"required": [
+					"categoryOrder",
+					"requiresApprovalToJoin"
+				],
+				"properties": {
+					"categoryOrder": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "record-key",
+							"description": "A category in this community."
+						},
+						"description": "The order categories are displayed in."
+					},
+					"requiresApprovalToJoin": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether joining produces an application a moderator must approve."
+					},
+					"linkEmbeds": {
+						"type": "boolean",
+						"default": true,
+						"description": "Whether link previews are shown by default. Channels may override this."
+					},
+					"overrideUserNameColors": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether only role colours are shown in chat. Members' own name colours are hidden, and a member without a coloured role shows the default name colour. Defaults to false."
+					},
+					"hideOwnerBadge": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether the owner badge next to the community owner's name is hidden. Defaults to false."
+					},
+					"customEmoji": {
+						"type": "string",
+						"knownValues": [
+							"all",
+							"local",
+							"none"
+						],
+						"default": "all",
+						"description": "Which custom emoji render in this community. all allows custom emoji from any source, local only the community's own emoji, none disables custom emoji. Disallowed emoji show their fallback text. Defaults to all."
+					},
+					"labelers": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "did",
+							"description": "A labeler this community honours."
+						},
+						"description": "DIDs whose labels this community honours, in addition to the community's own. Empty means the community labels its content itself."
+					}
+				}
+			}
+		}
+	}
+}

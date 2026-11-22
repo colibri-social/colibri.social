@@ -1,31 +1,257 @@
 ---
+import Hummingbird from "@/assets/landing/hummingbird.svg";
+import PageBand from "@/components/public/PageBand.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
+import { getInvitationPreview } from "@/lib/invitation";
 
 const { code } = Astro.params;
 
 if (!code) return Astro.redirect("/");
+
+const preview = await getInvitationPreview(code);
+const webUrl = `/app/invite/${encodeURIComponent(code)}`;
+
+const title = preview
+	? `You've been invited to join ${preview.name} on Colibri!`
+	: "You've been invited to join a space on Colibri!";
+
+import { ogImageFor } from "@/lib/og/url";
 ---
 
 <PublicLayout
-	title="You've been invited to join a community on Colibri!"
+	title={title}
+	image={ogImageFor({ kind: "invite", code }, Astro.site)}
 	description="Open Colibri to accept your invitation."
+	starry
 >
-	<section
-		class="py-40 mx-auto w-full max-w-336 md:px-16 px-6 relative flex flex-col items-center gap-6 text-center"
-		id="loading-section"
-		data-code={code}
-	>
-		<h1 class="text-3xl font-black m-0">Opening Colibri...</h1>
-		<p class="m-0 text-muted-foreground">
-			If nothing happens, <a class="text-primary" href={`/app/invite/${code}`}
-				>click here</a
-			> to continue.
-		</p>
-	</section>
+	<PageBand labelledby="invite-title" class="invite">
+		<h1 class="page-band-display reset" id="invite-title">COME ON IN</h1>
+
+		<div
+			class="invite-card"
+			id="invite-card"
+			data-code={code}
+			data-inactive={preview && !preview.active ? "" : undefined}
+		>
+			<div
+				class="invite-banner"
+				style={preview?.banner
+					? `background-image: url(${JSON.stringify(preview.banner)})`
+					: undefined}
+				aria-hidden="true"
+			>
+			</div>
+			<div class="invite-body">
+				<div class="space-icon">
+					{
+						preview?.picture ? (
+							<img src={preview.picture} alt="" width="80" height="80" />
+						) : (
+							<Hummingbird width={34} height={48} aria-hidden="true" />
+						)
+					}
+				</div>
+				<h2 class="space-name">
+					{preview ? preview.name : "You've been invited to a space"}
+				</h2>
+				{
+					preview?.memberCount !== undefined && (
+						<div class="space-meta">
+							<span>
+								<i class="dot" />
+								{preview.memberCount.toLocaleString("en-US")}{" "}
+								{preview.memberCount === 1 ? "member" : "members"}
+							</span>
+						</div>
+					)
+				}
+				{
+					preview?.description && (
+						<p class="space-about">{preview.description}</p>
+					)
+				}
+				{
+					preview?.inviterHandle && (
+						<p class="inviter">
+							<strong>@{preview.inviterHandle}</strong> invited you to join
+						</p>
+					)
+				}
+				{
+					preview && !preview.active ? (
+						<p class="space-inactive">
+							This invite link doesn't work anymore. Ask whoever sent it for a
+							new one.
+						</p>
+					) : (
+						<div class="opening" role="status">
+							<span class="spinner" aria-hidden="true" />
+							<span>
+								Opening Colibri. If nothing happens, use one of the buttons
+								below.
+							</span>
+						</div>
+					)
+				}
+				<div class="invite-actions">
+					<a class="site-btn site-btn-primary" id="open-native" href={webUrl}>
+						Accept invite in the app
+					</a>
+					<a class="site-btn site-btn-dark" href={webUrl}>
+						Continue in your browser
+					</a>
+				</div>
+			</div>
+		</div>
+	</PageBand>
 </PublicLayout>
+
+<style>
+	.invite {
+		min-height: 780px;
+		padding-top: clamp(140px, 13vw, 180px);
+		padding-bottom: 120px;
+	}
+
+	.invite-card {
+		width: 100%;
+		max-width: 480px;
+		margin-top: 12px;
+		overflow: hidden;
+		text-align: left;
+		border-radius: 20px;
+		background: var(--site-card);
+		border: 1px solid var(--site-line);
+	}
+
+	.invite-banner {
+		height: 132px;
+		background: radial-gradient(182% 100% at 50% 100%, var(--mw)), #171717;
+		background-size: cover;
+		background-position: center;
+	}
+
+	.invite-body {
+		display: flex;
+		flex-direction: column;
+		gap: 18px;
+		padding: 0 20px 20px;
+	}
+
+	.space-icon {
+		width: 80px;
+		height: 80px;
+		margin-top: -40px;
+		display: grid;
+		place-items: center;
+		overflow: hidden;
+		border-radius: 20px;
+		background: #1b1430;
+		outline: 5px solid var(--site-card);
+	}
+
+	.space-icon img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+
+	.invite .space-name {
+		font-family: var(--font-sans);
+		font-weight: 900;
+		font-size: 26px;
+		line-height: 1.1;
+	}
+
+	.space-meta {
+		display: flex;
+		align-items: center;
+		gap: 6px 14px;
+		font-size: 14px;
+		color: #a3a3a3;
+	}
+
+	.space-meta span {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: #8a8794;
+	}
+
+	.invite .space-about,
+	.invite .space-inactive {
+		font-size: 15px;
+		line-height: 1.5;
+		color: #e9e6f0;
+		text-wrap: pretty;
+	}
+
+	.invite .inviter {
+		padding: 8px 10px;
+		border-radius: 10px;
+		background: var(--site-muted);
+		font-size: 15px;
+		color: #e9e6f0;
+	}
+
+	.inviter strong {
+		font-weight: 700;
+		color: #fff;
+	}
+
+	.opening {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		font-size: 14px;
+		color: #a3a3a3;
+	}
+
+	.spinner {
+		width: 16px;
+		height: 16px;
+		flex: none;
+		border-radius: 50%;
+		border: 2px solid rgba(255, 255, 255, 0.18);
+		border-top-color: #fff;
+		animation: invite-spin 0.9s linear infinite;
+	}
+
+	@keyframes invite-spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
+	.invite-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.invite-actions .site-btn {
+		height: 42px;
+		border-radius: 9px;
+		font-weight: 700;
+		font-size: 15px;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.spinner {
+			animation: none;
+		}
+	}
+</style>
+
 <script>
-	const code =
-		document.querySelector<HTMLElement>("#loading-section")?.dataset.code;
+	const card = document.querySelector<HTMLElement>("#invite-card");
+	const code = card?.dataset.code;
 	const PENDING_INVITE_KEY = "colibri:pending-invite";
 
 	if (!code) throw new Error("Unable to get code");
@@ -39,26 +265,33 @@ if (!code) return Astro.redirect("/");
 	const webUrl = `/app/invite/${encoded}`;
 	const nativeUrl = `${scheme}:/invite/${encoded}`;
 
-	let handedOffToApp = false;
-	const markHandedOff = () => {
-		handedOffToApp = true;
-	};
+	const openNative = document.querySelector<HTMLAnchorElement>("#open-native");
+	if (openNative) openNative.href = nativeUrl;
 
-	document.addEventListener("visibilitychange", () => {
-		if (document.visibilityState === "hidden") handedOffToApp = true;
-	});
-	window.addEventListener("pagehide", markHandedOff);
-	window.addEventListener("blur", markHandedOff);
+	const handOff = () => {
+		let handedOffToApp = false;
+		const markHandedOff = () => {
+			handedOffToApp = true;
+		};
 
-	window.setTimeout(() => {
-		if (!handedOffToApp && document.visibilityState === "visible") {
+		document.addEventListener("visibilitychange", () => {
+			if (document.visibilityState === "hidden") handedOffToApp = true;
+		});
+		window.addEventListener("pagehide", markHandedOff);
+		window.addEventListener("blur", markHandedOff);
+
+		window.setTimeout(() => {
+			if (!handedOffToApp && document.visibilityState === "visible") {
+				window.location.replace(webUrl);
+			}
+		}, 2000);
+
+		try {
+			window.location.href = nativeUrl;
+		} catch {
 			window.location.replace(webUrl);
 		}
-	}, 2000);
+	};
 
-	try {
-		window.location.href = nativeUrl;
-	} catch {
-		window.location.replace(webUrl);
-	}
+	if (card?.dataset.inactive === undefined) handOff();
 </script>

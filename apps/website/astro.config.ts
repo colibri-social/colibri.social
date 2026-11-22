@@ -4,11 +4,13 @@ import starlight from "@astrojs/starlight";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, envField, fontProviders } from "astro/config";
+import starlightSidebarTopics from "starlight-sidebar-topics";
 import starlightThemeRapide from "starlight-theme-rapide";
 import { vite as vidstack } from "vidstack/plugins";
 import { loadEnv } from "vite";
 import { colibriDark, colibriLight } from "./src/ec-theme.ts";
 import { serverPortIntegration } from "./src/integrations/server-port";
+import { SITE } from "./src/site.ts";
 
 const { SENTRY_AUTH_TOKEN, SENTRY_RELEASE } = loadEnv(
 	process.env.NODE_ENV!,
@@ -18,7 +20,7 @@ const { SENTRY_AUTH_TOKEN, SENTRY_RELEASE } = loadEnv(
 
 // https://astro.build/config
 export default defineConfig({
-	site: "https://colibri.social",
+	site: SITE,
 	adapter: node({
 		mode: "standalone",
 	}),
@@ -51,19 +53,118 @@ export default defineConfig({
 				},
 			}),
 		],
-		optimizeDeps: {
-			exclude: ["solid-phosphor"], // Vite thinks the JSX here is React
-		},
 	},
 	integrations: [
 		solidJs(),
 		serverPortIntegration(),
 		starlight({
 			title: "Colibri Social Documentation",
-			plugins: [starlightThemeRapide()],
+			logo: {
+				light: "../../packages/assets/brand/hummingbird-dark.svg",
+				dark: "../../packages/assets/brand/hummingbird-no-background.svg",
+				alt: "",
+			},
+			plugins: [
+				starlightThemeRapide(),
+				starlightSidebarTopics([
+					{
+						label: "Users",
+						link: "/docs/",
+						icon: "open-book",
+						items: [
+							{ slug: "docs", label: "Start here" },
+							{
+								label: "Getting started",
+								items: [
+									{ autogenerate: { directory: "docs/users/getting-started" } },
+								],
+							},
+							{
+								label: "Messages",
+								items: [
+									{ autogenerate: { directory: "docs/users/messaging" } },
+								],
+							},
+							{
+								label: "Spaces",
+								items: [{ autogenerate: { directory: "docs/users/spaces" } }],
+							},
+							{
+								label: "Using Colibri",
+								items: ["docs/users/notifications", "docs/users/voice"],
+							},
+							{
+								label: "Your account",
+								items: [{ autogenerate: { directory: "docs/users/account" } }],
+							},
+							{
+								label: "Bridges",
+								items: [{ autogenerate: { directory: "docs/users/bridges" } }],
+							},
+						],
+					},
+					{
+						label: "Developers",
+						link: "/docs/developers/",
+						icon: "laptop",
+						items: [
+							{ slug: "docs/developers", label: "Start here" },
+							{
+								label: "Architecture",
+								items: [
+									{
+										autogenerate: { directory: "docs/developers/architecture" },
+									},
+								],
+							},
+							{
+								label: "Specification",
+								items: [
+									{
+										autogenerate: {
+											directory: "docs/developers/specification",
+										},
+									},
+								],
+							},
+							{
+								label: "Bridges",
+								items: [
+									{ autogenerate: { directory: "docs/developers/bridges" } },
+								],
+							},
+							{
+								label: "Development",
+								items: [
+									{
+										autogenerate: { directory: "docs/developers/development" },
+									},
+								],
+							},
+							{
+								label: "Self-Hosting",
+								items: [
+									{
+										autogenerate: { directory: "docs/developers/self-hosting" },
+									},
+								],
+							},
+							{
+								label: "Contributing",
+								items: [
+									{
+										autogenerate: { directory: "docs/developers/contributing" },
+									},
+								],
+							},
+						],
+					},
+				]),
+			],
 			components: {
 				Head: "./src/components/docs/Head.astro",
 			},
+			routeMiddleware: "./src/lib/og/docs-route-data.ts",
 			customCss: [
 				"@fontsource-variable/hanken-grotesk/wght.css",
 				"./src/styles/docs.css",
@@ -71,33 +172,6 @@ export default defineConfig({
 			expressiveCode: {
 				themes: [colibriLight, colibriDark],
 			},
-			sidebar: [
-				{ slug: "docs", label: "Start here" },
-				{
-					label: "Architecture",
-					items: [{ autogenerate: { directory: "docs/architecture" } }],
-				},
-				{
-					label: "Specification",
-					items: [{ autogenerate: { directory: "docs/specification" } }],
-				},
-				{
-					label: "Development",
-					items: [{ autogenerate: { directory: "docs/development" } }],
-				},
-				{
-					label: "Contributing",
-					items: [{ autogenerate: { directory: "docs/contributing" } }],
-				},
-				{
-					label: "Self-Hosting",
-					items: [{ autogenerate: { directory: "docs/self-hosting" } }],
-				},
-				{
-					label: "Help",
-					items: [{ autogenerate: { directory: "docs/help" } }],
-				},
-			],
 			disable404Route: true,
 			favicon: "/logo.png",
 		}),
@@ -114,30 +188,25 @@ export default defineConfig({
 				access: "secret",
 				optional: true,
 			}),
+			GITHUB_SPONSORS_TOKEN: envField.string({
+				context: "server",
+				access: "secret",
+				optional: true,
+			}),
 			TURSO_DATABASE_URL: envField.string({
 				context: "server",
 				access: "secret",
-				optional: false,
+				optional: true,
 			}),
 			TURSO_AUTH_TOKEN: envField.string({
 				context: "server",
 				access: "secret",
-				optional: false,
-			}),
-			SENTRY_DSN: envField.string({
-				context: "client",
-				access: "public",
 				optional: true,
 			}),
-			SENTRY_RELEASE: envField.string({
-				context: "client",
+			MAINTENANCE: envField.boolean({
+				context: "server",
 				access: "public",
-				optional: true,
-			}),
-			PUBLIC_VAPID_KEY: envField.string({
-				context: "client",
-				access: "public",
-				optional: true,
+				default: false,
 			}),
 		},
 	},
@@ -145,6 +214,7 @@ export default defineConfig({
 		allowedDomains: [
 			{ hostname: "colibri.social", protocol: "https" },
 			{ hostname: "next.colibri.social", protocol: "https" },
+			{ hostname: "spaces.colibri.social", protocol: "https" },
 		],
 	},
 	image: {
@@ -176,5 +246,34 @@ export default defineConfig({
 	],
 	redirects: {
 		"/login": "/app/login",
+		"/docs/architecture/appview": "/docs/developers/architecture/appview",
+		"/docs/architecture/client": "/docs/developers/architecture/client",
+		"/docs/architecture/communities":
+			"/docs/developers/architecture/communities",
+		"/docs/architecture/moderation": "/docs/developers/architecture/moderation",
+		"/docs/architecture/spaces": "/docs/developers/architecture/spaces",
+		"/docs/architecture/sync": "/docs/developers/architecture/sync",
+		"/docs/bridges/building-a-bridge":
+			"/docs/developers/bridges/building-a-bridge",
+		"/docs/bridges/overview": "/docs/users/bridges",
+		"/docs/bridges/pairing": "/docs/users/bridges/pairing",
+		"/docs/bridges/reference": "/docs/developers/bridges/reference",
+		"/docs/contributing/overview": "/docs/developers/contributing/overview",
+		"/docs/development/appview": "/docs/developers/development/appview",
+		"/docs/development/client": "/docs/developers/development/client",
+		"/docs/development/errors": "/docs/developers/development/errors",
+		"/docs/development/native": "/docs/developers/development/native",
+		"/docs/development/overview": "/docs/developers/development/overview",
+		"/docs/development/pds": "/docs/developers/development/pds",
+		"/docs/development/testing": "/docs/developers/development/testing",
+		"/docs/help/delete-account": "/docs/users/account/delete-account",
+		"/docs/help/legacy-communities": "/docs/users/spaces/legacy-communities",
+		"/docs/help/moderating-across-appviews": "/docs/users/spaces/appviews",
+		"/docs/help/spaces-migration": "/docs/users/spaces/moving-to-spaces",
+		"/docs/self-hosting/getting-started":
+			"/docs/developers/self-hosting/getting-started",
+		"/docs/specification/appview": "/docs/developers/specification/appview",
+		"/docs/specification/facets": "/docs/developers/specification/facets",
+		"/docs/specification/lexicons": "/docs/developers/specification/lexicons",
 	},
 });

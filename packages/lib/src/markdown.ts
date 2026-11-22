@@ -2,6 +2,7 @@ import type { Nodes, Parent } from "mdast";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmStrikethroughFromMarkdown } from "mdast-util-gfm-strikethrough";
 import { gfmStrikethrough } from "micromark-extension-gfm-strikethrough";
+import { AUTOLINK_SCHEME_REGEX, findAutolinks } from "./autolink.js";
 import type { ColibriRichTextFacet } from "./facets.js";
 
 type Feature = ColibriRichTextFacet["features"][number];
@@ -26,7 +27,8 @@ export type MarkdownTokenKind =
 	| "heading"
 	| "list"
 	| "subtext"
-	| "spoiler";
+	| "spoiler"
+	| "escape";
 
 export interface MarkdownToken {
 	kind: MarkdownTokenKind;
@@ -37,21 +39,22 @@ export interface MarkdownToken {
 	level?: number;
 	ordered?: boolean;
 	indent?: number;
+	suppressEmbed?: boolean;
 }
 
-const FEATURE_TYPE: Record<MarkdownTokenKind, Feature["$type"]> = {
-	bold: "social.colibri.richtext.facet#bold",
-	italic: "social.colibri.richtext.facet#italic",
-	underline: "social.colibri.richtext.facet#underline",
-	strikethrough: "social.colibri.richtext.facet#strikethrough",
-	code: "social.colibri.richtext.facet#code",
-	codeblock: "social.colibri.richtext.facet#codeblock",
-	quote: "social.colibri.richtext.facet#quote",
-	link: "social.colibri.richtext.facet#link",
-	heading: "social.colibri.richtext.facet#heading",
-	list: "social.colibri.richtext.facet#list",
-	subtext: "social.colibri.richtext.facet#subtext",
-	spoiler: "social.colibri.richtext.facet#spoiler",
+const FEATURE_TYPE: Partial<Record<MarkdownTokenKind, Feature["$type"]>> = {
+	bold: "social.colibri.beta.richtext.facet#bold",
+	italic: "social.colibri.beta.richtext.facet#italic",
+	underline: "social.colibri.beta.richtext.facet#underline",
+	strikethrough: "social.colibri.beta.richtext.facet#strikethrough",
+	code: "social.colibri.beta.richtext.facet#code",
+	codeblock: "social.colibri.beta.richtext.facet#codeblock",
+	quote: "social.colibri.beta.richtext.facet#quote",
+	link: "social.colibri.beta.richtext.facet#link",
+	heading: "social.colibri.beta.richtext.facet#heading",
+	list: "social.colibri.beta.richtext.facet#list",
+	subtext: "social.colibri.beta.richtext.facet#subtext",
+	spoiler: "social.colibri.beta.richtext.facet#spoiler",
 };
 
 const INLINE_MARKER: Partial<Record<MarkdownTokenKind, string>> = {
@@ -64,6 +67,50 @@ const INLINE_MARKER: Partial<Record<MarkdownTokenKind, string>> = {
 };
 
 const encoder = new TextEncoder();
+
+const ASCII_PUNCTUATION = /[!-/:-@[-`{-~]/;
+
+const isEscapedAt = (source: string, index: number): boolean => {
+	let count = 0;
+	for (let i = index - 1; i >= 0 && source[i] === "\\"; i--) count++;
+
+	return count % 2 === 1;
+};
+
+const escapeTokens = (
+	source: string,
+	start: number,
+	end: number,
+): MarkdownToken[] => {
+	const tokens: MarkdownToken[] = [];
+
+	let i = start;
+	while (i < end) {
+		if (source[i] !== "\\") {
+			i++;
+			continue;
+		}
+
+		const next = source[i + 1];
+		const escapesPunctuation =
+			i + 1 < end && next !== undefined && ASCII_PUNCTUATION.test(next);
+		const escapesUrl = AUTOLINK_SCHEME_REGEX.test(source.slice(i + 1, end));
+
+		if (escapesPunctuation || escapesUrl) {
+			tokens.push({
+				kind: "escape",
+				markers: [[i, i + 1]],
+				content: [i + 1, i + 1],
+			});
+		}
+
+		i += escapesPunctuation ? 2 : 1;
+	}
+
+	return tokens;
+};
+
+const MASKED_SUPPRESSED_DESTINATION = /^\]\(\s*</;
 
 const offset = (node: { position?: { start: { offset?: number } } }): number =>
 	node.position?.start.offset ?? 0;
@@ -304,16 +351,23 @@ const tokenizeUnquoted = (source: string): MarkdownToken[] => {
 			case "link": {
 				const kids = node.children;
 				if (kids.length && node.url) {
+					const start = offset(node);
+					const end = endOffset(node);
 					const contentStart = offset(kids[0]);
 					const contentEnd = endOffset(kids[kids.length - 1]);
+					const suppressEmbed =
+						source[start] === "<" ||
+						MASKED_SUPPRESSED_DESTINATION.test(source.slice(contentEnd, end));
+
 					tokens.push({
 						kind: "link",
 						markers: [
-							[offset(node), contentStart],
-							[contentEnd, endOffset(node)],
+							[start, contentStart],
+							[contentEnd, end],
 						],
 						content: [contentStart, contentEnd],
 						uri: node.url,
+						...(suppressEmbed ? { suppressEmbed } : {}),
 					});
 				}
 				break;
@@ -345,6 +399,10 @@ const tokenizeUnquoted = (source: string): MarkdownToken[] => {
 				if (node.depth > 3 || source[offset(node)] !== "#") break;
 				const w = wrapMarkers(node);
 				if (w) tokens.push({ kind: "heading", level: node.depth, ...w });
+				break;
+			}
+			case "text": {
+				tokens.push(...escapeTokens(source, offset(node), endOffset(node)));
 				break;
 			}
 			case "list": {
@@ -411,7 +469,7 @@ const tokenizeUnquoted = (source: string): MarkdownToken[] => {
 		});
 	}
 
-	const spoilerRe = /\|\|([^\n]+?)\|\|/g;
+	const spoilerRe = /\|\|((?:\\.|[^\n\\])+?)\|\|/g;
 
 	let sp: RegExpExecArray | null;
 	while ((sp = spoilerRe.exec(source))) {
@@ -419,6 +477,12 @@ const tokenizeUnquoted = (source: string): MarkdownToken[] => {
 		const end = start + sp[0].length;
 		const contentStart = start + 2;
 		const contentEnd = end - 2;
+
+		if (isEscapedAt(source, start)) {
+			spoilerRe.lastIndex = start + 1;
+			continue;
+		}
+
 		if (contentEnd <= contentStart || insideCode(start)) continue;
 		tokens.push({
 			kind: "spoiler",
@@ -437,27 +501,27 @@ const buildFeature = (token: MarkdownToken): Feature => {
 	switch (token.kind) {
 		case "codeblock":
 			return {
-				$type: "social.colibri.richtext.facet#codeblock",
+				$type: "social.colibri.beta.richtext.facet#codeblock",
 				...(token.lang ? { lang: token.lang } : {}),
 			};
 		case "link":
 			return {
-				$type: "social.colibri.richtext.facet#link",
+				$type: "social.colibri.beta.richtext.facet#link",
 				uri: token.uri ?? "",
-			};
+			} as Feature;
 		case "heading":
 			return {
-				$type: "social.colibri.richtext.facet#heading",
+				$type: "social.colibri.beta.richtext.facet#heading",
 				level: token.level ?? 1,
 			};
 		case "list":
 			return {
-				$type: "social.colibri.richtext.facet#list",
+				$type: "social.colibri.beta.richtext.facet#list",
 				ordered: Boolean(token.ordered),
 				...(token.indent ? { indent: token.indent } : {}),
 			};
 		default:
-			return { $type: FEATURE_TYPE[token.kind] } as Feature;
+			return { $type: FEATURE_TYPE[token.kind] ?? "" } as Feature;
 	}
 };
 
@@ -473,11 +537,63 @@ export interface SourceFacet {
 export interface ParsedMarkdown {
 	text: string;
 	facets: Array<ColibriRichTextFacet>;
+	suppressedEmbeds: string[];
 }
 
 export interface ParseMarkdownOptions {
 	allowLink?: (label: string, uri: string) => boolean;
+	autolink?: boolean;
 }
+
+const tokenSpan = (token: MarkdownToken): [number, number] => {
+	const first = token.markers[0] ?? token.content;
+	const last = token.markers[token.markers.length - 1] ?? token.content;
+
+	return [
+		Math.min(first[0], token.content[0]),
+		Math.max(last[1], token.content[1]),
+	];
+};
+
+const autolinkFacets = (
+	source: string,
+	tokens: MarkdownToken[],
+): SourceFacet[] => {
+	const blocked = tokens
+		.filter(
+			(token) =>
+				token.kind === "code" ||
+				token.kind === "codeblock" ||
+				token.kind === "link",
+		)
+		.map(tokenSpan);
+
+	let masked = source;
+	for (const token of tokens) {
+		if (token.kind === "escape") continue;
+
+		for (const [start, end] of token.markers) {
+			masked =
+				masked.slice(0, start) + " ".repeat(end - start) + masked.slice(end);
+		}
+	}
+
+	return findAutolinks(masked)
+		.filter(
+			(link) =>
+				!blocked.some(([start, end]) => link.start < end && link.end > start),
+		)
+		.map((link) => ({
+			start: link.start,
+			end: link.end,
+			features: [
+				{
+					$type: "social.colibri.beta.richtext.facet#link",
+					uri: link.uri,
+				} as Feature,
+			],
+		}));
+};
 
 /**
  * Collapses spans into an ascending, non-overlapping list
@@ -560,9 +676,9 @@ export const parseMarkdown = (
 		const cleanEnd = mapToClean(endStr);
 		if (cleanEnd <= cleanStart) return;
 		facets.push({
-			$type: "social.colibri.richtext.facet",
+			$type: "social.colibri.beta.richtext.facet",
 			index: {
-				$type: "app.bsky.richtext.facet#byteSlice",
+				$type: "social.colibri.beta.richtext.facet#byteSlice",
 				byteStart: cleanToByte(cleanStart),
 				byteEnd: cleanToByte(cleanEnd),
 			},
@@ -574,7 +690,8 @@ export const parseMarkdown = (
 		if (token.content[1] <= token.content[0]) continue;
 		pushFacet(token.content[0], token.content[1], [buildFeature(token)]);
 	}
-	for (const ex of extra) {
+	const autolinks = options?.autolink ? autolinkFacets(source, tokens) : [];
+	for (const ex of [...extra, ...autolinks]) {
 		pushFacet(ex.start, ex.end, ex.features);
 	}
 
@@ -584,7 +701,15 @@ export const parseMarkdown = (
 			a.index.byteEnd - b.index.byteEnd,
 	);
 
-	return { text, facets };
+	const suppressedEmbeds = [
+		...new Set(
+			tokens
+				.filter((t) => t.kind === "link" && t.suppressEmbed && t.uri)
+				.map((t) => t.uri as string),
+		),
+	];
+
+	return { text, facets, suppressedEmbeds };
 };
 
 const byteIndexMap = (text: string): Map<number, number> => {
@@ -632,7 +757,11 @@ const scanLines = (text: string): Line[] => {
 	return lines;
 };
 
-export const normalizeWhitespace = (input: ParsedMarkdown): ParsedMarkdown => {
+export const normalizeWhitespace = <
+	T extends { text: string; facets: Array<ColibriRichTextFacet> },
+>(
+	input: T,
+): T => {
 	const { text, facets } = input;
 	if (!text) return input;
 
@@ -717,10 +846,17 @@ export const normalizeWhitespace = (input: ParsedMarkdown): ParsedMarkdown => {
 		mapped.push({ ...facet, index: { ...facet.index, byteStart, byteEnd } });
 	}
 
-	return { text: cleaned, facets: mapped };
+	return { ...input, text: cleaned, facets: mapped };
 };
 
-const ATOM_KIND = new Set(["mention", "channel", "role", "time"]);
+const ATOM_KIND = new Set([
+	"mention",
+	"bridgedMention",
+	"channel",
+	"role",
+	"time",
+	"customEmoji",
+]);
 
 export interface SourceAtom {
 	start: number;
@@ -791,15 +927,55 @@ export const isSingleLineGap = (
 	return breaks === 1;
 };
 
-/**
- * The inverse of {@link parseMarkdown}: rebuilds raw markdown source from stored
- * clean text + facets, re-injecting the literal syntax markers so the editor can
- * show them
- */
-export const facetsToSource = (
+const AUTOLINK_URI_RE = /^(https?|at):\/\/\S+$/i;
+const AUTOLINK_TRAILING_RE = /[.,;:!?'"\u2018\u2019\u201c\u201d\])}]$/;
+
+const isAutolinkable = (
+	text: string,
+	start: number,
+	end: number,
+	uri: string,
+): boolean => {
+	const label = text.slice(start, end);
+	if (label.trim() !== uri) return false;
+	if (!AUTOLINK_URI_RE.test(uri) || AUTOLINK_TRAILING_RE.test(uri)) {
+		return false;
+	}
+	const uriStart = start + label.indexOf(uri);
+	const uriEnd = uriStart + uri.length;
+	const before = uriStart === 0 ? "" : text[uriStart - 1];
+	const after = uriEnd >= text.length ? "" : text[uriEnd];
+	return (
+		(before === "" || /[\s(]/.test(before)) &&
+		(after === "" || /\s/.test(after))
+	);
+};
+
+interface BuiltSource extends SourceWithAtoms {
+	textAt: Map<number, number>;
+}
+
+const ANGLE_AUTOLINK_URI_RE = /^[a-z][a-z0-9+.-]{1,31}:[^\s<>]*$/i;
+const ANGLE_DESTINATION_RE = /^[^\n<>]*$/;
+
+const linkMarkers = (
+	label: string,
+	uri: string,
+	suppressed: boolean,
+): [string, string] => {
+	if (!suppressed) return ["[", `](${uri})`];
+	if (label === uri && ANGLE_AUTOLINK_URI_RE.test(uri)) return ["<", ">"];
+	if (ANGLE_DESTINATION_RE.test(uri)) return ["[", `](<${uri}>)`];
+
+	return ["[", `](${uri})`];
+};
+
+const buildSource = (
 	text: string,
 	facets: Array<ColibriRichTextFacet>,
-): SourceWithAtoms => {
+	escapes: Set<number>,
+	suppressed: ReadonlySet<string>,
+): BuiltSource => {
 	const byteToStr = byteIndexMap(text);
 	const toStr = (byte: number): number => byteToStr.get(byte) ?? text.length;
 	const charAt = (index: number): string | undefined => text[index];
@@ -849,8 +1025,19 @@ export const facetsToSource = (
 				addMarker(opensAt, start, inline);
 				addMarker(closesAt, end, inline);
 			} else if (kind === "link") {
-				addMarker(opensAt, start, "[");
-				addMarker(closesAt, end, `](${"uri" in feature ? feature.uri : ""})`);
+				const uri = "uri" in feature ? feature.uri : "";
+				const embedSuppressed = suppressed.has(uri);
+
+				if (!embedSuppressed && isAutolinkable(text, start, end, uri)) continue;
+
+				const [open, close] = linkMarkers(
+					text.slice(start, end),
+					uri,
+					embedSuppressed,
+				);
+
+				addMarker(opensAt, start, open);
+				addMarker(closesAt, end, close);
 			} else if (kind === "codeblock") {
 				if (end > start) {
 					codeblocks.push([
@@ -926,6 +1113,7 @@ export const facetsToSource = (
 	let out = "";
 	let i = 0;
 	const atoms: SourceAtom[] = [];
+	const textAt = new Map<number, number>();
 	let pending: {
 		cleanEnd: number;
 		feature: Feature;
@@ -980,9 +1168,107 @@ export const facetsToSource = (
 			};
 		}
 
+		if (escapes.has(i)) out += "\\";
+		if (!pending) textAt.set(out.length, i);
 		out += text[i];
 		i++;
 	}
 
-	return { source: out, atoms };
+	return { source: out, atoms, textAt };
+};
+
+const MAX_ESCAPE_ROUNDS = 8;
+
+const literalRanges = (
+	text: string,
+	facets: Array<ColibriRichTextFacet>,
+): Array<[number, number]> => {
+	const byteToStr = byteIndexMap(text);
+	const toStr = (byte: number): number => byteToStr.get(byte) ?? text.length;
+
+	return facets
+		.filter((facet) =>
+			facet.features.some((feature) => {
+				const kind = featureKind(feature);
+
+				return kind === "code" || kind === "codeblock";
+			}),
+		)
+		.map((facet) => [toStr(facet.index.byteStart), toStr(facet.index.byteEnd)]);
+};
+
+const unlinkedAutolinkStarts = (
+	text: string,
+	facets: Array<ColibriRichTextFacet>,
+): number[] => {
+	const byteToStr = byteIndexMap(text);
+	const toStr = (byte: number): number => byteToStr.get(byte) ?? text.length;
+	const linked = facets
+		.filter((facet) =>
+			facet.features.some((feature) => featureKind(feature) === "link"),
+		)
+		.map((facet) => [toStr(facet.index.byteStart), toStr(facet.index.byteEnd)]);
+
+	return findAutolinks(text)
+		.filter(
+			(link) =>
+				!linked.some(([start, end]) => link.start < end && link.end > start),
+		)
+		.map((link) => link.start);
+};
+
+const escapesNeeded = (built: BuiltSource, text: string): number[] => {
+	const needed: number[] = [];
+
+	for (const token of tokenizeMarkdown(built.source)) {
+		const fromText = token.markers.find(([start, end]) => {
+			for (let p = start; p < end; p++) {
+				if (built.textAt.has(p)) return true;
+			}
+
+			return false;
+		});
+		if (!fromText) continue;
+
+		for (let p = fromText[0]; p < fromText[1]; p++) {
+			const index = built.textAt.get(p);
+			if (index !== undefined && ASCII_PUNCTUATION.test(text[index])) {
+				needed.push(index);
+			}
+		}
+	}
+
+	return needed;
+};
+
+/**
+ * The inverse of {@link parseMarkdown}: rebuilds raw markdown source from stored
+ * clean text + facets, re-injecting the literal syntax markers so the editor can
+ * show them
+ */
+export const facetsToSource = (
+	text: string,
+	facets: Array<ColibriRichTextFacet>,
+	suppressedEmbeds: ReadonlyArray<string> = [],
+): SourceWithAtoms => {
+	const suppressed = new Set(suppressedEmbeds);
+	const literal = literalRanges(text, facets);
+	const escapable = (index: number): boolean =>
+		!literal.some(([start, end]) => index >= start && index < end);
+	const escapes = new Set(
+		unlinkedAutolinkStarts(text, facets).filter(escapable),
+	);
+
+	let built = buildSource(text, facets, escapes, suppressed);
+	for (let round = 0; round < MAX_ESCAPE_ROUNDS; round++) {
+		const added = escapesNeeded(built, text).filter(
+			(index) => escapable(index) && !escapes.has(index),
+		);
+		if (added.length === 0) break;
+
+		for (const index of added) escapes.add(index);
+		built = buildSource(text, facets, escapes, suppressed);
+	}
+
+	return { source: built.source, atoms: built.atoms };
 };

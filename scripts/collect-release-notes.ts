@@ -13,27 +13,27 @@ import {
 } from "../packages/lib/src/release-notes.ts";
 import {
 	CHANGESET_DIR,
-	clientBump,
+	releaseBump,
 	listPendingChangesetFiles,
 	readChangeset,
 } from "./lib/changesets.ts";
-import { iconProblem } from "./lib/icons.ts";
+import { iconExportName, iconProblem } from "./lib/icons.ts";
 
 const KEEP_RELEASES = 5;
-const FALLBACK_ICON = "sparkle-fill";
+const FALLBACK_ICON = "stars";
 const PREVIEW_VERSION = "0.0.0-preview";
 
 const STAGING_FILE = new URL(".whats-new-staged.json", CHANGESET_DIR);
-const CLIENT_PACKAGE_JSON = new URL(
-	"../packages/client/package.json",
+const VERSION_PACKAGE_JSON = new URL(
+	"../packages/wrapper/package.json",
 	import.meta.url,
 );
 const DATA_FILE = new URL(
-	"../packages/client/src/release-notes/data.ts",
+	"../packages/app/src/data/release-notes/data.ts",
 	import.meta.url,
 );
 const ICONS_FILE = new URL(
-	"../packages/client/src/release-notes/icons.ts",
+	"../packages/app/src/data/release-notes/icons.ts",
 	import.meta.url,
 );
 
@@ -78,7 +78,7 @@ const gather = async (): Promise<Staged | undefined> => {
 		const block = parsed.block;
 		if (!block) continue;
 
-		const bump = clientBump(parsed);
+		const bump = releaseBump(parsed);
 		if (!bump) continue;
 
 		const problem = iconProblem(block.icon);
@@ -174,12 +174,13 @@ const withoutPreview = (notes: Array<ReleaseNote>): Array<ReleaseNote> =>
 
 const quote = (value: string) => JSON.stringify(value);
 
-const identifierFor = (icon: string) =>
-	`${icon
-		.split(/[^A-Za-z0-9]+/)
-		.filter(Boolean)
-		.map((part) => part[0].toUpperCase() + part.slice(1))
-		.join("")}Icon`;
+const identifierFor = (icon: string) => {
+	const name = iconExportName(icon);
+
+	if (!name) throw new Error(`unknown icon "${icon}"`);
+
+	return name;
+};
 
 const writeDataFile = async (notes: Array<ReleaseNote>) => {
 	const lines = [
@@ -232,7 +233,9 @@ const writeIconsFile = async (notes: Array<ReleaseNote>) => {
 
 	const lines = [GENERATED_HEADER, ""];
 	for (const icon of icons) {
-		lines.push(`import ${identifierFor(icon)} from "~icons/ph/${icon}";`);
+		lines.push(
+			`import { ${identifierFor(icon)} } from "@solar-icons/solid/bold/${icon}";`,
+		);
 	}
 	if (icons.length > 0) lines.push("");
 
@@ -266,7 +269,7 @@ const finalize = async () => {
 
 	const staged = JSON.parse(await readFile(STAGING_FILE, "utf8")) as Staged;
 	const { version } = JSON.parse(
-		await readFile(CLIENT_PACKAGE_JSON, "utf8"),
+		await readFile(VERSION_PACKAGE_JSON, "utf8"),
 	) as { version: string };
 
 	const existing = withoutPreview(await readNotes());

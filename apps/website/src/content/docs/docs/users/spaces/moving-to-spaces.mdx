@@ -1,0 +1,67 @@
+---
+title: The Move to Private Spaces
+description: What changed for members when Colibri's public communities became private Spaces.
+sidebar:
+  order: 9
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Colibri communities used to be public. Anyone on the network could read every message in every channel, whether or not they were a member.
+
+Colibri now uses Spaces. A Space is a house with a front door, and only the people it lets in can read its messages. This page explains what you notice as a member.
+
+## Changes for members
+
+- Messages you send in a Space are readable only by its members.
+- You sign in again and approve new permissions.
+- A community from before the change has to be moved to Spaces by its owner.
+- After the move, earlier messages from current members stay readable as read-only history.
+
+## The permission screen
+
+Reading a private Space needs your permission, so your account provider shows a permission screen when you sign in. It lists what Colibri asks to do with your account. Approve it to continue.
+
+When a feature needs a permission you haven't approved yet, Colibri shows a notice that it needs one more permission. Select **Review** to open the permission screen again.
+
+## Older messages
+
+When a community moves to Spaces, Colibri brings the message history of its current members into the new Space. In each channel, a line marks the point of the move. It reads **Moved to Spaces**, followed by **Messages above are read-only**.
+
+You can read the messages above that line. Replying to them, reacting to them, editing them and forwarding them are turned off.
+
+Messages from people who left the community before the move stay behind and don't appear in the Space.
+
+:::note
+Messages sent before the move were public when they were sent. Copies of them can exist outside Colibri.
+:::
+
+## Moving a community
+
+The move is one action, started by the owner of the community. Channels, categories, members, roles and bans move in one go, and members join the Space automatically with their roles!
+
+Please read through our page on [Legacy Communities](/docs/users/spaces/legacy-communities) if you have any more questions.
+
+## One server per Space
+
+A public community was readable from every Colibri server. A Space is served by one server, and you use it through an app that connects to that server. [Where a Space Is Hosted](/docs/users/spaces/appviews) has more information on what that means for you.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Legacy Communities"
+    description="Move a community from before Spaces."
+    href="/docs/users/spaces/legacy-communities"
+  />
+  <LinkCard
+    title="Moderate a Space"
+    description="The moderation tools of a Space."
+    href="/docs/users/spaces/moderation"
+  />
+  <LinkCard
+    title="Sign In or Create an Account"
+    description="More about the permission screen."
+    href="/docs/users/getting-started/sign-in"
+  />
+</CardGrid>

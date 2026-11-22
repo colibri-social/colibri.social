@@ -1,0 +1,101 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.update",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Updates a channel's configuration. An absent field leaves the current value unchanged.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"channel"
+					],
+					"properties": {
+						"channel": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The channel to update."
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1,
+							"maxLength": 32,
+							"description": "The channel's name. Absent leaves the current value unchanged."
+						},
+						"description": {
+							"type": "string",
+							"maxLength": 256,
+							"description": "The channel's topic. Absent leaves the current value unchanged."
+						},
+						"category": {
+							"type": "string",
+							"format": "record-key",
+							"description": "The category to move the channel to. Absent leaves the current value unchanged."
+						},
+						"linkEmbeds": {
+							"type": "boolean",
+							"description": "Whether link previews are shown here. Absent leaves the current value unchanged."
+						},
+						"removeLinkEmbeds": {
+							"type": "boolean",
+							"description": "Clears the channel's link preview setting so the community default applies. Ignored when linkEmbeds is also given."
+						},
+						"permissionOverrides": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.defs#permissionOverride"
+							},
+							"maxLength": 200,
+							"description": "Per-role and per-member permission overrides. Replaces the whole list. Absent leaves the current value unchanged."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"channel"
+					],
+					"properties": {
+						"channel": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#channelView",
+							"description": "The channel, after the update."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the channel.update permission."
+				},
+				{
+					"name": "ChannelNotFound",
+					"description": "No channel matches the given space reference."
+				},
+				{
+					"name": "CategoryNotFound",
+					"description": "No category matches the given record key."
+				},
+				{
+					"name": "RoleHierarchy",
+					"description": "The requesting user cannot grant a role that outranks their own."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

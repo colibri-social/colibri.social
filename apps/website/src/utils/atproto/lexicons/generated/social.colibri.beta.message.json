@@ -1,0 +1,161 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.message",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A message in a channel. Lives in the author's own permissioned repo for the channel's space.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": [
+					"text",
+					"createdAt"
+				],
+				"properties": {
+					"text": {
+						"type": "string",
+						"maxLength": 2048,
+						"description": "The message body."
+					},
+					"facets": {
+						"type": "array",
+						"items": {
+							"type": "ref",
+							"ref": "social.colibri.beta.richtext.facet"
+						},
+						"description": "Annotations over ranges of the text."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the message was sent."
+					},
+					"updatedAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the message was last edited. Absent means never edited."
+					},
+					"parent": {
+						"type": "ref",
+						"ref": "social.colibri.beta.defs#recordRef",
+						"description": "The message this one replies to."
+					},
+					"parentUri": {
+						"type": "string",
+						"format": "at-uri",
+						"description": "The message this one replies to, as a record URI in the same space. Readers prefer it over `parent` when it is valid."
+					},
+					"attachments": {
+						"type": "array",
+						"items": {
+							"type": "ref",
+							"ref": "#attachment"
+						},
+						"description": "Files attached to this message."
+					},
+					"forward": {
+						"type": "ref",
+						"ref": "#forward",
+						"description": "Content copied here from another message. Present only on a forwarded message."
+					},
+					"suppressedEmbeds": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "uri"
+						},
+						"description": "URLs from this message's link facets whose preview the author chose not to show. Moderator suppression is a label instead."
+					},
+					"bridged": {
+						"type": "ref",
+						"ref": "social.colibri.beta.bridge.defs#attribution",
+						"description": "Who sent this message on another service. Honoured only when the community itself wrote the record."
+					}
+				}
+			}
+		},
+		"forward": {
+			"type": "object",
+			"description": "Another message's content, copied and frozen when the forward was made. The copy does not follow later edits, deletions or labels on the message it came from. Never itself nested: forwarding a forwarded message carries this content over and repoints `source` at the message it was forwarded from.",
+			"required": [
+				"source",
+				"createdAt",
+				"text"
+			],
+			"properties": {
+				"source": {
+					"type": "ref",
+					"ref": "social.colibri.beta.defs#spaceRecordRef",
+					"description": "The message this content was copied from."
+				},
+				"createdAt": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When the message this content came from was sent."
+				},
+				"text": {
+					"type": "string",
+					"maxLength": 2048,
+					"description": "The copied message body. Empty when the message that was forwarded carried only attachments."
+				},
+				"facets": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "social.colibri.beta.richtext.facet",
+						"description": "An annotation."
+					},
+					"description": "The copied annotations. A mention here does not notify anyone, because the AppView reads only a message's own facets."
+				},
+				"attachments": {
+					"type": "array",
+					"items": {
+						"type": "ref",
+						"ref": "#attachment",
+						"description": "A copied file."
+					},
+					"description": "The copied files, re-uploaded into the forwarding author's own repo so the forward stands on its own."
+				}
+			}
+		},
+		"attachment": {
+			"type": "object",
+			"description": "A file attached to a message.",
+			"required": [
+				"blob"
+			],
+			"properties": {
+				"blob": {
+					"type": "blob",
+					"description": "The attached file."
+				},
+				"name": {
+					"type": "string",
+					"maxLength": 256,
+					"description": "The original filename."
+				},
+				"width": {
+					"type": "integer",
+					"minimum": 1,
+					"description": "Intrinsic pixel width, when the file is an image or video."
+				},
+				"height": {
+					"type": "integer",
+					"minimum": 1,
+					"description": "Intrinsic pixel height, when the file is an image or video."
+				},
+				"spoiler": {
+					"type": "boolean",
+					"description": "Whether clients hide the file behind a reveal step until the reader chooses to see it."
+				},
+				"alt": {
+					"type": "string",
+					"maxLength": 20000,
+					"maxGraphemes": 2000,
+					"description": "A text description of the file for readers who can't see it."
+				}
+			}
+		}
+	}
+}

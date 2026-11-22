@@ -1,0 +1,1612 @@
+import { describe, expect, it, vi } from "vitest";
+import { setMediaOrigins } from "../remote/media-origin";
+import {
+	displayRoleIdentity,
+	isVisibleRole,
+	rolesOf,
+	topHoistedRole,
+	visibleRoles,
+} from "../roles";
+import type {
+	AttachmentView,
+	Facet,
+	ForwardView,
+	LinkEmbed,
+	MemberView,
+	ProfileView,
+	ReactionView,
+	RoleView,
+} from "../types";
+import {
+	embedSuppression,
+	gifOfAttachments,
+	gifOfEmbed,
+	inlineMediaOf,
+	isGifSiteUrl,
+	lightboxMediaOf,
+	splitAttachments,
+	toLinkEmbedProps,
+	toSocialPostProps,
+	visibleEmbeds,
+} from "./attachments";
+import {
+	bridgePlatformName,
+	displayNameOf,
+	memberIdentity,
+	toMessageAuthor,
+	viaLabel,
+} from "./authors";
+import {
+	blueskyMediaItems,
+	blueskyTextSegments,
+	canonicalBlueskyPostUrl,
+	parseBlueskyPostUrl,
+	toBlueskyPost,
+} from "./bluesky-post";
+import {
+	fromComposerValue,
+	linkUris,
+	mentionsDid,
+	mentionsRole,
+	previewText,
+	spoileredLinkUris,
+	toTextValue,
+	utf8Length,
+	validFacets,
+} from "./facets";
+import { toForwardDisplay } from "./forward";
+import {
+	customReactionResolver,
+	pickedReactionAdds,
+	toReactionGroups,
+	toReactions,
+} from "./reactions";
+import { formatAge } from "./time";
+
+vi.mock("@colibri-social/ui", () => ({
+	isRoleBadgeIconName: (name: string) =>
+		["shield-check", "star", "crown"].includes(name),
+	slugForEmoji: () => undefined,
+	aliasesForSlug: () => [],
+	stripSkinTone: (emoji: string) => emoji,
+}));
+
+const encoder = new TextEncoder();
+
+const facet = (
+	text: string,
+	part: string,
+	features: Facet["features"],
+): Facet => {
+	const start = text.indexOf(part);
+	const byteStart = encoder.encode(text.slice(0, start)).length;
+	return {
+		index: { byteStart, byteEnd: byteStart + utf8Length(part) },
+		features,
+	} as Facet;
+};
+
+const bold = [
+	{ $type: "social.colibri.beta.richtext.facet#bold" },
+] as Facet["features"];
+
+const profile = (did: string, extra: Partial<ProfileView> = {}) =>
+	({
+		did,
+		handle: `${did.split(":").pop()}.test`,
+		displayName: did.split(":").pop(),
+		isBot: false,
+		syncBluesky: false,
+		...extra,
+	}) as ProfileView;
+
+const role = (rkey: string, position: number, extra: Partial<RoleView> = {}) =>
+	({ rkey, name: rkey, permissions: [], position, ...extra }) as RoleView;
+
+const member = (actor: ProfileView, roles: string[], nickname?: string) =>
+	({
+		actor,
+		roles,
+		joinedAt: "2026-01-01T00:00:00.000Z",
+		nickname,
+	}) as MemberView;
+
+describe("facet lookups", () => {
+	const text = "Ping @Core and https://a.test and https://a.test";
+	const facets = [
+		facet(text, "@Core", [
+			{ $type: "social.colibri.beta.richtext.facet#role", role: "core" },
+		] as Facet["features"]),
+		facet(text, "https://a.test", [
+			{
+				$type: "social.colibri.beta.richtext.facet#link",
+				uri: "https://a.test",
+			},
+		] as Facet["features"]),
+	];
+
+	it("matches role mentions against the viewer's roles", () => {
+		expect(mentionsRole(facets, ["core"])).toBe(true);
+		expect(mentionsRole(facets, ["guides"])).toBe(false);
+		expect(mentionsRole(facets, [])).toBe(false);
+	});
+
+	it("lists link targets once", () => {
+		expect(linkUris([...facets, ...facets])).toEqual(["https://a.test"]);
+		expect(linkUris(undefined)).toEqual([]);
+	});
+});
+
+describe("links inside spoilers", () => {
+	const link = (uri: string) =>
+		[
+			{ $type: "social.colibri.beta.richtext.facet#link", uri },
+		] as Facet["features"];
+	const spoiler = [
+		{ $type: "social.colibri.beta.richtext.facet#spoiler" },
+	] as Facet["features"];
+
+	it("skips a link wrapped in a spoiler", () => {
+		const text = "Ending: https://end.test is wild";
+		const facets = [
+			facet(text, "https://end.test", link("https://end.test")),
+			facet(text, "https://end.test is wild", spoiler),
+		];
+		expect(linkUris(facets)).toEqual([]);
+		expect([...spoileredLinkUris(facets)]).toEqual(["https://end.test"]);
+	});
+
+	it("skips a link that only partly overlaps a spoiler", () => {
+		const text = "see https://end.test now";
+		const facets = [
+			facet(text, "https://end.test", link("https://end.test")),
+			facet(text, "see https://end", spoiler),
+		];
+		expect(linkUris(facets)).toEqual([]);
+	});
+
+	it("skips a facet carrying both link and spoiler features", () => {
+		const text = "https://end.test";
+		const facets = [
+			facet(text, text, [...link("https://end.test"), ...spoiler]),
+		];
+		expect(linkUris(facets)).toEqual([]);
+		expect(spoileredLinkUris(facets).has("https://end.test")).toBe(true);
+	});
+
+	it("keeps a link that only touches the spoiler's edge", () => {
+		const text = "secret https://a.test";
+		const facets = [
+			facet(text, "secret ", spoiler),
+			facet(text, "https://a.test", link("https://a.test")),
+		];
+		expect(linkUris(facets)).toEqual(["https://a.test"]);
+		expect(spoileredLinkUris(facets).size).toBe(0);
+	});
+
+	it("keeps a link that also appears outside the spoiler", () => {
+		const text = "https://a.test and again https://a.test.";
+		const second = text.lastIndexOf("https://a.test");
+		const byteStart = utf8Length(text.slice(0, second));
+		const facets = [
+			facet(text, "https://a.test", link("https://a.test")),
+			{
+				index: { byteStart, byteEnd: byteStart + utf8Length("https://a.test") },
+				features: [...link("https://a.test"), ...spoiler],
+			} as Facet,
+		];
+		expect(linkUris(facets)).toEqual(["https://a.test"]);
+		expect(spoileredLinkUris(facets).size).toBe(0);
+	});
+});
+
+describe("facets", () => {
+	it("keeps byte ranges on character boundaries", () => {
+		const text = "héllo 🐦 world";
+		const good = facet(text, "🐦", bold);
+		const broken = {
+			...good,
+			index: {
+				byteStart: good.index.byteStart + 1,
+				byteEnd: good.index.byteEnd,
+			},
+		} as Facet;
+		const outside = {
+			...good,
+			index: { byteStart: 0, byteEnd: 999 },
+		} as Facet;
+		expect(validFacets(text, [good, broken, outside])).toEqual([good]);
+	});
+
+	it("passes valid facets through unchanged", () => {
+		const text = "see **this**";
+		const value = toTextValue(text, [facet(text, "this", bold)]);
+		expect(value.facets).toHaveLength(1);
+	});
+
+	it("shifts facets when trimming composer output", () => {
+		const raw = "  hi 🐦 there  ";
+		const value = fromComposerValue({
+			text: raw,
+			facets: [facet(raw, "🐦", bold)],
+		});
+		expect(value.text).toBe("hi 🐦 there");
+		const range = value.facets[0]?.index;
+		expect(
+			new TextDecoder().decode(
+				encoder.encode(value.text).slice(range?.byteStart, range?.byteEnd),
+			),
+		).toBe("🐦");
+	});
+
+	it("detects mentions of a DID", () => {
+		const text = "hey @lou";
+		const mention = facet(text, "@lou", [
+			{
+				$type: "social.colibri.beta.richtext.facet#mention",
+				did: "did:plc:lou",
+			},
+		] as Facet["features"]);
+		expect(mentionsDid([mention], "did:plc:lou")).toBe(true);
+		expect(mentionsDid([mention], "did:plc:other")).toBe(false);
+	});
+
+	it("collapses and truncates previews on grapheme-safe code points", () => {
+		expect(previewText("a\n\nb   c")).toBe("a b c");
+		expect(previewText("🐦".repeat(5), 3)).toBe("🐦🐦🐦...");
+	});
+});
+
+describe("authors", () => {
+	const roles = new Map([
+		["admin", role("admin", 10, { color: "#ff0000" })],
+		[
+			"mod",
+			role("mod", 5, {
+				color: "#00ff00",
+				badge: {
+					$type: "social.colibri.beta.community.defs#roleIconBadge",
+					icon: "shield-check",
+				} as RoleView["badge"],
+			}),
+		],
+		["plain", role("plain", 20)],
+	]);
+
+	it("takes color from the highest colored role and badge from the highest badged role", () => {
+		const actor = profile("did:plc:ada", { theme: { accentColor: "#123456" } });
+		const members = new Map([
+			[actor.did, member(actor, ["mod", "admin", "plain"], "Ada L.")],
+		]);
+		expect(toMessageAuthor(actor, { members, roles })).toEqual({
+			name: "Ada L.",
+			avatarSrc: undefined,
+			seed: "did:plc:ada",
+			nameColor: "#123456",
+			role: {
+				id: "mod",
+				name: "mod",
+				color: "#ff0000",
+				badge: { kind: "icon", name: "shield-check", color: "#00ff00" },
+			},
+			owner: false,
+		});
+	});
+
+	it("names a bridged author after the bridged person", () => {
+		const connector = profile("did:plc:matrixbridge");
+		const bridged = profile("did:plc:matrixbridge", {
+			displayName: "Remote Rae",
+			bridge: {
+				registration: "3lbridgereg22",
+				platform: "matrix",
+				remoteId: "@rae:matrix.org",
+			},
+		});
+		const members = new Map([
+			[connector.did, member(connector, ["mod"], "Bridge Bot")],
+		]);
+		const author = toMessageAuthor(bridged, { members, roles });
+
+		expect(author.name).toBe("Remote Rae");
+		expect(author.role).toBeUndefined();
+	});
+
+	it("skips the owner role and falls through to the next colored role", () => {
+		const actor = profile("did:plc:owner");
+		const withOwner = new Map(roles).set(
+			"owner",
+			role("owner", 99, {
+				color: "#ffd857",
+				protected: true,
+				badge: {
+					$type: "social.colibri.beta.community.defs#roleIconBadge",
+					icon: "crown",
+				} as RoleView["badge"],
+			}),
+		);
+		const members = new Map([[actor.did, member(actor, ["owner", "mod"])]]);
+		expect(toMessageAuthor(actor, { members, roles: withOwner }).role).toEqual({
+			id: "mod",
+			name: "mod",
+			color: "#00ff00",
+			badge: { kind: "icon", name: "shield-check", color: "#00ff00" },
+		});
+		const ownerOnly = new Map([[actor.did, member(actor, ["owner"])]]);
+		expect(
+			toMessageAuthor(actor, { members: ownerOnly, roles: withOwner }).role,
+		).toBeUndefined();
+		expect(
+			toMessageAuthor(actor, { members: ownerOnly, roles: withOwner }).owner,
+		).toBe(true);
+		const other = profile("did:plc:other");
+		expect(
+			toMessageAuthor(other, {
+				members: new Map([[other.did, member(other, ["mod"])]]),
+				roles: withOwner,
+			}).owner,
+		).toBe(false);
+	});
+
+	it("gives mention rows the same role, owner and bot identity", () => {
+		const roles = new Map([
+			["owner", role("owner", 99, { protected: true })],
+			["mod", role("mod", 5, { color: "#00ff00" })],
+		]);
+		const bot = profile("did:plc:bot", { isBot: true });
+		expect(memberIdentity(member(bot, ["owner", "mod"]), { roles })).toEqual({
+			role: { id: "mod", name: "mod", color: "#00ff00", badge: undefined },
+			owner: true,
+			bot: true,
+		});
+		expect(
+			memberIdentity(member(bot, ["owner"]), { roles, hideOwnerBadge: true })
+				.owner,
+		).toBe(false);
+	});
+
+	it("never takes color or the top role from the default role", () => {
+		const actor = profile("did:plc:joiner");
+		const withDefault = new Map(roles).set(
+			"members",
+			role("members", 50, {
+				color: "#abcdef",
+				default: true,
+			} as Partial<RoleView>),
+		);
+		const onlyDefault = new Map([[actor.did, member(actor, ["members"])]]);
+		expect(
+			toMessageAuthor(actor, { members: onlyDefault, roles: withDefault }).role,
+		).toBeUndefined();
+		const withMod = new Map([[actor.did, member(actor, ["members", "mod"])]]);
+		expect(
+			toMessageAuthor(actor, { members: withMod, roles: withDefault }).role?.id,
+		).toBe("mod");
+	});
+
+	it("leaves the default role out of role chips but keeps it for admin screens", () => {
+		const members = role("members", 1, {
+			hoisted: true,
+			default: true,
+		} as Partial<RoleView>);
+		const mod = role("mod", 5);
+		const byKey = new Map([
+			["members", members],
+			["mod", mod],
+		]);
+		const actor = profile("did:plc:joiner");
+		expect(
+			rolesOf(member(actor, ["members", "mod"]), (rkey) => byKey.get(rkey)),
+		).toEqual([mod]);
+		expect(visibleRoles([mod, members])).toEqual([mod]);
+		expect(topHoistedRole([members])).toBeUndefined();
+		expect(isVisibleRole(members)).toBe(true);
+	});
+
+	it("falls back to display name, then handle", () => {
+		expect(displayNameOf({ displayName: " ", handle: "x.test" })).toBe(
+			"x.test",
+		);
+		expect(displayNameOf(undefined)).toBe("Unknown user");
+	});
+
+	it("labels bridged authors", () => {
+		expect(bridgePlatformName("matrix")).toBe("Matrix");
+		expect(bridgePlatformName("zulip")).toBe("Zulip");
+		expect(
+			viaLabel(
+				profile("did:plc:b", {
+					bridge: { registration: "3l", platform: "matrix", remoteId: "@b" },
+				} as Partial<ProfileView>),
+			),
+		).toBe("Matrix");
+	});
+});
+
+describe("displayRoleIdentity", () => {
+	const iconBadge = (icon: string, color?: string) =>
+		({
+			$type: "social.colibri.beta.community.defs#roleIconBadge",
+			icon,
+			color,
+		}) as RoleView["badge"];
+
+	it("shows the badge of a role without a color", () => {
+		expect(
+			displayRoleIdentity([
+				role("helper", 3, { color: "", badge: iconBadge("shield-check") }),
+			]),
+		).toEqual({
+			id: "helper",
+			name: "helper",
+			color: undefined,
+			badge: { kind: "icon", name: "shield-check", color: undefined },
+		});
+	});
+
+	it("keeps a color-only role as its own identity", () => {
+		expect(
+			displayRoleIdentity([role("admin", 10, { color: "#ff0000" })]),
+		).toEqual({
+			id: "admin",
+			name: "admin",
+			color: "#ff0000",
+			badge: undefined,
+		});
+	});
+
+	it("combines color and badge from different roles", () => {
+		expect(
+			displayRoleIdentity([
+				role("admin", 10, { color: "#ff0000" }),
+				role("helper", 3, { badge: iconBadge("shield-check", "#0000ff") }),
+			]),
+		).toEqual({
+			id: "helper",
+			name: "helper",
+			color: "#ff0000",
+			badge: { kind: "icon", name: "shield-check", color: "#0000ff" },
+		});
+	});
+
+	it("tints an uncolored icon badge with its own role's color", () => {
+		expect(
+			displayRoleIdentity([
+				role("admin", 10, { color: "#ff0000" }),
+				role("mod", 5, {
+					color: "#00ff00",
+					badge: iconBadge("shield-check"),
+				}),
+			])?.badge,
+		).toEqual({ kind: "icon", name: "shield-check", color: "#00ff00" });
+	});
+
+	it("returns nothing without a colored or badged role", () => {
+		expect(displayRoleIdentity([role("plain", 1)])).toBeUndefined();
+		expect(displayRoleIdentity([])).toBeUndefined();
+	});
+});
+
+describe("attachments", () => {
+	const attachment = (mimeType: string, extra: Partial<AttachmentView> = {}) =>
+		({
+			url: `https://example.com/files/${mimeType.replace("/", ".")}`,
+			mimeType,
+			...extra,
+		}) as AttachmentView;
+
+	it("shows the preview in the message and keeps the original for downloads", () => {
+		const [image] = splitAttachments([
+			attachment("image/png", {
+				previewUrl: "https://example.com/files/image.png?variant=timeline",
+			}),
+		]).media;
+		const [plain] = splitAttachments([attachment("image/png")]).media;
+
+		expect(image).toMatchObject({
+			src: "https://example.com/files/image.png",
+			previewSrc: "https://example.com/files/image.png?variant=timeline",
+			downloadHref: "https://example.com/files/image.png",
+		});
+		expect(plain?.previewSrc).toBeUndefined();
+	});
+
+	it("loads media from the picked node instead of the main one", () => {
+		setMediaOrigins("https://example.com", "https://eu-2.nodes.example.com");
+
+		try {
+			const [image] = splitAttachments([
+				attachment("image/png", {
+					previewUrl:
+						"https://example.com/files/image.png?variant=timeline&sig=x",
+				}),
+			]).media;
+			const [elsewhere] = splitAttachments([
+				{
+					url: "https://cdn.other.test/a.png",
+					mimeType: "image/png",
+				} as AttachmentView,
+			]).media;
+
+			expect(image?.src).toBe("https://eu-2.nodes.example.com/files/image.png");
+			expect(image?.previewSrc).toBe(
+				"https://eu-2.nodes.example.com/files/image.png?variant=timeline&sig=x",
+			);
+			expect(elsewhere?.src).toBe("https://cdn.other.test/a.png");
+		} finally {
+			setMediaOrigins(null, null);
+		}
+	});
+
+	it("splits by mime type and keeps dimensions", () => {
+		const result = splitAttachments([
+			attachment("image/png", { width: 800, height: 600 }),
+			attachment("image/gif"),
+			attachment("video/mp4", { width: 1280, height: 720 }),
+			attachment("audio/mpeg", { name: "song.mp3", size: 1000 }),
+			attachment("application/pdf", { name: "doc.pdf", size: 2048 }),
+		]);
+		expect(result.media.map((item) => item.kind)).toEqual([
+			"image",
+			"gif",
+			"video",
+		]);
+		expect(result.media[0]).toMatchObject({ width: 800, height: 600 });
+		expect(result.media[2]).toMatchObject({ mimeType: "video/mp4" });
+		expect(result.audio[0]).toMatchObject({ name: "song.mp3", size: 1000 });
+		expect(result.files[0]).toMatchObject({
+			name: "doc.pdf",
+			mimeType: "application/pdf",
+		});
+	});
+
+	it("carries upload progress to media, audio and files by index", () => {
+		const result = splitAttachments(
+			[
+				attachment("image/png"),
+				attachment("audio/mpeg", { name: "song.mp3" }),
+				attachment("application/pdf", { name: "doc.pdf" }),
+			],
+			[0.5, 1, 0.25],
+		);
+
+		expect(result.media[0]?.progress).toBe(0.5);
+		expect(result.audio[0]?.progress).toBe(1);
+		expect(result.files[0]?.progress).toBe(0.25);
+	});
+
+	it("carries the spoiler flag to media, audio and files", () => {
+		const result = splitAttachments([
+			attachment("image/png", { spoiler: true }),
+			attachment("image/jpeg"),
+			attachment("audio/mpeg", { name: "song.mp3", spoiler: true }),
+			attachment("application/pdf", { name: "doc.pdf", spoiler: true }),
+		]);
+		expect(result.media.map((item) => item.spoiler)).toEqual([true, undefined]);
+		expect(result.audio[0]?.spoiler).toBe(true);
+		expect(result.files[0]?.spoiler).toBe(true);
+	});
+
+	it("drops suppressed embeds and maps images", () => {
+		const embeds = [
+			{
+				uri: "https://a.test",
+				title: "A",
+				image: { url: "https://a.test/i.png", width: 10, height: 5 },
+			},
+			{ uri: "https://b.test" },
+		];
+		const visible = visibleEmbeds(
+			embeds as never,
+			embedSuppression({ suppressedEmbeds: ["https://b.test"] as never }),
+		);
+		expect(visible).toHaveLength(1);
+		expect(toLinkEmbedProps(visible[0] as never)).toEqual({
+			url: "https://a.test",
+			siteName: undefined,
+			title: "A",
+			description: undefined,
+			image: { src: "https://a.test/i.png", width: 10, height: 5 },
+		});
+	});
+});
+
+describe("embed suppression", () => {
+	const label = (scope?: string[]) => ({
+		src: "did:web:app.test",
+		val: "embeds-suppressed",
+		scope,
+		createdAt: "2026-10-14T00:00:00.000Z",
+	});
+
+	it("splits author and moderator suppression", () => {
+		const state = embedSuppression({
+			suppressedEmbeds: ["https://a.test"] as never,
+			labels: [label(["https://a.test", "https://b.test"])] as never,
+		});
+		expect(state).toEqual({
+			all: false,
+			author: ["https://a.test"],
+			moderator: ["https://b.test"],
+		});
+		const embeds = [
+			{ uri: "https://a.test" },
+			{ uri: "https://b.test" },
+			{ uri: "https://c.test" },
+		];
+		expect(
+			visibleEmbeds(embeds as never, state).map((embed) => embed.uri),
+		).toEqual(["https://c.test"]);
+	});
+
+	it("hides every preview for an unscoped label", () => {
+		const state = embedSuppression({ labels: [label()] as never });
+		expect(state.all).toBe(true);
+		expect(visibleEmbeds([{ uri: "https://a.test" }] as never, state)).toEqual(
+			[],
+		);
+	});
+
+	it("ignores unrelated labels", () => {
+		expect(
+			embedSuppression({
+				labels: [{ ...label(["https://a.test"]), val: "hidden" }] as never,
+			}),
+		).toEqual({ all: false, author: [], moderator: [] });
+	});
+});
+
+describe("gif attachments", () => {
+	it("finds a lone GIF", () => {
+		expect(
+			gifOfAttachments([
+				{
+					url: "https://media.test/cat.gif",
+					mimeType: "image/gif",
+					name: "Cat typing.gif",
+					width: 480,
+					height: 270,
+				},
+			] as AttachmentView[]),
+		).toEqual({
+			id: "https://media.test/cat.gif",
+			url: "https://media.test/cat.gif",
+			previewUrl: "https://media.test/cat.gif",
+			width: 480,
+			height: 270,
+			title: "Cat typing",
+		});
+	});
+
+	it("skips other media and albums", () => {
+		const gif = {
+			url: "https://media.test/a.gif",
+			mimeType: "image/gif",
+		} as AttachmentView;
+		expect(gifOfAttachments([gif, gif])).toBeUndefined();
+		expect(
+			gifOfAttachments([
+				{ url: "https://media.test/a.png", mimeType: "image/png" },
+			] as AttachmentView[]),
+		).toBeUndefined();
+		expect(gifOfAttachments(undefined)).toBeUndefined();
+	});
+});
+
+describe("gif embeds", () => {
+	it("finds a GIF site link", () => {
+		expect(
+			gifOfEmbed({
+				uri: "https://tenor.com/view/cat-gif-1",
+				title: "Cat GIF",
+				image: { url: "https://media.test/cat.gif", width: 220, height: 140 },
+			} as LinkEmbed),
+		).toEqual({
+			id: "https://tenor.com/view/cat-gif-1",
+			url: "https://tenor.com/view/cat-gif-1",
+			previewUrl: "https://media.test/cat.gif",
+			width: 220,
+			height: 140,
+			title: "Cat GIF",
+		});
+	});
+
+	it("saves a video GIF embed as a favorite that plays its video", () => {
+		expect(
+			gifOfEmbed({
+				uri: "https://x.com/someone/status/1",
+				title: "someone on X",
+				media: [
+					{
+						kind: "gifv",
+						url: "https://appview.test/video/cat.mp4",
+						previewUrl: "https://appview.test/image/cat.jpg",
+						mimeType: "video/mp4",
+						width: 480,
+						height: 270,
+					},
+				],
+			} as LinkEmbed),
+		).toEqual({
+			id: "https://x.com/someone/status/1",
+			url: "https://x.com/someone/status/1",
+			previewUrl: "https://appview.test/image/cat.jpg",
+			videoUrl: "https://appview.test/video/cat.mp4",
+			mimeType: "video/mp4",
+			width: 480,
+			height: 270,
+			title: "someone on X",
+		});
+	});
+
+	it("skips embeds with several or non-GIF videos", () => {
+		const clip = {
+			kind: "gifv",
+			url: "https://appview.test/video/cat.mp4",
+		};
+		expect(
+			gifOfEmbed({
+				uri: "https://x.com/someone/status/2",
+				media: [clip, clip],
+			} as LinkEmbed),
+		).toBeUndefined();
+		expect(
+			gifOfEmbed({
+				uri: "https://x.com/someone/status/3",
+				media: [{ ...clip, kind: "video" }],
+			} as LinkEmbed),
+		).toBeUndefined();
+	});
+
+	it("skips still images and plain links", () => {
+		expect(
+			gifOfEmbed({
+				uri: "https://media.test/cat.png",
+				image: { url: "https://media.test/cat.png" },
+			} as LinkEmbed),
+		).toBeUndefined();
+		expect(
+			gifOfEmbed({ uri: "https://example.com", title: "Example" } as LinkEmbed),
+		).toBeUndefined();
+	});
+});
+
+describe("inline media embeds", () => {
+	const embed = (value: Partial<LinkEmbed> & { uri: string }) =>
+		value as LinkEmbed;
+	const proxied =
+		"https://appview.test/xrpc/social.colibri.beta.embed.getImage?url=x";
+
+	it("shows a GIF site link as its animated image", () => {
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://tenor.com/view/touhou-fumo-plushie-plush-hello-gif-21004226",
+					siteName: "Tenor",
+					title: "Touhou Fumo GIF",
+					image: { url: proxied, width: 438, height: 498 },
+					video: {
+						url: "https://appview.test/video",
+						mimeType: "video/mp4",
+						width: 498,
+						height: 566,
+					},
+				}),
+			),
+		).toEqual({
+			src: proxied,
+			kind: "gif",
+			width: 438,
+			height: 498,
+			alt: "Touhou Fumo GIF",
+		});
+	});
+
+	it("shows direct image and video links as media", () => {
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://media.test/cat.webp?x=1",
+					image: { url: proxied },
+				}),
+			),
+		).toMatchObject({ kind: "gif", src: proxied });
+		expect(
+			inlineMediaOf(
+				embed({ uri: "https://media.test/cat.JPG", image: { url: proxied } }),
+			),
+		).toMatchObject({ kind: "image", src: proxied });
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://media.test/clip.mp4",
+					video: { url: "https://appview.test/video", mimeType: "video/mp4" },
+				}),
+			),
+		).toMatchObject({ kind: "video", src: "https://appview.test/video" });
+	});
+
+	it("shows a link the server reports as an image inline whatever its URL ends in", () => {
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://eusv.net/Z3IHTWsCwrBqzZcL",
+					image: { url: proxied },
+					media: [
+						{
+							kind: "image",
+							url: proxied,
+							mimeType: "image/png",
+							width: 640,
+							height: 480,
+						},
+					],
+				}),
+			),
+		).toEqual({ src: proxied, kind: "image", width: 640, height: 480 });
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://mail.ehis.gay/api/share/EPszVlbbHi1bXMEJKyaLh2fz/og.png",
+					image: { url: proxied },
+					media: [{ kind: "image", url: proxied, mimeType: "image/svg+xml" }],
+				}),
+			),
+		).toEqual({
+			src: proxied,
+			kind: "image",
+			width: undefined,
+			height: undefined,
+		});
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://media.test/share",
+					media: [{ kind: "image", url: proxied, mimeType: "image/gif" }],
+				}),
+			),
+		).toMatchObject({ kind: "gif" });
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://eusv.net/Z3IHTWsCwrBqzZcL",
+					title: "A gallery",
+					media: [
+						{ kind: "image", url: proxied },
+						{ kind: "image", url: proxied },
+					],
+				}),
+			),
+		).toBeUndefined();
+	});
+
+	it("leaves ordinary pages and imageless GIF links as cards", () => {
+		expect(
+			inlineMediaOf(
+				embed({
+					uri: "https://example.com/post",
+					title: "A post",
+					image: { url: proxied },
+				}),
+			),
+		).toBeUndefined();
+		expect(
+			inlineMediaOf(embed({ uri: "https://giphy.com/", title: "GIPHY" })),
+		).toBeUndefined();
+	});
+
+	it("matches GIF sites and their subdomains only", () => {
+		expect(isGifSiteUrl("https://media.giphy.com/media/x/giphy.gif")).toBe(
+			true,
+		);
+		expect(isGifSiteUrl("https://klipy.com/gifs/anime-maid-7")).toBe(true);
+		expect(isGifSiteUrl("https://nottenor.com/view/x")).toBe(false);
+		expect(isGifSiteUrl("not a url")).toBe(false);
+	});
+});
+
+describe("bluesky posts", () => {
+	it("parses post links on known clients", () => {
+		expect(
+			parseBlueskyPostUrl("https://bsky.app/profile/ana.test/post/3labc"),
+		).toEqual({ authority: "ana.test", rkey: "3labc" });
+		expect(
+			parseBlueskyPostUrl("https://mu.social/profile/did:plc:a/post/3l"),
+		).toEqual({ authority: "did:plc:a", rkey: "3l" });
+		expect(
+			parseBlueskyPostUrl("https://example.com/profile/a/post/3l"),
+		).toBeUndefined();
+		expect(
+			parseBlueskyPostUrl("https://bsky.app/profile/ana.test"),
+		).toBeUndefined();
+		expect(parseBlueskyPostUrl("not a url")).toBeUndefined();
+	});
+
+	it("maps a post and points it at the preferred client", () => {
+		const post = toBlueskyPost(
+			{
+				url: "https://bsky.app/profile/did:plc:ana/post/3labc",
+				author: {
+					did: "did:plc:ana" as never,
+					handle: "ana.test",
+					displayName: "Ana",
+				},
+				text: "Hello",
+				createdAt: "2026-10-14T10:00:00.000Z" as never,
+				images: [{ url: "https://img.test/1.jpg", width: 4, height: 3 }],
+				likeCount: 3,
+			},
+			{ base: "mu.social" },
+			new Date("2026-10-14T12:00:00.000Z"),
+		);
+		expect(post).toMatchObject({
+			author: { name: "Ana", handle: "ana.test", did: "did:plc:ana" },
+			time: "2h",
+			text: "Hello",
+			url: "https://mu.social/profile/ana.test/post/3labc",
+			media: [{ src: "https://img.test/1.jpg", kind: "image" }],
+			stats: { replies: 0, reposts: 0, likes: 3 },
+		});
+	});
+
+	it("maps a video and a quote with media for the preferred client", () => {
+		const video = {
+			cid: "bafyvideo",
+			did: "did:plc:ana" as never,
+			src: "https://pds.test/xrpc/com.atproto.sync.getBlob?did=did%3Aplc%3Aana&cid=bafyvideo",
+			thumbnail: "https://video.test/thumb.jpg",
+			alt: "A heron",
+			width: 16,
+			height: 9,
+		};
+		const post = toBlueskyPost(
+			{
+				url: "https://bsky.app/profile/did:plc:ana/post/3labc",
+				author: { did: "did:plc:ana" as never, handle: "ana.test" },
+				text: "Look",
+				createdAt: "2026-10-14T10:00:00.000Z" as never,
+				video,
+				quote: {
+					url: "https://bsky.app/profile/did:plc:bo/post/3lquote",
+					author: { did: "did:plc:bo" as never, handle: "bo.test" },
+					text: "Quoted",
+					createdAt: "2026-10-14T09:00:00.000Z" as never,
+					images: [{ url: "https://img.test/q.jpg", width: 3, height: 4 }],
+				},
+			},
+			{ base: "mu.social" },
+			new Date("2026-10-14T12:00:00.000Z"),
+		);
+
+		expect(post.media).toEqual([
+			{
+				src: video.src,
+				kind: "video",
+				mimeType: "video/mp4",
+				poster: "https://video.test/thumb.jpg",
+				width: 16,
+				height: 9,
+				alt: "A heron",
+			},
+		]);
+		expect(post.quote).toMatchObject({
+			author: { name: "bo.test", handle: "bo.test" },
+			time: "3h",
+			text: "Quoted",
+			url: "https://mu.social/profile/bo.test/post/3lquote",
+			media: [{ src: "https://img.test/q.jpg", kind: "image" }],
+		});
+	});
+
+	it("shows a video thumbnail as an image when the video has no source", () => {
+		const view = {
+			url: "https://bsky.app/profile/did:plc:ana/post/3labc",
+			author: { did: "did:plc:ana" as never, handle: "ana.test" },
+			text: "Look",
+			createdAt: "2026-10-14T10:00:00.000Z" as never,
+			images: [{ url: "https://img.test/1.jpg" }],
+			video: {
+				cid: "bafyvideo",
+				did: "did:plc:ana" as never,
+				thumbnail: "https://video.test/thumb.jpg",
+				width: 16,
+				height: 9,
+			},
+		};
+
+		expect(blueskyMediaItems(view)).toEqual([
+			{ src: "https://img.test/1.jpg", kind: "image" },
+			{
+				src: "https://video.test/thumb.jpg",
+				kind: "image",
+				width: 16,
+				height: 9,
+			},
+		]);
+		expect(
+			blueskyMediaItems({
+				...view,
+				images: undefined,
+				video: { ...view.video, thumbnail: undefined },
+			}),
+		).toEqual([]);
+	});
+
+	it("accepts post links on a custom client host", () => {
+		const custom = "https://sky.example.org/profile/ana.test/post/3labc";
+		expect(parseBlueskyPostUrl(custom)).toBeUndefined();
+		expect(parseBlueskyPostUrl(custom, "sky.example.org")).toEqual({
+			authority: "ana.test",
+			rkey: "3labc",
+		});
+		expect(canonicalBlueskyPostUrl(custom, "sky.example.org")).toBe(
+			"https://bsky.app/profile/ana.test/post/3labc",
+		);
+		expect(canonicalBlueskyPostUrl("https://example.com/a")).toBe(
+			"https://example.com/a",
+		);
+	});
+
+	it("turns the truncated link of a post into a link segment", () => {
+		const text =
+			"... It may have custom emojis \u{1F440}\n\nFor instructions on how to get started, head to github.com/colibri-soci.... Please let us know!";
+		const bytes = new TextEncoder().encode(text);
+		const label = new TextEncoder().encode("github.com/colibri-soci...");
+		const byteStart = bytes.findIndex((_, index) =>
+			label.every((byte, offset) => bytes[index + offset] === byte),
+		);
+		const segments = blueskyTextSegments(
+			text,
+			[
+				{
+					index: { byteStart, byteEnd: byteStart + label.length },
+					features: [
+						{
+							$type: "app.bsky.richtext.facet#link",
+							uri: "https://github.com/colibri-social/colibri.social/releases/tag/v0.6.0-spaces.7",
+						},
+					],
+				},
+			],
+			{ base: "mu.social" },
+		);
+		expect(segments).toEqual([
+			{
+				text: "... It may have custom emojis \u{1F440}\n\nFor instructions on how to get started, head to ",
+			},
+			{
+				text: "github.com/colibri-soci...",
+				href: "https://github.com/colibri-social/colibri.social/releases/tag/v0.6.0-spaces.7",
+			},
+			{ text: ". Please let us know!" },
+		]);
+	});
+
+	it("counts facet offsets in UTF-8 bytes past emoji", () => {
+		const text = "\u{1F426}\u{1F426} see bsky.app/x and @ana.test #birds";
+		const at = (needle: string) =>
+			new TextEncoder().encode(text.slice(0, text.indexOf(needle))).length;
+		const span = (needle: string) => ({
+			byteStart: at(needle),
+			byteEnd: at(needle) + new TextEncoder().encode(needle).length,
+		});
+		expect(span("bsky.app/x").byteStart).toBe(13);
+		const segments = blueskyTextSegments(
+			text,
+			[
+				{
+					index: span("#birds"),
+					features: [{ $type: "app.bsky.richtext.facet#tag", tag: "birds" }],
+				},
+				{
+					index: span("bsky.app/x"),
+					features: [
+						{
+							$type: "app.bsky.richtext.facet#link",
+							uri: "https://bsky.app/profile/ana.test",
+						},
+					],
+				},
+				{
+					index: span("@ana.test"),
+					features: [
+						{ $type: "app.bsky.richtext.facet#mention", did: "did:plc:ana" },
+					],
+				},
+			],
+			{ base: "mu.social" },
+		);
+		expect(segments).toEqual([
+			{ text: "\u{1F426}\u{1F426} see " },
+			{ text: "bsky.app/x", href: "https://mu.social/profile/ana.test" },
+			{ text: " and " },
+			{ text: "@ana.test", href: "https://mu.social/profile/did:plc:ana" },
+			{ text: " " },
+			{ text: "#birds", href: "https://mu.social/search?q=%23birds" },
+		]);
+	});
+
+	it("leaves unsafe and broken facets as plain text", () => {
+		const segments = blueskyTextSegments(
+			"click here and there",
+			[
+				{
+					index: { byteStart: 0, byteEnd: 10 },
+					features: [
+						{
+							$type: "app.bsky.richtext.facet#link",
+							uri: "javascript:alert(1)",
+						},
+					],
+				},
+				{
+					index: { byteStart: 15, byteEnd: 99 },
+					features: [
+						{
+							$type: "app.bsky.richtext.facet#link",
+							uri: "https://example.com",
+						},
+					],
+				},
+			],
+			{ base: "bsky.app" },
+		);
+		expect(segments).toEqual([{ text: "click here and there" }]);
+	});
+
+	it("carries facets into the mapped post", () => {
+		const post = toBlueskyPost(
+			{
+				url: "https://bsky.app/profile/did:plc:ana/post/3labc",
+				author: { did: "did:plc:ana" as never, handle: "ana.test" },
+				text: "hi #birds",
+				facets: [
+					{
+						index: { byteStart: 3, byteEnd: 9 },
+						features: [{ $type: "app.bsky.richtext.facet#tag", tag: "birds" }],
+					},
+				],
+				createdAt: "2026-10-14T10:00:00.000Z" as never,
+			},
+			{ base: "sky.example.org" },
+		);
+		expect(post.segments).toEqual([
+			{ text: "hi " },
+			{ text: "#birds", href: "https://sky.example.org/search?q=%23birds" },
+		]);
+		expect(post.url).toBe(
+			"https://sky.example.org/profile/ana.test/post/3labc",
+		);
+	});
+});
+
+describe("reactions", () => {
+	const ada = profile("did:plc:ada");
+	const members = new Map([[ada.did, member(ada, [])]]);
+	const views = [
+		{
+			emoji: "🐦",
+			count: 2,
+			reactors: ["did:plc:ada", "did:plc:viewer"],
+			viewerReacted: true,
+		},
+		{
+			emoji: "🌿",
+			count: 1,
+			reactors: [],
+			bridgedReactors: [
+				{ registration: "3l", platform: "matrix", remoteId: "@x", name: "Xan" },
+			],
+		},
+	] as unknown as ReactionView[];
+
+	it("maps chips with names and viewer state", () => {
+		expect(toReactions(views, members)).toEqual([
+			{ emoji: "🐦", count: 2, mine: true, reactors: ["ada", "Unknown user"] },
+			{ emoji: "🌿", count: 1, mine: false, reactors: ["Xan"] },
+		]);
+	});
+
+	it("removes a reaction the viewer picks again and adds any other", () => {
+		expect(pickedReactionAdds(views, "🐦")).toBe(false);
+		expect(pickedReactionAdds(views, "🌿")).toBe(true);
+		expect(pickedReactionAdds(views, "🔥")).toBe(true);
+		expect(pickedReactionAdds(undefined, "🔥")).toBe(true);
+	});
+
+	it("builds viewer groups including bridged reactors", () => {
+		const groups = toReactionGroups(views, members, "did:plc:viewer");
+		expect(groups[0]?.reactors.find((reactor) => reactor.mine)?.id).toBe(
+			"did:plc:viewer",
+		);
+		expect(groups[1]?.reactors[0]).toMatchObject({
+			name: "Xan",
+			via: "Matrix",
+		});
+	});
+
+	it("flags custom reactions the sheet cannot resolve", () => {
+		const custom = [
+			{ emoji: ":owl:", count: 1, reactors: [] },
+			{ emoji: ":gone:", count: 1, reactors: [] },
+			{ emoji: "🐦", count: 1, reactors: [] },
+		] as unknown as ReactionView[];
+		const groups = toReactionGroups(
+			custom,
+			members,
+			"did:plc:viewer",
+			(reaction) =>
+				reaction.emoji === ":owl:"
+					? { name: "owl", src: "owl.png" }
+					: undefined,
+			(reaction) => reaction.emoji === ":gone:",
+		);
+		expect(
+			groups.map(({ emoji, src, custom, unavailable }) => ({
+				emoji,
+				src,
+				custom,
+				unavailable,
+			})),
+		).toEqual([
+			{ emoji: ":owl:", src: "owl.png", custom: true, unavailable: undefined },
+			{ emoji: ":gone:", src: undefined, custom: true, unavailable: true },
+			{
+				emoji: "🐦",
+				src: undefined,
+				custom: undefined,
+				unavailable: undefined,
+			},
+		]);
+	});
+
+	it("resolves a custom reaction by its emoji record before its name", () => {
+		const uri = "at://did:plc:ada/social.colibri.beta.emoji/party";
+		const byName = vi.fn(() => ({ name: "party", src: "/scope.gif" }));
+		const byUri = vi.fn((wanted: string) =>
+			wanted === uri ? { name: "party", src: "/ada.gif" } : undefined,
+		);
+		const resolve = customReactionResolver(byName, byUri);
+
+		expect(resolve({ emoji: ":party:", customEmoji: { uri } })).toEqual({
+			name: "party",
+			src: "/ada.gif",
+		});
+		expect(
+			resolve({
+				emoji: ":party:",
+				customEmoji: { uri: "at://did:plc:bob/social.colibri.beta.emoji/x" },
+			}),
+		).toBeUndefined();
+		expect(byName).not.toHaveBeenCalled();
+		expect(resolve({ emoji: ":party:" })).toEqual({
+			name: "party",
+			src: "/scope.gif",
+		});
+		expect(resolve({ emoji: "🎉", customEmoji: { uri } })).toBeUndefined();
+	});
+});
+
+describe("forward", () => {
+	const base = {
+		source: {
+			space: "at://did:plc:here/space/social.colibri.beta.channel.text/mods",
+			did: "did:plc:ada",
+			rkey: "1",
+		},
+		createdAt: "2026-01-01T00:00:00.000Z",
+		text: "hi",
+		attachments: [],
+	};
+	const context = {
+		currentCommunity: "did:plc:here",
+		channelBySpace: () => undefined,
+		communities: new Map([
+			[
+				"did:plc:other",
+				{
+					did: "did:plc:other",
+					name: "Night Owls",
+					picture: "p",
+					handle: "nightowls.art",
+				} as never,
+			],
+			[
+				"did:plc:here",
+				{
+					did: "did:plc:here",
+					name: "HQ",
+					handle: "hq.colibri.social",
+				} as never,
+			],
+		]),
+	};
+
+	it("never exposes the original author", () => {
+		const display = toForwardDisplay(
+			{ ...base, sourceName: "general" } as unknown as ForwardView,
+			context,
+		);
+		expect(JSON.stringify(display)).not.toContain("did:plc:ada");
+		expect(display).not.toHaveProperty("author");
+	});
+
+	it("shows the Space for a source in another Space you belong to", () => {
+		const display = toForwardDisplay(
+			{
+				...base,
+				sourceName: "showcase",
+				sourceCommunity: "did:plc:other",
+			} as unknown as ForwardView,
+			context,
+		);
+		expect(display.source).toEqual({
+			channel: "showcase",
+			space: "Night Owls",
+			spaceIconSrc: "p",
+		});
+	});
+
+	it("falls back to a visible local channel", () => {
+		const display = toForwardDisplay(base as unknown as ForwardView, {
+			...context,
+			channelBySpace: () => ({ name: "mods" }) as never,
+		});
+		expect(display.source).toEqual({ channel: "mods" });
+	});
+
+	it("hides the source without access", () => {
+		const display = toForwardDisplay(base as unknown as ForwardView, context);
+		expect(display.source).toBeUndefined();
+	});
+	it("targets a channel in the current Space", () => {
+		const display = toForwardDisplay(base as unknown as ForwardView, {
+			...context,
+			channelBySpace: () => ({ name: "mods" }) as never,
+		});
+		expect(display.target).toEqual({
+			space: "did:plc:here",
+			channel: "mods",
+			channelType: "social.colibri.beta.channel.text",
+		});
+	});
+
+	it("targets a thread through its parent channel", () => {
+		const display = toForwardDisplay(
+			{
+				...base,
+				source: {
+					...base.source,
+					space:
+						"at://did:plc:here/space/social.colibri.beta.channel.thread/t1",
+				},
+			} as unknown as ForwardView,
+			{
+				...context,
+				threadNameBySpace: () => "Spring tuning",
+				threadChannelBySpace: () =>
+					"at://did:plc:here/space/social.colibri.beta.channel.text/dev",
+			},
+		);
+		expect(display.target).toEqual({
+			space: "did:plc:here",
+			channel: "dev",
+			channelType: "social.colibri.beta.channel.text",
+			thread: "t1",
+		});
+	});
+
+	it("has no target for a thread whose parent channel is unknown", () => {
+		const thread = {
+			...base,
+			source: {
+				...base.source,
+				space: "at://did:plc:here/space/social.colibri.beta.channel.thread/t1",
+			},
+			sourceName: "Spring tuning",
+		} as unknown as ForwardView;
+		const display = toForwardDisplay(thread, context);
+		expect(display.source).toEqual({ channel: "Spring tuning" });
+		expect(display.target).toBeUndefined();
+		expect(
+			toForwardDisplay(
+				{
+					...thread,
+					source: {
+						...base.source,
+						space:
+							"at://did:plc:other/space/social.colibri.beta.channel.thread/t2",
+					},
+					sourceCommunity: "did:plc:other",
+				} as unknown as ForwardView,
+				context,
+			).target,
+		).toBeUndefined();
+	});
+
+	it("targets a channel in another Space you belong to", () => {
+		const display = toForwardDisplay(
+			{
+				...base,
+				source: {
+					...base.source,
+					space:
+						"at://did:plc:other/space/social.colibri.beta.channel.text/showcase",
+				},
+				sourceName: "showcase",
+				sourceCommunity: "did:plc:other",
+			} as unknown as ForwardView,
+			context,
+		);
+		expect(display.target).toEqual({
+			space: "did:plc:other",
+			channel: "showcase",
+			channelType: "social.colibri.beta.channel.text",
+		});
+	});
+
+	it("has no target outside your Spaces or without access", () => {
+		expect(
+			toForwardDisplay(
+				{
+					...base,
+					sourceName: "elsewhere",
+					sourceCommunity: "did:plc:stranger",
+				} as unknown as ForwardView,
+				context,
+			).target,
+		).toBeUndefined();
+		expect(
+			toForwardDisplay(base as unknown as ForwardView, context).target,
+		).toBeUndefined();
+	});
+});
+
+describe("formatAge", () => {
+	const now = new Date("2026-10-10T12:00:00Z");
+	it("formats compact ages", () => {
+		expect(formatAge("2026-10-10T11:59:30Z", now)).toBe("now");
+		expect(formatAge("2026-10-10T11:15:00Z", now)).toBe("45m");
+		expect(formatAge("2026-10-10T03:00:00Z", now)).toBe("9h");
+		expect(formatAge("2026-10-07T12:00:00Z", now)).toBe("3d");
+		expect(formatAge("2026-09-20T12:00:00Z", now)).toBe("2w");
+	});
+});
+
+describe("rich link embeds", () => {
+	const post = {
+		uri: "https://fixupx.com/a/status/1/en",
+		title: "A (@a)",
+		siteName: "FixupX",
+		themeColor: "#6363ff",
+		provider: {
+			name: "FixupX",
+			url: "https://fixupx.com",
+			icon: "https://appview.test/icon.png",
+		},
+		author: {
+			name: "A",
+			handle: "a",
+			url: "https://x.com/a",
+			avatar: "https://appview.test/a.jpg",
+		},
+		publishedAt: "2026-10-14T09:19:55.000Z",
+		media: [
+			{
+				kind: "video",
+				url: "https://appview.test/v.mp4",
+				previewUrl: "https://appview.test/v.jpg",
+				mimeType: "video/mp4",
+				width: 720,
+				height: 1564,
+			},
+			{ kind: "gifv", url: "https://appview.test/g.mp4", width: 4, height: 3 },
+			{ kind: "audio", url: "https://appview.test/a.mp3" },
+		],
+		post: {
+			body: [{ kind: "paragraph", spans: [{ text: "Hi", bold: true }] }],
+			stats: { replies: 18, likes: 373 },
+			translatedFrom: "zh",
+			quote: {
+				uri: "https://x.com/b/status/2",
+				author: { name: "B", handle: "b" },
+				body: [{ kind: "quote", spans: [{ text: "Quoted" }] }],
+				publishedAt: "2026-10-13T09:19:55.000Z",
+			},
+		},
+	};
+
+	it("maps a post embed to the social post card", () => {
+		const props = toSocialPostProps(post as never, {
+			locale: "en-US",
+			now: new Date("2026-10-14T10:19:55.000Z"),
+		});
+		expect(props?.accent).toBe("#6363ff");
+		expect(props?.author).toEqual({
+			name: "A",
+			handle: "a",
+			url: "https://x.com/a",
+			avatarSrc: "https://appview.test/a.jpg",
+		});
+		expect(props?.body).toEqual([
+			{ kind: "paragraph", spans: [{ text: "Hi", bold: true }] },
+		]);
+		expect(props?.media).toEqual([
+			{
+				src: "https://appview.test/v.mp4",
+				kind: "video",
+				mimeType: "video/mp4",
+				poster: "https://appview.test/v.jpg",
+				width: 720,
+				height: 1564,
+			},
+			{
+				src: "https://appview.test/g.mp4",
+				kind: "gif",
+				mimeType: "video/mp4",
+				width: 4,
+				height: 3,
+			},
+		]);
+		expect(props?.quote?.time).toBe("1d");
+		expect(props?.footer?.label).toBe("FixupX");
+		expect(props?.footer?.iconSrc).toBe("https://appview.test/icon.png");
+		expect(props?.footer?.time).toMatch(/10\/14\/26/);
+	});
+
+	it("leaves plain pages to the link card", () => {
+		expect(
+			toSocialPostProps({ uri: "https://a.test" } as never),
+		).toBeUndefined();
+	});
+
+	it("plays looping GIF videos as videos in the lightbox", () => {
+		expect(
+			lightboxMediaOf([{ src: "g.mp4", kind: "gif", mimeType: "video/mp4" }]),
+		).toEqual([{ src: "g.mp4", kind: "video", mimeType: "video/mp4" }]);
+	});
+
+	it("passes theme color, layout, provider and a playable video to the link card", () => {
+		const props = toLinkEmbedProps({
+			uri: "https://example.com/watch",
+			title: "Clip",
+			themeColor: "#1e2327",
+			layout: "summary",
+			provider: { name: "Example", icon: "https://appview.test/i.png" },
+			author: { name: "Jane" },
+			image: { url: "https://appview.test/p.jpg", width: 640, height: 360 },
+			video: {
+				url: "https://appview.test/v.mp4",
+				mimeType: "video/mp4",
+				width: 640,
+				height: 360,
+			},
+		} as never);
+		expect(props.accent).toBe("#1e2327");
+		expect(props.imageStyle).toBe("thumbnail");
+		expect(props.provider).toEqual({
+			name: "Example",
+			url: undefined,
+			iconSrc: "https://appview.test/i.png",
+		});
+		expect(props.author?.name).toBe("Jane");
+		expect(props.media).toEqual([
+			{
+				src: "https://appview.test/v.mp4",
+				kind: "video",
+				mimeType: "video/mp4",
+				width: 640,
+				height: 360,
+				poster: "https://appview.test/p.jpg",
+				alt: "Clip",
+			},
+		]);
+	});
+
+	it("ignores theme colors that are not hex", () => {
+		expect(
+			toLinkEmbedProps({ uri: "https://a.test", themeColor: "red" } as never)
+				.accent,
+		).toBeUndefined();
+	});
+});

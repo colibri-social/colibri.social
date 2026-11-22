@@ -1,0 +1,83 @@
+---
+title: AppView
+description: What the Colibri AppView is, what it runs on, and what it is responsible for.
+sidebar:
+  order: 3
+---
+
+import AppViewDiagram from "../../../../../components/docs/AppViewDiagram.astro";
+
+Colibri's AppView is what a conventional full-stack application calls the
+backend. It serves the XRPC API and the event socket, holds each Space's
+credentials and writes records on its behalf, keeps a synced copy of every
+ATproto space it serves, sends push notifications, and hosts the voice
+SFU.
+
+:::note
+This page describes the [reference implementation](https://github.com/colibri-social/api).
+For the interface it implements, see the
+[specification](/docs/developers/specification/appview).
+:::
+
+## What the AppView is
+
+A typical atproto AppView subscribes to a relay, consumes a firehose of public
+records, and indexes what it cares about. Colibri's data lives in
+[ATproto spaces](/docs/developers/architecture/spaces), and there is no relay for
+permissioned data.
+
+The AppView pulls each member's repository from that member's own host, holding
+a credential the Space issued it. [Sync](/docs/developers/architecture/sync) covers how
+that works.
+
+Some data reaches the AppView another way. Public records such as
+profiles and custom emoji arrive over
+[Jetstream](/docs/developers/architecture/sync#jetstream). The space repositories
+of a member whose PDS cannot hold them are written to the AppView directly, as
+[Hosting](/docs/developers/architecture/hosting) describes.
+
+<AppViewDiagram />
+
+## Reachability is a hard requirement
+
+Every ATproto space of a Colibri Space except its public profile space
+uses a managed-space policy naming the AppView, so the Space's PDS calls
+`com.atproto.managedspace.checkAccess` before it issues a credential for one.
+
+When the AppView cannot be reached from wherever the Space's PDS runs, its
+Spaces are unreadable while the PDS itself is healthy. The PDS answers
+`UpstreamFailure` for the duration, and writes made during the outage enter the
+[writer set](/docs/developers/architecture/sync#the-writer-set) once their host
+retries them after the AppView is back.
+
+We are considering changing this in the future.
+
+## Authentication
+
+Clients authenticate with an atproto service auth JWT that their own PDS minted
+for one specific method, sent in the `Authorization` header. The usual way to
+get one is to call the AppView *through* the user's PDS with an `atproto-proxy`
+header, which makes the PDS mint and attach the token.
+
+On top of the standard checks, the AppView enforces a **maximum token
+lifetime**, 300 seconds by default (`SERVICE_AUTH_MAX_LIFETIME_SECONDS`). It
+rejects a token whose issuer set an expiry further ahead than that.
+
+## Voice
+
+Voice and video run on a [mediasoup](https://mediasoup.org) SFU inside the
+AppView, on nodes that hold the `voice` role. Session setup and control happen
+over the `social.colibri.beta.voice.subscribeSignals` subscription, a WebSocket
+that carries JSON frames. Media flows over the WebRTC transports negotiated
+there. Acting on someone else in a call is the
+`social.colibri.beta.voice.moderate` procedure.
+
+## See also
+
+- [ATproto Spaces](/docs/developers/architecture/spaces): the primitive the AppView builds on.
+- [Colibri Spaces](/docs/developers/architecture/communities): what a Space is made of.
+- [Sync](/docs/developers/architecture/sync): keeping a copy of an ATproto space current without a relay.
+- [Storage](/docs/developers/architecture/storage): what lands in the database and what can be rebuilt.
+- [Hosting](/docs/developers/architecture/hosting): the spaces polyfill and bring-your-own hosting.
+- [Specification](/docs/developers/specification/appview): the endpoint and event reference.
+- [Self-hosting](/docs/developers/self-hosting/getting-started): running one.

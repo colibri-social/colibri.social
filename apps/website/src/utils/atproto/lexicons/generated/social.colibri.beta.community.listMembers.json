@@ -1,0 +1,76 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.listMembers",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists a community's admitted members.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community to list members of."
+					},
+					"role": {
+						"type": "string",
+						"format": "record-key",
+						"description": "Filters to members holding this role."
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 100,
+						"default": 50,
+						"description": "The maximum number of results to return."
+					},
+					"cursor": {
+						"type": "string",
+						"description": "The cursor from a previous call, for fetching the next page."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"members"
+					],
+					"properties": {
+						"cursor": {
+							"type": "string",
+							"description": "A cursor for fetching the next page."
+						},
+						"members": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.community.defs#memberView"
+							},
+							"description": "The community's members."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks permission to list this community's members."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists with that DID."
+				}
+			]
+		}
+	}
+}

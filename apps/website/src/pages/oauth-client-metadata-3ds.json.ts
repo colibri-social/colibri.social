@@ -1,10 +1,6 @@
 import type { APIRoute } from "astro";
-import { nativeRedirectUri } from "@/utils/atproto/native-scheme";
 import { scopes } from "@/utils/atproto/scopes";
 
-/**
- * OAuth client metadata for the 3ds client
- */
 export const GET: APIRoute = () => {
 	const metadata = {
 		client_id: `${import.meta.env.SITE}/oauth-client-metadata-3ds.json`,

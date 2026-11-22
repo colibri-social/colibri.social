@@ -4,5 +4,7 @@
   "description": "Android-only capabilities (tauri-plugin-fcm is only registered for that target).",
   "platforms": ["android"],
   "windows": ["main"],
-  "permissions": ["fcm:default"]
+  "permissions": [
+    "fcm:default"
+  ]
 }

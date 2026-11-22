@@ -1,0 +1,87 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.replaceAvatar",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Swaps the avatar on every message and thread attributed to one remote author of this registration, so the previous avatar blob is no longer referenced.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"registration",
+						"remoteId"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the registration belongs to."
+						},
+						"registration": {
+							"type": "string",
+							"format": "tid",
+							"description": "Record key of the registration."
+						},
+						"remoteId": {
+							"type": "string",
+							"maxLength": 256,
+							"description": "The author's id on the other service, as attributed on their records."
+						},
+						"avatar": {
+							"type": "blob",
+							"accept": [
+								"image/png",
+								"image/jpeg",
+								"image/gif",
+								"image/webp"
+							],
+							"maxSize": 1000000,
+							"description": "The new avatar, uploaded with uploadBlob. Leave it out to remove the avatar."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"updated"
+					],
+					"properties": {
+						"updated": {
+							"type": "integer",
+							"minimum": 0,
+							"description": "How many records now carry the new avatar."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "RegistrationNotFound",
+					"description": "The community has no bridge registration with that id."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller is not the bridge this registration belongs to."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				}
+			]
+		}
+	}
+}

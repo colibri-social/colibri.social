@@ -1,0 +1,57 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.embed.getMetadata",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Fetches and parses a link preview. The AppView fetches the URL on the client's behalf, so the client's address is never exposed to the target site.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"uri"
+				],
+				"properties": {
+					"uri": {
+						"type": "string",
+						"format": "uri",
+						"description": "The URL to preview."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"embed"
+					],
+					"properties": {
+						"embed": {
+							"type": "ref",
+							"ref": "social.colibri.beta.embed.defs#linkEmbed",
+							"description": "The parsed preview."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "NotFetchable",
+					"description": "The target refused the request, timed out, or resolves to an address the AppView will not fetch."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "The target site failed while the AppView fetched or parsed it."
+				}
+			]
+		}
+	}
+}

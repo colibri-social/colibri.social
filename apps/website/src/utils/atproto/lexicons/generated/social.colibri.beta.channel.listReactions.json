@@ -1,0 +1,91 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.listReactions",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists everyone who reacted to one message, for the hover card.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"channel",
+					"messageAuthor",
+					"messageRkey"
+				],
+				"properties": {
+					"channel": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "The channel the message was posted in."
+					},
+					"messageAuthor": {
+						"type": "string",
+						"format": "did",
+						"description": "DID of the repo holding the message."
+					},
+					"messageRkey": {
+						"type": "string",
+						"format": "record-key",
+						"description": "The message's record key."
+					},
+					"emoji": {
+						"type": "string",
+						"description": "Restricts the results to reactions with this emoji."
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 100,
+						"default": 50,
+						"description": "Maximum number of reactions to return."
+					},
+					"cursor": {
+						"type": "string",
+						"description": "Pagination cursor from a previous call."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"reactions"
+					],
+					"properties": {
+						"cursor": {
+							"type": "string",
+							"description": "Pagination cursor for the next page."
+						},
+						"reactions": {
+							"type": "array",
+							"description": "Reactions to the message, aggregated by emoji.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.channel.defs#reactionView"
+							}
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user may not read this channel."
+				},
+				{
+					"name": "ChannelNotFound",
+					"description": "No channel matches the given space reference."
+				},
+				{
+					"name": "MessageNotFound",
+					"description": "No message matches the given author and record key in that channel."
+				}
+			]
+		}
+	}
+}

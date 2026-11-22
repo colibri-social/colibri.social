@@ -1,0 +1,98 @@
+---
+import MilkyWayWide from "@/assets/landing/milkyway-wide.webp";
+
+interface Props {
+	labelledby?: string;
+	class?: string;
+}
+
+const { labelledby, class: className } = Astro.props;
+---
+
+<section
+	class:list={["page-band", className]}
+	aria-labelledby={labelledby}
+	style={`--milkyway-wide: url(${MilkyWayWide.src})`}
+>
+	<div class="page-band-milkyway" aria-hidden="true"></div>
+	<slot name="decor" />
+	<div class="site-wrap page-band-inner">
+		<slot />
+	</div>
+</section>
+
+<style>
+	.page-band {
+		position: relative;
+		display: flow-root;
+		overflow: hidden;
+		color: #fff;
+		background:
+			linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)),
+			radial-gradient(var(--mw-hero-rx) 100% at 50% 100%, var(--mw));
+	}
+
+	.page-band-milkyway {
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(var(--mw-hero-rx) 100% at 50% 100%, var(--mw-glow)), #d9d9d9;
+		-webkit-mask: var(--milkyway-wide) center top / cover no-repeat;
+		mask: var(--milkyway-wide) center top / cover no-repeat;
+		pointer-events: none;
+	}
+
+	.page-band-inner {
+		z-index: 5;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 20px;
+		text-align: center;
+	}
+
+	.page-band-inner::before {
+		content: "";
+		position: absolute;
+		inset: -3rem -6rem -4rem;
+		z-index: -1;
+		pointer-events: none;
+		background: radial-gradient(
+			58% 66% at 50% 50%,
+			rgba(16, 13, 26, 0.5) 0%,
+			rgba(16, 13, 26, 0.28) 46%,
+			rgba(16, 13, 26, 0) 78%
+		);
+	}
+
+	.page-band-inner :global(:is(h1, h2, h3, p)) {
+		margin: 0;
+		color: #fff;
+		background: none;
+		-webkit-text-fill-color: currentColor;
+		letter-spacing: normal;
+		text-wrap: balance;
+	}
+
+	.page-band-inner :global(p) {
+		text-wrap: wrap;
+	}
+
+	.page-band-inner :global(.page-band-display) {
+		font-family: var(--font-stardom);
+		font-weight: 400;
+		font-size: clamp(40px, 6.2vw, 88px);
+		line-height: 0.86;
+		letter-spacing: 0.005em;
+		text-shadow:
+			0 0 16px rgba(0, 0, 0, 0.5),
+			0 2px 28px rgba(16, 13, 26, 0.6);
+	}
+
+	.page-band-inner :global(.page-band-lead) {
+		font-family: var(--font-sans);
+		font-weight: 500;
+		font-size: clamp(17px, 1.35vw, 21px);
+		line-height: 1.32;
+		text-shadow: 0 1px 14px rgba(16, 13, 26, 0.5);
+	}
+</style>

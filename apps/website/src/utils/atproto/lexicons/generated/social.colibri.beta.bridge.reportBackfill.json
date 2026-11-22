@@ -1,0 +1,114 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.reportBackfill",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Reports how far a history import has got, so admins can follow it.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"registration",
+						"channel",
+						"requestedAt",
+						"state",
+						"imported",
+						"from",
+						"until"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the registration belongs to."
+						},
+						"registration": {
+							"type": "string",
+							"format": "tid",
+							"description": "Record key of the registration."
+						},
+						"channel": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The linked channel being filled."
+						},
+						"requestedAt": {
+							"type": "string",
+							"format": "datetime",
+							"description": "The request the report belongs to, as it appears on the link."
+						},
+						"state": {
+							"type": "string",
+							"knownValues": [
+								"running",
+								"done",
+								"failed"
+							],
+							"description": "How far the import is."
+						},
+						"imported": {
+							"type": "integer",
+							"minimum": 0,
+							"description": "How many messages the bridge has imported so far."
+						},
+						"from": {
+							"type": "string",
+							"format": "datetime",
+							"description": "The start of the time range being imported."
+						},
+						"until": {
+							"type": "string",
+							"format": "datetime",
+							"description": "The end of the time range being imported."
+						},
+						"reached": {
+							"type": "string",
+							"format": "datetime",
+							"description": "When the newest imported message in the channel was sent."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "RegistrationNotFound",
+					"description": "The community has no bridge registration with that id."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller is not the bridge this registration belongs to."
+				},
+				{
+					"name": "ChannelNotLinked",
+					"description": "The channel is not linked to this registration."
+				},
+				{
+					"name": "RateLimited",
+					"description": "The bridge sent too many requests. Retry after the interval in the response headers."
+				},
+				{
+					"name": "BackfillNotRequested",
+					"description": "No admin has asked for a history import on this channel."
+				}
+			]
+		}
+	}
+}

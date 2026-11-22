@@ -1,0 +1,57 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.deleteInvitation",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Deletes an invitation code.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"code"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community the invitation belongs to."
+						},
+						"code": {
+							"type": "string",
+							"description": "The invitation code to delete."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [],
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user lacks the invitation.delete permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists with that DID."
+				},
+				{
+					"name": "InvitationNotFound",
+					"description": "No invitation exists with that code."
+				}
+			]
+		}
+	}
+}

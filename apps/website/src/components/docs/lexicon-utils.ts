@@ -2,6 +2,7 @@ export type LexField = Record<string, any>;
 
 export type LexCategory =
 	| "records"
+	| "spaces"
 	| "shared"
 	| "queries"
 	| "procedures"
@@ -73,6 +74,8 @@ export function docCategory(doc: {
 	switch (main.type) {
 		case "record":
 			return "records";
+		case "space":
+			return "spaces";
 		case "query":
 			return "queries";
 		case "procedure":

@@ -1,0 +1,2402 @@
+import { ColibriError, createMemoryKvStore } from "@colibri-social/lib";
+import { setAppActive } from "@colibri-social/ui";
+import { createEffect, createRoot } from "solid-js";
+import { describe, expect, it } from "vitest";
+import { sidebarThreadsFor } from "../screens/spaces/sidebar-threads";
+import { channelSlug, isVoiceChannel, skeyOf } from "./ids";
+import { createMockSource, setLatency } from "./mock/source";
+import { createOutboxQueue } from "./outbox/queue";
+import type { OutboxOp } from "./outbox/types";
+import type { DataSource, LiveEvent } from "./source";
+import {
+	createDataStore,
+	type DataStoreOptions,
+	type WriteFailure,
+} from "./store";
+import type { Did, MessageView, SpaceRef } from "./types";
+
+const until = async (check: () => boolean, timeout = 8000) => {
+	const started = performance.now();
+	while (!check()) {
+		if (performance.now() - started > timeout) throw new Error("Timed out");
+		await new Promise((resolve) => setTimeout(resolve, 20));
+	}
+};
+
+const setup = async (
+	options: { source?: DataSource; store?: DataStoreOptions } = {},
+) => {
+	setLatency(0);
+	const source = options.source ?? createMockSource({ live: false });
+	const store = createDataStore(source, options.store);
+	await until(() => !!store.communities.value());
+	const hq = store.communities
+		.value()
+		?.find((entry) => entry.handle.startsWith("hq.")) as NonNullable<
+		ReturnType<typeof store.communities.value>
+	>[number];
+	const space = store.space(hq);
+	await until(() => !!space.channels.value());
+	const general = space.channelBySlug("general");
+	if (!general) throw new Error("general missing");
+	const channel = store.channel(general.space);
+	await until(() => channel.ready());
+	return { store, channel, hq, source };
+};
+
+describe("upload on send", () => {
+	it("uploads attached files only when the message is sent", async () => {
+		const { channel } = await setup();
+		const before = channel.messages().length;
+		const file = new File([new Uint8Array(2000)], "notes.txt", {
+			type: "text/plain",
+		});
+		const progress: number[] = [];
+		const sending = channel.send({ text: "with a file", files: [{ file }] });
+		await until(() => channel.pending().length === 1);
+		const watch = setInterval(() => {
+			const upload = channel.pending()[0]?.uploads?.[0];
+			if (upload) progress.push(upload.progress);
+		}, 30);
+		await sending;
+		clearInterval(watch);
+		expect(channel.pending()).toHaveLength(0);
+		const sent = channel.messages().at(-1);
+		expect(channel.messages().length).toBe(before + 1);
+		expect(sent?.attachments[0]?.name).toBe("notes.txt");
+		expect(progress.some((value) => value > 0 && value < 1)).toBe(true);
+	});
+
+	it("keeps the spoiler mark from the composer on the sent attachment", async () => {
+		const { channel } = await setup();
+		const hidden = new File([new Uint8Array(20)], "ending.txt", {
+			type: "text/plain",
+		});
+		const plain = new File([new Uint8Array(20)], "notes.txt", {
+			type: "text/plain",
+		});
+		await channel.send({
+			text: "spoilers inside",
+			files: [{ file: hidden, spoiler: true }, { file: plain }],
+		});
+		const sent = channel.messages().at(-1);
+		const attachments = (sent?.attachments ?? []) as {
+			name?: string;
+			spoiler?: boolean;
+		}[];
+		expect(
+			attachments.map((attachment) => [attachment.name, !!attachment.spoiler]),
+		).toEqual([
+			["ending.txt", true],
+			["notes.txt", false],
+		]);
+	});
+
+	it("fails the message when an upload fails", async () => {
+		const { channel } = await setup();
+		const file = new File([new Uint8Array(10)], "fail.txt", {
+			type: "text/plain",
+		});
+		await channel.send({ text: "this upload breaks", files: [{ file }] });
+		const entry = channel.pending()[0];
+		expect(entry?.state).toBe("failed");
+		expect(entry?.uploads?.[0]?.failed).toBe(true);
+	});
+});
+
+describe("thread lists", () => {
+	it("moves an anchored thread to its new channel's list", async () => {
+		const { store } = await setup();
+		const hq = store.communities
+			.value()
+			?.find((entry) => entry.handle.startsWith("hq.")) as NonNullable<
+			ReturnType<typeof store.communities.value>
+		>[number];
+		const space = store.space(hq);
+		const dev = space.channelBySlug("dev");
+		const general = space.channelBySlug("general");
+		if (!dev || !general) throw new Error("channels missing");
+		const devFeed = store.channel(dev.space);
+		const generalFeed = store.channel(general.space);
+		await until(
+			() =>
+				devFeed.ready() &&
+				!!devFeed.threads.value() &&
+				!!generalFeed.threads.value(),
+		);
+		const spring = devFeed.threads
+			.value()
+			?.find((thread) => thread.name === "Spring tuning");
+		const anchorRkey = (spring?.anchor as { rkey?: string } | undefined)?.rkey;
+		const anchor = devFeed
+			.messages()
+			.find((message) => message.rkey === anchorRkey);
+		if (!spring || !anchor) throw new Error("thread missing");
+		await store.moveMessages({
+			source: dev.space,
+			destination: general.space,
+			messages: [anchor],
+		});
+		await until(
+			() =>
+				!!generalFeed.threads
+					.value()
+					?.some((thread) => thread.space === spring.space),
+		);
+		expect(
+			devFeed.threads.value()?.some((thread) => thread.space === spring.space),
+		).toBe(false);
+	});
+});
+
+describe("forwarding", () => {
+	it("forwards into a thread and shows the copy in the thread's feed", async () => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const withoutEcho: DataSource = {
+			...base,
+			subscribe: (listener) =>
+				base.subscribe((event) => {
+					if (
+						event.$type === "messageEvent" &&
+						event.message?.text === "for the thread"
+					)
+						return;
+					listener(event);
+				}),
+		};
+		const { store, hq, channel } = await setup({ source: withoutEcho });
+		const space = store.space(hq);
+		const dev = space.channelBySlug("dev");
+		if (!dev) throw new Error("dev missing");
+		const devFeed = store.channel(dev.space);
+		await until(() => !!devFeed.threads.value());
+		const spring = devFeed.threads
+			.value()
+			?.find((thread) => thread.name === "Spring tuning");
+		if (!spring) throw new Error("thread missing");
+		const threadFeed = store.channel(spring.space);
+		await until(() => threadFeed.ready());
+		const original = channel.messages().at(-1);
+		if (!original?.rkey || !channel.channel) throw new Error("message missing");
+		await store.forward({
+			from: channel.channel,
+			rkey: original.rkey,
+			to: spring.space,
+			text: "for the thread",
+		});
+		await until(() =>
+			threadFeed
+				.messages()
+				.some((message) => message.text === "for the thread"),
+		);
+		const copy = threadFeed
+			.messages()
+			.find((message) => message.text === "for the thread");
+		expect(copy?.channel).toBe(spring.space);
+		expect(copy?.forward?.source.rkey).toBe(original.rkey);
+		expect(
+			channel.messages().some((message) => message.text === "for the thread"),
+		).toBe(false);
+		store.dispose();
+	});
+});
+
+describe("thread auto-follow", () => {
+	const DAY = 24 * 60 * 60 * 1000;
+	const critiqueOf = async (store: ReturnType<typeof createDataStore>) => {
+		const owls = store.communities
+			.value()
+			?.find((entry) => entry.handle.startsWith("nightowls.")) as NonNullable<
+			ReturnType<typeof store.communities.value>
+		>[number];
+		const space = store.space(owls);
+		await until(() => !!space.channels.value());
+		const critique = space.channelBySlug("critique");
+		if (!critique) throw new Error("critique missing");
+		const parent = store.channel(critique.space);
+		await until(() => !!parent.threads.value());
+		const hands = parent.threads
+			.value()
+			?.find((thread) => thread.name === "Hands help");
+		if (!hands) throw new Error("thread missing");
+		return { space, critique, hands };
+	};
+
+	it("follows a thread after sending in it and keeps its row once you stop viewing it", async () => {
+		const { store } = await setup();
+		const { space, critique, hands } = await critiqueOf(store);
+		const later = Date.now() + 2 * DAY;
+		const rows = () =>
+			sidebarThreadsFor(store, space, critique.space, undefined, later).map(
+				(state) => state.thread.space,
+			);
+		expect(hands.viewer.following).toBe(false);
+		expect(rows()).not.toContain(hands.space);
+		const thread = store.channel(hands.space);
+		store.setViewing(hands.space);
+		const sending = thread.send({ text: "count the knuckles first" });
+		expect(store.threads.find(hands.space)?.viewer.following).toBe(false);
+		await sending;
+		await until(() => !!store.threads.find(hands.space)?.viewer.following);
+		store.setViewing(undefined);
+		expect(rows()).toContain(hands.space);
+		store.dispose();
+	});
+
+	it("follows a thread once when mentions for it arrive", async () => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const listeners = new Set<(event: LiveEvent) => void>();
+		const follows: SpaceRef[] = [];
+		const source: DataSource = {
+			...base,
+			subscribe: (listener) => {
+				listeners.add(listener);
+				const stop = base.subscribe(listener);
+				return () => {
+					listeners.delete(listener);
+					stop();
+				};
+			},
+			followThread: (input) => {
+				follows.push(input.thread);
+				return base.followThread(input);
+			},
+		};
+		const { store } = await setup({ source });
+		const { hands } = await critiqueOf(store);
+		const author = { did: "did:plc:maya", handle: "maya.test" };
+		for (const id of ["first", "second"]) {
+			for (const listener of [...listeners])
+				listener({
+					$type: "notificationEvent",
+					notification: {
+						id,
+						kind: "mention",
+						author,
+						channel: hands.channel,
+						thread: hands.space,
+						indexedAt: new Date().toISOString(),
+					} as never,
+				});
+		}
+		await until(() => !!store.threads.find(hands.space)?.viewer.following);
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(follows).toEqual([hands.space]);
+		store.dispose();
+	});
+
+	it("drops an opened thread from the sidebar once you stop viewing it", async () => {
+		const clock = Date.now();
+		const { store } = await setup({ store: { now: () => clock } });
+		const { space, critique, hands } = await critiqueOf(store);
+		const rows = (active?: string) =>
+			sidebarThreadsFor(store, space, critique.space, active, clock).map(
+				(state) => state.thread.space,
+			);
+		store.setViewing(hands.space);
+		expect(rows(skeyOf(hands.space))).toContain(hands.space);
+		store.setViewing(undefined);
+		expect(rows()).not.toContain(hands.space);
+		store.dispose();
+	});
+});
+
+describe("leaving a thread", () => {
+	const critiqueOf = async (store: ReturnType<typeof createDataStore>) => {
+		const owls = store.communities
+			.value()
+			?.find((entry) => entry.handle.startsWith("nightowls.")) as NonNullable<
+			ReturnType<typeof store.communities.value>
+		>[number];
+		const space = store.space(owls);
+		await until(() => !!space.channels.value());
+		const critique = space.channelBySlug("critique");
+		if (!critique) throw new Error("critique missing");
+		const parent = store.channel(critique.space);
+		await until(() => !!parent.threads.value());
+		const hands = parent.threads
+			.value()
+			?.find((thread) => thread.name === "Hands help");
+		if (!hands) throw new Error("thread missing");
+		return { space, critique, hands };
+	};
+
+	it("drops an unfollowed thread from the sidebar right away and brings it back on follow", async () => {
+		const { store } = await setup();
+		const { space, critique, hands } = await critiqueOf(store);
+		const rows = () =>
+			sidebarThreadsFor(store, space, critique.space).map(
+				(state) => state.thread.space,
+			);
+		await store.threads.follow(hands, true);
+		expect(rows()).toContain(hands.space);
+		expect(store.threads.leftAt(hands.space)).toBeUndefined();
+
+		const current = store.threads.find(hands.space) ?? hands;
+		const leaving = store.threads.follow(current, false);
+		expect(rows()).not.toContain(hands.space);
+		expect(store.threads.leftAt(hands.space)).toBeDefined();
+		await leaving;
+		await store.preferences.settled();
+		expect(store.threads.leftAt(hands.space)).toBeDefined();
+
+		await store.threads.follow(store.threads.find(hands.space) ?? hands, true);
+		expect(store.threads.leftAt(hands.space)).toBeUndefined();
+		expect(rows()).toContain(hands.space);
+		store.dispose();
+	});
+
+	it("takes you back into a left thread when someone pings you in it", async () => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const listeners = new Set<(event: LiveEvent) => void>();
+		const source: DataSource = {
+			...base,
+			subscribe: (listener) => {
+				listeners.add(listener);
+				const stop = base.subscribe(listener);
+				return () => {
+					listeners.delete(listener);
+					stop();
+				};
+			},
+		};
+		const { store } = await setup({ source });
+		const { space, critique, hands } = await critiqueOf(store);
+		const rows = () =>
+			sidebarThreadsFor(store, space, critique.space).map(
+				(state) => state.thread.space,
+			);
+		await store.threads.follow(hands, true);
+		await store.threads.follow(store.threads.find(hands.space) ?? hands, false);
+		expect(rows()).not.toContain(hands.space);
+
+		for (const listener of [...listeners])
+			listener({
+				$type: "notificationEvent",
+				notification: {
+					id: "back",
+					kind: "reply",
+					author: { did: "did:plc:maya", handle: "maya.test" },
+					channel: hands.channel,
+					thread: hands.space,
+					indexedAt: new Date(Date.now() + 1000).toISOString(),
+				} as never,
+			});
+
+		expect(store.threads.leftAt(hands.space)).toBeUndefined();
+		await until(() => !!store.threads.find(hands.space)?.viewer.following);
+		expect(rows()).toContain(hands.space);
+		store.dispose();
+	});
+});
+
+describe("unread marker", () => {
+	it("keeps the marker when reading by viewing", async () => {
+		const { channel } = await setup();
+		expect(channel.unreadAfter()).toBeDefined();
+		channel.markRead();
+		expect(channel.unreadAfter()).toBeDefined();
+	});
+
+	it("clears the marker when the channel is marked as read", async () => {
+		const { channel } = await setup();
+		expect(channel.unreadAfter()).toBeDefined();
+		channel.markRead();
+		channel.clearUnreadMarker();
+		expect(channel.unreadAfter()).toBeUndefined();
+		expect(channel.enter(false)).toBeUndefined();
+		expect(channel.unreadAfter()).toBeUndefined();
+	});
+
+	it("clears the open channel's marker when its Space is marked as read", async () => {
+		const { store, channel, hq } = await setup();
+		expect(channel.unreadAfter()).toBeDefined();
+		await store.community.markRead(hq.did);
+		expect(channel.unreadAfter()).toBeUndefined();
+	});
+});
+
+const setupWithEvents = async () => {
+	setLatency(0);
+	const base = createMockSource({ live: false });
+	const listeners = new Set<(event: LiveEvent) => void>();
+	const watched: SpaceRef[] = [];
+	const released: SpaceRef[] = [];
+	const viewed: (SpaceRef | undefined)[] = [];
+	const activity = { reports: 0 };
+	const calls = { channels: 0, categories: 0, roles: 0 };
+	const source = {
+		...base,
+		listChannels: (community: Did) => {
+			calls.channels += 1;
+			return base.listChannels(community);
+		},
+		listCategories: (community: Did) => {
+			calls.categories += 1;
+			return base.listCategories(community);
+		},
+		listRoles: (community: Did) => {
+			calls.roles += 1;
+			return base.listRoles(community);
+		},
+		subscribe: (listener: (event: LiveEvent) => void) => {
+			listeners.add(listener);
+			const stop = base.subscribe(listener);
+			return () => {
+				listeners.delete(listener);
+				stop();
+			};
+		},
+		watchChannel: (channel: SpaceRef) => {
+			watched.push(channel);
+			return () => {
+				released.push(channel);
+			};
+		},
+		viewChannel: (channel?: SpaceRef) => {
+			viewed.push(channel);
+		},
+		markActive: () => {
+			activity.reports += 1;
+		},
+	};
+	const store = createDataStore(source);
+	await until(() => !!store.communities.value());
+	const hq = store.communities
+		.value()
+		?.find((entry) => entry.handle.startsWith("hq.")) as NonNullable<
+		ReturnType<typeof store.communities.value>
+	>[number];
+	const space = store.space(hq);
+	await until(() => !!space.channels.value() && !!space.categories.value());
+	const emit = (event: LiveEvent) => {
+		for (const listener of listeners) listener(event);
+	};
+	return {
+		store,
+		space,
+		hq,
+		emit,
+		watched,
+		released,
+		viewed,
+		activity,
+		calls,
+		base,
+	};
+};
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 200));
+
+describe("key-only deletes", () => {
+	it("drops a channel, category, role and Space from their keys alone", async () => {
+		const { store, space, hq, emit } = await setupWithEvents();
+		const general = space.channelBySlug("general");
+		const category = space.categories.value()?.[0];
+		if (!general || !category) throw new Error("fixtures missing");
+		emit({
+			$type: "channelRemovedEvent",
+			community: hq.did,
+			channel: general.space,
+		});
+		expect(space.channelBySlug("general")).toBeUndefined();
+		expect(
+			space.categories
+				.value()
+				?.some((entry) =>
+					entry.channels.some((channel) => channel.space === general.space),
+				),
+		).toBe(false);
+		emit({
+			$type: "categoryRemovedEvent",
+			community: hq.did,
+			rkey: category.rkey,
+		});
+		expect(
+			space.categories.value()?.some((entry) => entry.rkey === category.rkey),
+		).toBe(false);
+		emit({ $type: "communityRemovedEvent", community: hq.did });
+		expect(
+			store.communities.value()?.some((entry) => entry.did === hq.did),
+		).toBe(false);
+	});
+});
+
+describe("key-only structure changes", () => {
+	it("refetches the layout and roles once per burst", async () => {
+		const { hq, emit, calls } = await setupWithEvents();
+		await until(() => calls.roles > 0);
+		const before = { ...calls };
+		emit({ $type: "layoutInvalidatedEvent", community: hq.did });
+		emit({ $type: "rolesInvalidatedEvent", community: hq.did });
+		emit({ $type: "layoutInvalidatedEvent", community: hq.did });
+		emit({ $type: "layoutInvalidatedEvent", community: hq.did });
+		await settle();
+		expect(calls).toEqual({
+			channels: before.channels + 1,
+			categories: before.categories + 1,
+			roles: before.roles + 1,
+		});
+	});
+
+	it("shows a channel created elsewhere from its key alone", async () => {
+		const { space, hq, base } = await setupWithEvents();
+		const created = await base.createChannel({
+			community: hq.did,
+			type: "social.colibri.beta.channel.text",
+			name: "granted",
+		});
+		await until(() => !!space.channelBySlug(channelSlug(created)));
+	});
+
+	it("refetches the layout when the viewer's roles change", async () => {
+		const { store, hq, emit, calls, base } = await setupWithEvents();
+		const page = await base.listMembers(hq.did, { limit: 100 });
+		const own = page.items.find(
+			(member) => member.actor.did === store.viewer.did,
+		);
+		const extra = (await base.listRoles(hq.did)).find(
+			(role) => !own?.roles?.includes(role.rkey),
+		);
+		if (!own || !extra) throw new Error("fixtures missing");
+		await settle();
+		const before = calls.channels;
+		emit({ $type: "memberUpdateEvent", community: hq.did, member: own });
+		await settle();
+		expect(calls.channels).toBe(before);
+		emit({
+			$type: "memberUpdateEvent",
+			community: hq.did,
+			member: { ...own, roles: [...(own.roles ?? []), extra.rkey] },
+		});
+		await settle();
+		expect(calls.channels).toBe(before + 1);
+	});
+});
+
+describe("channel watching", () => {
+	it("views the channel on screen and releases it when the view moves on", async () => {
+		const { store, space, watched, released, viewed } = await setupWithEvents();
+		const general = space.channelBySlug("general");
+		const dev = space.channelBySlug("dev");
+		if (!general || !dev) throw new Error("channels missing");
+		store.setViewing(general.space);
+		expect(watched).toEqual([general.space]);
+		expect(viewed).toEqual([general.space]);
+		store.setViewing(dev.space);
+		expect(released).toEqual([general.space]);
+		expect(watched).toEqual([general.space, dev.space]);
+		expect(viewed).toEqual([general.space, undefined, dev.space]);
+		store.setViewing(undefined);
+		expect(released).toEqual([general.space, dev.space]);
+		expect(viewed).toEqual([general.space, undefined, dev.space, undefined]);
+		store.dispose();
+	});
+
+	it("stops viewing while the app is in the background and keeps watching", async () => {
+		const { store, space, watched, released, viewed } = await setupWithEvents();
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("channel missing");
+		store.setViewing(general.space);
+		setAppActive(false);
+		expect(viewed).toEqual([general.space, undefined]);
+		expect(released).toEqual([]);
+		setAppActive(true);
+		expect(viewed).toEqual([general.space, undefined, general.space]);
+		expect(watched).toEqual([general.space]);
+		store.dispose();
+	});
+
+	it("reports activity while in front and again when brought back", async () => {
+		const { store, activity } = await setupWithEvents();
+		expect(activity.reports).toBe(1);
+		window.dispatchEvent(new KeyboardEvent("keydown"));
+		expect(activity.reports).toBe(1);
+		setAppActive(false);
+		window.dispatchEvent(new KeyboardEvent("keydown"));
+		expect(activity.reports).toBe(1);
+		setAppActive(true);
+		expect(activity.reports).toBe(2);
+		store.dispose();
+	});
+
+	it("keeps a covered channel watched until its layer closes", async () => {
+		const { store, space, watched, released, viewed } = await setupWithEvents();
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("channel missing");
+		const thread: SpaceRef =
+			"at://did:plc:thread/space/social.colibri.beta.thread/one";
+		const releaseLayer = store.holdChannel(general.space);
+		store.setViewing(general.space);
+		expect(watched).toEqual([general.space]);
+		const releaseThread = store.holdChannel(thread);
+		store.setViewing(thread);
+		expect(viewed).toEqual([general.space, undefined, thread]);
+		expect(watched).toEqual([general.space, thread]);
+		expect(released).toEqual([]);
+		store.setViewing(undefined);
+		releaseThread();
+		expect(released).toEqual([thread]);
+		store.setViewing(general.space);
+		expect(watched).toEqual([general.space, thread]);
+		store.setViewing(undefined);
+		expect(released).toEqual([thread]);
+		releaseLayer();
+		releaseLayer();
+		expect(released).toEqual([thread, general.space]);
+		store.dispose();
+	});
+});
+
+describe("channel layout", () => {
+	const setupMismatch = async () => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const listeners = new Set<(event: LiveEvent) => void>();
+		let stripped: SpaceRef | undefined;
+		const source = {
+			...base,
+			subscribe: (listener: (event: LiveEvent) => void) => {
+				listeners.add(listener);
+				const stop = base.subscribe(listener);
+				return () => {
+					listeners.delete(listener);
+					stop();
+				};
+			},
+			listChannels: async (
+				community: Parameters<typeof base.listChannels>[0],
+			) => {
+				const list = await base.listChannels(community);
+				const target = list.find((entry) => entry.category);
+				stripped = target?.space;
+				return list.map((entry) => {
+					if (entry !== target) return entry;
+					const copy = { ...entry };
+					delete copy.category;
+					return copy;
+				});
+			},
+		};
+		const store = createDataStore(source);
+		await until(() => !!store.communities.value());
+		const hq = store.communities
+			.value()
+			?.find((entry) => entry.handle.startsWith("hq.")) as NonNullable<
+			ReturnType<typeof store.communities.value>
+		>[number];
+		const space = store.space(hq);
+		await until(() => !!space.channels.value() && !!space.categories.value());
+		if (!stripped) throw new Error("no categorized channel");
+		const target = stripped;
+		const copies = () => {
+			const id = target.split("/").pop();
+			const matches = (ref: string) => ref.split("/").pop() === id;
+			const loose = (space.channels.value() ?? []).filter(
+				(entry) => !entry.category && matches(entry.space),
+			).length;
+			const grouped = (space.categories.value() ?? []).reduce(
+				(count, category) =>
+					count +
+					category.channels.filter((entry) => matches(entry.space)).length,
+				0,
+			);
+			return { loose, grouped };
+		};
+		const emit = (event: LiveEvent) => {
+			for (const listener of listeners) listener(event);
+		};
+		return { store, space, hq, target, copies, emit };
+	};
+
+	it("shows a channel once when the list and its category disagree", async () => {
+		const { space, target, copies } = await setupMismatch();
+		expect(copies()).toEqual({ loose: 0, grouped: 1 });
+		const fromList = space.channels
+			.value()
+			?.find((entry) => entry.space === target);
+		expect(fromList?.category).toBeDefined();
+	});
+
+	it("keeps one copy through a live update with another ref spelling", async () => {
+		const { space, hq, target, copies, emit } = await setupMismatch();
+		const view = space.channels
+			.value()
+			?.find((entry) => entry.space === target);
+		if (!view) throw new Error("channel missing");
+		const respelled = target.includes(".text/")
+			? target.replace(".text/", ".voice/")
+			: target.replace(".voice/", ".text/");
+		emit({
+			$type: "channelEvent",
+			event: "update",
+			community: hq.did,
+			channel: { ...view, space: respelled as SpaceRef, name: "renamed" },
+		});
+		const { loose, grouped } = copies();
+		expect(loose + grouped).toBe(1);
+		emit({
+			$type: "channelEvent",
+			event: "create",
+			community: hq.did,
+			channel: view,
+		});
+		const after = copies();
+		expect(after.loose + after.grouped).toBe(1);
+	});
+
+	it("adds no copy when joining a voice channel", async () => {
+		const { store, space, hq, copies } = await setupMismatch();
+		const voiceChannel = space.channels
+			.value()
+			?.find((entry) => entry.type === "social.colibri.beta.channel.voice");
+		if (!voiceChannel) throw new Error("voice channel missing");
+		const total = () =>
+			(space.channels.value() ?? []).length +
+			(space.categories.value() ?? []).reduce(
+				(count, category) => count + category.channels.length,
+				0,
+			);
+		const before = { total: total(), copies: copies() };
+		await store.setVoice({
+			channel: voiceChannel.space,
+			community: hq.did,
+		} as Parameters<typeof store.setVoice>[0]);
+		expect(total()).toBe(before.total);
+		expect(copies()).toEqual(before.copies);
+	});
+});
+
+describe("optimistic send", () => {
+	const setupSend = async (echo: "before" | "after" | "none") => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const listeners = new Set<(event: LiveEvent) => void>();
+		let muted = false;
+		const emit = (event: LiveEvent) => {
+			for (const listener of listeners) listener(event);
+		};
+		const source = {
+			...base,
+			subscribe: (listener: (event: LiveEvent) => void) => {
+				const forward = (event: LiveEvent) => {
+					if (!muted) listener(event);
+				};
+				listeners.add(listener);
+				const stop = base.subscribe(forward);
+				return () => {
+					listeners.delete(listener);
+					stop();
+				};
+			},
+			sendMessage: async (input: Parameters<typeof base.sendMessage>[0]) => {
+				muted = true;
+				const view = await base.sendMessage(input).finally(() => {
+					muted = false;
+				});
+				const event: LiveEvent = {
+					$type: "messageEvent",
+					event: "create",
+					channel: input.channel,
+					message: view,
+				};
+				if (echo === "before") {
+					emit(event);
+					await new Promise((resolve) => setTimeout(resolve, 30));
+				}
+				if (echo === "after") setTimeout(() => emit(event), 30);
+				return view;
+			},
+		};
+		const store = createDataStore(source);
+		await until(() => !!store.communities.value());
+		const hq = store.communities
+			.value()
+			?.find((entry) => entry.handle.startsWith("hq.")) as NonNullable<
+			ReturnType<typeof store.communities.value>
+		>[number];
+		const space = store.space(hq);
+		await until(() => !!space.channels.value());
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const channel = store.channel(general.space);
+		await until(() => channel.ready());
+		return { store, channel };
+	};
+
+	const recordSend = async (echo: "before" | "after" | "none") => {
+		const { store, channel } = await setupSend(echo);
+		const states: string[] = [];
+		const keys = new Set<string>();
+		const before = new Set(channel.messages().map((entry) => entry.rkey));
+		const stop = createRoot((dispose) => {
+			createEffect(() => {
+				const pending = channel
+					.pending()
+					.find((entry) => entry.text === "hello");
+				const sent = channel
+					.messages()
+					.filter((entry) => !before.has(entry.rkey) && entry.text === "hello");
+				if (pending) keys.add(pending.nonce);
+				for (const entry of sent)
+					keys.add(store.nonceFor(entry.rkey) ?? entry.rkey);
+				const state =
+					pending && sent.length
+						? "both"
+						: pending
+							? pending.state
+							: sent.length === 1
+								? "sent"
+								: sent.length > 1
+									? "duplicate"
+									: "none";
+				if (states.at(-1) !== state) states.push(state);
+			});
+			return dispose;
+		});
+		await channel.send({ text: "hello" });
+		await new Promise((resolve) => setTimeout(resolve, 80));
+		stop();
+		return { states, keys };
+	};
+
+	for (const echo of ["before", "after", "none"] as const) {
+		it(`goes from pending to sent once with the echo ${echo === "none" ? "missing" : `${echo} the response`}`, async () => {
+			const { states, keys } = await recordSend(echo);
+			expect(states).toEqual(["none", "pending", "sent"]);
+			expect(keys.size).toBe(1);
+		});
+	}
+});
+
+describe("read state", () => {
+	it("goes unread on a new message, reads again on open, and updates totals", async () => {
+		const { store, space, hq, emit } = await setupWithEvents();
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		store.setViewing(general.space);
+		feed.markRead();
+		expect(space.unread("general").hasUnread).toBe(false);
+		store.setViewing(undefined);
+		const author = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did)?.author;
+		const last = feed.messages().at(-1);
+		if (!author || !last) throw new Error("fixtures missing");
+		emit({
+			$type: "messageEvent",
+			event: "create",
+			channel: general.space,
+			message: {
+				...last,
+				rkey: `${last.rkey}z`,
+				uri: `${last.uri}z`,
+				author,
+				text: "while you were away",
+			},
+		});
+		expect(space.unread("general").hasUnread).toBe(true);
+		expect(space.totals().hasUnread).toBe(true);
+		store.setViewing(general.space);
+		feed.markRead();
+		expect(space.unread("general").hasUnread).toBe(false);
+		expect(hq.did).toBeTruthy();
+		store.dispose();
+	});
+
+	it("keeps voice channel chat out of the Space unread dot", async () => {
+		const { store, space, hq, emit } = await setupWithEvents();
+		await until(() => (space.channels.value()?.length ?? 0) > 0);
+		const voice = space.channels.value()?.find(isVoiceChannel);
+		const general = space.channelBySlug("general");
+		if (!voice || !general) throw new Error("fixtures missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const author = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did)?.author;
+		const last = feed.messages().at(-1);
+		if (!author || !last) throw new Error("fixtures missing");
+		await store.community.markRead(hq.did);
+		expect(space.totals().hasUnread).toBe(false);
+
+		emit({
+			$type: "messageEvent",
+			event: "create",
+			channel: voice.space,
+			message: {
+				...last,
+				rkey: `${last.rkey}v`,
+				uri: `${last.uri}v`,
+				channel: voice.space,
+				author,
+				text: "from the call",
+			},
+		});
+
+		expect(space.unread(channelSlug(voice)).hasUnread).toBe(true);
+		expect(space.totals().hasUnread).toBe(false);
+		store.dispose();
+	});
+
+	it("applies a seen event from another device to notifications and mention counts", async () => {
+		const { store, space, emit } = await setupWithEvents();
+		await until(() => store.notifications.status() === "ready");
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const author = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did)?.author;
+		if (!author) throw new Error("author missing");
+		const before = store.notifications.unreadCount();
+		const indexedAt = new Date(Date.now() - 1000).toISOString();
+		emit({
+			$type: "notificationEvent",
+			notification: {
+				id: "cross-device-mention",
+				kind: "mention",
+				author,
+				channel: general.space,
+				community: space.community.did,
+				message: feed.messages().at(-1),
+				indexedAt,
+			} as never,
+		});
+		expect(store.notifications.unreadCount()).toBe(before + 1);
+		expect(space.unread("general").mentions).toBeGreaterThan(0);
+		emit({
+			$type: "seenEvent",
+			unread: 0,
+			seenAt: new Date().toISOString() as never,
+		});
+		expect(store.notifications.unreadCount()).toBe(0);
+		expect(space.unread("general").mentions).toBe(0);
+		store.dispose();
+	});
+
+	it("drops the ping of a deleted message and its mention count", async () => {
+		const { store, space, emit } = await setupWithEvents();
+		await until(() => store.notifications.status() === "ready");
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const referenced = new Set(
+			store.notifications.items().map((entry) => entry.message?.rkey),
+		);
+		const message = feed
+			.messages()
+			.findLast(
+				(entry) =>
+					entry.author.did !== store.viewer.did && !referenced.has(entry.rkey),
+			);
+		if (!message) throw new Error("message missing");
+		const unreadBefore = store.notifications.unreadCount();
+		const mentionsBefore = space.unread("general").mentions;
+
+		emit({
+			$type: "notificationEvent",
+			notification: {
+				id: "deleted-reply",
+				kind: "reply",
+				author: message.author,
+				channel: general.space,
+				community: space.community.did,
+				message,
+				indexedAt: new Date(Date.now() - 1000).toISOString(),
+			} as never,
+		});
+		expect(space.unread("general").mentions).toBe(mentionsBefore + 1);
+
+		emit({
+			$type: "messageEvent",
+			event: "delete",
+			channel: general.space,
+			rkey: message.rkey,
+		});
+
+		expect(store.notifications.unreadCount()).toBe(unreadBefore);
+		expect(space.unread("general").mentions).toBe(mentionsBefore);
+		expect(
+			store.notifications.items().some((entry) => entry.id === "deleted-reply"),
+		).toBe(false);
+		store.dispose();
+	});
+
+	it("clears the mention count of a ping whose message is gone", async () => {
+		const { store, space, emit } = await setupWithEvents();
+		await until(() => store.notifications.status() === "ready");
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const author = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did)?.author;
+		if (!author) throw new Error("author missing");
+		const mentionsBefore = space.unread("general").mentions;
+
+		emit({
+			$type: "notificationEvent",
+			notification: {
+				id: "orphan-reply",
+				kind: "reply",
+				author,
+				channel: general.space,
+				community: space.community.did,
+				indexedAt: new Date(Date.now() - 1000).toISOString(),
+			} as never,
+		});
+		expect(space.unread("general").mentions).toBe(mentionsBefore + 1);
+
+		await store.notifications.markRead(["orphan-reply"]);
+
+		expect(space.unread("general").mentions).toBe(mentionsBefore);
+		store.dispose();
+	});
+
+	it("keeps a ping seen when its message is already gone", async () => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const source: DataSource = {
+			...base,
+			updateSeenForMessage: async () => {
+				throw new ColibriError({ code: "MessageNotFound" });
+			},
+		};
+		const { store, channel } = await setup({ source });
+		await until(() => store.notifications.status() === "ready");
+		const message = channel
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did);
+		if (!message) throw new Error("message missing");
+
+		base.emit({
+			$type: "notificationEvent",
+			notification: {
+				id: "gone-mention",
+				kind: "mention",
+				author: message.author,
+				channel: message.channel,
+				community: store.communities.value()?.[0]?.did,
+				message,
+				indexedAt: new Date(Date.now() - 1000).toISOString(),
+			} as never,
+		});
+		await until(() =>
+			store.notifications.items().some((entry) => entry.id === "gone-mention"),
+		);
+
+		await store.notifications.markRead(["gone-mention"]);
+
+		expect(
+			store.notifications.items().find((entry) => entry.id === "gone-mention")
+				?.seenAt,
+		).toBeDefined();
+		store.dispose();
+	});
+
+	it("ignores notifications from a blocked author for channel mentions", async () => {
+		const { store, space, emit, base } = await setupWithEvents();
+		await until(() => store.notifications.status() === "ready");
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const author = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did)?.author;
+		if (!author) throw new Error("author missing");
+		const mentions = space.unread("general").mentions;
+
+		await base.preferences.setBlocked(author.did, true);
+		emit({
+			$type: "notificationEvent",
+			notification: {
+				id: "blocked-mention",
+				kind: "mention",
+				author,
+				channel: general.space,
+				community: space.community.did,
+				message: feed.messages().at(-1),
+				indexedAt: new Date().toISOString(),
+			} as never,
+		});
+
+		expect(space.unread("general").mentions).toBe(mentions);
+		expect(
+			store.notifications
+				.items()
+				.some((entry) => entry.id === "blocked-mention"),
+		).toBe(false);
+		store.dispose();
+	});
+
+	it("counts only mentions and replies as pings", async () => {
+		const { store, space, emit } = await setupWithEvents();
+		await until(() => store.notifications.status() === "ready");
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const author = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did)?.author;
+		if (!author) throw new Error("author missing");
+		const referenced = new Set(
+			store.notifications.items().map((entry) => entry.message?.rkey),
+		);
+		const [quiet, other] = feed
+			.messages()
+			.filter((message) => !referenced.has(message.rkey))
+			.slice(-2);
+		if (!quiet || !other) throw new Error("fixtures missing");
+		const notify = (id: string, kind: string, message: MessageView) =>
+			emit({
+				$type: "notificationEvent",
+				notification: {
+					id,
+					kind,
+					author,
+					channel: general.space,
+					community: space.community.did,
+					message,
+					indexedAt: new Date(Date.now() - 1000).toISOString(),
+				} as never,
+			});
+		const unreadBefore = store.notifications.unreadCount();
+		const mentionsBefore = space.unread("general").mentions;
+
+		notify("plain-message", "message", quiet);
+		expect(store.notifications.unreadCount()).toBe(unreadBefore);
+		expect(space.unread("general").mentions).toBe(mentionsBefore);
+
+		await store.notifications.markRead(["plain-message"]);
+		expect(space.unread("general").mentions).toBe(mentionsBefore);
+
+		notify("reply", "reply", other);
+		expect(store.notifications.unreadCount()).toBe(unreadBefore + 1);
+		expect(space.unread("general").mentions).toBe(mentionsBefore + 1);
+		store.dispose();
+	});
+
+	it("marks a channel unread for any unseen notification it isn't viewing", async () => {
+		const { store, emit } = await setupWithEvents();
+		await until(() => store.notifications.status() === "ready");
+		const owls = store.communities
+			.value()
+			?.find((entry) => entry.handle.startsWith("nightowls.")) as NonNullable<
+			ReturnType<typeof store.communities.value>
+		>[number];
+		const space = store.space(owls);
+		await until(() => !!space.channels.value());
+		const critique = space.channelBySlug("critique");
+		if (!critique) throw new Error("critique missing");
+		const feed = store.channel(critique.space);
+		await until(() => feed.ready() && !!feed.threads.value());
+		const hands = feed.threads
+			.value()
+			?.find((thread) => thread.name === "Hands help");
+		const message = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did);
+		if (!hands || !message) throw new Error("fixtures missing");
+		await settle();
+		const reset = () => {
+			store.setViewing(critique.space);
+			feed.markRead();
+			store.setViewing(undefined);
+			expect(space.unread("critique").hasUnread).toBe(false);
+		};
+		const notify = (id: string, kind: string, thread?: SpaceRef) =>
+			emit({
+				$type: "notificationEvent",
+				notification: {
+					id,
+					kind,
+					author: message.author,
+					channel: critique.space,
+					thread,
+					community: owls.did,
+					message,
+					indexedAt: new Date(Date.now() - 1000).toISOString(),
+				} as never,
+			});
+
+		reset();
+		const mentionsBefore = space.unread("critique").mentions;
+		notify("rail-message", "message");
+		expect(space.unread("critique")).toEqual({
+			hasUnread: true,
+			mentions: mentionsBefore,
+		});
+		expect(space.totals().hasUnread).toBe(true);
+
+		reset();
+		notify("rail-thread-reply", "reply", hands.space);
+		expect(space.unread("critique")).toEqual({
+			hasUnread: true,
+			mentions: mentionsBefore,
+		});
+
+		reset();
+		store.setViewing(critique.space);
+		notify("rail-viewed", "message");
+		expect(space.unread("critique").hasUnread).toBe(false);
+		store.setViewing(hands.space);
+		notify("rail-viewed-thread", "message", hands.space);
+		expect(space.unread("critique").hasUnread).toBe(false);
+		store.setViewing(undefined);
+
+		notify("rail-mention", "mention");
+		expect(space.unread("critique")).toEqual({
+			hasUnread: true,
+			mentions: mentionsBefore + 1,
+		});
+		store.dispose();
+	});
+
+	it("clears a channel another device read up to its newest message", async () => {
+		const { store, space, emit } = await setupWithEvents();
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const author = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did)?.author;
+		const last = feed.messages().at(-1);
+		if (!author || !last) throw new Error("fixtures missing");
+		const fresh = `${last.rkey}z`;
+		emit({
+			$type: "messageEvent",
+			event: "create",
+			channel: general.space,
+			message: { ...last, rkey: fresh, uri: `${last.uri}z`, author },
+		});
+		expect(space.unread("general").hasUnread).toBe(true);
+		emit({
+			$type: "readCursorEvent",
+			community: space.community.did,
+			cursors: [{ channel: "general", cursor: last.rkey }],
+		});
+		expect(space.unread("general").hasUnread).toBe(true);
+		emit({
+			$type: "readCursorEvent",
+			community: space.community.did,
+			cursors: [{ channel: "general", cursor: fresh }],
+		});
+		expect(space.unread("general").hasUnread).toBe(false);
+		store.dispose();
+	});
+
+	it("clears one notification another device saw", async () => {
+		const { store, space, emit } = await setupWithEvents();
+		await until(() => store.notifications.status() === "ready");
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const message = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did);
+		if (!message) throw new Error("message missing");
+		const before = store.notifications.unreadCount();
+		const mentionsBefore = space.unread("general").mentions;
+		emit({
+			$type: "notificationEvent",
+			notification: {
+				id: "single-seen-mention",
+				kind: "mention",
+				author: message.author,
+				channel: general.space,
+				community: space.community.did,
+				message,
+				indexedAt: new Date().toISOString(),
+			} as never,
+		});
+		expect(store.notifications.unreadCount()).toBe(before + 1);
+		emit({
+			$type: "seenEvent",
+			channel: general.space,
+			message: { did: message.author.did, rkey: message.rkey },
+			unread: before,
+			seenAt: new Date().toISOString() as never,
+		});
+		expect(
+			store.notifications
+				.items()
+				.find((entry) => entry.id === "single-seen-mention")?.seenAt,
+		).toBeTruthy();
+		expect(space.unread("general").mentions).toBe(mentionsBefore);
+		store.dispose();
+	});
+
+	it("marks an opened thread read in the thread list, nested rows and notifications", async () => {
+		const { store, space, emit } = await setupWithEvents();
+		await until(() => store.notifications.status() === "ready");
+		const general = space.channelBySlug("dev");
+		if (!general) throw new Error("dev missing");
+		const parent = store.channel(general.space);
+		await until(() => parent.ready());
+		await until(() => (parent.threads.value()?.length ?? 0) > 0);
+		const original = parent.threads.value()?.[0];
+		if (!original) throw new Error("thread missing");
+		emit({
+			$type: "threadEvent",
+			event: "update",
+			thread: {
+				...original,
+				viewer: { ...original.viewer, hasUnread: true, unreadMentions: 2 },
+			},
+		});
+		const author = parent
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did)?.author;
+		if (!author) throw new Error("author missing");
+		emit({
+			$type: "notificationEvent",
+			notification: {
+				id: "thread-mention",
+				kind: "mention",
+				author,
+				channel: general.space,
+				thread: original.space,
+				community: space.community.did,
+				message: parent.messages().at(-1),
+				indexedAt: new Date().toISOString(),
+			} as never,
+		});
+		const opened = () => store.threads.find(original.space);
+		expect(opened()?.viewer.hasUnread).toBe(true);
+		expect(opened()?.viewer.unreadMentions).toBe(2);
+		const markRead = store.channel(original.space).markRead;
+		markRead();
+		const after = store.threads.find(original.space);
+		expect(after?.viewer.hasUnread).toBe(false);
+		expect(after?.viewer.unreadMentions).toBe(0);
+		expect(
+			parent.threads.value()?.find((entry) => entry.space === original.space)
+				?.viewer.hasUnread,
+		).toBe(false);
+		await until(
+			() =>
+				!store.notifications
+					.items()
+					.some((entry) => entry.id === "thread-mention" && !entry.seenAt),
+		);
+		expect(space.unread(original.space.split("/").at(-1) ?? "").hasUnread).toBe(
+			false,
+		);
+		store.dispose();
+	});
+});
+
+describe("catch-up on resume", () => {
+	const setupQuiet = async () => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const listed: SpaceRef[] = [];
+		const calls = { threads: 0, members: 0, channels: 0, categories: 0 };
+		const live = { messages: false };
+		const source = {
+			...base,
+			subscribe: (listener: (event: LiveEvent) => void) =>
+				base.subscribe((event) => {
+					if (live.messages || event.$type !== "messageEvent") listener(event);
+				}),
+			listMessages: (params: Parameters<typeof base.listMessages>[0]) => {
+				listed.push(params.channel);
+				return base.listMessages(params);
+			},
+			listThreads: (channel: SpaceRef) => {
+				calls.threads += 1;
+				return base.listThreads(channel);
+			},
+			listMembers: (...args: Parameters<typeof base.listMembers>) => {
+				calls.members += 1;
+				return base.listMembers(...args);
+			},
+			listChannels: (...args: Parameters<typeof base.listChannels>) => {
+				calls.channels += 1;
+				return base.listChannels(...args);
+			},
+			listCategories: (...args: Parameters<typeof base.listCategories>) => {
+				calls.categories += 1;
+				return base.listCategories(...args);
+			},
+			markRead: (...args: Parameters<typeof base.markRead>) =>
+				base.markRead(...args),
+		};
+		const store = createDataStore(source);
+		await until(() => !!store.communities.value());
+		const hq = store.communities
+			.value()
+			?.find((entry) => entry.handle.startsWith("hq.")) as NonNullable<
+			ReturnType<typeof store.communities.value>
+		>[number];
+		const space = store.space(hq);
+		await until(() => !!space.channels.value());
+		const ref = (slug: string) => {
+			const view = space.channelBySlug(slug);
+			if (!view) throw new Error(`${slug} missing`);
+			return view.space;
+		};
+		return { base, store, space, ref, listed, calls, live };
+	};
+
+	const flood = (
+		base: Awaited<ReturnType<typeof setupQuiet>>["base"],
+		channel: SpaceRef,
+		author: MessageView["author"]["did"],
+		count: number,
+	) =>
+		Array.from({ length: count }, (_, index) =>
+			base.simulateMessage({ author, channel, text: `missed ${index}` }),
+		);
+
+	const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
+
+	it("merges missed messages into the open channel and backfills the others", async () => {
+		const { base, store, ref, listed } = await setupQuiet();
+		const general = store.channel(ref("general"));
+		const dev = store.channel(ref("dev"));
+		await until(() => general.ready() && dev.ready());
+		store.setViewing(ref("general"));
+		const generalBefore = general.messages();
+		const devBefore = dev.messages();
+		const author = generalBefore[0]?.author.did;
+		if (!author) throw new Error("no author");
+
+		const missed = base.simulateMessage({
+			author,
+			channel: ref("general"),
+			text: "sent while you were away",
+		});
+		const flood = Array.from({ length: 70 }, (_, index) =>
+			base.simulateMessage({
+				author,
+				channel: ref("dev"),
+				text: `catch-up ${index}`,
+			}),
+		);
+		expect(general.messages().some((m) => m.rkey === missed.rkey)).toBe(false);
+
+		listed.length = 0;
+		store.catchUp();
+		expect(listed[0]).toBe(ref("general"));
+		await until(() => general.messages().some((m) => m.rkey === missed.rkey));
+		expect(general.messages().slice(0, generalBefore.length)).toEqual(
+			generalBefore,
+		);
+
+		await until(() =>
+			flood.every((sent) => dev.messages().some((m) => m.rkey === sent.rkey)),
+		);
+		expect(dev.messages().slice(0, devBefore.length)).toEqual(devBefore);
+		store.setViewing(undefined);
+	});
+
+	it("refreshes unread state for loaded Spaces", async () => {
+		const { base, store, space, ref } = await setupQuiet();
+		const general = store.channel(ref("general"));
+		await until(() => general.ready() && space.totals().hasUnread);
+		const author = general.messages()[0]?.author.did;
+		if (!author) throw new Error("no author");
+		const read = (space.channels.value() ?? []).find(
+			(view) =>
+				!isVoiceChannel(view) &&
+				view.space !== ref("general") &&
+				!space.unread(channelSlug(view)).hasUnread,
+		);
+		if (!read) throw new Error("no read channel");
+		base.simulateMessage({
+			author,
+			channel: read.space,
+			text: "missed in another channel",
+		});
+		store.catchUp();
+		await until(() => space.unread(channelSlug(read)).hasUnread);
+	});
+
+	it("stops the background queue when paused", async () => {
+		const { store, space, listed } = await setupQuiet();
+		const refs = (space.channels.value() ?? [])
+			.filter((view) => !isVoiceChannel(view))
+			.map((view) => view.space)
+			.slice(0, 5);
+		expect(refs.length).toBeGreaterThan(2);
+		for (const ref of refs) store.channel(ref);
+		await until(() => refs.every((ref) => store.channel(ref).ready()));
+		listed.length = 0;
+		store.catchUp();
+		store.pauseCatchUp();
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		expect(listed.length).toBeLessThanOrEqual(2);
+	});
+
+	it("keeps the open channel in place across a large gap and fills it downward", async () => {
+		const { base, store, ref } = await setupQuiet();
+		const general = store.channel(ref("general"));
+		await until(() => general.ready());
+		store.setViewing(ref("general"));
+		const before = general.messages();
+		const author = before[0]?.author.did;
+		if (!author) throw new Error("no author");
+		const missed = flood(base, ref("general"), author, 300);
+
+		store.catchUp();
+		await until(() => general.hasNewer());
+		expect(general.messages()).toBe(before);
+
+		while (general.hasNewer()) {
+			general.loadNewer();
+			await until(() => !general.loadingNewer());
+		}
+		const rkeys = general.messages().map((message) => message.rkey);
+		expect(general.messages().slice(0, before.length)).toEqual(before);
+		expect(new Set(rkeys).size).toBe(rkeys.length);
+		expect([...rkeys].sort()).toEqual(rkeys);
+		for (const sent of missed) expect(rkeys).toContain(sent.rkey);
+		store.setViewing(undefined);
+	});
+
+	it("jumps to the newest messages across a gap and routes live messages past it", async () => {
+		const { base, store, ref, live } = await setupQuiet();
+		const general = store.channel(ref("general"));
+		await until(() => general.ready());
+		store.setViewing(ref("general"));
+		const before = general.messages();
+		const author = before[0]?.author.did;
+		if (!author) throw new Error("no author");
+		const missed = flood(base, ref("general"), author, 300);
+		store.catchUp();
+		await until(() => general.hasNewer());
+
+		live.messages = true;
+		const arrived = base.simulateMessage({
+			author,
+			channel: ref("general"),
+			text: "arrived during the gap",
+		});
+		await settle();
+		expect(general.messages()).toBe(before);
+
+		general.jumpToLatest();
+		expect(general.hasNewer()).toBe(false);
+		const rkeys = general.messages().map((message) => message.rkey);
+		expect(rkeys.at(-1)).toBe(arrived.rkey);
+		expect(rkeys).toContain(missed.at(-1)?.rkey);
+		expect(rkeys).not.toContain(before.at(-1)?.rkey);
+		store.setViewing(undefined);
+	});
+
+	it("jumps to an old message in one request and fills the gap above it", async () => {
+		const { base, store, ref, listed } = await setupQuiet();
+		const general = store.channel(ref("general"));
+		await until(() => general.ready());
+		const author = general.messages()[0]?.author.did;
+		if (!author) throw new Error("no author");
+		const sent = flood(base, ref("dev"), author, 300);
+		const dev = store.channel(ref("dev"));
+		await until(() => dev.ready());
+		const target = sent[150];
+		if (!target) throw new Error("no target");
+		expect(dev.messages().some((m) => m.rkey === target.rkey)).toBe(false);
+
+		listed.length = 0;
+		expect(await dev.loadAround(target.rkey)).toBe(true);
+		expect(listed).toHaveLength(1);
+		expect(dev.messages().some((m) => m.rkey === target.rkey)).toBe(true);
+		expect(dev.hasNewer()).toBe(true);
+
+		while (dev.hasNewer()) {
+			dev.loadNewer();
+			await until(() => !dev.loadingNewer());
+		}
+		const rkeys = dev.messages().map((message) => message.rkey);
+		expect(new Set(rkeys).size).toBe(rkeys.length);
+		expect([...rkeys].sort()).toEqual(rkeys);
+		expect(rkeys.at(-1)).toBe(sent.at(-1)?.rkey);
+	});
+
+	it("opens a channel far behind at its unread marker in one request", async () => {
+		const { base, store, ref, listed } = await setupQuiet();
+		const general = store.channel(ref("general"));
+		await until(() => general.ready());
+		const author = general.messages()[0]?.author.did;
+		if (!author) throw new Error("no author");
+		const sent = flood(base, ref("dev"), author, 300);
+		listed.length = 0;
+		const dev = store.channel(ref("dev"));
+		await until(() => dev.ready());
+		const first = sent[0];
+		if (!first) throw new Error("nothing sent");
+		expect(listed.filter((entry) => entry === ref("dev"))).toHaveLength(2);
+		expect(dev.messages().some((m) => m.rkey === first.rkey)).toBe(true);
+		expect(dev.unreadAfter()).toBeDefined();
+		expect(dev.hasNewer()).toBe(true);
+		dev.jumpToLatest();
+		expect(dev.messages().at(-1)?.rkey).toBe(sent.at(-1)?.rkey);
+	});
+
+	it("reports a message it can't find when jumping", async () => {
+		const { store, ref } = await setupQuiet();
+		const general = store.channel(ref("general"));
+		await until(() => general.ready());
+		expect(await general.loadAround("0000000000000")).toBe(false);
+	});
+
+	it("marks read only through the loaded messages while a gap is open", async () => {
+		const { base, store, ref } = await setupQuiet();
+		const general = store.channel(ref("general"));
+		await until(() => general.ready());
+		store.setViewing(ref("general"));
+		const author = general.messages()[0]?.author.did;
+		if (!author) throw new Error("no author");
+		flood(base, ref("general"), author, 300);
+		store.catchUp();
+		await until(() => general.hasNewer());
+
+		const marked: (string | undefined)[] = [];
+		const markRead = base.markRead;
+		base.markRead = (channel, through) => {
+			marked.push(through);
+			return markRead(channel, through);
+		};
+		general.markRead();
+		expect(marked).toEqual([general.messages().at(-1)?.rkey]);
+
+		general.jumpToLatest();
+		general.markRead();
+		expect(marked.at(-1)).toBeUndefined();
+		base.markRead = markRead;
+		store.setViewing(undefined);
+	});
+
+	it("never marks the channel on screen as unread", async () => {
+		const { base, store, space, ref } = await setupQuiet();
+		const general = store.channel(ref("general"));
+		await until(() => general.ready() && space.totals().hasUnread);
+		store.setViewing(ref("general"));
+		general.markRead();
+		const author = general.messages()[0]?.author.did;
+		if (!author) throw new Error("no author");
+		const read = (space.channels.value() ?? []).find(
+			(view) =>
+				!isVoiceChannel(view) &&
+				view.space !== ref("general") &&
+				!space.unread(channelSlug(view)).hasUnread,
+		);
+		if (!read) throw new Error("no read channel");
+		await until(() => !space.unread("general").hasUnread);
+		base.simulateMessage({
+			author,
+			channel: ref("general"),
+			text: "on screen",
+		});
+		base.simulateMessage({ author, channel: read.space, text: "elsewhere" });
+		store.catchUp();
+		await until(() => space.unread(channelSlug(read)).hasUnread);
+		expect(space.unread("general").hasUnread).toBe(false);
+		store.setViewing(undefined);
+	});
+
+	it("keeps unchanged thread rows and lists across a refresh", async () => {
+		const { store, space, ref, calls } = await setupQuiet();
+		const general = store.channel(ref("general"));
+		await until(() => general.ready());
+		store.setViewing(ref("general"));
+		const threads = store.threadsOf(ref("general"));
+		await until(() => !!threads.value());
+		const rows = threads.value();
+		const channels = space.channels.value();
+		const categories = space.categories.value();
+		const counted = { ...calls };
+		store.catchUp();
+		await until(
+			() =>
+				calls.threads > counted.threads &&
+				calls.channels > counted.channels &&
+				calls.categories > counted.categories,
+		);
+		await settle();
+		expect(threads.value()).toBe(rows);
+		expect(space.channels.value()).toBe(channels);
+		expect(space.categories.value()).toBe(categories);
+		store.setViewing(undefined);
+	});
+
+	it("refreshes loaded member lists on catch-up and keeps unchanged rows", async () => {
+		const { store, space, calls } = await setupQuiet();
+		await until(() => !!space.members.value());
+		const members = space.members.value();
+		const counted = calls.members;
+		await new Promise((resolve) => setTimeout(resolve, 1_100));
+		store.catchUp();
+		await until(() => calls.members > counted);
+		await settle();
+		expect(space.members.value()).toBe(members);
+	});
+});
+
+describe("outbox", () => {
+	it("keeps a message pending while offline and sends it once back online", async () => {
+		const { store, channel } = await setup();
+		store.setSimulation({ offline: true });
+		void channel.send({ text: "sent from a tunnel" });
+		await until(() => channel.pending().length === 1);
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		expect(channel.pending()[0]?.state).toBe("pending");
+		expect(store.outbox.pendingCount()).toBe(1);
+		store.setSimulation({ offline: false });
+		await until(() => channel.pending().length === 0);
+		expect(channel.messages().at(-1)?.text).toBe("sent from a tunnel");
+		expect(store.outbox.pendingCount()).toBe(0);
+	});
+
+	it("shows queued messages again after a restart and sends them", async () => {
+		const kv = createMemoryKvStore();
+		const queue = () => createOutboxQueue({ owner: "app:did:plc:me", kv });
+		const source = createMockSource({ live: false });
+		const first = await setup({
+			source,
+			store: { outbox: { queue: queue() } },
+		});
+		first.store.setSimulation({ offline: true });
+		void first.channel.send({ text: "survives a restart" });
+		await until(() => first.channel.pending().length === 1);
+		first.store.dispose();
+		source.setSimulation({ offline: false });
+
+		const second = await setup({
+			source,
+			store: { outbox: { queue: queue() } },
+		});
+		await until(() =>
+			second.channel
+				.messages()
+				.some((message) => message.text === "survives a restart"),
+		);
+		expect(second.channel.pending()).toHaveLength(0);
+	});
+
+	it("shows queued edits and reactions again after a restart", async () => {
+		const kv = createMemoryKvStore();
+		const queue = () => createOutboxQueue({ owner: "app:did:plc:me", kv });
+		const source = createMockSource({ live: false });
+		const first = await setup({
+			source,
+			store: { outbox: { queue: queue() } },
+		});
+		const own = first.channel
+			.messages()
+			.find((message) => message.author.did === first.store.viewer.did);
+		if (!own) throw new Error("no own message");
+		first.store.setSimulation({ offline: true });
+		await first.channel.edit(own.rkey, "edited offline");
+		await first.channel.react(own.rkey, "🪺", true);
+		await until(() => first.store.outbox.pendingCount() === 2);
+		first.store.dispose();
+		source.setSimulation({ offline: false });
+
+		const second = await setup({
+			source,
+			store: { outbox: { queue: queue(), held: () => true } },
+		});
+		const shown = () =>
+			second.channel.messages().find((message) => message.rkey === own.rkey);
+		await until(() => shown()?.text === "edited offline");
+		const reaction = shown()?.reactions.find((entry) => entry.emoji === "🪺");
+		expect(reaction?.viewerReacted).toBe(true);
+		expect(reaction?.reactors).toContain(second.store.viewer.did);
+	});
+
+	it("puts an edit back when it fails for good", async () => {
+		const { store, channel, source } = await setup();
+		const failures: WriteFailure[] = [];
+		store.onWriteFailed((failure) => failures.push(failure));
+		const own = channel
+			.messages()
+			.find((message) => message.author.did === store.viewer.did);
+		if (!own) throw new Error("no own message");
+		source.editMessage = async () => {
+			throw new Error("rejected");
+		};
+		await channel.edit(own.rkey, "changed my mind");
+		expect(
+			channel.messages().find((message) => message.rkey === own.rkey)?.text,
+		).toBe("changed my mind");
+		await until(() => failures.length === 1);
+		expect(failures[0]?.kind).toBe("edit");
+		expect(
+			channel.messages().find((message) => message.rkey === own.rkey)?.text,
+		).toBe(own.text);
+	});
+
+	it("reports a send whose file the PDS rejects as too large", async () => {
+		const { store, channel, source } = await setup();
+		const failures: WriteFailure[] = [];
+
+		store.onWriteFailed((failure) => failures.push(failure));
+		source.uploadBlob = async () => {
+			throw new ColibriError({
+				code: "ServerFileTooLarge",
+				status: 413,
+				method: "repo.uploadBlob",
+			});
+		};
+
+		const file = new File([new Uint8Array(10)], "huge.mov", {
+			type: "video/quicktime",
+		});
+
+		await channel.send({ text: "", files: [{ file }] });
+		await until(() => failures.length === 1);
+
+		expect(failures[0]).toEqual({ kind: "send", code: "ServerFileTooLarge" });
+		expect(channel.pending()[0]?.state).toBe("failed");
+	});
+
+	it("leaves other failed sends to the message row", async () => {
+		const { store, channel } = await setup();
+		const failures: WriteFailure[] = [];
+
+		store.onWriteFailed((failure) => failures.push(failure));
+
+		const file = new File([new Uint8Array(10)], "fail.txt", {
+			type: "text/plain",
+		});
+
+		await channel.send({ text: "this upload breaks", files: [{ file }] });
+		await until(() => channel.pending()[0]?.state === "failed");
+
+		expect(failures).toEqual([]);
+	});
+
+	it("brings a message back when its delete fails for good", async () => {
+		const { store, channel, source } = await setup();
+		const failures: WriteFailure[] = [];
+		store.onWriteFailed((failure) => failures.push(failure));
+		const target = channel.messages().at(-1);
+		if (!target) throw new Error("no messages");
+		source.deleteMessage = async () => {
+			throw new Error("rejected");
+		};
+		await channel.remove(target.rkey);
+		expect(
+			channel.messages().some((message) => message.rkey === target.rkey),
+		).toBe(false);
+		await until(() => failures.length === 1);
+		expect(
+			channel.messages().some((message) => message.rkey === target.rkey),
+		).toBe(true);
+	});
+
+	it("takes a reaction back when it fails for good", async () => {
+		const { store, channel, source } = await setup();
+		const failures: WriteFailure[] = [];
+		store.onWriteFailed((failure) => failures.push(failure));
+		const target = channel.messages().at(-1);
+		if (!target) throw new Error("no messages");
+		const reacted = () =>
+			channel
+				.messages()
+				.find((message) => message.rkey === target.rkey)
+				?.reactions.some(
+					(reaction) =>
+						reaction.emoji === "🦉" &&
+						reaction.reactors.includes(store.viewer.did),
+				);
+		source.react = async () => {
+			throw new Error("rejected");
+		};
+		await channel.react(target.rkey, "🦉", true);
+		expect(reacted()).toBe(true);
+		await until(() => failures.length === 1);
+		expect(reacted()).toBe(false);
+	});
+
+	it("shows a reaction the viewer made on another device", async () => {
+		const source = createMockSource({ live: false });
+		const { store, channel, hq } = await setup({ source });
+		const general = store.space(hq).channelBySlug("general");
+		const target = channel.messages().at(-1);
+		if (!target || !general) throw new Error("no messages");
+		const owl = () =>
+			channel
+				.messages()
+				.find((message) => message.rkey === target.rkey)
+				?.reactions.find((reaction) => reaction.emoji === "🦉");
+		const event = {
+			$type: "reactionEvent" as const,
+			channel: general.space,
+			target: { did: target.author.did, rkey: target.rkey },
+			emoji: "🦉",
+			actor: store.viewer.did,
+		};
+		source.emit({ ...event, event: "create" });
+		expect(owl()?.count).toBe(1);
+		expect(owl()?.viewerReacted).toBe(true);
+		source.emit({ ...event, event: "create" });
+		expect(owl()?.count).toBe(1);
+		source.emit({ ...event, event: "delete" });
+		expect(owl()).toBeUndefined();
+	});
+
+	it("ignores a reaction aimed at another author's message with the same key", async () => {
+		const source = createMockSource({ live: false });
+		const { store, channel, hq } = await setup({ source });
+		const general = store.space(hq).channelBySlug("general");
+		const target = channel.messages().at(-1);
+		if (!target || !general) throw new Error("no messages");
+		source.emit({
+			$type: "reactionEvent",
+			event: "create",
+			channel: general.space,
+			target: { did: "did:plc:someoneelse" as Did, rkey: target.rkey },
+			emoji: "🦉",
+			actor: store.viewer.did,
+		});
+		expect(
+			channel
+				.messages()
+				.find((message) => message.rkey === target.rkey)
+				?.reactions.some((reaction) => reaction.emoji === "🦉"),
+		).toBe(false);
+	});
+});
+
+describe("own reactions", () => {
+	const reactionSetup = async () => {
+		const source = createMockSource({ live: false });
+		const context = await setup({ source });
+		const general = context.store.space(context.hq).channelBySlug("general");
+		const target = context.channel.messages().at(-1);
+		if (!target || !general) throw new Error("no messages");
+		const sent: { add: boolean; reaction?: string }[] = [];
+		const owl = () =>
+			context.channel
+				.messages()
+				.find((message) => message.rkey === target.rkey)
+				?.reactions.find((reaction) => reaction.emoji === "🦉");
+		const echo = (add: boolean) =>
+			source.emit({
+				$type: "reactionEvent",
+				event: add ? "create" : "delete",
+				channel: general.space,
+				target: { did: target.author.did, rkey: target.rkey },
+				emoji: "🦉",
+				actor: context.store.viewer.did,
+			});
+		return { ...context, source, general, target, sent, owl, echo };
+	};
+
+	it("keeps the count steady while its own echoes arrive late", async () => {
+		const { channel, target, owl, echo, source, store } = await reactionSetup();
+		source.react = async () => {};
+		const counts: number[] = [];
+		const stop = createRoot((dispose) => {
+			createEffect(() => counts.push(owl()?.count ?? 0));
+			return dispose;
+		});
+		await channel.react(target.rkey, "🦉", true);
+		await until(() => store.outbox.pendingCount() === 0);
+		await channel.react(target.rkey, "🦉", false);
+		await until(() => store.outbox.pendingCount() === 0);
+		await channel.react(target.rkey, "🦉", true);
+		await until(() => store.outbox.pendingCount() === 0);
+		const settled = counts.length;
+		echo(true);
+		echo(false);
+		echo(true);
+		stop();
+		expect(counts.slice(settled)).toEqual([]);
+		expect(owl()).toMatchObject({ count: 1, viewerReacted: true });
+	});
+
+	it("keeps an optimistic reaction when a stale copy of the message arrives", async () => {
+		const { channel, target, owl, source, general, store } =
+			await reactionSetup();
+		source.react = async () => {};
+		await channel.react(target.rkey, "🦉", true);
+		await until(() => store.outbox.pendingCount() === 0);
+		source.emit({
+			$type: "messageEvent",
+			event: "update",
+			channel: general.space,
+			message: { ...target, text: "edited elsewhere" },
+		});
+		expect(
+			channel.messages().find((message) => message.rkey === target.rkey)?.text,
+		).toBe("edited elsewhere");
+		expect(owl()).toMatchObject({ count: 1, viewerReacted: true });
+	});
+
+	it("restores the emoji record and record key when a removal fails", async () => {
+		const { store, channel, target, owl, source, sent } = await reactionSetup();
+		const customEmoji = {
+			uri: "at://did:plc:a/social.colibri.beta.emoji/owl",
+		} as const;
+		let reject = false;
+		source.react = async (input) => {
+			sent.push({
+				add: input.add,
+				...(input.reaction ? { reaction: input.reaction } : {}),
+			});
+			if (reject) throw new Error("rejected");
+		};
+		const failures: WriteFailure[] = [];
+		store.onWriteFailed((failure) => failures.push(failure));
+		await channel.react(target.rkey, "🦉", true, customEmoji as never);
+		await until(() => store.outbox.pendingCount() === 0);
+		reject = true;
+		await channel.react(target.rkey, "🦉", false, customEmoji as never);
+		await until(() => failures.length === 1);
+		expect(owl()).toMatchObject({ viewerReacted: true, customEmoji });
+		reject = false;
+		await channel.react(target.rkey, "🦉", false, customEmoji as never);
+		await until(() => store.outbox.pendingCount() === 0);
+		expect(sent[2]?.reaction).toBe(sent[0]?.reaction);
+		expect(sent[0]?.reaction).toBeDefined();
+	});
+});
+
+describe("ownership transfer", () => {
+	it("refreshes the Space so the previous owner loses owner access", async () => {
+		const source = createMockSource({ live: false });
+		const { store, hq } = await setup({ source });
+		const getCommunity = source.getCommunity;
+		source.getCommunity = async (did) => {
+			const view = await getCommunity(did);
+			return { ...view, viewer: { ...view.viewer, isOwner: false } };
+		};
+		source.transferOwnership = async () =>
+			({ owner: {}, previousOwner: {} }) as Awaited<
+				ReturnType<DataSource["transferOwnership"]>
+			>;
+		const owner = () =>
+			store.communities.value()?.find((entry) => entry.did === hq.did)?.viewer
+				.isOwner;
+		expect(owner()).toBe(true);
+
+		await store.community.transferOwnership(hq.did, "did:plc:someoneelse");
+
+		expect(owner()).toBe(false);
+	});
+});
+
+describe("channel preview", () => {
+	const previewOf = (
+		store: Awaited<ReturnType<typeof setup>>["store"],
+		channel: Awaited<ReturnType<typeof setup>>["channel"],
+	) => {
+		const ref = channel.messages()[0]?.channel;
+		if (!ref) throw new Error("no messages");
+		return () => store.lastMessage(ref);
+	};
+
+	it("shows a sent message before the server confirms it", async () => {
+		const { store, channel } = await setup();
+		const preview = previewOf(store, channel);
+		store.setSimulation({ offline: true });
+		void channel.send({ text: "sent  from\na tunnel" });
+		await until(() => channel.pending().length === 1);
+		expect(preview()?.text).toBe("sent from a tunnel");
+		expect(preview()?.author).toBe(store.viewer.did);
+		store.setSimulation({ offline: false });
+		await until(() => channel.pending().length === 0);
+		expect(preview()?.text).toBe("sent from a tunnel");
+	});
+
+	it("describes a sent file without text", async () => {
+		const { store, channel } = await setup();
+		const preview = previewOf(store, channel);
+		store.setSimulation({ offline: true });
+		const file = new File([new Uint8Array(10)], "notes.txt", {
+			type: "text/plain",
+		});
+		void channel.send({ text: "", files: [{ file }] });
+		await until(() => channel.pending().length === 1);
+		expect(preview()?.text).toBe("Sent a file");
+	});
+
+	it("restores the previous preview when a failed send is discarded", async () => {
+		const { store, channel } = await setup();
+		const preview = previewOf(store, channel);
+		await until(() => !!preview());
+		const before = preview()?.text;
+		const file = new File([new Uint8Array(10)], "fail.txt", {
+			type: "text/plain",
+		});
+		await channel.send({ text: "this upload breaks", files: [{ file }] });
+		expect(preview()?.text).toBe("this upload breaks");
+		const failed = channel.pending()[0];
+		if (!failed) throw new Error("no failed message");
+		channel.discard(failed.nonce);
+		await until(() => preview()?.text === before);
+	});
+
+	it("follows an edit of the latest message", async () => {
+		const { store, channel } = await setup();
+		const preview = previewOf(store, channel);
+		await channel.send({ text: "first draft" });
+		const sent = channel.messages().at(-1);
+		if (!sent) throw new Error("no sent message");
+		store.setSimulation({ offline: true });
+		await channel.edit(sent.rkey, "second draft");
+		expect(preview()?.text).toBe("second draft");
+	});
+
+	it("falls back to the previous message when the latest is deleted", async () => {
+		const { store, channel } = await setup();
+		const preview = previewOf(store, channel);
+		await channel.send({ text: "keep me" });
+		await channel.send({ text: "delete me" });
+		const latest = channel.messages().at(-1);
+		if (latest?.text !== "delete me") throw new Error("send order");
+		store.setSimulation({ offline: true });
+		await channel.remove(latest.rkey);
+		expect(preview()?.text).toBe("keep me");
+	});
+});
+
+describe("stale queued messages", () => {
+	const HOUR = 60 * 60 * 1000;
+	const owner = "app:did:plc:me";
+	const keyAt = (millis: number) => {
+		let value = (BigInt(millis * 1000) << 10n) | 7n;
+		let key = "";
+		for (let i = 0; i < 13; i++) {
+			key = "234567abcdefghijklmnopqrstuvwxyz"[Number(value & 31n)] + key;
+			value >>= 5n;
+		}
+		return key;
+	};
+	type SendInput = Parameters<DataSource["sendMessage"]>[0];
+
+	const gatedSource = (echo: boolean) => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const listeners = new Set<(event: LiveEvent) => void>();
+		let muted = false;
+		let release: () => void = () => {};
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const sends: SendInput[] = [];
+		const deletes: string[] = [];
+		const source: DataSource = {
+			...base,
+			subscribe: (listener) => {
+				listeners.add(listener);
+				const stop = base.subscribe((event) => {
+					if (!muted) listener(event);
+				});
+				return () => {
+					listeners.delete(listener);
+					stop();
+				};
+			},
+			sendMessage: async (input) => {
+				sends.push(input);
+				await gate;
+				muted = true;
+				const view = await base.sendMessage(input).finally(() => {
+					muted = false;
+				});
+				if (echo) {
+					for (const listener of listeners)
+						listener({
+							$type: "messageEvent",
+							event: "create",
+							channel: input.channel,
+							message: view,
+						});
+					await new Promise((resolve) => setTimeout(resolve, 30));
+				}
+				return view;
+			},
+			deleteMessage: (input) => {
+				deletes.push(input.rkey);
+				return base.deleteMessage(input);
+			},
+		};
+		return { source, sends, deletes, release: () => release() };
+	};
+
+	const setupStale = async (
+		ops: (ref: SpaceRef, stale: string) => OutboxOp[],
+		echo = true,
+	) => {
+		const gated = gatedSource(echo);
+		const kv = createMemoryKvStore();
+		const queue = () => createOutboxQueue({ owner, kv });
+		const first = await setup({ source: gated.source });
+		const ref = first.channel.channel;
+		first.store.dispose();
+		const stale = keyAt(Date.now() - 30 * HOUR);
+		const seeded = queue();
+		let seq = 1;
+		for (const op of ops(ref, stale))
+			await seeded.put({ seq: seq++, op, createdAt: Date.now(), attempts: 0 });
+		let holding = true;
+		const { store, channel } = await setup({
+			source: gated.source,
+			store: { outbox: { queue: queue(), held: () => holding } },
+		});
+		await until(() => channel.pending().length === ops(ref, stale).length);
+		const start = () => {
+			holding = false;
+			store.outbox.flush();
+		};
+		return { ...gated, store, channel, ref, stale, start };
+	};
+
+	const sendOp = (
+		ref: SpaceRef,
+		rkey: string,
+		text: string,
+		parent?: string,
+	): OutboxOp => ({
+		t: "send",
+		channel: ref,
+		rkey,
+		text,
+		...(parent ? { parent } : {}),
+		files: [],
+	});
+
+	it("moves the placeholder and preview to a fresh key before it sends, and shows it once", async () => {
+		const { store, channel, ref, stale, sends, release, start } =
+			await setupStale((ref, stale) => [sendOp(ref, stale, "waited a day")]);
+		expect(channel.pending()[0]?.rkey).toBe(stale);
+		expect(store.lastMessage(ref)?.rkey).toBe(stale);
+		const states: string[] = [];
+		const stop = createRoot((dispose) => {
+			createEffect(() => {
+				const pending = channel
+					.pending()
+					.some((entry) => entry.text === "waited a day");
+				const sent = channel
+					.messages()
+					.filter((entry) => entry.text === "waited a day").length;
+				const state =
+					pending && sent
+						? "both"
+						: pending
+							? "pending"
+							: sent === 1
+								? "sent"
+								: sent > 1
+									? "duplicate"
+									: "none";
+				if (states.at(-1) !== state) states.push(state);
+			});
+			return dispose;
+		});
+		start();
+		await until(() => sends.length === 1);
+		const fresh = sends[0]?.rkey ?? "";
+		const placeholder = channel.pending()[0];
+		expect(fresh).not.toBe(stale);
+		expect(placeholder?.rkey).toBe(fresh);
+		expect(store.lastMessage(ref)?.rkey).toBe(fresh);
+		expect(store.nonceFor(fresh)).toBe(placeholder?.nonce);
+		expect(store.nonceFor(stale)).toBeUndefined();
+		release();
+		await until(() => channel.pending().length === 0);
+		await new Promise((resolve) => setTimeout(resolve, 80));
+		stop();
+		expect(states).toEqual(["pending", "sent"]);
+		expect(
+			channel
+				.messages()
+				.filter((entry) => entry.text === "waited a day")
+				.map((entry) => entry.rkey),
+		).toEqual([fresh]);
+	});
+
+	it("points a queued reply at the fresh key", async () => {
+		const { channel, stale, sends, release, start } = await setupStale(
+			(ref, stale) => [
+				sendOp(ref, stale, "question"),
+				sendOp(ref, keyAt(Date.now()), "answer", stale),
+			],
+		);
+		start();
+		await until(() => sends.length === 1);
+		const fresh = sends[0]?.rkey ?? "";
+		const reply = channel.pending().find((entry) => entry.text === "answer");
+		expect(fresh).not.toBe(stale);
+		expect(reply?.parent).toBe(fresh);
+		release();
+		await until(() => sends.length === 2 && channel.pending().length === 0);
+		expect(sends[1]?.parent).toBe(fresh);
+	});
+
+	it("takes back the fresh key when a discarded send lands anyway", async () => {
+		const { channel, stale, sends, deletes, release, start } = await setupStale(
+			(ref, stale) => [sendOp(ref, stale, "never mind")],
+			false,
+		);
+		start();
+		await until(() => sends.length === 1);
+		const fresh = sends[0]?.rkey ?? "";
+		const placeholder = channel.pending()[0];
+		if (!placeholder) throw new Error("no placeholder");
+		channel.discard(placeholder.nonce);
+		release();
+		await until(() => deletes.includes(fresh));
+		expect(fresh).not.toBe(stale);
+		expect(deletes).not.toContain(stale);
+		expect(
+			channel.messages().some((entry) => entry.text === "never mind"),
+		).toBe(false);
+	});
+});
+
+describe("moved messages", () => {
+	it("detaches messages a move label takes out of the open feed", async () => {
+		setLatency(0);
+		const base = createMockSource({ live: false });
+		const listeners = new Set<(event: LiveEvent) => void>();
+		const source: DataSource = {
+			...base,
+			subscribe: (listener) => {
+				listeners.add(listener);
+				const stop = base.subscribe(listener);
+				return () => {
+					listeners.delete(listener);
+					stop();
+				};
+			},
+		};
+		const { store, channel, hq } = await setup({ source });
+		const general = store.space(hq).channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const [first, second] = channel.messages();
+		if (!first || !second) throw new Error("messages missing");
+		const before = channel.messages().length;
+
+		for (const listener of listeners) {
+			listener({
+				$type: "messagesMovedEvent",
+				space: general.space,
+				rkeys: [first.rkey, second.rkey],
+			});
+		}
+
+		const left = channel.messages().map((entry) => entry.rkey);
+		expect(left).not.toContain(first.rkey);
+		expect(left).not.toContain(second.rkey);
+		expect(left).toHaveLength(before - 2);
+	});
+});

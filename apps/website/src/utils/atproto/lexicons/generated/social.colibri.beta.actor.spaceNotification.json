@@ -1,0 +1,34 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.spaceNotification",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A notification level for one community, overriding the level in social.colibri.beta.actor.settings. The record key is the community's DID. Deleting the record returns the community to the global level.",
+			"key": "any",
+			"record": {
+				"type": "object",
+				"required": [
+					"level",
+					"createdAt"
+				],
+				"properties": {
+					"level": {
+						"type": "string",
+						"knownValues": [
+							"all",
+							"mentionsAndReplies",
+							"nothing"
+						],
+						"description": "Which messages in this community produce a notification."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the level was set."
+					}
+				}
+			}
+		}
+	}
+}

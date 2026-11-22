@@ -1,18 +1,23 @@
+#[cfg(target_os = "linux")]
+mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
 mod unsupported;
 #[cfg(windows)]
 mod windows;
 
+#[cfg(target_os = "linux")]
+use linux as imp;
 #[cfg(target_os = "macos")]
 use macos as imp;
-#[cfg(not(any(target_os = "macos", windows)))]
+#[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
 use unsupported as imp;
 #[cfg(windows)]
 use windows as imp;
 
 use std::path::Path;
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
@@ -64,6 +69,28 @@ fn cache_avatar(cache_dir: &Path, cid: &str, bytes: &[u8]) -> Option<String> {
     path.to_str().map(str::to_owned)
 }
 
+static LAST_ACTIVATION: Mutex<Option<Activation>> = Mutex::new(None);
+
+fn remember_activation(activation: Activation) {
+    if let Ok(mut slot) = LAST_ACTIVATION.lock() {
+        *slot = Some(activation);
+    }
+}
+
+fn take_activation() -> Option<Activation> {
+    LAST_ACTIVATION.lock().ok().and_then(|mut slot| slot.take())
+}
+
+#[tauri::command]
+pub fn native_notify_take_activation() -> Option<Activation> {
+    take_activation()
+}
+
+#[tauri::command]
+pub fn native_notify_clear_all() -> Result<(), NativeError> {
+    imp::clear_all()
+}
+
 #[tauri::command]
 pub fn native_notify_supported() -> bool {
     imp::supported()
@@ -108,8 +135,9 @@ fn app_icon_path<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
     path.to_str().map(str::to_owned)
 }
 
-#[cfg(any(target_os = "macos", windows))]
+#[cfg(any(target_os = "macos", windows, target_os = "linux"))]
 fn emit_activation<R: Runtime>(app: &AppHandle<R>, activation: Activation) {
+    remember_activation(activation.clone());
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.set_focus();
@@ -149,7 +177,24 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>) {
         );
     }
 
-    #[cfg(not(any(target_os = "macos", windows)))]
+    #[cfg(target_os = "linux")]
+    {
+        let handle = app.clone();
+        let app_name = app
+            .config()
+            .product_name
+            .clone()
+            .unwrap_or_else(|| "Colibri".to_owned());
+
+        imp::install_activation_handler(
+            app_name,
+            Box::new(move |activation| {
+                emit_activation(&handle, activation);
+            }),
+        );
+    }
+
+    #[cfg(not(any(target_os = "macos", windows, target_os = "linux")))]
     let _ = app;
 }
 

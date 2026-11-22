@@ -1,0 +1,193 @@
+[data-animated-icon="inbox"] {
+	& [data-inbox-read-top],
+	& [data-inbox-unread-top],
+	& [data-inbox-dot] {
+		transform-box: view-box;
+		transform-origin: 19px 5px;
+		transition:
+			opacity calc(200ms * var(--motion-scale)) var(--ease-out-quick),
+			transform calc(var(--duration-pop, 320ms) * var(--motion-scale))
+			var(--ease-pop, var(--ease-out-quick)),
+			filter calc(200ms * var(--motion-scale)) var(--ease-out-quick);
+	}
+
+	& [data-inbox-unread="off"] [data-inbox-unread-top],
+	& [data-inbox-unread="on"] [data-inbox-read-top] {
+		opacity: 0;
+	}
+
+	& [data-inbox-unread="off"] [data-inbox-dot] {
+		opacity: 0;
+		transform: scale(0.25);
+		filter: blur(4px);
+	}
+}
+
+@keyframes ui-icon-sys-inbox-lid {
+	0% {
+		transform: translateY(0);
+		animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+	}
+	30% {
+		transform: translateY(1.75px);
+		animation-timing-function: cubic-bezier(0.2, 0, 0.4, 1);
+	}
+	45% {
+		transform: translateY(2.75px);
+		animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+	}
+	72% {
+		transform: translateY(-0.5px);
+		animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
+	}
+	88% {
+		transform: translateY(0.15px);
+	}
+	100% {
+		transform: translateY(0);
+	}
+}
+
+@keyframes ui-icon-sys-inbox-tray {
+	0%,
+	30% {
+		transform: translateY(0);
+		animation-timing-function: cubic-bezier(0.2, 0, 0.4, 1);
+	}
+	45% {
+		transform: translateY(1px);
+		animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1);
+	}
+	70% {
+		transform: translateY(-0.4px);
+		animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
+	}
+	86% {
+		transform: translateY(0.12px);
+	}
+	100% {
+		transform: translateY(0);
+	}
+}
+
+@keyframes ui-icon-sys-inbox-dot {
+	0%,
+	45% {
+		transform: scale(1);
+		animation-timing-function: cubic-bezier(0.2, 0, 0.2, 1);
+	}
+	68% {
+		transform: scale(1.35);
+		animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
+	}
+	84% {
+		transform: scale(0.94);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+[data-animated-icon="inbox"] :is([data-part="lid"], [data-part="tray"]) {
+	transform-box: view-box;
+	transform-origin: 12px 12px;
+}
+
+[data-animated-icon="inbox"] [data-part="dot"] {
+	transform-box: view-box;
+	transform-origin: 19px 5px;
+}
+
+[data-animated-icon="inbox"]:is([data-hover], [data-attention]) {
+	& [data-part="lid"] {
+		animation: ui-icon-sys-inbox-lid calc(600ms * var(--motion-scale)) both;
+	}
+
+	& [data-part="tray"] {
+		animation: ui-icon-sys-inbox-tray calc(600ms * var(--motion-scale)) both;
+	}
+
+	& [data-inbox-unread="on"] [data-part="dot"] {
+		animation: ui-icon-sys-inbox-dot calc(600ms * var(--motion-scale)) both;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[data-animated-icon="inbox"]
+		:is([data-inbox-read-top], [data-inbox-unread-top], [data-inbox-dot]) {
+		transition-duration: 0ms !important;
+	}
+}
+
+:root[data-reduced-motion="true"]
+	[data-animated-icon="inbox"]
+	:is([data-inbox-read-top], [data-inbox-unread-top], [data-inbox-dot]) {
+	transition-duration: 0ms !important;
+}
+
+@keyframes ui-icon-sys-strike {
+	0% {
+		opacity: 0;
+		transform: translateY(-2px);
+	}
+	16% {
+		opacity: 1;
+		transform: translateY(0.4px);
+	}
+	24% {
+		opacity: 0.3;
+		transform: translate(-0.6px, 0);
+	}
+	32% {
+		opacity: 1;
+		transform: translate(0.6px, 0);
+	}
+	40% {
+		opacity: 0.55;
+		transform: translate(-0.35px, 0);
+	}
+	50% {
+		opacity: 1;
+		transform: translate(0, 0);
+	}
+	100% {
+		opacity: 1;
+		transform: translate(0, 0);
+	}
+}
+
+[data-animated-icon="bolt"][data-hover] [data-part="bolt"] {
+	animation: ui-icon-sys-strike calc(520ms * var(--motion-scale))
+		cubic-bezier(0.2, 0, 0.1, 1);
+}
+
+[data-animated-icon="bolt"][data-attention] [data-part="bolt"] {
+	animation: ui-icon-sys-strike calc(520ms * var(--motion-scale))
+		cubic-bezier(0.2, 0, 0.1, 1) 2;
+}
+
+@keyframes ui-icon-sys-track {
+	0% {
+		stroke-dasharray: var(--track-rest) 100px;
+	}
+	40% {
+		stroke-dasharray: var(--track-peak) 100px;
+	}
+	100% {
+		stroke-dasharray: var(--track-rest) 100px;
+	}
+}
+
+[data-animated-icon="tuning"][data-hover] [data-tuning-track] {
+	animation: ui-icon-sys-track calc(420ms * var(--motion-scale)) ease-out
+		calc(var(--fx-delay, 0ms) * var(--motion-scale));
+}
+
+[data-animated-icon="tuning"][data-attention] [data-tuning-track] {
+	animation: ui-icon-sys-track calc(420ms * var(--motion-scale)) ease-out
+		calc(var(--fx-delay, 0ms) * var(--motion-scale)) 2;
+}
+
+[data-animated-icon="inbox"] [data-inbox-dot] path {
+	fill: var(--color-destructive);
+}

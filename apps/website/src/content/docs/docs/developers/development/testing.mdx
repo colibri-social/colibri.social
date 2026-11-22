@@ -1,0 +1,83 @@
+---
+title: Testing
+description: "What is tested where, how to run it locally, and what CI runs on a pull request."
+sidebar:
+  order: 5
+---
+
+import { FileTree } from "@astrojs/starlight/components";
+
+This page covers the AppView's automated suite, run with [Vitest](https://vitest.dev). For the client's own tests, see [Client development](/docs/developers/development/client#tests). For manually testing the native shell on emulators, Simulators and real devices, see [Testing native builds](/docs/developers/development/native).
+
+## Test setup
+
+Unit tests live in a `*.test.ts` file next to the code they cover:
+
+<FileTree>
+- packages
+  - lexicons/src/conformance.test.ts every lexicon document, checked structurally
+  - db/src/schema/parity.test.ts the libSQL and Postgres schemas agree
+  - space, space-sync, identity, community, projections, notifications, blobs, embeds, emoji, voice, telemetry, bridge-core, bridge-discord each has its own `src/**/*.test.ts`
+- apps
+  - appview/src routes, views, the WebSocket topics, Jetstream handling, the polyfill and the cluster
+  - appview/test/integration the suite that runs against a PDS
+  - admin/src the `colibri-admin` commands, confirmations and the database copy
+</FileTree>
+
+## Running tests locally
+
+```sh
+pnpm test
+pnpm test:watch
+pnpm test:integration
+pnpm typecheck
+```
+
+`pnpm test` runs the unit tests of every package, and `pnpm test:watch` does the same in watch mode. `pnpm test:integration` runs the [integration suite](#integration-tests). `pnpm typecheck` compiles the sources and typechecks the tests.
+
+Both test commands select a Vitest [project](https://vitest.dev/guide/projects) from the root `vitest.config.ts`. The `unit` project includes every `{packages,apps}/*/src/**/*.test.ts`, and the `integration` project includes `{packages,apps}/*/test/integration/**/*.test.ts`. `pnpm test` runs the `unit` project alone, which needs no database service and no PDS.
+
+## The lexicon conformance test
+
+`packages/lexicons/src/conformance.test.ts` reads every lexicon document in the package and checks it structurally, with no server and no network call. Among other things it asserts that:
+
+- Every method (`query`, `procedure`, or `subscription`) declares an `errors` array. `social.colibri.beta.server.describeServer` is the one exception, listed in the test by name.
+- Every error name is PascalCase and has a `description`.
+- Every `ref` resolves to a definition that exists, and a same-document `ref` uses the short `#name` form.
+- No lexicon description uses an em dash or a semicolon.
+
+The test reads a lexicon's `errors` array and its schema directly from the JSON. See [AppView development](/docs/developers/development/appview#source-layout) for where a new endpoint's lexicon lives.
+
+## Integration tests
+
+`pnpm test:integration` runs `apps/appview/test/integration/spaces.test.ts` against a spaces-alpha PDS and its own PLC directory in Docker:
+
+```sh
+docker compose -f docker-compose.integration.yml up -d --wait --build
+pnpm test:integration
+docker compose -f docker-compose.integration.yml down -v
+```
+
+The suite reads `PDS_URL`, `PDS_ADMIN_PASSWORD` and `PLC_URL`, which default to the addresses the compose file publishes. It covers four areas:
+
+- **Provisioning.** It creates a Space and checks its spaces, their policies, the starter layout and the owner role.
+- **A member writing into a channel.** It admits a member, writes a message straight to that member's own repo, and checks that the AppView syncs it, advances incrementally on a second write, recovers the whole repo after its local set hash drifted, and removes a deleted message.
+- **A personal space.** It syncs the owner's own preferences.
+- **Moderation.** It removes a banned member and records the ban.
+
+This suite exercises the credential and sync path end to end against a PDS. The unit tests cover the same code through injected fakes.
+
+The Integration workflow runs it every night at 04:00 UTC. Pull requests don't run it.
+
+## Continuous integration
+
+Four jobs run on every pull request:
+
+| Job | What it does |
+| --- | --- |
+| Lint | `pnpm biome ci .` |
+| Test | `pnpm build`, `pnpm typecheck`, then `pnpm test` on libSQL |
+| Test on Postgres | `pnpm build`, then `pnpm test` with `TEST_DATABASE_URL` pointing at a Postgres service |
+| Lexicons | Runs `pnpm lexicons:codegen` and fails on a changed tree, then checks that the vendored `com.atproto.space`, `com.atproto.memberspace`, `com.atproto.managedspace` and `com.atproto.personalspace` lexicons are byte-identical to the pinned upstream commit |
+
+`packages/lexicons/lexicons/com/atproto/PINNED_COMMIT` holds that commit, and `packages/lexicons/README.md` covers how to move it.

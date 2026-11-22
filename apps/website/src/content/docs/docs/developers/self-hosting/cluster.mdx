@@ -1,0 +1,404 @@
+---
+title: "Running a Cluster"
+description: "Operate a cluster of AppView nodes: adding and retiring nodes, rolling updates, database failover, backups, monitoring and the status page."
+sidebar:
+  order: 2
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+A cluster has one main node holding the Postgres primary and any number of sub, failover and voice nodes. All nodes share a [Tailscale](https://tailscale.com) tailnet. The main node provisions the others over SSH with the Ansible playbooks in `deploy/ansible`, which ship inside the image.
+
+[Getting Started](/docs/developers/self-hosting/getting-started#running-a-cluster) lists the services in `docker-compose.scaled.yml`, the contents of `deploy/` and the five node roles. Its [configuration reference](/docs/developers/self-hosting/getting-started#configuration) lists every variable named on this page.
+
+`colibri-admin` is the command line for a cluster. Run it inside the AppView container of the main node:
+
+```sh
+docker compose -f docker-compose.scaled.yml exec appview colibri-admin --help
+```
+
+## The main node
+
+<Steps>
+
+1. Join the server to your tailnet and note its tailnet name and address.
+
+2. Put an SSH key for the other servers at `./data/ssh/id_ed25519`, or point `SSH_KEY_PATH` at it. Add its public half to every server you order.
+
+3. Fill `.env` with the [required settings](/docs/developers/self-hosting/getting-started#required) plus the cluster ones:
+
+   ```ini title=".env"
+   NODE_ID=hel-1
+   NODE_REGION=eu
+   TAILNET_HOST=hel-1
+   TAILNET_IP=100.64.0.1
+   PUBLIC_HOST=api.example.com
+   POSTGRES_PASSWORD=<password>
+   POSTGRES_REPLICATION_PASSWORD=<password>
+   TAILSCALE_AUTH_KEY=<tailscale auth key>
+   REPLICATION_SLOT=hel_1
+   ```
+
+   `REPLICATION_SLOT` is the node's ID with underscores. It lets the main node's Postgres be rebuilt as a replica.
+
+4. Start it with Caddy in front, which takes ports 80 and 443:
+
+   ```sh
+   docker compose -f docker-compose.scaled.yml --profile caddy up -d
+   ```
+
+5. Store the settings every node shares:
+
+   ```sh
+   docker compose -f docker-compose.scaled.yml exec -T appview colibri-admin config import - < .env
+   ```
+
+   Settings that describe one node stay out of the shared store.
+
+</Steps>
+
+### Behind Traefik
+
+On a server where Traefik already holds ports 80 and 443, for example under Dokploy, leave the `caddy` profile out and route through Traefik with `deploy/traefik/compose.traefik.yml`:
+
+```ini title=".env"
+COMPOSE_FILE=docker-compose.scaled.yml:deploy/traefik/compose.traefik.yml
+TRAEFIK_NETWORK=dokploy-network
+TRAEFIK_CERT_RESOLVER=letsencrypt
+API_HOST=api.example.com
+```
+
+With those set, `docker compose up -d` joins the AppView to Traefik's network and routes `PUBLIC_HOST` and `API_HOST` to it over HTTPS. `TRAEFIK_ENTRYPOINT` defaults to `websecure`.
+
+The [status page](#status-page) needs Caddy, so deploy Uptime Kuma to a node that runs it.
+
+## Adding a node
+
+```sh
+colibri-admin node add eu-2 --region eu --roles api,live,voice \
+  --public-url https://eu-2.nodes.example.com --ip 203.0.113.7
+```
+
+The main node installs Docker, Tailscale, a firewall, Caddy and the AppView on the server. Sub and failover nodes also get a Postgres replica. The node joins with a one-time token and takes the shared settings from the main node.
+
+`colibri-admin node list` shows the node as `active` once it sends heartbeats. Without `--ip`, `node add` prints the settings for setting the node up by hand.
+
+## Taking a node out
+
+```sh
+colibri-admin node shutdown eu-2 --maintenance --grace 15m
+colibri-admin node resume eu-2
+colibri-admin node shutdown eu-2 --retire
+colibri-admin node remove eu-2
+```
+
+A shutdown drains the node for `--grace`, or for `DRAIN_GRACE_MINUTES` without it. It keeps the quorum floor unless you pass `--force`. A node in maintenance answers every request with `503` until it is resumed.
+
+`node remove` deletes the stack and its volumes from a retired node and forgets it. `node recover eu-2` restarts a node's stack.
+
+## Updates
+
+The main node checks the `NODE_IMAGE` tag every `UPDATE_POLL_MINUTES`. When nodes run an older version than the image's `org.opencontainers.image.version` label, it updates them one at a time: sub nodes first, then the failover node, then itself. When the image carries database migrations that are not applied yet, the main node updates first.
+
+Each node pulls the image pinned by digest, drains for up to `DRAIN_GRACE_MINUTES` while the quorum floor holds, restarts, and must report the new version within 10 minutes. A failed step pauses rollouts until you run `colibri-admin rollout resume`. A node that drained for an update and is not restarted within 15 minutes restarts on its current image.
+
+Setting `UPDATE_POLL_MINUTES` to `0` turns the check off. `colibri-admin rollout pause` stops rollouts until you resume them.
+
+### Rolling out right away
+
+```sh
+colibri-admin rollout now --grace 2m
+```
+
+`rollout now` starts a rollout in the same order and under the same quorum rule, and resumes paused rollouts. Each node drains for the given grace, 2 minutes by default. The main node stops itself after the same grace.
+
+Clients move their sockets to other nodes as soon as the drain starts, and calls move to another voice node within `VOICE_MIGRATION_NOTICE_SECONDS`. Keep the grace above that value.
+
+A node that the quorum floor holds back is retried every 10 seconds for up to 10 minutes. The command refuses while a rollout is already running.
+
+### Updating the main node
+
+The main node updates itself over SSH. Keep its stack in `STACK_DIR`, set `COMPOSE_FILE=docker-compose.scaled.yml` and `TAILNET_HOST` in its `.env`, and add the SSH key's public half to the main server's own `authorized_keys`.
+
+Before the main node restarts, it hands the main role to a failover node that already runs the new version. The failover node writes to the same Postgres primary over the tailnet, and sub nodes hold writes for the few seconds of each handover.
+
+Without a failover node on the new version, the main node restarts in place and writes wait for up to `WRITE_QUEUE_SECONDS`.
+
+## The main role
+
+The main role belongs to whichever node holds a lock on the Postgres primary. A node with the `main` role always tries for it.
+
+A node with the `failover` role asks every `main` node at `/cluster/alive` on `CLUSTER_PORT` before each try, and stays back while one of them is up and not draining. It takes the lock in three cases:
+
+- No `main` node answers, or every one of them is draining. With the Postgres primary up, that takes a few seconds.
+- The main node hands the role over before an update.
+- A `main` node is up and has not claimed the role for 30 seconds.
+
+A failover node holding the main role hands it back once a node with the `main` role has been active on the same or a newer version for two minutes. A node that does not hold the main role forwards writes to the one that does.
+
+## Cloudflare
+
+With `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ZONE_ID` set, `node add --ip` creates an A record for the node's public host and `node remove` deletes it. The record is DNS only, and its comment names the node. Records the main node did not create are left alone, and `node add` refuses to replace one.
+
+Add `CLOUDFLARE_ACCOUNT_ID` and the ID of an existing load balancer on the API host as `CLOUDFLARE_LB_ID`. The main node then keeps the load balancer in step with the node registry every minute:
+
+- One pool per region, named `colibri-<region>`, holds the `api` nodes of that region. Active nodes are enabled, the others are disabled, and retired nodes are left out. Each origin sends the node's own host as `Host`. A pool without nodes is deleted.
+- A shared monitor checks `GET /health` for a `200`.
+- The load balancer uses geo steering. Each Cloudflare region gets the pools that serve it, closest first.
+- Every pool is a default pool, with the main node's region first and as the fallback.
+
+Region IDs such as `eu`, `eu-west`, `us-east`, `us-central`, `us-west`, `asia`, `jp`, `sg`, `in`, `au`, `sa` and `af` map to Cloudflare regions on their own, and a bare Cloudflare code such as `weu` maps to itself. `CLOUDFLARE_GEO_REGIONS` overrides the mapping for a region, for example `eu=WEU,EEU;lab=ENAM`. A region without a mapping only serves as a default pool, and the main node logs `cloudflare.regionUnmapped`.
+
+The token needs DNS edit on the zone, and Load Balancing edit on the zone and the account. A node whose public host is the API host is left out of the pools, so give the main node its own `NODE_PUBLIC_URL`.
+
+## Status page
+
+[Uptime Kuma](https://github.com/louislam/uptime-kuma) runs next to any node's stack and serves the public status page. Set the status page host and the account the main node uses, then deploy it:
+
+```sh
+colibri-admin config set KUMA_PUBLIC_URL https://status.example.com
+colibri-admin config set KUMA_USERNAME colibri
+colibri-admin config set KUMA_PASSWORD <password>
+colibri-admin status deploy fsn-1
+colibri-admin config set KUMA_URL http://<tailnet address of fsn-1>:3001
+```
+
+`status deploy` starts the `KUMA_IMAGE` container with its port on the tailnet address only, and adds the status host to the node's Caddy. With Cloudflare set up, it also points the status host at the node with a CNAME.
+
+The public host serves the status page and answers `404` for the dashboard, settings and socket paths. Open the dashboard at `KUMA_URL` over the tailnet.
+
+On a fresh Uptime Kuma, the main node creates the account from `KUMA_USERNAME` and `KUMA_PASSWORD`. Keep two-factor authentication off for that account.
+
+Once `KUMA_URL` is set, the main node keeps Uptime Kuma in step with the node registry every minute:
+
+- It keeps an HTTP monitor for the API host and one for each node that is not retired, all on `/health`. Monitors of nodes in maintenance or draining are paused, and monitors of retired nodes are deleted. Monitors the main node did not create are left alone.
+- Each node's monitor is named after its location, such as `Helsinki, Finland`, or after its ID when it has none. Set the location with `node add --location` or `colibri-admin node location <id> <text>`. A changed location renames the monitor in place and keeps its history.
+- The status page is titled "Colibri status" and carries the logo from `deploy/uptime-kuma/logo.png` unless a logo was uploaded in Uptime Kuma. It refreshes every 60 seconds, follows the visitor's light or dark theme, and is styled with `deploy/uptime-kuma/status.css`.
+- The page at the `KUMA_STATUS_SLUG` slug lists the API first, then one group per area in the order Europe, North America, South America, Asia, Oceania, Middle East and Africa. Region IDs such as `eu`, `us-central`, `jp` or `au` map to their area, and any other region gets a group under its own ID.
+
+## Incidents and maintenance
+
+`colibri-admin status` opens a menu to browse nodes, open and update incidents, and schedule maintenance. The same actions work as commands:
+
+```sh
+colibri-admin status incident create "Voice calls drop" --message "Looking into it." --style danger
+colibri-admin status incident update 4 "Found the cause, a fix is rolling out."
+colibri-admin status incident resolve 4 "Calls work again."
+colibri-admin status incident list --all
+colibri-admin status maintenance schedule "Postgres upgrade" --start +1h --end +2h --nodes fsn-1
+colibri-admin status maintenance list
+colibri-admin status maintenance end 2
+```
+
+Incidents and maintenance live in Uptime Kuma on the `KUMA_STATUS_SLUG` status page. Each update goes on top of the incident with its time in UTC, so the page reads newest first.
+
+| Option | Values |
+| --- | --- |
+| `--style` | `info`, `warning`, `danger`, `primary`, `light`, `dark` |
+| `--start`, `--end` | `now`, a relative time such as `+30m`, `+2h` or `+1d`, or an ISO date |
+| `--nodes` | A comma-separated list of node IDs whose monitors the maintenance marks |
+
+The commands read `KUMA_URL`, `KUMA_USERNAME` and `KUMA_PASSWORD` from the shared settings.
+
+## Monitoring
+
+Prometheus, Loki and Grafana run next to any node's stack, and Grafana Alloy on every node sends them metrics and container logs. Set a Grafana password and, optionally, a webhook for alerts, then deploy:
+
+```sh
+colibri-admin config set GRAFANA_ADMIN_PASSWORD <password>
+colibri-admin config set ALERT_WEBHOOK_URL https://ntfy.example.com/colibri
+colibri-admin monitoring deploy fsn-1
+```
+
+`monitoring deploy` starts Prometheus, Loki and Grafana on the node's tailnet address, stores `PROMETHEUS_REMOTE_WRITE_URL`, then starts Alloy on every node. Nodes added later get Alloy during provisioning. `PROMETHEUS_IMAGE`, `LOKI_IMAGE`, `GRAFANA_IMAGE` and `ALLOY_IMAGE` set the four images.
+
+Grafana is at `http://<tailnet address>:3300` with the user `admin`. Prometheus keeps 90 days of metrics and Loki keeps 30 days of logs. Loki listens on port `3101` of the tailnet address, so every node needs to reach that port.
+
+On the main node, add `COMPOSE_FILE=docker-compose.scaled.yml` to `.env` so Alloy starts with the `monitoring` profile.
+
+### Staying current
+
+After the first deploy, a node with the `main` role keeps the monitoring stack current. Each time it takes the main role, for example after an update, it hashes `deploy/observability`, the monitoring templates and playbooks, `GRAFANA_ADMIN_PASSWORD`, `ALERT_WEBHOOK_URL` and the four images. When the hash differs from the last deploy, it runs `monitoring deploy` again for the node that hosts Prometheus. A failed run is retried at the next start.
+
+### What Alloy collects
+
+- Host CPU, memory, disk and network, including traffic totals per node on the public interfaces.
+- The AppView's metrics from `METRICS_PORT`.
+- The logs of every Docker container on the node, labeled with `node`, `service` and `project`. `service` is the Compose service, or the container name outside Compose.
+- Postgres connections, database size, transactions, query time, replication lag, and rows, sizes, writes and scans per table. This applies to the main node and to nodes with a Postgres replica.
+- On the main node, probes of `PDS_URL` at `/xrpc/_health` and `/xrpc/com.atproto.server.describeServer`.
+- Any `.prom` file in `/var/lib/colibri/metrics`. `deploy/observability/pgbackrest-age.sh` writes the time of the last pgBackRest backup there.
+
+### Dashboards and alerts
+
+Grafana has five dashboards:
+
+- Cluster
+- Hosts, with daily and 30-day ingress and egress
+- Voice
+- Postgres, with the message count and a table of every table's rows and size
+- Logs, filtered by node, service and a search term
+
+Grafana sends these alerts to `ALERT_WEBHOOK_URL`:
+
+| Alert | Fires when |
+| --- | --- |
+| Node missing | A node has not reported for 2 minutes |
+| Replication lag | A replica is over 30 seconds behind for 2 minutes |
+| Backup too old | The last backup finished over 26 hours ago |
+| Disk almost full | A filesystem is over 85% full for 10 minutes |
+| XRPC errors | Over 2% of a node's XRPC requests fail with a 5xx for 5 minutes |
+| Read-only mode | A node refuses writes because it cannot reach the main node |
+
+## Database failover
+
+Every node lists the Postgres hosts that can be the primary in `DATABASE_URL`:
+
+```ini title=".env"
+DATABASE_URL=postgres://colibri:<password>@100.64.0.1:5432,100.64.0.2:5432/colibri
+```
+
+The AppView connects to the host that accepts writes and has the highest epoch, and moves its connections, its locks and the event bus when that changes. Replicas get the same list in `primary_conninfo` with `target_session_attrs=read-write`.
+
+When a failover node joins, the main node writes the new list into every node's `.env` and points the running replicas at it. An AppView picks up the new `DATABASE_URL` at its next restart.
+
+### Automatic promotion
+
+The failover node promotes its own Postgres when two conditions hold:
+
+- The primary has been unreachable for `FAILOVER_AFTER_SECONDS`.
+- More than half of the nodes without the `main` or `failover` role report the same.
+
+Each node answers `GET /cluster/alive` on `CLUSTER_PORT` with the time it lost the primary. Promotion raises the cluster epoch and creates replication slots for the other nodes, and the failover node's AppView takes the main role.
+
+Without a node to confirm the outage, nothing is promoted on its own. Run `colibri-admin db promote` inside the failover node's AppView container to promote by hand. It refuses while any host still accepts writes.
+
+### Fencing
+
+A primary that comes back with a lower epoch is fenced: it turns read-only and drops its connections. A node with the SSH key rebuilds its own Postgres as a replica of the current primary with the `rejoin-replica` playbook. The main node does the same for other nodes with the `main` or `failover` role.
+
+### Moving the primary by hand
+
+`colibri-admin db status` shows each node with the `main` or `failover` role: whether its Postgres is the primary, a replica or fenced, its epoch, whether it streams, how far it is behind, and whether every active node lists it in `DATABASE_URL`. It ends with the nodes that are ready to take the primary, and what holds back the others.
+
+`colibri-admin db switchover <node>` moves the primary to another node with the `main` or `failover` role, for example before maintenance on the main node's host. `colibri-admin db failback` moves it to the node with the `main` role.
+
+Both commands run these checks first and print each one:
+
+- The target can hold the main role, is not the primary already, and its Postgres streams from the primary.
+- The target is active, sends heartbeats and runs the same version as the main node.
+- The target is less than 16 MB behind.
+- Every active node lists the target's host in `DATABASE_URL`. Nodes report the list in their heartbeat. A node that does not list it needs `colibri-admin node recover <id>` to read the current `.env`.
+- No rollout, backup or other switchover is running.
+
+A `FAIL` line stops the switchover. A `WARN` line stops it unless you pass `--force`.
+
+After you confirm, the switchover runs in this order:
+
+<Steps>
+
+1. Rollouts pause.
+
+2. The current primary turns read-only and waits up to 30 seconds for the target to replay everything.
+
+3. The target is promoted with the next epoch and takes the main role. Writes fail for the few seconds this takes, and sub nodes hold them in their write queue.
+
+4. The old primary is rebuilt as a replica of the target. The command waits up to 15 minutes until it streams again. Pass `--no-wait` to return right after the promotion.
+
+</Steps>
+
+A failover node keeps the main role while its own Postgres is the primary.
+
+## Confirmations
+
+Commands that interrupt clients or delete data are marked in `colibri-admin --help`. Each one prints what it is about to do before it runs.
+
+| Kind | Commands | Question | Flag that skips it |
+| --- | --- | --- | --- |
+| Disruptive | `node shutdown`, `node recover`, `rollout now`, `config unset`, `config import` when it replaces stored values, `db switchover`, `db failback` | Yes or no | `--yes` |
+| Irreversible | `node remove`, `db promote`, any command with `--force` | Type the node ID | `--confirm <node id>` |
+| Irreversible | `db copy --truncate` when the target has rows | Type `truncate` | `--confirm truncate` |
+
+Without a terminal, both kinds refuse unless you pass the flag.
+
+## Backups
+
+The main node and the failover node run the `POSTGRES_IMAGE` image, `ghcr.io/colibri-social/postgres:18` by default, which is the official Postgres image with [pgBackRest](https://pgbackrest.org) added.
+
+With `BACKUP_REPO_HOST` set, the primary archives its write-ahead log to an SFTP repository, such as a Hetzner Storage Box, at most `ARCHIVE_TIMEOUT` seconds behind (300 by default). Backups are encrypted with `BACKUP_CIPHER_PASS` and compressed with zstd, and the last 4 full backups are kept.
+
+| Setting | Default | What it is |
+| --- | --- | --- |
+| `BACKUP_REPO_HOST` | unset | The SFTP host, for example `u123456.your-storagebox.de` |
+| `BACKUP_REPO_PORT` | `23` | The SFTP port. Storage Boxes use 23. |
+| `BACKUP_REPO_USER` | unset | The SFTP user |
+| `BACKUP_REPO_PATH` | `/home/colibri` | The repository folder. Storage Boxes keep your files under `/home`. |
+| `BACKUP_CIPHER_PASS` | unset | The encryption passphrase. Keep a copy outside the cluster, because backups are unreadable without it. |
+
+The SSH key goes in `data/backup/key` and `data/backup/key.pub` on the main node, without a passphrase. `node add` copies the key and the settings to the failover node and schedules its backups.
+
+### Scheduling
+
+On the main node, add the same schedule to cron:
+
+```txt
+30 2 * * * root STACK_DIR=/opt/colibri /opt/colibri/deploy/postgres/backup.sh >> /var/log/colibri-backup.log 2>&1
+*/15 * * * * root cd /opt/colibri && PGBACKREST_CMD="docker compose exec -T -u postgres postgres pgbackrest" deploy/observability/pgbackrest-age.sh
+```
+
+`backup.sh` runs only where Postgres is the primary. It creates the stanza on first use, takes a full backup on Sundays (UTC) and an incremental one on other days. Pass `full`, `diff` or `incr` to choose. The second line keeps the backup age metric up to date.
+
+### Backing up right away
+
+```sh
+colibri-admin db backup
+```
+
+Run it on the main node. It takes a full backup unless you pass `diff` or `incr`, waits for it, and prints the last lines of the pgBackRest output when it fails. The output also goes to `/var/log/colibri-backup.log`.
+
+### Restoring
+
+<Steps>
+
+1. Start the Postgres image on an empty data volume with the same `PGBACKREST_*` settings. Leave `BACKUP_REPO_HOST` unset so the copy does not archive into the repository.
+
+2. Run `pgbackrest restore` as the `postgres` user before starting Postgres. To stop at a point in time, add a target:
+
+   ```sh
+   pgbackrest restore --type=time --target="2026-11-11 18:00:00+00"
+   ```
+
+</Steps>
+
+## A local cluster
+
+The `local-cluster` profile runs a replica, a sub node and a voice node next to the main node on one machine.
+
+<Steps>
+
+1. Start the main node:
+
+   ```sh
+   docker compose -f docker-compose.scaled.yml up -d
+   ```
+
+2. Register the two nodes. Each command prints a join token that is valid for one hour:
+
+   ```sh
+   docker compose -f docker-compose.scaled.yml exec appview colibri-admin node add sub-1 --region local --roles api,live
+   docker compose -f docker-compose.scaled.yml exec appview colibri-admin node add voice-1 --region local --roles voice
+   ```
+
+3. Start the profile with both tokens:
+
+   ```sh
+   SUB_JOIN_TOKEN=<sub-1 token> VOICE_JOIN_TOKEN=<voice-1 token> docker compose -f docker-compose.scaled.yml --profile local-cluster up -d
+   ```
+
+</Steps>
+
+## See also
+
+- [Getting Started](/docs/developers/self-hosting/getting-started): running a single AppView, with the full configuration reference.
+- [Storage](/docs/developers/architecture/storage): the tables, libSQL and Postgres, and the read replica.
+- [AppView development](/docs/developers/development/appview): the source layout, including `apps/appview/src/cluster`.

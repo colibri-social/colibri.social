@@ -1,0 +1,76 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"workspaces": {
+		".": {
+			"entry": [
+				"scripts/*.ts"
+			],
+			"ignoreDependencies": [
+				"node-gyp"
+			]
+		},
+		"apps/website": {
+			"entry": [
+				"scripts/*.{mjs,ts}",
+				"src/scripts/landing.ts",
+				"src/lib/og/docs-route-data.ts"
+			],
+			"ignoreDependencies": [
+				"@colibri-social/lexicons",
+				"@fontsource-variable/hanken-grotesk"
+			]
+		},
+		"packages/app": {
+			"entry": [
+				"public/push-sw.js"
+			],
+			"ignoreDependencies": [
+				"@vitest/browser",
+				"tailwindcss"
+			]
+		},
+		"packages/assets": {
+			"entry": [
+				"scripts/*.{mjs,ts}",
+				"src/rnnoise-worklet.js"
+			],
+			"ignore": [
+				"src/node.d.ts"
+			],
+			"ignoreDependencies": [
+				"@twemoji/api"
+			]
+		},
+		"packages/lib": {},
+		"packages/standard-renderer": {},
+		"packages/ui": {
+			"entry": [
+				"scripts/*.mjs"
+			]
+		},
+		"packages/wrapper": {
+			"entry": [
+				"scripts/*.{mjs,ts}"
+			],
+			"ignore": [
+				"src-tauri/**"
+			],
+			"ignoreDependencies": [
+				"@colibri-social/app"
+			],
+			"ignoreBinaries": [
+				"actool",
+				"ldconfig"
+			]
+		}
+	},
+	"ignoreBinaries": [
+		"android",
+		"windows"
+	],
+	"ignoreIssues": {
+		"apps/website/src/**/*.astro": [
+			"types"
+		]
+	}
+}

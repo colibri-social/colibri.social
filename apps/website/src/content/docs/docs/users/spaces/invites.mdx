@@ -1,0 +1,94 @@
+---
+title: Invite People
+description: Create invite links for your Space, choose how long they work and how often they can be used, and delete them.
+sidebar:
+  order: 4
+---
+
+import { Steps, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+An invite link is a ticket to your Space. Anyone who has the link can use it, so you decide how long the ticket is valid and how many people can use it.
+
+You need the **Create invitations** permission to create invite links, and the **Delete invitations** permission to delete them.
+
+## Invite someone quickly
+
+<Steps>
+
+1. Open the menu of the Space and select **Invite people**.
+
+2. Copy the link Colibri shows, or share it straight from there.
+
+3. Send the link to the person you want to invite.
+
+</Steps>
+
+Please note that a link created this way works for 7 days and has no limit on how often it's used.
+
+## Create a link with your own limits
+
+<Steps>
+
+1. Open the menu of the Space and select **Manage Space**, then **Invite links**.
+
+2. Select **Create invite link**.
+
+3. Under **Expires after**, pick how long the link works: from **30 minutes** up to **7 days**, or **Never**.
+
+4. Under **Max uses**, pick how many people can join with it: from **1 use** up to **100 uses**, or **No limit**.
+
+   :::caution[TODO: screenshot]
+   `invite-settings.png`: Create invite link dialog with **Expires after** and **Max uses**
+   :::
+
+5. Create the link and copy it.
+
+</Steps>
+
+An invite link can't be changed afterwards. To change the limits, create a new link and delete the old one.
+
+:::tip
+For a single person, pick **1 use**. The link stops working as soon as they've joined, so it can't be passed on!
+:::
+
+## See your invite links
+
+**Manage Space** > **Invite links** lists every link with the person who created it, how often it was used, and when it expires. A link is marked **Active**, **Expired** or **Used up**.
+
+Open the menu of a link to select **Copy invite link** or **Share invite**.
+
+## Delete an invite link
+
+<Steps>
+
+1. In **Invite links**, open the menu of the link and select **Delete invite link**.
+
+2. Select **Delete invite link** again to confirm.
+
+</Steps>
+
+Nobody can join with a deleted link. Members who already joined with it stay in the Space.
+
+## Links in a Space that approves new members
+
+If **Require join approval** is turned on for your Space, an invite link lets people request to join. A member with the **Manage approvals** permission reviews each request. The [Moderate a Space](/docs/users/spaces/moderation#review-join-requests) page has more information on this.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Join a Space"
+    description="What the people you invite see."
+    href="/docs/users/spaces/join-a-space"
+  />
+  <LinkCard
+    title="Moderate a Space"
+    description="Approve join requests and remove members."
+    href="/docs/users/spaces/moderation"
+  />
+  <LinkCard
+    title="Roles and Permissions"
+    description="Decide who is allowed to create invite links."
+    href="/docs/users/spaces/roles-and-permissions"
+  />
+</CardGrid>

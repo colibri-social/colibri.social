@@ -1,0 +1,42 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.deleteAccount",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Erases the requesting user's Colibri data held by this AppView. This does not touch the user's repos, which only they control.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"deleted"
+					],
+					"properties": {
+						"deleted": {
+							"type": "integer",
+							"description": "How many indexed records were removed."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "SoleOwnerOfCommunity",
+					"description": "The user solely owns at least one community and must transfer or delete it before deleting their account."
+				}
+			]
+		}
+	}
+}

@@ -1,0 +1,69 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.emoji.deletePack",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Deletes a community's pack. The emoji in it stay.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community",
+						"pack"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community that owns the emoji."
+						},
+						"pack": {
+							"type": "string",
+							"format": "at-uri",
+							"description": "The pack's record URI in the community's repo."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller lacks the community.manage permission."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "PackNotFound",
+					"description": "No pack of this community exists at the given URI."
+				},
+				{
+					"name": "UnsupportedProvider",
+					"description": "The emoji provider is unknown, or it does not support the requested operation."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView cannot act as the community because its stored credentials are missing or unusable."
+				},
+				{
+					"name": "UpstreamFailure",
+					"description": "A PDS call the AppView depends on failed."
+				}
+			]
+		}
+	}
+}

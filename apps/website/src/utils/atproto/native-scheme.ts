@@ -1,4 +1,4 @@
-export const nativeRedirectScheme = (): string =>
+const nativeRedirectScheme = (): string =>
 	new URL(import.meta.env.SITE).hostname.split(".").reverse().join(".");
 
 export const nativeRedirectUri = (): string =>

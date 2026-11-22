@@ -1,0 +1,51 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.voice.subscribeSignals",
+	"defs": {
+		"main": {
+			"type": "subscription",
+			"description": "Signaling for voice channels over a WebSocket. Frames are JSON text, each an object tagged with $type. The client sends the social.colibri.beta.voice.defs frames join, leave, getRtpCapabilities, createTransport, connectTransport, produce, closeProducer, consume, resumeConsumer, setConsumerPreference, setSelfState, setSpeaking, heartbeat, rttReport and moveNow. Media flows over WebRTC transports negotiated here.",
+			"parameters": {
+				"type": "params",
+				"properties": {
+					"auth": {
+						"type": "string",
+						"description": "Service auth token with lxm social.colibri.beta.voice.subscribeSignals, for clients that can't set an Authorization header on a WebSocket."
+					}
+				}
+			},
+			"message": {
+				"schema": {
+					"type": "union",
+					"refs": [
+						"social.colibri.beta.voice.defs#ack",
+						"social.colibri.beta.voice.defs#error",
+						"social.colibri.beta.voice.defs#joined",
+						"social.colibri.beta.voice.defs#peerJoined",
+						"social.colibri.beta.voice.defs#peerLeft",
+						"social.colibri.beta.voice.defs#producerInfo",
+						"social.colibri.beta.voice.defs#producerRemoved",
+						"social.colibri.beta.voice.defs#codecUnsupported",
+						"social.colibri.beta.voice.defs#speakingUpdate",
+						"social.colibri.beta.voice.defs#moderationChanged",
+						"social.colibri.beta.voice.defs#permissionsChanged",
+						"social.colibri.beta.voice.defs#rtpCapabilities",
+						"social.colibri.beta.voice.defs#transportOptions",
+						"social.colibri.beta.voice.defs#consumerOptions",
+						"social.colibri.beta.voice.defs#disconnected",
+						"social.colibri.beta.voice.defs#moved",
+						"social.colibri.beta.voice.defs#migrationProposal",
+						"social.colibri.beta.voice.defs#migrateTo",
+						"social.colibri.beta.voice.defs#callElsewhere"
+					]
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The upgrade request has no valid service auth. Answered with HTTP 401 before the WebSocket opens."
+				}
+			]
+		}
+	}
+}

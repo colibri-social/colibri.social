@@ -5,17 +5,18 @@ use std::sync::OnceLock;
 use block2::RcBlock;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
-use objc2::{define_class, msg_send, DefinedClass, MainThreadOnly};
+use objc2::{define_class, msg_send, ClassType, DefinedClass, MainThreadOnly};
+use objc2_app_kit::NSApplication;
 use objc2_foundation::{
     MainThreadMarker, NSArray, NSBundle, NSError, NSObject, NSObjectProtocol, NSString, NSURL,
 };
 use objc2_user_notifications::{
     UNAuthorizationOptions, UNMutableNotificationContent, UNNotification, UNNotificationAttachment,
     UNNotificationPresentationOptions, UNNotificationRequest, UNNotificationResponse,
-    UNNotificationSound, UNUserNotificationCenter, UNUserNotificationCenterDelegate,
+    UNPushNotificationTrigger, UNUserNotificationCenter, UNUserNotificationCenterDelegate,
 };
 
-use super::{NotificationPayload, Activation};
+use super::{Activation, NotificationPayload};
 use crate::native_error::NativeError;
 
 fn is_bundled() -> bool {
@@ -61,6 +62,19 @@ pub fn supported() -> bool {
     is_bundled() && AUTHORIZED.load(Ordering::Relaxed)
 }
 
+fn is_push(notification: &UNNotification) -> bool {
+    notification
+        .request()
+        .trigger()
+        .is_some_and(|trigger| trigger.isKindOfClass(UNPushNotificationTrigger::class()))
+}
+
+fn app_is_active() -> bool {
+    MainThreadMarker::new()
+        .map(|mtm| NSApplication::sharedApplication(mtm).isActive())
+        .unwrap_or(false)
+}
+
 type ActivationHandler = Box<dyn Fn(Activation)>;
 
 pub struct DelegateIvars {
@@ -81,14 +95,16 @@ define_class!(
         fn will_present(
             &self,
             _center: &UNUserNotificationCenter,
-            _notification: &UNNotification,
+            notification: &UNNotification,
             completion_handler: &block2::DynBlock<dyn Fn(UNNotificationPresentationOptions)>,
         ) {
-            completion_handler.call((
-                UNNotificationPresentationOptions::Banner
-                    | UNNotificationPresentationOptions::Sound
-                    | UNNotificationPresentationOptions::List,
-            ));
+            if is_push(notification) && app_is_active() {
+                completion_handler.call((UNNotificationPresentationOptions::empty(),));
+                return;
+            }
+            completion_handler.call((UNNotificationPresentationOptions::Banner
+                | UNNotificationPresentationOptions::Sound
+                | UNNotificationPresentationOptions::List,));
         }
 
         #[unsafe(method(userNotificationCenter:didReceiveNotificationResponse:withCompletionHandler:))]
@@ -98,10 +114,20 @@ define_class!(
             response: &UNNotificationResponse,
             completion_handler: &block2::DynBlock<dyn Fn()>,
         ) {
-            let content = response.notification().request().content();
+            let request = response.notification().request();
+            let content = request.content();
+            let user_info = content.userInfo();
+            let pushed = |key: &str| {
+                user_info
+                    .objectForKey(&NSString::from_str(key))
+                    .and_then(|value| value.downcast::<NSString>().ok())
+                    .map(|value| value.to_string())
+            };
             let activation = Activation {
-                message_uri: response.notification().request().identifier().to_string(),
-                channel_uri: content.threadIdentifier().to_string(),
+                message_uri: pushed("messageUri")
+                    .unwrap_or_else(|| request.identifier().to_string()),
+                channel_uri: pushed("channelUri")
+                    .unwrap_or_else(|| content.threadIdentifier().to_string()),
             };
 
             if let Some(callback) = self.ivars().on_activate.borrow().as_ref() {
@@ -147,8 +173,6 @@ pub fn notify(payload: NotificationPayload) -> Result<(), NativeError> {
     content.setTitle(&NSString::from_str(&payload.title));
     content.setBody(&NSString::from_str(&payload.body));
     content.setThreadIdentifier(&NSString::from_str(&payload.channel_uri));
-    let sound = UNNotificationSound::defaultSound();
-    content.setSound(Some(&sound));
 
     if let Some(subtitle) = payload.subtitle.as_deref() {
         content.setSubtitle(&NSString::from_str(subtitle));
@@ -188,24 +212,40 @@ pub fn dismiss_channel(channel_uri: String) -> Result<(), NativeError> {
     let center = UNUserNotificationCenter::currentNotificationCenter();
     let wanted = NSString::from_str(&channel_uri);
 
-    let handler = RcBlock::new(move |delivered: std::ptr::NonNull<NSArray<UNNotification>>| {
-        let delivered = unsafe { delivered.as_ref() };
-        let mut doomed: Vec<Retained<NSString>> = Vec::new();
+    let handler = RcBlock::new(
+        move |delivered: std::ptr::NonNull<NSArray<UNNotification>>| {
+            let delivered = unsafe { delivered.as_ref() };
+            let mut doomed: Vec<Retained<NSString>> = Vec::new();
 
-        for notification in delivered {
-            let request = notification.request();
-            if request.content().threadIdentifier() == wanted {
-                doomed.push(request.identifier());
+            for notification in delivered {
+                let request = notification.request();
+                if request.content().threadIdentifier() == wanted {
+                    doomed.push(request.identifier());
+                }
             }
-        }
 
-        if !doomed.is_empty() {
-            UNUserNotificationCenter::currentNotificationCenter()
-                .removeDeliveredNotificationsWithIdentifiers(&NSArray::from_retained_slice(&doomed));
-        }
-    });
+            if !doomed.is_empty() {
+                UNUserNotificationCenter::currentNotificationCenter()
+                    .removeDeliveredNotificationsWithIdentifiers(&NSArray::from_retained_slice(
+                        &doomed,
+                    ));
+            }
+        },
+    );
 
     center.getDeliveredNotificationsWithCompletionHandler(&handler);
+
+    Ok(())
+}
+
+pub fn clear_all() -> Result<(), NativeError> {
+    if !is_bundled() {
+        return Err(NativeError::unsupported());
+    }
+
+    let center = UNUserNotificationCenter::currentNotificationCenter();
+    center.removeAllDeliveredNotifications();
+    center.removeAllPendingNotificationRequests();
 
     Ok(())
 }
@@ -236,5 +276,4 @@ mod tests {
         });
         assert!(result.is_err());
     }
-
 }

@@ -1,0 +1,22 @@
+import { createSignal, untrack } from "solid-js";
+import type { SpaceRef } from "./types";
+
+export type JumpRequest = { channel: SpaceRef; rkey: string; via?: "link" };
+
+export const createJumpRequests = () => {
+	const [pending, setPending] = createSignal<JumpRequest>();
+	return {
+		pending,
+		request: (next: JumpRequest) => setPending(next),
+		peek: (channel: SpaceRef) => {
+			const current = untrack(pending);
+			return current?.channel === channel ? current.rkey : undefined;
+		},
+		take: (channel: SpaceRef) => {
+			const current = pending();
+			if (current?.channel !== channel) return undefined;
+			setPending(undefined);
+			return current.rkey;
+		},
+	};
+};

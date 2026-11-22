@@ -1,0 +1,104 @@
+---
+title: Running a PDS
+description: "Which PDS has to run the spaces alpha, and how to run one locally in Docker."
+sidebar:
+  order: 4
+---
+
+A Colibri Space is an AT Protocol account that owns a set of ATproto **spaces** (see [Spaces](/docs/developers/architecture/spaces) and [Communities](/docs/developers/architecture/communities)). The AppView creates that account on the PDS named in `PDS_URL`, so that PDS has to run the spaces alpha image, `ghcr.io/bluesky-social/atproto:pds-spaces-alpha`. `com.atproto.space` and `com.atproto.managedspace` exist only in that image.
+
+## Which PDS needs the spaces alpha
+
+- **The PDS at `PDS_URL`** needs it. `social.colibri.beta.community.create` fails with `SpacesUnsupported` on a PDS without the `com.atproto.space` policy methods.
+- **The PDS of an existing account that hosts a Space** needs it. `social.colibri.beta.community.adopt` fails with the same error.
+- **A member's own PDS** works without it. The AppView hosts the space repos of members on a stock PDS, and the client moves them to the member's PDS once it supports spaces.
+
+[Hosting](/docs/developers/architecture/hosting) covers both cases in detail.
+
+## Snowglobe
+
+[Snowglobe](https://snowglobe.at) runs the spaces alpha PDS as part of a private local network with a PLC directory, Jetstream, and test accounts. [The development overview](/docs/developers/development/overview#start-a-local-network-with-snowglobe) covers the `snowglobe.yml` in the AppView repository and the steps to run the AppView against it.
+
+## The compose overlay
+
+`docker-compose.pds.yml` in the AppView repository adds a spaces-alpha PDS and a private PLC directory. DIDs minted on it stay on your machine.
+
+| Service | Image | Published on |
+| --- | --- | --- |
+| `pds` | `ghcr.io/bluesky-social/atproto:pds-spaces-alpha` | `127.0.0.1:3001` |
+| `plc` | Built from `docker/plc` | `127.0.0.1:2582` |
+| `plc-db` | `postgres:18-alpine` | |
+
+Start the whole stack, AppView included, in containers:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.pds.yml up
+```
+
+Or start the PDS and its PLC directory alone, and run the AppView from source with `pnpm dev`:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.pds.yml up -d pds
+```
+
+The integration suite runs against the same PDS and PLC pair from [`docker-compose.integration.yml`](/docs/developers/development/testing#integration-tests), with no volumes.
+
+### Differences when using the overlay
+
+The overlay sets these variables on the `appview` container:
+
+```ini
+PDS_URL=http://pds:3001
+PLC_URL=http://plc:2582
+COMMUNITY_HANDLE_DOMAIN=test
+COMMUNITY_EMAIL_DOMAIN=communities.test.invalid
+JETSTREAM_ENABLED=false
+```
+
+An AppView run from source reads `.env` and gets none of them. Set the same variables there, with `http://localhost:3001` and `http://localhost:2582` as the two URLs.
+
+### Environment variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PDS_PLC_ROTATION_KEY` | none | The PDS's PLC rotation key, a secp256k1 private key as 64 hex characters |
+| `PDS_JWT_SECRET` | `devsecretdevsecretdevsecretdev00` | The PDS's JWT secret |
+| `PDS_ADMIN_PASSWORD` | `admin` | The PDS admin password. The AppView reads the same variable, so set it to create Spaces. |
+
+Generate the rotation key with the command from `.env.example`:
+
+```sh
+openssl ecparam -name secp256k1 -genkey -noout -outform DER \
+  | tail -c +8 | head -c 32 | xxd -p -c 32
+```
+
+### PDS configuration
+
+- **`PDS_DEV_MODE=true`.** In dev mode the PDS calls an AppView whose `PUBLIC_URL` is plain HTTP on a local address.
+- **`PDS_HOSTNAME=localhost` and `PDS_PORT=3001`.** The PDS advertises `http://localhost:3001` in the DID documents it writes, and the overlay publishes the same port on the host. A process on the host that resolves a space host from one of those documents reaches the PDS at that address.
+- **`PDS_INVITE_REQUIRED=false`.** Accounts are created with no invite code.
+- **`platform: linux/amd64`.** The spaces-alpha image is published for `amd64` only.
+
+### The PLC directory
+
+`docker/plc` builds an image that runs [`@did-plc/server`](https://github.com/did-method-plc/did-method-plc), installed from npm, on port `2582`.
+
+The overlay gives the directory a Postgres database, `plc-db`, so its operation log survives a restart. With no `DATABASE_URL`, as in the integration stack, the log lives in memory and starts empty on every run.
+
+A DID minted on this directory exists nowhere else. Services outside your stack cannot resolve it.
+
+## Verifying
+
+```sh
+curl http://127.0.0.1:3001/xrpc/_health
+curl http://127.0.0.1:2582/_health
+```
+
+Both answer `200` once the containers are healthy.
+
+## See also
+
+- [Spaces](/docs/developers/architecture/spaces): what a space is and how access to one is decided.
+- [Communities](/docs/developers/architecture/communities): the spaces a Space is made of.
+- [Hosting](/docs/developers/architecture/hosting): member repos on a stock PDS, and Spaces on an account you bring yourself.
+- [Self-Hosting](/docs/developers/self-hosting/getting-started): running a PDS for real users, with TLS and DNS.

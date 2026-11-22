@@ -1,0 +1,494 @@
+import { classifyThrown, createLogger, nextTid } from "@colibri-social/lib";
+import { createSignal } from "solid-js";
+import { readStoredJSON, writeStoredJSON } from "../persist";
+import type { ControlsPreferences } from "../source";
+import type { Datetime, Did, GifView, SpaceRef } from "../types";
+import {
+	clientChangeOf,
+	controlsOf,
+	mergeClient,
+	type ResolvedClient,
+	resolveClient,
+} from "./client";
+import {
+	type Block,
+	type ClientPreferences,
+	type ComposerState,
+	DEFAULT_PREFERENCES,
+	type LeftThread,
+	type Mute,
+	type MuteSubject,
+	type NotificationLevel,
+	type PreferenceBackend,
+	type Preferences,
+	type SettingsChange,
+} from "./types";
+import {
+	MAX_RECENT_GIFS,
+	mergeComposerUsage,
+	muteKey,
+	pruneEmojiUsage,
+} from "./wire";
+
+const log = createLogger("preferences");
+
+const COMPOSER_WRITE_DELAY = 2000;
+
+export const preferencesSnapshotKey = (did: string) =>
+	`colibri:preferences:${did}`;
+
+export type PreferenceStoreOptions = {
+	backend: PreferenceBackend;
+	controls: ControlsPreferences;
+	self?: Did;
+	snapshotKey?: string;
+	onScopesRejected?: () => void;
+	composerWriteDelay?: number;
+};
+
+type Snapshot = { preferences: Partial<Preferences> };
+
+const isSnapshot = (value: unknown): value is Snapshot =>
+	typeof value === "object" &&
+	value !== null &&
+	typeof (value as Snapshot).preferences === "object" &&
+	(value as Snapshot).preferences !== null;
+
+export const createPreferenceStore = (options: PreferenceStoreOptions) => {
+	const { backend } = options;
+	const composerDelay = options.composerWriteDelay ?? COMPOSER_WRITE_DELAY;
+	const stored = options.snapshotKey
+		? readStoredJSON(options.snapshotKey, isSnapshot)
+		: undefined;
+	const [preferences, setPreferences] = createSignal<Preferences>({
+		...DEFAULT_PREFERENCES,
+		...stored?.preferences,
+	});
+
+	const commit = (next: Preferences) => {
+		setPreferences(next);
+		if (options.snapshotKey)
+			writeStoredJSON(options.snapshotKey, {
+				preferences: next,
+			} satisfies Snapshot);
+	};
+
+	const [loaded, setLoaded] = createSignal(false);
+
+	let writes = 0;
+	let muteWrites = 0;
+	let failed = false;
+	let settled: Preferences | undefined;
+	let queue: Promise<void> = Promise.resolve();
+
+	const withLocalUsage = (next: Preferences): Preferences => {
+		return {
+			...next,
+			composer: mergeComposerUsage(preferences().composer, next.composer),
+		};
+	};
+
+	const adopt = (next: Preferences) => {
+		if (writes === 0) return commit(withLocalUsage(next));
+
+		const current = preferences();
+		const composer = {
+			...current.composer,
+			emojiUsage: mergeComposerUsage(next.composer, current.composer)
+				.emojiUsage,
+		};
+
+		commit({
+			...current,
+			composer,
+			mutes: muteWrites === 0 ? next.mutes : current.mutes,
+		});
+	};
+
+	const refresh = async () => {
+		try {
+			adopt(await backend.load());
+			return true;
+		} catch (error) {
+			log.warn("could not load preferences", {
+				code: classifyThrown(error).code,
+			});
+			return false;
+		} finally {
+			setLoaded(true);
+		}
+	};
+
+	const enqueue = (
+		what: string,
+		run: () => Promise<Preferences>,
+	): Promise<boolean> => {
+		writes += 1;
+		let ok = true;
+		queue = queue
+			.then(run)
+			.then(
+				(result) => {
+					settled = result;
+				},
+				(error: unknown) => {
+					ok = false;
+					failed = true;
+					const { code } = classifyThrown(error);
+					if (code === "ScopesMissing") options.onScopesRejected?.();
+					log.warn(`could not save ${what}`, { code });
+				},
+			)
+			.then(() => {
+				writes -= 1;
+				if (writes > 0) return;
+				const result = settled;
+				settled = undefined;
+				if (failed) {
+					failed = false;
+					return refresh().then(() => undefined);
+				}
+				if (result) commit(withLocalUsage(result));
+			});
+		return queue.then(() => ok);
+	};
+
+	const update = (change: SettingsChange, what: string) => {
+		commit({ ...preferences(), ...change });
+		return enqueue(what, () => backend.putSettings(preferences(), change));
+	};
+
+	let resolvedFrom: ClientPreferences | undefined;
+	let resolved: { client: ResolvedClient; controls: ControlsPreferences };
+	const resolve = () => {
+		const current = preferences().client;
+		if (current !== resolvedFrom) {
+			resolvedFrom = current;
+			const next = resolveClient(current, options.controls);
+			resolved = { client: next, controls: controlsOf(next) };
+		}
+		return resolved;
+	};
+	const client = () => resolve().client;
+	const controls = () => resolve().controls;
+	const setClient = (change: ClientPreferences) =>
+		update(
+			{ client: mergeClient(preferences().client, change) },
+			"app settings",
+		);
+
+	const mergeRemoteUsage = async () => {
+		try {
+			const remote = await backend.load();
+			const current = preferences();
+
+			commit({
+				...current,
+				composer: {
+					...current.composer,
+					emojiUsage: mergeComposerUsage(remote.composer, current.composer)
+						.emojiUsage,
+				},
+			});
+		} catch (error) {
+			log.warn("could not merge emoji history", {
+				code: classifyThrown(error).code,
+			});
+		}
+	};
+
+	let composerTimer: ReturnType<typeof setTimeout> | undefined;
+	const flushComposer = () => {
+		if (!composerTimer) return Promise.resolve(true);
+		clearTimeout(composerTimer);
+		composerTimer = undefined;
+		writes -= 1;
+		return enqueue("emoji and GIF history", async () => {
+			await mergeRemoteUsage();
+
+			return backend.putSettings(preferences(), {
+				composer: preferences().composer,
+			});
+		});
+	};
+	const updateComposer = (next: (current: ComposerState) => ComposerState) => {
+		commit({ ...preferences(), composer: next(preferences().composer) });
+		if (composerTimer) clearTimeout(composerTimer);
+		else writes += 1;
+		composerTimer = setTimeout(() => void flushComposer(), composerDelay);
+	};
+
+	let keyedMutes: readonly Mute[] | undefined;
+	let mutedKeys = new Set<string>();
+	const muted = () => {
+		const list = preferences().mutes;
+		if (list !== keyedMutes) {
+			keyedMutes = list;
+			mutedKeys = new Set(list.map((mute) => muteKey(mute.subject)));
+		}
+		return mutedKeys;
+	};
+	const isMuted = (subject: MuteSubject) => muted().has(muteKey(subject));
+
+	let rkeys: Promise<Map<string, string>> | undefined;
+	const muteRkeys = () => {
+		rkeys ??= backend.listMutes().then(
+			(records) =>
+				new Map(
+					records.map((record) => [muteKey(record.mute.subject), record.rkey]),
+				),
+			(error: unknown) => {
+				rkeys = undefined;
+				throw error;
+			},
+		);
+		return rkeys;
+	};
+
+	const setMuted = (subject: MuteSubject, next: boolean) => {
+		if (isMuted(subject) === next) return queue.then(() => true);
+		const key = muteKey(subject);
+		const entry: Mute = {
+			subject,
+			createdAt: new Date().toISOString() as Datetime,
+		};
+		const current = preferences().mutes;
+		commit({
+			...preferences(),
+			mutes: next
+				? [...current, entry]
+				: current.filter((mute) => muteKey(mute.subject) !== key),
+		});
+		muteWrites += 1;
+
+		const written = enqueue("mutes", async () => {
+			const known = await muteRkeys();
+			const rkey = known.get(key);
+			if (next && !rkey) {
+				const fresh = nextTid();
+				await backend.createMute(fresh, entry);
+				known.set(key, fresh);
+			}
+			if (!next && rkey) {
+				await backend.deleteMute(rkey);
+				known.delete(key);
+			}
+			return backend.putMutes(preferences().mutes);
+		});
+
+		return written.finally(() => {
+			muteWrites -= 1;
+		});
+	};
+
+	let indexedBlocks: readonly Block[] | undefined;
+	let blockedDids = new Set<string>();
+	const blocked = () => {
+		const list = preferences().blocks;
+
+		if (list !== indexedBlocks) {
+			indexedBlocks = list;
+			blockedDids = new Set(list.map((block) => block.subject));
+		}
+
+		return blockedDids;
+	};
+	const isBlocked = (did: string) => {
+		return blocked().has(did);
+	};
+
+	let blockKeys: Promise<Map<string, string>> | undefined;
+	const blockRkeys = () => {
+		blockKeys ??= backend.listBlocks().then(
+			(records) =>
+				new Map(records.map((record) => [record.block.subject, record.rkey])),
+			(error: unknown) => {
+				blockKeys = undefined;
+				throw error;
+			},
+		);
+
+		return blockKeys;
+	};
+
+	const setBlocked = (did: Did, next: boolean) => {
+		if (did === options.self || isBlocked(did) === next)
+			return queue.then(() => true);
+
+		const entry: Block = {
+			subject: did,
+			createdAt: new Date().toISOString() as Datetime,
+		};
+		const current = preferences().blocks;
+
+		commit({
+			...preferences(),
+			blocks: next
+				? [...current, entry]
+				: current.filter((block) => block.subject !== did),
+		});
+
+		return enqueue("blocked users", async () => {
+			const known = await blockRkeys();
+			const rkey = known.get(did);
+
+			if (next && !rkey) {
+				const fresh = nextTid();
+
+				await backend.createBlock(fresh, entry);
+				known.set(did, fresh);
+			}
+
+			if (!next && rkey) {
+				await backend.deleteBlock(rkey);
+				known.delete(did);
+			}
+
+			return backend.putBlocks(preferences().blocks);
+		});
+	};
+
+	let indexedLeft: readonly LeftThread[] | undefined;
+	let leftTimes = new Map<string, number>();
+	const leftIndex = () => {
+		const list = preferences().leftThreads;
+		if (list !== indexedLeft) {
+			indexedLeft = list;
+			leftTimes = new Map(
+				list.map((entry) => [entry.thread, Date.parse(entry.leftAt)]),
+			);
+		}
+		return leftTimes;
+	};
+	const leftAt = (thread: SpaceRef): number | undefined =>
+		leftIndex().get(thread);
+
+	const setLeft = (thread: SpaceRef, left: boolean) => {
+		if (!left && leftAt(thread) === undefined) return queue.then(() => true);
+		const rest = preferences().leftThreads.filter(
+			(entry) => entry.thread !== thread,
+		);
+		commit({
+			...preferences(),
+			leftThreads: left
+				? [...rest, { thread, leftAt: new Date().toISOString() as Datetime }]
+				: rest,
+		});
+		return enqueue("left threads", () =>
+			backend.putLeftThreads(preferences().leftThreads),
+		);
+	};
+
+	const setSpaceLevel = (
+		community: Did,
+		level: NotificationLevel | undefined,
+	) => {
+		const { [community]: _, ...rest } = preferences().spaceLevels;
+		commit({
+			...preferences(),
+			spaceLevels: level ? { ...rest, [community]: level } : rest,
+		});
+		return enqueue("the Space notification level", () =>
+			backend.putSpaceLevel(community, level),
+		);
+	};
+
+	const setSpaceModeration = (
+		community: Did,
+		hideModeratedMessages: boolean | undefined,
+	) => {
+		const { [community]: _, ...rest } = preferences().spaceModeration;
+		commit({
+			...preferences(),
+			spaceModeration:
+				hideModeratedMessages === undefined
+					? rest
+					: { ...rest, [community]: hideModeratedMessages },
+		});
+		return enqueue("the Space moderation setting", () =>
+			backend.putSpaceModeration(community, hideModeratedMessages),
+		);
+	};
+
+	const spaceModeration = (community: string): boolean | undefined =>
+		preferences().spaceModeration[community];
+
+	return {
+		preferences,
+		loaded,
+		client,
+		controls,
+		composer: () => preferences().composer,
+		notificationLevel: () => preferences().notificationLevel,
+		communityOrder: () => preferences().communityOrder,
+		shareActivity: () => preferences().shareActivity,
+		gifFavorites: () => preferences().gifFavorites,
+		spaceLevel: (community: string): NotificationLevel | undefined =>
+			preferences().spaceLevels[community],
+		setClient,
+		setControls: (next: Partial<ControlsPreferences>) =>
+			setClient(clientChangeOf(next)),
+		setNotificationLevel: (level: NotificationLevel) =>
+			update({ notificationLevel: level }, "the notification level"),
+		setCommunityOrder: (order: readonly Did[]) =>
+			update({ communityOrder: [...order] }, "the Space order"),
+		setShareActivity: (share: boolean) =>
+			update({ shareActivity: share }, "activity sharing"),
+		setGifFavorite: (gif: GifView, favorite: boolean) => {
+			const current = preferences().gifFavorites;
+			const known = current.some((entry) => entry.url === gif.url);
+			const gifFavorites = !favorite
+				? current.filter((entry) => entry.url !== gif.url)
+				: known
+					? current.map((entry) => (entry.url === gif.url ? gif : entry))
+					: [...current, gif];
+			return update({ gifFavorites }, "GIF favorites");
+		},
+		setSpaceLevel,
+		spaceModeration,
+		setSpaceModeration,
+		hidesModerated: (community: string) =>
+			spaceModeration(community) ?? client().hideModeratedMessages,
+		recordEmoji: (emoji: string) =>
+			updateComposer((current) => {
+				const previous = current.emojiUsage[emoji];
+				return {
+					...current,
+					emojiUsage: pruneEmojiUsage({
+						...current.emojiUsage,
+						[emoji]: {
+							count: (previous?.count ?? 0) + 1,
+							lastUsed: Date.now(),
+						},
+					}),
+				};
+			}),
+		setSkinTone: (skinTone: number) =>
+			updateComposer((current) => ({ ...current, skinTone })),
+		recordGif: (gif: GifView) =>
+			updateComposer((current) => ({
+				...current,
+				recentGifs: [
+					gif,
+					...current.recentGifs.filter((entry) => entry.id !== gif.id),
+				].slice(0, MAX_RECENT_GIFS),
+			})),
+		importSettings: (change: SettingsChange) =>
+			update(change, "imported settings"),
+		isMuted,
+		setMuted,
+		blocks: () => preferences().blocks,
+		isBlocked,
+		setBlocked,
+		leftAt,
+		setLeft,
+		adopt,
+		refresh,
+		settled: async () => {
+			await flushComposer();
+			await queue;
+		},
+	};
+};
+
+export type PreferenceStore = ReturnType<typeof createPreferenceStore>;

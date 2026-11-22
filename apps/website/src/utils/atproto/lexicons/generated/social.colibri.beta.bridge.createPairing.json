@@ -1,0 +1,70 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.createPairing",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Starts pairing a bridge with a community. Called by the bridge, which shows the returned code to an admin on the other service. A Colibri admin then redeems the code, which proves both sides agreed.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"platform",
+						"remoteSpace",
+						"remoteSpaceName"
+					],
+					"properties": {
+						"platform": {
+							"type": "string",
+							"maxLength": 64,
+							"description": "The service the bridge connects to."
+						},
+						"remoteSpace": {
+							"type": "string",
+							"maxLength": 256,
+							"description": "The id of the server, workspace or network on the other service."
+						},
+						"remoteSpaceName": {
+							"type": "string",
+							"maxLength": 128,
+							"description": "Its name on the other service."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"code",
+						"expiresAt"
+					],
+					"properties": {
+						"code": {
+							"type": "string",
+							"maxLength": 32,
+							"description": "The single-use pairing code."
+						},
+						"expiresAt": {
+							"type": "string",
+							"format": "datetime",
+							"description": "When the code stops working."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "RateLimited",
+					"description": "The bridge sent too many requests. Retry after the interval in the response headers."
+				}
+			]
+		}
+	}
+}

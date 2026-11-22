@@ -1,0 +1,79 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.polyfill.listForMigration",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Pages through every record in the requesting user's hosted repo in one space, in record key order per collection, so the client can replay them on its PDS.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"space"
+				],
+				"properties": {
+					"space": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "The space holding the repo."
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 200,
+						"default": 100,
+						"description": "The page size."
+					},
+					"cursor": {
+						"type": "string",
+						"description": "Where the next page starts."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"records"
+					],
+					"properties": {
+						"cursor": {
+							"type": "string",
+							"description": "Where the next page starts."
+						},
+						"records": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.polyfill.defs#migrationRecord"
+							},
+							"description": "The records on this page."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "The arguments are inconsistent or malformed beyond schema validation."
+				},
+				{
+					"name": "SpaceNotFound",
+					"description": "No space matches the given space reference."
+				},
+				{
+					"name": "NotAuthorized",
+					"description": "The caller may not write to or read from this repo in the space."
+				},
+				{
+					"name": "RepoNotHosted",
+					"description": "The AppView does not host the caller's repo in this space, because it lives on the caller's PDS. Write to the PDS instead."
+				}
+			]
+		}
+	}
+}

@@ -1,0 +1,102 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.channel.listMessages",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists messages in a channel or in a thread, newest first by default. Messages from the repo-backed channel this one was migrated from are included and marked legacy. Messages moved in from another space are included in their move order, and messages moved out are absent.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"channel"
+				],
+				"properties": {
+					"channel": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "The channel or thread to list messages from."
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 100,
+						"default": 50,
+						"description": "Maximum number of messages to return."
+					},
+					"cursor": {
+						"type": "string",
+						"description": "Pagination cursor from a previous call."
+					},
+					"reverse": {
+						"type": "boolean",
+						"default": false,
+						"description": "Whether to return the oldest messages first instead of the newest."
+					},
+					"around": {
+						"type": "string",
+						"format": "record-key",
+						"description": "Centres the page on this message record key. The page holds up to limit messages, newest first: the newer half, then the message itself and the older half. cursor and reverse are ignored when this is set."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"messages"
+					],
+					"properties": {
+						"cursor": {
+							"type": "string",
+							"description": "Pagination cursor for the next page. With around, it continues towards older messages."
+						},
+						"forwardCursor": {
+							"type": "string",
+							"description": "Only set with around, when newer messages remain. Pass it as cursor with reverse set to continue towards newer messages."
+						},
+						"messages": {
+							"type": "array",
+							"description": "The channel's messages.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.channel.defs#messageView"
+							}
+						},
+						"threads": {
+							"type": "array",
+							"description": "Threads whose anchor message is in this page, so a client can draw a thread's marker under the message it was opened from without a second call. Threads the requesting user may not read are absent.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.thread.defs#threadView",
+								"description": "A thread."
+							}
+						},
+						"unavailableAuthors": {
+							"type": "array",
+							"description": "Authors whose older messages could not be loaded for this page because their PDS did not answer. The page may be missing some of their messages. Absent when the page is complete.",
+							"items": {
+								"type": "string",
+								"format": "did"
+							}
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user may not read this channel or thread."
+				},
+				{
+					"name": "ChannelNotFound",
+					"description": "No channel or thread matches the given space reference."
+				}
+			]
+		}
+	}
+}

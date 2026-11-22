@@ -1,0 +1,211 @@
+---
+title: Sync
+description: How the AppView keeps a local copy of an ATproto space current without a relay.
+sidebar:
+  order: 4
+---
+
+There is no relay for permissioned data, so there is no firehose to consume. The
+AppView pulls each member's repository from that member's own host, holding a
+[space credential](/docs/developers/architecture/spaces#getting-a-credential) that
+authorizes it.
+
+The sync engine skips a repository the AppView hosts itself. See
+[Hosting](/docs/developers/architecture/hosting).
+
+## Correctness rests on a set hash
+
+Each repository carries a **signed commit** whose digest is an
+[LtHash](https://engineering.fb.com/2019/03/01/security/homomorphic-hashing/)
+over the records it holds. The AppView keeps its own running hash over its own
+copy.
+
+To advance, it calls `com.atproto.space.listRepoOps` with the revision it last
+applied, applies each operation, and updates its hash as it goes. Every page
+carries the repository's current commit. Once a page comes back without a
+`cursor`, the AppView compares that page's commit with its running hash.
+
+- **They agree.** The copy is correct, and the commit's signature says so.
+- **They disagree.** Something was missed or corrupted. The AppView falls back
+  to `com.atproto.space.getRepo`, verifies the repository archive as it streams,
+  and replaces its copy of that repository.
+
+A dropped operation is detected on the next pull and healed, so the local copy
+ends up correct without any single step of the pipeline being reliable.
+
+An LtHash is homomorphic and order independent. Applying one operation is an
+addition and a subtraction, and two copies holding the same records always
+agree on the hash, whatever order the records arrived in.
+
+## Push for latency, sweep for correctness
+
+Push and sweep run at the same time.
+
+**Push.** The AppView registers for notifications each time it calls
+`com.atproto.space.authorizeSpaceSync`, by including
+`notify: { endpoint, token }`. When a member writes, their host sends
+`com.atproto.space.notifyRepoUpdate` to the space authority, and the authority
+sends `com.atproto.space.notifySpaceUpdate` to every registered syncer.
+
+The `update` in that call says what changed:
+
+| `update.$type` | What the AppView does |
+| --- | --- |
+| `com.atproto.space.defs#repoWrite` | Enqueues the repository for a pull |
+| `com.atproto.space.defs#repoRemoved` | Stops treating the repository as part of the space |
+| `com.atproto.space.notifySpaceUpdate#spaceDeleted` | Reauthorizes, and drops the space only if the authority answers `SpaceDeleted` |
+| `com.atproto.space.notifySpaceUpdate#registrationExpired` | Reauthorizes with `notify` and catches up through `listWriters` |
+
+**Sweep.** Every sync interval (`SYNC_SWEEP_SECONDS`, 300 by default),
+`com.atproto.space.listWriters` returns the authority's view of the writer set.
+Each entry is either a `repoWrite` with the repository's current revision or a
+`repoRemoved`. Anything ahead of the local cursor is enqueued, and anything
+removed is dropped.
+
+The sweep is the correctness guarantee and push provides latency. An AppView
+that never receives a single notification still converges on the sweep
+interval.
+
+A bounded worker pool (`SYNC_WORKERS`, 16 by default) drains the queue with one
+pull at a time per repository, so a burst of notifications about the same
+repository collapses into a single pull.
+
+A thread's space leaves the sweep once the thread has been idle for
+`THREAD_IDLE_SECONDS`. Notifications still reach it.
+
+### Notification registration
+
+A registration consists of an `endpoint` and a `token`. `endpoint` is the
+AppView's public base URL, and
+the space host calls XRPC methods against it, so the host must be able to reach
+it. `token` is a random secret the AppView generates per space, stores, and
+keeps stable across authorizations. Calls to `notifySpaceUpdate` carry no service
+auth. The token in the body authenticates them, and the AppView rejects any token
+it did not issue for that space.
+
+Before accepting a new registration, the space host calls
+`com.atproto.space.confirmRegistration` on the endpoint with
+`{ space, token, challenge }`. The AppView checks the token and echoes
+`{ challenge }` back.
+
+A registration lasts as long as the credential from its latest authorization.
+The AppView reauthorizes before that expires, even for a space with no new
+records to read.
+
+When the space host cannot reach `PUBLIC_URL`, it cannot confirm the
+registration, and sync falls back to the sweep interval.
+
+## The writer set
+
+The writer set belongs to the space authority. The AppView reads it and does
+not maintain it.
+
+A member enters it when their host sends the authority a `notifyRepoUpdate`
+**and the authority accepts that notification**. Under a managed-space policy,
+accepting means asking the managing app, with
+`com.atproto.managedspace.checkAccess`, whether that member may write. A refusal
+there keeps the write out of the writer set. When the managing app is
+unreachable, the authority answers `UpstreamFailure`, and the member's host
+retries the notification.
+
+A member leaves it when the authority removes their write access. The authority
+announces that with a `repoRemoved` notification, and `listWriters` lists the
+repository as removed until it writes again.
+
+The sweep also looks beyond the writer set. For a channel's space, the AppView
+enqueues the Space's own repository and the repository of every member that
+`listWriters` did not list. For a thread's space, it enqueues the Space's own
+repository and every repository it already tracks there.
+
+:::caution[Outages]
+A self-hosted AppView that goes down refuses credentials for the duration, and
+writes made while it was unreachable wait on their host's retries before they
+enter the writer set.
+
+Your `APPVIEW_DID` must resolve, and its service endpoint must answer, from
+wherever the Space's PDS runs.
+:::
+
+## When a pull fails
+
+A repository that fails records a consecutive failure count and a retry time,
+backing off exponentially to an hour. The sweep skips a repository that is still
+backing off.
+
+The response depends on what failed.
+
+| What happened | What the AppView does |
+| --- | --- |
+| The host cannot serve operations from the revision the AppView asked to resume from | Full recovery through `getRepo` |
+| The set hash disagrees with a verified commit | Full recovery through `getRepo` |
+| The host answers `RepoTakendown`, `RepoSuspended` or `RepoDeactivated` | Drops the repository |
+| The author's DID document names no PDS | Drops the repository |
+| The authority answers `SpaceDeleted` to `authorizeSpaceSync` or `listWriters` | Drops the space and forgets the credential |
+| The host's answer shows it does not serve spaces | Checks the host again and moves the member's repositories to the [polyfill](/docs/developers/architecture/hosting#the-spaces-polyfill) |
+| Anything else | Backs off and retries, keeping the copy |
+
+## Writes the AppView makes itself
+
+When the AppView writes a record on a Space's behalf, the syncer delivers that
+same record back a moment later. The writer also applies the change to the
+local record store and projections directly, so the person who asked for the
+write sees it at once.
+
+The record store is keyed by space, author, collection and record key, so the
+syncer's later delivery of the same record overwrites an identical row.
+
+## Personal spaces
+
+A user's [preferences space](/docs/developers/architecture/communities#the-personal-space)
+syncs through the same engine, with one repository in it.
+
+The AppView has no session of its own on the user's PDS, so it cannot mint a
+delegation token for a personal space. The client mints one and hands it over
+with `social.colibri.beta.actor.grantSpaceAccess`, and repeats that before the
+resulting credential expires. When no client is online and the credential
+lapses, the AppView parks the space, leaves it out of the sweep, and serves its
+last synced copy. The next `grantSpaceAccess` wakes it.
+
+The client also pushes each change over XRPC after writing the record, so the
+change takes effect immediately:
+
+| Method | What it pushes |
+| --- | --- |
+| `social.colibri.beta.actor.putSettings` | Settings, client preferences and composer state |
+| `social.colibri.beta.actor.putMutes` | Mutes and left threads |
+| `social.colibri.beta.actor.putBlocks` | Blocks |
+| `social.colibri.beta.actor.putSpaceNotification` | The notification level for one Space |
+| `social.colibri.beta.actor.putSpaceModeration` | The moderation view options for one Space |
+| `social.colibri.beta.channel.putReadCursors` | Read cursors for one Space |
+| `social.colibri.beta.emoji.putFollow` | One emoji follow |
+
+## Jetstream
+
+The AppView also consumes public atproto data from
+[Jetstream](https://bsky.network/docs/jetstream) v2. It requests
+`identity`, `account` and `commit` events, with commits limited to these
+collections:
+
+- `social.colibri.beta.actor.profile` and `app.bsky.actor.profile`
+- the activity status collections `fm.teal.actor.status`,
+  `fm.teal.alpha.actor.status`, `app.rocksky.actor.status`,
+  `fm.atradio.actor.status` and `games.atmosphere.status`
+- the custom emoji collections `blue.moji.collection.item`,
+  `blue.moji.packs.pack` and `blue.moji.packs.packitem`
+
+An `identity` event drops the account's cached identity and profile. When the
+account hosts a Space, the AppView also checks whether it moved to another PDS.
+A profile commit refreshes the cached profile and announces the change to the
+Spaces that person belongs to. An activity commit updates the shown activity of a
+person who shares it. An emoji commit updates the emoji index for owners the
+AppView tracks.
+
+The AppView stores its Jetstream cursor and resumes from it after a restart.
+Setting `JETSTREAM_ENABLED=false` turns the consumer off, and identity changes
+then resolve on demand.
+
+## See also
+
+- [ATproto Spaces](/docs/developers/architecture/spaces): where credentials come from.
+- [Storage](/docs/developers/architecture/storage): the tables synced records land in, and the transaction the cursor depends on.
+- [Hosting](/docs/developers/architecture/hosting): repositories the AppView hosts itself.

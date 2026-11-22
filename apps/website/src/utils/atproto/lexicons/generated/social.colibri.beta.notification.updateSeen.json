@@ -1,0 +1,47 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.notification.updateSeen",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Marks every notification raised at or before a point in time seen.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"seenAt"
+					],
+					"properties": {
+						"seenAt": {
+							"type": "string",
+							"format": "datetime",
+							"description": "Notifications raised at or before this time are marked seen."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"unread"
+					],
+					"properties": {
+						"unread": {
+							"type": "integer",
+							"description": "Number of unread notifications remaining."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				}
+			]
+		}
+	}
+}

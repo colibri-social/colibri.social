@@ -4,7 +4,7 @@ const SCOPE = "https://www.googleapis.com/auth/androidpublisher";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const API = "https://androidpublisher.googleapis.com/androidpublisher/v3";
 
-export const PACKAGE_NAME = "social.colibri.app";
+const PACKAGE_NAME = "social.colibri.app";
 
 export interface ServiceAccount {
 	client_email: string;
@@ -130,7 +130,7 @@ const request = async (
 	};
 };
 
-export const call = async (
+const call = async (
 	token: string,
 	method: string,
 	path: string,

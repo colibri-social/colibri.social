@@ -7,4 +7,4 @@ Name={{name}}
 Terminal=false
 Type=Application
 StartupWMClass={{exec}}
-MimeType=x-scheme-handler/social.colibri
+MimeType=x-scheme-handler/social.colibri;x-scheme-handler/social.colibri.spaces;

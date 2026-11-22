@@ -1,0 +1,49 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.getCommunity",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets a community by DID or handle.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"description": "A DID or handle identifying the community.",
+						"format": "at-identifier"
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#communityView",
+							"description": "The requested community."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at that identifier."
+				}
+			]
+		}
+	}
+}

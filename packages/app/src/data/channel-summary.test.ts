@@ -1,0 +1,274 @@
+import { describe, expect, it } from "vitest";
+import { linkMessage } from "./adapters/facets";
+import { blueskyUrlRewriter } from "./bluesky-client";
+import {
+	newerSummary,
+	summarizeChannel,
+	summarizeMessage,
+	summarizePending,
+	summaryParts,
+} from "./channel-summary";
+import type { PreferenceStore } from "./preferences/store";
+import type { Facet, MessageView } from "./types";
+
+const GIF_URL = "https://static.klipy.com/ii/e7539ef2/abc.gif";
+
+const KEK = "at://did:plc:hq/blue.moji.collection.item/kek";
+
+const emojiFacet = (byteStart: number, byteEnd: number, uri = KEK): Facet => ({
+	index: { byteStart, byteEnd },
+	features: [
+		{ $type: "social.colibri.beta.richtext.facet#customEmoji", uri },
+	] as Facet["features"],
+});
+
+const emojiFor = (feature: Facet["features"][number]) =>
+	"uri" in feature && feature.uri === KEK ? { name: "kek" } : undefined;
+
+const MU_LINK = "https://mu.social/profile/lou.gg";
+
+const BSKY_LINK = "https://bsky.app/profile/lou.gg";
+
+const linkFacet = (
+	byteStart: number,
+	byteEnd: number,
+	uri = MU_LINK,
+): Facet => ({
+	index: { byteStart, byteEnd },
+	features: [
+		{ $type: "social.colibri.beta.richtext.facet#link", uri },
+	] as Facet["features"],
+});
+
+const toBluesky = blueskyUrlRewriter({
+	client: () => ({ blueskyClient: "bluesky", customBlueskyClientBase: "" }),
+} as unknown as Pick<PreferenceStore, "client">);
+
+const byteLength = (text: string) => {
+	return new TextEncoder().encode(text).length;
+};
+
+const message = (overrides: Partial<MessageView> = {}): MessageView =>
+	({
+		uri: "at://did:plc:a/social.colibri.beta.channel.message/r1",
+		rkey: "r1",
+		channel: "at://did:plc:hq/space/c1",
+		author: { did: "did:plc:a", handle: "a.test" },
+		text: "Hello\n  there",
+		createdAt: "2026-10-12T10:00:00.000Z",
+		attachments: [],
+		reactions: [],
+		labels: [],
+		...overrides,
+	}) as MessageView;
+
+describe("channel summary", () => {
+	it("collapses whitespace and keeps the author and time", () => {
+		expect(summarizeMessage(message())).toEqual({
+			channel: "at://did:plc:hq/space/c1",
+			rkey: "r1",
+			author: "did:plc:a",
+			text: "Hello there",
+			createdAt: "2026-10-12T10:00:00.000Z",
+		});
+	});
+
+	it("describes attachment-only messages", () => {
+		const image = { url: "https://x/a.png", mimeType: "image/png" };
+		const file = { url: "https://x/a.pdf", mimeType: "application/pdf" };
+		expect(
+			summarizeMessage(message({ text: "", attachments: [image] as never })),
+		).toMatchObject({ text: "Sent an image", attachment: "image" });
+		expect(
+			summarizeMessage(
+				message({ text: "", attachments: [file, file] as never }),
+			),
+		).toMatchObject({ text: "Sent 2 files", attachment: "file" });
+		expect(
+			summarizeMessage(
+				message({ text: "look", attachments: [image] as never }),
+			),
+		).toMatchObject({ text: "look", attachment: "image" });
+	});
+
+	it("keeps the newest summary", () => {
+		const old = summarizeMessage(message());
+		const next = summarizeMessage(
+			message({ rkey: "r2", createdAt: "2026-10-12T11:00:00.000Z" }),
+		);
+		expect(newerSummary(undefined, old)).toBe(true);
+		expect(newerSummary(next, old)).toBe(false);
+		expect(newerSummary(old, next)).toBe(true);
+		expect(newerSummary(old, { ...old, text: "edited" })).toBe(true);
+	});
+
+	it("keeps emoji facets aligned after collapsing whitespace", () => {
+		const summary = summarizeMessage(
+			message({
+				text: "  It'll\n\n  be fine :kek:  ",
+				facets: [emojiFacet(19, 24)],
+			}),
+		);
+		expect(summary.text).toBe("It'll be fine :kek:");
+		expect(summary.facets?.[0]?.index).toEqual({ byteStart: 14, byteEnd: 19 });
+		expect(summaryParts(summary, emojiFor)).toEqual([
+			"It'll be fine ",
+			{ name: "kek" },
+		]);
+	});
+
+	it("reads facets from an AppView summary", () => {
+		const summary = summarizeChannel({
+			channel: "at://did:plc:hq/space/social.colibri.beta.channel.text/c1",
+			rkey: "r1",
+			author: "did:plc:a",
+			text: "🦉 :kek: ok",
+			facets: [emojiFacet(5, 10)],
+			attachmentCount: 0,
+			forward: false,
+			createdAt: "2026-10-12T10:00:00.000Z",
+		} as Parameters<typeof summarizeChannel>[0]);
+		expect(summaryParts(summary, emojiFor)).toEqual([
+			"🦉 ",
+			{ name: "kek" },
+			" ok",
+		]);
+	});
+
+	it("leaves unresolved emoji as their text", () => {
+		const summary = summarizeMessage(
+			message({
+				text: ":owl: hi",
+				facets: [
+					emojiFacet(0, 5, "at://did:plc:x/blue.moji.collection.item/owl"),
+				],
+			}),
+		);
+		expect(summaryParts(summary, emojiFor)).toEqual([":owl: hi"]);
+	});
+
+	it("drops facets when the text falls back to an attachment label", () => {
+		const summary = summarizeMessage(
+			message({
+				text: "   ",
+				facets: [emojiFacet(0, 2)],
+				attachments: [{ mimeType: "image/png" }] as MessageView["attachments"],
+			}),
+		);
+		expect(summary.facets).toBeUndefined();
+	});
+
+	it("summarizes a pending message from its uploads", () => {
+		const pending = {
+			channel: "at://did:plc:hq/space/c1" as MessageView["channel"],
+			rkey: "r2",
+			text: "",
+			uploads: [
+				{ file: new File([], "a.png", { type: "image/png" }) },
+				{ file: new File([], "b.png", { type: "image/png" }) },
+			],
+			createdAt: "2026-10-12T10:00:00.000Z",
+		};
+		expect(summarizePending(pending, "did:plc:me")).toEqual({
+			channel: "at://did:plc:hq/space/c1",
+			rkey: "r2",
+			author: "did:plc:me",
+			text: "Sent 2 images",
+			attachment: "image",
+			createdAt: "2026-10-12T10:00:00.000Z",
+		});
+		expect(
+			summarizePending({ ...pending, text: "hi\n there" }, "did:plc:me").text,
+		).toBe("hi there");
+	});
+
+	it("describes a GIF message", () => {
+		expect(summarizeMessage(message(linkMessage(GIF_URL)))).toEqual({
+			channel: "at://did:plc:hq/space/c1",
+			rkey: "r1",
+			author: "did:plc:a",
+			text: "Sent a GIF",
+			attachment: "image",
+			createdAt: "2026-10-12T10:00:00.000Z",
+		});
+	});
+
+	it("describes a pending GIF message", () => {
+		const summary = summarizePending(
+			{
+				channel: "at://did:plc:hq/space/c1" as MessageView["channel"],
+				rkey: "r3",
+				...linkMessage(GIF_URL),
+				createdAt: "2026-10-12T10:00:00.000Z",
+			},
+			"did:plc:me",
+		);
+
+		expect(summary).toMatchObject({ text: "Sent a GIF", attachment: "image" });
+		expect(summary.facets).toBeUndefined();
+	});
+
+	it("describes a GIF in an AppView summary", () => {
+		const summary = summarizeChannel({
+			channel: "at://did:plc:hq/space/social.colibri.beta.channel.text/c1",
+			rkey: "r1",
+			author: "did:plc:a",
+			...linkMessage(GIF_URL),
+			attachmentCount: 0,
+			forward: false,
+			createdAt: "2026-10-12T10:00:00.000Z",
+		} as Parameters<typeof summarizeChannel>[0]);
+
+		expect(summary).toMatchObject({ text: "Sent a GIF", attachment: "image" });
+		expect(summary.facets).toBeUndefined();
+		expect(summaryParts(summary, emojiFor)).toEqual(["Sent a GIF"]);
+	});
+
+	it("keeps a GIF URL with extra text as text", () => {
+		const summary = summarizeMessage(message({ text: `lol ${GIF_URL}` }));
+
+		expect(summary.text).toBe(`lol ${GIF_URL}`);
+		expect(summary.attachment).toBeUndefined();
+	});
+
+	it("keeps a non-GIF URL as text", () => {
+		const summary = summarizeMessage(
+			message(linkMessage("https://example.com/a.gif")),
+		);
+
+		expect(summary.text).toBe("https://example.com/a.gif");
+		expect(summary.facets).toHaveLength(1);
+		expect(summary.attachment).toBeUndefined();
+	});
+
+	it("rewrites bare Bluesky links to the preferred client", () => {
+		const prefix = "🦉 see ";
+		const start = byteLength(prefix);
+		const text = `${prefix}${MU_LINK} :kek:`;
+		const linkEnd = start + byteLength(MU_LINK);
+		const summary = {
+			text,
+			facets: [linkFacet(start, linkEnd), emojiFacet(linkEnd + 1, linkEnd + 6)],
+		};
+		expect(summaryParts(summary, emojiFor, toBluesky)).toEqual([
+			`${prefix}${BSKY_LINK} `,
+			{ name: "kek" },
+		]);
+	});
+
+	it("keeps link labels that differ from the uri", () => {
+		const summary = {
+			text: "my profile",
+			facets: [linkFacet(3, 10)],
+		};
+		expect(summaryParts(summary, emojiFor, toBluesky)).toEqual(["my profile"]);
+	});
+
+	it("keeps the original link without a rewriter", () => {
+		const summary = {
+			text: MU_LINK,
+			facets: [linkFacet(0, byteLength(MU_LINK))],
+		};
+		expect(summaryParts(summary, emojiFor)).toEqual([MU_LINK]);
+	});
+});

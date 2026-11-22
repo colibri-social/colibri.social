@@ -11,6 +11,7 @@ interface Props {
 	description?: string;
 	image?: string;
 	home?: boolean;
+	starry?: boolean;
 	canonical?: string | URL;
 	ogType?: string;
 }
@@ -26,8 +27,17 @@ interface Props {
 			is:inline></script>
 		<slot name="head" />
 	</Fragment>
+	{
+		Astro.props.home && (
+			<canvas
+				class="sky-canvas"
+				id="sky"
+				aria-hidden="true"
+			/>
+		)
+	}
 	<Navbar />
-	<main id="main" class="min-h-screen overflow-x-hidden z-20 relative">
+	<main id="main" class="min-h-screen overflow-x-clip z-20 relative">
 		<slot />
 	</main>
 	<Footer />

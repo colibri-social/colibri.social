@@ -1,11 +1,16 @@
+import { readFileSync } from "node:fs";
 import type {
 	LexiconDoc,
 	LexXrpcProcedure,
 	LexXrpcQuery,
 } from "@atproto/lexicon";
 import { describe, expect, it } from "vitest";
+import {
+	isUnderPrefix,
+	isXrpcMethod,
+	XRPC_PREFIXES,
+} from "../../../components/docs/xrpc-methods.ts";
 import { LEXICON_DOCS, lexicon } from "./index.ts";
-import { readWrapperCalls, type WrapperCall } from "./wrapper-calls.ts";
 
 /**
  * Methods that legitimately have no output schema, with the reason. Anything
@@ -14,16 +19,11 @@ import { readWrapperCalls, type WrapperCall } from "./wrapper-calls.ts";
  * that method into a silent pass.
  */
 const SCHEMALESS_METHODS: Record<string, string> = {
-	"social.colibri.sync.sendHum": "Fire and forget, no output key at all.",
-	"social.colibri.embed.getImage": "Streams bytes, encoding is */*.",
-	"social.colibri.embed.getVideo": "Streams bytes, encoding is */*.",
+	"social.colibri.beta.blob.get": "Streams bytes, encoding is */*.",
+	"social.colibri.beta.embed.getImage": "Streams bytes, encoding is image/*.",
+	"social.colibri.beta.embed.getVideo": "Streams bytes, encoding is video/*.",
+	"social.colibri.beta.polyfill.getBlob": "Streams bytes, encoding is */*.",
 };
-
-/**
- * Verified out of band, never declared as a lexicon parameter. The AppView
- * lifts it out of the `Authorization` header into the query its handlers read.
- */
-const OUT_OF_BAND_PARAMS = new Set(["auth"]);
 
 const METHOD_TYPES = new Set(["query", "procedure"]);
 
@@ -31,21 +31,16 @@ const methodDocs = LEXICON_DOCS.filter((doc) =>
 	METHOD_TYPES.has(doc.defs.main?.type ?? ""),
 );
 
+const APPVIEW_PAGE = new URL(
+	"../../../content/docs/docs/developers/specification/appview.mdx",
+	import.meta.url,
+);
+
 const mainOf = (doc: LexiconDoc) =>
 	doc.defs.main as LexXrpcQuery | LexXrpcProcedure;
 
-const localCalls = readWrapperCalls().filter((call) =>
-	call.nsid.startsWith("social.colibri."),
-);
-
 const docFor = (nsid: string) =>
 	LEXICON_DOCS.find((doc) => doc.id === nsid) as LexiconDoc | undefined;
-
-const declaredParams = (call: WrapperCall): Set<string> => {
-	const doc = docFor(call.nsid);
-	if (!doc) return new Set();
-	return new Set(Object.keys(mainOf(doc).parameters?.properties ?? {}));
-};
 
 const collectRefs = (node: unknown, into: Array<string>): void => {
 	if (Array.isArray(node)) {
@@ -102,68 +97,30 @@ describe("lexicon documents", () => {
 	});
 });
 
-describe("client wrappers", () => {
-	it("are actually found on disk", () => {
-		expect(localCalls.length).toBeGreaterThanOrEqual(55);
-	});
+describe("AppView reference page", () => {
+	it("places every method under exactly one rendered prefix", () => {
+		const prefixes = Object.values(XRPC_PREFIXES);
+		const misplaced = LEXICON_DOCS.filter(isXrpcMethod)
+			.filter((doc) => {
+				const owners = prefixes.filter((prefix) =>
+					isUnderPrefix(doc.id, prefix),
+				);
 
-	it("make exactly one XRPC call each", () => {
-		const seen = new Map<string, number>();
-		for (const call of readWrapperCalls())
-			seen.set(call.file, (seen.get(call.file) ?? 0) + 1);
-
-		expect([...seen].filter(([, count]) => count !== 1)).toEqual([]);
-	});
-
-	it("call methods the lexicons define", () => {
-		const undefinedMethods = localCalls
-			.filter((call) => !docFor(call.nsid))
-			.map((call) => `${call.file} → ${call.nsid}`);
-
-		expect(undefinedMethods).toEqual([]);
-	});
-
-	it("agree with the lexicon on the HTTP verb", () => {
-		const disagreements = localCalls
-			.filter((call) => {
-				const doc = docFor(call.nsid);
-				if (!doc) return false;
-				const expected = mainOf(doc).type === "procedure" ? "post" : "get";
-				return call.method !== expected;
+				return owners.length !== 1;
 			})
-			.map((call) => `${call.nsid} sent as ${call.method.toUpperCase()}`);
+			.map((doc) => doc.id);
 
-		expect(disagreements).toEqual([]);
+		expect(misplaced).toEqual([]);
 	});
 
-	it("only send parameters the lexicon declares", () => {
-		const undeclared: Array<string> = [];
+	it("renders every prefix exactly once", () => {
+		const page = readFileSync(APPVIEW_PAGE, "utf8");
+		const wrong = Object.keys(XRPC_PREFIXES).filter((key) => {
+			const uses = page.split(`<XRPCMethods prefix={XRPC_PREFIXES.${key}}`);
 
-		for (const call of localCalls) {
-			if (!docFor(call.nsid)) continue;
-			const declared = declaredParams(call);
+			return uses.length !== 2;
+		});
 
-			for (const param of call.params)
-				if (!declared.has(param) && !OUT_OF_BAND_PARAMS.has(param))
-					undeclared.push(`${call.nsid} sends undeclared "${param}"`);
-		}
-
-		expect(undeclared).toEqual([]);
-	});
-
-	it("always send every required parameter", () => {
-		const missing: Array<string> = [];
-
-		for (const call of localCalls) {
-			const doc = docFor(call.nsid);
-			if (!doc) continue;
-
-			const sent = new Set(call.params);
-			for (const param of mainOf(doc).parameters?.required ?? [])
-				if (!sent.has(param))
-					missing.push(`${call.nsid} never sends required "${param}"`);
-		}
-
-		expect(missing).toEqual([]);
+		expect(wrong).toEqual([]);
 	});
 });

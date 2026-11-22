@@ -1,0 +1,77 @@
+---
+title: Introduction
+description: A plain explanation of Spaces, channels and the Atmosphere account you sign in with.
+sidebar:
+  order: 1
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Colibri is a chat app for groups. People gather in Spaces, write to each other in channels, and talk in voice channels.
+
+## Spaces and channels
+
+Think of a Space as a house. Its channels are the rooms, and each room is for one topic or one activity. Categories act like floors, grouping related rooms together.
+
+:::caution[TODO: screenshot]
+`overview-desktop.png`: Desktop app with a Space open: Space column, channel list with two categories, a conversation, member list
+:::
+
+A house has a front door, and so does a Space! Only the people a Space lets in can read what is written there. You get in with an invite link from the owner.
+
+There are two kinds of channels:
+
+- **Text channels** hold written conversations, with images, files and reactions.
+- **Voice channels** are for talking. You can also turn on your camera and share your screen there!
+
+A side conversation can get its own **thread**, which keeps it together without filling up the channel.
+
+## Your account
+
+You sign in to Colibri with an **Atmosphere account**. An Atmosphere account works like an email address. You get it from an account provider you choose, and it works with every app that supports it. If you use Bluesky, Semble or Tangled, you already have one!
+
+This has a few consequences:
+
+- Your account belongs to you and your provider. Colibri is one of the apps you use it with.
+- You enter your password on your provider's page. Colibri never sees it.
+- Your handle (for example `alice.bsky.social`) is the same in Colibri as in your other apps.
+- Deleting your Colibri data leaves your account and your other apps untouched.
+
+## Space Parties
+
+Unfortunately, we're not talking about the fun kind of parties. Rather we're discussing the three parties are involved in a Space:
+
+- **Your account provider** keeps your account and signs you in.
+- **The Space** has an account of its own, which holds its channels, roles and members.
+- **A Colibri server** delivers messages to your app, sends your notifications and connects voice calls.
+
+Colibri is open source. The apps from colibri.social connect to the server network that Colibri runs, and anyone can run a server of their own!
+
+## Roles
+
+The person who creates a Space is its owner. The owner and the people they pick decide who can do what, using roles. A role is a named set of permissions. For example, a role can be allowed to create channels or hide messages!
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Sign In or Create an Account"
+    description="Get into Colibri for the first time."
+    href="/docs/users/getting-started/sign-in"
+  />
+  <LinkCard
+    title="Join a Space"
+    description="Use an invite link to get in."
+    href="/docs/users/spaces/join-a-space"
+  />
+  <LinkCard
+    title="Where a Space Is Hosted"
+    description="More about the account and the server behind a Space."
+    href="/docs/users/spaces/appviews"
+  />
+  <LinkCard
+    title="Roles and Permissions"
+    description="How roles decide what members can do."
+    href="/docs/users/spaces/roles-and-permissions"
+  />
+</CardGrid>

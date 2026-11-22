@@ -1,0 +1,178 @@
+import { describe, expect, it } from "vitest";
+import { proseMirrorToFacets } from "./prosemirror-to-facets";
+
+type Doc = Parameters<typeof proseMirrorToFacets>[0];
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+
+const paragraph = (text: string): Doc =>
+	({
+		type: "doc",
+		content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+	}) as unknown as Doc;
+
+describe("paragraph lines", () => {
+	it("keeps blank lines between paragraphs", () => {
+		const doc = {
+			type: "doc",
+			content: [
+				{ type: "paragraph", content: [{ type: "text", text: "a" }] },
+				{ type: "paragraph", content: [] },
+				{ type: "paragraph", content: [{ type: "text", text: "b" }] },
+			],
+		} as unknown as Doc;
+
+		expect(proseMirrorToFacets(doc).text).toBe("a\n\nb");
+	});
+});
+
+const linksIn = (input: string): Array<{ uri: string; covers: string }> => {
+	const { text, facets } = proseMirrorToFacets(paragraph(input));
+	const bytes = encoder.encode(text);
+
+	return facets.flatMap((facet) =>
+		facet.features
+			.filter((f) => f.$type === "social.colibri.beta.richtext.facet#link")
+			.map((f) => ({
+				uri: (f as { uri: string }).uri,
+				covers: decoder.decode(
+					bytes.slice(facet.index.byteStart, facet.index.byteEnd),
+				),
+			})),
+	);
+};
+
+describe("bare domains", () => {
+	it.each([
+		"mu.social",
+		"try example.com today",
+		"read plc.directory's docs",
+		"www.example.com/path",
+	])("leaves %s as plain text", (input) => {
+		expect(linksIn(input)).toEqual([]);
+	});
+});
+
+describe("escaped urls", () => {
+	it("keeps a url after a backslash as plain text and drops the backslash", () => {
+		const result = proseMirrorToFacets(
+			paragraph("see \\https://example.com now"),
+		);
+
+		expect(result.text).toBe("see https://example.com now");
+		expect(result.facets).toEqual([]);
+	});
+
+	it("keeps an at uri after a backslash as plain text", () => {
+		const uri = "at://did:plc:abc123/app.bsky.feed.post/3kabc";
+		const result = proseMirrorToFacets(paragraph(`\\${uri}`));
+
+		expect(result.text).toBe(uri);
+		expect(result.facets).toEqual([]);
+	});
+});
+
+describe("autolinked absolute urls", () => {
+	it("leaves a possessive out of the link", () => {
+		expect(linksIn("read https://plc.directory's docs")).toEqual([
+			{ uri: "https://plc.directory", covers: "https://plc.directory" },
+		]);
+	});
+
+	it("drops a trailing full stop", () => {
+		expect(linksIn("we build on https://astro.build.")).toEqual([
+			{ uri: "https://astro.build", covers: "https://astro.build" },
+		]);
+	});
+
+	it("drops a trailing curly quote", () => {
+		expect(linksIn("she said “go to https://example.com”")).toEqual([
+			{ uri: "https://example.com", covers: "https://example.com" },
+		]);
+	});
+
+	it("drops an unbalanced closing paren and the full stop after it", () => {
+		expect(linksIn("(see https://astro.build).")).toEqual([
+			{ uri: "https://astro.build", covers: "https://astro.build" },
+		]);
+	});
+
+	it("skips a url inside inline code", () => {
+		expect(linksIn("run `curl https://example.com` now")).toEqual([]);
+	});
+
+	it("keeps a balanced closing paren", () => {
+		const uri = "https://en.wikipedia.org/wiki/Bracket_(disambiguation)";
+		expect(linksIn(`read ${uri} first`)).toEqual([{ uri, covers: uri }]);
+	});
+
+	it("keeps a path and query intact", () => {
+		const uri = "https://example.com/a/b?c=d&e=f";
+		expect(linksIn(`open ${uri} now`)).toEqual([{ uri, covers: uri }]);
+	});
+
+	it("keeps a trailing slash", () => {
+		const uri = "https://example.com/docs/";
+		expect(linksIn(`open ${uri} now`)).toEqual([{ uri, covers: uri }]);
+	});
+
+	it("drops a trailing full stop after a path", () => {
+		expect(linksIn("open https://example.com/docs.")).toEqual([
+			{ uri: "https://example.com/docs", covers: "https://example.com/docs" },
+		]);
+	});
+});
+
+describe("autolinked at uris", () => {
+	it("links a record uri", () => {
+		const uri = "at://did:plc:abc123/app.bsky.feed.post/3kabc";
+		expect(linksIn(`see ${uri} now`)).toEqual([{ uri, covers: uri }]);
+	});
+
+	it("links a space record uri and drops a trailing full stop", () => {
+		const uri =
+			"at://did:plc:space/space/social.colibri.beta.channel.text/general";
+		expect(linksIn(`over in ${uri}.`)).toEqual([{ uri, covers: uri }]);
+	});
+
+	it("links a handle authority", () => {
+		const uri = "at://lou.colibri.social/blue.moji.packs.pack/3kowls";
+		expect(linksIn(uri)).toEqual([{ uri, covers: uri }]);
+	});
+
+	it("skips a uri without an authority", () => {
+		expect(linksIn("at:// is the scheme")).toEqual([]);
+	});
+
+	it("keeps an at uri as a markdown link target", () => {
+		const uri = "at://did:plc:abc123/app.bsky.feed.post/3kabc";
+		expect(linksIn(`[the post](${uri})`)).toEqual([
+			{ uri, covers: "the post" },
+		]);
+	});
+});
+
+describe("embed suppression", () => {
+	const URI = "https://example.com/page";
+
+	it("lists a url written as an angle bracket autolink", () => {
+		const result = proseMirrorToFacets(paragraph(`see <${URI}> now`));
+
+		expect(result.text).toBe(`see ${URI} now`);
+		expect(result.suppressedEmbeds).toEqual([URI]);
+	});
+
+	it("lists a masked link with an angle bracket destination", () => {
+		const result = proseMirrorToFacets(paragraph(`[page](<${URI}>)`));
+
+		expect(result.text).toBe("page");
+		expect(result.suppressedEmbeds).toEqual([URI]);
+	});
+
+	it("leaves bare and plain masked links out", () => {
+		const result = proseMirrorToFacets(paragraph(`${URI} [page](${URI})`));
+
+		expect(result.suppressedEmbeds).toEqual([]);
+	});
+});

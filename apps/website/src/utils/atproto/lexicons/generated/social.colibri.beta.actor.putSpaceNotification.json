@@ -1,0 +1,65 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.putSpaceNotification",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Pushes one of the requesting user's social.colibri.beta.actor.spaceNotification records to the AppView, so it takes effect immediately instead of waiting for a sync notification. The client writes or deletes the record in its own personal space first, then calls this.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community."
+						},
+						"level": {
+							"type": "string",
+							"knownValues": [
+								"all",
+								"mentionsAndReplies",
+								"nothing"
+							],
+							"description": "The new level. Absent together with removeLevel returns the community to the global level."
+						},
+						"removeLevel": {
+							"type": "boolean",
+							"description": "Removes the community's level so it follows the global one. Ignored when level is present."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"preferences"
+					],
+					"properties": {
+						"preferences": {
+							"type": "ref",
+							"ref": "social.colibri.beta.actor.defs#preferences",
+							"description": "The requesting user's settings, after the update."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "InvalidRequest",
+					"description": "Neither level nor removeLevel is present, or level does not hold an allowed value."
+				}
+			]
+		}
+	}
+}

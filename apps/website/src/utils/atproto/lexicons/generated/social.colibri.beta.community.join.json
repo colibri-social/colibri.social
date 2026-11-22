@@ -1,0 +1,80 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.join",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Admits the requesting user to a community. Joining is an AppView procedure rather than a record the user writes, because admission is what makes the community's spaces readable to them.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"community"
+					],
+					"properties": {
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "The community to join."
+						},
+						"invitation": {
+							"type": "string",
+							"description": "An invitation code."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"status"
+					],
+					"properties": {
+						"status": {
+							"type": "string",
+							"description": "The result of the join attempt.",
+							"knownValues": [
+								"joined",
+								"pending"
+							]
+						},
+						"member": {
+							"type": "ref",
+							"ref": "social.colibri.beta.community.defs#memberView",
+							"description": "The new member view. Present only when status is joined."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists with that DID."
+				},
+				{
+					"name": "InvitationNotFound",
+					"description": "No invitation exists with that code."
+				},
+				{
+					"name": "AlreadyMember",
+					"description": "The requesting user already holds a member record in this community."
+				},
+				{
+					"name": "Banned",
+					"description": "The requesting user is banned from this community."
+				},
+				{
+					"name": "CredentialsUnavailable",
+					"description": "The AppView's stored credentials for this community are missing or unusable."
+				}
+			]
+		}
+	}
+}

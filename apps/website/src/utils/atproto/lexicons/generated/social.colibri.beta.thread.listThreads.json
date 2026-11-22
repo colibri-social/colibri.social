@@ -1,0 +1,91 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.thread.listThreads",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Lists a community's threads, most recently active first. Threads the requesting user may not read are absent rather than refused.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community to list threads in."
+					},
+					"channel": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "Restrict the list to threads in one channel. Absent lists every channel's threads, which is what the community sidebar needs."
+					},
+					"filter": {
+						"type": "string",
+						"default": "all",
+						"knownValues": [
+							"all",
+							"unread",
+							"following"
+						],
+						"description": "Which threads to list."
+					},
+					"limit": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 100,
+						"default": 50,
+						"description": "Maximum number of threads to return."
+					},
+					"cursor": {
+						"type": "string",
+						"description": "Pagination cursor from a previous call."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"threads"
+					],
+					"properties": {
+						"cursor": {
+							"type": "string",
+							"description": "Pagination cursor for the next page."
+						},
+						"threads": {
+							"type": "array",
+							"description": "The threads.",
+							"items": {
+								"type": "ref",
+								"ref": "social.colibri.beta.thread.defs#threadView",
+								"description": "A thread."
+							}
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The requesting user is not a member of this community."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community matches the given DID."
+				},
+				{
+					"name": "ChannelNotFound",
+					"description": "No channel matches the given space reference."
+				}
+			]
+		}
+	}
+}

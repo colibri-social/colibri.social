@@ -1,0 +1,129 @@
+---
+title: Overview
+description: "How to contribute to Colibri: the repositories, the checks a pull request has to pass, and changesets."
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+Colibri is open source under the MIT license, and contributions of any size are welcome: code, documentation, bug reports, and reviews of open pull requests.
+
+## Repositories
+
+Colibri's code lives in two repositories under [colibri-social](https://github.com/colibri-social) on GitHub:
+
+| Repository | Contains | pnpm |
+| --- | --- | --- |
+| [colibri-social/colibri.social](https://github.com/colibri-social/colibri.social) | The client, its component library, the website, the native shell, and this documentation | `11.17.0` |
+| [colibri-social/api](https://github.com/colibri-social/api) | The AppView, the lexicons, and the bridge packages | `10.33.3` |
+
+Both are pnpm workspaces formatted and linted with [Biome](https://biomejs.dev), tested with [Vitest](https://vitest.dev), and released with [Changesets](https://github.com/changesets/changesets).
+
+## Setting up
+
+Get the stack running locally before you write code. [Development](/docs/developers/development/overview) walks through the AppView, the PDS and the client.
+
+## Reporting a bug or proposing a feature
+
+Open an issue in the repository the report belongs to. The client repository has a bug report template and a feature request template.
+
+## Making a pull request
+
+<Steps>
+
+1. Make sure an open issue covers the change, and mention its number in the pull request, for example "Closes #123". Typos, broken links and small docs fixes don't need an issue.
+
+2. Create a branch from `main` and make your change. Add tests next to the code where there is something to assert. [Testing](/docs/developers/development/testing) explains what belongs where.
+
+3. Run the checks for the repository you changed. See [Checks](#checks).
+
+4. Add a [changeset](#changesets) when you changed a package.
+
+5. Open the pull request with a title that follows [Conventional Commits](https://www.conventionalcommits.org), such as `fix: keep the draft when a send fails`. Update the documentation when the change affects it.
+
+</Steps>
+
+Everything you submit has to be written by you. Read the [AI Contribution Policy](https://github.com/colibri-social/colibri.social/blob/main/AI_POLICY.md) before you open an issue or a pull request.
+
+## Checks
+
+The "Code Quality" workflow runs on every pull request in both repositories.
+
+### Client repository
+
+```sh
+pnpm lint
+pnpm knip
+pnpm test
+pnpm typecheck:scripts
+pnpm whats-new:check
+pnpm lexicons:export
+```
+
+| Job | What it checks |
+| --- | --- |
+| Lint | Biome formatting and lint rules |
+| Knip | Unused files, exports and dependencies. Delete code once its last caller is gone. |
+| Test | The tests of every package, and the types of the repository scripts |
+| What's New | The What's New block of each changeset, and that the generated release notes are current |
+| Lexicons | That the exported lexicon JSON under `apps/website/src/utils/atproto/lexicons/generated` is current |
+
+After `pnpm whats-new:generate` or `pnpm lexicons:export` changes a file, commit the result.
+
+### AppView repository
+
+```sh
+pnpm lint
+pnpm build
+pnpm typecheck
+pnpm test
+pnpm lexicons:codegen
+```
+
+| Job | What it checks |
+| --- | --- |
+| Lint | Biome formatting and lint rules |
+| Test | The build, the types, and the unit tests on libSQL |
+| Test on Postgres | The unit tests on Postgres |
+| Lexicons | That the generated lexicon types are current, and that the vendored `com.atproto` lexicons match the pinned upstream commit |
+
+After `pnpm lexicons:codegen` changes a file, commit the result.
+
+## Changesets
+
+A changeset is a Markdown file in `.changeset/` that names the packages a pull request changed, the kind of version bump each one gets, and a line for the changelog.
+
+In the AppView repository, run:
+
+```sh
+pnpm changeset
+```
+
+A change to `packages/lexicons` is a protocol change. Give it a minor bump at least.
+
+In the client repository, run:
+
+```sh
+pnpm changeset:feature
+```
+
+It runs the usual changeset prompts and then asks whether to announce the change on the client's "What's New" page. A `minor` or `major` changeset for `@colibri-social/wrapper` must carry a What's New block, and the What's New job fails without one. [Announcing a change in-app](/docs/developers/development/client#announcing-a-change-in-app) describes the block.
+
+## Releases
+
+Both repositories release from `main`. After a pull request with a changeset lands, the Release workflow opens or updates a pull request titled `[ci] release` with the version bumps and changelog entries. Merging that pull request publishes the release:
+
+- In the AppView repository, it publishes the public packages to npm. The Image workflow publishes the `ghcr.io/colibri-social/api` container image.
+- In the client repository, a new version of `@colibri-social/wrapper` starts the Publish workflow, which builds the apps.
+
+## Conventions
+
+- **Formatting.** Run `pnpm lint:fix` before you push.
+- **Errors.** Client failures use `ColibriError` and the copy catalog. See [Errors](/docs/developers/development/errors).
+
+## Reviewing
+
+Reviewing open pull requests and commenting on issues helps as much as code does, and it is a good way to learn a repository.
+
+## Getting help
+
+Ask in the issue you are working on, or mention [@colibri.social](https://bsky.app/profile/colibri.social) on Bluesky!
