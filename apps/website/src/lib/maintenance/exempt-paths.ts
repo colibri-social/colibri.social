@@ -1,4 +1,11 @@
-const EXEMPT_EXACT = new Set(["/", "/tos", "/policy", "/imprint", "/_image"]);
+const EXEMPT_EXACT = new Set([
+	"/",
+	"/tos",
+	"/policy",
+	"/imprint",
+	"/3ds/qr",
+	"/_image",
+]);
 
 const EXEMPT_PREFIXES = [
 	"/.well-known/",
