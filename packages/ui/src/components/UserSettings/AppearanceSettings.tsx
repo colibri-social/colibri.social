@@ -13,6 +13,11 @@ export type AppearanceSettingsProps = {
 	onMessagePreviewsChange: (show: boolean) => void;
 	inboxAsModal?: boolean;
 	onInboxAsModalChange?: (modal: boolean) => void;
+	haptics?: {
+		enabled: boolean;
+		deviceDisabled: boolean;
+		onChange: (enabled: boolean) => void;
+	};
 	class?: string;
 };
 
@@ -41,6 +46,12 @@ export const APPEARANCE_SETTINGS_COPY = {
 	messagePreviews: "Show message previews",
 	messagePreviewsDescription:
 		"Shows the latest message under each channel name.",
+	feedback: "Feedback",
+	haptics: "Haptics",
+	hapticsDescription:
+		"Vibrate on taps, drags and alerts. Follows your device's touch feedback setting.",
+	hapticsDeviceDisabledDescription:
+		"Touch feedback is off in your device settings, so Colibri won't vibrate.",
 	inbox: "Inbox",
 	inboxAsModal: "Open the Inbox in a large window",
 	inboxAsModalDescription:
@@ -79,6 +90,24 @@ export const AppearanceSettings = (props: AppearanceSettingsProps) => (
 				onChange={props.onMessagePreviewsChange}
 			/>
 		</ListGroup>
+		<Show when={props.haptics}>
+			{(haptics) => (
+				<ListGroup label={APPEARANCE_SETTINGS_COPY.feedback}>
+					<ToggleRow
+						title={APPEARANCE_SETTINGS_COPY.haptics}
+						description={
+							haptics().deviceDisabled
+								? APPEARANCE_SETTINGS_COPY.hapticsDeviceDisabledDescription
+								: APPEARANCE_SETTINGS_COPY.hapticsDescription
+						}
+						keywords={["haptics", "vibration", "touch feedback"]}
+						checked={!haptics().deviceDisabled && haptics().enabled}
+						disabled={haptics().deviceDisabled}
+						onChange={(enabled) => haptics().onChange(enabled)}
+					/>
+				</ListGroup>
+			)}
+		</Show>
 		<Show when={props.onInboxAsModalChange}>
 			{(onChange) => (
 				<ListGroup label={APPEARANCE_SETTINGS_COPY.inbox}>

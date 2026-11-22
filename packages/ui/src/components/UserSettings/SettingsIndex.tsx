@@ -105,7 +105,7 @@ export const SETTINGS_ENTRY_INFO: Record<SettingsEntryId, EntryInfo> = {
 	appearance: {
 		label: "Appearance",
 		icon: () => <Palette2Icon />,
-		keywords: ["theme", "dark", "light", "previews"],
+		keywords: ["theme", "dark", "light", "previews", "haptics", "vibration"],
 	},
 	chat: {
 		label: "Chat",

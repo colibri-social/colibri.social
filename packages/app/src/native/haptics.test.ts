@@ -1,11 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
-import { createNativeHaptics, resolveHaptics, webHaptics } from "./haptics";
+import {
+	createAndroidHaptics,
+	createNativeHaptics,
+	gateHaptics,
+	resolveHaptics,
+	silentHaptics,
+} from "./haptics";
 
 const fakePlugin = () => ({
 	impactFeedback: vi.fn(async () => ({ status: "ok", data: null })),
 	notificationFeedback: vi.fn(async () => ({ status: "ok", data: null })),
 	selectionFeedback: vi.fn(async () => ({ status: "ok", data: null })),
 });
+
+const fakeBridge = () => ({ perform: vi.fn(), enabled: vi.fn(() => true) });
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -37,16 +45,48 @@ describe("createNativeHaptics", () => {
 	});
 });
 
-describe("resolveHaptics", () => {
-	it("uses native haptics in the mobile apps", () => {
-		const native = createNativeHaptics(async () => fakePlugin());
-		expect(resolveHaptics("ios", () => native)).toBe(native);
-		expect(resolveHaptics("android", () => native)).toBe(native);
+describe("createAndroidHaptics", () => {
+	it("sends each kind to the Android bridge", () => {
+		const bridge = fakeBridge();
+		const haptics = createAndroidHaptics(bridge);
+		haptics.impact("medium");
+		haptics.selection();
+		haptics.notification("error");
+		expect(bridge.perform.mock.calls).toEqual([
+			["impact:medium"],
+			["selection"],
+			["notification:error"],
+		]);
 	});
 
-	it("keeps web haptics everywhere else", () => {
-		const native = createNativeHaptics(async () => fakePlugin());
-		expect(resolveHaptics("web", () => native)).toBe(webHaptics);
-		expect(resolveHaptics("macos", () => native)).toBe(webHaptics);
+	it("does nothing without a bridge", () => {
+		expect(() => createAndroidHaptics(undefined).selection()).not.toThrow();
+	});
+});
+
+describe("gateHaptics", () => {
+	it("drops every call while haptics are not allowed", () => {
+		const bridge = fakeBridge();
+		let allowed = false;
+		const haptics = gateHaptics(createAndroidHaptics(bridge), () => allowed);
+		haptics.impact("light");
+		haptics.selection();
+		haptics.notification("success");
+		expect(bridge.perform).not.toHaveBeenCalled();
+		allowed = true;
+		haptics.selection();
+		expect(bridge.perform).toHaveBeenCalledWith("selection");
+	});
+});
+
+describe("resolveHaptics", () => {
+	it("is silent outside the mobile apps", () => {
+		expect(resolveHaptics("web", () => true)).toBe(silentHaptics);
+		expect(resolveHaptics("macos", () => true)).toBe(silentHaptics);
+	});
+
+	it("gates the mobile apps", () => {
+		expect(resolveHaptics("ios", () => true)).not.toBe(silentHaptics);
+		expect(resolveHaptics("android", () => true)).not.toBe(silentHaptics);
 	});
 });

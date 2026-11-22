@@ -5,9 +5,6 @@
   "platforms": ["android"],
   "windows": ["main"],
   "permissions": [
-    "fcm:default",
-    "haptics:allow-impact-feedback",
-    "haptics:allow-notification-feedback",
-    "haptics:allow-selection-feedback"
+    "fcm:default"
   ]
 }

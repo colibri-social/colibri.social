@@ -4,7 +4,13 @@ import type {
 	HapticNotification,
 	Haptics,
 } from "@colibri-social/ui";
+import { hapticsSetting } from "../data/haptics-setting";
 import { currentReleasePlatform } from "../data/release-notes";
+import {
+	type AndroidHapticsBridge,
+	androidHapticsBridge,
+	systemHapticsEnabled,
+} from "./haptics-system";
 
 const log = createLogger("haptics");
 
@@ -16,18 +22,6 @@ type HapticsPlugin = {
 
 const loadPlugin = (): Promise<HapticsPlugin> =>
 	import("@tauri-apps/plugin-haptics");
-
-const vibrate = (pattern: number | number[]) => {
-	if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-		navigator.vibrate(pattern);
-	}
-};
-
-export const webHaptics: Haptics = {
-	impact: (style) => vibrate(style === "heavy" || style === "rigid" ? 14 : 8),
-	selection: () => {},
-	notification: (type) => vibrate(type === "error" ? [10, 40, 10] : 10),
-};
 
 export const createNativeHaptics = (
 	load: () => Promise<HapticsPlugin> = loadPlugin,
@@ -56,8 +50,47 @@ export const createNativeHaptics = (
 	};
 };
 
+export const silentHaptics: Haptics = {
+	impact: () => {},
+	selection: () => {},
+	notification: () => {},
+};
+
+export const createAndroidHaptics = (
+	bridge: AndroidHapticsBridge | undefined = androidHapticsBridge(),
+): Haptics => {
+	const perform = (kind: string) => bridge?.perform(kind);
+	return {
+		impact: (style) => perform(`impact:${style}`),
+		selection: () => perform("selection"),
+		notification: (type) => perform(`notification:${type}`),
+	};
+};
+
+export const gateHaptics = (
+	haptics: Haptics,
+	allowed: () => boolean,
+): Haptics => ({
+	impact: (style) => {
+		if (allowed()) haptics.impact(style);
+	},
+	selection: () => {
+		if (allowed()) haptics.selection();
+	},
+	notification: (type) => {
+		if (allowed()) haptics.notification(type);
+	},
+});
+
+const hapticsAllowed = () => hapticsSetting()[0]() && systemHapticsEnabled();
+
 export const resolveHaptics = (
 	platform: string = currentReleasePlatform(),
-	native: () => Haptics = createNativeHaptics,
-): Haptics =>
-	platform === "ios" || platform === "android" ? native() : webHaptics;
+	allowed: () => boolean = hapticsAllowed,
+): Haptics => {
+	if (platform === "ios") return gateHaptics(createNativeHaptics(), allowed);
+	if (platform === "android") {
+		return gateHaptics(createAndroidHaptics(), allowed);
+	}
+	return silentHaptics;
+};

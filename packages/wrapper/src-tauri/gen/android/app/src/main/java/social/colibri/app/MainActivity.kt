@@ -86,6 +86,7 @@ class MainActivity : TauriActivity() {
     CallEvents.attach(webView)
     webView.addJavascriptInterface(CallBridge(), "__colibriCall")
     webView.addJavascriptInterface(WindowBridge(), "__colibriWindow")
+    webView.addJavascriptInterface(HapticsBridge(this, webView), "__colibriHaptics")
     webView.addJavascriptInterface(
       NotificationActionsBridge(),
       "__colibriNotificationActions"

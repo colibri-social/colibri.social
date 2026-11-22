@@ -312,6 +312,68 @@ export const Appearance: Story = {
 		await waitFor(() =>
 			expect(canvas.getByTestId("theme")).toHaveTextContent("light"),
 		);
+		await expect(canvas.queryByText("Haptics")).toBeNull();
+		await expectNoLayoutIssues(pageRoot(canvasElement));
+	},
+};
+
+export const AppearanceHaptics: Story = {
+	render: () => {
+		const [haptics, setHaptics] = createSignal(true);
+		return (
+			<Page>
+				<AppearanceSettings
+					theme="system"
+					onThemeChange={fn()}
+					messagePreviews
+					onMessagePreviewsChange={fn()}
+					haptics={{
+						enabled: haptics(),
+						deviceDisabled: false,
+						onChange: setHaptics,
+					}}
+				/>
+				<output data-testid="haptics">{haptics() ? "on" : "off"}</output>
+			</Page>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const toggle = canvas.getByRole("switch", { name: /Haptics/ });
+		await expect(canvas.getByText("Feedback")).toBeVisible();
+		await expect(
+			canvas.getByText(/Follows your device's touch feedback setting/),
+		).toBeVisible();
+		await expect(toggle).toBeChecked();
+		await userEvent.click(toggle);
+		await waitFor(() =>
+			expect(canvas.getByTestId("haptics")).toHaveTextContent("off"),
+		);
+		await expect(toggle).not.toBeChecked();
+		await expectNoLayoutIssues(pageRoot(canvasElement));
+	},
+};
+
+export const AppearanceHapticsDeviceOff: Story = {
+	render: () => (
+		<Page>
+			<AppearanceSettings
+				theme="system"
+				onThemeChange={fn()}
+				messagePreviews
+				onMessagePreviewsChange={fn()}
+				haptics={{ enabled: true, deviceDisabled: true, onChange: fn() }}
+			/>
+		</Page>
+	),
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const toggle = canvas.getByRole("switch", { name: /Haptics/ });
+		await expect(toggle).not.toBeChecked();
+		await expect(toggle).toBeDisabled();
+		await expect(
+			canvas.getByText(/Touch feedback is off in your device settings/),
+		).toBeVisible();
 		await expectNoLayoutIssues(pageRoot(canvasElement));
 	},
 };
