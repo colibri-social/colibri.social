@@ -1,6 +1,7 @@
 ---
 import { getImage, Image } from "astro:assets";
 import { getCollection } from "astro:content";
+import { MAINTENANCE } from "astro:env/server";
 import AppMock from "@/assets/landing/app-mock.png";
 import Branch from "@/assets/landing/branch.webp";
 import Grin from "@/assets/landing/grin.webp";
@@ -14,6 +15,7 @@ import EmojiRain from "@/components/public/landing/EmojiRain.astro";
 import MediaStack from "@/components/public/landing/MediaStack.astro";
 import PhoneIsland from "@/components/public/landing/PhoneIsland.astro";
 import MockVoiceCall from "@/components/public/MockVoiceCall.tsx";
+import MaintenancePage from "@/components/public/maintenance/MaintenancePage.astro";
 import PetalField from "@/components/public/nature/PetalField.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
 import { getFunding } from "@/lib/funding";
@@ -44,395 +46,403 @@ const branchImage = await getImage({
 const blankPixel =
 	"data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
 ---
-
-<PublicLayout
-	title="Chats where you truly own your data."
-	description="Colibri is an open source chat platform built on the AT protocol for
-	communities big and small."
-	image={ogImageFor({ kind: "home" }, Astro.site)}
-	home
->
-	<div
-		class="landing"
-		style={milkyWayVars}
-		data-milkyway-src={MilkyWayWide.src}
-	>
-		<div class="petal-layer" aria-hidden="true">
-			<PetalField count={70} />
-		</div>
-
-		<section class="hero">
-			<div class="hero-milkyway" aria-hidden="true"></div>
-			<div class="hero-petals" aria-hidden="true"></div>
-
-			<div
-				class="hero-branch-wrap"
-				data-branch="right"
-				data-parallax="0.18"
-				aria-hidden="true"
+{
+	MAINTENANCE ? (
+		<MaintenancePage />
+	) : (
+		<>
+			<PublicLayout
+				title="Chats where you truly own your data."
+				description="Colibri is an open source chat platform built on the AT protocol for
+				communities big and small."
+				image={ogImageFor({ kind: "home" }, Astro.site)}
+				home
 			>
-				<canvas
-					class="branch-gl"
-					data-branch="right"
-					data-branch-src={Branch.src}
-					data-draw-w="800"
-					data-draw-h="519"
-				></canvas>
-				<picture>
-					<source media="(max-width: 1023px)" srcset={blankPixel} />
-					<img
-						src={branchImage.src}
-						width="800"
-						height="519"
-						alt=""
-						class="branch-fallback"
-						fetchpriority="high"
-					/>
-				</picture>
-				<div class="branch-hit" data-branch-hit="right"></div>
-			</div>
-			<div
-				class="hero-branch-wrap"
-				data-branch="left"
-				data-parallax="0.26"
-				aria-hidden="true"
-			>
-				<canvas
-					class="branch-gl"
-					data-branch="left"
-					data-branch-src={Branch.src}
-					data-draw-w="800"
-					data-draw-h="519"
-				></canvas>
-				<picture>
-					<source media="(max-width: 639px)" srcset={blankPixel} />
-					<img
-						src={branchImage.src}
-						width="800"
-						height="519"
-						alt=""
-						class="branch-fallback"
-						fetchpriority="high"
-					/>
-				</picture>
-				<div class="branch-hit" data-branch-hit="left"></div>
-			</div>
+				<div
+					class="landing"
+					style={milkyWayVars}
+					data-milkyway-src={MilkyWayWide.src}
+				>
+					<div class="petal-layer" aria-hidden="true">
+						<PetalField count={70} />
+					</div>
 
-			<div class="site-wrap hero-inner">
-				<h1 class="hero-title reset">LET YOUR COMMUNITY SPREAD ITS WINGS.</h1>
-				<p class="hero-sub">
-					Call, chat, and hang out on a platform built for you!
-				</p>
-				<div class="cta-row">
-					<a class="site-btn site-btn-light" data-download href="/download">
-						Download Colibri
-					</a>
-					<a class="site-btn site-btn-dark" href="/app">
-						Open Colibri in your browser
-					</a>
-				</div>
-			</div>
+					<section class="hero">
+						<div class="hero-milkyway" aria-hidden="true"></div>
+						<div class="hero-petals" aria-hidden="true"></div>
 
-			<picture class="app-mock">
-				<source media="(max-width: 600px)" srcset={blankPixel} />
-				<Image
-					src={AppMock}
-					width={1290}
-					height={726}
-					widths={[800, 1290, 1940, 2580]}
-					sizes="min(1290px, calc(100vw - 32px))"
-					quality={100}
-					loading="eager"
-					alt="The Colibri desktop app showing the general channel of a space called Colibri HQ, with messages, reactions and a member list."
-				/>
-			</picture>
-		</section>
-
-		<section class="bento-section" aria-labelledby="features-title">
-			<h2 class="sr-only" id="features-title">Features</h2>
-			<div class="site-wrap">
-				<div class="bento">
-					<article class="card card-row c-bridge">
-						<div class="media">
-							<BridgeGraph />
-						</div>
-						<div class="card-text">
-							<h3 class="card-title">Take your old messages with you</h3>
-							<p class="card-body">
-								Bridge existing content from other platforms so you don’t have
-								to leave anything behind. Your entire history is preserved and
-								viewable from within Colibri!
-							</p>
-							<a class="more-link" href="/docs/users/bridges/">
-								Get bridging
-								<svg viewBox="0 0 24 24" aria-hidden="true">
-									<path d="M9 5L15 12L9 19"></path>
-								</svg>
-							</a>
-						</div>
-					</article>
-
-					<article class="card c-emoji">
-						<div class="media">
-							<EmojiRain />
-						</div>
-						<div class="card-text">
-							<h3 class="card-title">Express yourself</h3>
-							<p class="card-body">
-								Colibri supports custom emoji, static and animated, without you
-								having to pay for either. Make packs and share them with
-								friends!
-							</p>
-						</div>
-					</article>
-
-					<article class="card c-phone">
-						<div class="media">
-							<PhoneIsland />
-						</div>
-						<div class="card-text">
-							<h3 class="card-title">Chat on the go</h3>
-							<p class="card-body">
-								Don't have a PC around? We’ve got first-party apps for Android
-								and iOS, so you can take your conversations with you.
-							</p>
-						</div>
-					</article>
-
-					<article class="card c-files">
-						<div class="media">
-							<MediaStack />
-						</div>
-						<div class="card-text">
-							<h3 class="card-title">Share your memes and compilations</h3>
-							<p class="card-body">
-								Upload images, videos, PDFs, and GIFs powered by our GIF picker
-								to add some spice to your conversations.
-								<br />
-								Yes, that doge is very cute.
-							</p>
-						</div>
-					</article>
-
-					<article class="card c-channels">
-						<div class="media">
-							<ChannelTour />
-						</div>
-						<div class="card-text">
-							<h3 class="card-title">Jump in and out of conversations</h3>
-							<p class="card-body">
-								Create channels for chatting, one for sharing images, have two
-								voice channels for your gaming sessions, and create threads when
-								it’s going a bit too much off-topic.
-							</p>
-						</div>
-					</article>
-
-					<article class="card card-row c-voice">
-						<div class="card-text">
-							<h3 class="card-title">Get chatty</h3>
-							<p class="card-body">
-								Hop into a voice channel and get talking! Turn on your camera
-								for those reading sessions, or share your screen in high
-								resolution for some gaming sessions.
-							</p>
-						</div>
-						<div class="media">
-							<div class="voice-scale" aria-hidden="true">
-								<MockVoiceCall client:visible />
-							</div>
-						</div>
-					</article>
-				</div>
-			</div>
-		</section>
-
-		<section class="support" aria-labelledby="support-title">
-			<div class="support-milkyway" aria-hidden="true"></div>
-			<div class="site-wrap split">
-				<div class="split-text">
-					<h2 class="h2" id="support-title">
-						Colibri is made possible by people{" "}
-						<span class="gold">like you</span>.
-					</h2>
-					<p class="lead">
-						Colibri is free, open source software that anyone can use. Your
-						contributions help us pay for fixes, updates and the infrastructure
-						around the globe. Every amount helps, and you can get an in-app
-						badge for supporting us.
-					</p>
-					{funding && (
-						<div class="progress">
-							<div class="progress-top">
-								<span>{dollars(funding.monthlyCents)} raised per month</span>
-								<span>Goal: {dollars(funding.goalCents)}</span>
-							</div>
-							<div
-								class="progress-bar"
-								role="progressbar"
-								aria-valuemin="0"
-								aria-valuemax={funding.goalCents / 100}
-								aria-valuenow={funding.monthlyCents / 100}
-								aria-label="Monthly funding goal"
-							>
-								<div
-									class="progress-fill"
-									style={`width: ${fundingPercent}%`}
+						<div
+							class="hero-branch-wrap"
+							data-branch="right"
+							data-parallax="0.18"
+							aria-hidden="true"
+						>
+							<canvas
+								class="branch-gl"
+								data-branch="right"
+								data-branch-src={Branch.src}
+								data-draw-w="800"
+								data-draw-h="519"
+							></canvas>
+							<picture>
+								<source media="(max-width: 1023px)" srcset={blankPixel} />
+								<img
+									src={branchImage.src}
+									width="800"
+									height="519"
+									alt=""
+									class="branch-fallback"
+									fetchpriority="high"
 								/>
-							</div>
-							<span>
-								By {funding.contributors}{" "}
-								{funding.contributors === 1 ? "contributor" : "contributors"}
-							</span>
+							</picture>
+							<div class="branch-hit" data-branch-hit="right"></div>
 						</div>
-					)}
-				</div>
-
-				<div class="support-card" data-support-card>
-					<div class="seg-group">
-						<div class="seg" role="group" aria-label="How often">
-							<button type="button" data-freq="month" aria-pressed="true">
-								Monthly
-							</button>
-							<button type="button" data-freq="once" aria-pressed="false">
-								One-time
-							</button>
-						</div>
-						<div class="seg" role="group" aria-label="Amount">
-							<button type="button" data-amount="5" aria-pressed="false">
-								$5
-							</button>
-							<button type="button" data-amount="10" aria-pressed="true">
-								$10
-							</button>
-							<button type="button" data-amount="25" aria-pressed="false">
-								$25
-							</button>
-						</div>
-					</div>
-					<div class="profile" aria-live="polite">
-						<Image
-							src={Kira}
-							width={52}
-							height={52}
-							quality={100}
-							alt=""
-							class="profile-avatar"
-						/>
-						<div class="profile-main">
-							<div class="profile-name">
-								<strong>Kira</strong>
-								<span
-									class="badge"
-									data-support-badge
-									style="background: #e870df"
-								>
-									$10 SUPPORTER
-								</span>
-							</div>
-							<div class="profile-status">
-								<Image src={Grin} width={24} height={24} alt="" quality={100} />
-								<span data-support-status>
-									I’m supporting Colibri with $10 per month!
-								</span>
-							</div>
-						</div>
-					</div>
-					<div class="support-actions">
-						<a
-							class="site-btn site-btn-primary"
-							data-support-link
-							href="https://opencollective.com/colibri-social/donate?interval=month&amount=10"
-							target="_blank"
-							rel="noreferrer"
+						<div
+							class="hero-branch-wrap"
+							data-branch="left"
+							data-parallax="0.26"
+							aria-hidden="true"
 						>
-							Support on Open Collective
-						</a>
-						<a
-							class="site-btn support-secondary"
-							href="https://github.com/sponsors/colibri-social"
-							target="_blank"
-							rel="noreferrer"
-						>
-							Support on GitHub Sponsors
-						</a>
-					</div>
-				</div>
-			</div>
-		</section>
-
-		<section class="atproto" aria-labelledby="atproto-title">
-			<div class="site-wrap split">
-				<div class="media">
-					<AccountMove client:visible />
-				</div>
-				<div class="split-text">
-					<h2 class="h2" id="atproto-title">
-						Built so your messages <span class="gold">stay with you</span>
-					</h2>
-					<p class="lead">
-						Colibri is built on an emerging technology called the AT Protocol.
-						It allows you to move your account to wherever you want, without
-						losing ownership over the messages you’ve sent.
-					</p>
-					<a class="more-link" href="#">
-						Read our explainer article
-						<svg viewBox="0 0 24 24" aria-hidden="true">
-							<path d="M9 5L15 12L9 19"></path>
-						</svg>
-					</a>
-				</div>
-			</div>
-		</section>
-
-		<section class="cta-section" aria-labelledby="cta-title">
-			<div class="site-wrap">
-				<div class="cta">
-					<div class="cta-milkyway" aria-hidden="true"></div>
-					<canvas class="cta-stars" data-cta-stars aria-hidden="true"></canvas>
-					<div class="cta-inner">
-						<h2 class="cta-title" id="cta-title">
-							Are you ready to take off?
-						</h2>
-						<p class="cta-sub">
-							Join Colibri today, create a space, and get chatting on a platform
-							that’s made for you!
-						</p>
-						<div class="cta-row">
-							<a class="site-btn site-btn-light" data-download href="/download">
-								Download Colibri
-							</a>
-							<a class="site-btn site-btn-dark" href="/app">
-								Open Colibri in your browser
-							</a>
+							<canvas
+								class="branch-gl"
+								data-branch="left"
+								data-branch-src={Branch.src}
+								data-draw-w="800"
+								data-draw-h="519"
+							></canvas>
+							<picture>
+								<source media="(max-width: 639px)" srcset={blankPixel} />
+								<img
+									src={branchImage.src}
+									width="800"
+									height="519"
+									alt=""
+									class="branch-fallback"
+									fetchpriority="high"
+								/>
+							</picture>
+							<div class="branch-hit" data-branch-hit="left"></div>
 						</div>
-					</div>
-				</div>
-			</div>
-		</section>
 
-		<section class="faq-section" id="faq" aria-labelledby="faq-title">
-			<div class="site-wrap">
-				<h2 class="faq-title" id="faq-title">
-					Still got questions? Maybe we can help you!
-				</h2>
-				<div class="faq" data-faq>
-					{faq.map((item, i) => (
-						<details name="faq" open={i === 0}>
-							<summary>
-								{item.data.question}
-								<svg viewBox="0 0 24 24" aria-hidden="true">
-									<path d="M19 9L12 15L5 9" />
-								</svg>
-							</summary>
-							<p class="faq-answer">{item.data.answer}</p>
-						</details>
-					))}
+						<div class="site-wrap hero-inner">
+							<h1 class="hero-title reset">LET YOUR COMMUNITY SPREAD ITS WINGS.</h1>
+							<p class="hero-sub">
+								Call, chat, and hang out on a platform built for you!
+							</p>
+							<div class="cta-row">
+								<a class="site-btn site-btn-light" data-download href="/download">
+									Download Colibri
+								</a>
+								<a class="site-btn site-btn-dark" href="/app">
+									Open Colibri in your browser
+								</a>
+							</div>
+						</div>
+
+						<picture class="app-mock">
+							<source media="(max-width: 600px)" srcset={blankPixel} />
+							<Image
+								src={AppMock}
+								width={1290}
+								height={726}
+								widths={[800, 1290, 1940, 2580]}
+								sizes="min(1290px, calc(100vw - 32px))"
+								quality={100}
+								loading="eager"
+								alt="The Colibri desktop app showing the general channel of a space called Colibri HQ, with messages, reactions and a member list."
+							/>
+						</picture>
+					</section>
+
+					<section class="bento-section" aria-labelledby="features-title">
+						<h2 class="sr-only" id="features-title">Features</h2>
+						<div class="site-wrap">
+							<div class="bento">
+								<article class="card card-row c-bridge">
+									<div class="media">
+										<BridgeGraph />
+									</div>
+									<div class="card-text">
+										<h3 class="card-title">Take your old messages with you</h3>
+										<p class="card-body">
+											Bridge existing content from other platforms so you don’t have
+											to leave anything behind. Your entire history is preserved and
+											viewable from within Colibri!
+										</p>
+										<a class="more-link" href="/docs/users/bridges/">
+											Get bridging
+											<svg viewBox="0 0 24 24" aria-hidden="true">
+												<path d="M9 5L15 12L9 19"></path>
+											</svg>
+										</a>
+									</div>
+								</article>
+
+								<article class="card c-emoji">
+									<div class="media">
+										<EmojiRain />
+									</div>
+									<div class="card-text">
+										<h3 class="card-title">Express yourself</h3>
+										<p class="card-body">
+											Colibri supports custom emoji, static and animated, without you
+											having to pay for either. Make packs and share them with
+											friends!
+										</p>
+									</div>
+								</article>
+
+								<article class="card c-phone">
+									<div class="media">
+										<PhoneIsland />
+									</div>
+									<div class="card-text">
+										<h3 class="card-title">Chat on the go</h3>
+										<p class="card-body">
+											Don't have a PC around? We’ve got first-party apps for Android
+											and iOS, so you can take your conversations with you.
+										</p>
+									</div>
+								</article>
+
+								<article class="card c-files">
+									<div class="media">
+										<MediaStack />
+									</div>
+									<div class="card-text">
+										<h3 class="card-title">Share your memes and compilations</h3>
+										<p class="card-body">
+											Upload images, videos, PDFs, and GIFs powered by our GIF picker
+											to add some spice to your conversations.
+											<br />
+											Yes, that doge is very cute.
+										</p>
+									</div>
+								</article>
+
+								<article class="card c-channels">
+									<div class="media">
+										<ChannelTour />
+									</div>
+									<div class="card-text">
+										<h3 class="card-title">Jump in and out of conversations</h3>
+										<p class="card-body">
+											Create channels for chatting, one for sharing images, have two
+											voice channels for your gaming sessions, and create threads when
+											it’s going a bit too much off-topic.
+										</p>
+									</div>
+								</article>
+
+								<article class="card card-row c-voice">
+									<div class="card-text">
+										<h3 class="card-title">Get chatty</h3>
+										<p class="card-body">
+											Hop into a voice channel and get talking! Turn on your camera
+											for those reading sessions, or share your screen in high
+											resolution for some gaming sessions.
+										</p>
+									</div>
+									<div class="media">
+										<div class="voice-scale" aria-hidden="true">
+											<MockVoiceCall client:visible />
+										</div>
+									</div>
+								</article>
+							</div>
+						</div>
+					</section>
+
+					<section class="support" aria-labelledby="support-title">
+						<div class="support-milkyway" aria-hidden="true"></div>
+						<div class="site-wrap split">
+							<div class="split-text">
+								<h2 class="h2" id="support-title">
+									Colibri is made possible by people{" "}
+									<span class="gold">like you</span>.
+								</h2>
+								<p class="lead">
+									Colibri is free, open source software that anyone can use. Your
+									contributions help us pay for fixes, updates and the infrastructure
+									around the globe. Every amount helps, and you can get an in-app
+									badge for supporting us.
+								</p>
+								{funding && (
+									<div class="progress">
+										<div class="progress-top">
+											<span>{dollars(funding.monthlyCents)} raised per month</span>
+											<span>Goal: {dollars(funding.goalCents)}</span>
+										</div>
+										<div
+											class="progress-bar"
+											role="progressbar"
+											aria-valuemin="0"
+											aria-valuemax={funding.goalCents / 100}
+											aria-valuenow={funding.monthlyCents / 100}
+											aria-label="Monthly funding goal"
+										>
+											<div
+												class="progress-fill"
+												style={`width: ${fundingPercent}%`}
+											/>
+										</div>
+										<span>
+											By {funding.contributors}{" "}
+											{funding.contributors === 1 ? "contributor" : "contributors"}
+										</span>
+									</div>
+								)}
+							</div>
+
+							<div class="support-card" data-support-card>
+								<div class="seg-group">
+									<div class="seg" role="group" aria-label="How often">
+										<button type="button" data-freq="month" aria-pressed="true">
+											Monthly
+										</button>
+										<button type="button" data-freq="once" aria-pressed="false">
+											One-time
+										</button>
+									</div>
+									<div class="seg" role="group" aria-label="Amount">
+										<button type="button" data-amount="5" aria-pressed="false">
+											$5
+										</button>
+										<button type="button" data-amount="10" aria-pressed="true">
+											$10
+										</button>
+										<button type="button" data-amount="25" aria-pressed="false">
+											$25
+										</button>
+									</div>
+								</div>
+								<div class="profile" aria-live="polite">
+									<Image
+										src={Kira}
+										width={52}
+										height={52}
+										quality={100}
+										alt=""
+										class="profile-avatar"
+									/>
+									<div class="profile-main">
+										<div class="profile-name">
+											<strong>Kira</strong>
+											<span
+												class="badge"
+												data-support-badge
+												style="background: #e870df"
+											>
+												$10 SUPPORTER
+											</span>
+										</div>
+										<div class="profile-status">
+											<Image src={Grin} width={24} height={24} alt="" quality={100} />
+											<span data-support-status>
+												I’m supporting Colibri with $10 per month!
+											</span>
+										</div>
+									</div>
+								</div>
+								<div class="support-actions">
+									<a
+										class="site-btn site-btn-primary"
+										data-support-link
+										href="https://opencollective.com/colibri-social/donate?interval=month&amount=10"
+										target="_blank"
+										rel="noreferrer"
+									>
+										Support on Open Collective
+									</a>
+									<a
+										class="site-btn support-secondary"
+										href="https://github.com/sponsors/colibri-social"
+										target="_blank"
+										rel="noreferrer"
+									>
+										Support on GitHub Sponsors
+									</a>
+								</div>
+							</div>
+						</div>
+					</section>
+
+					<section class="atproto" aria-labelledby="atproto-title">
+						<div class="site-wrap split">
+							<div class="media">
+								<AccountMove client:visible />
+							</div>
+							<div class="split-text">
+								<h2 class="h2" id="atproto-title">
+									Built so your messages <span class="gold">stay with you</span>
+								</h2>
+								<p class="lead">
+									Colibri is built on an emerging technology called the AT Protocol.
+									It allows you to move your account to wherever you want, without
+									losing ownership over the messages you’ve sent.
+								</p>
+								<a class="more-link" href="#">
+									Read our explainer article
+									<svg viewBox="0 0 24 24" aria-hidden="true">
+										<path d="M9 5L15 12L9 19"></path>
+									</svg>
+								</a>
+							</div>
+						</div>
+					</section>
+
+					<section class="cta-section" aria-labelledby="cta-title">
+						<div class="site-wrap">
+							<div class="cta">
+								<div class="cta-milkyway" aria-hidden="true"></div>
+								<canvas class="cta-stars" data-cta-stars aria-hidden="true"></canvas>
+								<div class="cta-inner">
+									<h2 class="cta-title" id="cta-title">
+										Are you ready to take off?
+									</h2>
+									<p class="cta-sub">
+										Join Colibri today, create a space, and get chatting on a platform
+										that’s made for you!
+									</p>
+									<div class="cta-row">
+										<a class="site-btn site-btn-light" data-download href="/download">
+											Download Colibri
+										</a>
+										<a class="site-btn site-btn-dark" href="/app">
+											Open Colibri in your browser
+										</a>
+									</div>
+								</div>
+							</div>
+						</div>
+					</section>
+
+					<section class="faq-section" id="faq" aria-labelledby="faq-title">
+						<div class="site-wrap">
+							<h2 class="faq-title" id="faq-title">
+								Still got questions? Maybe we can help you!
+							</h2>
+							<div class="faq" data-faq>
+								{faq.map((item, i) => (
+									<details name="faq" open={i === 0}>
+										<summary>
+											{item.data.question}
+											<svg viewBox="0 0 24 24" aria-hidden="true">
+												<path d="M19 9L12 15L5 9" />
+											</svg>
+										</summary>
+										<p class="faq-answer">{item.data.answer}</p>
+									</details>
+								))}
+							</div>
+						</div>
+					</section>
 				</div>
-			</div>
-		</section>
-	</div>
-</PublicLayout>
+			</PublicLayout>
+			<script src="@/scripts/landing.ts"></script>
+		</>
+	)
+}
 
 <style>
 	.landing {
@@ -1347,4 +1357,3 @@ const blankPixel =
 		}
 	}
 </style>
-<script src="@/scripts/landing.ts"></script>

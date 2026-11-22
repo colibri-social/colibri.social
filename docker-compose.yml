@@ -5,6 +5,7 @@ services:
       dockerfile: apps/website/Dockerfile
       args:
         - SAME_TLD_DID=${SAME_TLD_DID}
+        - MAINTENANCE=${MAINTENANCE:-false}
         - REDIS_PASSWORD=${REDIS_PASSWORD}
         - SENTRY_DSN=${SENTRY_DSN}
         - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}

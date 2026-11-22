@@ -1,0 +1,237 @@
+---
+import "@/styles/global.css";
+import { Font, Image } from "astro:assets";
+import MilkyWayWide from "@/assets/landing/milkyway-wide.webp";
+import AppMock from "@/assets/maintenance/app-mock.png";
+import { ogImageFor } from "@/lib/og/url";
+import { NOINDEX } from "@/site";
+
+const title = "Working on something new";
+const description =
+	"Colibri is working on something new. Watch along on status.colibri.social, or follow @colibri.social on Bluesky for updates.";
+const canonical = Astro.site;
+const image = ogImageFor({ kind: "home" }, Astro.site);
+const milkyWayVars = `--milkyway-wide: url(${MilkyWayWide.src});`;
+---
+
+<html lang="en" class="dark" style="background-color: #0b0b0b;">
+	<head>
+		<meta charset="utf-8" />
+		<link
+			rel="icon"
+			type="image/png"
+			href="/favicon-96x96.png?v=1"
+			sizes="96x96"
+		/>
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1" />
+		<link rel="shortcut icon" href="/favicon.ico?v=1" />
+		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+		<meta name="apple-mobile-web-app-title" content="Colibri" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<meta name="viewport" content="width=device-width, viewport-fit=cover" />
+		<meta name="generator" content={Astro.generator} />
+		{NOINDEX && <meta name="robots" content="noindex, nofollow" />}
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<meta name="theme-color" content="#8e51ff" />
+		<link rel="canonical" href={canonical} />
+		<meta property="og:site_name" content="Colibri" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:image" content={image} />
+		<meta property="og:url" content={canonical} />
+		<meta property="og:type" content="website" />
+		<meta property="og:locale" content="en" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={image} />
+		<Font cssVariable="--font-hanken-grotesk" preload={[{ style: "normal" }]} />
+		<Font cssVariable="--font-stardom" preload />
+	</head>
+	<body class="maintenance-body">
+		<main class="maintenance" style={milkyWayVars}>
+			<div class="backdrop" aria-hidden="true">
+				<div class="milkyway"></div>
+			</div>
+
+			<div class="content">
+				<h1 class="headline reset">Working on<br />something new</h1>
+				<div class="actions">
+					<a
+						class="site-btn action action-primary"
+						href="https://status.colibri.social"
+					>
+						Watch along on status.colibri.social
+					</a>
+					<a
+						class="site-btn action action-secondary"
+						href="https://bsky.app/profile/colibri.social"
+					>
+						Get updates on Bluesky
+					</a>
+				</div>
+			</div>
+
+			<div class="stage">
+				<div class="mock">
+					<div class="mock-glow" aria-hidden="true"></div>
+					<Image
+						class="mock-image"
+						src={AppMock}
+						widths={[800, 1200, 1729]}
+						quality={100}
+						sizes="min(1728px, 90vw)"
+						loading="eager"
+						alt="The Colibri desktop app showing the general channel of a space called Colibri HQ, with messages, reactions and a member list."
+					/>
+				</div>
+			</div>
+		</main>
+	</body>
+</html>
+
+<style>
+	.maintenance-body {
+		margin: 0;
+		min-height: 100svh;
+		background: #0b0b0b;
+	}
+
+	.maintenance {
+		--gutter: clamp(16px, 5vw, 96px);
+		--mock-w: min(1728px, calc(100vw - 2 * var(--gutter)));
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		min-height: 100svh;
+		overflow: clip;
+		color: #fff;
+		font-family: var(--font-sans);
+	}
+
+	.backdrop {
+		position: absolute;
+		inset: 0 0 auto;
+		height: max(100%, 61.75vw);
+		background: rgba(0, 0, 0, 0.25);
+		pointer-events: none;
+	}
+
+	.milkyway {
+		position: absolute;
+		inset: 0 -4.85%;
+		opacity: 0.25;
+		background:
+			radial-gradient(50% 93.3% at 50% 93.3%, var(--mw-glow)),
+			#d9d9d9;
+		-webkit-mask: var(--milkyway-wide) center / cover no-repeat;
+		mask: var(--milkyway-wide) center / cover no-repeat;
+	}
+
+	.content {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: clamp(28px, 2.1vw, 40px);
+		padding: clamp(96px, 13.8svh, 149px)
+			max(16px, env(safe-area-inset-right, 0px)) 0
+			max(16px, env(safe-area-inset-left, 0px));
+		text-align: center;
+	}
+
+	.headline {
+		width: min(1042px, 100%);
+		margin: 0;
+		font-family: var(--font-stardom);
+		font-weight: 400;
+		font-size: clamp(44px, 5vw, 96px);
+		line-height: 0.996;
+		padding-bottom: 0.4em;
+		margin-bottom: -0.4em;
+		letter-spacing: normal;
+		text-wrap: balance;
+		color: transparent;
+		background: linear-gradient(80.457deg, #fff 40.385%, #8e51ff 100%);
+		-webkit-background-clip: text;
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+	}
+
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 16px 32px;
+	}
+
+	.actions .action {
+		height: 36px;
+		padding: 0 20px;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 12px;
+		font-size: 14px;
+		font-weight: 600;
+		color: #fff;
+	}
+
+	.actions .action-primary {
+		background: #8e51ff;
+	}
+
+	.actions .action-secondary {
+		background: var(--site-secondary);
+	}
+
+	.stage {
+		position: relative;
+		margin-top: auto;
+		padding-top: clamp(64px, 11vw, 210px);
+	}
+
+	.mock {
+		position: relative;
+		width: var(--mock-w);
+		margin-inline: auto;
+	}
+
+	.mock-glow {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: calc(var(--mock-w) * 0.5667);
+		background: linear-gradient(to top, rgba(213, 115, 45, 0), #8e51ff);
+		filter: blur(calc(var(--mock-w) * 0.025));
+	}
+
+	.mock-image {
+		position: relative;
+		display: block;
+		width: 100%;
+		height: auto;
+		border-radius: 12px;
+	}
+
+	@media (max-width: 600px) {
+		.content {
+			margin-block: auto;
+			padding-top: 64px;
+			padding-bottom: 64px;
+		}
+
+		.stage {
+			display: none;
+		}
+
+		.actions {
+			width: 100%;
+			max-width: 340px;
+		}
+
+		.actions .action {
+			width: 100%;
+		}
+	}
+</style>

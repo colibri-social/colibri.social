@@ -203,6 +203,11 @@ export default defineConfig({
 				access: "secret",
 				optional: true,
 			}),
+			MAINTENANCE: envField.boolean({
+				context: "server",
+				access: "public",
+				default: false,
+			}),
 		},
 	},
 	security: {
