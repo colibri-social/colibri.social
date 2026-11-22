@@ -53,7 +53,7 @@ export type BlueskyPost = {
 	text: string;
 	segments?: RichTextSpan[];
 	url?: string;
-	images?: MediaItem[];
+	media?: MediaItem[];
 	replyTo?: string;
 	quote?: BlueskyPost;
 	stats?: BlueskyPostStats;
@@ -132,6 +132,8 @@ const ClientIcon = (props: { client: BlueskyEmbedClient }) => (
 	</Show>
 );
 
+const QUOTE_MEDIA_MAX_TILES = 4;
+
 const QuotedPost = (props: { post: BlueskyPost }) => (
 	<div
 		data-bluesky-quote=""
@@ -141,6 +143,15 @@ const QuotedPost = (props: { post: BlueskyPost }) => (
 		<p class="m-0 line-clamp-3 text-sm leading-prose select-text">
 			<PostText post={props.post} />
 		</p>
+		<Show when={props.post.media?.length}>
+			<div data-bluesky-quote-media="" class="w-full">
+				<MediaGrid
+					items={props.post.media ?? []}
+					maxTiles={QUOTE_MEDIA_MAX_TILES}
+					radiusClass="rounded-control-sm"
+				/>
+			</div>
+		</Show>
 	</div>
 );
 
@@ -207,9 +218,9 @@ export const BlueskyPostEmbed = (props: BlueskyPostEmbedProps) => {
 			<p class="m-0 text-sm leading-prose whitespace-pre-wrap break-words select-text">
 				<PostText post={props.post} />
 			</p>
-			<Show when={props.post.images?.length}>
+			<Show when={props.post.media?.length}>
 				<MediaGrid
-					items={props.post.images ?? []}
+					items={props.post.media ?? []}
 					onOpen={props.onOpenImage}
 					radiusClass="rounded-badge"
 				/>

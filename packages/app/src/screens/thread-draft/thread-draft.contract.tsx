@@ -119,7 +119,11 @@ export const threadDraft = defineContract({
 			return displayNameOf(member?.actor ?? message.author, member);
 		};
 
-		const submit = async (value: { text: string; facets: unknown[] }) => {
+		const submit = async (value: {
+			text: string;
+			facets: unknown[];
+			suppressedEmbeds?: string[];
+		}) => {
 			const ref = parent()?.space;
 			if (!ref || busy()) return false;
 			const payload = fromComposerValue(
@@ -154,6 +158,7 @@ export const threadDraft = defineContract({
 				const suppressedEmbeds = suppressedLinksFor(
 					converted.facets,
 					showPreviews,
+					value.suppressedEmbeds,
 				);
 				void data.channel(created.space).send({
 					...payload,

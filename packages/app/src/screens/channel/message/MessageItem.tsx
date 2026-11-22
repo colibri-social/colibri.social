@@ -114,6 +114,7 @@ import { packLinkOf } from "./pack-embed";
 import { type ReplyPartEmoji, replyParts } from "./reply-parts";
 import {
 	type ChatMessage,
+	editValueOf,
 	isDeletedParent,
 	isHiddenMessage,
 	isVisibleParent,
@@ -910,8 +911,8 @@ export const MessageItem = (props: MessageItemProps) => {
 	const editingNow = () =>
 		desktop() && chat.editingKey?.() === message().key
 			? {
-					value: chat.editDraft?.() ?? text(),
-					baseline: text(),
+					value: chat.editDraft?.() ?? editValueOf(message()),
+					baseline: editValueOf(message()),
 					onChange: (value: RichText) => chat.onEditChange?.(value),
 					sources: chat.editSources,
 					emoji: { packs: chat.emojiPacks?.() },

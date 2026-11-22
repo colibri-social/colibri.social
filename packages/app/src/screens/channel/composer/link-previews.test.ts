@@ -40,4 +40,22 @@ describe("composer link previews", () => {
 		expect(isDirectMediaUrl("https://example.com/png")).toBe(false);
 		expect(isDirectMediaUrl("not a url")).toBe(false);
 	});
+
+	it("adds links written with angle brackets while previews stay on", () => {
+		expect(
+			suppressedLinksFor(facets, true, ["https://example.com/post"]),
+		).toEqual(["https://example.com/post"]);
+	});
+
+	it("merges angle bracket links with the toggle without duplicates", () => {
+		expect(
+			suppressedLinksFor(facets, false, [
+				"https://example.com/post",
+				"https://media.example.com/cat.gif",
+			]),
+		).toEqual([
+			"https://example.com/post",
+			"https://media.example.com/cat.gif",
+		]);
+	});
 });

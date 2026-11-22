@@ -11,7 +11,11 @@ import { shortcodeToEmoji } from "@tiptap/extension-emoji";
 import { TIPTAP_EMOJIS } from "../../utils/emoji-data";
 import { MARKDOWN_LINK_POLICY } from "../../utils/rich-text/link-safety";
 
-export type ParsedText = { text: string; facets: Array<ColibriRichTextFacet> };
+export type ParsedText = {
+	text: string;
+	facets: Array<ColibriRichTextFacet>;
+	suppressedEmbeds: string[];
+};
 type DocContent =
 	| ReturnType<Editor["getJSON"]>["content"]
 	| (NodeType<any, any, any, any> | TextType<MarkType<any, any>>)[];

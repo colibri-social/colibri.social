@@ -1336,6 +1336,14 @@ export const createMockSource = (
 					};
 					if (input.facets?.length) next.facets = input.facets;
 					else delete next.facets;
+
+					if (input.suppressedEmbeds?.length) {
+						next.suppressedEmbeds =
+							input.suppressedEmbeds as MessageView["suppressedEmbeds"];
+					} else if (input.suppressedEmbeds) {
+						delete next.suppressedEmbeds;
+					}
+
 					list[index] = next;
 					emit({
 						$type: "messageEvent",

@@ -39,6 +39,7 @@ export interface MarkdownToken {
 	level?: number;
 	ordered?: boolean;
 	indent?: number;
+	suppressEmbed?: boolean;
 }
 
 const FEATURE_TYPE: Partial<Record<MarkdownTokenKind, Feature["$type"]>> = {
@@ -108,6 +109,8 @@ const escapeTokens = (
 
 	return tokens;
 };
+
+const MASKED_SUPPRESSED_DESTINATION = /^\]\(\s*</;
 
 const offset = (node: { position?: { start: { offset?: number } } }): number =>
 	node.position?.start.offset ?? 0;
@@ -348,16 +351,23 @@ const tokenizeUnquoted = (source: string): MarkdownToken[] => {
 			case "link": {
 				const kids = node.children;
 				if (kids.length && node.url) {
+					const start = offset(node);
+					const end = endOffset(node);
 					const contentStart = offset(kids[0]);
 					const contentEnd = endOffset(kids[kids.length - 1]);
+					const suppressEmbed =
+						source[start] === "<" ||
+						MASKED_SUPPRESSED_DESTINATION.test(source.slice(contentEnd, end));
+
 					tokens.push({
 						kind: "link",
 						markers: [
-							[offset(node), contentStart],
-							[contentEnd, endOffset(node)],
+							[start, contentStart],
+							[contentEnd, end],
 						],
 						content: [contentStart, contentEnd],
 						uri: node.url,
+						...(suppressEmbed ? { suppressEmbed } : {}),
 					});
 				}
 				break;
@@ -527,6 +537,7 @@ export interface SourceFacet {
 export interface ParsedMarkdown {
 	text: string;
 	facets: Array<ColibriRichTextFacet>;
+	suppressedEmbeds: string[];
 }
 
 export interface ParseMarkdownOptions {
@@ -690,7 +701,15 @@ export const parseMarkdown = (
 			a.index.byteEnd - b.index.byteEnd,
 	);
 
-	return { text, facets };
+	const suppressedEmbeds = [
+		...new Set(
+			tokens
+				.filter((t) => t.kind === "link" && t.suppressEmbed && t.uri)
+				.map((t) => t.uri as string),
+		),
+	];
+
+	return { text, facets, suppressedEmbeds };
 };
 
 const byteIndexMap = (text: string): Map<number, number> => {
@@ -738,7 +757,11 @@ const scanLines = (text: string): Line[] => {
 	return lines;
 };
 
-export const normalizeWhitespace = (input: ParsedMarkdown): ParsedMarkdown => {
+export const normalizeWhitespace = <
+	T extends { text: string; facets: Array<ColibriRichTextFacet> },
+>(
+	input: T,
+): T => {
 	const { text, facets } = input;
 	if (!text) return input;
 
@@ -823,7 +846,7 @@ export const normalizeWhitespace = (input: ParsedMarkdown): ParsedMarkdown => {
 		mapped.push({ ...facet, index: { ...facet.index, byteStart, byteEnd } });
 	}
 
-	return { text: cleaned, facets: mapped };
+	return { ...input, text: cleaned, facets: mapped };
 };
 
 const ATOM_KIND = new Set([
@@ -932,10 +955,26 @@ interface BuiltSource extends SourceWithAtoms {
 	textAt: Map<number, number>;
 }
 
+const ANGLE_AUTOLINK_URI_RE = /^[a-z][a-z0-9+.-]{1,31}:[^\s<>]*$/i;
+const ANGLE_DESTINATION_RE = /^[^\n<>]*$/;
+
+const linkMarkers = (
+	label: string,
+	uri: string,
+	suppressed: boolean,
+): [string, string] => {
+	if (!suppressed) return ["[", `](${uri})`];
+	if (label === uri && ANGLE_AUTOLINK_URI_RE.test(uri)) return ["<", ">"];
+	if (ANGLE_DESTINATION_RE.test(uri)) return ["[", `](<${uri}>)`];
+
+	return ["[", `](${uri})`];
+};
+
 const buildSource = (
 	text: string,
 	facets: Array<ColibriRichTextFacet>,
 	escapes: Set<number>,
+	suppressed: ReadonlySet<string>,
 ): BuiltSource => {
 	const byteToStr = byteIndexMap(text);
 	const toStr = (byte: number): number => byteToStr.get(byte) ?? text.length;
@@ -986,12 +1025,19 @@ const buildSource = (
 				addMarker(opensAt, start, inline);
 				addMarker(closesAt, end, inline);
 			} else if (kind === "link") {
-				if (
-					isAutolinkable(text, start, end, "uri" in feature ? feature.uri : "")
-				)
-					continue;
-				addMarker(opensAt, start, "[");
-				addMarker(closesAt, end, `](${"uri" in feature ? feature.uri : ""})`);
+				const uri = "uri" in feature ? feature.uri : "";
+				const embedSuppressed = suppressed.has(uri);
+
+				if (!embedSuppressed && isAutolinkable(text, start, end, uri)) continue;
+
+				const [open, close] = linkMarkers(
+					text.slice(start, end),
+					uri,
+					embedSuppressed,
+				);
+
+				addMarker(opensAt, start, open);
+				addMarker(closesAt, end, close);
 			} else if (kind === "codeblock") {
 				if (end > start) {
 					codeblocks.push([
@@ -1203,7 +1249,9 @@ const escapesNeeded = (built: BuiltSource, text: string): number[] => {
 export const facetsToSource = (
 	text: string,
 	facets: Array<ColibriRichTextFacet>,
+	suppressedEmbeds: ReadonlyArray<string> = [],
 ): SourceWithAtoms => {
+	const suppressed = new Set(suppressedEmbeds);
 	const literal = literalRanges(text, facets);
 	const escapable = (index: number): boolean =>
 		!literal.some(([start, end]) => index >= start && index < end);
@@ -1211,7 +1259,7 @@ export const facetsToSource = (
 		unlinkedAutolinkStarts(text, facets).filter(escapable),
 	);
 
-	let built = buildSource(text, facets, escapes);
+	let built = buildSource(text, facets, escapes, suppressed);
 	for (let round = 0; round < MAX_ESCAPE_ROUNDS; round++) {
 		const added = escapesNeeded(built, text).filter(
 			(index) => escapable(index) && !escapes.has(index),
@@ -1219,7 +1267,7 @@ export const facetsToSource = (
 		if (added.length === 0) break;
 
 		for (const index of added) escapes.add(index);
-		built = buildSource(text, facets, escapes);
+		built = buildSource(text, facets, escapes, suppressed);
 	}
 
 	return { source: built.source, atoms: built.atoms };

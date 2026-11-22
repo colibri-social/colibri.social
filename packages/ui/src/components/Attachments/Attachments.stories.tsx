@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import { expectFocusRingVisible } from "../../foundations/focus-ring-test";
 import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { paintImage } from "../Banner/story-images";
-import { createStoryClip } from "../Media/story-clip";
+import { createStoryClip, type StoryClip } from "../Media/story-clip";
 import { MessageRow } from "../Message/MessageRow";
 import {
 	type BlueskyEmbedClient,
@@ -829,7 +829,7 @@ const post: BlueskyPost = {
 		},
 	],
 	url: "https://bsky.app/profile/lou.gg",
-	images: [fixtureImage(4, 1600, 1000), fixtureImage(1, 900, 1200)],
+	media: [fixtureImage(4, 1600, 1000), fixtureImage(1, 900, 1200)],
 	quote: quoted,
 	stats: { replies: 12, reposts: 48, likes: 1_204 },
 };
@@ -937,6 +937,239 @@ export const BlueskyClients: Story = {
 
 export const BlueskyClientsDesktop: Story = {
 	render: () => <BlueskyClientCases desktop />,
+};
+
+const onOpenBluesky = fn();
+
+const blueskyVideo = (clip: StoryClip): MediaItem => ({
+	src: clip.src,
+	kind: "video",
+	mimeType: "video/webm",
+	poster: clip.poster,
+	width: 1280,
+	height: 720,
+	alt: "A heron lifting off the canal",
+	duration: "0:02",
+});
+
+const videoPost = (clip: StoryClip): BlueskyPost => ({
+	author: { name: "Tim", handle: "tim.example.social" },
+	time: "3h",
+	text: "Heron take-off, filmed from the lock gate.",
+	url: "https://bsky.app/profile/tim.example.social/post/3heron",
+	media: [blueskyVideo(clip)],
+	stats: { replies: 4, reposts: 9, likes: 212 },
+});
+
+const quoteWithImages: BlueskyPost = {
+	...post,
+	media: undefined,
+	text: "This is the same pair I saw last week.",
+	segments: undefined,
+	quote: {
+		...quoted,
+		media: [fixtureImage(1, 900, 1200), fixtureImage(5, 1600, 1000)],
+	},
+};
+
+const quoteWithVideo = (clip: StoryClip): BlueskyPost => ({
+	...post,
+	media: undefined,
+	text: "Sound on for the wingbeats.",
+	segments: undefined,
+	quote: { ...quoted, media: [blueskyVideo(clip)] },
+});
+
+const mediaAndQuote: BlueskyPost = {
+	...post,
+	media: [fixtureImage(2, 1600, 1000)],
+	quote: {
+		...quoted,
+		media: [
+			fixtureImage(3, 1200, 900),
+			fixtureImage(6, 1200, 900),
+			fixtureImage(0, 900, 1200),
+		],
+	},
+};
+
+const ClipEmbed = (props: { post: (clip: StoryClip) => BlueskyPost }) => {
+	const clip = createStoryClip(2);
+
+	return (
+		<Show when={clip()} fallback={<BlueskyPostEmbedSkeleton />}>
+			{(ready) => (
+				<BlueskyPostEmbed
+					post={props.post(ready())}
+					onOpenImage={onOpenBluesky}
+				/>
+			)}
+		</Show>
+	);
+};
+
+const quoteOf = (canvasElement: HTMLElement) => {
+	const quote = canvasElement.querySelector<HTMLElement>(
+		"[data-bluesky-quote]",
+	);
+
+	expect(quote).not.toBeNull();
+
+	return quote as HTMLElement;
+};
+
+const waitForEmbedVideo = (root: HTMLElement) => {
+	return waitFor(
+		() => {
+			const found = root.querySelector<HTMLVideoElement>(
+				"[data-media-tile] [data-video-player] video",
+			);
+
+			expect(found).not.toBeNull();
+
+			return found as HTMLVideoElement;
+		},
+		{ timeout: 8000 },
+	);
+};
+
+export const BlueskyVideo: Story = {
+	parameters: mobile,
+	render: () => (
+		<Screen>
+			<Message
+				text="Look at this"
+				attachments={<ClipEmbed post={videoPost} />}
+			/>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		const video = await waitForEmbedVideo(canvasElement);
+		const tile = video.closest<HTMLElement>("[data-media-tile]");
+
+		await expect(video.getAttribute("poster")).toMatch(/^data:image\/png/);
+		const box = tile?.getBoundingClientRect();
+
+		await expect((box?.width ?? 0) / (box?.height ?? 1)).toBeCloseTo(
+			1280 / 720,
+			1,
+		);
+		await expect(
+			canvasElement.querySelector("[data-bluesky-embed] [data-media-grid]"),
+		).not.toBeNull();
+		await expect(
+			canvasElement.querySelector("[data-bluesky-quote]"),
+		).toBeNull();
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
+export const BlueskyQuoteImages: Story = {
+	parameters: mobile,
+	render: () => (
+		<Screen>
+			<Message
+				text="Look at this"
+				attachments={
+					<BlueskyPostEmbed
+						post={quoteWithImages}
+						onOpenImage={onOpenBluesky}
+					/>
+				}
+			/>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		onOpenBluesky.mockClear();
+
+		const quote = quoteOf(canvasElement);
+		const tiles = quote.querySelectorAll("[data-media-tile]");
+
+		await expect(tiles).toHaveLength(2);
+		const media = quote.querySelector<HTMLElement>(
+			"[data-bluesky-quote-media]",
+		);
+		await expect(media).not.toBeNull();
+		const style = getComputedStyle(quote);
+		const contentWidth =
+			quote.clientWidth -
+			Number.parseFloat(style.paddingLeft) -
+			Number.parseFloat(style.paddingRight);
+		const grid = media?.firstElementChild?.getBoundingClientRect();
+		await expect(
+			Math.abs((grid?.width ?? 0) - contentWidth),
+		).toBeLessThanOrEqual(1);
+		await expect(
+			canvasElement.querySelectorAll("[data-bluesky-embed] [data-media-tile]"),
+		).toHaveLength(2);
+		await userEvent.click(
+			within(quote).getByRole("button", {
+				name: "Open image: Example photo 2",
+			}),
+		);
+		await expect(onOpenBluesky).not.toHaveBeenCalled();
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
+export const BlueskyQuoteVideo: Story = {
+	parameters: mobile,
+	render: () => (
+		<Screen>
+			<Message
+				text="Look at this"
+				attachments={<ClipEmbed post={quoteWithVideo} />}
+			/>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		const quote = await waitFor(() => quoteOf(canvasElement), {
+			timeout: 8000,
+		});
+		const video = await waitForEmbedVideo(quote);
+
+		await expect(video.getAttribute("poster")).toMatch(/^data:image\/png/);
+		await expect(
+			canvasElement.querySelectorAll("[data-bluesky-embed] [data-media-tile]"),
+		).toHaveLength(1);
+		await expectNoLayoutIssues(canvasElement);
+	},
+};
+
+export const BlueskyMediaAndQuote: Story = {
+	parameters: mobile,
+	render: () => (
+		<Screen>
+			<Message
+				text="Look at this"
+				attachments={
+					<BlueskyPostEmbed post={mediaAndQuote} onOpenImage={onOpenBluesky} />
+				}
+			/>
+		</Screen>
+	),
+	play: async ({ canvasElement }) => {
+		onOpenBluesky.mockClear();
+
+		const quote = quoteOf(canvasElement);
+		const embed = canvasElement.querySelector<HTMLElement>(
+			"[data-bluesky-embed]",
+		);
+		const grids = embed?.querySelectorAll("[data-media-grid]") ?? [];
+		const own = grids[0] as HTMLElement;
+
+		await expect(grids).toHaveLength(2);
+		await expect(quote.contains(own)).toBe(false);
+		await expect(quote.querySelectorAll("[data-media-tile]")).toHaveLength(3);
+		await expect(
+			own.compareDocumentPosition(quote) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		await userEvent.click(
+			within(own).getByRole("button", { name: "Open image: Example photo 3" }),
+		);
+		await expect(onOpenBluesky).toHaveBeenCalledWith(0);
+		await expectNoLayoutIssues(canvasElement);
+	},
 };
 
 const ContextCases = (props: { desktop?: boolean }) => (

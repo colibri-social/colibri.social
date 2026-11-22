@@ -199,6 +199,7 @@ describe("custom emoji", () => {
 		expect(proseMirrorToFacets(doc as never)).toEqual({
 			text: "Go 🚀",
 			facets: [],
+			suppressedEmbeds: [],
 		});
 	});
 });
@@ -342,6 +343,7 @@ describe("thread mentions", () => {
 					],
 				}),
 			],
+			suppressedEmbeds: [],
 		});
 	});
 
@@ -351,5 +353,59 @@ describe("thread mentions", () => {
 		expect(roundTrip(text, facets).facets[0].features).toEqual([
 			{ $type: "social.colibri.beta.richtext.facet#link", uri: thread },
 		]);
+	});
+});
+
+describe("suppressed embeds", () => {
+	const URI = "https://example.com/page";
+	const linkFacet = (
+		byteStart: number,
+		byteEnd: number,
+	): ColibriRichTextFacet => ({
+		$type: "social.colibri.beta.richtext.facet",
+		index: {
+			$type: "social.colibri.beta.richtext.facet#byteSlice",
+			byteStart,
+			byteEnd,
+		},
+		features: [{ $type: "social.colibri.beta.richtext.facet#link", uri: URI }],
+	});
+	const sourceOf = (doc: ReturnType<typeof facetsToProseMirror>) =>
+		inline(doc)
+			.map((node) => (node.type === "hardBreak" ? "\n" : node.text))
+			.join("");
+
+	it("shows angle brackets around a suppressed bare url", () => {
+		const text = `see ${URI}`;
+		const doc = facetsToProseMirror(text, [linkFacet(4, text.length)], {}, [
+			URI,
+		]);
+
+		expect(sourceOf(doc)).toBe(`see <${URI}>`);
+	});
+
+	it("shows an angle bracket destination on a suppressed masked link", () => {
+		const doc = facetsToProseMirror("page", [linkFacet(0, 4)], {}, [URI]);
+
+		expect(sourceOf(doc)).toBe(`[page](<${URI}>)`);
+	});
+
+	it("round trips the suppressed list through the editor", () => {
+		const text = `see ${URI}`;
+		const doc = facetsToProseMirror(text, [linkFacet(4, text.length)], {}, [
+			URI,
+		]);
+		const result = proseMirrorToFacets(doc as never);
+
+		expect(result.text).toBe(text);
+		expect(result.suppressedEmbeds).toEqual([URI]);
+	});
+
+	it("leaves unsuppressed links unchanged", () => {
+		const text = `see ${URI}`;
+
+		expect(
+			sourceOf(facetsToProseMirror(text, [linkFacet(4, text.length)])),
+		).toBe(text);
 	});
 });

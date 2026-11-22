@@ -350,6 +350,9 @@ export const createOutbox = (options: OutboxOptions) => {
 					rkey: op.rkey,
 					text: op.text,
 					...(op.facets ? { facets: op.facets } : {}),
+					...(op.suppressedEmbeds
+						? { suppressedEmbeds: op.suppressedEmbeds }
+						: {}),
 				});
 			case "delete":
 				await source.deleteMessage({ channel: op.channel, rkey: op.rkey });
@@ -508,6 +511,9 @@ export const createOutbox = (options: OutboxOptions) => {
 						...send.op,
 						text: op.text,
 						...(op.facets ? { facets: op.facets } : { facets: undefined }),
+						...(op.suppressedEmbeds
+							? { suppressedEmbeds: op.suppressedEmbeds }
+							: {}),
 					},
 				});
 				return ticket(send.seq);

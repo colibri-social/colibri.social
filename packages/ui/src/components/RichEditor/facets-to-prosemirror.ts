@@ -86,6 +86,7 @@ export const facetsToProseMirror = (
 	text: string,
 	facets: Array<ColibriRichTextFacet>,
 	resolvers: FacetResolvers = {},
+	suppressedEmbeds: ReadonlyArray<string> = [],
 ): DocJSON => {
 	const doc: DocJSON = { type: "doc", attrs: undefined, content: [] };
 
@@ -94,7 +95,9 @@ export const facetsToProseMirror = (
 		return doc;
 	}
 
-	doc.content.push(buildParagraph(text, normalizeFacets(facets), resolvers));
+	doc.content.push(
+		buildParagraph(text, normalizeFacets(facets), resolvers, suppressedEmbeds),
+	);
 	return doc;
 };
 
@@ -102,6 +105,7 @@ const buildParagraph = (
 	text: string,
 	facets: Array<ColibriRichTextFacet>,
 	resolvers: FacetResolvers,
+	suppressedEmbeds: ReadonlyArray<string>,
 ): DocNode => {
 	const paragraph: DocNode = {
 		type: "paragraph",
@@ -111,6 +115,7 @@ const buildParagraph = (
 	const { source, atoms } = facetsToSource(
 		text,
 		withThreadLinks(text, facets, resolvers),
+		suppressedEmbeds,
 	);
 	const sorted = [...atoms].sort((a, b) => a.start - b.start);
 

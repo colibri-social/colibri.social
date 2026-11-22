@@ -34,6 +34,7 @@ export type OutboxOp =
 			rkey: string;
 			text: string;
 			facets?: Facet[];
+			suppressedEmbeds?: string[];
 	  }
 	| { t: "delete"; channel: SpaceRef; rkey: string }
 	| {

@@ -670,3 +670,95 @@ describe("escape round trip", () => {
 		);
 	});
 });
+
+describe("embed suppression", () => {
+	const URI = "https://colibri.social/docs";
+	const link = (uri: string): Feature => ({
+		$type: "social.colibri.beta.richtext.facet#link",
+		uri,
+	});
+	const suppressed = (source: string) =>
+		parseMarkdown(source, [], { autolink: true }).suppressedEmbeds;
+
+	it("flags a masked link with an angle bracket destination", () => {
+		const parsed = parseMarkdown(`[docs](<${URI}>)`, [], { autolink: true });
+
+		expect(parsed.text).toBe("docs");
+		expect(parsed.suppressedEmbeds).toEqual([URI]);
+	});
+
+	it("allows whitespace before the angle bracket", () => {
+		expect(suppressed(`[docs](  <${URI}>)`)).toEqual([URI]);
+	});
+
+	it("flags an angle bracket autolink", () => {
+		const parsed = parseMarkdown(`see <${URI}> now`, [], { autolink: true });
+
+		expect(parsed.text).toBe(`see ${URI} now`);
+		expect(summarize(parsed.facets)).toEqual([`4-${4 + URI.length}:link`]);
+		expect(parsed.suppressedEmbeds).toEqual([URI]);
+	});
+
+	it("leaves plain masked links and bare urls alone", () => {
+		expect(suppressed(`[docs](${URI}) and ${URI}`)).toEqual([]);
+	});
+
+	it("ignores an escaped angle bracket", () => {
+		expect(suppressed(`\\<${URI}>`)).toEqual([]);
+	});
+
+	it("ignores angle brackets inside a code span", () => {
+		expect(suppressed(`\`<${URI}>\``)).toEqual([]);
+		expect(suppressed(`\`[docs](<${URI}>)\``)).toEqual([]);
+	});
+
+	it("lists each url once", () => {
+		expect(suppressed(`<${URI}> [docs](<${URI}>)`)).toEqual([URI]);
+	});
+
+	it("skips links the policy rejects", () => {
+		const parsed = parseMarkdown(`<${URI}>`, [], {
+			allowLink: () => false,
+		});
+
+		expect(parsed.suppressedEmbeds).toEqual([]);
+	});
+
+	it("keeps the list through normalizeWhitespace", () => {
+		const parsed = normalizeWhitespace(parseMarkdown(`  <${URI}>  `, []));
+
+		expect(parsed.text).toBe(URI);
+		expect(parsed.suppressedEmbeds).toEqual([URI]);
+	});
+
+	it("writes a suppressed bare url as an angle bracket autolink", () => {
+		const text = `read ${URI} now`;
+
+		expect(
+			facetsToSource(text, [buildFacet(5, 5 + URI.length, link(URI))], [URI])
+				.source,
+		).toBe(`read <${URI}> now`);
+	});
+
+	it("writes a suppressed masked link with an angle bracket destination", () => {
+		expect(
+			facetsToSource("docs", [buildFacet(0, 4, link(URI))], [URI]).source,
+		).toBe(`[docs](<${URI}>)`);
+	});
+
+	it.each([
+		`see <${URI}> now`,
+		`[docs](<${URI}>) and ${URI}`,
+		`<${URI}>.`,
+		`**[docs](<${URI}>)**`,
+	])("round trips %s", (source) => {
+		const first = parseMarkdown(source, [], { autolink: true });
+		const rebuilt = facetsToSource(
+			first.text,
+			first.facets,
+			first.suppressedEmbeds,
+		).source;
+
+		expect(parseMarkdown(rebuilt, [], { autolink: true })).toEqual(first);
+	});
+});

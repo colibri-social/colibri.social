@@ -32,6 +32,7 @@ import {
 	isWebUrl,
 	MARKDOWN_LINK_POLICY,
 } from "../../utils/rich-text/link-safety";
+import { sameRichText } from "../../utils/rich-text/same-rich-text";
 import { utf8Length } from "../../utils/text-length";
 import {
 	restartNativeTouchKeyboard,
@@ -186,10 +187,12 @@ const hasCoarsePointer = () =>
 const toDoc = (value: RichText | string, sources: RichEditorSources) =>
 	typeof value === "string"
 		? facetsToProseMirror(value, [], sources)
-		: facetsToProseMirror(value.text, value.facets, sources);
-
-const sameValue = (a: RichText, b: RichText) =>
-	a.text === b.text && JSON.stringify(a.facets) === JSON.stringify(b.facets);
+		: facetsToProseMirror(
+				value.text,
+				value.facets,
+				sources,
+				value.suppressedEmbeds,
+			);
 
 const mentionChipSpec = (
 	attrs: Record<string, unknown>,
@@ -340,7 +343,7 @@ export const RichEditor = (props: RichEditorProps) => {
 			return proseMirrorToFacets(instance.getJSON());
 		},
 		EMPTY_VALUE,
-		{ equals: sameValue },
+		{ equals: sameRichText },
 	);
 
 	const empty = createMemo(() => {
@@ -490,6 +493,7 @@ export const RichEditor = (props: RichEditorProps) => {
 			parsed.text,
 			parsed.facets,
 			sources(),
+			parsed.suppressedEmbeds,
 		);
 		const inline =
 			content.length === 1 && content[0]?.type === "paragraph"

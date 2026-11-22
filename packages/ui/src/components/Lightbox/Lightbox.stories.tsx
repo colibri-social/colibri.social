@@ -121,7 +121,7 @@ const EmbedGallery = (props: { desktop?: boolean }) => {
 								url: "https://bsky.app/profile/lis.example/post/3kz2",
 								author: { name: "Lis", handle: "lis.example" },
 								text: "Three birds on the canal this morning.",
-								images: blueskyImages,
+								media: blueskyImages,
 								time: "2h",
 							}}
 							onOpenImage={bluesky.show}

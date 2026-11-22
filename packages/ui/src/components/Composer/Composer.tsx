@@ -10,6 +10,7 @@ import { AnimatedGifIcon } from "../../icons/animated/brand";
 import { AnimatedSendIcon } from "../../icons/animated/icons";
 import { cx } from "../../utils/cx";
 import { iconEffectClass } from "../../utils/icon-fx";
+import { sameRichText } from "../../utils/rich-text/same-rich-text";
 import { createSlot } from "../../utils/slot";
 import { utf8Length } from "../../utils/text-length";
 import { IconButton } from "../IconButton/IconButton";
@@ -109,8 +110,7 @@ const hasLinkFacet = (value: RichText | undefined) =>
 const matches = (value: RichText | string, current: RichText) =>
 	typeof value === "string"
 		? value === current.text && current.facets.length === 0
-		: value.text === current.text &&
-			JSON.stringify(value.facets) === JSON.stringify(current.facets);
+		: sameRichText(value, current);
 
 export const Composer = (props: ComposerProps) => {
 	const platform = () => props.platform ?? "mobile";

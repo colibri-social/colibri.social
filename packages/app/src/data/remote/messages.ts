@@ -355,12 +355,17 @@ export const createMessageWrites = (deps: {
 			rkey: string;
 			text: string;
 			facets?: Facet[];
+			suppressedEmbeds?: string[];
 		}) => {
 			const found = index.find(input.channel, input.rkey);
 			const space = found?.channel ?? input.channel;
 			const current = await readOwn(space, input.rkey);
 			const updatedAt = new Date().toISOString();
-			const { facets: _facets, ...rest } = current;
+			const { facets: _facets, ...kept } = current;
+			const { suppressedEmbeds: _stored, ...rest } = kept;
+			const suppressedEmbeds = input.suppressedEmbeds;
+			const base = suppressedEmbeds ? rest : kept;
+
 			await records.putInSpace(
 				{
 					space,
@@ -368,9 +373,10 @@ export const createMessageWrites = (deps: {
 					rkey: input.rkey,
 				},
 				{
-					...rest,
+					...base,
 					text: input.text,
 					...(input.facets?.length ? { facets: input.facets } : {}),
+					...(suppressedEmbeds?.length ? { suppressedEmbeds } : {}),
 					updatedAt,
 				},
 			);
@@ -392,6 +398,14 @@ export const createMessageWrites = (deps: {
 			};
 			if (input.facets?.length) next.facets = input.facets;
 			else delete next.facets;
+
+			if (suppressedEmbeds?.length) {
+				next.suppressedEmbeds =
+					suppressedEmbeds as MessageView["suppressedEmbeds"];
+			} else if (suppressedEmbeds) {
+				delete next.suppressedEmbeds;
+			}
+
 			index.put(next);
 			return next;
 		},

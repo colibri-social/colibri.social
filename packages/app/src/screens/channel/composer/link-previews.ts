@@ -12,12 +12,26 @@ export const isDirectMediaUrl = (uri: string) => {
 	}
 };
 
-export const suppressedLinksFor = (
+const toggledOffLinks = (
 	facets: readonly Facet[] | undefined,
 	showPreviews: boolean,
 ) => {
 	if (showPreviews) return [];
+
 	return [...linkUris(facets), ...spoileredLinkUris(facets)].filter(
 		(uri) => !isDirectMediaUrl(uri) && !isGifSiteUrl(uri),
 	);
+};
+
+export const suppressedLinksFor = (
+	facets: readonly Facet[] | undefined,
+	showPreviews: boolean,
+	suppressedByMarkdown: readonly string[] = [],
+) => {
+	return [
+		...new Set([
+			...suppressedByMarkdown,
+			...toggledOffLinks(facets, showPreviews),
+		]),
+	];
 };

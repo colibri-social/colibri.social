@@ -556,6 +556,7 @@ export type DataSource = AccessSource &
 			rkey: string;
 			text: string;
 			facets?: Facet[];
+			suppressedEmbeds?: string[];
 		}) => Promise<MessageView>;
 		deleteMessage: (input: {
 			channel: SpaceRef;

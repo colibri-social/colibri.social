@@ -37,6 +37,7 @@ import {
 	viaLabel,
 } from "./authors";
 import {
+	blueskyMediaItems,
 	blueskyTextSegments,
 	canonicalBlueskyPostUrl,
 	parseBlueskyPostUrl,
@@ -943,9 +944,92 @@ describe("bluesky posts", () => {
 			time: "2h",
 			text: "Hello",
 			url: "https://mu.social/profile/ana.test/post/3labc",
-			images: [{ src: "https://img.test/1.jpg", kind: "image" }],
+			media: [{ src: "https://img.test/1.jpg", kind: "image" }],
 			stats: { replies: 0, reposts: 0, likes: 3 },
 		});
+	});
+
+	it("maps a video and a quote with media for the preferred client", () => {
+		const video = {
+			cid: "bafyvideo",
+			did: "did:plc:ana" as never,
+			src: "https://pds.test/xrpc/com.atproto.sync.getBlob?did=did%3Aplc%3Aana&cid=bafyvideo",
+			thumbnail: "https://video.test/thumb.jpg",
+			alt: "A heron",
+			width: 16,
+			height: 9,
+		};
+		const post = toBlueskyPost(
+			{
+				url: "https://bsky.app/profile/did:plc:ana/post/3labc",
+				author: { did: "did:plc:ana" as never, handle: "ana.test" },
+				text: "Look",
+				createdAt: "2026-10-14T10:00:00.000Z" as never,
+				video,
+				quote: {
+					url: "https://bsky.app/profile/did:plc:bo/post/3lquote",
+					author: { did: "did:plc:bo" as never, handle: "bo.test" },
+					text: "Quoted",
+					createdAt: "2026-10-14T09:00:00.000Z" as never,
+					images: [{ url: "https://img.test/q.jpg", width: 3, height: 4 }],
+				},
+			},
+			{ base: "mu.social" },
+			new Date("2026-10-14T12:00:00.000Z"),
+		);
+
+		expect(post.media).toEqual([
+			{
+				src: video.src,
+				kind: "video",
+				mimeType: "video/mp4",
+				poster: "https://video.test/thumb.jpg",
+				width: 16,
+				height: 9,
+				alt: "A heron",
+			},
+		]);
+		expect(post.quote).toMatchObject({
+			author: { name: "bo.test", handle: "bo.test" },
+			time: "3h",
+			text: "Quoted",
+			url: "https://mu.social/profile/bo.test/post/3lquote",
+			media: [{ src: "https://img.test/q.jpg", kind: "image" }],
+		});
+	});
+
+	it("shows a video thumbnail as an image when the video has no source", () => {
+		const view = {
+			url: "https://bsky.app/profile/did:plc:ana/post/3labc",
+			author: { did: "did:plc:ana" as never, handle: "ana.test" },
+			text: "Look",
+			createdAt: "2026-10-14T10:00:00.000Z" as never,
+			images: [{ url: "https://img.test/1.jpg" }],
+			video: {
+				cid: "bafyvideo",
+				did: "did:plc:ana" as never,
+				thumbnail: "https://video.test/thumb.jpg",
+				width: 16,
+				height: 9,
+			},
+		};
+
+		expect(blueskyMediaItems(view)).toEqual([
+			{ src: "https://img.test/1.jpg", kind: "image" },
+			{
+				src: "https://video.test/thumb.jpg",
+				kind: "image",
+				width: 16,
+				height: 9,
+			},
+		]);
+		expect(
+			blueskyMediaItems({
+				...view,
+				images: undefined,
+				video: { ...view.video, thumbnail: undefined },
+			}),
+		).toEqual([]);
 	});
 
 	it("accepts post links on a custom client host", () => {

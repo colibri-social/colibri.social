@@ -152,3 +152,27 @@ describe("autolinked at uris", () => {
 		]);
 	});
 });
+
+describe("embed suppression", () => {
+	const URI = "https://example.com/page";
+
+	it("lists a url written as an angle bracket autolink", () => {
+		const result = proseMirrorToFacets(paragraph(`see <${URI}> now`));
+
+		expect(result.text).toBe(`see ${URI} now`);
+		expect(result.suppressedEmbeds).toEqual([URI]);
+	});
+
+	it("lists a masked link with an angle bracket destination", () => {
+		const result = proseMirrorToFacets(paragraph(`[page](<${URI}>)`));
+
+		expect(result.text).toBe("page");
+		expect(result.suppressedEmbeds).toEqual([URI]);
+	});
+
+	it("leaves bare and plain masked links out", () => {
+		const result = proseMirrorToFacets(paragraph(`${URI} [page](${URI})`));
+
+		expect(result.suppressedEmbeds).toEqual([]);
+	});
+});

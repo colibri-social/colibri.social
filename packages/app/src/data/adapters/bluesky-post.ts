@@ -1,4 +1,4 @@
-import type { BlueskyPost, RichTextSpan } from "@colibri-social/ui";
+import type { BlueskyPost, MediaItem, RichTextSpan } from "@colibri-social/ui";
 import {
 	BSKY_ALTERNATIVES,
 	type ResolvedBlueskyClient,
@@ -98,12 +98,50 @@ export const blueskyTextSegments = (
 	return segments;
 };
 
+const BLUESKY_VIDEO_MIME = "video/mp4";
+
+const videoItemOf = (
+	video: NonNullable<BlueskyPostView["video"]>,
+): MediaItem | undefined => {
+	const size = { width: video.width, height: video.height, alt: video.alt };
+
+	if (video.src)
+		return {
+			src: video.src,
+			kind: "video",
+			mimeType: BLUESKY_VIDEO_MIME,
+			poster: video.thumbnail,
+			...size,
+		};
+
+	return video.thumbnail
+		? { src: video.thumbnail, kind: "image", ...size }
+		: undefined;
+};
+
+export const blueskyMediaItems = (view: BlueskyPostView): MediaItem[] => {
+	const images = (view.images ?? []).map(
+		(image): MediaItem => ({
+			src: image.url,
+			kind: "image",
+			width: image.width,
+			height: image.height,
+			alt: image.alt,
+		}),
+	);
+	const video = view.video ? videoItemOf(view.video) : undefined;
+
+	return video ? [...images, video] : images;
+};
+
 export const toBlueskyPost = (
 	view: BlueskyPostView,
 	client: Pick<ResolvedBlueskyClient, "base">,
 	now: Date = new Date(),
 ): BlueskyPost => {
 	const ref = parseBlueskyPostUrl(view.url, client.base);
+	const media = blueskyMediaItems(view);
+
 	return {
 		author: {
 			name: view.author.displayName?.trim() || view.author.handle,
@@ -119,13 +157,8 @@ export const toBlueskyPost = (
 			: undefined,
 		url: ref ? blueskyPostUrl(client, view.author.handle, ref.rkey) : view.url,
 		replyTo: view.replyTo,
-		images: view.images?.map((image) => ({
-			src: image.url,
-			kind: "image",
-			width: image.width,
-			height: image.height,
-			alt: image.alt,
-		})),
+		media: media.length ? media : undefined,
+		quote: view.quote ? toBlueskyPost(view.quote, client, now) : undefined,
 		stats:
 			view.replyCount === undefined &&
 			view.repostCount === undefined &&

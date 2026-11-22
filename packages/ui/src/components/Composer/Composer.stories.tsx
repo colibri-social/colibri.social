@@ -79,7 +79,11 @@ export const MobileEmpty: Story = {
 		await expect(send).toBeEnabled();
 		const icon = send.querySelector("svg");
 		await userEvent.click(send);
-		await expect(onSend).toHaveBeenCalledWith({ text: "Hi there", facets: [] });
+		await expect(onSend).toHaveBeenCalledWith({
+			text: "Hi there",
+			facets: [],
+			suppressedEmbeds: [],
+		});
 		await expect(icon).toHaveAttribute("data-attention");
 		await waitFor(() => expect(isEmpty(canvasElement)).toBe(true));
 		await expect(send).toBeDisabled();
@@ -278,6 +282,7 @@ export const DesktopSend: Story = {
 		await expect(onSend).toHaveBeenCalledWith({
 			text: "First line\nsecond line",
 			facets: [],
+			suppressedEmbeds: [],
 		});
 		await waitFor(() => expect(isEmpty(canvasElement)).toBe(true));
 		await waitFor(() =>

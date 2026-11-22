@@ -599,10 +599,10 @@ export const writeSelectionToClipboard = (
 	const slice = view.state.selection.content();
 	if (slice.size === 0 || !event.clipboardData) return false;
 
-	const { text, facets } = fragmentToFacets(slice.content);
+	const { text, facets, suppressedEmbeds } = fragmentToFacets(slice.content);
 	if (!text) return false;
 
-	const { source } = facetsToSource(text, facets);
+	const { source } = facetsToSource(text, facets, suppressedEmbeds);
 	event.clipboardData.setData("text/plain", source);
 	event.clipboardData.setData("text/html", buildClipboardHtml(text, facets));
 	event.preventDefault();

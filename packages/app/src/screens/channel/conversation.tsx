@@ -41,7 +41,7 @@ import {
 	memberIdentity,
 	toMessageAuthor,
 } from "../../data/adapters/authors";
-import { fromComposerValue, toTextValue } from "../../data/adapters/facets";
+import { fromComposerValue } from "../../data/adapters/facets";
 import type { ForwardTarget as ForwardPlace } from "../../data/adapters/forward";
 import {
 	pickedReactionAdds,
@@ -110,6 +110,7 @@ import { DELETE_CONFIRM_COPY, MessageItem } from "./message/MessageItem";
 import {
 	authorGroupKey,
 	type ChatMessage,
+	editValueOf,
 	failChatMessage,
 	isHiddenMessage,
 	pendingChatMessage,
@@ -1335,7 +1336,7 @@ export const createConversation = (options: ConversationOptions) => {
 		data.preferences.client().linkEmbedsByDefault;
 
 	const send = async (
-		value: { text: string; facets: unknown[] },
+		value: { text: string; facets: unknown[]; suppressedEmbeds?: string[] },
 		sendOptions: { linkPreviews?: boolean } = {},
 	) => {
 		const current = feed();
@@ -1356,6 +1357,7 @@ export const createConversation = (options: ConversationOptions) => {
 		const suppressedEmbeds = suppressedLinksFor(
 			payload.facets,
 			sendOptions.linkPreviews ?? linkPreviewsByDefault(),
+			value.suppressedEmbeds,
 		);
 		setReplyTo(undefined);
 		pinWhile(
@@ -1364,7 +1366,11 @@ export const createConversation = (options: ConversationOptions) => {
 		return true;
 	};
 
-	const saveEdit = async (value: { text: string; facets: unknown[] }) => {
+	const saveEdit = async (value: {
+		text: string;
+		facets: unknown[];
+		suppressedEmbeds?: string[];
+	}) => {
 		const target = editing();
 		const current = feed();
 		if (!target?.rkey || !current) return false;
@@ -1378,7 +1384,12 @@ export const createConversation = (options: ConversationOptions) => {
 			payload.text,
 			payload.facets,
 		);
-		await current.edit(target.rkey, converted.text, converted.facets);
+		await current.edit(
+			target.rkey,
+			converted.text,
+			converted.facets,
+			value.suppressedEmbeds ?? [],
+		);
 		return true;
 	};
 
@@ -1596,7 +1607,7 @@ export const ConversationComposer = (props: {
 			if (key) writeEditDraft(key, undefined);
 		};
 		return {
-			value: toTextValue(target.text, target.facets),
+			value: editValueOf(target),
 			preview: target.text,
 			onSave: async (value: Parameters<typeof m.saveEdit>[0]) => {
 				const saved = await m.saveEdit(value);

@@ -1,3 +1,4 @@
+import { toTextValue } from "../../../data/adapters/facets";
 import type {
 	AttachmentView,
 	DeletedMessageView,
@@ -95,6 +96,15 @@ export const failChatMessage = (message: ChatMessage): ChatMessage => ({
 	state: "failed",
 	failed: true,
 });
+
+export const editValueOf = (message: ChatMessage) => {
+	const value = toTextValue(message.text, message.facets);
+	const suppressedEmbeds = message.view?.suppressedEmbeds;
+
+	return suppressedEmbeds?.length
+		? { ...value, suppressedEmbeds: [...suppressedEmbeds] }
+		: value;
+};
 
 export const isHiddenMessage = (message: Pick<MessageView, "labels">) =>
 	message.labels.some((label) => label.val === "hidden");

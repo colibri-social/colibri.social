@@ -1,6 +1,7 @@
 import { SmileCircleIcon } from "@solar-icons/solid/bold/smile-circle";
 import { createEffect, createSignal, on, onMount, Show } from "solid-js";
 import { cx } from "../../utils/cx";
+import { sameRichText } from "../../utils/rich-text/same-rich-text";
 import { utf8Length } from "../../utils/text-length";
 import { Button } from "../Button/Button";
 import {
@@ -41,9 +42,6 @@ export type MessageEditorProps = {
 
 const toRichText = (value: RichText | string): RichText =>
 	typeof value === "string" ? { text: value, facets: [] } : value;
-
-const sameRichText = (a: RichText, b: RichText) =>
-	a.text === b.text && JSON.stringify(a.facets) === JSON.stringify(b.facets);
 
 const RING_THRESHOLD = 0.8;
 const FOCUS_ATTEMPTS = 4;

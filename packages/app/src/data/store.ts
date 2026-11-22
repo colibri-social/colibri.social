@@ -266,7 +266,12 @@ export type ChannelData = {
 	}) => Promise<void>;
 	retry: (nonce: string) => Promise<void>;
 	discard: (nonce: string) => void;
-	edit: (rkey: string, text: string, facets?: Facet[]) => Promise<void>;
+	edit: (
+		rkey: string,
+		text: string,
+		facets?: Facet[],
+		suppressedEmbeds?: string[],
+	) => Promise<void>;
 	remove: (rkey: string) => Promise<void>;
 	react: (
 		rkey: string,
@@ -3042,13 +3047,20 @@ export const createDataStore = (
 					if (discarded && lastMessages[ref]?.rkey === discarded.rkey)
 						void loadSummaries(community, ref);
 				},
-				edit: async (rkey, text, facets) => {
+				edit: async (rkey, text, facets, suppressedEmbeds) => {
 					const previous = untrack(messages).find(
 						(message) => message.rkey === rkey,
 					);
 					const queued = untrack(pending).find((entry) => entry.rkey === rkey);
+					const suppression = suppressedEmbeds ? { suppressedEmbeds } : {};
+
 					if (queued) {
-						patchPending(queued.nonce, (entry) => ({ ...entry, text, facets }));
+						patchPending(queued.nonce, (entry) => ({
+							...entry,
+							text,
+							facets,
+							...suppression,
+						}));
 						replaceSummary(
 							rkey,
 							summarizePending({ ...queued, text, facets }, viewer.did),
@@ -3062,6 +3074,14 @@ export const createDataStore = (
 						};
 						if (facets?.length) next.facets = facets;
 						else delete next.facets;
+
+						if (suppressedEmbeds?.length) {
+							next.suppressedEmbeds =
+								suppressedEmbeds as MessageView["suppressedEmbeds"];
+						} else if (suppressedEmbeds) {
+							delete next.suppressedEmbeds;
+						}
+
 						upsert(next);
 						replaceSummary(rkey, summarizeMessage(next));
 					}
@@ -3071,6 +3091,7 @@ export const createDataStore = (
 						rkey,
 						text,
 						...(facets?.length ? { facets } : {}),
+						...suppression,
 					});
 					void issued.settled.then(
 						(result) => {

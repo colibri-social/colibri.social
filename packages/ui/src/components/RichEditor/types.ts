@@ -5,6 +5,7 @@ import type { RoleIdentity } from "../Roles/RoleBadge";
 export type RichText = {
 	text: string;
 	facets: Array<ColibriRichTextFacet>;
+	suppressedEmbeds?: string[];
 };
 
 export type MemberSuggestion = {

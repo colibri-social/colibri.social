@@ -117,6 +117,16 @@ export type BlueskyPostImage = {
 	height?: number;
 };
 
+export type BlueskyPostVideo = {
+	cid: string;
+	did: Did;
+	src?: string;
+	thumbnail?: string;
+	alt?: string;
+	width?: number;
+	height?: number;
+};
+
 export type BlueskyPostFacetFeature =
 	| { $type: "app.bsky.richtext.facet#link"; uri: string }
 	| { $type: "app.bsky.richtext.facet#mention"; did: string }
@@ -141,6 +151,8 @@ export type BlueskyPostView = {
 	createdAt: Datetime;
 	replyTo?: string;
 	images?: BlueskyPostImage[];
+	video?: BlueskyPostVideo;
+	quote?: BlueskyPostView;
 	replyCount?: number;
 	repostCount?: number;
 	likeCount?: number;

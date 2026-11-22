@@ -1341,6 +1341,7 @@ export const EditingExistingMessage: Story = {
 					index: expect.objectContaining({ byteStart: 24, byteEnd: 29 }),
 				}),
 			]),
+			suppressedEmbeds: [],
 		});
 		await userEvent.keyboard("{Escape}");
 		await expect(onEscape).toHaveBeenCalledOnce();

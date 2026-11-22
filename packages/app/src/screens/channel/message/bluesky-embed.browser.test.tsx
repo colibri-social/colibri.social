@@ -146,3 +146,60 @@ it("shows an arrow for a custom client and loads its post links", async () => {
 		"https://sky.example.org/search?q=%23colibri",
 	);
 });
+
+it("plays a Mu Social video from the author's PDS and shows the quote", async () => {
+	const blob =
+		"https://pds.colibri.test/xrpc/com.atproto.sync.getBlob?did=did%3Aplc%3Acolibri&cid=bafyvideo";
+	const withVideo: BlueskyPostView = {
+		...view,
+		url: "https://mu.social/profile/colibri.social/post/3myaqwvksck2w",
+		video: {
+			cid: "bafyvideo",
+			did: "did:plc:colibri" as Did,
+			src: blob,
+			thumbnail: "https://video.colibri.test/thumb.jpg",
+			width: 16,
+			height: 9,
+		},
+		quote: {
+			url: "https://bsky.app/profile/did:plc:lou/post/3quote",
+			author: { did: "did:plc:lou" as Did, handle: "lou.gg" },
+			text: "Spaces open on Monday",
+			createdAt: "2026-10-19T17:00:00.000Z" as Datetime,
+			images: [
+				{ url: "https://img.colibri.test/space.jpg", width: 4, height: 3 },
+			],
+		},
+	};
+	const sources: string[] = [];
+	const observer = new MutationObserver(() => {
+		for (const source of document.querySelectorAll(
+			"[data-bluesky-embed] video source",
+		))
+			sources.push(source.getAttribute("src") ?? "");
+	});
+
+	observer.observe(document.body, { childList: true, subtree: true });
+
+	const load = vi.fn(async () => withVideo);
+	const root = mount("mu", "", () => (
+		<BlueskyEmbed url={withVideo.url} load={load} />
+	));
+
+	try {
+		await vi.waitFor(
+			() => expect(sources.some((src) => src.startsWith(blob))).toBe(true),
+			{ timeout: 3000 },
+		);
+	} finally {
+		observer.disconnect();
+	}
+
+	const quote = root.querySelector("[data-bluesky-quote]");
+
+	expect(quote?.textContent).toContain("Spaces open on Monday");
+	expect(quote?.querySelectorAll("[data-media-tile]")).toHaveLength(1);
+	expect((await linkNamed(root, "Open on Mu Social")).href).toBe(
+		"https://mu.social/profile/colibri.social/post/3myaqwvksck2w",
+	);
+});

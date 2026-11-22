@@ -33,6 +33,7 @@ import {
 	toSocialPostProps,
 } from "../../../data/adapters/attachments";
 import {
+	blueskyMediaItems,
 	canonicalBlueskyPostUrl,
 	parseBlueskyPostUrl,
 	toBlueskyPost,
@@ -336,15 +337,6 @@ const EmbedWithLightbox = (props: {
 	);
 };
 
-const blueskyPostItems = (post: BlueskyPostView): MediaItem[] =>
-	(post.images ?? []).map((image) => ({
-		src: image.url,
-		kind: "image",
-		width: image.width,
-		height: image.height,
-		alt: image.alt,
-	}));
-
 export const BlueskyEmbed = (props: {
 	url: string;
 	fallback?: LinkEmbedView;
@@ -403,8 +395,8 @@ export const BlueskyEmbed = (props: {
 						/>
 						<Show when={mounted()}>
 							<Lightbox
-								items={blueskyPostItems(view())}
-								{...lightboxImageActions(() => blueskyPostItems(view()))}
+								items={blueskyMediaItems(view())}
+								{...lightboxImageActions(() => blueskyMediaItems(view()))}
 								open={open()}
 								onOpenChange={setOpen}
 								index={index()}
