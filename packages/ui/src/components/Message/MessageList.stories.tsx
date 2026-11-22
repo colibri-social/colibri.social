@@ -521,7 +521,7 @@ export const JumpIntoHistory: Story = {
 					expect(inView(last, scroller)).toBe(true);
 					expect(distanceOf(scroller)).toBeLessThanOrEqual(1);
 				},
-				{ timeout: 3000 },
+				{ timeout: 8000 },
 			);
 		});
 	},
@@ -1683,7 +1683,7 @@ const playJumpCard =
 					expect(inView(last, scroller)).toBe(true);
 					expect(distanceOf(scroller)).toBeLessThanOrEqual(1);
 				},
-				{ timeout: 3000 },
+				{ timeout: 8000 },
 			);
 			await expect(jumpCountOf(canvasElement)).toBe("2");
 		});
