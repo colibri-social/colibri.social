@@ -193,11 +193,41 @@ it("warns about a restart with the minutes left", () => {
 	expect(card()?.dataset.connectionCard).toBe("restarting");
 	expect(
 		card()?.querySelector("[data-connection-card-title]")?.textContent,
-	).toBe("Restarting for an update in 10 min");
+	).toBe("Restarting for an update in 10m");
 	expect(
 		card()?.querySelector("[data-connection-card-description]")?.textContent,
 	).toBe("You may lose the connection for a few seconds");
 	expect(card()?.textContent).not.toMatch(JARGON);
+});
+
+it("shows a restart over an hour away in hours and minutes", () => {
+	mount("open", {
+		online: true,
+		drain: {
+			deadline: Date.now() + 107 * 60_000 + 30_000,
+			reason: "update",
+			host: "wss://hel-1",
+		},
+	});
+
+	expect(
+		card()?.querySelector("[data-connection-card-title]")?.textContent,
+	).toBe("Restarting for an update in 1h 48m");
+});
+
+it("drops the minutes from a restart on the hour", () => {
+	mount("open", {
+		online: true,
+		drain: {
+			deadline: Date.now() + 119 * 60_000 + 30_000,
+			reason: "update",
+			host: "wss://hel-1",
+		},
+	});
+
+	expect(
+		card()?.querySelector("[data-connection-card-title]")?.textContent,
+	).toBe("Restarting for an update in 2h");
 });
 
 it("puts a lost connection ahead of the write notices", () => {

@@ -317,7 +317,7 @@ export const NetworkNotices: Story = {
 		}
 
 		await expect(part(restartMobile, "title")?.textContent).toMatch(
-			/^Restarting for an update in 1[45] min$/,
+			/^Restarting for an update in 1[45]m$/,
 		);
 		await expect(part(restartMobile, "description")?.textContent).toBe(
 			"You may lose the connection for a few seconds",

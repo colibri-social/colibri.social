@@ -624,6 +624,60 @@ describe("node handover", () => {
 		live.close();
 	});
 
+	it("refreshes the nodes before warning about a restart", async () => {
+		let known: string[] = [HOST];
+		const refreshHosts = vi.fn(async () => {
+			known = [HOST, OTHER];
+		});
+		const live = start({
+			pickHost: (avoid) => known.find((host) => !avoid.has(host)) ?? null,
+			refreshHosts,
+		});
+
+		await flush();
+
+		const first = latest();
+
+		first.open();
+		first.receive({
+			$type: "social.colibri.beta.sync.defs#drainNotice",
+			deadline: new Date(Date.now() + 108 * 60_000).toISOString(),
+			reason: "update",
+		});
+
+		expect(live.drain()).toBeUndefined();
+
+		await flush();
+
+		expect(refreshHosts).toHaveBeenCalledTimes(1);
+		expect(latest()).not.toBe(first);
+		expect(latest().url).toBe(socketUrl(OTHER));
+		expect(live.drain()).toBeUndefined();
+		live.close();
+	});
+
+	it("warns about the restart when a refresh finds no other node", async () => {
+		const refreshHosts = vi.fn(async () => {});
+		const live = start({ pickHost: () => null, refreshHosts });
+
+		await flush();
+		latest().open();
+
+		const deadline = Date.now() + 20 * 60_000;
+
+		latest().receive({
+			$type: "social.colibri.beta.sync.defs#drainNotice",
+			deadline: new Date(deadline).toISOString(),
+			reason: "update",
+		});
+		await flush();
+
+		expect(refreshHosts).toHaveBeenCalledTimes(1);
+		expect(sockets).toHaveLength(1);
+		expect(live.drain()).toMatchObject({ deadline, reason: "update" });
+		live.close();
+	});
+
 	it("doesn't go back to a draining node when it reconnects", async () => {
 		let others: string[] = [OTHER];
 		const live = start({

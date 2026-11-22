@@ -73,6 +73,7 @@ export type LiveConnectionOptions = {
 	environment?: LiveEnvironment | null;
 	random?: () => number;
 	pickHost?: (avoid: ReadonlySet<string>) => string | null;
+	refreshHosts?: () => Promise<void>;
 };
 
 export type LiveConnection = {
@@ -503,22 +504,65 @@ export const createLiveConnection = (
 
 		draining.set(current, until);
 
+		const alternative = pickAlternative(current);
+
+		if (alternative) {
+			log.info("moving the event socket to another node", { reason });
+			handOver(socket, alternative);
+
+			return;
+		}
+
+		if (!options.refreshHosts) {
+			announceDrain(until, reason, current);
+
+			return;
+		}
+
+		void options
+			.refreshHosts()
+			.catch((err) => {
+				log.warn("couldn't refresh the nodes for a drain", {
+					code: classifyThrown(err).code,
+				});
+			})
+			.then(() => {
+				if (closed || ws !== socket || host() !== current) return;
+
+				const refreshed = pickAlternative(current);
+
+				if (refreshed) {
+					log.info("moving the event socket to another node", { reason });
+					handOver(socket, refreshed);
+
+					return;
+				}
+
+				announceDrain(until, reason, current);
+			});
+	}
+
+	function pickAlternative(current: string): string | null {
 		const alternative = options.pickHost?.(
 			new Set(
 				[...avoided()].map((url) => new URL(url).origin.replace(/^ws/, "http")),
 			),
 		);
 
-		if (!alternative || socketUrl(alternative) === current) {
-			setDrain({ deadline: until, reason, host: current });
-			log.info("the node is going offline and no other node is available", {
-				reason,
-			});
-			return;
-		}
+		return alternative && socketUrl(alternative) !== current
+			? alternative
+			: null;
+	}
 
-		log.info("moving the event socket to another node", { reason });
-		handOver(socket, alternative);
+	function announceDrain(
+		until: number,
+		reason: string | undefined,
+		current: string,
+	): void {
+		setDrain({ deadline: until, reason, host: current });
+		log.info("the node is going offline and no other node is available", {
+			reason,
+		});
 	}
 
 	function handOver(socket: LiveSocket, target: string): void {

@@ -141,6 +141,7 @@ export const createSignedInSession = (
 				agent,
 				appViewHost: nodes.endpointFor("live") ?? appViewHost("ws"),
 				pickHost: (avoid) => nodes.endpointFor("live", avoid),
+				refreshHosts: () => nodes.refresh(),
 				serviceRef: appViewServiceRef(),
 				emojiBlobUrl: emojiBlobLocator(appViewOrigin(appViewDid())),
 				onAuthFailure: (error) => {

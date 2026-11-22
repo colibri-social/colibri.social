@@ -50,6 +50,15 @@ const minutesLeft = (secondsLeft: number | undefined) => {
 	return secondsLeft === undefined ? undefined : Math.ceil(secondsLeft / 60);
 };
 
+const shortDuration = (minutes: number) => {
+	const hours = Math.floor(minutes / 60);
+	const rest = minutes % 60;
+
+	if (hours === 0) return `${rest}m`;
+
+	return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
+};
+
 export const connectionCardTitle = (
 	state: ConnectionCardState,
 	secondsLeft?: number,
@@ -60,7 +69,7 @@ export const connectionCardTitle = (
 
 		return minutes === undefined || minutes <= 1
 			? "Restarting for an update in under a minute"
-			: `Restarting for an update in ${minutes} min`;
+			: `Restarting for an update in ${shortDuration(minutes)}`;
 	}
 	if (state === "readOnly") return "Changes are on hold";
 	if (state === "unreachable") return "Can't connect right now";
