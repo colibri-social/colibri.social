@@ -15,18 +15,21 @@ What started as a side project has since grown into a passion project.
 ## How does Colibri work?
 
 Because Colibri is built on ATproto, there's no such thing as "a Colibri account." You sign in with your existing
-Atmosphere identity, and your messages, images, and identity stay in your own PDS (Personal Data Server). You own
-them, and they travel with you across the network instead of being locked inside our servers. Communities work the
-same way: each one is its own repository on the network, so a community's data isn't trapped in any single app either.
+Atmosphere identity, which stays with the provider you chose.
 
-Tying it all together is our AppView, the service that reads everything happening across the network and stitches it
-into the fast, real-time experience you get at [colibri.social](https://colibri.social).
+Conversations happen in Spaces. A Space is private: only its members can read its messages. Your messages are stored
+in your own account wherever your provider supports private data, and you can take that account to another provider.
+Where a provider doesn't support private data yet, Colibri stores your Space messages for you and moves them to your
+account once it does.
 
-Right now, Colibri is in **limited early access** while we wait for the AT Protocol to officially support permissioned
-data. If you'd like in, [join the waitlist](/app/waitlist) and we'll email you the moment there's room.
+Tying it all together is our AppView, the server that keeps a copy of each Space it serves, delivers messages live,
+sends notifications, and carries voice and video calls at [colibri.social](https://colibri.social).
 
-That's the short version. If you're curious about the technical side (how data flows through the network, how
-communities store their records, or how you can run Colibri yourself), it's all covered in the [documentation](/docs).
+Private data is an unfinished part of the AT Protocol, so Colibri is a beta. The [Terms of Service](/tos) and the
+[Privacy Policy](/policy) describe what that means for your data.
+
+If you're curious about the technical side (how a Space is built, how the AppView keeps it in sync, or how you can
+run Colibri yourself), it's all covered in the [documentation](/docs).
 
 ## Why not go proprietary?
 
@@ -34,7 +37,7 @@ A few reasons. First, the modern internet is rapidly becoming more and more clos
 sure that the internet and its communities stay open, and provide you with the tools to own your images, data, and
 identity, and we want to support this. Second, it saves on development time. Figuring out a real-time chat system is no
 easy feat, and ATproto just so happened to be a decent fit for the prototype. And because the whole thing is open, you
-aren't tied to us: anyone can [run their own Colibri AppView](/docs/developers/self-hosting/getting-started) and host their own communities.
+aren't tied to us: anyone can [run their own Colibri AppView](/docs/developers/self-hosting/getting-started) and host their own Spaces.
 
 ## I like what I'm reading. Can I help out?
 

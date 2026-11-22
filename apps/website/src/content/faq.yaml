@@ -32,7 +32,7 @@
 
 - id: 09-ownership
   question: Who owns my messages?
-  answer: You do. Your messages are stored with your account, and you can move your account to another provider whenever you like without losing them.
+  answer: You do. Your messages are stored with your account wherever your provider supports private data, and you can move your account to another provider without losing them. Where a provider doesn't support private data yet, Colibri stores your messages for you and moves them to your account once it does.
 
 - id: 10-bluesky
   question: Will my messages show up on Bluesky?

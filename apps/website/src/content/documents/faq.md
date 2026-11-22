@@ -22,52 +22,51 @@ move, your data comes with you.
 
 ## Can I sign up right now?
 
-Not yet. Colibri is in **limited early access** while we wait for the AT
-Protocol to officially support **permissioned data**, the upcoming way to
-keep some data private within a space instead of broadcasting it to the whole
-network. Since private spaces are core to what we're building, we're holding
-off on opening things up until that lands. In the meantime, join the waitlist
-from the sign-in page and we'll email you the moment there's room.
+Yes. Colibri has no accounts of its own. You sign in with an Atmosphere
+account, which is the account you use on apps like Bluesky. If you don't have
+one yet, create one with an account provider and sign in to Colibri with your
+new handle.
+
+Colibri is a beta. Private data is an unfinished part of the AT Protocol, so
+things can change or break. The [Terms of Service](/tos) explain what that
+means.
 
 ## Where is my data stored?
 
-Your data is stored on the personal data server that hosts your profile.
-On the AT protocol, each user has their own profile that isn't specific to
-any app or service. You can use it to log in anywhere! Because of this,
-you need a single source of truth that handles logins and data storage for you.
-The server that does this for you is called your personal data server, or PDS.
+Your account lives on a personal data server, or PDS. It's run by your account
+provider, and it handles your login and stores your data for every app you use
+the account with.
 
-If you've previously signed up to Bluesky, they will currently be hosting your PDS
-for you. But it's easy to migrate to a [self-hosted PDS](https://atproto.com/guides/self-hosting)
-as well! Tools like [PDS MOOver](https://pdsmoover.com/) can help you migrate your
-data to your own servers when you are ready to.
+Messages you send in a Space are private to its members. They're stored in
+your account wherever your provider supports private data. Where it doesn't
+yet, Colibri stores them for you and moves them to your account once it does.
+Colibri's server also keeps a copy of each Space it serves, so it can deliver
+messages live and send notifications. The [Privacy Policy](/policy) has the
+details.
+
+If you signed up through Bluesky, Bluesky hosts your PDS. You can move to a
+[self-hosted PDS](https://atproto.com/guides/self-hosting) with a tool like
+[PDS MOOver](https://pdsmoover.com/).
 
 ## Can I use my Bluesky account with Colibri?
 
-Yes! Since Colibri is built on the same AT Protocol that powers Bluesky,
-you can sign in with your existing Bluesky handle. No need to create a
-new account - your identity carries over seamlessly. Note that Colibri is
-currently in limited early access, so sign-in is invite-only for now. Join
-the waitlist and we'll let you in soon.
+Yes! Colibri is built on the same AT Protocol that powers Bluesky, so you can
+sign in with your existing Bluesky handle.
 
 ## Can I use my private PDS account?
 
-Absolutely. If you're running your own Personal Data Server, Colibri
-works with it out of the box. Just sign in with your handle or DID and
-we'll connect to your PDS directly. You stay in full control of where
-your data lives - that's the whole point of the AT Protocol.
+Yes. Sign in with your handle or DID, and Colibri connects to your PDS. If
+your PDS doesn't support private data yet, Colibri stores your Space messages
+for you until it does.
 
 ## Do you host a PDS if I want a new account or move my data over to you?
 
-We do, though new accounts aren't open yet while we're in limited early
-access. Once we open up, you'll be able to create an account or use a tool
-like [PDS MOOver](https://pdsmoover.com/) to migrate your data over. Our PDS
-is hosted at colibri.social. For now, join the waitlist, and feel free to
-reach out to [@colibri.social on Bluesky](https://bsky.app/profile/colibri.social)
-with any questions.
+No. Colibri hosts no personal accounts. Create your account with a provider of
+your choice. Reach out to
+[@colibri.social on Bluesky](https://bsky.app/profile/colibri.social) if you
+have questions.
 
 ## Do my messages show up as posts on Bluesky?
 
-No, they don't. While we store data the same way Bluesky does, we use a different
-"collection", meaning your data will stay confined to Colibri. You can use a tool
-like [pdsls.dev](https://pdsls.dev) to inspect your profile and all related data.
+No. Messages in a Space are private to its members and never appear in a
+Bluesky feed. Your Colibri profile and custom emoji you upload are public.
