@@ -2,24 +2,15 @@ import { StatusScreen } from "@colibri-social/ui";
 import { HourglassLineIcon } from "@solar-icons/solid/bold/hourglass-line";
 import { type Component, createMemo, type JSX, lazy } from "solid-js";
 import { Dynamic } from "solid-js/web";
-import type { Screen } from "../screen/define";
 import type { AdminPage } from "./layers";
+import {
+	type AdminArgs,
+	adminModules,
+	appModules,
+	type ScreenModule,
+} from "./screen-modules";
 
-export type AdminArgs = { space: string; id?: string };
-
-type ScreenModule<A> = { default: Screen<A> };
-
-const adminModules = import.meta.glob<ScreenModule<AdminArgs>>(
-	"../screens/admin/*/*.screen.ts",
-);
-
-const appModules = import.meta.glob<ScreenModule<Record<string, string>>>([
-	"../screens/create-space/*.screen.ts",
-	"../screens/legacy-space/*.screen.ts",
-	"../screens/discover/*.screen.ts",
-	"../screens/join/*.screen.ts",
-	"../screens/pack/*.screen.ts",
-]);
+export type { AdminArgs };
 
 const folderOf = (path: string) => path.split("/").at(-2) ?? "";
 
