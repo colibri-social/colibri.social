@@ -173,7 +173,7 @@ const lastApplied = () => {
 
 export const Avatar: Story = {
 	render: () => <Harness shape="avatar" />,
-	play: async () => {
+	play: async ({ canvasElement }) => {
 		onApply.mockClear();
 		const target = await stage();
 		const dialog = screen.getByRole("dialog");
@@ -198,6 +198,9 @@ export const Avatar: Story = {
 		await expect(output.size).toBeLessThanOrEqual(1_000_000);
 		await waitFor(() =>
 			expect(document.querySelector('[role="dialog"]')).toBeNull(),
+		);
+		await waitFor(() =>
+			expect(canvasElement.closest("[aria-hidden='true']")).toBeNull(),
 		);
 		await expect(target.isConnected).toBe(false);
 	},
@@ -320,7 +323,7 @@ export const ZoomWithSliderAndKeys: Story = {
 
 export const Cancel: Story = {
 	render: () => <Harness shape="banner" />,
-	play: async () => {
+	play: async ({ canvasElement }) => {
 		onApply.mockClear();
 		await stage();
 		const dialog = screen.getByRole("dialog");
@@ -328,6 +331,9 @@ export const Cancel: Story = {
 		await userEvent.click(cancels[cancels.length - 1] as HTMLElement);
 		await waitFor(() =>
 			expect(document.querySelector('[role="dialog"]')).toBeNull(),
+		);
+		await waitFor(() =>
+			expect(canvasElement.closest("[aria-hidden='true']")).toBeNull(),
 		);
 		await expect(onApply).not.toHaveBeenCalled();
 		await waitFor(() =>
