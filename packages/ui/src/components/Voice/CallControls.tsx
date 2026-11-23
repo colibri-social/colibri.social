@@ -255,7 +255,10 @@ export const CallControls = (props: CallControlsProps) => {
 			role="toolbar"
 			aria-label="Call controls"
 			data-call-controls=""
-			class={cx("flex items-center justify-center gap-6", local.class)}
+			class={cx(
+				"flex items-center justify-center gap-6 max-[26rem]:justify-between max-[26rem]:gap-0",
+				local.class,
+			)}
 		>
 			<Show when={props.onToggleCamera}>
 				<CallControlButton

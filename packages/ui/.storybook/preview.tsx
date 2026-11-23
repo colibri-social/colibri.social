@@ -190,6 +190,11 @@ export default {
 					styles: { width: "402px", height: "874px" },
 					type: "mobile",
 				},
+				android: {
+					name: "Small Android (360x780)",
+					styles: { width: "360px", height: "780px" },
+					type: "mobile",
+				},
 			},
 		},
 		a11y: { test: "error" },

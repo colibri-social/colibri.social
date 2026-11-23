@@ -1185,6 +1185,42 @@ export const MobileCallScreen: Story = {
 	},
 };
 
+export const SmallPhoneCallControls: Story = {
+	parameters: { viewport: { defaultViewport: "android" } },
+	render: () => (
+		<HapticsProvider haptics={haptics}>
+			<div class="-mx-6 h-dvh">
+				<CallScreen
+					channelName="Lounge"
+					tiles={people.slice(0, 4) as VoiceTileData[]}
+					onToggleMute={() => {}}
+					onToggleDeafen={() => {}}
+					onToggleCamera={() => {}}
+					onToggleScreenShare={() => {}}
+					onOpenChat={() => {}}
+					onLeave={() => {}}
+					onClose={() => {}}
+					onOpenSettings={() => {}}
+				/>
+			</div>
+		</HapticsProvider>
+	),
+	play: async ({ canvasElement }) => {
+		const toolbar = within(canvasElement).getByRole("toolbar", {
+			name: "Call controls",
+		});
+		await expect(within(toolbar).getAllByRole("button")).toHaveLength(6);
+		await expectNoLayoutIssues(toolbar);
+		const bar = toolbar.getBoundingClientRect();
+		for (const button of within(toolbar).getAllByRole("button")) {
+			const box = button.getBoundingClientRect();
+			await expect(box.left).toBeGreaterThanOrEqual(bar.left - 0.5);
+			await expect(box.right).toBeLessThanOrEqual(bar.right + 0.5);
+		}
+		await expect(bar.right).toBeLessThanOrEqual(window.innerWidth);
+	},
+};
+
 const statuses: {
 	state: VoiceConnectionState;
 	quality: VoiceConnectionQuality;
