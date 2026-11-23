@@ -267,6 +267,7 @@ export const ProfileHeader = (props: ProfileHeaderProps) => {
 					<Dynamic
 						component={`h${props.headingLevel ?? 2}`}
 						data-profile-name=""
+						data-layout-clip=""
 						class={cx(
 							"m-0 min-w-0 truncate text-2xl leading-[31px] font-bold",
 							nameColor() ? nameColorClass : "text-foreground",

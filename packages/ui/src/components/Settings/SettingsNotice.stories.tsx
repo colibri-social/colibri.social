@@ -6,7 +6,7 @@ import { SettingsNotice } from "./SettingsNotice";
 
 const BETA_TITLE = "Bridges are in beta";
 const BETA_DESCRIPTION =
-	"Bridges are free to use while they are in beta. After that, they will cost $5 a month per Space.";
+	"Relaying messages between two platforms is going to stay free, but additional features may require payment in the future.";
 
 const meta = {
 	title: "Settings/Settings notice",
@@ -14,6 +14,7 @@ const meta = {
 	parameters: { viewport: { defaultViewport: "iphone" } },
 	args: {
 		icon: undefined,
+		tone: "info",
 		title: BETA_TITLE,
 		description: BETA_DESCRIPTION,
 	},
@@ -34,6 +35,7 @@ export const BridgesBeta: Story = {
 
 		await expect(notice).toHaveTextContent(BETA_DESCRIPTION);
 		await expect(notice.querySelector("svg")).not.toBeNull();
+		await expect(notice).toHaveAttribute("data-tone", "info");
 		await expectNoLayoutIssues(notice);
 	},
 };
@@ -56,6 +58,25 @@ export const InBridgesIntro: Story = {
 			canvas.getByRole("status", { name: BETA_TITLE })
 				.parentElement as HTMLElement,
 		);
+	},
+};
+
+export const Neutral: Story = {
+	args: {
+		tone: "neutral",
+		title: "Waiting for the bridge to report its channels",
+		description: "Make sure the bridge is running and can see your channels.",
+	},
+	render: (args) => (
+		<div class="min-h-dvh bg-background p-4 text-foreground">
+			<SettingsNotice {...args} icon={<TestTubeMinimalisticIcon />} />
+		</div>
+	),
+	play: async ({ canvasElement }) => {
+		const notice = within(canvasElement).getByRole("status");
+
+		await expect(notice).toHaveAttribute("data-tone", "neutral");
+		await expectNoLayoutIssues(notice);
 	},
 };
 

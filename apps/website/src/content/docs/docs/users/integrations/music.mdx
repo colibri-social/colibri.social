@@ -1,0 +1,65 @@
+---
+title: Music
+description: Show the song or radio station you're listening to on teal.fm, Rocksky or atradio on your Colibri profile and in the member list.
+sidebar:
+  order: 2
+---
+
+import { Steps, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Colibri can show what you're listening to on your profile and next to your name in the member list. It reads this from the music apps that save your listening to your Atmosphere account:
+
+- [teal.fm](https://teal.fm) and [Rocksky](https://rocksky.app) track the songs you play.
+- [atradio](https://atradio.fm) tracks the radio station you're tuned in to.
+
+There's nothing to connect. Start listening in one of these apps, and Colibri shows it once sharing is on.
+
+## Turn on sharing
+
+Sharing is off by default.
+
+<Steps>
+
+1. Open **Settings** and select **Chat**.
+
+2. Under **Activity**, turn on **Share what I'm doing**.
+
+</Steps>
+
+The same switch also shares the game you're playing. Turning it off clears your activity for everyone right away.
+
+If Colibri finds listening history from teal.fm, Rocksky or atradio in your account while sharing is off, your own profile shows a **Share what you're listening to** card. Select **Turn on** to start sharing, or **Hide** to dismiss the card.
+
+## What others see
+
+Your profile shows a card with what you're listening to:
+
+- a label such as **Listening to teal.fm**, naming the app it came from
+- the song and the artist, or the station and its genre
+- the album, when the app saves one
+- the cover art or the station logo
+
+When the app saves a link to the song or station, selecting the card opens it.
+
+In the member list, the song and the artist appear under your name. When you have more than one activity at once, the newest one is shown first.
+
+When teal.fm or Rocksky doesn't save the cover art, Colibri looks it up by the song title and the artist.
+
+## When your status disappears
+
+Your listening status ends by itself. It disappears when the song is over, or after the time the app sets for it. A radio station stays for up to six hours after you tune in.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Games"
+    description="Show the game you're playing."
+    href="/docs/users/integrations/games"
+  />
+  <LinkCard
+    title="Status and Online Status"
+    description="Set a status message and your online status."
+    href="/docs/users/account/status"
+  />
+</CardGrid>

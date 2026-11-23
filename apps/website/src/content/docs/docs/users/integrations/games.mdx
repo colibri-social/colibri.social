@@ -1,0 +1,45 @@
+---
+title: Games
+description: Show the game you're playing through atmosphere.games on your Colibri profile and in the member list.
+sidebar:
+  order: 3
+---
+
+import { Steps, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Colibri can show the game you're playing on your profile and next to your name in the member list! It reads this from [atmosphere.games](https://atmosphere.games), which saves your playing status to your Atmosphere account.
+
+## Turn on sharing
+
+Sharing is off by default.
+
+<Steps>
+
+1. Open **Settings** and select **Chat**.
+
+2. Under **Activity**, turn on **Share what I'm doing**.
+
+</Steps>
+
+The same switch also shares what you're listening to. Turning it off clears your activity for everyone right away.
+
+## What others see
+
+Your profile shows a **Playing** card with the name of the game, and its picture when the game has one. When atmosphere.games saves a link, selecting the card opens it. In the member list, the name of the game appears under your name.
+
+The status disappears when atmosphere.games marks it as over, or after about ten minutes without an update.
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Music"
+    description="Show the song or station you're listening to."
+    href="/docs/users/integrations/music"
+  />
+  <LinkCard
+    title="Status and Online Status"
+    description="Set a status message and your online status."
+    href="/docs/users/account/status"
+  />
+</CardGrid>

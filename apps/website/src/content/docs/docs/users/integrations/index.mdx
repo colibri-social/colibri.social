@@ -1,0 +1,47 @@
+---
+title: Integrations
+description: The apps from the Atmosphere that Colibri works with, and what each one adds to your profile, your status and your emoji.
+sidebar:
+  label: Overview
+  order: 1
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Your Atmosphere account isn't tied to one app. Other apps save what you do with them in the same account, and Colibri can read some of it. This lets you bring your music, your games, your Bluesky profile and your emoji into Colibri without setting anything up twice.
+
+Colibri works with these apps:
+
+| App | What it adds in Colibri |
+| --- | --- |
+| [teal.fm](https://teal.fm) | The song you're listening to |
+| [Rocksky](https://rocksky.app) | The song you're listening to |
+| [atradio](https://atradio.fm) | The radio station you're listening to |
+| [atmosphere.games](https://atmosphere.games) | The game you're playing |
+| Bluesky | Your name, picture, banner and bio |
+| Bluemoji | Your custom emoji |
+
+You don't connect these apps to Colibri. They already write to your Atmosphere account, and Colibri reads from there. Your listening and playing status stays hidden until you turn on sharing.
+
+<CardGrid>
+  <LinkCard
+    title="Music"
+    description="Show the song or station you're listening to."
+    href="/docs/users/integrations/music"
+  />
+  <LinkCard
+    title="Games"
+    description="Show the game you're playing."
+    href="/docs/users/integrations/games"
+  />
+  <LinkCard
+    title="Bluesky Profile"
+    description="Keep your Colibri profile in sync with Bluesky."
+    href="/docs/users/integrations/bluesky-profile"
+  />
+  <LinkCard
+    title="Bluemoji"
+    description="Use the same custom emoji across apps."
+    href="/docs/users/integrations/bluemoji"
+  />
+</CardGrid>

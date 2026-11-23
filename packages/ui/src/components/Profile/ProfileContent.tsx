@@ -74,6 +74,7 @@ export type ProfileContentPartProps = {
 	headingLevel?: 1 | 2 | 3;
 	onAction?: (action: ProfileAction) => void;
 	headerActions?: JSX.Element;
+	actionGroups?: JSX.Element;
 	showActions?: boolean;
 	showDeveloper?: boolean;
 	footer?: JSX.Element;
@@ -159,6 +160,7 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 	const bio = createSlot(() => props.profile.bio);
 	const activityPrompt = createSlot(() => props.profile.activityPrompt);
 	const footer = createSlot(() => props.footer);
+	const actionGroups = createSlot(() => props.actionGroups);
 	const tone = () => (props.surface === "background" ? "card" : "secondary");
 	const actions = () =>
 		props.showActions === false ? [] : profileActionsOf(props.profile);
@@ -170,6 +172,7 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 		activityPrompt.has() ||
 		(props.profile.roles ?? []).length > 0 ||
 		actions().length > 0 ||
+		actionGroups.has() ||
 		!!developer() ||
 		footer.has();
 
@@ -235,6 +238,7 @@ export const ProfileContentBody = (props: ProfileContentPartProps) => {
 						</For>
 					</ListGroup>
 				</Show>
+				<Show when={actionGroups.has()}>{actionGroups()}</Show>
 				<Show when={developer()}>
 					{(developer) => (
 						<DeveloperModeCard

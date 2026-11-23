@@ -1,0 +1,63 @@
+---
+title: Bluesky Profile
+description: Bring your Bluesky name, picture, banner and bio into Colibri, keep them in sync, and choose which app opens Bluesky links.
+sidebar:
+  order: 4
+---
+
+import { Steps, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+If you use Bluesky, you already have a profile there with a name, a picture and a bio. Colibri can copy it, so you don't have to set up your profile twice!
+
+## Import on sign up
+
+When you set up Colibri for the first time and your account has a Bluesky profile, pick **Import from Bluesky**. Colibri fills in your Bluesky name and picture.
+
+On the next screen, if you leave **Stay in sync with Bluesky?** on, Colibri will keep mirroring your changes to your Bluesky profile. You can turn this off to turn your profile into a one-time copy!
+
+## Keep your profile in sync
+
+<Steps>
+
+1. Open your profile editor.
+
+2. Turn on **Keep in sync with Bluesky**.
+
+3. Select **Save**.
+
+</Steps>
+
+While it's on, your name, picture, banner and bio mirror your Bluesky profile. When you change them in Bluesky, Colibri shows the change too. These fields can't be edited in Colibri while sync is on.
+
+Your pronouns stay editable in Colibri. Leave them empty to show your Bluesky pronouns.
+
+Turn the switch off to give your Colibri profile its own name, picture and bio.
+
+## Open Bluesky links
+
+Links to Bluesky posts and profiles in messages open in the app you choose.
+
+<Steps>
+
+1. Open **Settings** and select **Chat**.
+
+2. Under **Bluesky**, pick an app in **Open Bluesky links in**: **Bluesky**, **Anisota**, **Blacksky**, **Deer Social**, **Mu Social**, **Northsky** or **Witchsky**.
+
+3. To use an app that isn't listed, pick **Another app**, enter its address (for example `bsky.app`) and select **Save**.
+
+</Steps>
+
+## Related articles
+
+<CardGrid>
+  <LinkCard
+    title="Edit Your Profile"
+    description="Change your name, picture and bio."
+    href="/docs/users/account/profile"
+  />
+  <LinkCard
+    title="Integrations"
+    description="Every app Colibri works with."
+    href="/docs/users/integrations"
+  />
+</CardGrid>

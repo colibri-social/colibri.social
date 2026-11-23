@@ -98,6 +98,12 @@ export default defineConfig({
 								items: [{ autogenerate: { directory: "docs/users/account" } }],
 							},
 							{
+								label: "Integrations",
+								items: [
+									{ autogenerate: { directory: "docs/users/integrations" } },
+								],
+							},
+							{
 								label: "Bridges",
 								items: [{ autogenerate: { directory: "docs/users/bridges" } }],
 							},

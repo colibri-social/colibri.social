@@ -190,6 +190,8 @@ export * from "./components/SegmentedControl/SegmentedControl";
 export * from "./components/Select/Select";
 export * from "./components/Selection/AudiencePicker";
 export * from "./components/Selection/SelectionRows";
+export * from "./components/Settings/BridgeLinkStep";
+export * from "./components/Settings/BridgeLinks";
 export * from "./components/Settings/BridgeOverview";
 export * from "./components/Settings/FeaturedBridgeCard";
 export * from "./components/Settings/Settings";

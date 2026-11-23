@@ -1,8 +1,11 @@
 import { createUniqueId, type JSX } from "solid-js";
 import { cx } from "../../utils/cx";
 
+export type SettingsNoticeTone = "neutral" | "info";
+
 export type SettingsNoticeProps = {
 	icon: JSX.Element;
+	tone?: SettingsNoticeTone;
 	title: string;
 	description: string;
 	class?: string;
@@ -10,10 +13,12 @@ export type SettingsNoticeProps = {
 
 export const SettingsNotice = (props: SettingsNoticeProps) => {
 	const titleId = createUniqueId();
+	const info = () => props.tone === "info";
 
 	return (
 		<section
 			data-settings-notice=""
+			data-tone={props.tone ?? "neutral"}
 			role="status"
 			aria-labelledby={titleId}
 			class={cx(
@@ -23,7 +28,12 @@ export const SettingsNotice = (props: SettingsNoticeProps) => {
 		>
 			<span
 				aria-hidden="true"
-				class="flex size-8 shrink-0 items-center justify-center rounded-full bg-background text-muted-foreground [&>svg]:size-4"
+				class={cx(
+					"flex size-8 shrink-0 items-center justify-center rounded-full [&>svg]:size-4",
+					info()
+						? "bg-info/15 text-info"
+						: "bg-background text-muted-foreground",
+				)}
 			>
 				{props.icon}
 			</span>

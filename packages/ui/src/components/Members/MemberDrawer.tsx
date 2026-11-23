@@ -96,6 +96,314 @@ const hasVoiceModeration = (voice: MemberMenuVoice) =>
 const canMoveMember = (voice: MemberMenuVoice) =>
 	!!voice.onMove && (voice.moveTargets?.length ?? 0) > 0;
 
+export const hasMemberDrawerActions = (actions: MemberMenuActions) => {
+	const voice = actions.voice;
+
+	return !!(
+		(voice && (hasVoiceSettings(voice) || hasVoiceModeration(voice))) ||
+		actions.onViewProfile ||
+		canEditMemberRoles(actions) ||
+		actions.onKick ||
+		actions.onBan ||
+		(actions.blocked ? actions.onUnblock : actions.onBlock)
+	);
+};
+
+export const createMemberDrawerView = (open: () => boolean) => {
+	const [view, setView] = createSignal<MemberDrawerView>("actions");
+	const isOpen = createMemo(open);
+
+	createEffect(
+		on(isOpen, (isOpen) => {
+			if (isOpen) setView("actions");
+		}),
+	);
+
+	const backToActions = (event: KeyboardEvent) => {
+		if (view() === "actions") return;
+		event.preventDefault();
+		event.stopPropagation();
+		setView("actions");
+	};
+
+	return { view, setView, backToActions };
+};
+
+export type MemberDrawerViewHeaderProps = {
+	view: MemberDrawerView;
+	name: string;
+	onBack: () => void;
+	backLabel?: string;
+};
+
+export const MemberDrawerViewHeader = (props: MemberDrawerViewHeaderProps) => (
+	<div data-member-drawer-header="" class="flex min-w-0 items-center gap-2">
+		<IconButton
+			variant="ghost"
+			size="md"
+			label={props.backLabel ?? "Back to member options"}
+			icon={<ArrowLeftIcon />}
+			onClick={() => props.onBack()}
+			class="-ml-1.5 [&_svg]:size-5"
+		/>
+		<span class="flex min-w-0 flex-1 flex-col">
+			<span class="text-base leading-5 font-bold">
+				{props.view === "move" ? "Move to" : "Roles"}
+			</span>
+			<span class="min-w-0 truncate text-sm text-muted-foreground">
+				{props.name}
+			</span>
+		</span>
+	</div>
+);
+
+export type MemberDrawerSectionsProps = MemberMenuActions & {
+	name: string;
+	view: MemberDrawerView;
+	onViewChange: (view: MemberDrawerView) => void;
+	onClose: () => void;
+};
+
+export const MemberDrawerSections = (props: MemberDrawerSectionsProps) => {
+	const run = (action?: () => void) => () => {
+		props.onClose();
+		action?.();
+	};
+	const hasPrimary = () => !!props.onViewProfile || canEditMemberRoles(props);
+	const hasModeration = () => !!(props.onKick || props.onBan);
+	const roleCount = () => assignedRoleCount(props);
+
+	return (
+		<>
+			<Show when={props.view === "roles"}>
+				<ListGroup>
+					<Index each={props.roles ?? []}>
+						{(role) => (
+							<CheckboxRow
+								leading={<RoleColorDot color={role().color} />}
+								label={<span class="block truncate">{role().name}</span>}
+								checked={role().assigned}
+								disabled={!role().manageable}
+								onChange={(checked) => props.onRoleChange?.(role().id, checked)}
+								class="min-h-12"
+							/>
+						)}
+					</Index>
+				</ListGroup>
+			</Show>
+			<Show when={props.view === "move"}>
+				<ListGroup>
+					<Index each={props.voice?.moveTargets ?? []}>
+						{(target) => (
+							<NavRow
+								icon={<VolumeIcon />}
+								label={target().name}
+								onClick={run(() => props.voice?.onMove?.(target().id))}
+							/>
+						)}
+					</Index>
+				</ListGroup>
+			</Show>
+			<Show when={props.view === "actions"}>
+				<Show when={props.voice}>
+					{(voice) => (
+						<>
+							<Show when={hasVoiceSettings(voice())}>
+								<ListGroup label="Voice">
+									<Show when={voice().onVolumeChange}>
+										{(change) => (
+											<VolumeRow
+												label="Volume"
+												value={voice().volume}
+												onChange={change()}
+											/>
+										)}
+									</Show>
+									<Show when={voice().onStreamVolumeChange}>
+										{(change) => (
+											<VolumeRow
+												label="Stream volume"
+												value={voice().streamVolume}
+												onChange={change()}
+											/>
+										)}
+									</Show>
+									<Show when={voice().onStreamMutedChange}>
+										{(change) => (
+											<CheckboxRow
+												leading={
+													<span
+														aria-hidden="true"
+														class="flex size-6 items-center justify-center text-foreground [&>svg]:size-6"
+													>
+														<VolumeCrossIcon />
+													</span>
+												}
+												label={<span class="text-sm">Mute stream</span>}
+												checked={!!voice().streamMuted}
+												onChange={change()}
+												class="min-h-0 gap-2"
+											/>
+										)}
+									</Show>
+									<Show when={voice().onSelfMutedChange}>
+										{(change) => (
+											<ToggleRow
+												icon={<MicrophoneSlashIcon />}
+												title="Mute"
+												checked={!!voice().selfMuted}
+												onChange={change()}
+											/>
+										)}
+									</Show>
+									<Show when={voice().onSelfDeafenedChange}>
+										{(change) => (
+											<ToggleRow
+												icon={<HeadphonesSlashIcon />}
+												title="Deafen"
+												checked={!!voice().selfDeafened}
+												onChange={change()}
+											/>
+										)}
+									</Show>
+									<Show when={voice().onPreviewCamera}>
+										{(preview) => (
+											<NavRow
+												icon={<CameraIcon />}
+												label="Preview camera"
+												onClick={run(preview())}
+											/>
+										)}
+									</Show>
+									<Show when={voice().onShowNonVideoParticipantsChange}>
+										{(change) => (
+											<ToggleRow
+												icon={<UsersGroupRoundedIcon />}
+												title="Show non-video participants"
+												checked={!!voice().showNonVideoParticipants}
+												onChange={change()}
+											/>
+										)}
+									</Show>
+									<Show when={voice().onShowOwnCameraChange}>
+										{(change) => (
+											<ToggleRow
+												icon={<MonitorCameraIcon />}
+												title="Show own camera"
+												checked={!!voice().showOwnCamera}
+												onChange={change()}
+											/>
+										)}
+									</Show>
+								</ListGroup>
+							</Show>
+							<Show when={hasVoiceModeration(voice())}>
+								<ListGroup>
+									<Show when={voice().onServerMutedChange}>
+										{(change) => (
+											<ToggleRow
+												icon={<MicrophoneSlashIcon />}
+												title="Server mute"
+												checked={!!voice().serverMuted}
+												onChange={change()}
+											/>
+										)}
+									</Show>
+									<Show when={voice().onServerDeafenedChange}>
+										{(change) => (
+											<ToggleRow
+												icon={<HeadphonesSlashIcon />}
+												title="Server deafen"
+												checked={!!voice().serverDeafened}
+												onChange={change()}
+											/>
+										)}
+									</Show>
+									<Show when={canMoveMember(voice())}>
+										<NavRow
+											icon={<TransferHorizontalIcon />}
+											label="Move to"
+											onClick={() => props.onViewChange("move")}
+										/>
+									</Show>
+									<Show when={voice().onDisconnect}>
+										{(disconnect) => (
+											<DestructiveRow
+												icon={<EndCallRoundedIcon />}
+												label={`Disconnect ${props.name} from voice`}
+												onClick={run(disconnect())}
+											/>
+										)}
+									</Show>
+								</ListGroup>
+							</Show>
+						</>
+					)}
+				</Show>
+				<Show when={hasPrimary()}>
+					<ListGroup>
+						<Show when={props.onViewProfile}>
+							<NavRow
+								icon={<UserCircleIcon />}
+								label="View profile"
+								onClick={run(props.onViewProfile)}
+							/>
+						</Show>
+						<Show when={canEditMemberRoles(props)}>
+							<NavRow
+								icon={<ShieldUserIcon />}
+								label="Roles"
+								value={roleCount() > 0 ? String(roleCount()) : undefined}
+								onClick={() => props.onViewChange("roles")}
+							/>
+						</Show>
+					</ListGroup>
+				</Show>
+				<Show when={hasModeration()}>
+					<ListGroup>
+						<Show when={props.onKick}>
+							<DestructiveRow
+								icon={<UserMinusRoundedIcon />}
+								label={`Kick ${props.name}`}
+								onClick={run(props.onKick)}
+							/>
+						</Show>
+						<Show when={props.onBan}>
+							<DestructiveRow
+								icon={<UserBlockRoundedIcon />}
+								label={`Ban ${props.name}`}
+								onClick={run(props.onBan)}
+							/>
+						</Show>
+					</ListGroup>
+				</Show>
+				<Show when={props.blocked ? props.onUnblock : props.onBlock} keyed>
+					{(action) => (
+						<ListGroup>
+							<Show
+								when={props.blocked}
+								fallback={
+									<DestructiveRow
+										icon={<UserBlockIcon />}
+										label={`Block ${props.name}`}
+										onClick={run(action)}
+									/>
+								}
+							>
+								<NavRow
+									icon={<UserCheckIcon />}
+									label={`Unblock ${props.name}`}
+									onClick={run(action)}
+								/>
+							</Show>
+						</ListGroup>
+					)}
+				</Show>
+			</Show>
+		</>
+	);
+};
+
 export type MemberDrawerProps = MemberMenuActions & {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -108,29 +416,9 @@ export type MemberDrawerProps = MemberMenuActions & {
 };
 
 export const MemberDrawer = (props: MemberDrawerProps) => {
-	const [view, setView] = createSignal<MemberDrawerView>("actions");
+	const drawer = createMemberDrawerView(() => props.open);
 	const badge = createSlot(() => props.badge);
-
-	const open = createMemo(() => props.open);
-	createEffect(
-		on(open, (isOpen) => {
-			if (isOpen) setView("actions");
-		}),
-	);
-
-	const run = (action?: () => void) => () => {
-		props.onOpenChange(false);
-		action?.();
-	};
-	const backToActions = (event: KeyboardEvent) => {
-		if (view() === "actions") return;
-		event.preventDefault();
-		event.stopPropagation();
-		setView("actions");
-	};
-	const hasPrimary = () => !!props.onViewProfile || canEditMemberRoles(props);
-	const hasModeration = () => !!(props.onKick || props.onBan);
-	const roleCount = () => assignedRoleCount(props);
+	const close = () => props.onOpenChange(false);
 	const showDeveloper = () => !!(props.developerMode && props.developer);
 
 	return (
@@ -141,10 +429,10 @@ export const MemberDrawer = (props: MemberDrawerProps) => {
 		>
 			<DrawerContent
 				aria-label={`${props.name} options`}
-				onEscapeKeyDown={backToActions}
+				onEscapeKeyDown={drawer.backToActions}
 				header={
 					<Show
-						when={view() !== "actions"}
+						when={drawer.view() !== "actions"}
 						fallback={
 							<div
 								data-member-drawer-header=""
@@ -181,262 +469,30 @@ export const MemberDrawer = (props: MemberDrawerProps) => {
 							</div>
 						}
 					>
-						<div
-							data-member-drawer-header=""
-							class="flex min-w-0 items-center gap-2"
-						>
-							<IconButton
-								variant="ghost"
-								size="md"
-								label="Back to member options"
-								icon={<ArrowLeftIcon />}
-								onClick={() => setView("actions")}
-								class="-ml-1.5 [&_svg]:size-5"
-							/>
-							<span class="flex min-w-0 flex-1 flex-col">
-								<span class="text-base leading-5 font-bold">
-									{view() === "move" ? "Move to" : "Roles"}
-								</span>
-								<span class="min-w-0 truncate text-sm text-muted-foreground">
-									{props.name}
-								</span>
-							</span>
-						</div>
+						<MemberDrawerViewHeader
+							view={drawer.view()}
+							name={props.name}
+							onBack={() => drawer.setView("actions")}
+						/>
 					</Show>
 				}
 			>
-				<Show when={view() === "roles"}>
-					<ListGroup>
-						<Index each={props.roles ?? []}>
-							{(role) => (
-								<CheckboxRow
-									leading={<RoleColorDot color={role().color} />}
-									label={<span class="block truncate">{role().name}</span>}
-									checked={role().assigned}
-									disabled={!role().manageable}
-									onChange={(checked) =>
-										props.onRoleChange?.(role().id, checked)
-									}
-									class="min-h-12"
-								/>
-							)}
-						</Index>
-					</ListGroup>
-				</Show>
-				<Show when={view() === "move"}>
-					<ListGroup>
-						<Index each={props.voice?.moveTargets ?? []}>
-							{(target) => (
-								<NavRow
-									icon={<VolumeIcon />}
-									label={target().name}
-									onClick={run(() => props.voice?.onMove?.(target().id))}
-								/>
-							)}
-						</Index>
-					</ListGroup>
-				</Show>
-				<Show when={view() === "actions"}>
-					<Show when={props.voice}>
-						{(voice) => (
-							<>
-								<Show when={hasVoiceSettings(voice())}>
-									<ListGroup label="Voice">
-										<Show when={voice().onVolumeChange}>
-											{(change) => (
-												<VolumeRow
-													label="Volume"
-													value={voice().volume}
-													onChange={change()}
-												/>
-											)}
-										</Show>
-										<Show when={voice().onStreamVolumeChange}>
-											{(change) => (
-												<VolumeRow
-													label="Stream volume"
-													value={voice().streamVolume}
-													onChange={change()}
-												/>
-											)}
-										</Show>
-										<Show when={voice().onStreamMutedChange}>
-											{(change) => (
-												<CheckboxRow
-													leading={
-														<span
-															aria-hidden="true"
-															class="flex size-6 items-center justify-center text-foreground [&>svg]:size-6"
-														>
-															<VolumeCrossIcon />
-														</span>
-													}
-													label={<span class="text-sm">Mute stream</span>}
-													checked={!!voice().streamMuted}
-													onChange={change()}
-													class="min-h-0 gap-2"
-												/>
-											)}
-										</Show>
-										<Show when={voice().onSelfMutedChange}>
-											{(change) => (
-												<ToggleRow
-													icon={<MicrophoneSlashIcon />}
-													title="Mute"
-													checked={!!voice().selfMuted}
-													onChange={change()}
-												/>
-											)}
-										</Show>
-										<Show when={voice().onSelfDeafenedChange}>
-											{(change) => (
-												<ToggleRow
-													icon={<HeadphonesSlashIcon />}
-													title="Deafen"
-													checked={!!voice().selfDeafened}
-													onChange={change()}
-												/>
-											)}
-										</Show>
-										<Show when={voice().onPreviewCamera}>
-											{(preview) => (
-												<NavRow
-													icon={<CameraIcon />}
-													label="Preview camera"
-													onClick={run(preview())}
-												/>
-											)}
-										</Show>
-										<Show when={voice().onShowNonVideoParticipantsChange}>
-											{(change) => (
-												<ToggleRow
-													icon={<UsersGroupRoundedIcon />}
-													title="Show non-video participants"
-													checked={!!voice().showNonVideoParticipants}
-													onChange={change()}
-												/>
-											)}
-										</Show>
-										<Show when={voice().onShowOwnCameraChange}>
-											{(change) => (
-												<ToggleRow
-													icon={<MonitorCameraIcon />}
-													title="Show own camera"
-													checked={!!voice().showOwnCamera}
-													onChange={change()}
-												/>
-											)}
-										</Show>
-									</ListGroup>
-								</Show>
-								<Show when={hasVoiceModeration(voice())}>
-									<ListGroup>
-										<Show when={voice().onServerMutedChange}>
-											{(change) => (
-												<ToggleRow
-													icon={<MicrophoneSlashIcon />}
-													title="Server mute"
-													checked={!!voice().serverMuted}
-													onChange={change()}
-												/>
-											)}
-										</Show>
-										<Show when={voice().onServerDeafenedChange}>
-											{(change) => (
-												<ToggleRow
-													icon={<HeadphonesSlashIcon />}
-													title="Server deafen"
-													checked={!!voice().serverDeafened}
-													onChange={change()}
-												/>
-											)}
-										</Show>
-										<Show when={canMoveMember(voice())}>
-											<NavRow
-												icon={<TransferHorizontalIcon />}
-												label="Move to"
-												onClick={() => setView("move")}
-											/>
-										</Show>
-										<Show when={voice().onDisconnect}>
-											{(disconnect) => (
-												<DestructiveRow
-													icon={<EndCallRoundedIcon />}
-													label={`Disconnect ${props.name} from voice`}
-													onClick={run(disconnect())}
-												/>
-											)}
-										</Show>
-									</ListGroup>
-								</Show>
-							</>
-						)}
-					</Show>
-					<Show when={hasPrimary()}>
-						<ListGroup>
-							<Show when={props.onViewProfile}>
-								<NavRow
-									icon={<UserCircleIcon />}
-									label="View profile"
-									onClick={run(props.onViewProfile)}
-								/>
-							</Show>
-							<Show when={canEditMemberRoles(props)}>
-								<NavRow
-									icon={<ShieldUserIcon />}
-									label="Roles"
-									value={roleCount() > 0 ? String(roleCount()) : undefined}
-									onClick={() => setView("roles")}
-								/>
-							</Show>
-						</ListGroup>
-					</Show>
-					<Show when={hasModeration()}>
-						<ListGroup>
-							<Show when={props.onKick}>
-								<DestructiveRow
-									icon={<UserMinusRoundedIcon />}
-									label={`Kick ${props.name}`}
-									onClick={run(props.onKick)}
-								/>
-							</Show>
-							<Show when={props.onBan}>
-								<DestructiveRow
-									icon={<UserBlockRoundedIcon />}
-									label={`Ban ${props.name}`}
-									onClick={run(props.onBan)}
-								/>
-							</Show>
-						</ListGroup>
-					</Show>
-					<Show when={props.blocked ? props.onUnblock : props.onBlock} keyed>
-						{(action) => (
-							<ListGroup>
-								<Show
-									when={props.blocked}
-									fallback={
-										<DestructiveRow
-											icon={<UserBlockIcon />}
-											label={`Block ${props.name}`}
-											onClick={run(action)}
-										/>
-									}
-								>
-									<NavRow
-										icon={<UserCheckIcon />}
-										label={`Unblock ${props.name}`}
-										onClick={run(action)}
-									/>
-								</Show>
-							</ListGroup>
-						)}
-					</Show>
+				<MemberDrawerSections
+					{...props}
+					view={drawer.view()}
+					onViewChange={drawer.setView}
+					onClose={close}
+				/>
+				<Show when={drawer.view() === "actions"}>
 					<Show when={props.onCopyDid && !showDeveloper()}>
 						<ListGroup>
 							<NavRow
 								icon={<CopyIcon />}
 								label="Copy DID"
-								onClick={run(props.onCopyDid)}
+								onClick={() => {
+									close();
+									props.onCopyDid?.();
+								}}
 							/>
 						</ListGroup>
 					</Show>

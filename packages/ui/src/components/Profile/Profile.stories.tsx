@@ -255,7 +255,7 @@ const resetProfileMenuSpies = () => {
 };
 
 const createProfileMenu = (
-	options: { space?: boolean; blocked?: () => boolean } = {},
+	options: { space?: boolean; voice?: boolean; blocked?: () => boolean } = {},
 ): ProfileMenuActions => {
 	const [roles, setRoles] = createSignal([
 		{
@@ -282,10 +282,13 @@ const createProfileMenu = (
 	]);
 	const space: ProfileMenuActions = options.space
 		? {
-				voice: {
-					volume: 100,
-					onVolumeChange: (value) => profileMenuSpy.volume(value),
-				},
+				voice:
+					options.voice === false
+						? undefined
+						: {
+								volume: 100,
+								onVolumeChange: (value) => profileMenuSpy.volume(value),
+							},
 				get roles() {
 					return roles();
 				},
@@ -471,14 +474,20 @@ const desktop = { viewport: { defaultViewport: "responsive" } };
 const NOW = new Date("2026-10-08T14:30:00");
 const AT = new Date("2026-10-08T14:02:00");
 
-const AuthorPopover = (props: { menu?: ProfileMenuActions }) => {
+const AuthorPopover = (props: {
+	menu?: ProfileMenuActions;
+	profile?: ProfileData;
+}) => {
 	const [open, setOpen] = createSignal(false);
 	let anchor: HTMLElement | undefined;
 
 	return (
 		<div class="min-h-[760px] w-[720px] bg-background py-6 pl-[360px]">
 			<MessageRow
-				author={{ name: "Lou", avatarSrc: AVATAR }}
+				author={{
+					name: props.profile?.displayName ?? "Lou",
+					avatarSrc: AVATAR,
+				}}
 				badge={<TeamBadge size="sm" />}
 				timestamp={AT}
 				now={NOW}
@@ -491,7 +500,7 @@ const AuthorPopover = (props: { menu?: ProfileMenuActions }) => {
 				I have walked that path for years and never once have I seen one.
 			</MessageRow>
 			<ProfilePopover
-				profile={lou()}
+				profile={props.profile ?? lou()}
 				anchor={() => anchor}
 				open={open()}
 				onOpenChange={setOpen}
@@ -2440,6 +2449,246 @@ export const BlockedProfileDrawerUnblock: Story = {
 			within(dialog).getByRole("heading", { name: "Lou" }),
 		).toBeVisible();
 		await expect(dialog.contains(document.activeElement)).toBe(true);
+		await waitFor(() => expectNoLayoutIssues(dialog), { timeout: 3000 });
+	},
+};
+
+const LONG_HANDLE = "omixann.spaces-alpha.bsky.network";
+
+const longHandleProfile = () =>
+	lou({
+		displayName: LONG_HANDLE,
+		handle: LONG_HANDLE,
+		pronouns: undefined,
+	});
+
+export const PopoverModeratorMenu: Story = {
+	name: "Popover moderator menu open",
+	parameters: desktop,
+	render: () => (
+		<AuthorPopover menu={createProfileMenu({ space: true, voice: false })} />
+	),
+	play: async ({ canvasElement }) => {
+		resetProfileMenuSpies();
+		const popover = await openLouPopover(canvasElement);
+		const menu = await openProfileMenu(popover);
+
+		await expect(menuEntryNames(menu)).toEqual([
+			"Roles",
+			"Kick Lou",
+			"Ban Lou",
+			"Block Lou",
+			"Developer mode",
+		]);
+		await expectNoLayoutIssues(popover);
+		await expectNoLayoutIssues(menu);
+		await userEvent.hover(
+			within(menu).getByRole("menuitem", { name: "Roles" }),
+		);
+
+		const roles = await screen.findByRole("menu", { name: "Roles" });
+
+		await expect(menuEntryNames(roles)).toEqual([
+			"Moderator",
+			"Bird watcher",
+			"Night owl",
+		]);
+		await expect(
+			within(roles).getByRole("menuitemcheckbox", { name: "Moderator" }),
+		).toHaveAttribute("aria-disabled", "true");
+		await expectNoLayoutIssues(roles);
+	},
+};
+
+export const PopoverModeratorMenuLongHandle: Story = {
+	name: "Popover moderator menu with a long handle",
+	parameters: desktop,
+	render: () => (
+		<AuthorPopover
+			profile={longHandleProfile()}
+			menu={createProfileMenu({ space: true, voice: false })}
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		const author = within(canvasElement).getAllByRole("button", {
+			name: new RegExp(LONG_HANDLE),
+		})[0];
+		if (!author) throw new Error("author trigger missing");
+		await userEvent.click(author);
+
+		const popover = await screen.findByRole("dialog", {
+			name: `${LONG_HANDLE}'s profile`,
+		});
+		const heading = await within(popover).findByRole("heading", {
+			name: LONG_HANDLE,
+		});
+
+		await waitFor(() => expect(heading).toBeVisible());
+		await expect(popover.offsetWidth).toBe(PROFILE_POPOVER_WIDTH);
+		await expect(heading.getBoundingClientRect().right).toBeLessThanOrEqual(
+			popover.getBoundingClientRect().right,
+		);
+		await expectNoLayoutIssues(popover);
+		await userEvent.click(
+			within(popover).getByRole("button", {
+				name: `More options for ${LONG_HANDLE}`,
+			}),
+		);
+
+		const menu = await screen.findByRole("menu", {
+			name: `More options for ${LONG_HANDLE}`,
+		});
+		const box = menu.getBoundingClientRect();
+
+		await expect(menuEntryNames(menu)).toEqual([
+			"Roles",
+			`Kick ${LONG_HANDLE}`,
+			`Ban ${LONG_HANDLE}`,
+			`Block ${LONG_HANDLE}`,
+			"Developer mode",
+		]);
+		await expect(box.width).toBeLessThanOrEqual(288);
+		await expect(box.right).toBeLessThanOrEqual(window.innerWidth);
+		await expectNoLayoutIssues(menu);
+	},
+};
+
+const MenuProfileDrawer = (props: {
+	space?: boolean;
+	profile?: ProfileData;
+}) => {
+	const [open, setOpen] = createSignal(true);
+	const menu = createProfileMenu({ space: props.space });
+
+	return (
+		<>
+			<Button variant="secondary" onClick={() => setOpen(true)}>
+				Open profile
+			</Button>
+			<ProfileDrawerComponent
+				open={open()}
+				onOpenChange={setOpen}
+				profile={props.profile ?? lou()}
+				menu={menu}
+			/>
+		</>
+	);
+};
+
+const drawerRowNames = (dialog: HTMLElement) =>
+	Array.from(
+		dialog.querySelectorAll<HTMLElement>("[data-profile-body] section button"),
+	)
+		.filter((button) => !button.closest("[data-developer-mode]"))
+		.map((button) => visibleMenuName(button));
+
+const openedProfileDrawer = async (name = "Lou") => {
+	const dialog = await screen.findByRole("dialog", {
+		name: `${name}'s profile`,
+	});
+
+	await waitFor(() =>
+		expect(within(dialog).getByRole("heading", { name })).toBeVisible(),
+	);
+	await new Promise((resolve) => setTimeout(resolve, 400));
+
+	return dialog;
+};
+
+const waitForProfileDrawerClosed = () =>
+	waitFor(() =>
+		expect(screen.queryByRole("dialog", { name: "Lou's profile" })).toBeNull(),
+	);
+
+export const ProfileDrawerModerator: Story = {
+	name: "Profile drawer as a moderator",
+	render: () => <MenuProfileDrawer space />,
+	play: async () => {
+		resetProfileMenuSpies();
+		const dialog = await openedProfileDrawer();
+
+		await expect(sectionLabels(dialog)).toEqual(["Bio", "Space roles"]);
+		await expect(drawerRowNames(dialog)).toEqual([
+			"Roles2",
+			"Kick Lou",
+			"Ban Lou",
+			"Block Lou",
+		]);
+		await expect(within(dialog).getByRole("slider")).toHaveAttribute(
+			"aria-valuetext",
+			"100%",
+		);
+		await expect(within(dialog).queryByText("Moderator actions")).toBeNull();
+		await expect(dialog.querySelector("[data-developer-mode]")).not.toBeNull();
+		await waitFor(() => expectNoLayoutIssues(dialog), { timeout: 3000 });
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: /^Roles/ }),
+		);
+
+		const back = await within(dialog).findByRole("button", {
+			name: "Back to profile",
+		});
+		const nightOwl = within(dialog).getByRole("checkbox", {
+			name: "Night owl",
+		});
+
+		await expect(
+			within(dialog).queryByRole("heading", { name: "Lou" }),
+		).toBeNull();
+		await waitFor(() => expectNoLayoutIssues(dialog), { timeout: 3000 });
+		await userEvent.click(nightOwl);
+		await expect(profileMenuSpy.roleChange).toHaveBeenCalledWith("night", true);
+		await waitFor(() => expect(nightOwl).toBeChecked());
+		await userEvent.click(back);
+		await waitFor(() =>
+			expect(
+				within(dialog).getByRole("heading", { name: "Lou" }),
+			).toBeVisible(),
+		);
+		await expect(
+			within(dialog).getByRole("button", { name: /^Roles/ }),
+		).toHaveTextContent("3");
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Kick Lou" }),
+		);
+		await expect(profileMenuSpy.kick).toHaveBeenCalledTimes(1);
+		await waitForProfileDrawerClosed();
+	},
+};
+
+export const ProfileDrawerMember: Story = {
+	name: "Profile drawer as a member",
+	render: () => <MenuProfileDrawer />,
+	play: async () => {
+		resetProfileMenuSpies();
+		const dialog = await openedProfileDrawer();
+
+		await expect(drawerRowNames(dialog)).toEqual(["Block Lou"]);
+		await expect(within(dialog).queryByRole("slider")).toBeNull();
+		await expect(
+			within(dialog).queryByRole("button", { name: /^(Roles|Kick|Ban)/ }),
+		).toBeNull();
+		await waitFor(() => expectNoLayoutIssues(dialog), { timeout: 3000 });
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: "Block Lou" }),
+		);
+		await expect(profileMenuSpy.block).toHaveBeenCalledTimes(1);
+		await waitForProfileDrawerClosed();
+	},
+};
+
+export const ProfileDrawerModeratorLongHandle: Story = {
+	name: "Profile drawer as a moderator with a long handle",
+	render: () => <MenuProfileDrawer space profile={longHandleProfile()} />,
+	play: async () => {
+		const dialog = await openedProfileDrawer(LONG_HANDLE);
+
+		await expect(drawerRowNames(dialog)).toEqual([
+			"Roles2",
+			`Kick ${LONG_HANDLE}`,
+			`Ban ${LONG_HANDLE}`,
+			`Block ${LONG_HANDLE}`,
+		]);
 		await waitFor(() => expectNoLayoutIssues(dialog), { timeout: 3000 });
 	},
 };

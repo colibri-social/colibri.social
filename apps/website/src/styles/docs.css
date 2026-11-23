@@ -6,6 +6,9 @@
 
 :root {
 	--sl-color-white: #0b0b0b;
+	--sl-hue-accent: 293;
+	--sl-color-accent-low: oklch(0.95 0.03 293);
+	--sl-color-accent: oklch(0.541 0.281 293.009);
 	--sl-color-text-accent: oklch(0.606 0.25 292.717);
 	--sl-color-accent-high: oklch(0.606 0.25 292.717);
 	--sl-font: "Hanken Grotesk Variable", sans-serif;
@@ -25,12 +28,25 @@
 }
 
 [data-theme="dark"] {
+	--sl-color-accent-low: oklch(0.26 0.09 293);
+	--sl-color-accent: oklch(0.606 0.25 292.717);
 	--sl-rapide-ui-header-bg-color: #151515;
 	--sl-color-gray-5: #353535;
 	--sl-color-bg-sidebar: #151515;
 	--sl-color-text: rgb(200, 200, 200);
 	--sl-color-black: #0b0b0b;
 	--sl-color-white: #ffffff;
+}
+
+.sl-link-button.primary {
+	background-color: var(--sl-color-accent-low);
+	border-color: var(--sl-color-accent);
+	color: var(--sl-color-accent-high);
+}
+
+.sl-link-button.primary:is(:hover, :focus-visible) {
+	border-color: var(--sl-color-accent-high);
+	color: var(--sl-color-accent-high);
 }
 
 .sl-badge {

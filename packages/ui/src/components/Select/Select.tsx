@@ -33,6 +33,7 @@ export type SelectProps = {
 	error?: JSX.Element;
 	disabled?: boolean;
 	required?: boolean;
+	reselect?: boolean;
 	name?: string;
 	class?: string;
 	"aria-label"?: string;
@@ -124,6 +125,7 @@ const DesktopSelect = (
 			required={props.required}
 			validationState={error.has() ? "invalid" : "valid"}
 			disallowEmptySelection
+			allowDuplicateSelectionEvents={props.reselect}
 			sameWidth
 			gutter={6}
 			placement="bottom-start"
@@ -215,6 +217,16 @@ const MobileSelect = (
 	const error = createSlot(() => props.error);
 	const selected = () =>
 		props.options.find((option) => option.value === props.current());
+	const close = () => setTimeout(() => setOpen(false), 120 * motionScale());
+	const reselect = (event: MouseEvent) => {
+		const target = event.target;
+		const current = props.current();
+		if (!props.reselect || current === undefined) return;
+		if (!(target instanceof HTMLInputElement)) return;
+		if (target.type !== "radio" || target.value !== current) return;
+		props.commit(current);
+		close();
+	};
 	const describedBy = () =>
 		[
 			error.has() ? errorId : undefined,
@@ -225,7 +237,14 @@ const MobileSelect = (
 
 	return (
 		<div class={cx("flex w-full flex-col gap-2", props.class)}>
-			<Show when={label.has()}>
+			<Show
+				when={label.has()}
+				fallback={
+					<span id={labelId} class="sr-only">
+						{props["aria-label"]}
+					</span>
+				}
+			>
 				<span id={labelId} class={labelClass}>
 					{label()}
 				</span>
@@ -235,8 +254,7 @@ const MobileSelect = (
 				disabled={props.disabled}
 				aria-haspopup="dialog"
 				aria-expanded={open()}
-				aria-label={label.has() ? undefined : props["aria-label"]}
-				aria-labelledby={label.has() ? `${labelId} ${valueId}` : undefined}
+				aria-labelledby={`${labelId} ${valueId}`}
 				aria-describedby={describedBy()}
 				aria-invalid={error.has() ? "true" : undefined}
 				data-invalid={error.has() ? "" : undefined}
@@ -268,26 +286,28 @@ const MobileSelect = (
 						typeof props.label === "string" ? undefined : props["aria-label"]
 					}
 				>
-					<RadioRowGroup
-						aria-label={props["aria-label"]}
-						value={props.current()}
-						onChange={(value) => {
-							props.commit(value);
-							setTimeout(() => setOpen(false), 120 * motionScale());
-						}}
-					>
-						<For each={props.options}>
-							{(option) => (
-								<RadioRow
-									value={option.value}
-									title={option.label}
-									description={option.description}
-									icon={option.icon?.()}
-									disabled={option.disabled}
-								/>
-							)}
-						</For>
-					</RadioRowGroup>
+					<div class="contents" onClick={reselect}>
+						<RadioRowGroup
+							aria-label={props["aria-label"]}
+							value={props.current()}
+							onChange={(value) => {
+								props.commit(value);
+								close();
+							}}
+						>
+							<For each={props.options}>
+								{(option) => (
+									<RadioRow
+										value={option.value}
+										title={option.label}
+										description={option.description}
+										icon={option.icon?.()}
+										disabled={option.disabled}
+									/>
+								)}
+							</For>
+						</RadioRowGroup>
+					</div>
 				</DrawerContent>
 			</Drawer>
 		</div>
@@ -298,7 +318,7 @@ export const Select = (props: SelectProps) => {
 	const [internal, setInternal] = createSignal(props.defaultValue);
 	const current = () => (props.value !== undefined ? props.value : internal());
 	const commit = (value: string) => {
-		if (value === current()) return;
+		if (value === current() && !props.reselect) return;
 		setInternal(value);
 		props.onChange?.(value);
 	};
