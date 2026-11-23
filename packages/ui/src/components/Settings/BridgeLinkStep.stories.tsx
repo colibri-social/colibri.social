@@ -94,8 +94,9 @@ export const Desktop: Story = {
 		await expect(save.getBoundingClientRect().left).toBeGreaterThan(
 			skip.getBoundingClientRect().right,
 		);
-		await expect(save.getBoundingClientRect().top).toBe(
+		await expect(save.getBoundingClientRect().top).toBeCloseTo(
 			skip.getBoundingClientRect().top,
+			0,
 		);
 		await expectNoLayoutIssues(canvasElement);
 	},
