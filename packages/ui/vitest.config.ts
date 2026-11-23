@@ -8,6 +8,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
 	test: {
+		maxWorkers: process.env.CI ? 2 : undefined,
 		projects: [
 			{
 				extends: true,
