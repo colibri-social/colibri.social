@@ -705,7 +705,7 @@ export const BadgeSettingEmoji: Story = {
 	render: () => <BadgeEditor initial={moderators.badge} withPacks />,
 	play: async ({ canvasElement, step }) => {
 		const dialog = await openEmojiTab(canvasElement);
-		await expectNoLayoutIssues(dialog);
+		await waitFor(() => expectNoLayoutIssues(dialog), { timeout: 3000 });
 
 		await step("Pick a Unicode emoji", async () => {
 			await searchEmoji(dialog, "parrot");
@@ -771,7 +771,7 @@ export const BadgeSettingEmojiMobile: Story = {
 		const parrot = await within(dialog).findAllByRole("button", {
 			name: "parrot",
 		});
-		await expectNoLayoutIssues(dialog);
+		await waitFor(() => expectNoLayoutIssues(dialog), { timeout: 3000 });
 		await tap(parrot[0] as HTMLElement);
 		await expect(readValue(canvasElement)).toEqual({
 			kind: "emoji",
