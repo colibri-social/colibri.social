@@ -32,7 +32,7 @@ describe("paths", () => {
 			{ kind: "notFound", path: `/app/c/${DID}/manage/nope` },
 		]);
 		expect(
-			parsePath(`/app/c/${DID}/manage/bridge-connect/matrix`).layers.map(
+			parsePath(`/app/c/${DID}/manage/bridge-connect/discord`).layers.map(
 				(layer) => (layer.kind === "admin" ? layer.page : layer.kind),
 			),
 		).toEqual(["overview", "bridges", "bridge-new", "bridge-connect"]);

@@ -3,6 +3,7 @@ import { platformName } from "./bridge-catalog";
 
 describe("platformName", () => {
 	it("uses the display name of known platforms", () => {
+		expect(platformName("discord")).toBe("Discord");
 		expect(platformName("irc")).toBe("IRC");
 		expect(platformName("matrix")).toBe("Matrix");
 		expect(platformName("slack")).toBe("Slack");

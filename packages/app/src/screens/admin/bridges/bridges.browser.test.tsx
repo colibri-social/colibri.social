@@ -109,10 +109,10 @@ describe("bridges", () => {
 		expect(featured.textContent).toContain("Featured Bridges");
 		await wait(400);
 		expect(layoutIssues(featured)).toEqual([]);
-		buttonNamed(featured, "Connect Matrix")?.click();
+		buttonNamed(featured, "Connect Discord")?.click();
 		await until(() => !!page(root, "bridge-connect"));
 		const connect = page(root, "bridge-connect") as HTMLElement;
-		expect(connect.textContent).toContain("Invite the Colibri bridge");
+		expect(connect.textContent).toContain("Add the Colibri bot");
 		expect(connect.querySelectorAll("ol > li")).toHaveLength(3);
 		const submit = buttonNamed(connect, "Connect") as HTMLButtonElement;
 		const submitDisabled = () =>
@@ -125,7 +125,7 @@ describe("bridges", () => {
 		await until(() => !submitDisabled());
 		submit.click();
 		await until(() => (connect.textContent ?? "").includes("didn't work"));
-		typeInto(field, "MTRX2345");
+		typeInto(field, "DSCD2345");
 		await until(() => !submitDisabled());
 		submit.click();
 		await until(() => !!dialogNamed(/^Connect /));

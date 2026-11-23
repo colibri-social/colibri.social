@@ -18,6 +18,7 @@ export const BRIDGE_DOCS_URL =
 	"https://spaces.colibri.social/docs/users/bridges/pairing/";
 
 const PLATFORM_NAMES: Record<string, string> = {
+	discord: "Discord",
 	irc: "IRC",
 	matrix: "Matrix",
 	slack: "Slack",
@@ -33,33 +34,14 @@ export const platformName = (platform: string) =>
 
 export const FEATURED_BRIDGES: FeaturedBridge[] = [
 	{
-		id: "matrix",
-		name: "Matrix",
+		id: "discord",
+		name: "Discord",
 		verified: true,
 		author: "Colibri Social",
 		features: [
 			{ label: "Bi-directional messages", support: "full" },
 			{ label: "Bi-directional message moderation", support: "full" },
 			{ label: "Import earlier messages", support: "full" },
-		],
-	},
-	{
-		id: "telegram",
-		name: "Telegram",
-		author: "@telegram-bridge.example.social",
-		features: [
-			{ label: "Bi-directional messages", support: "full" },
-			{ label: "Message moderation", support: "partial" },
-			{ label: "Import earlier messages", support: "none" },
-		],
-	},
-	{
-		id: "irc",
-		name: "IRC",
-		author: "@irc-relay.example.net",
-		features: [
-			{ label: "Bi-directional messages", support: "full" },
-			{ label: "Can't moderate messages sent from IRC", support: "none" },
 		],
 	},
 ];
@@ -71,51 +53,21 @@ export type PairingGuide = {
 };
 
 export const PAIRING_GUIDES: Record<string, PairingGuide> = {
-	matrix: {
+	discord: {
 		invite: {
-			title: "Invite the Colibri bridge",
+			title: "Add the Colibri bot",
 			detail:
-				"To get started, invite @colibri:matrix-bridge.colibri.social to your Matrix space with the link below.",
-			label: "Invite the Colibri bridge",
-			href: "https://matrix.to/#/@colibri:matrix-bridge.colibri.social",
+				"To get started, add the Colibri bot to your server with the link below. You need the Manage Server permission.",
+			label: "Add the Colibri bot",
+			href: "https://discord.com/oauth2/authorize?client_id=1552595021247684679",
 		},
 		code: {
 			title: "Get a pairing code",
 			detail:
-				"Next, send !colibri pair in any room of your Matrix space and copy the pairing code it gives you.",
-		},
-		enter: "Enter the pairing code below and connect it to your Matrix space.",
-	},
-	telegram: {
-		invite: {
-			title: "Add the bridge bot",
-			detail:
-				"To get started, add the bridge bot to your Telegram group as an admin with the link below.",
-			label: "Add the bridge bot",
-			href: "https://t.me/colibri_bridge_bot?startgroup=pair",
-		},
-		code: {
-			title: "Get a pairing code",
-			detail:
-				"Next, send /pair in your group chat and copy the pairing code the bot replies with.",
+				"Next, run /colibri connect in your server and copy the eight-character code. It works once and expires after 10 minutes.",
 		},
 		enter:
-			"Enter the pairing code below and connect it to your Telegram group.",
-	},
-	irc: {
-		invite: {
-			title: "Invite the relay",
-			detail:
-				"To get started, invite the relay bot to your IRC channel. The setup guide below has the commands.",
-			label: "Open the relay setup guide",
-			href: "https://irc-relay.example.net/setup",
-		},
-		code: {
-			title: "Get a pairing code",
-			detail:
-				"Next, send !pair in your channel and copy the code the relay bot replies with.",
-		},
-		enter: "Enter the pairing code below and connect it to your IRC channel.",
+			"Enter the pairing code below and connect it to your Discord server.",
 	},
 };
 

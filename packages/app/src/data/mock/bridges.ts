@@ -23,6 +23,18 @@ type BridgeService = {
 };
 
 const SERVICES: Record<string, BridgeService> = {
+	discord: {
+		platform: "discord",
+		bridge: asDid("did:web:bridge.colibri.social"),
+		bridgeHandle: "bridge.colibri.social",
+		remoteSpace: "1189432075638263848",
+		remoteSpaceName: "Trailheads",
+		rooms: [
+			{ id: "1189432076187713601", name: "general", kind: "text" },
+			{ id: "1189432076187713602", name: "summits", kind: "text" },
+			{ id: "1189432076187713603", name: "campfire", kind: "voice" },
+		],
+	},
 	matrix: {
 		platform: "matrix",
 		bridge: asDid("did:web:matrix-bridge.colibri.social"),
@@ -69,6 +81,7 @@ const SERVICES: Record<string, BridgeService> = {
 const PAIRING_CODE_PATTERN = /^[A-Z2-9]{8}$/;
 
 const serviceForCode = (code: string) => {
+	if (code.startsWith("D")) return SERVICES.discord as BridgeService;
 	if (code.startsWith("M")) return SERVICES.matrix as BridgeService;
 	if (code.startsWith("I")) return SERVICES.irc as BridgeService;
 	return SERVICES.telegram as BridgeService;
