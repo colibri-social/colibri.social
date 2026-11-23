@@ -1,5 +1,11 @@
 # @colibri-social/website
 
+## 0.3.1
+
+### Patch Changes
+
+- @colibri-social/app@0.0.1
+
 ## 0.3.0
 
 ### Minor Changes
