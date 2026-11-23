@@ -1,7 +1,7 @@
 {
 	"name": "@colibri-social/wrapper",
 	"private": true,
-	"version": "0.6.0",
+	"version": "0.7.0",
 	"description": "The native Colibri Social app shell.",
 	"type": "module",
 	"scripts": {

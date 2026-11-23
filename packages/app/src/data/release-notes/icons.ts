@@ -3,7 +3,6 @@
 import { ArrowDownIcon } from "@solar-icons/solid/bold/arrow-down";
 import { ArrowDownToLineIcon } from "@solar-icons/solid/bold/arrow-down-to-line";
 import { ArrowUpIcon } from "@solar-icons/solid/bold/arrow-up";
-import { ArrowUpToLineIcon } from "@solar-icons/solid/bold/arrow-up-to-line";
 import { BellIcon } from "@solar-icons/solid/bold/bell";
 import { BellRingIcon } from "@solar-icons/solid/bold/bell-ring";
 import { BoltIcon } from "@solar-icons/solid/bold/bolt";
@@ -19,12 +18,13 @@ import { KeyboardIcon } from "@solar-icons/solid/bold/keyboard";
 import { LightbulbIcon } from "@solar-icons/solid/bold/lightbulb";
 import { LinkIcon } from "@solar-icons/solid/bold/link";
 import { LinkRoundAngleIcon } from "@solar-icons/solid/bold/link-round-angle";
+import { LockKeyholeIcon } from "@solar-icons/solid/bold/lock-keyhole";
 import { LoginIcon } from "@solar-icons/solid/bold/login";
 import { MentionCircleIcon } from "@solar-icons/solid/bold/mention-circle";
-import { MonitorIcon } from "@solar-icons/solid/bold/monitor";
 import { PaletteIcon } from "@solar-icons/solid/bold/palette";
 import { PenIcon } from "@solar-icons/solid/bold/pen";
 import { PlayCircleIcon } from "@solar-icons/solid/bold/play-circle";
+import { RefreshCircleIcon } from "@solar-icons/solid/bold/refresh-circle";
 import { ReplyIcon } from "@solar-icons/solid/bold/reply";
 import { SettingsIcon } from "@solar-icons/solid/bold/settings";
 import { ShieldCheckIcon } from "@solar-icons/solid/bold/shield-check";
@@ -35,14 +35,12 @@ import { SoundwaveIcon } from "@solar-icons/solid/bold/soundwave";
 import { StarIcon } from "@solar-icons/solid/bold/star";
 import { StarsIcon } from "@solar-icons/solid/bold/stars";
 import { SunIcon } from "@solar-icons/solid/bold/sun";
-import { TrashBinTrashIcon } from "@solar-icons/solid/bold/trash-bin-trash";
 import { UserIdIcon } from "@solar-icons/solid/bold/user-id";
 
 export const RELEASE_NOTE_ICONS = {
 	"arrow-down": ArrowDownIcon,
 	"arrow-down-to-line": ArrowDownToLineIcon,
 	"arrow-up": ArrowUpIcon,
-	"arrow-up-to-line": ArrowUpToLineIcon,
 	bell: BellIcon,
 	"bell-ring": BellRingIcon,
 	bolt: BoltIcon,
@@ -58,12 +56,13 @@ export const RELEASE_NOTE_ICONS = {
 	lightbulb: LightbulbIcon,
 	link: LinkIcon,
 	"link-round-angle": LinkRoundAngleIcon,
+	"lock-keyhole": LockKeyholeIcon,
 	login: LoginIcon,
 	"mention-circle": MentionCircleIcon,
-	monitor: MonitorIcon,
 	palette: PaletteIcon,
 	pen: PenIcon,
 	"play-circle": PlayCircleIcon,
+	"refresh-circle": RefreshCircleIcon,
 	reply: ReplyIcon,
 	settings: SettingsIcon,
 	"shield-check": ShieldCheckIcon,
@@ -74,7 +73,6 @@ export const RELEASE_NOTE_ICONS = {
 	star: StarIcon,
 	stars: StarsIcon,
 	sun: SunIcon,
-	"trash-bin-trash": TrashBinTrashIcon,
 	"user-id": UserIdIcon,
 } as const;
 
