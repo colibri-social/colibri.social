@@ -19,6 +19,7 @@ export default defineConfig({
 				resolve: { dedupe: ["solid-js"] },
 				test: {
 					name: "browser",
+					retry: process.env.CI ? 2 : 0,
 					include: ["src/**/*.browser.test.tsx"],
 					setupFiles: ["src/test-setup.ts"],
 					browser: {

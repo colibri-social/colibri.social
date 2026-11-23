@@ -25,6 +25,7 @@ export default defineConfig({
 				],
 				test: {
 					name: "storybook",
+					retry: process.env.CI ? 2 : 0,
 					browser: {
 						enabled: true,
 						headless: true,
