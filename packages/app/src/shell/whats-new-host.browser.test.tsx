@@ -9,7 +9,17 @@ import {
 	PREVIEW_VERSION,
 	type ReleaseNoteSummary,
 } from "../data/release-notes";
+import {
+	FALLBACK_RELEASE_NOTE_ICON,
+	RELEASE_NOTE_ICONS,
+} from "../data/release-notes/icons";
 import { WHATS_NEW_SEEN_KEY } from "../data/whats-new";
+
+const ICON =
+	Object.keys(RELEASE_NOTE_ICONS).find(
+		(icon) => icon !== FALLBACK_RELEASE_NOTE_ICON,
+	) ?? FALLBACK_RELEASE_NOTE_ICON;
+
 import { createDeviceNotifications } from "../native/notifications/device";
 import type { OsNotifier } from "../native/notifications/index";
 import { Providers } from "../providers";
@@ -26,7 +36,7 @@ const note = (version: string): ReleaseNoteSummary => ({
 		{
 			title: "A new look",
 			body: "Everything got a new design.",
-			icon: "palette",
+			icon: ICON,
 			kind: "feature",
 		},
 	],
@@ -113,7 +123,7 @@ it("shows the newest release after an upgrade", async () => {
 		.element(page.getByText("Version 0.8.0, November 20, 2026"))
 		.toBeVisible();
 	const icon = document.querySelector("[data-release-note-item] svg");
-	expect(icon?.getAttribute("class")).toContain("solar-palette-bold");
+	expect(icon?.getAttribute("class")).toContain(`solar-${ICON}-bold`);
 });
 
 it("shows the release to people coming from the old app", async () => {

@@ -1,8 +1,16 @@
 import { afterEach, expect, it } from "vitest";
 import { page } from "vitest/browser";
 import type { ReleaseNoteSummary } from "../../../data/release-notes";
+import {
+	FALLBACK_RELEASE_NOTE_ICON,
+	RELEASE_NOTE_ICONS,
+} from "../../../data/release-notes/icons";
 import { cleanup, mountPage } from "./page-test-kit";
 import WhatsNewPage from "./whats-new";
+
+const [FIRST_ICON, SECOND_ICON] = Object.keys(RELEASE_NOTE_ICONS).filter(
+	(icon) => icon !== FALLBACK_RELEASE_NOTE_ICON,
+);
 
 const NOTES: ReleaseNoteSummary[] = [
 	{
@@ -13,13 +21,13 @@ const NOTES: ReleaseNoteSummary[] = [
 			{
 				title: "A new look",
 				body: "Everything got a new design.",
-				icon: "palette",
+				icon: FIRST_ICON,
 				kind: "feature",
 			},
 			{
 				title: "Locked channels",
 				body: "Channels can be private.",
-				icon: "lock-keyhole",
+				icon: SECOND_ICON,
 				kind: "feature",
 			},
 			{
@@ -56,7 +64,9 @@ it("links the full release history", async () => {
 it("shows each entry with its own icon", async () => {
 	await mountPage(() => <WhatsNewPage platform="mobile" notes={NOTES} />);
 	await expect.element(page.getByText("A new look")).toBeVisible();
-	expect(iconOf("A new look")).toContain("solar-palette-bold");
-	expect(iconOf("Locked channels")).toContain("solar-lock-keyhole-bold");
-	expect(iconOf("Unknown icon")).toContain("solar-stars-bold");
+	expect(iconOf("A new look")).toContain(`solar-${FIRST_ICON}-bold`);
+	expect(iconOf("Locked channels")).toContain(`solar-${SECOND_ICON}-bold`);
+	expect(iconOf("Unknown icon")).toContain(
+		`solar-${FALLBACK_RELEASE_NOTE_ICON}-bold`,
+	);
 });
