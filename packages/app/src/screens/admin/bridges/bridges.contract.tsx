@@ -183,6 +183,7 @@ export const bridges = defineContract({
 					.
 				</p>
 				<SettingsNotice
+					tone="info"
 					icon={<TestTubeMinimalisticIcon />}
 					title={BRIDGES_BETA_NOTICE.title}
 					description={BRIDGES_BETA_NOTICE.description}

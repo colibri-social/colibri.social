@@ -25,6 +25,7 @@ const LABELS: Record<AdminPage, string> = {
 	"bridge-new": "New Bridge",
 	"bridge-connect": "Connect a bridge",
 	"bridge-code": "New Bridge",
+	"bridge-link": "Link channels",
 	hosting: "Hosting",
 	"hosting-move": "Move to another server",
 };

@@ -13,7 +13,7 @@ import type {
 	BridgeLink,
 	BridgePairingView,
 	BridgeRegistrationView,
-	BridgeRemoteRoom,
+	BridgeRoomReport,
 	CategoryView,
 	ChannelView,
 	CommunityView,
@@ -185,6 +185,13 @@ export type LiveEvent =
 	| { $type: "memberJoinEvent"; community: Did; member: MemberView }
 	| { $type: "memberUpdateEvent"; community: Did; member: MemberView }
 	| { $type: "memberLeaveEvent"; community: Did; subject: Did }
+	| {
+			$type: "bridgeUpdateEvent";
+			event: "rooms" | "backfill";
+			community: Did;
+			registration: string;
+			channel?: SpaceRef;
+	  }
 	| {
 			$type: "seenEvent";
 			channel?: SpaceRef;
@@ -503,7 +510,7 @@ export type DataSource = AccessSource &
 		listLegacyCommunities: () => Promise<LegacyCommunityView[]>;
 		migrateLegacyCommunity: (community: Did) => Promise<LegacyCommunityView>;
 		listBridges: (community: Did) => Promise<BridgeRegistrationView[]>;
-		listBridgeRooms: (input: BridgeTarget) => Promise<BridgeRemoteRoom[]>;
+		listBridgeRooms: (input: BridgeTarget) => Promise<BridgeRoomReport>;
 		getBridgePairing: (code: string) => Promise<BridgePairingView>;
 		redeemBridgePairing: (input: {
 			community: Did;

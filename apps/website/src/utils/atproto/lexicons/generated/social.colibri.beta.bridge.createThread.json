@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "procedure",
-			"description": "Opens a thread beside a linked channel for someone on another service. The community writes the thread, attributed to that person.",
+			"description": "Opens a thread beside a linked or open channel for someone on another service. The community writes the thread, attributed to that person.",
 			"input": {
 				"encoding": "application/json",
 				"schema": {
@@ -30,7 +30,7 @@
 						"channel": {
 							"type": "string",
 							"format": "space-ref",
-							"description": "The linked channel to open the thread beside."
+							"description": "The linked or open channel to open the thread beside."
 						},
 						"name": {
 							"type": "string",
@@ -100,7 +100,7 @@
 				},
 				{
 					"name": "ChannelNotLinked",
-					"description": "The channel is not linked to this registration."
+					"description": "The channel is neither linked nor open to this registration."
 				},
 				{
 					"name": "RateLimited",

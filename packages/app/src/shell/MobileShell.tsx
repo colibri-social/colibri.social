@@ -19,7 +19,6 @@ import {
 } from "solid-js";
 import { useData } from "../data/store";
 import { messageSelectionActive } from "../screens/channel/selection/selection";
-import { MemberMenuProvider } from "../screens/members/member-menu";
 import { ProfileSheetProvider } from "../screens/profile/profile-sheet";
 import { settingsPage } from "../screens/settings/nav";
 import SpacesScreen from "../screens/spaces/spaces.screen";
@@ -279,15 +278,13 @@ export const MobileShell = () => {
 			class="h-[calc(100dvh-var(--shell-keyboard-inset,0px))] w-full bg-background font-sans text-foreground"
 		>
 			<ProfileSheetProvider>
-				<MemberMenuProvider>
-					<LayerStack stack={stack} base={base()} renderLayer={renderLayer} />
-					<CallPillHost />
-					<NotificationHost stack={stack} />
-					<AppLinkHost stack={stack} />
-					<HostReturnHost />
-					<WriteFailureToasts />
-					<DiscardChangesDialog guard={stack.leaveGuard} />
-				</MemberMenuProvider>
+				<LayerStack stack={stack} base={base()} renderLayer={renderLayer} />
+				<CallPillHost />
+				<NotificationHost stack={stack} />
+				<AppLinkHost stack={stack} />
+				<HostReturnHost />
+				<WriteFailureToasts />
+				<DiscardChangesDialog guard={stack.leaveGuard} />
 			</ProfileSheetProvider>
 		</div>
 	);

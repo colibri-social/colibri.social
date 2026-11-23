@@ -550,12 +550,14 @@ export const createRemoteSource = async (
 					params: { community },
 				})
 			).registrations,
-		listBridgeRooms: async (input) =>
-			(
-				await transport.query(colibri.bridge.listRemoteRooms.main, {
-					params: input,
-				})
-			).rooms,
+		listBridgeRooms: async (input) => {
+			const { rooms, updatedAt } = await transport.query(
+				colibri.bridge.listRemoteRooms.main,
+				{ params: input },
+			);
+
+			return updatedAt ? { rooms, updatedAt } : { rooms };
+		},
 		getBridgePairing: async (code) =>
 			(
 				await transport.query(colibri.bridge.getPairing.main, {

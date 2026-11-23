@@ -20,7 +20,6 @@ import {
 import { channelSlug, spaceKey } from "../../data/ids";
 import { useData } from "../../data/store";
 import { TEXT_CHANNEL, VOICE_CHANNEL } from "../../data/types";
-import { MemberMenuProvider } from "../../screens/members/member-menu";
 import { ProfileSheetProvider } from "../../screens/profile/profile-sheet";
 import { hasNoSpaces } from "../../screens/spaces/spaces.contract";
 import SpacesScreen from "../../screens/spaces/spaces.screen";
@@ -427,72 +426,70 @@ export const DesktopShell = () => {
 		>
 			<StackContext.Provider value={navigator}>
 				<ProfileSheetProvider>
-					<MemberMenuProvider>
-						<AppShell
-							windowBar={<TitleBar />}
-							defaultSidebarWidth={storedSidebarWidth()}
-							onSidebarWidthCommit={storeSidebarWidth}
-							rail={
-								<div
-									ref={(node) => outletSignal("rail")[1](node)}
-									data-outlet="rail"
-									class="contents"
-								/>
-							}
-							sidebar={<SpacesScreen args={{ slug: route().root.space }} />}
-							sidebarHidden={empty()}
-							dock={
-								<div ref={(element) => onMount(() => anchorToasts(element))}>
-									<Dock />
-								</div>
-							}
-							header={
-								<div
-									ref={(node) => outletSignal("header")[1](node)}
-									data-outlet="header"
-									class="contents"
-								/>
-							}
-							members={
-								<Show when={membersTarget()}>
-									{(current) => (
-										<Suspense>
-											<AfterPaint>
-												<MembersScreen
-													args={{
-														get space() {
-															return current().space;
-														},
-														get channel() {
-															return current().channel;
-														},
-														get thread() {
-															return current().thread;
-														},
-													}}
-												/>
-											</AfterPaint>
-										</Suspense>
-									)}
-								</Show>
-							}
-							membersOpen={
-								stack.membersOpen() && !!chat() && !isVoice() && !splitPane()
-							}
-							thread={pane()}
-							threadWidth={threadWidth()}
-							onThreadWidthChange={changeThreadWidth}
-						>
-							{main()}
-						</AppShell>
-						<ModalHost layers={modalLayers()} depth={modalDepth()} />
-						<VoiceScreen args={{}} />
-						<DiscardChangesDialog guard={navigator.leaveGuard} />
-						<NotificationHost stack={navigator} />
-						<AppLinkHost stack={navigator} />
-						<HostReturnHost />
-						<WriteFailureToasts />
-					</MemberMenuProvider>
+					<AppShell
+						windowBar={<TitleBar />}
+						defaultSidebarWidth={storedSidebarWidth()}
+						onSidebarWidthCommit={storeSidebarWidth}
+						rail={
+							<div
+								ref={(node) => outletSignal("rail")[1](node)}
+								data-outlet="rail"
+								class="contents"
+							/>
+						}
+						sidebar={<SpacesScreen args={{ slug: route().root.space }} />}
+						sidebarHidden={empty()}
+						dock={
+							<div ref={(element) => onMount(() => anchorToasts(element))}>
+								<Dock />
+							</div>
+						}
+						header={
+							<div
+								ref={(node) => outletSignal("header")[1](node)}
+								data-outlet="header"
+								class="contents"
+							/>
+						}
+						members={
+							<Show when={membersTarget()}>
+								{(current) => (
+									<Suspense>
+										<AfterPaint>
+											<MembersScreen
+												args={{
+													get space() {
+														return current().space;
+													},
+													get channel() {
+														return current().channel;
+													},
+													get thread() {
+														return current().thread;
+													},
+												}}
+											/>
+										</AfterPaint>
+									</Suspense>
+								)}
+							</Show>
+						}
+						membersOpen={
+							stack.membersOpen() && !!chat() && !isVoice() && !splitPane()
+						}
+						thread={pane()}
+						threadWidth={threadWidth()}
+						onThreadWidthChange={changeThreadWidth}
+					>
+						{main()}
+					</AppShell>
+					<ModalHost layers={modalLayers()} depth={modalDepth()} />
+					<VoiceScreen args={{}} />
+					<DiscardChangesDialog guard={navigator.leaveGuard} />
+					<NotificationHost stack={navigator} />
+					<AppLinkHost stack={navigator} />
+					<HostReturnHost />
+					<WriteFailureToasts />
 				</ProfileSheetProvider>
 			</StackContext.Provider>
 		</DesktopShellContext.Provider>

@@ -1,0 +1,133 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.bridge.getMember",
+	"defs": {
+		"main": {
+			"type": "query",
+			"description": "Gets an account's standing in a community for the bridge that holds the registration: whether it is a member, whether it owns the community, its roles and its effective permissions. Bridges use it to decide who may run their commands.",
+			"parameters": {
+				"type": "params",
+				"required": [
+					"community",
+					"registration",
+					"did"
+				],
+				"properties": {
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community the registration belongs to."
+					},
+					"registration": {
+						"type": "string",
+						"format": "tid",
+						"description": "Record key of the registration."
+					},
+					"did": {
+						"type": "string",
+						"format": "did",
+						"description": "The account to look up."
+					},
+					"channel": {
+						"type": "string",
+						"description": "A linked or open channel of the registration. When given, permissions include that channel's overrides."
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"did",
+						"member",
+						"owner",
+						"roles",
+						"permissions"
+					],
+					"properties": {
+						"did": {
+							"type": "string",
+							"format": "did",
+							"description": "The account."
+						},
+						"member": {
+							"type": "boolean",
+							"description": "Whether the account is an admitted member that is not banned."
+						},
+						"owner": {
+							"type": "boolean",
+							"description": "Whether the account owns the community."
+						},
+						"roles": {
+							"type": "array",
+							"items": {
+								"type": "ref",
+								"ref": "#memberRole"
+							},
+							"description": "Roles held, highest first. Empty when the account is not a member."
+						},
+						"permissions": {
+							"type": "array",
+							"items": {
+								"type": "string",
+								"description": "A permission identifier."
+							},
+							"description": "Effective permissions, in the community or in the given channel. Empty when the account is not a member."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request is missing, malformed, or unverifiable service auth."
+				},
+				{
+					"name": "Forbidden",
+					"description": "The caller is not the bridge this registration belongs to."
+				},
+				{
+					"name": "CommunityNotFound",
+					"description": "No community exists at the given DID."
+				},
+				{
+					"name": "RegistrationNotFound",
+					"description": "The community has no bridge registration with that id."
+				},
+				{
+					"name": "ChannelNotLinked",
+					"description": "The channel is neither linked nor open to the registration."
+				},
+				{
+					"name": "RateLimited",
+					"description": "The bridge sent too many requests. Retry after the interval in the response headers."
+				}
+			]
+		},
+		"memberRole": {
+			"type": "object",
+			"description": "A role an account holds.",
+			"required": [
+				"rkey",
+				"name",
+				"position"
+			],
+			"properties": {
+				"rkey": {
+					"type": "string",
+					"format": "record-key",
+					"description": "The role's record key."
+				},
+				"name": {
+					"type": "string",
+					"description": "Display name."
+				},
+				"position": {
+					"type": "integer",
+					"description": "Hierarchy position. Higher outranks lower."
+				}
+			}
+		}
+	}
+}

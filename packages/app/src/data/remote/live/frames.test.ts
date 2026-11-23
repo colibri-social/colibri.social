@@ -484,6 +484,52 @@ describe("toLiveEvents", () => {
 		]);
 	});
 
+	it("decodes bridge room and history reports", () => {
+		expect(
+			toLiveEvents(
+				frame("bridgeUpdateEvent", {
+					event: "rooms",
+					community: COMMUNITY,
+					registration: "3lbridge2a4b6",
+				}),
+			),
+		).toEqual([
+			{
+				$type: "bridgeUpdateEvent",
+				event: "rooms",
+				community: COMMUNITY,
+				registration: "3lbridge2a4b6",
+			},
+		]);
+		expect(
+			toLiveEvents(
+				frame("bridgeUpdateEvent", {
+					event: "backfill",
+					community: COMMUNITY,
+					registration: "3lbridge2a4b6",
+					channel: GENERAL,
+				}),
+			),
+		).toEqual([
+			{
+				$type: "bridgeUpdateEvent",
+				event: "backfill",
+				community: COMMUNITY,
+				registration: "3lbridge2a4b6",
+				channel: GENERAL,
+			},
+		]);
+		expect(
+			toLiveEvents(
+				frame("bridgeUpdateEvent", {
+					event: "renamed",
+					community: COMMUNITY,
+					registration: "3lbridge2a4b6",
+				}),
+			),
+		).toEqual([]);
+	});
+
 	it("refreshes the invite list when an invitation changes", () => {
 		expect(
 			toLiveEvents(

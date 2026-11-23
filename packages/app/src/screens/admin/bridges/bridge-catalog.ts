@@ -1,4 +1,8 @@
-import type { ConnectedBridge, FeaturedBridge } from "@colibri-social/ui";
+import type {
+	BridgeHistoryDepth,
+	ConnectedBridge,
+	FeaturedBridge,
+} from "@colibri-social/ui";
 import type {
 	BridgeLink,
 	BridgeRegistrationView,
@@ -11,7 +15,7 @@ export const BRIDGES_DESCRIPTION =
 export const BRIDGES_BETA_NOTICE = {
 	title: "Bridges are in beta",
 	description:
-		"Bridges are free to use while they are in beta. After that, they will cost $5 a month per Space.",
+		"Relaying messages between two platforms is going to stay free, but additional features may require payment in the future.",
 } as const;
 
 export const BRIDGE_DOCS_URL =
@@ -87,31 +91,45 @@ export const toConnectedBridge = (
 	};
 };
 
-export const HISTORY_DEPTHS = [
-	{ value: "none", label: "Don't import" },
-	{ value: "day", label: "Last day" },
-	{ value: "week", label: "Last 7 days" },
-	{ value: "month", label: "Last 30 days" },
-	{ value: "all", label: "All history" },
-] as const;
+const DAY_MS = 86_400_000;
 
-export type HistoryDepth = (typeof HISTORY_DEPTHS)[number]["value"];
+type TimedDepth = Exclude<BridgeHistoryDepth, "none" | "all">;
 
-const DEPTH_DAYS: Record<Exclude<HistoryDepth, "none" | "all">, number> = {
+const DEPTH_DAYS: Record<TimedDepth, number> = {
 	day: 1,
 	week: 7,
 	month: 30,
 };
 
 export const historyRequest = (
-	depth: HistoryDepth,
+	depth: BridgeHistoryDepth,
 	now: Date,
 ): BridgeLink["backfill"] => {
 	if (depth === "none") return undefined;
+
 	const requestedAt = now.toISOString() as Datetime;
+
 	if (depth === "all") return { requestedAt };
-	const since = new Date(now.getTime() - DEPTH_DAYS[depth] * 86_400_000);
+
+	const since = new Date(now.getTime() - DEPTH_DAYS[depth] * DAY_MS);
+
 	return { requestedAt, since: since.toISOString() as Datetime };
+};
+
+export const historyDepth = (
+	backfill: NonNullable<BridgeLink["backfill"]>,
+): BridgeHistoryDepth => {
+	if (!backfill.since) return "all";
+
+	const days =
+		(Date.parse(backfill.requestedAt) - Date.parse(backfill.since)) / DAY_MS;
+	const depths = Object.keys(DEPTH_DAYS) as TimedDepth[];
+
+	return depths.reduce((nearest, depth) =>
+		Math.abs(DEPTH_DAYS[depth] - days) < Math.abs(DEPTH_DAYS[nearest] - days)
+			? depth
+			: nearest,
+	);
 };
 
 export const historyPercent = (status: {

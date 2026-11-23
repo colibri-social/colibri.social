@@ -1,6 +1,5 @@
 import {
 	copyText,
-	type ProfileAction,
 	type ProfileData,
 	ProfileDrawer,
 	type ProfileMenuActions,
@@ -10,8 +9,6 @@ import {
 	recordExplorerHref,
 	toast,
 } from "@colibri-social/ui";
-import { UserBlockIcon } from "@solar-icons/solid/bold/user-block";
-import { UserCheckIcon } from "@solar-icons/solid/bold/user-check";
 import {
 	createContext,
 	createMemo,
@@ -34,6 +31,7 @@ import { usePlatform } from "../../screen/platform";
 import { createCustomEmojiDrawer } from "../channel/message/custom-emoji-drawer";
 import { createBlockFlow } from "../members/block-flow";
 import { uiPresence } from "../members/member-adapter";
+import { MemberMenuProvider, useMemberMenu } from "../members/member-menu";
 import { OwnActivityPrompt } from "./activity-prompt";
 import { createBioRenderer } from "./bio-links";
 import { blueskyProfileLinks } from "./bluesky-link";
@@ -89,23 +87,6 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 		onCleanup(() => document.removeEventListener("pointerdown", track, true));
 	});
 
-	const blockAction = (did: string, name: string): ProfileAction => {
-		if (blocking.isBlocked(did)) {
-			return {
-				label: `Unblock ${name}`,
-				icon: () => <UserCheckIcon />,
-				onSelect: () => void blocking.unblock(did, name),
-			};
-		}
-
-		return {
-			label: `Block ${name}`,
-			icon: () => <UserBlockIcon />,
-			tone: "destructive",
-			onSelect: () => blocking.ask(did, name),
-		};
-	};
-
 	const profile = createMemo((): ProfileData | undefined => {
 		const current = target();
 		if (!current) return undefined;
@@ -153,7 +134,6 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 			onUnblock: self
 				? undefined
 				: () => void blocking.unblock(actor.did, name),
-			actions: self ? undefined : [blockAction(actor.did, name)],
 			roles: roles.map((role) => {
 				const identity = roleIdentity(role);
 				return {
@@ -178,7 +158,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 		return current ? (current.nickname ?? current.displayName) : "";
 	};
 
-	const menuActions: ProfileMenuActions = {
+	const profileActions: ProfileMenuActions = {
 		get blocked() {
 			const did = target()?.did;
 
@@ -188,12 +168,7 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 			const did = target()?.did;
 			if (!did || !blocking.canBlock(did)) return undefined;
 
-			return () => {
-				const name = menuName();
-
-				setOpen(false);
-				blocking.ask(did, name);
-			};
+			return () => blocking.ask(did, menuName());
 		},
 		get onUnblock() {
 			const did = target()?.did;
@@ -222,6 +197,90 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 		},
 	};
 
+	const closing = (action?: () => void) => {
+		if (!action) return undefined;
+
+		return () => {
+			setOpen(false);
+			action();
+		};
+	};
+
+	const Overlays = () => {
+		const memberMenu = useMemberMenu();
+		const spaceActions = createMemo(() => {
+			const current = target();
+			if (!current?.space || current.did === data.viewer.did) return undefined;
+
+			return memberMenu.actions({
+				did: current.did as Did,
+				space: current.space,
+			});
+		});
+		const source = () => spaceActions() ?? profileActions;
+		const menu: ProfileMenuActions = {
+			get voice() {
+				return spaceActions()?.voice;
+			},
+			get roles() {
+				return spaceActions()?.roles;
+			},
+			get onRoleChange() {
+				return spaceActions()?.onRoleChange;
+			},
+			get onKick() {
+				return closing(spaceActions()?.onKick);
+			},
+			get onBan() {
+				return closing(spaceActions()?.onBan);
+			},
+			get blocked() {
+				return source().blocked;
+			},
+			get onBlock() {
+				return closing(source().onBlock);
+			},
+			get onUnblock() {
+				return source().onUnblock;
+			},
+			get onCopyDid() {
+				return source().onCopyDid;
+			},
+			get developerMode() {
+				return source().developerMode;
+			},
+			get onShowInExplorer() {
+				return source().onShowInExplorer;
+			},
+		};
+
+		return (
+			<Show
+				when={platform() === "desktop"}
+				fallback={
+					<ProfileDrawer
+						open={open()}
+						onOpenChange={setOpen}
+						profile={profile()}
+						menu={menu}
+						loading={open() && !profile()}
+					/>
+				}
+			>
+				<ProfilePopover
+					open={open() && !!anchor()}
+					onOpenChange={setOpen}
+					anchor={anchor}
+					anchorRect={anchorRect}
+					placement={placement() ?? "left-start"}
+					profile={profile()}
+					menu={menu}
+					loading={open() && !profile()}
+				/>
+			</Show>
+		);
+	};
+
 	const api: ProfileSheetApi = {
 		open: (did, space, at) => {
 			const focused =
@@ -241,29 +300,10 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 
 	return (
 		<ProfileSheetContext.Provider value={api}>
-			{props.children}
-			<Show
-				when={platform() === "desktop"}
-				fallback={
-					<ProfileDrawer
-						open={open()}
-						onOpenChange={setOpen}
-						profile={profile()}
-						loading={open() && !profile()}
-					/>
-				}
-			>
-				<ProfilePopover
-					open={open() && !!anchor()}
-					onOpenChange={setOpen}
-					anchor={anchor}
-					anchorRect={anchorRect}
-					placement={placement() ?? "left-start"}
-					profile={profile()}
-					menu={menuActions}
-					loading={open() && !profile()}
-				/>
-			</Show>
+			<MemberMenuProvider>
+				{props.children}
+				<Overlays />
+			</MemberMenuProvider>
 			<emojiDrawer.Overlay />
 			<bio.LinkWarningOutlet />
 			<blocking.Dialog />

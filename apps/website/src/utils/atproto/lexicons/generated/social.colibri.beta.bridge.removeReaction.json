@@ -29,7 +29,7 @@
 						"channel": {
 							"type": "string",
 							"format": "space-ref",
-							"description": "The linked channel or thread the record lives in."
+							"description": "The linked or open channel or thread the record lives in."
 						},
 						"rkey": {
 							"type": "string",
@@ -69,7 +69,7 @@
 				},
 				{
 					"name": "ChannelNotLinked",
-					"description": "The channel is not linked to this registration."
+					"description": "The channel is neither linked nor open to this registration."
 				},
 				{
 					"name": "RateLimited",

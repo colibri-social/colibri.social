@@ -7,7 +7,7 @@ import { createMockSource, setLatency } from "../../data/mock/source";
 import { createDataStore, DataContext } from "../../data/store";
 import { Providers } from "../../providers";
 import { DesktopShell } from "../../shell/desktop/DesktopShell";
-import { MemberMenuProvider, useMemberMenu } from "../members/member-menu";
+import { useMemberMenu } from "../members/member-menu";
 import { ProfileSheetProvider, useProfileSheet } from "./profile-sheet";
 
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
@@ -172,16 +172,10 @@ describe("moderation on yourself", () => {
 					<DataContext.Provider value={store}>
 						<Providers>
 							<ProfileSheetProvider>
-								<MemberMenuProvider>
-									<Capture />
-									<button
-										type="button"
-										ref={anchor}
-										style={{ margin: "200px" }}
-									>
-										Anchor
-									</button>
-								</MemberMenuProvider>
+								<Capture />
+								<button type="button" ref={anchor} style={{ margin: "200px" }}>
+									Anchor
+								</button>
 							</ProfileSheetProvider>
 						</Providers>
 					</DataContext.Provider>

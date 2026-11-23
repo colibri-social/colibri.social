@@ -5,13 +5,24 @@ import type {
 	BridgePairingView,
 	BridgeRegistrationView,
 	BridgeRemoteRoom,
+	BridgeRoomReport,
+	Datetime,
 	Did,
 	SpaceRef,
 } from "../types";
 import { asDatetime, asDid, tidFor } from "./refs";
 import type { World } from "./world";
 
+type BridgeUpdate = {
+	$type: "bridgeUpdateEvent";
+	event: "rooms";
+	community: Did;
+	registration: string;
+};
+
 const DAY = 24 * 60 * 60_000;
+
+const ROOM_REPORT_DELAY_MS = 1_500;
 
 type BridgeService = {
 	platform: string;
@@ -90,9 +101,14 @@ const serviceForCode = (code: string) => {
 const normalizePairingCode = (code: string) =>
 	code.trim().toUpperCase().replace(/[\s-]/g, "");
 
-export const createBridgeStore = (world: World, now: number) => {
+export const createBridgeStore = (
+	world: World,
+	now: number,
+	emit: (event: BridgeUpdate) => void,
+) => {
 	const registrations = new Map<Did, BridgeRegistrationView[]>();
 	const services = new Map<string, BridgeService>();
+	const reported = new Map<string, Datetime>();
 	const redeemed = new Set<string>();
 
 	const seed = (input: {
@@ -115,6 +131,7 @@ export const createBridgeStore = (world: World, now: number) => {
 		const id = tidFor(now - input.daysAgo * DAY, world.nextClock());
 		const requestedAt = asDatetime(now - (input.daysAgo - 1) * DAY);
 		services.set(id, input.service);
+		reported.set(id, asDatetime(now - input.daysAgo * DAY));
 		registrations.set(space.did, [
 			...(registrations.get(space.did) ?? []),
 			{
@@ -217,6 +234,16 @@ export const createBridgeStore = (world: World, now: number) => {
 			createdAt: asDatetime(Date.now()),
 		};
 		registrations.set(community, [registration, ...listFor(community)]);
+		setTimeout(() => {
+			if (!listFor(community).some((entry) => entry.id === id)) return;
+			reported.set(id, asDatetime(Date.now()));
+			emit({
+				$type: "bridgeUpdateEvent",
+				event: "rooms",
+				community,
+				registration: id,
+			});
+		}, ROOM_REPORT_DELAY_MS);
 		return registration;
 	};
 
@@ -357,9 +384,11 @@ export const createBridgeStore = (world: World, now: number) => {
 
 	return {
 		list: (community: Did) => advance(community),
-		rooms: (community: Did, registration: string) => {
+		rooms: (community: Did, registration: string): BridgeRoomReport => {
 			find(community, registration);
-			return services.get(registration)?.rooms ?? [];
+			const updatedAt = reported.get(registration);
+			if (!updatedAt) return { rooms: [] };
+			return { rooms: services.get(registration)?.rooms ?? [], updatedAt };
 		},
 		pairing,
 		redeem,

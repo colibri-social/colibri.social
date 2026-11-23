@@ -38,6 +38,10 @@ export type BridgeRemoteRoom = social.colibri.beta.bridge.defs.RemoteRoom;
 export type BridgeLink = social.colibri.beta.bridge.defs.Link;
 export type BridgeBackfillStatus =
 	social.colibri.beta.bridge.defs.BackfillStatus;
+export type BridgeRoomReport = {
+	rooms: BridgeRemoteRoom[];
+	updatedAt?: Datetime;
+};
 
 export type ThreadView = social.colibri.beta.thread.defs.ThreadView;
 export type NotificationView =

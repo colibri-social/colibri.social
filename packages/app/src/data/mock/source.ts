@@ -111,7 +111,6 @@ export const createMockSource = (
 ): MockSource => {
 	const now = options.now ?? Date.now();
 	const world = createWorld(now);
-	const bridges = createBridgeStore(world, now);
 	for (const seed of DISCOVERABLE) {
 		world.spaces.push(discoverableRecord(world, seed, now));
 	}
@@ -137,6 +136,7 @@ export const createMockSource = (
 	const emit = (event: LiveEvent) => {
 		for (const listener of [...listeners]) listener(event);
 	};
+	const bridges = createBridgeStore(world, now, emit);
 
 	const watched = new Set<Did>();
 	const indexStarterLayout = (record: SpaceRecord) => {

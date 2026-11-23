@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "procedure",
-			"description": "Posts a message from someone on another service into a linked channel. The community writes the message, attributed to that person.",
+			"description": "Posts a message from someone on another service into a linked or open channel. The community writes the message, attributed to that person.",
 			"input": {
 				"encoding": "application/json",
 				"schema": {
@@ -30,7 +30,7 @@
 						"channel": {
 							"type": "string",
 							"format": "space-ref",
-							"description": "The linked channel or thread the record lives in."
+							"description": "The linked or open channel or thread the record lives in."
 						},
 						"author": {
 							"type": "ref",
@@ -128,7 +128,7 @@
 				},
 				{
 					"name": "ChannelNotLinked",
-					"description": "The channel is not linked to this registration."
+					"description": "The channel is neither linked nor open to this registration."
 				},
 				{
 					"name": "RateLimited",

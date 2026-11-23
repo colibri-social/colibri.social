@@ -140,6 +140,10 @@ export type EmojiLibraryEventFrame = FrameOf<
 	typeof colibri.sync.defs.emojiLibraryEvent,
 	"emojiLibraryEvent"
 >;
+export type BridgeUpdateEventFrame = FrameOf<
+	typeof colibri.sync.defs.bridgeUpdateEvent,
+	"bridgeUpdateEvent"
+>;
 export type CommunityProgressEventFrame = FrameOf<
 	typeof colibri.sync.defs.communityProgressEvent,
 	"communityProgressEvent"
@@ -179,6 +183,7 @@ export type ServerFrame =
 	| VoiceEventFrame
 	| EmojiEventFrame
 	| EmojiLibraryEventFrame
+	| BridgeUpdateEventFrame
 	| CommunityProgressEventFrame
 	| DrainNoticeFrame
 	| WriteStateFrame;
@@ -212,6 +217,7 @@ const SERVER_FRAME_NAMES = [
 	"voiceEvent",
 	"emojiEvent",
 	"emojiLibraryEvent",
+	"bridgeUpdateEvent",
 	"communityProgressEvent",
 	"drainNotice",
 	"writeState",
@@ -244,6 +250,7 @@ const SERVER_FRAME_SCHEMAS: Record<ServerFrameName, FrameSchema> = {
 	voiceEvent: colibri.sync.defs.voiceEvent,
 	emojiEvent: colibri.sync.defs.emojiEvent,
 	emojiLibraryEvent: colibri.sync.defs.emojiLibraryEvent,
+	bridgeUpdateEvent: colibri.sync.defs.bridgeUpdateEvent,
 	communityProgressEvent: colibri.sync.defs.communityProgressEvent,
 	drainNotice: colibri.sync.defs.drainNotice,
 	writeState: colibri.sync.defs.writeState,

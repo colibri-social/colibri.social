@@ -5,7 +5,7 @@
 		"main": {
 			"type": "permission-set",
 			"title": "Colibri bridge",
-			"detail": "Relay messages and reactions between Colibri communities and another chat service, in the channels community admins link.",
+			"detail": "Relay messages and reactions between Colibri communities and another chat service, in the channels community admins link or open.",
 			"permissions": [
 				{
 					"type": "permission",
@@ -16,6 +16,7 @@
 						"social.colibri.beta.bridge.getConfiguration",
 						"social.colibri.beta.bridge.putRemoteRooms",
 						"social.colibri.beta.bridge.listChannels",
+						"social.colibri.beta.bridge.getMember",
 						"social.colibri.beta.bridge.uploadBlob",
 						"social.colibri.beta.bridge.postMessage",
 						"social.colibri.beta.bridge.editMessage",
@@ -32,6 +33,8 @@
 						"social.colibri.beta.bridge.leave",
 						"social.colibri.beta.channel.listMessages",
 						"social.colibri.beta.channel.getChannel",
+						"social.colibri.beta.thread.listThreads",
+						"social.colibri.beta.thread.getThread",
 						"social.colibri.beta.blob.get"
 					]
 				}

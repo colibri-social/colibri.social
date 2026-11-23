@@ -2,7 +2,11 @@ import "../../../app.css";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { layoutIssues } from "../../../../../ui/src/foundations/layout-test";
-import { createMockSource, setLatency } from "../../../data/mock/source";
+import {
+	createMockSource,
+	type MockSource,
+	setLatency,
+} from "../../../data/mock/source";
 import { createDataStore, DataContext } from "../../../data/store";
 import { TEXT_CHANNEL } from "../../../data/types";
 import { Providers } from "../../../providers";
@@ -32,10 +36,16 @@ afterEach(() => {
 	history.replaceState(null, "", originalPath);
 });
 
-const mount = async (path: string) => {
+const mount = async (
+	path: string | ((source: MockSource) => Promise<string>),
+) => {
 	setLatency(0);
-	history.replaceState(null, "", path);
 	const source = createMockSource({ live: false });
+	history.replaceState(
+		null,
+		"",
+		typeof path === "string" ? path : await path(source),
+	);
 	const store = createDataStore(source);
 	host = document.createElement("div");
 	host.style.cssText = "position:fixed;inset:0;width:402px;height:874px";
@@ -94,6 +104,42 @@ const dialogNamed = (name: string | RegExp) =>
 		},
 	);
 
+const accessibleName = (element: HTMLElement) =>
+	(element.getAttribute("aria-labelledby") ?? "")
+		.split(" ")
+		.map((id) => document.getElementById(id)?.textContent?.trim() ?? "")
+		.join(" ");
+
+const selectNamed = (scope: ParentNode, name: RegExp) =>
+	Array.from(
+		scope.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="dialog"]'),
+	).find((element) => name.test(accessibleName(element)));
+
+const pick = async (scope: ParentNode, name: RegExp, value: string) => {
+	const trigger = selectNamed(scope, name);
+	if (!trigger) throw new Error(`No select named ${name}`);
+	trigger.click();
+	const option = () =>
+		Array.from(
+			document.querySelectorAll<HTMLInputElement>(
+				'[role="dialog"] input[type="radio"]',
+			),
+		).find((input) => input.value === value);
+	await until(() => !!option());
+	await wait(300);
+	option()?.click();
+	await until(() => !document.querySelector('[role="dialog"]'));
+};
+
+const AWAITING = "Waiting for the bridge to report its channels";
+
+const seededBridge = async (source: MockSource) => {
+	const list = await source.listBridges(HQ);
+	const found = list.find((entry) => entry.remoteSpaceName === "Libera Chat");
+	if (!found) throw new Error("No seeded bridge");
+	return found;
+};
+
 describe("bridges", () => {
 	it("lists connected bridges and connects a featured bridge with a code", async () => {
 		const { root, store } = await mount(`/app/c/${HQ}/manage/bridges`);
@@ -131,12 +177,34 @@ describe("bridges", () => {
 		await until(() => !!dialogNamed(/^Connect /));
 		const confirm = dialogNamed(/^Connect /) as HTMLElement;
 		buttonNamed(confirm, "Connect")?.click();
+		await until(() => !!page(root, "bridge-link"), 6000);
+		await until(() => /\/manage\/bridge-link\/[^/]+$/.test(location.pathname));
+		const bridges = store.directory.bridges(HQ);
+		expect(bridges.registrations()?.length).toBe(before + 1);
+		const step = page(root, "bridge-link") as HTMLElement;
+		await until(() => (step.textContent ?? "").includes(AWAITING));
+		await until(() => !(step.textContent ?? "").includes(AWAITING), 6000);
+		const save = buttonNamed(step, "Save") as HTMLButtonElement;
+		expect(save.getAttribute("aria-disabled") ?? String(save.disabled)).toBe(
+			"true",
+		);
+		await pick(step, /^#/, "1189432076187713601");
+		await pick(step, /^Import earlier messages into /, "week");
+		expect(step.textContent).not.toContain("A new import starts");
+		buttonNamed(step, "Save")?.click();
 		await until(() => !!page(root, "bridge"), 6000);
 		await until(() => /\/manage\/bridge\/[^/]+$/.test(location.pathname));
-		expect(store.directory.bridges(HQ).registrations()?.length).toBe(
-			before + 1,
-		);
-		history.back();
+		const id = location.pathname.split("/").at(-1);
+		const link = bridges.find(id as string)?.links[0];
+		expect(link?.remoteRoom).toBe("1189432076187713601");
+		const since = Date.parse(link?.backfill?.since ?? "");
+		const requested = Date.parse(link?.backfill?.requestedAt ?? "");
+		expect(Math.round((requested - since) / 86_400_000)).toBe(7);
+		await wait(300);
+		buttonNamed(
+			page(root, "bridge") as HTMLElement,
+			"Back to Bridges",
+		)?.click();
 		await until(() => location.pathname === `/app/c/${HQ}/manage/bridges`);
 	});
 
@@ -156,7 +224,7 @@ describe("bridges", () => {
 		connect.click();
 		await until(() => !!dialogNamed(/^Connect /));
 		buttonNamed(dialogNamed(/^Connect /) as HTMLElement, "Connect")?.click();
-		await until(() => !!page(root, "bridge"), 6000);
+		await until(() => !!page(root, "bridge-link"), 6000);
 	});
 
 	it("asks before dropping a typed pairing code", async () => {
@@ -217,7 +285,14 @@ describe("bridges", () => {
 			"can read and post only in the channels you pick next",
 		);
 		buttonNamed(confirm, "Connect")?.click();
+		await until(() => !!page(root, "bridge-link"), 6000);
+		const step = page(root, "bridge-link") as HTMLElement;
+		await until(() => !!selectNamed(step, /^#/));
+		expect(step.textContent).not.toContain(AWAITING);
+		await pick(step, /^#/, "open");
+		buttonNamed(step, "Skip")?.click();
 		await until(() => !!page(root, "bridge"), 6000);
+		expect(dialogNamed("Discard changes?")).toBeUndefined();
 		const bridgePage = page(root, "bridge") as HTMLElement;
 		await until(() =>
 			(bridgePage.textContent ?? "").includes(
@@ -225,7 +300,7 @@ describe("bridges", () => {
 			),
 		);
 		expect(bridgePage.textContent).toContain("Connected by address");
-		expect(bridgePage.textContent).not.toContain("has not reported any rooms");
+		expect(bridgePage.textContent).not.toContain(AWAITING);
 		const triggers = () =>
 			Array.from(
 				bridgePage.querySelectorAll<HTMLElement>("[data-bridge-link]"),
@@ -246,6 +321,7 @@ describe("bridges", () => {
 					?.find((entry) => entry.type === TEXT_CHANNEL)
 			: undefined;
 		expect(registration).toBeDefined();
+		expect(registration?.channels).toEqual([]);
 		expect(channel).toBeDefined();
 		await bridges.update(registration?.id as string, {
 			channels: [channel?.space as never],
@@ -258,5 +334,112 @@ describe("bridges", () => {
 		expect(
 			bridgePage.querySelector('button[aria-label^="Import earlier messages"]'),
 		).toBeNull();
+	});
+
+	it("refetches rooms and the registration on live bridge reports", async () => {
+		let roomCalls = 0;
+		let listCalls = 0;
+		let registration = "";
+		const { root, source } = await mount(async (mock) => {
+			const listRooms = mock.listBridgeRooms;
+			const listBridges = mock.listBridges;
+			mock.listBridgeRooms = (input) => {
+				roomCalls += 1;
+				return listRooms(input);
+			};
+			mock.listBridges = (community) => {
+				listCalls += 1;
+				return listBridges(community);
+			};
+			registration = (await seededBridge(mock)).id;
+			return `/app/c/${HQ}/manage/bridge/${registration}`;
+		});
+		await until(() => !!page(root, "bridge"));
+		const view = page(root, "bridge") as HTMLElement;
+		await until(() => !!selectNamed(view, /^#/));
+		await until(() => roomCalls === 1);
+		const lists = listCalls;
+		source.emit({
+			$type: "bridgeUpdateEvent",
+			event: "backfill",
+			community: HQ,
+			registration,
+		});
+		await until(() => listCalls === lists + 1);
+		expect(roomCalls).toBe(1);
+		source.emit({
+			$type: "bridgeUpdateEvent",
+			event: "rooms",
+			community: HQ,
+			registration,
+		});
+		await until(() => roomCalls === 2);
+		expect(view.querySelector('[aria-busy="true"]')).toBeNull();
+	});
+
+	it("shows the saved history import and starts a new one on reselect", async () => {
+		let registration = "";
+		const { root, store } = await mount(async (mock) => {
+			registration = (await seededBridge(mock)).id;
+			return `/app/c/${HQ}/manage/bridge/${registration}`;
+		});
+		await until(() => !!page(root, "bridge"));
+		const view = page(root, "bridge") as HTMLElement;
+		await until(() => !!selectNamed(view, /^Import earlier messages into /));
+		const history = selectNamed(
+			view,
+			/^Import earlier messages into /,
+		) as HTMLElement;
+		expect(accessibleName(history)).toMatch(/All history$/);
+		expect(view.textContent).toContain("312 messages.");
+		const before = store.directory.bridges(HQ).find(registration)?.links[0]
+			?.backfill?.requestedAt;
+		await pick(view, /^Import earlier messages into /, "all");
+		await until(() =>
+			(view.textContent ?? "").includes("A new import starts when you save."),
+		);
+		await wait(300);
+		buttonNamed(document.body, "Save")?.click();
+		await until(
+			() =>
+				store.directory.bridges(HQ).find(registration)?.links[0]?.backfill
+					?.requestedAt !== before,
+		);
+		const backfill = store.directory.bridges(HQ).find(registration)
+			?.links[0]?.backfill;
+		expect(backfill?.since).toBeUndefined();
+	});
+
+	it("keeps an existing import when the link's room stays the same", async () => {
+		let registration = "";
+		const { root, store } = await mount(async (mock) => {
+			registration = (await seededBridge(mock)).id;
+			return `/app/c/${HQ}/manage/bridge/${registration}`;
+		});
+		await until(() => !!page(root, "bridge"));
+		const view = page(root, "bridge") as HTMLElement;
+		await until(() => !!selectNamed(view, /^#/));
+		const bridges = store.directory.bridges(HQ);
+		const before = bridges.find(registration)?.links[0]?.backfill;
+		const linked = Array.from(
+			view.querySelectorAll<HTMLButtonElement>(
+				'button[aria-haspopup="dialog"]',
+			),
+		).filter((element) => /^#\S+ #colibri-dev$/.test(accessibleName(element)));
+		expect(linked).toHaveLength(1);
+		const other = Array.from(
+			view.querySelectorAll<HTMLButtonElement>(
+				'button[aria-haspopup="dialog"]',
+			),
+		).find((element) => /^#\S+ Not linked$/.test(accessibleName(element)));
+		const otherName = accessibleName(other as HTMLElement).split(" ")[0];
+		await pick(view, new RegExp(`^${otherName} Not linked$`), "#colibri");
+		await wait(300);
+		buttonNamed(document.body, "Save")?.click();
+		await until(() => (bridges.find(registration)?.links.length ?? 0) === 2);
+		const kept = bridges
+			.find(registration)
+			?.links.find((link) => link.remoteRoom === "#colibri-dev");
+		expect(kept?.backfill).toEqual(before);
 	});
 });

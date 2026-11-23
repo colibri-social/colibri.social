@@ -66,6 +66,7 @@ const ADMIN_PAGES = [
 	"bridge-new",
 	"bridge-connect",
 	"bridge-code",
+	"bridge-link",
 	"hosting",
 	"hosting-move",
 ] as const;
@@ -105,6 +106,7 @@ const ADMIN_PARENT: Partial<Record<AdminPage, AdminPage>> = {
 	"bridge-new": "bridges",
 	"bridge-connect": "bridge-new",
 	"bridge-code": "bridge-new",
+	"bridge-link": "bridges",
 	"hosting-move": "hosting",
 };
 

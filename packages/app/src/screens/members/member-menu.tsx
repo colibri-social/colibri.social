@@ -37,6 +37,7 @@ type Target = { did: Did; space: string };
 
 type MemberMenuApi = {
 	open: (did: string, space: string) => void;
+	actions: (target: Target) => MemberMenuActions;
 	contextMenu: (
 		did: string,
 		space: string,
@@ -53,6 +54,7 @@ type MemberMenuApi = {
 
 const MemberMenuContext = createContext<MemberMenuApi>({
 	open: () => {},
+	actions: () => ({}),
 	contextMenu: (_did, _space, row) => row,
 	dropdown: (_did, _space, trigger) => trigger,
 });
@@ -246,6 +248,7 @@ export const MemberMenuProvider = (props: ParentProps) => {
 			setTarget({ did: did as Did, space });
 			void whenOverlaysClosed().then(() => setOpen(true));
 		},
+		actions: desktopActions,
 		contextMenu: (did, space, row, wrapperClass) => (
 			<DesktopMenu target={{ did: did as Did, space }} class={wrapperClass}>
 				{row}

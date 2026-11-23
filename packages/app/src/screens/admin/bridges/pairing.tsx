@@ -59,7 +59,11 @@ export const useBridgeAdmin = (args: AdminArgs) => {
 	};
 };
 
-const showBridge = (stack: Navigator, space: string, registration: string) => {
+const showLinkStep = (
+	stack: Navigator,
+	space: string,
+	registration: string,
+) => {
 	const layers = stack.mounted().slice(0, stack.depth());
 	const index = layers.findIndex(
 		(layer) =>
@@ -68,7 +72,8 @@ const showBridge = (stack: Navigator, space: string, registration: string) => {
 			layer.page === "bridges",
 	);
 	if (index !== -1 && index + 1 < layers.length) stack.popTo(index + 1);
-	stack.push({ kind: "admin", space, page: "bridge", id: registration });
+
+	stack.push({ kind: "admin", space, page: "bridge-link", id: registration });
 };
 
 export const createPairingFlow = (
@@ -133,7 +138,7 @@ export const createPairingFlow = (
 			setConnected(true);
 			toast.success("Bridge connected");
 			setConfirmOpen(false);
-			showBridge(bridge.stack, bridge.args.space, registration.id);
+			showLinkStep(bridge.stack, bridge.args.space, registration.id);
 		} catch (failure) {
 			const known =
 				ADDRESS_ERRORS[

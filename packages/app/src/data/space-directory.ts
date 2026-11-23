@@ -5,7 +5,7 @@ import type {
 	BridgeLink,
 	BridgePairingView,
 	BridgeRegistrationView,
-	BridgeRemoteRoom,
+	BridgeRoomReport,
 	CommunityView,
 	Did,
 	SpaceRef,
@@ -91,7 +91,8 @@ export type BridgeData = {
 	failed: () => boolean;
 	refresh: () => Promise<void>;
 	find: (registration: string) => BridgeRegistrationView | undefined;
-	rooms: (registration: string) => Promise<BridgeRemoteRoom[]>;
+	rooms: (registration: string) => Promise<BridgeRoomReport>;
+	roomsVersion: (registration: string) => number;
 	lookUp: (code: string) => Promise<BridgePairingView>;
 	connect: (code: string) => Promise<BridgeRegistrationView>;
 	install: (bridge: string) => Promise<BridgeRegistrationView>;
@@ -114,6 +115,25 @@ export const createSpaceDirectory = (
 	createRoot(() => {
 		const discoverable = createLoadable(() => source.listDiscoverable());
 		const bridgeData = new Map<Did, BridgeData>();
+		const [roomVersions, setRoomVersions] = createSignal<
+			Record<string, number>
+		>({});
+
+		source.subscribe((event) => {
+			if (event.$type !== "bridgeUpdateEvent") return;
+
+			const data = bridgeData.get(event.community);
+
+			if (!data) return;
+			if (event.event === "rooms") {
+				setRoomVersions((current) => ({
+					...current,
+					[event.registration]: (current[event.registration] ?? 0) + 1,
+				}));
+			}
+
+			void data.refresh();
+		});
 
 		const remember = (community: CommunityView) => {
 			communities.update((list) =>
@@ -239,6 +259,7 @@ export const createSpaceDirectory = (
 					list.value()?.find((entry) => entry.id === registration),
 				rooms: (registration) =>
 					source.listBridgeRooms({ community, registration }),
+				roomsVersion: (registration) => roomVersions()[registration] ?? 0,
 				lookUp: (code) => source.getBridgePairing(code),
 				connect: async (code) => {
 					const registration = await source.redeemBridgePairing({

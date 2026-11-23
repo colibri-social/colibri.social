@@ -44,6 +44,7 @@
 						"social.colibri.beta.sync.defs#voiceEvent",
 						"social.colibri.beta.sync.defs#communityProgressEvent",
 						"social.colibri.beta.sync.defs#bridgeEvent",
+						"social.colibri.beta.sync.defs#bridgeUpdateEvent",
 						"social.colibri.beta.sync.defs#drainNotice",
 						"social.colibri.beta.sync.defs#writeState"
 					]

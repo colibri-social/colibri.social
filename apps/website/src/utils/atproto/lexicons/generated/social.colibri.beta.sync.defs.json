@@ -924,6 +924,40 @@
 				}
 			}
 		},
+		"bridgeUpdateEvent": {
+			"type": "object",
+			"description": "A bridge reported new remote rooms or history import progress for a registration. Only sent to members who can manage the community, who should fetch the registration again.",
+			"required": [
+				"event",
+				"community",
+				"registration"
+			],
+			"properties": {
+				"event": {
+					"type": "string",
+					"description": "What the bridge reported.",
+					"knownValues": [
+						"rooms",
+						"backfill"
+					]
+				},
+				"community": {
+					"type": "string",
+					"format": "did",
+					"description": "The community the registration belongs to."
+				},
+				"registration": {
+					"type": "string",
+					"format": "tid",
+					"description": "Record key of the registration."
+				},
+				"channel": {
+					"type": "string",
+					"format": "space-ref",
+					"description": "The linked channel being filled, on backfill events."
+				}
+			}
+		},
 		"drainNotice": {
 			"type": "object",
 			"description": "This node is going offline. Clients move their event socket to another node from listNodes. When no other node exists, clients warn the user that the connection may drop at the deadline.",

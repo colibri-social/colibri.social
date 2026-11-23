@@ -390,6 +390,20 @@ export const toLiveEvents = (
 		];
 	}
 
+	if (frameIs(frame, "bridgeUpdateEvent")) {
+		const event = known(frame.event, ["rooms", "backfill"] as const);
+		if (!event) return [];
+		return [
+			{
+				$type: "bridgeUpdateEvent",
+				event,
+				community: asDid(frame.community),
+				registration: frame.registration,
+				...(frame.channel ? { channel: asSpace(frame.channel) } : {}),
+			},
+		];
+	}
+
 	if (frameIs(frame, "emojiEvent")) {
 		if (!context.emojiBlobUrl) return [];
 		return [

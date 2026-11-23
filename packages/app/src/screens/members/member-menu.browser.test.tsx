@@ -4,7 +4,7 @@ import { createMockSource, setLatency } from "../../data/mock/source";
 import { createDataStore, DataContext } from "../../data/store";
 import type { Did } from "../../data/types";
 import { ProfileSheetProvider } from "../profile/profile-sheet";
-import { MemberMenuProvider, useMemberMenu } from "./member-menu";
+import { useMemberMenu } from "./member-menu";
 
 const until = async (check: () => boolean, timeout = 8000) => {
 	const started = performance.now();
@@ -52,9 +52,7 @@ const setup = async (handle?: string) => {
 		() => (
 			<DataContext.Provider value={store}>
 				<ProfileSheetProvider>
-					<MemberMenuProvider>
-						<Capture />
-					</MemberMenuProvider>
+					<Capture />
 				</ProfileSheetProvider>
 			</DataContext.Provider>
 		),
