@@ -3,7 +3,7 @@ title: Bridge Reference
 description: The social.colibri.beta.bridge methods, the bridged attribution, limits, and errors.
 sidebar:
   label: Reference
-  order: 4
+  order: 5
 ---
 
 The bridge API is a set of XRPC methods under `social.colibri.beta.bridge`, served by the AppView. [`@colibri-social/bridge-core`](/docs/developers/bridges/building-a-bridge) wraps all of them. This page is for anyone calling them directly.
@@ -14,7 +14,7 @@ Methods a bridge calls take [service auth](https://atproto.com/specs/xrpc#inter-
 
 Methods an admin calls take the admin's own session, proxied through their PDS. The admin needs the **Manage Space** permission in the Space.
 
-The `social.colibri.beta.permissionBridge` permission set covers every method a bridge calls, plus the channel and blob reads it needs.
+The `social.colibri.beta.permissionBridge` permission set covers every method a bridge calls, plus the channel, thread and blob reads it needs.
 
 ## Methods called by a bridge
 
@@ -39,6 +39,15 @@ Query. Lists the text channels of a Space that every member can read, so a bridg
 
 - **Input:** `community`, `registration`
 - **Output:** `channels`, an array of `social.colibri.beta.community.defs#channelView`
+
+### `getMember`
+
+Query. Describes an account's standing in a Space, so a bridge can decide who may run its commands.
+
+- **Input:** `community`, `registration`, `did`, `channel`
+- **Output:** `did`, `member`, `owner`, `roles`, `permissions`
+
+`member` is false for accounts that aren't members of the Space or are banned, and `roles` and `permissions` are then empty. `roles` lists each role's `rkey`, `name` and `position`, highest first. `permissions` lists the account's effective permissions in the Space. With a `channel`, linked or open to the registration, they include that channel's overrides. An owner holds every permission.
 
 ### `putRemoteRooms`
 
@@ -173,6 +182,8 @@ Procedure. Connects a bridge to a Space by its handle or DID, with no pairing co
 - **Output:** `registration`, a [`registrationView`](#registrationview)
 - **Errors:** `Forbidden`, `CommunityNotFound`, `BridgeNotFound`, `AlreadyRegistered`
 
+The bridge's DID document needs an `atproto` signing key. It needs no PDS service. A DID without a handle names the registration after the DID.
+
 ### `listRegistrations`
 
 Query. Lists the bridges connected to a Space.
@@ -216,7 +227,13 @@ The frames a bridge acts on are:
 
 A bridge receives a Space's `threadEvent` frames while it holds at least one of the Space's channels. A new thread arrives with its `threadView`, and the bridge subscribes to the thread's space to follow it.
 
-A bridge must ignore message and reaction events carrying its own registration in `bridged`. Those are its own writes coming back.
+A bridge must ignore message and reaction events carrying its own registration in `bridged`. Those are its own writes coming back. Each write a bridge makes produces one frame.
+
+Besides the stream, a bridge can read its channels and threads with service auth:
+
+- `social.colibri.beta.channel.listMessages` lists the messages of a linked or open channel, or a thread beside one. It takes `cursor` to page and `around` to center the page on one record key.
+- `social.colibri.beta.thread.listThreads` lists the threads beside a channel the bridge holds. A bridge must pass `channel`. Threads limited to some roles or members are left out.
+- `social.colibri.beta.thread.getThread` describes one thread the bridge can read.
 
 ### Nodes
 

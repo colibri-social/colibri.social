@@ -1,0 +1,111 @@
+---
+title: Local Development
+description: Run a bridge on a local Colibri network with Snowglobe and install it into a Space.
+sidebar:
+  label: Local development
+  order: 4
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+The AppView repository can run a bridge on the same local [Snowglobe](https://snowglobe.at) network as the AppView. The bridge gets its own `did:web` on the network, so the AppView checks its requests the same way it does in production, and you can install it into a Space you create locally.
+
+## Before you start
+
+Set up the local network with [Start a local network with Snowglobe](/docs/developers/development/overview#start-a-local-network-with-snowglobe). Keep `pnpm dev:snowglobe` running in the AppView repository, and the client running, so you can create a Space and add the bridge to it.
+
+## The bridge app
+
+`snowglobe.yml` in the AppView repository describes an app named `bridge` on port `3100`. Snowglobe serves it at `https://bridge.app.colibri.local.snowglobe.at`, which makes the bridge's DID `did:web:bridge.app.colibri.local.snowglobe.at`.
+
+`snowglobe run --app bridge` starts a command with these variables set:
+
+| Variable | Value |
+| --- | --- |
+| `COLIBRI_APPVIEW_URL` | `https://appview.app.colibri.local.snowglobe.at` |
+| `COLIBRI_APPVIEW_DID` | `did:web:appview.app.colibri.local.snowglobe.at` |
+| `BRIDGE_DID` | `did:web:bridge.app.colibri.local.snowglobe.at` |
+| `BRIDGE_HTTP_PORT` | `3100` |
+| `NODE_EXTRA_CA_CERTS` | The network's certificate authority, so Node.js trusts its certificates |
+
+`snowglobe run` reads `snowglobe.yml` from the current directory. Run it from the AppView repository, even for a bridge that lives somewhere else.
+
+The bridge serves its own DID document. The AppView fetches it from `https://bridge.app.colibri.local.snowglobe.at/.well-known/did.json` the first time the bridge calls.
+
+## Run your own bridge
+
+<Steps>
+
+1. Generate a signing key once, in the AppView repository:
+
+   ```sh
+   pnpm --filter @colibri-social/bridge exec tsx --conditions=colibri-source src/index.ts keygen
+   ```
+
+   Store the printed `BRIDGE_SIGNING_KEY` in your bridge's environment. The bridge builds its DID document from it.
+
+2. Serve the DID document on `BRIDGE_HTTP_PORT` when the bridge starts:
+
+   ```ts title="src/index.ts"
+   import { createServer } from "node:http";
+   import { bridgeDidDocument, publicDidKeyFor } from "@colibri-social/bridge-core";
+
+   const did = process.env.BRIDGE_DID!;
+   const document = bridgeDidDocument(did, await publicDidKeyFor(process.env.BRIDGE_SIGNING_KEY!));
+
+   createServer((req, res) => {
+   	if (req.url !== "/.well-known/did.json") return res.writeHead(404).end();
+   	res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(document));
+   }).listen(Number(process.env.BRIDGE_HTTP_PORT));
+   ```
+
+   Then create and start the `Bridge` as in [Run the bridge](/docs/developers/bridges/building-a-bridge#run-the-bridge), with `COLIBRI_APPVIEW_URL`, `COLIBRI_APPVIEW_DID` and `BRIDGE_DID` from the environment.
+
+3. Start the bridge through Snowglobe from the AppView repository. The example below runs the `start` script of a bridge cloned next to it:
+
+   ```sh
+   pnpm exec snowglobe run --app bridge -- npm --prefix ../my-bridge start
+   ```
+
+4. Check that the network serves the DID document:
+
+   ```sh
+   curl --cacert ~/.local/share/snowglobe/ca/ca.crt \
+     https://bridge.app.colibri.local.snowglobe.at/.well-known/did.json
+   ```
+
+   With a `log` option on the `Bridge`, the bridge logs `bridge.stream.open` once it's connected to the AppView.
+
+</Steps>
+
+## Run the Discord bridge
+
+The Discord bridge in `apps/bridge` reads `.env.bridge` in the AppView repository. Put `BRIDGE_SIGNING_KEY` and `DISCORD_TOKEN` there, then run:
+
+```sh
+pnpm dev:bridge:snowglobe
+```
+
+The variables from `snowglobe.yml` win over the ones in `.env.bridge`. `apps/bridge` serves the DID document by itself when `BRIDGE_HTTP_PORT` is set. Connect it to a Space with a pairing code, as described in [Pairing a Bridge](/docs/users/bridges/pairing).
+
+## Install the bridge in a Space
+
+<Steps>
+
+1. Open `http://127.0.0.1:5173/app/`, sign in as `alice.colibri.local.snowglobe.at`, and create a Space.
+
+2. Open the menu of the Space and select **Manage Space**, then **Bridges**.
+
+3. Select **New bridge**, then **Add manually**. Enter `did:web:bridge.app.colibri.local.snowglobe.at` under **Code or Address** and select **Connect** twice.
+
+4. Set the channels the bridge can use to **Let the bridge read and reply** and select **Save**.
+
+</Steps>
+
+The bridge receives the new registration right away. A connector that implements `openChannelsChanged()` is called with `installed`, and again with `updated` once the channels are saved.
+
+## Troubleshooting
+
+- **The DID document URL answers `502 Bad Gateway`.** Nothing listens on port `3100`. Check that the bridge runs and serves its DID document on `BRIDGE_HTTP_PORT`.
+- **Adding the bridge fails with "no bridge exists at that address".** The AppView couldn't fetch the DID document, or the document has no `atproto` key. Fetch it with `curl` as in the steps above.
+- **Node.js rejects the network's certificates.** The bridge was started without `snowglobe run`, so `NODE_EXTRA_CA_CERTS` isn't set.

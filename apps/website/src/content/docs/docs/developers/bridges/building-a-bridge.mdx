@@ -83,23 +83,32 @@ The bridge signs every request to the AppView with [service auth](https://atprot
 
 ## Write a connector
 
-A connector implements `NetworkConnector`. The bridge calls `start()` once with a `BridgeContext`, which the connector keeps for the rest of its life.
+Every connector implements `Connector`. The bridge calls `start()` once with a `BridgeContext`, which the connector keeps for the rest of its life.
+
+A connector that relays rooms on the other service to linked Colibri channels implements `RelayConnector`, which adds two methods:
 
 ```ts
-interface NetworkConnector {
+interface Connector {
 	readonly platform: string;
 	start(context: BridgeContext): Promise<void>;
 	stop(): Promise<void>;
+}
+
+interface RelayConnector extends Connector {
 	listRooms(remoteSpace: string): Promise<RemoteRoomInfo[]>;
 	sendMessage(message: OutboundMessage): Promise<string>;
 }
 ```
+
+A connector that works through commands in Colibri channels implements `OpenChannelConnector` instead, or as well. See [Command-driven bridges](#command-driven-bridges).
 
 `platform` is a short, lowercase name for the service (e.g. `discord`). It's stored on every record the bridge writes.
 
 `listRooms()` returns the rooms in a remote space that admins can link. A **remote space** is whatever groups rooms on the other service, such as a Discord server or a Slack workspace. Both are identified by strings that only your connector interprets.
 
 `sendMessage()` posts a Colibri message on the other service and returns its id there. The bridge stores that id and passes it back for later edits, deletions and replies.
+
+An `OutboundMessage` carries the message's `attachments` and its link previews as `embeds`. Each attachment has a `url`, `mimeType`, and optionally a `name`, `size`, `alt`, `spoiler`, `width` and `height`. The URLs are signed for your bridge and stay valid for at least an hour. Each embed has a `url`, and optionally a `title`, `description`, `siteName`, `imageUrl` and `themeColor`. Previews the author removed are left out. An `OutboundEdit` carries the edited `markdown` and `embeds`.
 
 ### Receiving messages
 
@@ -115,6 +124,8 @@ context.emit({
 	markdown: "Hello **Colibri**",
 });
 ```
+
+A `message` event can carry `attachments`, each with a `url` the bridge can download, and optionally a `name`, `size`, `alt` and `spoiler`. The bridge uploads them to the Space's repo. A file it can't download, or one over the size limit, is left out of the message and logged as `bridge.attachment.dropped`.
 
 The other event types are `messageEdit`, `messageDelete`, `reactionAdd`, `reactionRemove`, `threadCreate`, `threadUpdate` and `threadDelete`. Emit `roomsChanged` when rooms are created, renamed or deleted, so the room list admins see stays current.
 
@@ -217,56 +228,6 @@ Show the code only to the admin who asked for it. Check that they're an admin on
 
 `context.linkedRooms(remoteSpace)` lists the Colibri channels currently linked to a remote space, for a status command.
 
-### Command-driven bridges
-
-A bridge that keeps its own mapping between channels, and sets it up through commands typed in a channel, needs no pairing code and no remote rooms. Admins add it to a Space by its handle, which calls [`install`](/docs/developers/bridges/reference#install). The bridge receives a `bridgeEvent` and finds the registration in `getConfiguration`. Its `remoteSpace` is the Space's DID, and its `platform` is `external`.
-
-Admins then pick the channels the bridge can use under **Let the bridge read and reply**. These are the registration's [open channels](/docs/developers/bridges/reference#registration), stored in `channels`. The bridge receives every message posted in them and can post, edit, delete, react and open threads there, the same as in a linked channel.
-
-`context.channels(community, registration)` lists the Space's text channels that every member can read, including ones the bridge can't use yet. Call it to show a list of channels in a setup command or to check a channel's name:
-
-```ts
-const channels = await context.channels(
-	"did:plc:4z3bq7rjmuyqfdeslq7vfwdk",
-	"3lzy2ji4nms2k",
-);
-```
-
-It returns [`channelView`](/docs/developers/bridges/reference#listchannels) objects. Only the channels in `channels` are open to the bridge. Tell admins in your setup instructions which channels to pick before they run your commands.
-
-To read the commands, implement `receiveChannelMessage` on your connector. The bridge calls it for every new message in an open channel, with the `community`, `registration`, `channel`, the message's `rkey`, its `author`, and its text as `markdown`. Edits, imported history and messages your bridge posted itself don't reach it. Answer with `context.reply()`, which posts under the name you give and returns the new message's record key:
-
-```ts title="src/connector.ts"
-import type {
-	BridgeContext,
-	ChannelListeningConnector,
-	OpenChannelMessage,
-} from "@colibri-social/bridge-core";
-
-export class SlackConnector implements ChannelListeningConnector {
-	readonly platform = "slack";
-	private context?: BridgeContext;
-
-	async start(context: BridgeContext) {
-		this.context = context;
-	}
-
-	async receiveChannelMessage(message: OpenChannelMessage) {
-		if (message.markdown.trim() !== "!bridge status") return;
-		await this.context?.reply({
-			community: message.community,
-			registration: message.registration,
-			channel: message.channel,
-			author: { id: "bridge", name: "Bridge" },
-			markdown: "This channel is connected.",
-			replyTo: { did: message.author.did, rkey: message.rkey },
-		});
-	}
-}
-```
-
-The example leaves out the other methods of `NetworkConnector`. A channel that is both linked and open relays as usual and also reaches `receiveChannelMessage`.
-
 ### Disconnecting
 
 Give admins on the other service a way to disconnect as well. `context.connections(remoteSpace)` lists the Spaces a remote space is connected to, each with its `community` DID, `communityName` and `registration`. Pass one of those DIDs to `context.disconnect()` to leave that Space, or leave it out to disconnect the remote space from every Space:
@@ -282,6 +243,115 @@ When your bridge is removed from a remote space, emit a `spaceLeft` event. It di
 ```ts
 context.emit({ type: "spaceLeft", remoteSpace: "workspace-1" });
 ```
+
+## Command-driven bridges
+
+A command-driven bridge has no remote rooms and no pairing code. It keeps its own mapping between channels, and admins set it up with commands typed in a Colibri channel. A bridge that joins several services into one conversation works this way.
+
+### Installing
+
+Admins add the bridge to a Space by its handle or DID, which calls [`install`](/docs/developers/bridges/reference#install). The bridge's DID document only needs the `atproto` signing key that `bridgeDidDocument()` writes. The bridge receives a `bridgeEvent` and finds the registration in `getConfiguration`. Its `remoteSpace` is the Space's DID, and its `platform` is `external`.
+
+Admins then pick the channels the bridge can use under **Let the bridge read and reply**. These are the registration's [open channels](/docs/developers/bridges/reference#registration), stored in `channels`. Threads beside an open channel are open to the bridge too, unless they're limited to some roles or members. Tell admins in your setup instructions which channels to pick before they run your commands.
+
+### The connector
+
+A command-driven connector implements `OpenChannelConnector`. It needs no `listRooms()` or `sendMessage()`:
+
+```ts
+interface OpenChannelConnector extends Connector {
+	openMessage(message: OpenChannelMessage): Promise<void>;
+}
+```
+
+A connector can implement `RelayConnector` and `OpenChannelConnector` together. A channel that is both linked and open then relays as usual and also reaches `openMessage()`.
+
+### Receiving messages
+
+The bridge calls `openMessage()` for every new message in an open channel or a thread beside one. Imported history and messages your bridge posted itself don't reach it. An `OpenChannelMessage` has these fields:
+
+- `community`, `registration` and `channel`: the Space, the registration, and the open channel.
+- `thread`: the thread's space, when the message was posted in a thread beside the channel.
+- `did` and `rkey`: the message's record. Pass both back to reply to the message, react to it, or look it up.
+- `author`: the author's `did`, `name`, `handle` and `avatarUrl`, plus their `standing` in the Space.
+- `markdown`: the text, converted from Colibri [facets](/docs/developers/specification/facets).
+- `replyTo`: the `did` and `rkey` of the message this one replies to.
+- `attachments` and `embeds`: the files and link previews, in the same shape as on an [`OutboundMessage`](#write-a-connector).
+- `forward`: the forwarded message's `markdown` and `attachments`, plus its `source` (`channel`, `did` and `rkey`).
+- `createdAt` and `updatedAt`.
+
+`author.standing` indicates whether the author is a `member` of the Space and its `owner`, which `roles` they hold, highest first, and their effective `permissions` in the open channel. An owner holds every permission. Check it before running an admin command:
+
+```ts
+async openMessage(message: OpenChannelMessage) {
+	if (message.markdown.trim() !== "!bridge setup") return;
+
+	if (!message.author.standing.permissions.includes("community.manage")) return;
+
+	await this.setUp(message.community, message.registration, message.channel);
+}
+```
+
+The bridge caches each standing for 60 seconds. When the lookup fails, the message still arrives, with a standing that holds no roles or permissions.
+
+### Other events
+
+Implement any of these methods to receive more than new messages. The bridge detects each one and skips that kind of event when it's missing.
+
+| Method | Called when |
+| --- | --- |
+| `openEditMessage(edit)` | A message is edited. `edit` has the same fields as an `OpenChannelMessage`. |
+| `openDeleteMessage(target)` | A message is deleted. `target` has the location fields, `did` and `rkey`. |
+| `openRemoveMessage(target)` | A moderator hides a message. `target` has the same fields as for a deletion. |
+| `openAddReaction(reaction)`, `openRemoveReaction(reaction)` | A reaction is added or removed. `reaction` names the reacted message with `did` and `rkey`, plus the `emoji`, the reacting `actor`'s DID, and `customEmoji` for a custom emoji. |
+| `openCreateThread(thread)`, `openUpdateThread(thread)`, `openDeleteThread(thread)` | A thread beside an open channel is opened, renamed or deleted. `thread` has the thread's space as `thread`, its `name`, and the `anchor` message it was opened from. A deleted thread has no `name` or `anchor`. The bridge follows new threads by itself. |
+| `openChannelsChanged(change)` | The bridge was `installed` in a Space or `removed` from it, or admins `updated` its open channels. `change` holds the current `channels` and the `added` and `removed` ones. |
+
+Events caused by your own `openEmit()` calls don't come back to your connector. `openChannelsChanged()` isn't called for the registrations the bridge finds when it starts. Call `context.openChannels(community, registration)` in `start()` to read those.
+
+### Writing to open channels
+
+Pass writes to `context.openEmit()`. Every event names the `community`, `registration` and `channel`, plus `thread` to write into a thread beside the channel. Unlike `emit()`, it returns a promise, which rejects when the channel isn't open to the registration or the AppView refuses the write:
+
+```ts
+const { rkey, dropped } = await context.openEmit({
+	type: "message",
+	community: message.community,
+	registration: message.registration,
+	channel: message.channel,
+	author: { id: "bridge", name: "Bridge", avatarUrl: "https://bridge.example.com/avatar.png" },
+	markdown: "This channel is connected.",
+	replyTo: { did: message.did, rkey: message.rkey },
+});
+```
+
+The author's avatar is uploaded to the Space's repo and reused while `avatarUrl` stays the same. `dropped` lists the attachments that couldn't be uploaded, each with a `reason` of `tooLarge`, `fetchFailed` or `uploadFailed`, so your connector can tell the sender.
+
+| Event type | Fields | Result |
+| --- | --- | --- |
+| `message` | `author`, `markdown`, `replyTo`, `attachments`, `forward` | `rkey` of the new message and `dropped` |
+| `messageEdit` | `rkey`, `markdown` | |
+| `messageDelete` | `rkey` | |
+| `messageRemove` | `did`, `rkey`, `reason` | |
+| `reactionAdd` | `did` and `rkey` of the message, `author`, `emoji` | `rkey` of the reaction |
+| `reactionRemove` | `rkey` of the reaction | |
+| `threadCreate` | `name`, `author`, `anchor` | `thread`, the new thread's space |
+| `threadUpdate` | `thread`, `name` | |
+| `threadDelete` | `thread` | |
+
+`messageEdit` and `messageDelete` only work on messages your bridge posted. `messageRemove` hides someone else's message after a moderator removed its copy on another service, and only works while an admin has turned on moderation mirroring. A `forward` holds the forwarded `markdown`, its `attachments` and `createdAt`, and the `source` message's `channel`, `did` and `rkey` when it's in Colibri. Without a `source`, the bridge quotes the forwarded text below the message.
+
+`openEmit()` calls don't wait for the events queued for your connector. Await them inside `openMessage()` without blocking the bridge.
+
+### Reading the Space
+
+The context has these methods for command-driven bridges:
+
+- `context.channels(community, registration)` lists the Space's text channels that every member can read, as [`channelView`](/docs/developers/bridges/reference#listchannels) objects, including ones that aren't open to the bridge. Call it to show a list of channels in a setup command or to check a channel's name.
+- `context.openChannels(community, registration)` returns the registration's open channels.
+- `context.message({ community, registration, channel, thread, did, rkey })` fetches one message as an `OpenChannelMessage`, or `null` when it's gone.
+- `context.history({ community, registration, channel, thread, before, limit })` returns earlier messages, newest first. `before` is the `rkey` of a message to start below. `limit` defaults to 50 and stops at 100.
+- `context.member({ community, registration, channel, did })` returns the standing of any account in the Space.
 
 ## Run the bridge
 
@@ -327,15 +397,15 @@ The connector below relays a single linked room to the terminal. Every line type
 import { createInterface } from "node:readline";
 import type {
 	BridgeContext,
-	NetworkConnector,
 	OutboundMessage,
+	RelayConnector,
 	RemoteRoomInfo,
 } from "@colibri-social/bridge-core";
 
 const SPACE = "console";
 const ROOM = "terminal";
 
-export class ConsoleConnector implements NetworkConnector {
+export class ConsoleConnector implements RelayConnector {
 	readonly platform = "console";
 	private input = createInterface({ input: process.stdin });
 	private sent = 0;
