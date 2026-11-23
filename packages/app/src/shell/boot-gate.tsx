@@ -7,6 +7,7 @@ import {
 	Show,
 } from "solid-js";
 import { BOOT_CAP_MS, type DataStore } from "../data/store";
+import { claimBlockingDialog } from "./blocking-dialogs";
 import { LaunchScreen } from "./launch/LaunchScreen";
 
 const SKELETON_SELECTOR =
@@ -21,6 +22,7 @@ export const ColdStart = (props: {
 	let host: HTMLDivElement | undefined;
 	const [settled, setSettled] = createSignal(false);
 	const [removed, setRemoved] = createSignal(false);
+	claimBlockingDialog(() => !settled());
 	onMount(() => {
 		let frames = 0;
 		let frame = 0;

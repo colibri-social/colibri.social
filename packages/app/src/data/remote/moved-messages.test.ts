@@ -51,7 +51,7 @@ const setup = async (
 	configure?.(fake);
 	const source = await createRemoteSource({
 		session: fake.session,
-		appViewDid: "did:web:spaces-api.colibri.social",
+		appViewDid: "did:web:api.colibri.social",
 		live: createFakeLive().live,
 	});
 	fake.on(colibri.channel.listMessages.main.nsid, json({ messages }));

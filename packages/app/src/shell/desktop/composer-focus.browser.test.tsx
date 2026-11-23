@@ -80,7 +80,7 @@ describe("desktop composer focus", () => {
 		await until(composerFocused);
 		const next = writableChannel(store, "general");
 		(document.activeElement as HTMLElement | null)?.blur();
-		openAppLink(`https://spaces.colibri.social/app/c/${HQ}/${TEXT}/${next}`);
+		openAppLink(`https://colibri.social/app/c/${HQ}/${TEXT}/${next}`);
 		await until(() => location.pathname.endsWith(`/${next}`));
 		await until(composerFocused);
 	});

@@ -68,7 +68,7 @@ const until = async (check: () => boolean) => {
 
 it("reads invite codes from app links only", () => {
 	expect(inviteCodeOf("https://colibri.social/invite/flock")).toBe("flock");
-	expect(inviteCodeOf("https://next.colibri.social/invite/flock")).toBe(
+	expect(inviteCodeOf("https://spaces.colibri.social/invite/flock")).toBe(
 		"flock",
 	);
 	expect(inviteCodeOf("https://example.com/invite/flock")).toBeUndefined();

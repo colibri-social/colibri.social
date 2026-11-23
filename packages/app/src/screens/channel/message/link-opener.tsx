@@ -11,7 +11,7 @@ import { openAppLink } from "../../../native/deep-links";
 import { openExternalUrl } from "../../../native/open-external";
 import { usePlatform } from "../../../screen/platform";
 
-const DEFAULT_TRUSTED = ["colibri.social", "next.colibri.social", "bsky.app"];
+const DEFAULT_TRUSTED = ["colibri.social", "spaces.colibri.social", "bsky.app"];
 
 const trustedHosts = createRoot(() => {
 	const [hosts, setHosts] = createSignal<ReadonlySet<string>>(

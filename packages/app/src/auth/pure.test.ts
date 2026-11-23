@@ -28,11 +28,11 @@ const location = (host: string, port = "") => ({
 
 describe("appview", () => {
 	it("derives the service reference and hosts", () => {
-		expect(appViewServiceRef("https://spaces-api.colibri.social")).toBe(
-			"did:web:spaces-api.colibri.social#colibri_appview",
+		expect(appViewServiceRef("https://api.colibri.social")).toBe(
+			"did:web:api.colibri.social#colibri_appview",
 		);
-		expect(appViewHost("ws", "https://spaces-api.colibri.social")).toBe(
-			"wss://spaces-api.colibri.social",
+		expect(appViewHost("ws", "https://api.colibri.social")).toBe(
+			"wss://api.colibri.social",
 		);
 		expect(appViewHost("ws", "http://127.0.0.1:3000")).toBe(
 			"ws://127.0.0.1:3000",
@@ -46,7 +46,7 @@ describe("client id", () => {
 			makeClientId({
 				native: true,
 				location: location("tauri.localhost"),
-				appView: "https://spaces-api.colibri.social",
+				appView: "https://api.colibri.social",
 			}),
 		).toBe(`${NATIVE_CLIENT_ORIGIN}/oauth-client-metadata-native.json`);
 		expect(
@@ -65,7 +65,7 @@ describe("client id", () => {
 			makeClientId({
 				native: false,
 				location: location("127.0.0.1:5173", "5173"),
-				appView: "https://spaces-api.colibri.social",
+				appView: "https://api.colibri.social",
 			}),
 		);
 		expect(id.origin).toBe("http://localhost");
@@ -73,7 +73,7 @@ describe("client id", () => {
 			"http://127.0.0.1:5173/app/login",
 		);
 		expect(id.searchParams.get("scope")).toContain(
-			"aud=did:web:spaces-api.colibri.social#colibri_appview",
+			"aud=did:web:api.colibri.social#colibri_appview",
 		);
 	});
 
@@ -82,7 +82,7 @@ describe("client id", () => {
 			makeClientId({
 				native: false,
 				location: location("colibri.social"),
-				appView: "https://spaces-api.colibri.social",
+				appView: "https://api.colibri.social",
 			}),
 		).toBe("https://colibri.social/oauth-client-metadata.json");
 	});
@@ -275,12 +275,12 @@ describe("client metadata", () => {
 	it("bundles the web document so loading needs no request", () => {
 		const metadata = makeClientMetadata({
 			native: false,
-			location: location("spaces.colibri.social"),
-			appView: "https://spaces-api.colibri.social",
+			location: location("colibri.social"),
+			appView: "https://api.colibri.social",
 		});
 		expect(metadata).toMatchObject({
-			client_id: "https://spaces.colibri.social/oauth-client-metadata.json",
-			redirect_uris: ["https://spaces.colibri.social/app/login"],
+			client_id: "https://colibri.social/oauth-client-metadata.json",
+			redirect_uris: ["https://colibri.social/app/login"],
 			application_type: "web",
 			dpop_bound_access_tokens: true,
 		});
@@ -291,14 +291,12 @@ describe("client metadata", () => {
 		const metadata = makeClientMetadata({
 			native: true,
 			location: location("tauri.localhost"),
-			appView: "https://spaces-api.colibri.social",
+			appView: "https://api.colibri.social",
 		});
 		expect(metadata?.client_id).toBe(
 			`${NATIVE_CLIENT_ORIGIN}/oauth-client-metadata-native.json`,
 		);
-		expect(metadata?.redirect_uris).toEqual([
-			"social.colibri.spaces:/oauth/callback",
-		]);
+		expect(metadata?.redirect_uris).toEqual(["social.colibri:/oauth/callback"]);
 		expect(metadata?.application_type).toBe("native");
 	});
 
@@ -307,7 +305,7 @@ describe("client metadata", () => {
 			makeClientMetadata({
 				native: false,
 				location: location("127.0.0.1:5173", "5173"),
-				appView: "https://spaces-api.colibri.social",
+				appView: "https://api.colibri.social",
 			}),
 		).toBeUndefined();
 	});

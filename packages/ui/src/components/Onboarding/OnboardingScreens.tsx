@@ -6,6 +6,7 @@ import { cx } from "../../utils/cx";
 import { createLocalPreview } from "../../utils/local-preview";
 import { createSlot } from "../../utils/slot";
 import { AnimatedImage } from "../AnimatedImage/AnimatedImage";
+import { Badge } from "../Badge/Badge";
 import { ThemeColorPicker } from "../ColorPicker/ColorPicker";
 import { Hummingbird } from "../Hummingbird/Hummingbird";
 import { CROP_OUTPUT, type ImageCropShape } from "../ImageCropper/crop-math";
@@ -58,15 +59,20 @@ export const WelcomeScreen = (props: WelcomeScreenProps) => {
 					<Hummingbird size={128} dart poke dartRange={{ x: 72, y: 40 }} />
 				</Entrance>
 			</Show>
-			<EntranceText
-				as="h1"
-				group={1}
-				class="m-0 text-center text-5xl leading-none text-foreground"
-				lines={[
-					{ text: "Welcome to", class: "font-sans font-extrabold" },
-					{ text: "Colibri Social", class: "pt-1 font-display font-normal" },
-				]}
-			/>
+			<div class="flex flex-col items-center gap-3">
+				<EntranceText
+					as="h1"
+					group={1}
+					class="m-0 text-center text-5xl leading-none text-foreground"
+					lines={[
+						{ text: "Welcome to", class: "font-sans font-extrabold" },
+						{ text: "Colibri Social", class: "pt-1 font-display font-normal" },
+					]}
+				/>
+				<Entrance group={2}>
+					<Badge data-release-stage="">Beta</Badge>
+				</Entrance>
+			</div>
 			<EntranceText
 				group={3}
 				class="m-0 text-center text-xl font-semibold"

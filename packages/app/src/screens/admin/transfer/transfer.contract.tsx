@@ -34,7 +34,7 @@ export const TRANSFER_COPY = {
 	warning:
 		"Transferring your ownership of this Space means losing all privileges associated with owning it. This can only be undone if the other member transfers the ownership back to you. Read more in our ",
 	docsLabel: "documentation",
-	docsHref: "https://spaces.colibri.social/docs/",
+	docsHref: "https://colibri.social/docs/",
 	acknowledge: "I understand that this action cannot be undone",
 	confirm: "Transfer ownership",
 	failed: "Couldn't transfer ownership",

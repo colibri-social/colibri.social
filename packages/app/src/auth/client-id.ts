@@ -3,7 +3,7 @@ import { buildScopes } from "@colibri-social/lib";
 import { appViewDid, appViewUrl, isDefaultAppView } from "./appview";
 import { SIGN_IN_PATH } from "./callback";
 
-export const NATIVE_CLIENT_ORIGIN = "https://spaces.colibri.social";
+export const NATIVE_CLIENT_ORIGIN = "https://colibri.social";
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1"]);
 

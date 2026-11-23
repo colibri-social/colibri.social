@@ -143,7 +143,7 @@ if (max > 0 && text.length > max) {
 		if (join([...kept, line]).length > max) break;
 		kept.push(line);
 	}
-	if (kept.length === 0) kept.push(`${lines[0].slice(0, Math.max(0, max - 1))}…`);
+	if (kept.length === 0) kept.push(`${lines[0].slice(0, Math.max(0, max - 3))}...`);
 	text = join(kept);
 	console.error(
 		`trimmed release notes to ${kept.length} of ${lines.length} entries to fit ${max} characters`,

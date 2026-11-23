@@ -199,16 +199,6 @@ export default defineConfig({
 				access: "secret",
 				optional: true,
 			}),
-			TURSO_DATABASE_URL: envField.string({
-				context: "server",
-				access: "secret",
-				optional: true,
-			}),
-			TURSO_AUTH_TOKEN: envField.string({
-				context: "server",
-				access: "secret",
-				optional: true,
-			}),
 			MAINTENANCE: envField.boolean({
 				context: "server",
 				access: "public",
@@ -219,7 +209,6 @@ export default defineConfig({
 	security: {
 		allowedDomains: [
 			{ hostname: "colibri.social", protocol: "https" },
-			{ hostname: "next.colibri.social", protocol: "https" },
 			{ hostname: "spaces.colibri.social", protocol: "https" },
 		],
 	},

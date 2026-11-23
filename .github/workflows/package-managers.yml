@@ -1,0 +1,149 @@
+name: Package managers
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      channel:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  homebrew:
+    runs-on: macos-latest
+    steps:
+      - name: Mint tap token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: colibri-social
+          repositories: homebrew-tap
+
+      - name: Update Homebrew cask
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ inputs.version }}
+          CASK: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
+          CONFLICTS: ${{ inputs.channel == 'spaces' && 'colibri-social' || 'colibri-social-beta' }}
+        run: |
+          set -euo pipefail
+          TAG="v$VERSION"
+          REPO="${{ github.repository }}"
+          ASSET=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '[.assets[].name | select(test("\\.dmg$"))][0] // ""')
+          test -n "$ASSET"
+          gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir dl
+          SHA=$(shasum -a 256 "dl/$ASSET" | cut -d' ' -f1)
+          ENC=$(jq -rn --arg s "$ASSET" '$s|@uri')
+          URL="https://github.com/$REPO/releases/download/$TAG/$ENC"
+          TAP_DIR="$(brew --repository)/Library/Taps/colibri-social/homebrew-tap"
+          rm -rf "$TAP_DIR"
+          mkdir -p "$(dirname "$TAP_DIR")"
+          git clone --depth 1 "https://x-access-token:$TOKEN@github.com/colibri-social/homebrew-tap.git" "$TAP_DIR"
+          echo "TAP_DIR=$TAP_DIR" >> "$GITHUB_ENV"
+          mkdir -p "$TAP_DIR/Casks"
+          cat > "$TAP_DIR/Casks/$CASK.rb" <<RUBY
+          cask "$CASK" do
+            version "$VERSION"
+            sha256 "$SHA"
+
+            url "$URL"
+            name "Colibri Social"
+            desc "Next-generation social chat app built on the AT Protocol"
+            homepage "https://colibri.social"
+
+            conflicts_with cask: "$CONFLICTS"
+
+            app "Colibri Social.app"
+
+            zap trash: [
+              "~/Library/Application Support/social.colibri.app",
+              "~/Library/Caches/social.colibri.app",
+              "~/Library/Preferences/social.colibri.app.plist",
+              "~/Library/Saved Application State/social.colibri.app.savedState",
+            ]
+          end
+          RUBY
+
+      - name: Verify cask install
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          CASK: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
+        run: |
+          set -euo pipefail
+          brew install --cask "colibri-social/tap/$CASK"
+          APP="/Applications/Colibri Social.app"
+          test -d "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          xcrun stapler validate "$APP"
+          spctl --assess --type exec --verbose=4 "$APP"
+
+      - name: Push cask
+        env:
+          VERSION: ${{ inputs.version }}
+          CASK: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
+        run: |
+          set -euo pipefail
+          cd "$TAP_DIR"
+          git config user.name "colibri-release[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "Casks/$CASK.rb"
+          git diff --cached --quiet && exit 0
+          git commit -m "$CASK $VERSION"
+          git branch -M main
+          git push origin HEAD:main
+
+  scoop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint bucket token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: colibri-social
+          repositories: scoop-bucket
+
+      - name: Update Scoop manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ inputs.version }}
+          MANIFEST: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
+        run: |
+          set -euo pipefail
+          TAG="v$VERSION"
+          REPO="${{ github.repository }}"
+          ASSET=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '[.assets[].name | select(test("setup\\.exe$"))][0] // ""')
+          test -n "$ASSET"
+          gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir dl
+          SHA=$(sha256sum "dl/$ASSET" | cut -d' ' -f1)
+          ENC=$(jq -rn --arg s "$ASSET" '$s|@uri')
+          URL="https://github.com/$REPO/releases/download/$TAG/$ENC#/dl.7z"
+          git clone --depth 1 "https://x-access-token:$TOKEN@github.com/colibri-social/scoop-bucket.git" bucket
+          mkdir -p bucket/bucket
+          jq -n --arg v "$VERSION" --arg url "$URL" --arg hash "$SHA" '{
+            version: $v,
+            description: "Next-generation social chat app built on the AT Protocol",
+            homepage: "https://colibri.social",
+            license: "MIT",
+            architecture: { "64bit": { url: $url, hash: $hash } },
+            post_install: ["Remove-Item \"$dir\\`$PLUGINSDIR\" -Recurse -Force -ErrorAction SilentlyContinue"],
+            shortcuts: [["Colibri Social.exe", "Colibri Social"]]
+          }' > "bucket/bucket/$MANIFEST.json"
+          cd bucket
+          git config user.name "colibri-release[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "bucket/$MANIFEST.json"
+          git diff --cached --quiet && exit 0
+          git commit -m "$MANIFEST $VERSION"
+          git branch -M main
+          git push origin HEAD:main

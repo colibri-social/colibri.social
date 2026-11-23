@@ -24,6 +24,7 @@ import { settingsPage } from "../screens/settings/nav";
 import SpacesScreen from "../screens/spaces/spaces.screen";
 import VoiceScreen from "../screens/voice/voice.screen";
 import { AppLinkHost } from "./AppLinkHost";
+import { claimBlockingDialog } from "./blocking-dialogs";
 import { CallPillHost } from "./CallPillHost";
 import { restoreLastViewed } from "./cold-start";
 import { installFlingGuard } from "./fling-guard";
@@ -38,6 +39,7 @@ import { AdminScreen, AppScreen } from "./registry";
 import { createStack } from "./stack";
 import { canSwipeForward, swipeForward } from "./swipe-forward";
 import { installTapGuard } from "./tap-guard";
+import { WhatsNewHost } from "./WhatsNewHost";
 import { WriteFailureToasts } from "./WriteFailureToasts";
 
 const SettingsScreen = lazy(
@@ -90,6 +92,8 @@ export const MobileShell = () => {
 			}),
 		forward: swipeForward(data),
 	});
+
+	claimBlockingDialog(() => stack.leaveGuard.prompting());
 
 	const selectTab = (tab: string) => {
 		const current = stack.root();
@@ -283,6 +287,7 @@ export const MobileShell = () => {
 				<NotificationHost stack={stack} />
 				<AppLinkHost stack={stack} />
 				<HostReturnHost />
+				<WhatsNewHost stack={stack} />
 				<WriteFailureToasts />
 				<DiscardChangesDialog guard={stack.leaveGuard} />
 			</ProfileSheetProvider>

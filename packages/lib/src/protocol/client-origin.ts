@@ -1,4 +1,4 @@
-export const CLIENT_ORIGIN = "https://spaces.colibri.social";
+export const CLIENT_ORIGIN = "https://colibri.social";
 
 const WEB_PROTOCOLS = new Set(["http:", "https:"]);
 

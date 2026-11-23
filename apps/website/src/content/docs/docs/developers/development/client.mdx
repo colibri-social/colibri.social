@@ -108,7 +108,7 @@ The dev server listens on port `4321`. The website serves the client's built `di
 
 Its `dev`, `build` and `preview` scripts all run `sync-assets` first, which fetches shared assets out of `@colibri-social/assets` and copies them into place.
 
-The website reads its own variables from a `.env` in the repository root, with `.env.example` as the template. All of them are optional. `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` connect the waitlist to its database, and `SAME_TLD_DID` sets the DID served at `/.well-known/atproto-did`.
+The website reads its own variables from a `.env` in the repository root, with `.env.example` as the template. All of them are optional. `SAME_TLD_DID` sets the DID served at `/.well-known/atproto-did`.
 
 Documentation pages are Markdown and MDX files under `apps/website/src/content/docs/docs/`, rendered by [Starlight](https://starlight.astro.build). The sidebar is assembled in `apps/website/astro.config.ts` as two topics, Users and Developers. Each group in a topic autogenerates from a directory, and page order inside a group comes from `sidebar.order` in the frontmatter.
 
@@ -170,7 +170,9 @@ pnpm dev:app
 pnpm whats-new:generate
 ```
 
-`whats-new:preview` writes a throwaway `0.0.0-preview` release, and `whats-new:generate` removes it.
+`whats-new:preview` writes a throwaway `0.0.0-preview` release from every pending changeset that carries a block, and `whats-new:generate` removes it. The settings page lists releases from 0.7.0 on, and always shows the preview release.
+
+The preview entries are written into `packages/app/src/data/release-notes/data.ts`, so run `whats-new:generate` before you commit. The What's New CI job fails while the preview release is still in the file.
 
 The preview renders through the same platform filter as a real release, so an entry limited to `ios` stays hidden in a desktop browser.
 

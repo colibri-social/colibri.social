@@ -7,7 +7,7 @@ import {
 import { createFakeSession, json, xrpcError } from "./fake-session";
 import { createTransport, encodeParams } from "./transport";
 
-const APPVIEW = "did:web:spaces-api.colibri.social";
+const APPVIEW = "did:web:api.colibri.social";
 
 const setup = () => {
 	const fake = createFakeSession();

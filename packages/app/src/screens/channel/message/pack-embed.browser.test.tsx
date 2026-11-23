@@ -60,7 +60,7 @@ const mount = async (url: (packId: string) => string) => {
 };
 
 it("normalizes share links from every Colibri host", () => {
-	const url = "https://next.colibri.social/emoji/did%3Aplc%3Aabc/3kowls";
+	const url = "https://spaces.colibri.social/emoji/did%3Aplc%3Aabc/3kowls";
 	expect(packLinkOf(url)).toBe(`${clientOrigin()}/emoji/did:plc:abc/3kowls`);
 	expect(packLinkOf("https://moji.blue/packs/did:plc:abc/3kowls")).toBe(
 		`${clientOrigin()}/emoji/did:plc:abc/3kowls`,

@@ -45,7 +45,7 @@ import { mockThreadRights } from "./thread-rights";
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
-export const MANAGING_APP = asDid("did:web:spaces-api.colibri.social");
+export const MANAGING_APP = asDid("did:web:api.colibri.social");
 const MESSAGE_VIEW = "social.colibri.beta.channel.defs#messageView";
 const DELETED_VIEW = "social.colibri.beta.channel.defs#deletedMessageView";
 const ICON_BADGE = "social.colibri.beta.community.defs#roleIconBadge";

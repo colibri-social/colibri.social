@@ -67,7 +67,7 @@ const setup = async (
 	configure?.(fake);
 	const source = await createRemoteSource({
 		session: fake.session,
-		appViewDid: "did:web:spaces-api.colibri.social",
+		appViewDid: "did:web:api.colibri.social",
 		live: live.live,
 	});
 	const events: LiveEvent[] = [];
@@ -92,7 +92,7 @@ afterEach(() => {
 
 describe("catalog views", () => {
 	it("builds image URLs on the AppView's blob endpoint", () => {
-		const locate = emojiBlobLocator("https://spaces-api.colibri.social");
+		const locate = emojiBlobLocator("https://api.colibri.social");
 		const catalog = catalogFromWire(
 			wireCatalog(COMMUNITY, [wireEmoji(COMMUNITY, "wave")]).catalog,
 			locate,
@@ -102,7 +102,7 @@ describe("catalog views", () => {
 			id: `at://${COMMUNITY}/${ITEM}/wave`,
 			ref: { provider: "blue.moji", owner: COMMUNITY },
 			name: "wave",
-			image: `https://spaces-api.colibri.social/xrpc/social.colibri.beta.blob.get?did=${encodeURIComponent(COMMUNITY)}&cid=${CID}`,
+			image: `https://api.colibri.social/xrpc/social.colibri.beta.blob.get?did=${encodeURIComponent(COMMUNITY)}&cid=${CID}`,
 		});
 	});
 

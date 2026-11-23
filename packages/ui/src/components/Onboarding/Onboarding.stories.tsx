@@ -537,6 +537,8 @@ export const Welcome: Story = {
 		const canvas = within(canvasElement);
 		const heading = canvas.getByRole("heading", { level: 1 });
 		await expect(heading).toHaveTextContent("Welcome to Colibri Social");
+		await waitFor(() => expect(canvas.getByText("Beta")).toBeVisible());
+		await expect(heading).not.toHaveTextContent("Beta");
 		await expect(
 			canvasElement.querySelector("[data-hummingbird]"),
 		).toBeInTheDocument();

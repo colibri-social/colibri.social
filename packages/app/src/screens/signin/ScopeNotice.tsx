@@ -3,6 +3,7 @@ import { createMemo } from "solid-js";
 import type { Auth, ScopeNotice as ScopeNoticeState } from "../../auth/auth";
 import { UNATTRIBUTED_REJECTION } from "../../auth/session-health";
 import { describeError } from "../../data/error-copy";
+import { claimBlockingDialog } from "../../shell/blocking-dialogs";
 import { onboardingActive } from "../onboarding/onboarding-state";
 
 const featureList = new Intl.ListFormat("en", {
@@ -42,6 +43,9 @@ export const ScopeNotice = (props: {
 		const current = shown();
 		return current ? scopeNoticeTitle(current) : "";
 	});
+	const visible = () =>
+		props.auth.scopeNotice() !== undefined && !onboardingActive();
+	claimBlockingDialog(visible);
 	const description = () => {
 		const error = props.auth.error();
 		return error ? describeError(error).title : SCOPE_NOTICE_DESCRIPTION;
@@ -49,7 +53,7 @@ export const ScopeNotice = (props: {
 	return (
 		<PermissionNotice
 			platform={props.platform}
-			visible={props.auth.scopeNotice() !== undefined && !onboardingActive()}
+			visible={visible()}
 			title={title()}
 			description={description()}
 			reviewing={props.auth.phase() !== undefined}

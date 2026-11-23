@@ -77,8 +77,8 @@ class FakeSocket {
 	}
 }
 
-const HOST = "https://spaces-api.colibri.social";
-const SERVICE = "did:web:spaces-api.colibri.social#colibri_appview";
+const HOST = "https://api.colibri.social";
+const SERVICE = "did:web:api.colibri.social#colibri_appview";
 const COMMUNITY = "did:plc:colibrihqspace2a4b6c8d";
 const GENERAL = `at://${COMMUNITY}/space/social.colibri.beta.channel.text/general`;
 
@@ -126,9 +126,9 @@ afterEach(() => {
 describe("socketUrl", () => {
 	it("maps https and bare hosts to wss and http to ws", () => {
 		expect(socketUrl(HOST)).toBe(
-			"wss://spaces-api.colibri.social/xrpc/social.colibri.beta.sync.subscribeEvents",
+			"wss://api.colibri.social/xrpc/social.colibri.beta.sync.subscribeEvents",
 		);
-		expect(socketUrl("spaces-api.colibri.social")).toBe(socketUrl(HOST));
+		expect(socketUrl("api.colibri.social")).toBe(socketUrl(HOST));
 		expect(socketUrl("http://127.0.0.1:3000")).toBe(
 			"ws://127.0.0.1:3000/xrpc/social.colibri.beta.sync.subscribeEvents",
 		);

@@ -2,6 +2,7 @@ import { ConfirmDialog, toast } from "@colibri-social/ui";
 import { createSignal } from "solid-js";
 import type { DeviceNotifications } from "../native/notifications/device";
 import type { OsNotifier } from "../native/notifications/index";
+import { queueBlockingDialog } from "./blocking-dialogs";
 
 const NOTIFICATION_PROMPT_COPY = {
 	title: "Turn on notifications?",
@@ -22,11 +23,12 @@ export const NotificationPrompt = (props: {
 		setSupported(notifier.kind !== "none");
 	});
 
-	const open = () =>
+	const wants = () =>
 		supported() &&
 		!props.device.answered() &&
 		!props.device.enabled() &&
 		props.device.permission() === "default";
+	const open = queueBlockingDialog(wants);
 
 	return (
 		<ConfirmDialog

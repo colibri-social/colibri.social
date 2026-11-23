@@ -7,6 +7,7 @@ import {
 	listenForHostReturn,
 } from "../data/host-return";
 import { useData } from "../data/store";
+import { claimBlockingDialog } from "./blocking-dialogs";
 
 type Connected = {
 	spaceName?: string;
@@ -18,6 +19,8 @@ type Connected = {
 export const HostReturnHost = () => {
 	const data = useData();
 	const [connected, setConnected] = createSignal<Connected>();
+
+	claimBlockingDialog(() => connected() !== undefined);
 
 	const describe = async (request: string): Promise<Connected> => {
 		const outcome = await data.source.getCommunityHostAuthorization(request);

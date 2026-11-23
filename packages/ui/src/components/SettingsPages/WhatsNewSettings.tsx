@@ -1,4 +1,5 @@
 import { For, type JSX, Show } from "solid-js";
+import { Dynamic } from "solid-js/web";
 import { RELEASE_HISTORY_URL } from "./links";
 import { SettingsEmpty, SettingsPage } from "./shared";
 
@@ -33,28 +34,26 @@ const KIND_LABELS: Record<ReleaseNoteItemKind, string> = {
 
 const KIND_ORDER: readonly ReleaseNoteItemKind[] = ["feature", "fix"];
 
-const ReleaseNoteSection = (props: { note: ReleaseNoteView }) => {
-	const groups = () =>
-		KIND_ORDER.map((kind) => ({
-			kind,
-			items: props.note.items.filter((item) => item.kind === kind),
-		})).filter((group) => group.items.length > 0);
+const releaseNoteGroups = (note: ReleaseNoteView) => {
+	return KIND_ORDER.map((kind) => ({
+		kind,
+		items: note.items.filter((item) => item.kind === kind),
+	})).filter((group) => group.items.length > 0);
+};
+
+export const releaseNoteSubtitle = (note: ReleaseNoteView) => {
+	return note.title ? `Version ${note.version}, ${note.date}` : note.date;
+};
+
+export const ReleaseNoteDetails = (props: {
+	note: ReleaseNoteView;
+	headingLevel?: 3 | 4;
+}) => {
+	const groups = () => releaseNoteGroups(props.note);
+	const heading = () => (props.headingLevel === 3 ? "h3" : "h4");
 
 	return (
-		<article
-			data-release-note={props.note.version}
-			class="flex flex-col gap-4 rounded-control bg-secondary p-4"
-		>
-			<header class="flex flex-col gap-0.5">
-				<h3 class="text-base font-semibold text-foreground">
-					{props.note.title ?? `Version ${props.note.version}`}
-				</h3>
-				<span class="text-xs text-muted-foreground">
-					{props.note.title
-						? `Version ${props.note.version}, ${props.note.date}`
-						: props.note.date}
-				</span>
-			</header>
+		<>
 			<Show when={props.note.heroImage}>
 				{(src) => (
 					<img
@@ -68,14 +67,17 @@ const ReleaseNoteSection = (props: { note: ReleaseNoteView }) => {
 				{(group) => (
 					<section class="flex flex-col gap-3">
 						<Show when={groups().length > 1}>
-							<h4 class="text-xs font-semibold text-muted-foreground">
+							<Dynamic
+								component={heading()}
+								class="text-xs font-semibold text-muted-foreground"
+							>
 								{KIND_LABELS[group.kind]}
-							</h4>
+							</Dynamic>
 						</Show>
 						<ul class="flex flex-col gap-3">
 							<For each={group.items}>
 								{(item) => (
-									<li class="flex items-start gap-3">
+									<li data-release-note-item="" class="flex items-start gap-3">
 										<span
 											aria-hidden="true"
 											class="flex size-8 shrink-0 items-center justify-center rounded-control-sm bg-primary/10 text-primary-highlight [&>svg]:size-5"
@@ -97,9 +99,26 @@ const ReleaseNoteSection = (props: { note: ReleaseNoteView }) => {
 					</section>
 				)}
 			</For>
-		</article>
+		</>
 	);
 };
+
+const ReleaseNoteSection = (props: { note: ReleaseNoteView }) => (
+	<article
+		data-release-note={props.note.version}
+		class="flex flex-col gap-4 rounded-control bg-secondary p-4"
+	>
+		<header class="flex flex-col gap-0.5">
+			<h3 class="text-base font-semibold text-foreground">
+				{props.note.title ?? `Version ${props.note.version}`}
+			</h3>
+			<span class="text-xs text-muted-foreground">
+				{releaseNoteSubtitle(props.note)}
+			</span>
+		</header>
+		<ReleaseNoteDetails note={props.note} />
+	</article>
+);
 
 export const WhatsNewSettings = (props: WhatsNewSettingsProps) => {
 	const href = () => props.historyHref ?? RELEASE_HISTORY_URL;

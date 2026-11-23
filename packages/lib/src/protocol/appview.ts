@@ -1,4 +1,4 @@
-export const DEFAULT_APPVIEW_URL = "https://spaces-api.colibri.social";
+export const DEFAULT_APPVIEW_URL = "https://api.colibri.social";
 
 export const DEV_APPVIEW_HOST = "127.0.0.1:3000";
 
@@ -6,7 +6,7 @@ export const APPVIEW_FRAGMENT = "colibri_appview";
 
 export const NOTIF_FRAGMENT = "colibri_notifs";
 
-const RETIRED_APPVIEW_HOSTS = new Set(["api.colibri.social"]);
+const RETIRED_APPVIEW_HOSTS = new Set(["spaces-api.colibri.social"]);
 
 export const normalizeAppViewUrl = (raw: string): string | null => {
 	const trimmed = raw.trim();

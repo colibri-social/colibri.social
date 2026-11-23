@@ -19,7 +19,7 @@ export const BRIDGES_BETA_NOTICE = {
 } as const;
 
 export const BRIDGE_DOCS_URL =
-	"https://spaces.colibri.social/docs/users/bridges/pairing/";
+	"https://colibri.social/docs/users/bridges/pairing/";
 
 const PLATFORM_NAMES: Record<string, string> = {
 	discord: "Discord",

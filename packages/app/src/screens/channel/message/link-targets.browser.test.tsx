@@ -21,7 +21,7 @@ const context: LinkTargetContext = {
 
 describe("message links", () => {
 	it("maps a channel message link to a message chip", () => {
-		const href = `https://spaces.colibri.social/app/c/${SPACE}/${TEXT}/general/m/3kmsg`;
+		const href = `https://colibri.social/app/c/${SPACE}/${TEXT}/general/m/3kmsg`;
 		expect(linkTargetFor(href, context)).toEqual({
 			kind: "message",
 			space: SPACE,
@@ -32,7 +32,7 @@ describe("message links", () => {
 	});
 
 	it("maps a thread message link to a message chip", () => {
-		const href = `https://spaces.colibri.social/app/c/${SPACE}/${TEXT}/general/t/3kthread/m/3kmsg`;
+		const href = `https://colibri.social/app/c/${SPACE}/${TEXT}/general/t/3kthread/m/3kmsg`;
 		expect(linkTargetFor(href, context)).toEqual({
 			kind: "message",
 			space: SPACE,
@@ -44,7 +44,7 @@ describe("message links", () => {
 	});
 
 	it("maps a message in another space to a foreign message chip", () => {
-		const href = `https://spaces.colibri.social/app/c/${OTHER}/${TEXT}/general/m/3kmsg`;
+		const href = `https://colibri.social/app/c/${OTHER}/${TEXT}/general/m/3kmsg`;
 		expect(linkTargetFor(href, context)).toEqual({
 			kind: "message",
 			space: OTHER,
@@ -56,7 +56,7 @@ describe("message links", () => {
 	});
 
 	it("maps a channel in another space to a foreign channel chip", () => {
-		const href = `https://spaces.colibri.social/app/c/${OTHER}/${TEXT}/general`;
+		const href = `https://colibri.social/app/c/${OTHER}/${TEXT}/general`;
 		expect(linkTargetFor(href, context)).toEqual({
 			kind: "channel",
 			channel: "general",
@@ -65,7 +65,7 @@ describe("message links", () => {
 	});
 
 	it("keeps the app link on a thread in another space", () => {
-		const href = `https://spaces.colibri.social/app/c/${OTHER}/${TEXT}/general/t/3kthread`;
+		const href = `https://colibri.social/app/c/${OTHER}/${TEXT}/general/t/3kthread`;
 		expect(linkTargetFor(href, context)).toEqual({
 			kind: "thread",
 			channel: "general",
@@ -160,7 +160,7 @@ describe("pack links", () => {
 	};
 
 	it.each([
-		"https://spaces.colibri.social/emoji/did:plc:lou/3kowls",
+		"https://colibri.social/emoji/did:plc:lou/3kowls",
 		"https://colibri.social/app/emoji/did:plc:lou/3kowls",
 		"https://moji.blue/packs/did:plc:lou/3kowls",
 		"at://did:plc:lou/blue.moji.packs.pack/3kowls",

@@ -1,5 +1,3 @@
-export const SITE = "https://spaces.colibri.social";
+export const SITE = "https://colibri.social";
 
-const NOINDEX_HOSTS = new Set(["spaces.colibri.social"]);
-
-export const NOINDEX = NOINDEX_HOSTS.has(new URL(SITE).hostname);
+export const NOINDEX = true;

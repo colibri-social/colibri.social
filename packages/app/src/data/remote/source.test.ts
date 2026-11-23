@@ -85,7 +85,7 @@ const setup = async (
 	configure?.(fake);
 	const source = await createRemoteSource({
 		session: fake.session,
-		appViewDid: "did:web:spaces-api.colibri.social",
+		appViewDid: "did:web:api.colibri.social",
 		live: live.live,
 	});
 	return { fake, live, source };
@@ -305,7 +305,7 @@ describe("createRemoteSource", () => {
 			colibri.notification.unregisterPush.main.nsid,
 		]) {
 			expect(only(fake.callsTo(nsid)).headers.get("atproto-proxy")).toBe(
-				"did:web:spaces-api.colibri.social#colibri_notifs",
+				"did:web:api.colibri.social#colibri_notifs",
 			);
 		}
 	});
@@ -543,7 +543,7 @@ describe("createRemoteSource", () => {
 		);
 		const source = await createRemoteSource({
 			session: { ...fake.session, accountHost: () => "pds.example.com" },
-			appViewDid: "did:web:spaces-api.colibri.social",
+			appViewDid: "did:web:api.colibri.social",
 			live: createFakeLive().live,
 		});
 		expect(await source.accountHost()).toBe("pds.example.com");
@@ -560,7 +560,7 @@ describe("createRemoteSource", () => {
 				...fake.session,
 				accountIssuer: () => "https://bsky.social",
 			},
-			appViewDid: "did:web:spaces-api.colibri.social",
+			appViewDid: "did:web:api.colibri.social",
 			live: createFakeLive().live,
 		});
 		expect(await source.accountIssuer()).toBe("https://bsky.social");

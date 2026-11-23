@@ -21,7 +21,7 @@ const EXEMPT_PREFIXES = [
 
 const OAUTH_METADATA = /^\/oauth-client-metadata[^/]*\.json$/;
 
-export const normalizePathname = (pathname: string) => {
+const normalizePathname = (pathname: string) => {
 	if (pathname.length > 1 && pathname.endsWith("/")) {
 		return pathname.replace(/\/+$/, "") || "/";
 	}

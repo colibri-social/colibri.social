@@ -14,11 +14,7 @@ export const PENDING_LINK_TTL_MS = 24 * 60 * 60 * 1000;
 export const messageLinkUrl = (target: MessageTarget) =>
 	`${clientOrigin()}${messagePath(target)}`;
 
-const APP_HOSTS = new Set([
-	"colibri.social",
-	"next.colibri.social",
-	"spaces.colibri.social",
-]);
+const APP_HOSTS = new Set(["colibri.social", "spaces.colibri.social"]);
 
 type PendingLink = { path: string; at: number };
 

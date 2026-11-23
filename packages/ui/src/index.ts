@@ -263,6 +263,7 @@ export * from "./components/Voice/VoiceGrid";
 export * from "./components/Voice/VoiceJoin";
 export * from "./components/Voice/VoiceSkeletons";
 export * from "./components/Voice/VoiceStatusPanel";
+export * from "./components/WhatsNew/WhatsNewDialog";
 export * from "./icons/animated/AnimatedIcon";
 export * from "./icons/animated/brand";
 export * from "./icons/animated/icons";

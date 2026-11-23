@@ -4,8 +4,7 @@ export const EMOJI_PACK_SHARE_ORIGIN = CLIENT_ORIGIN;
 
 export const EMOJI_PACK_SHARE_ORIGINS: readonly string[] = [
 	EMOJI_PACK_SHARE_ORIGIN,
-	"https://colibri.social",
-	"https://next.colibri.social",
+	"https://spaces.colibri.social",
 ];
 
 const currentOrigin = () =>

@@ -43,7 +43,7 @@ const click = (element: HTMLElement, init: MouseEventInit = {}) => {
 it("opens invite and pack links in the app from any anchor", () => {
 	const { routes, open } = setup();
 	const invite = click(
-		anchor("https://spaces.colibri.social/invite/flock", { target: "_blank" }),
+		anchor("https://colibri.social/invite/flock", { target: "_blank" }),
 	);
 	const pack = click(
 		anchor("https://colibri.social/emoji/did:plc:abc/3kowls", {
@@ -62,7 +62,7 @@ it("opens invite and pack links in the app from any anchor", () => {
 it("leaves modified clicks and other sites to the browser", () => {
 	const { routes } = setup();
 	const modified = click(
-		anchor("https://spaces.colibri.social/invite/flock", { target: "_blank" }),
+		anchor("https://colibri.social/invite/flock", { target: "_blank" }),
 		{ metaKey: true },
 	);
 	const other = click(
@@ -76,7 +76,7 @@ it("leaves modified clicks and other sites to the browser", () => {
 
 it("skips anchors whose click a component already handled", () => {
 	const { routes } = setup();
-	const element = anchor("https://spaces.colibri.social/invite/flock");
+	const element = anchor("https://colibri.social/invite/flock");
 	element.addEventListener("click", (event) => event.preventDefault());
 	click(element);
 	expect(routes).toEqual([]);

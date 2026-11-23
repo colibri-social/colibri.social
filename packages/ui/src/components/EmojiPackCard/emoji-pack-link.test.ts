@@ -6,9 +6,7 @@ const did = "did:plc:abc123xyz";
 describe("emoji pack share links", () => {
 	it("round-trips a did and rkey", () => {
 		const url = emojiPackShareUrl({ did, rkey: "3kabc" });
-		expect(url).toBe(
-			"https://spaces.colibri.social/emoji/did:plc:abc123xyz/3kabc",
-		);
+		expect(url).toBe("https://colibri.social/emoji/did:plc:abc123xyz/3kabc");
 		expect(parseEmojiPackShareUrl(url)).toEqual({ did, rkey: "3kabc" });
 	});
 
@@ -40,7 +38,7 @@ describe("emoji pack share links", () => {
 	});
 
 	it("accepts every Colibri host by default", () => {
-		for (const host of ["next.colibri.social", "spaces.colibri.social"]) {
+		for (const host of ["colibri.social", "spaces.colibri.social"]) {
 			expect(parseEmojiPackShareUrl(`https://${host}/emoji/${did}/x`)).toEqual({
 				did,
 				rkey: "x",
@@ -50,8 +48,8 @@ describe("emoji pack share links", () => {
 
 	it("accepts extra origins", () => {
 		expect(
-			parseEmojiPackShareUrl(`https://next.colibri.social/emoji/${did}/x`, [
-				"https://next.colibri.social",
+			parseEmojiPackShareUrl(`https://colibri.example/emoji/${did}/x`, [
+				"https://colibri.example",
 			]),
 		).toEqual({ did, rkey: "x" });
 	});

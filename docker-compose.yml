@@ -9,8 +9,6 @@ services:
         - SENTRY_DSN=${SENTRY_DSN}
         - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
         - SENTRY_RELEASE=${SENTRY_RELEASE}
-        - TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN}
-        - TURSO_DATABASE_URL=${TURSO_DATABASE_URL}
         - PUBLIC_VAPID_KEY=${PUBLIC_VAPID_KEY}
     container_name: colibri-web-app
     restart: unless-stopped
@@ -18,8 +16,6 @@ services:
       - SAME_TLD_DID=${SAME_TLD_DID}
       - SENTRY_DSN=${SENTRY_DSN}
       - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
-      - TURSO_AUTH_TOKEN=${TURSO_AUTH_TOKEN}
-      - TURSO_DATABASE_URL=${TURSO_DATABASE_URL}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_SPONSORS_TOKEN=${GITHUB_SPONSORS_TOKEN}
     networks:

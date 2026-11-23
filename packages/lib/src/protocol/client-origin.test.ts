@@ -10,9 +10,9 @@ describe("clientOrigin", () => {
 		vi.stubGlobal("window", {});
 		vi.stubGlobal("location", {
 			protocol: "https:",
-			origin: "https://next.colibri.social",
+			origin: "https://spaces.colibri.social",
 		});
-		expect(clientOrigin()).toBe("https://next.colibri.social");
+		expect(clientOrigin()).toBe("https://spaces.colibri.social");
 	});
 
 	it("uses the client origin inside the native shell", () => {

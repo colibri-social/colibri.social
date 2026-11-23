@@ -26,12 +26,14 @@ import SpacesScreen from "../../screens/spaces/spaces.screen";
 import VoiceScreen from "../../screens/voice/voice.screen";
 import { voiceChatAvailable } from "../../screens/voice/voice-chat";
 import { AppLinkHost } from "../AppLinkHost";
+import { claimBlockingDialog } from "../blocking-dialogs";
 import { lastViewedSpace } from "../cold-start";
 import { HostReturnHost } from "../HostReturnHost";
 import { type Layer, sameLayer, type ThreadLayer } from "../layers";
 import { LoadErrorState, NotFoundScreen } from "../load-error";
 import { NotificationHost } from "../NotificationHost";
 import { StackContext } from "../stack";
+import { WhatsNewHost } from "../WhatsNewHost";
 import { WriteFailureToasts } from "../WriteFailureToasts";
 import {
 	DesktopShellContext,
@@ -106,6 +108,8 @@ export const DesktopShell = () => {
 	const outletSignal = (name: OutletName) => outlets[name];
 	const route = stack.route;
 	const navigator = stack.navigator;
+
+	claimBlockingDialog(() => navigator.leaveGuard.prompting());
 
 	const [threadWidth, setThreadWidth] = createSignal(storedThreadWidth());
 	let threadWidthTimer: ReturnType<typeof setTimeout> | undefined;
@@ -489,6 +493,7 @@ export const DesktopShell = () => {
 					<NotificationHost stack={navigator} />
 					<AppLinkHost stack={navigator} />
 					<HostReturnHost />
+					<WhatsNewHost stack={navigator} />
 					<WriteFailureToasts />
 				</ProfileSheetProvider>
 			</StackContext.Provider>

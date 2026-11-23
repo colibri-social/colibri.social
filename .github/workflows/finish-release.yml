@@ -1,0 +1,45 @@
+name: Finish held release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Stable version uploaded earlier with hold, e.g. 0.7.0."
+        required: true
+
+concurrency:
+  group: finish-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  publish-release:
+    name: Publish the GitHub release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Turn the draft into a release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="v$VERSION"
+          REPO="${{ github.repository }}"
+          case "$VERSION" in
+            *-*) echo "::error::$VERSION is not a stable version" && exit 1 ;;
+          esac
+          DRAFT=$(gh release view "$TAG" --repo "$REPO" --json isDraft --jq .isDraft)
+          if [ "$DRAFT" = "true" ]; then
+            gh release edit "$TAG" --repo "$REPO" --draft=false
+          else
+            echo "$TAG is already published"
+          fi
+
+  package-managers:
+    needs: publish-release
+    uses: ./.github/workflows/package-managers.yml
+    with:
+      version: ${{ inputs.version }}
+      channel: stable
+    secrets: inherit

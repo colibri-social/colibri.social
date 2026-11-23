@@ -45,6 +45,10 @@ on:
         description: "Also assign the build to the alpha and beta testing tracks."
         type: boolean
         default: true
+      hold:
+        description: "Stable only: upload without releasing. Draft GitHub release, App Store upload without submission, Play production draft, uncommitted Microsoft Store submission, no Homebrew or Scoop update."
+        type: boolean
+        default: false
 
 concurrency:
   group: publish-${{ inputs.channel }}-${{ inputs.version }}-${{ inputs.appstore_only }}-${{ inputs.msstore_only }}-${{ inputs.appstore_platform }}-${{ inputs.play_track }}
@@ -245,17 +249,17 @@ jobs:
         if: matrix.is-android
         run: echo "ANDROID_VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
 
-      - name: Render pre-release body (spaces only)
-        if: inputs.channel == 'spaces'
+      - name: Render release body
         shell: bash
         env:
           VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
         run: |
           set -euo pipefail
           ANDROID_VERSION=$(node packages/wrapper/scripts/appstore-version.mjs "$VERSION")
           {
             echo "RELEASE_BODY<<RELEASE_BODY_EOF"
-            sed -e "s/{{VERSION}}/$VERSION/g" -e "s/{{ANDROID_VERSION}}/$ANDROID_VERSION/g" .github/release-notes/spaces.md
+            sed -e "s/{{VERSION}}/$VERSION/g" -e "s/{{ANDROID_VERSION}}/$ANDROID_VERSION/g" ".github/release-notes/$CHANNEL.md"
             echo "RELEASE_BODY_EOF"
           } >> "$GITHUB_ENV"
 
@@ -284,7 +288,7 @@ jobs:
           tagName: v${{ inputs.version }}
           releaseName: "Colibri Social ${{ inputs.version }}"
           releaseBody: ${{ env.RELEASE_BODY }}
-          releaseDraft: false
+          releaseDraft: ${{ inputs.hold }}
           prerelease: true
           args: ${{ matrix.args }}${{ inputs.channel == 'spaces' && !matrix.is-android && format(' --config {0}/packages/wrapper/src-tauri/tauri.spaces.conf.json', github.workspace) || '' }}
           mobile: ${{ matrix.mobile }}
@@ -539,7 +543,7 @@ jobs:
             --max-build-processing-wait 45
 
       - name: Upload and submit to App Store
-        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable' && !inputs.hold
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
           APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
@@ -553,6 +557,17 @@ jobs:
             --release-type AFTER_APPROVAL \
             --cancel-previous-submissions \
             --whats-new "@file:$RUNNER_TEMP/whats-new.txt" \
+            --max-build-processing-wait 45
+
+      - name: Upload to App Store without submitting
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable' && inputs.hold
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          app-store-connect publish \
+            --path "$PKG_PATH" \
             --max-build-processing-wait 45
 
       - name: Upload package artifact
@@ -755,7 +770,7 @@ jobs:
             --max-build-processing-wait 45
 
       - name: Upload and submit to App Store
-        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable'
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable' && !inputs.hold
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
           APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
@@ -769,6 +784,17 @@ jobs:
             --release-type AFTER_APPROVAL \
             --cancel-previous-submissions \
             --whats-new "@file:$RUNNER_TEMP/whats-new.txt" \
+            --max-build-processing-wait 45
+
+      - name: Upload to App Store without submitting
+        if: steps.validate.outputs.validated == 'true' && inputs.channel == 'stable' && inputs.hold
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER }}
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          app-store-connect publish \
+            --path "$IPA_PATH" \
             --max-build-processing-wait 45
 
       - name: Upload IPA artifact
@@ -793,145 +819,14 @@ jobs:
           fi
           pnpm dlx @sentry/cli debug-files upload "$DSYMS"
 
-  homebrew:
+  package-managers:
     needs: publish-tauri
-    runs-on: macos-latest
-    steps:
-      - name: Mint tap token
-        id: app-token
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          owner: colibri-social
-          repositories: homebrew-tap
-
-      - name: Update Homebrew cask
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TOKEN: ${{ steps.app-token.outputs.token }}
-          VERSION: ${{ inputs.version }}
-          CASK: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
-          CONFLICTS: ${{ inputs.channel == 'spaces' && 'colibri-social' || 'colibri-social-beta' }}
-        run: |
-          set -euo pipefail
-          TAG="v$VERSION"
-          REPO="${{ github.repository }}"
-          ASSET=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '[.assets[].name | select(test("\\.dmg$"))][0] // ""')
-          test -n "$ASSET"
-          gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir dl
-          SHA=$(shasum -a 256 "dl/$ASSET" | cut -d' ' -f1)
-          ENC=$(jq -rn --arg s "$ASSET" '$s|@uri')
-          URL="https://github.com/$REPO/releases/download/$TAG/$ENC"
-          TAP_DIR="$(brew --repository)/Library/Taps/colibri-social/homebrew-tap"
-          rm -rf "$TAP_DIR"
-          mkdir -p "$(dirname "$TAP_DIR")"
-          git clone --depth 1 "https://x-access-token:$TOKEN@github.com/colibri-social/homebrew-tap.git" "$TAP_DIR"
-          echo "TAP_DIR=$TAP_DIR" >> "$GITHUB_ENV"
-          mkdir -p "$TAP_DIR/Casks"
-          cat > "$TAP_DIR/Casks/$CASK.rb" <<RUBY
-          cask "$CASK" do
-            version "$VERSION"
-            sha256 "$SHA"
-
-            url "$URL"
-            name "Colibri Social"
-            desc "Next-generation social chat app built on the AT Protocol"
-            homepage "https://colibri.social"
-
-            conflicts_with cask: "$CONFLICTS"
-
-            app "Colibri Social.app"
-
-            zap trash: [
-              "~/Library/Application Support/social.colibri.app",
-              "~/Library/Caches/social.colibri.app",
-              "~/Library/Preferences/social.colibri.app.plist",
-              "~/Library/Saved Application State/social.colibri.app.savedState",
-            ]
-          end
-          RUBY
-
-      # Installs the generated cask exactly as a user would, then checks the
-      # bundle seal, notarization ticket and Gatekeeper verdict. Anything the
-      # cask does to the app bundle that invalidates its signature fails here,
-      # before the tap ever serves it.
-      - name: Verify cask install
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
-          CASK: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
-        run: |
-          set -euo pipefail
-          brew install --cask "colibri-social/tap/$CASK"
-          APP="/Applications/Colibri Social.app"
-          test -d "$APP"
-          codesign --verify --deep --strict --verbose=2 "$APP"
-          xcrun stapler validate "$APP"
-          spctl --assess --type exec --verbose=4 "$APP"
-
-      - name: Push cask
-        env:
-          VERSION: ${{ inputs.version }}
-          CASK: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
-        run: |
-          set -euo pipefail
-          cd "$TAP_DIR"
-          git config user.name "colibri-release[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "Casks/$CASK.rb"
-          git diff --cached --quiet && exit 0
-          git commit -m "$CASK $VERSION"
-          git branch -M main
-          git push origin HEAD:main
-
-  scoop:
-    needs: publish-tauri
-    runs-on: ubuntu-latest
-    steps:
-      - name: Mint bucket token
-        id: app-token
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-          owner: colibri-social
-          repositories: scoop-bucket
-
-      - name: Update Scoop manifest
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TOKEN: ${{ steps.app-token.outputs.token }}
-          VERSION: ${{ inputs.version }}
-          MANIFEST: ${{ inputs.channel == 'spaces' && 'colibri-social-beta' || 'colibri-social' }}
-        run: |
-          set -euo pipefail
-          TAG="v$VERSION"
-          REPO="${{ github.repository }}"
-          ASSET=$(gh release view "$TAG" --repo "$REPO" --json assets --jq '[.assets[].name | select(test("setup\\.exe$"))][0] // ""')
-          test -n "$ASSET"
-          gh release download "$TAG" --repo "$REPO" --pattern "$ASSET" --dir dl
-          SHA=$(sha256sum "dl/$ASSET" | cut -d' ' -f1)
-          ENC=$(jq -rn --arg s "$ASSET" '$s|@uri')
-          URL="https://github.com/$REPO/releases/download/$TAG/$ENC#/dl.7z"
-          git clone --depth 1 "https://x-access-token:$TOKEN@github.com/colibri-social/scoop-bucket.git" bucket
-          mkdir -p bucket/bucket
-          jq -n --arg v "$VERSION" --arg url "$URL" --arg hash "$SHA" '{
-            version: $v,
-            description: "Next-generation social chat app built on the AT Protocol",
-            homepage: "https://colibri.social",
-            license: "MIT",
-            architecture: { "64bit": { url: $url, hash: $hash } },
-            post_install: ["Remove-Item \"$dir\\`$PLUGINSDIR\" -Recurse -Force -ErrorAction SilentlyContinue"],
-            shortcuts: [["Colibri Social.exe", "Colibri Social"]]
-          }' > "bucket/bucket/$MANIFEST.json"
-          cd bucket
-          git config user.name "colibri-release[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "bucket/$MANIFEST.json"
-          git diff --cached --quiet && exit 0
-          git commit -m "$MANIFEST $VERSION"
-          git branch -M main
-          git push origin HEAD:main
+    if: ${{ !inputs.hold }}
+    uses: ./.github/workflows/package-managers.yml
+    with:
+      version: ${{ inputs.version }}
+      channel: ${{ inputs.channel }}
+    secrets: inherit
 
   play:
     needs: publish-tauri
@@ -981,7 +876,7 @@ jobs:
           whatsNewDirectory: whatsnew
 
       - name: Upload to Play (production, staged rollout)
-        if: inputs.channel == 'stable' && inputs.play_track == 'production'
+        if: inputs.channel == 'stable' && inputs.play_track == 'production' && !inputs.hold
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
@@ -993,8 +888,20 @@ jobs:
           releaseName: ${{ env.PLAY_RELEASE_NAME }}
           whatsNewDirectory: whatsnew
 
+      - name: Upload to Play (production, draft)
+        if: inputs.channel == 'stable' && inputs.play_track == 'production' && inputs.hold
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: social.colibri.app
+          releaseFiles: dl/*.aab
+          track: production
+          status: draft
+          releaseName: ${{ env.PLAY_RELEASE_NAME }}
+          whatsNewDirectory: whatsnew
+
       - name: Mirror onto the testing tracks
-        if: inputs.play_mirror_testing && inputs.channel == 'stable'
+        if: inputs.play_mirror_testing && inputs.channel == 'stable' && !inputs.hold
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           SOURCE_TRACK: ${{ inputs.play_track }}
@@ -1154,6 +1061,7 @@ jobs:
         shell: pwsh
         env:
           CHANNEL: ${{ inputs.channel }}
+          HOLD: ${{ inputs.hold }}
           SPACES_FLIGHT_ID: ${{ vars.MSSTORE_SPACES_FLIGHT_ID }}
         run: |
           $bundle = Get-ChildItem -Path dl -Filter *.msixbundle | Select-Object -First 1
@@ -1164,6 +1072,11 @@ jobs:
             Write-Host "Publishing $($bundle.Name) to flight $flightId of product 9P8Q77FCCSWR"
             msstore publish $bundle.FullName -id 9P8Q77FCCSWR -f $flightId --uploadTimeout 600 --verbose
           } else {
-            Write-Host "Publishing $($bundle.Name) to product 9P8Q77FCCSWR"
-            msstore publish $bundle.FullName -id 9P8Q77FCCSWR --uploadTimeout 600 --verbose
+            if ($env:HOLD -eq "true") {
+              Write-Host "Uploading $($bundle.Name) to product 9P8Q77FCCSWR as an uncommitted draft submission"
+              msstore publish $bundle.FullName -id 9P8Q77FCCSWR --noCommit --uploadTimeout 600 --verbose
+            } else {
+              Write-Host "Publishing $($bundle.Name) to product 9P8Q77FCCSWR"
+              msstore publish $bundle.FullName -id 9P8Q77FCCSWR --uploadTimeout 600 --verbose
+            }
           }

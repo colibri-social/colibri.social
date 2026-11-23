@@ -531,6 +531,7 @@ export const AdvancedUpdates: Story = {
 	play: async ({ canvasElement, args }) => {
 		const canvas = within(canvasElement);
 		await expect(canvas.getByText("Version 0.18.2")).toBeVisible();
+		await expect(canvas.getByText("Beta")).toBeVisible();
 		await userEvent.click(
 			canvas.getByRole("button", { name: "Check for updates" }),
 		);

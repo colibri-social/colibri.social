@@ -90,6 +90,7 @@ it("shows the version and restarts into a downloaded update", async () => {
 	const { mounted } = mountAdvanced();
 	await mounted;
 	await expect.element(page.getByText("Version 0.18.2")).toBeVisible();
+	await expect.element(page.getByText("Beta", { exact: true })).toBeVisible();
 	await expect
 		.element(page.getByText("Version 0.18.3 is ready. Restart to finish."))
 		.toBeVisible();

@@ -108,6 +108,7 @@ describe("sign-in", () => {
 		expect(sessionStorage.getItem("colibri:return-to")).toBe(
 			"/app/c/did:plc:space",
 		);
+		await expect.element(page.getByText("Beta", { exact: true })).toBeVisible();
 		await userEvent.click(page.getByRole("button", { name: "Start setup" }));
 		await expect.poll(screenOf).toBe("sign-in");
 		const login = page.getByRole("button", { name: "Log in" });

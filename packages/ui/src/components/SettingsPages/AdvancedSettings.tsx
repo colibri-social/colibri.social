@@ -8,6 +8,7 @@ import {
 	Show,
 	Switch,
 } from "solid-js";
+import { Badge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
 import {
 	type ExplorerTemplateProblem,
@@ -76,9 +77,15 @@ const UpdateStatus = (props: { state: UpdateState }) => (
 const Updates = (props: { updates: UpdatesSection }) => (
 	<ListGroup label="Updates">
 		<div class="flex w-full shrink-0 flex-col gap-0.5 px-3 py-2">
-			<span data-search-label="" class="text-sm font-semibold text-foreground">
-				Version {props.updates.version}
-			</span>
+			<div class="flex items-center gap-2">
+				<span
+					data-search-label=""
+					class="text-sm font-semibold text-foreground"
+				>
+					Version {props.updates.version}
+				</span>
+				<Badge data-release-stage="">Beta</Badge>
+			</div>
 			<span data-search-description="" class="text-xs text-muted-foreground">
 				<UpdateStatus state={props.updates.state} />
 			</span>
