@@ -1,5 +1,51 @@
 # @colibri-social/wrapper
 
+## 0.7.0
+
+### Minor Changes
+
+- ce8a21f: Launch What's New entry for the new design.
+
+  <!-- whatsnew
+  title: A new coat of paint
+  icon: palette
+  body: We've got a completely new app! Enjoy the smoothness of a UI remade from the ground up.
+  platforms: all
+  kind: feature
+  -->
+
+- ce8a21f: Launch What's New entry for Spaces.
+
+  <!-- whatsnew
+  title: Communities are now Spaces
+  icon: stars
+  body: Starting now, all messages on Colibri are private! They are still stored on your Atmosphere account. You can convert old communities you own to Spaces by nagivating to them.
+  platforms: all
+  kind: feature
+  releaseTitle: Colibri Spaces
+  heroImage: /release-notes/0.7.0.webp
+  -->
+
+- ce8a21f: Launch What's New entry for channel access.
+
+  <!-- whatsnew
+  title: Private Channels
+  icon: lock-keyhole
+  body: A channel can limit who reads it and, separately, who posts in it. The member list shows the people who can see the channel you're in!
+  platforms: all
+  kind: feature
+  -->
+
+- ce8a21f: Launch What's New entry for synced settings.
+
+  <!-- whatsnew
+  title: Synching Settings
+  icon: refresh-circle
+  body: Read positions, mutes, notification levels and the order of your Spaces now stay in sync across your devices while you use them!
+  platforms: all
+  kind: feature
+  -->
+
 ## 0.4.0
 
 ### Patch Changes
