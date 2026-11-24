@@ -78,6 +78,45 @@ export const watchResume = (options: {
 	};
 };
 
+export const isHidden = (environment?: ResumeEnvironment | null) => {
+	const resolved =
+		environment === undefined ? browserResumeEnvironment() : environment;
+
+	return resolved !== null && !resolved.visible();
+};
+
+export const whenVisible = (
+	environment?: ResumeEnvironment | null,
+	signal?: AbortSignal | null,
+): Promise<void> => {
+	const resolved =
+		environment === undefined ? browserResumeEnvironment() : environment;
+
+	if (signal?.aborted) return Promise.reject(signal.reason);
+	if (!resolved || resolved.visible()) return Promise.resolve();
+
+	return new Promise((resolve, reject) => {
+		const stop = () => {
+			resolved.document.removeEventListener("visibilitychange", onChange);
+			resolved.window.removeEventListener("pageshow", onChange);
+			signal?.removeEventListener("abort", onAbort);
+		};
+		const onChange = () => {
+			if (!resolved.visible()) return;
+			stop();
+			resolve();
+		};
+		const onAbort = () => {
+			stop();
+			reject(signal?.reason);
+		};
+
+		resolved.document.addEventListener("visibilitychange", onChange);
+		resolved.window.addEventListener("pageshow", onChange);
+		signal?.addEventListener("abort", onAbort, { once: true });
+	});
+};
+
 export const watchWake = (options: {
 	onWake: () => void;
 	environment?: ResumeEnvironment | null;

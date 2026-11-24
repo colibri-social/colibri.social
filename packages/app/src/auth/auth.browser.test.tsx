@@ -9,6 +9,7 @@ import {
 	GRANT_REFRESH_AFTER_MS,
 	type LoadOAuthClient,
 	NEAR_EXPIRY_MS,
+	REFRESH_LEAD_MS,
 } from "./auth";
 import {
 	expandedScope,
@@ -588,7 +589,15 @@ const fakeResume = () => {
 		visible = true;
 		document.dispatchEvent(new Event("visibilitychange"));
 	};
-	return { environment, awayFor };
+	const hide = () => {
+		visible = false;
+		document.dispatchEvent(new Event("visibilitychange"));
+	};
+	const show = () => {
+		visible = true;
+		document.dispatchEvent(new Event("visibilitychange"));
+	};
+	return { environment, awayFor, hide, show };
 };
 
 const refreshingSession = (
@@ -713,6 +722,115 @@ describe("grant refresh", () => {
 		await auth.signOut();
 		resume.awayFor(GRANT_REFRESH_AFTER_MS);
 		expect(forced).toEqual([false]);
+	});
+});
+
+const sleepingSession = (expiresInMs: number) => {
+	const forced: boolean[] = [];
+	const fetchHandler = vi.fn(
+		async (_url: string, _init: RequestInit) =>
+			new Response("{}", { status: 200 }),
+	);
+	const session = {
+		...fakeSession(DID),
+		fetchHandler,
+		getTokenInfo: async (force: boolean) => {
+			forced.push(force);
+
+			return {
+				scope: FULL_SCOPE,
+				expiresAt: new Date(Date.now() + expiresInMs),
+			};
+		},
+	} as unknown as OAuthSession;
+
+	return { session, fetchHandler, forced };
+};
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+describe("refresh while hidden", () => {
+	const signedIn = async (expiresInMs: number) => {
+		const sleeping = sleepingSession(expiresInMs);
+		const resume = fakeResume();
+		const { auth } = setup(
+			{ stored: sleeping.session },
+			{
+				storage: memoryStorage({ sub: DID }),
+				resumeEnvironment: resume.environment,
+			},
+		);
+
+		await auth.init();
+
+		return { ...sleeping, resume, auth };
+	};
+
+	it("holds a request that would refresh the token until the page is visible", async () => {
+		const { auth, resume, fetchHandler } = await signedIn(
+			REFRESH_LEAD_MS - 1_000,
+		);
+
+		resume.hide();
+
+		const pending = auth.agent()?.fetchHandler("/xrpc/test", {});
+
+		await tick();
+		expect(fetchHandler).not.toHaveBeenCalled();
+
+		resume.show();
+
+		await expect(pending).resolves.toBeInstanceOf(Response);
+		expect(fetchHandler).toHaveBeenCalledTimes(1);
+	});
+
+	it("sends a request at once while hidden when the token is fresh", async () => {
+		const { auth, resume, fetchHandler } = await signedIn(
+			REFRESH_LEAD_MS + 60_000,
+		);
+
+		resume.hide();
+
+		await expect(
+			auth.agent()?.fetchHandler("/xrpc/test", {}),
+		).resolves.toBeInstanceOf(Response);
+		expect(fetchHandler).toHaveBeenCalledTimes(1);
+	});
+
+	it("drops a held request when it is aborted", async () => {
+		const { auth, resume, fetchHandler } = await signedIn(
+			REFRESH_LEAD_MS - 1_000,
+		);
+		const controller = new AbortController();
+
+		resume.hide();
+
+		const pending = auth
+			.agent()
+			?.fetchHandler("/xrpc/test", { signal: controller.signal });
+
+		controller.abort(new Error("cancelled"));
+
+		await expect(pending).rejects.toThrow("cancelled");
+
+		resume.show();
+		await tick();
+		expect(fetchHandler).not.toHaveBeenCalled();
+	});
+
+	it("defers a refresh after a rejection until the page is visible", async () => {
+		const { auth, resume, forced } = await signedIn(NEAR_EXPIRY_MS - 60_000);
+
+		forced.length = 0;
+		resume.hide();
+		auth.health.noteAuthFailure("AuthRequired");
+
+		await tick();
+		expect(forced).not.toContain(true);
+
+		resume.show();
+
+		await vi.waitFor(() => expect(forced).toContain(true));
 	});
 });
 

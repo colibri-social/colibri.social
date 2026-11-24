@@ -30,7 +30,13 @@ import {
 	onCleanup,
 	untrack,
 } from "solid-js";
-import { type ResumeEnvironment, watchResume, watchWake } from "../data/resume";
+import {
+	isHidden,
+	type ResumeEnvironment,
+	watchResume,
+	watchWake,
+	whenVisible,
+} from "../data/resume";
 import { openAppLink } from "../native/deep-links";
 import { openNotificationLink } from "../native/push/activation";
 import { reportError } from "../sentry/report";
@@ -79,6 +85,7 @@ const SCOPE_PAUSED_KEY = "colibri:scope-prompt-paused";
 const SCOPE_REAPPROVAL_KEY = "colibri:scope-reapproval";
 export const GRANT_REFRESH_AFTER_MS = 15 * 60_000;
 export const NEAR_EXPIRY_MS = 5 * 60_000;
+export const REFRESH_LEAD_MS = 60_000;
 const SIGN_IN_TIMEOUT_MS = 75_000;
 const STARTUP_TIMEOUT_MS = 30_000;
 const BEFORE_SIGN_OUT_TIMEOUT_MS = 3_000;
@@ -262,6 +269,16 @@ const expiresSoon = async (oauth: OAuthSession) => {
 	}
 };
 
+const refreshPending = async (oauth: OAuthSession) => {
+	try {
+		const at = (await oauth.getTokenInfo(false)).expiresAt?.getTime();
+
+		return at !== undefined && at - Date.now() <= REFRESH_LEAD_MS;
+	} catch {
+		return false;
+	}
+};
+
 const isReturnablePath = (path: string) =>
 	path.startsWith("/app") && !path.startsWith(SIGN_IN_PATH);
 
@@ -346,12 +363,33 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 	};
 
 	let activeOAuth: OAuthSession | undefined;
+
+	const refreshWhenVisible = (oauth: OAuthSession) => {
+		return whenVisible(options.resumeEnvironment).then(() =>
+			oauth.getTokenInfo(true),
+		);
+	};
+
+	const sendWhenRefreshable = async (
+		oauth: OAuthSession,
+		url: string,
+		init: RequestInit,
+	) => {
+		if (await refreshPending(oauth)) {
+			await whenVisible(options.resumeEnvironment, init.signal);
+		}
+
+		return oauth.fetchHandler(url, init);
+	};
+
 	const health = createSessionHealth(Date.now, {
 		onScopesRejected: (method) => {
 			const key = scopeNoticeKey(method);
 			if (justReapproved.has(key)) pauseMethods([key]);
 		},
-		refresh: () => activeOAuth?.getTokenInfo(true) ?? Promise.resolve(),
+		refresh: () => {
+			return activeOAuth ? refreshWhenVisible(activeOAuth) : Promise.resolve();
+		},
 		refreshDue: () => {
 			return activeOAuth ? expiresSoon(activeOAuth) : Promise.resolve(false);
 		},
@@ -431,7 +469,11 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 					);
 				}
 
-				return health.observe(url, bound.fetchHandler(url, init));
+				const pending = isHidden(options.resumeEnvironment)
+					? sendWhenRefreshable(bound, url, init)
+					: bound.fetchHandler(url, init);
+
+				return health.observe(url, pending);
 			},
 		});
 
@@ -479,7 +521,7 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 	};
 
 	const refreshGrant = (oauth: OAuthSession, owner: Agent) =>
-		oauth.getTokenInfo(true).then(
+		refreshWhenVisible(oauth).then(
 			(info) => applyGrant(owner, info.scope),
 			(err: unknown) => {
 				const failure =
