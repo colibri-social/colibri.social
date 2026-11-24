@@ -1,6 +1,7 @@
 import {
 	appViewServiceRef,
 	ColibriError,
+	canonicalSpaceUris,
 	classifyResponse,
 	classifyThrown,
 	createLogger,
@@ -8,6 +9,7 @@ import {
 	type Method,
 	notifServiceRef,
 	type Output,
+	outgoingSpaceUris,
 } from "@colibri-social/lib";
 import { registerUpload, UPLOAD_ID_HEADER } from "../../auth/upload-progress";
 
@@ -60,7 +62,7 @@ const readBody = async (response: Response): Promise<unknown> => {
 	const text = await response.text();
 	if (text.trim() === "") return {};
 	try {
-		return JSON.parse(text);
+		return canonicalSpaceUris(JSON.parse(text) as unknown);
 	} catch (cause) {
 		throw new ColibriError({ code: "MalformedResponse", cause });
 	}
@@ -88,9 +90,9 @@ export const createTransport = (input: {
 			body = init.raw.data;
 		} else if (kind === "procedure" && init.body !== undefined) {
 			headers.set("content-type", "application/json");
-			body = JSON.stringify(init.body);
+			body = JSON.stringify(outgoingSpaceUris(init.body));
 		}
-		const path = `/xrpc/${nsid}${encodeParams(init.params)}`;
+		const path = `/xrpc/${nsid}${encodeParams(outgoingSpaceUris(init.params))}`;
 		const attempts = init.attempts ?? (kind === "query" ? RETRY_ATTEMPTS : 1);
 		const upload = init.onProgress
 			? registerUpload(init.onProgress)
@@ -139,7 +141,7 @@ export const createTransport = (input: {
 		params: Params,
 		proxy: string | undefined,
 	): Promise<Blob> => {
-		const path = `/xrpc/${nsid}${encodeParams(params)}`;
+		const path = `/xrpc/${nsid}${encodeParams(outgoingSpaceUris(params))}`;
 		const headers = new Headers();
 
 		if (proxy) headers.set("atproto-proxy", proxy);

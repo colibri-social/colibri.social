@@ -1,3 +1,4 @@
+import { lexSpaceUri } from "./legacy-space-uris.js";
 import { asAtUri, asDatetime, asUri, COLLECTIONS } from "./lexicons.js";
 import { spaceRecordUri } from "./space-ref.js";
 import type {
@@ -26,7 +27,11 @@ const messageUri = (space: string | undefined, ref: RecordRef) => {
 		? spaceRecordUri(space, ref.did, COLLECTIONS.message, ref.rkey)
 		: undefined;
 
-	return uri ? asAtUri(uri) : undefined;
+	if (!uri) return undefined;
+
+	asAtUri(lexSpaceUri(uri));
+
+	return uri as ReturnType<typeof asAtUri>;
 };
 
 export const buildMessageRecord = (

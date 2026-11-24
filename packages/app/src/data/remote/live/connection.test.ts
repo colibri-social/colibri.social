@@ -2,6 +2,7 @@ import {
 	AUTH_SUBPROTOCOL,
 	type ColibriError,
 	EVENTS_LXM,
+	setLegacySpaceUris,
 } from "@colibri-social/lib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LiveEvent } from "../../source";
@@ -80,7 +81,7 @@ class FakeSocket {
 const HOST = "https://api.colibri.social";
 const SERVICE = "did:web:api.colibri.social#colibri_appview";
 const COMMUNITY = "did:plc:colibrihqspace2a4b6c8d";
-const GENERAL = `at://${COMMUNITY}/space/social.colibri.beta.channel.text/general`;
+const GENERAL = `at:space/${COMMUNITY}/social.colibri.beta.channel.text/general`;
 
 let sockets: FakeSocket[];
 type GetServiceAuth =
@@ -112,6 +113,7 @@ const start = (overrides: Partial<LiveConnectionOptions> = {}) =>
 	});
 
 beforeEach(() => {
+	setLegacySpaceUris(false);
 	vi.useFakeTimers();
 	sockets = [];
 	getServiceAuth = vi.fn<GetServiceAuth>(async () => ({
@@ -120,6 +122,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	setLegacySpaceUris(true);
 	vi.useRealTimers();
 });
 

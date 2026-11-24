@@ -17,6 +17,7 @@ export * from "./logging/redact.js";
 export * from "./markdown.js";
 export * from "./protocol/appview.js";
 export * from "./protocol/client-origin.js";
+export * from "./protocol/legacy-space-uris.js";
 export { colibri, space } from "./protocol/lexicons.js";
 export * from "./protocol/message-record.js";
 export * from "./protocol/scopes.js";

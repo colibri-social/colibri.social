@@ -4,8 +4,6 @@ import {
 	isChannelSpaceType,
 	isThreadSpaceType,
 	SPACE_TYPES,
-	spaceUri,
-	threadSpace,
 } from "./lexicons.js";
 
 export type ParsedSpace = {
@@ -19,15 +17,111 @@ const LEGACY_URL_TYPES: Record<string, ChannelSpaceType> = {
 	voice: SPACE_TYPES.channelVoice,
 };
 
-export const parseSpace = (ref: string): ParsedSpace | undefined => {
-	if (!ref.startsWith("at://")) return undefined;
+export const SPACE_URI_PREFIX = "at:space/";
 
-	const [authority, marker, type, skey, ...rest] = ref.slice(5).split("/");
-	if (marker !== "space" || rest.length > 0) return undefined;
+const LEGACY_SPACE_URI_PREFIX = "at://";
+const LEGACY_SPACE_MARKER = "space";
+
+const spaceSegments = (uri: string): Array<string> | undefined => {
+	if (uri.startsWith(SPACE_URI_PREFIX)) {
+		return uri.slice(SPACE_URI_PREFIX.length).split("/");
+	}
+
+	if (!uri.startsWith(LEGACY_SPACE_URI_PREFIX)) return undefined;
+
+	const [authority = "", marker, ...rest] = uri
+		.slice(LEGACY_SPACE_URI_PREFIX.length)
+		.split("/");
+
+	if (marker !== LEGACY_SPACE_MARKER) return undefined;
+
+	return [authority, ...rest];
+};
+
+const completeSegments = (uri: string): Array<string> | undefined => {
+	const segments = spaceSegments(uri);
+	if (!segments || (segments.length !== 3 && segments.length !== 6)) {
+		return undefined;
+	}
+
+	return segments.every(Boolean) ? segments : undefined;
+};
+
+export const spaceUri = (authority: string, type: string, skey: string) => {
+	return `${SPACE_URI_PREFIX}${authority}/${type}/${skey}`;
+};
+
+export const threadSpace = (community: string, skey: string) => {
+	return spaceUri(community, SPACE_TYPES.channelThread, skey);
+};
+
+export const isSpaceUri = (uri: string): boolean => {
+	return completeSegments(uri) !== undefined;
+};
+
+export const canonicalSpaceUri = (uri: string): string => {
+	const segments = completeSegments(uri);
+	return segments ? `${SPACE_URI_PREFIX}${segments.join("/")}` : uri;
+};
+
+export const legacySpaceUri = (uri: string): string => {
+	const segments = completeSegments(uri);
+	if (!segments) return uri;
+
+	const [authority, ...rest] = segments;
+
+	return `${LEGACY_SPACE_URI_PREFIX}${authority}/${LEGACY_SPACE_MARKER}/${rest.join("/")}`;
+};
+
+const DID_SEGMENT = "did:[a-z]+:[a-zA-Z0-9._:%-]+";
+const NSID_SEGMENT = "[a-zA-Z0-9.-]+";
+const KEY_SEGMENT = "[a-zA-Z0-9._~:-]+";
+const TAIL = `/(${NSID_SEGMENT})/(${KEY_SEGMENT})(?:/(${DID_SEGMENT})/(${NSID_SEGMENT})/(${KEY_SEGMENT}))?`;
+const LEGACY_IN_TEXT = new RegExp(`at://(${DID_SEGMENT})/space${TAIL}`, "g");
+const CANONICAL_IN_TEXT = new RegExp(`at:space/(${DID_SEGMENT})${TAIL}`, "g");
+
+export const canonicalSpaceUrisInText = (text: string) => {
+	return text.replace(LEGACY_IN_TEXT, (match) => canonicalSpaceUri(match));
+};
+
+export const legacySpaceUrisInText = (text: string) => {
+	return text.replace(CANONICAL_IN_TEXT, (match) => legacySpaceUri(match));
+};
+
+export const mapSpaceUris = (
+	value: unknown,
+	map: (uri: string) => string,
+): unknown => {
+	if (typeof value === "string") return map(value);
+	if (Array.isArray(value)) return value.map((item) => mapSpaceUris(item, map));
+	if (typeof value !== "object" || value === null) return value;
+	const prototype = Object.getPrototypeOf(value);
+	if (prototype !== Object.prototype && prototype !== null) return value;
+
+	return Object.fromEntries(
+		Object.entries(value).map(([key, item]) => [
+			map(key),
+			mapSpaceUris(item, map),
+		]),
+	);
+};
+
+export const canonicalSpaceUris = <T>(value: T): T => {
+	return mapSpaceUris(value, canonicalSpaceUri) as T;
+};
+
+export const parseSpace = (ref: string): ParsedSpace | undefined => {
+	const segments = spaceSegments(ref);
+	if (segments?.length !== 3) return undefined;
+
+	const [authority, type, skey] = segments;
 	if (!authority || !type || !skey) return undefined;
 
 	return { authority, type, skey };
 };
+
+export const spaceType = (ref: string): string | undefined =>
+	parseSpace(ref)?.type;
 
 export const spaceAuthority = (ref: string): string | undefined =>
 	parseSpace(ref)?.authority;
@@ -75,7 +169,7 @@ export const spaceRecordUri = (
 	rkey: string,
 ): string | undefined => {
 	if (!parseSpace(space)) return undefined;
-	return `${space}/${author}/${collection}/${rkey}`;
+	return `${canonicalSpaceUri(space)}/${author}/${collection}/${rkey}`;
 };
 
 export type ParsedSpaceRecord = {
@@ -88,15 +182,13 @@ export type ParsedSpaceRecord = {
 export const parseSpaceRecordUri = (
 	uri: string,
 ): ParsedSpaceRecord | undefined => {
-	if (!uri.startsWith("at://")) return undefined;
-	const parts = uri.slice(5).split("/");
-	if (parts.length !== 7) return undefined;
-	const [authority, marker, type, skey, author, collection, rkey] = parts;
-	if (marker !== "space") return undefined;
+	const segments = spaceSegments(uri);
+	if (segments?.length !== 6) return undefined;
+	const [authority, type, skey, author, collection, rkey] = segments;
 	if (!authority || !type || !skey || !author || !collection || !rkey)
 		return undefined;
 	return {
-		space: `at://${authority}/space/${type}/${skey}`,
+		space: spaceUri(authority, type, skey),
 		author,
 		collection,
 		rkey,
@@ -110,7 +202,11 @@ export const sameSpaceRecordRef = (
 	fallback: { did: string; rkey: string } | undefined,
 ): { did: string; rkey: string } | undefined => {
 	const parsed = uri ? parseSpaceRecordUri(uri) : undefined;
-	if (parsed && parsed.space === space && parsed.collection === collection) {
+	if (
+		parsed &&
+		parsed.space === canonicalSpaceUri(space) &&
+		parsed.collection === collection
+	) {
 		return { did: parsed.author, rkey: parsed.rkey };
 	}
 	return fallback ? { did: fallback.did, rkey: fallback.rkey } : undefined;

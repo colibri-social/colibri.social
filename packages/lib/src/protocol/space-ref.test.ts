@@ -1,21 +1,31 @@
 import { describe, expect, it } from "vitest";
 import {
+	canonicalSpaceUri,
+	canonicalSpaceUris,
+	canonicalSpaceUrisInText,
 	channelSpaceCandidates,
 	channelSpaceRef,
 	channelSpaceType,
 	isChannelSpace,
+	isSpaceUri,
 	isThreadSpace,
+	legacySpaceUri,
+	legacySpaceUrisInText,
 	parseSpace,
+	parseSpaceRecordUri,
 	spaceAuthority,
 	spaceSkey,
 	threadSpaceRef,
 } from "./space-ref.js";
 
 const DID = "did:plc:abc123";
-const TEXT = `at://${DID}/space/social.colibri.beta.channel.text/general`;
-const VOICE = `at://${DID}/space/social.colibri.beta.channel.voice/lounge`;
-const MEMBERS = `at://${DID}/space/social.colibri.beta.community.members/self`;
-const THREAD = `at://${DID}/space/social.colibri.beta.channel.thread/3lthread`;
+const TEXT = `at:space/${DID}/social.colibri.beta.channel.text/general`;
+const VOICE = `at:space/${DID}/social.colibri.beta.channel.voice/lounge`;
+const MEMBERS = `at:space/${DID}/social.colibri.beta.community.members/self`;
+const THREAD = `at:space/${DID}/social.colibri.beta.channel.thread/3lthread`;
+const LEGACY_TEXT = `at://${DID}/space/social.colibri.beta.channel.text/general`;
+const RECORD = `${TEXT}/did:plc:author/social.colibri.beta.message/3lmsg`;
+const LEGACY_RECORD = `${LEGACY_TEXT}/did:plc:author/social.colibri.beta.message/3lmsg`;
 
 describe("parseSpace", () => {
 	it("splits a space ref into its three parts", () => {
@@ -39,7 +49,12 @@ describe("parseSpace", () => {
 		expect(parseSpace(`${TEXT}/3lextra`)).toBeUndefined();
 	});
 
+	it("reads the legacy form", () => {
+		expect(parseSpace(LEGACY_TEXT)).toEqual(parseSpace(TEXT));
+	});
+
 	it("rejects an empty part", () => {
+		expect(parseSpace("at:space//a.b.c/self")).toBeUndefined();
 		expect(parseSpace("at:///space/a.b.c/self")).toBeUndefined();
 		expect(parseSpace(`at://${DID}/space//self`)).toBeUndefined();
 		expect(parseSpace(`at://${DID}/space/a.b.c/`)).toBeUndefined();
@@ -114,7 +129,7 @@ describe("channelSpaceCandidates", () => {
 	it("offers both channel space types for a skey of unknown type", () => {
 		expect(channelSpaceCandidates(DID, "general")).toEqual([
 			TEXT,
-			`at://${DID}/space/social.colibri.beta.channel.voice/general`,
+			`at:space/${DID}/social.colibri.beta.channel.voice/general`,
 		]);
 	});
 });
@@ -145,5 +160,69 @@ describe("threadSpaceRef", () => {
 	it("returns nothing without both parts", () => {
 		expect(threadSpaceRef("", "3lthread")).toBeUndefined();
 		expect(threadSpaceRef(DID, "")).toBeUndefined();
+	});
+});
+
+describe("space URI forms", () => {
+	it("converts spaces and space records between the two forms", () => {
+		expect(canonicalSpaceUri(LEGACY_TEXT)).toBe(TEXT);
+		expect(canonicalSpaceUri(LEGACY_RECORD)).toBe(RECORD);
+		expect(legacySpaceUri(TEXT)).toBe(LEGACY_TEXT);
+		expect(legacySpaceUri(RECORD)).toBe(LEGACY_RECORD);
+		expect(canonicalSpaceUri(TEXT)).toBe(TEXT);
+		expect(legacySpaceUri(LEGACY_TEXT)).toBe(LEGACY_TEXT);
+	});
+
+	it("leaves strings that are not complete space URIs alone", () => {
+		const post = `at://${DID}/app.bsky.feed.post/3l`;
+
+		expect(canonicalSpaceUri(post)).toBe(post);
+		expect(legacySpaceUri(post)).toBe(post);
+		expect(canonicalSpaceUri(`${LEGACY_TEXT}/extra`)).toBe(
+			`${LEGACY_TEXT}/extra`,
+		);
+		expect(canonicalSpaceUri(`see ${LEGACY_TEXT}`)).toBe(`see ${LEGACY_TEXT}`);
+		expect(isSpaceUri(post)).toBe(false);
+		expect(isSpaceUri(TEXT)).toBe(true);
+		expect(isSpaceUri(LEGACY_RECORD)).toBe(true);
+	});
+
+	it("parses a record URI in either form to the canonical space", () => {
+		expect(parseSpaceRecordUri(LEGACY_RECORD)).toEqual({
+			space: TEXT,
+			author: "did:plc:author",
+			collection: "social.colibri.beta.message",
+			rkey: "3lmsg",
+		});
+		expect(parseSpaceRecordUri(RECORD)).toEqual(
+			parseSpaceRecordUri(LEGACY_RECORD),
+		);
+	});
+
+	it("rewrites values and keys deep inside JSON", () => {
+		expect(
+			canonicalSpaceUris({
+				channel: LEGACY_TEXT,
+				list: [LEGACY_RECORD, "plain"],
+				byRef: { [LEGACY_TEXT]: 1 },
+				text: `see ${LEGACY_TEXT}`,
+			}),
+		).toEqual({
+			channel: TEXT,
+			list: [RECORD, "plain"],
+			byRef: { [TEXT]: 1 },
+			text: `see ${LEGACY_TEXT}`,
+		});
+	});
+
+	it("rewrites URIs inside stored text in both directions", () => {
+		const stored = JSON.stringify({
+			[`channel:${LEGACY_TEXT}`]: LEGACY_RECORD,
+		});
+
+		expect(canonicalSpaceUrisInText(stored)).toBe(
+			JSON.stringify({ [`channel:${TEXT}`]: RECORD }),
+		);
+		expect(legacySpaceUrisInText(`draft:${TEXT}`)).toBe(`draft:${LEGACY_TEXT}`);
 	});
 });

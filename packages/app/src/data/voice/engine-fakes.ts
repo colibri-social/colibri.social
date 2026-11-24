@@ -1,4 +1,4 @@
-import { channelSpace } from "@colibri-social/lexicons";
+import { spaceUri } from "@colibri-social/lib";
 import type { types } from "mediasoup-client";
 import { expect, vi } from "vitest";
 import {
@@ -12,12 +12,12 @@ import type { VoiceEndReason, VoiceNotice } from "./types";
 
 export const VIEWER = "did:plc:viewer00000000000000000000";
 export const PEER = "did:plc:peer0000000000000000000000";
-export const CHANNEL = channelSpace(
+export const CHANNEL = spaceUri(
 	"did:plc:examplecommunityauthority01",
 	"social.colibri.beta.channel.voice",
 	"3lz4x5y6z7a8b",
 );
-export const OTHER_CHANNEL = channelSpace(
+export const OTHER_CHANNEL = spaceUri(
 	"did:plc:examplecommunityauthority01",
 	"social.colibri.beta.channel.voice",
 	"3lz4x5y6z7a8c",

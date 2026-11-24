@@ -1,3 +1,4 @@
+import { SPACE_URI_PREFIX } from "@colibri-social/lib";
 import { createSignal } from "solid-js";
 
 export const RECORD_EXPLORER_IDS = ["pdsls", "atprotoAt"] as const;
@@ -214,6 +215,27 @@ export const recordPartsOf = (value: string): RecordParts | undefined => {
 			repo: value,
 			collection: "",
 			rkey: "",
+		};
+	}
+
+	if (value.startsWith(SPACE_URI_PREFIX)) {
+		const [
+			authority = "",
+			spaceType = "",
+			spaceKey = "",
+			repo,
+			collection,
+			rkey,
+		] = value.slice(SPACE_URI_PREFIX.length).split("/");
+
+		return {
+			uri: value,
+			authority,
+			spaceType,
+			spaceKey,
+			repo: repo || authority,
+			collection: collection ?? "",
+			rkey: rkey ?? "",
 		};
 	}
 

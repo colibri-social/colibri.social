@@ -2,6 +2,8 @@ import {
 	clientOrigin,
 	isChannelSpace,
 	isThreadSpace,
+	parseSpace,
+	parseSpaceRecordUri,
 } from "@colibri-social/lib";
 import {
 	isAtUri,
@@ -125,14 +127,15 @@ const atUriRecord = (
 	context: LinkTargetContext,
 ): ChannelRecord | undefined => {
 	if (!isAtUri(uri)) return undefined;
-	const [authority, marker, type, skey, ...rest] = uri.slice(5).split("/");
-	if (marker !== "space" || !isDid(authority) || !type || !skey) {
+	const recordUri = parseSpaceRecordUri(uri);
+	if (recordUri && recordUri.collection !== MESSAGE_COLLECTION) {
 		return undefined;
 	}
-	const isMessage = rest.length === 3 && rest[1] === MESSAGE_COLLECTION;
-	if (rest.length > 0 && !isMessage) return undefined;
-	const space = `at://${authority}/space/${type}/${skey}`;
-	const message = isMessage ? rest[2] : undefined;
+	const space = recordUri?.space ?? uri;
+	const parsed = parseSpace(space);
+	if (!parsed || !isDid(parsed.authority)) return undefined;
+	const { authority, type, skey } = parsed;
+	const message = recordUri?.rkey;
 	if (isChannelSpace(space)) {
 		return { space: authority, channel: skey, channelType: type, message };
 	}

@@ -1,3 +1,4 @@
+import { spaceAuthority } from "@colibri-social/lib";
 import type { VoiceParticipant } from "@colibri-social/ui";
 import {
 	type Accessor,
@@ -93,7 +94,7 @@ type VoiceStore = Pick<
 	| "setVoice"
 >;
 
-const communityOf = (channelUri: string) => channelUri.split("/")[2] ?? "";
+const communityOf = (channelUri: string) => spaceAuthority(channelUri) ?? "";
 
 const NO_VIDEOS: readonly VoiceVideo[] = [];
 

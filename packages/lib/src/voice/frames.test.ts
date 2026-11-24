@@ -1,5 +1,5 @@
-import { channelSpace } from "@colibri-social/lexicons";
 import { describe, expect, it } from "vitest";
+import { spaceUri } from "../protocol/space-ref.js";
 import {
 	closeProducerFrame,
 	connectTransportFrame,
@@ -29,7 +29,7 @@ import {
 	voiceHeartbeatFrame,
 } from "./frames.js";
 
-const CHANNEL = channelSpace(
+const CHANNEL = spaceUri(
 	"did:plc:examplecommunityauthority01",
 	"social.colibri.beta.channel.voice",
 	"3lz4x5y6z7a8b",
@@ -596,7 +596,7 @@ describe("movedChannelView", () => {
 	});
 
 	it("reads the channel the destination sits after", () => {
-		const before = channelSpace(
+		const before = spaceUri(
 			"did:plc:examplecommunityauthority01",
 			"social.colibri.beta.channel.voice",
 			"3lz4x5y6z7a8e",
@@ -608,7 +608,7 @@ describe("movedChannelView", () => {
 	});
 
 	it("ignores a view of another channel", () => {
-		const other = channelSpace(
+		const other = spaceUri(
 			"did:plc:examplecommunityauthority01",
 			"social.colibri.beta.channel.voice",
 			"3lz4x5y6z7a8d",

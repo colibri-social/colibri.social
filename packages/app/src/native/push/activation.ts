@@ -1,22 +1,24 @@
-import { isThreadSpace, parseSpace } from "@colibri-social/lib";
+import {
+	canonicalSpaceUri,
+	isThreadSpace,
+	parseSpace,
+	parseSpaceRecordUri,
+} from "@colibri-social/lib";
 import { createActivationBus } from "../notifications/activation";
 import type { OsActivation } from "../notifications/types";
 
 const NOTIFICATION_LINK_PATH = "/notification";
 
 const text = (value: unknown): string | undefined =>
-	typeof value === "string" && value.length > 0 ? value : undefined;
+	typeof value === "string" && value.length > 0
+		? canonicalSpaceUri(value)
+		: undefined;
 
 export const messageRecord = (
 	uri: string | undefined,
 ): { space: string; rkey: string } | undefined => {
-	if (!uri?.startsWith("at://")) return undefined;
-	const segments = uri.slice("at://".length).split("/");
-	if (segments.length !== 7) return undefined;
-	const space = `at://${segments.slice(0, 4).join("/")}`;
-	const rkey = segments[6];
-	if (!rkey || !parseSpace(space)) return undefined;
-	return { space, rkey };
+	const record = uri ? parseSpaceRecordUri(uri) : undefined;
+	return record ? { space: record.space, rkey: record.rkey } : undefined;
 };
 
 export const parsePushActivation = (
