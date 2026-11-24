@@ -6,6 +6,9 @@ sidebar:
 ---
 
 import { Tabs, TabItem, CardGrid, LinkCard } from "@astrojs/starlight/components";
+import { Image } from "astro:assets";
+import layoutPhone from "../../../../../assets/docs/layout-phone.png";
+import spaceMenu from "../../../../../assets/docs/space-menu.png";
 
 Colibri is laid out the same way everywhere: your Spaces, then the channels of the Space you picked, then the conversation. On a computer these sit side by side. On a phone you move through them one after another.
 
@@ -19,9 +22,7 @@ Colibri is laid out the same way everywhere: your Spaces, then the channels of t
     - **The member list** is on the right. Select **Show members** or **Hide members** at the top of a channel to toggle it.
     - **Your name** is at the bottom left, with **Settings** next to it. Select your name to open your profile.
 
-    :::caution[TODO: screenshot]
-    `layout-desktop.png`: Desktop layout, ideally annotated: Inbox, Spaces, channel list, **Show members**, own name with **Settings**
-    :::
+    ![The desktop layout with the Inbox, the Space column, the channel list, the member list, and your name with Settings](../../../../../assets/docs/layout-desktop.png)
 
   </TabItem>
   <TabItem label="Phone">
@@ -34,9 +35,7 @@ Colibri is laid out the same way everywhere: your Spaces, then the channels of t
 
     Inside a channel, select the channel name at the top to see its members.
 
-    :::caution[TODO: screenshot]
-    `layout-phone.png`: Phone **Spaces** tab with the four-tab bar
-    :::
+    <Image src={layoutPhone} alt="The Spaces tab on a phone, with the tab bar at the bottom" width={320} />
 
   </TabItem>
 </Tabs>
@@ -56,9 +55,7 @@ Almost everything in Colibri has a menu: a Space, a category, a channel, a threa
 
 A menu only lists what you're allowed to do. If an entry from an article is missing, your roles in that Space don't include it.
 
-:::caution[TODO: screenshot]
-`space-menu.png`: Space menu open (Invite people, Manage Space, Notification settings, Mute Space, Create channel, Leave Space)
-:::
+<Image src={spaceMenu} alt="The Space menu with Invite people, Manage Space, Notification settings, Mute Space, Create channel and Leave Space" width={320} />
 
 ## Unread messages
 

@@ -10,6 +10,7 @@ import {
 import { AddIcon } from "@solar-icons/solid/bold/add";
 import { DangerTriangleIcon } from "@solar-icons/solid/bold/danger-triangle";
 import { createMemo, createSignal, Match, Show, Switch } from "solid-js";
+import { compareRoles } from "../../../data/role-flags";
 import { isVisibleRole } from "../../../data/roles";
 import { defineContract, slot } from "../../../screen/define";
 import { NEW_ENTRY } from "../../../shell/layers";
@@ -29,6 +30,7 @@ export const adminRoles = defineContract({
 			access
 				.roles()
 				.filter(isVisibleRole)
+				.sort(compareRoles)
 				.map((role) => spaceRoleOf(role, access.editable(role))),
 		);
 		const editableCount = () =>

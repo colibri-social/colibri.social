@@ -197,14 +197,14 @@ export const overview = defineContract({
 						data-space-settings-summary=""
 						class={
 							p.platform === "desktop"
-								? "flex min-w-0 items-center gap-3 rounded-control bg-secondary p-2"
+								? "flex min-w-0 items-center gap-3 rounded-control p-2"
 								: "flex min-w-0 items-center gap-3"
 						}
 					>
 						<SpaceIcon
 							name={community().name}
 							src={community().picture}
-							size={p.platform === "desktop" ? 32 : 48}
+							size={48}
 						/>
 						<div class="flex min-w-0 flex-col">
 							<span

@@ -6,6 +6,8 @@ sidebar:
 ---
 
 import { CardGrid, LinkCard, Steps } from "@astrojs/starlight/components";
+import { Image } from "astro:assets";
+import attachmentTray from "../../../../../assets/docs/attachment-tray.png";
 
 A message can carry more than text! You can attach images, videos, audio files, and any other file, and a link in your message can show a preview card of the page it leads to.
 
@@ -17,9 +19,7 @@ A message can carry more than text! You can attach images, videos, audio files, 
 
 2. The files appear above the message box. Add text if you like.
 
-   :::caution[TODO: screenshot]
-   `attachment-tray.png`: Message box with an attached image showing **Add alt text** and **Mark as spoiler**
-   :::
+   <Image src={attachmentTray} alt="The message box with an attached image and the Add alt text and Mark as spoiler options" width={320} />
 
 3. Send the message.
 
@@ -85,9 +85,7 @@ A channel's setting wins over the Space's setting, acting as an override.
 
 When you select a link that leads outside Colibri, Colibri shows a popup with the full address. This protects you from links that pretend to go somewhere else.
 
-:::caution[TODO: screenshot]
-`link-warning.png`: **Open external link?** dialog with the **Always trust** checkbox
-:::
+![The Open external link? dialog with the Always trust checkbox](../../../../../assets/docs/link-warning.png)
 
 - Select **Open link** to continue.
 - Turn on **Always trust** for that site to skip the warning for it from then on.

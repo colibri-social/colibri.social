@@ -49,6 +49,7 @@ import {
 	deleteDescription,
 	draftOf,
 	formOf,
+	newRoleForm,
 	ROLE_NAME_MAX,
 	type RoleForm,
 	roleNameError,
@@ -111,10 +112,13 @@ export const adminRole = defineContract({
 		createEffect(() => {
 			if (baseline() || access.loading()) return;
 			if (!isNew && !role()) return;
-			const initial = formOf(role());
+			const initialOf = () =>
+				isNew
+					? newRoleForm(access.roles().find(isDefaultRole), access.canGrant)
+					: formOf(role());
 			batch(() => {
-				setBaseline(initial);
-				setForm(formOf(role()));
+				setBaseline(initialOf());
+				setForm(initialOf());
 			});
 		});
 		createEffect(

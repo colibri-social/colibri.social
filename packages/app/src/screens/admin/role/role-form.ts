@@ -25,6 +25,16 @@ export const formOf = (role: RoleView | undefined): RoleForm => ({
 	permissions: [...(role?.permissions ?? [])],
 });
 
+export const newRoleForm = (
+	defaultRole: RoleView | undefined,
+	canGrant: (permission: string) => boolean,
+): RoleForm => {
+	return {
+		...formOf(undefined),
+		permissions: (defaultRole?.permissions ?? []).filter(canGrant),
+	};
+};
+
 export const sameBadge = (a?: RoleBadgeValue, b?: RoleBadgeValue) => {
 	if (!a || !b) return a === b;
 	if (a.kind === "image" || b.kind === "image") {

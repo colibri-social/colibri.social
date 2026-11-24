@@ -19,7 +19,7 @@ import type {
 	ReactInput,
 	SendMessageInput,
 } from "../source";
-import { MESSAGE_COLLECTION } from "../source";
+import { MESSAGE_COLLECTION, type UploadOptions } from "../source";
 import {
 	type AttachmentView,
 	type Datetime,
@@ -273,10 +273,7 @@ export const createMessageWrites = (deps: {
 	return {
 		uploadBlob: async (
 			file: File,
-			options?: {
-				onProgress?: (fraction: number) => void;
-				signal?: AbortSignal;
-			},
+			options?: UploadOptions,
 		): Promise<AttachmentView> => {
 			if (file.size > deps.uploadLimit())
 				throw new ColibriError({
@@ -287,12 +284,14 @@ export const createMessageWrites = (deps: {
 
 			options?.onProgress?.(0);
 
-			const blob = await records
-				.uploadSpaceBlob(file, {
-					signal: options?.signal,
-					onProgress: progress.report,
-				})
-				.finally(progress.stop);
+			const upload =
+				options?.destination === "repo"
+					? records.uploadBlob
+					: records.uploadSpaceBlob;
+			const blob = await upload(file, {
+				signal: options?.signal,
+				onProgress: progress.report,
+			}).finally(progress.stop);
 
 			options?.onProgress?.(1);
 			const url = URL.createObjectURL(file);

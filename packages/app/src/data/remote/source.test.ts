@@ -1384,6 +1384,55 @@ describe("createRemoteSource", () => {
 		expect(fake.callsTo(colibri.actor.getProfile.main.nsid)).toHaveLength(2);
 	});
 
+	it("uploads repo images to the PDS while the AppView hosts spaces", async () => {
+		const blob = {
+			$type: "blob",
+			ref: { $link: "bafy" },
+			mimeType: "image/png",
+			size: 3,
+		};
+		const { fake, source } = await setup((fake) => {
+			fake.on(
+				colibri.polyfill.getStatus.main.nsid,
+				json({ mode: "polyfill", pdsSupportsSpaces: false }),
+			);
+			fake.on("com.atproto.repo.uploadBlob", json({ blob }));
+			fake.on(colibri.polyfill.uploadBlob.main.nsid, json({ blob }));
+		});
+		const file = new File(["png"], "me.png", { type: "image/png" });
+
+		await source.uploadBlob(file, { destination: "repo" });
+
+		expect(fake.callsTo("com.atproto.repo.uploadBlob")).toHaveLength(1);
+		expect(fake.callsTo(colibri.polyfill.uploadBlob.main.nsid)).toHaveLength(0);
+
+		await source.uploadBlob(file);
+
+		expect(fake.callsTo(colibri.polyfill.uploadBlob.main.nsid)).toHaveLength(1);
+	});
+
+	it("reports a missing profile blob as a failed upload", async () => {
+		const blob = {
+			$type: "blob",
+			ref: { $link: "bafy" },
+			mimeType: "image/png",
+			size: 3,
+		};
+		const { source } = await setup((fake) => {
+			fake.on("com.atproto.repo.getRecord", xrpcError(400, "RecordNotFound"));
+			fake.on("com.atproto.repo.uploadBlob", json({ blob }));
+			fake.on("com.atproto.repo.putRecord", xrpcError(400, "BlobNotFound"));
+		});
+		const avatar = await source.uploadBlob(
+			new File(["png"], "me.png", { type: "image/png" }),
+			{ destination: "repo" },
+		);
+
+		await expect(
+			source.putProfile({ avatar, syncBluesky: false }),
+		).rejects.toMatchObject({ code: "UploadFailed" });
+	});
+
 	it.each([
 		{ existing: {}, pronouns: "she/her", expected: "she/her" },
 		{ existing: { pronouns: "he/him" }, pronouns: null, expected: undefined },

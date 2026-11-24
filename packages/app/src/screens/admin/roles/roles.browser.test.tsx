@@ -225,16 +225,24 @@ describe("roles", () => {
 					.roles.value()
 					?.some((role) => role.name === "Night crew"),
 		);
-		const created = hqSpace(store)
-			.roles.value()
-			?.find((role) => role.name === "Night crew");
-		expect(created?.position).toBeLessThan(1);
+		const roles = hqSpace(store).roles.value() ?? [];
+		const created = roles.find((role) => role.name === "Night crew");
+		const members = roles.find((role) => role.default);
+		const others = roles.filter(
+			(role) => !role.protected && !role.default && role !== created,
+		);
+		expect(created?.position).toBeGreaterThan(members?.position ?? 0);
+		for (const other of others) {
+			expect(created?.position).toBeLessThan(other.position);
+		}
+		expect(created?.permissions).toContain("channel.view");
 		expect(created?.mentionable).toBe(true);
 		await until(() => !!buttonNamed(activeScreen(root), /^Members/));
 		buttonNamed(activeScreen(root), "Back to roles")?.click();
 		await until(() => location.pathname.endsWith("/manage/roles"));
 		await until(() => !!rowNamed(root, "Night crew"));
-		expect(roleRows(root).at(-1)?.textContent).toContain("Night crew");
+		expect(roleRows(root).at(-2)?.textContent).toContain("Night crew");
+		expect(roleRows(root).at(-1)?.textContent).toContain("Members");
 	});
 
 	it("edits a role, blocks going back while dirty, and updates names everywhere", async () => {
@@ -594,6 +602,17 @@ describe("roles", () => {
 		expect(members?.hasAttribute("data-locked")).toBe(true);
 		expect(buttonNamed(root, "Move Members")).toBeUndefined();
 		expect(buttonNamed(root, "Move Testers")).toBeTruthy();
+	});
+
+	it("lists a role positioned below Members above it", async () => {
+		const { root, store } = await mount(`/app/c/${HQ}/manage/roles`);
+		await until(() => roleRows(root).length === 5);
+		await hqSpace(store).updateRole("bots", { position: -2 });
+		await until(
+			() => roleRows(root).at(-2)?.textContent?.includes("Bots") === true,
+		);
+		expect(roleRows(root).at(-1)?.textContent).toContain("Members");
+		expect(buttonNamed(root, "Reorder")).toBeTruthy();
 	});
 
 	it("treats the owner role as unavailable", async () => {

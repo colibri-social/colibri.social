@@ -923,7 +923,15 @@ export const createRemoteSource = async (
 				}
 			}
 			delete record.$type;
-			await records.putInRepo(PROFILE_COLLECTION, "self", record);
+
+			try {
+				await records.putInRepo(PROFILE_COLLECTION, "self", record);
+			} catch (thrown) {
+				if (classifyThrown(thrown).code !== "BlobNotFound") throw thrown;
+
+				throw new ColibriError({ code: "UploadFailed", method: "profile.put" });
+			}
+
 			viewer = await fetchProfile();
 			return viewer;
 		},

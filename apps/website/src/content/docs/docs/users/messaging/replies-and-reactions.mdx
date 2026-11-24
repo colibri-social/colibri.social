@@ -6,6 +6,8 @@ sidebar:
 ---
 
 import { Tabs, TabItem, CardGrid, LinkCard, Steps } from "@astrojs/starlight/components";
+import { Image } from "astro:assets";
+import messageActionsPhone from "../../../../../assets/docs/message-actions-phone.png";
 
 Every message has a set of actions: you can reply to it, react to it, forward it, or copy it.
 
@@ -15,17 +17,13 @@ Every message has a set of actions: you can reply to it, react to it, forward it
   <TabItem label="Computer">
     Hover the message. A small toolbar appears with your most used reactions, **Add reaction**, **Reply**, **Forward** and **More actions**. Right-clicking the message opens the full menu.
 
-    :::caution[TODO: screenshot]
-    `message-toolbar-desktop.png`: Hover toolbar on a message
-    :::
+    ![The toolbar that appears when you hover over a message](../../../../../assets/docs/message-toolbar-desktop.png)
 
   </TabItem>
   <TabItem label="Phone">
     Press and hold the message. A sheet opens with your most used reactions at the top and every action below.
 
-    :::caution[TODO: screenshot]
-    `message-actions-phone.png`: Message actions sheet on a phone
-    :::
+    <Image src={messageActionsPhone} alt="The message actions sheet on a phone" width={320} />
 
   </TabItem>
 </Tabs>
