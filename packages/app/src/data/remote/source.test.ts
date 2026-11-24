@@ -1,10 +1,17 @@
-import { type ColibriError, colibri } from "@colibri-social/lib";
-import { describe, expect, it, vi } from "vitest";
+import {
+	type ColibriError,
+	colibri,
+	LEGACY_SPACE_URIS_STORAGE_KEY,
+	legacySpaceUri,
+	setLegacySpaceUris,
+} from "@colibri-social/lib";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	progressCallbackFor,
 	UPLOAD_ID_HEADER,
 } from "../../auth/upload-progress";
 import { linkMessage } from "../adapters/facets";
+import { writeStored } from "../persist";
 import { DEFAULT_COMPOSER } from "../preferences/types";
 import {
 	type DataSource,
@@ -25,11 +32,11 @@ const VIEWER = "did:plc:viewer";
 const OTHER = "did:plc:other";
 const COMMUNITY = "did:plc:space";
 const CHANNEL =
-	`at://${COMMUNITY}/space/social.colibri.beta.channel.text/general` as SpaceRef;
+	`at:space/${COMMUNITY}/social.colibri.beta.channel.text/general` as SpaceRef;
 const VOICE =
-	`at://${COMMUNITY}/space/social.colibri.beta.channel.voice/lounge` as SpaceRef;
+	`at:space/${COMMUNITY}/social.colibri.beta.channel.voice/lounge` as SpaceRef;
 const THREAD =
-	`at://${COMMUNITY}/space/social.colibri.beta.channel.thread/t1` as SpaceRef;
+	`at:space/${COMMUNITY}/social.colibri.beta.channel.thread/t1` as SpaceRef;
 
 const MEGABYTE = 1024 * 1024;
 
@@ -106,6 +113,41 @@ const only = (calls: RecordedCall[]) => {
 };
 
 describe("createRemoteSource", () => {
+	beforeEach(() => {
+		const values = new Map<string, string>();
+
+		vi.stubGlobal("localStorage", {
+			getItem: (key: string) => values.get(key) ?? null,
+			setItem: (key: string, value: string) => values.set(key, value),
+			removeItem: (key: string) => values.delete(key),
+		});
+		writeStored(LEGACY_SPACE_URIS_STORAGE_KEY, "false");
+		setLegacySpaceUris(false);
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		setLegacySpaceUris(true);
+	});
+
+	it("writes legacy space URIs while the stored format asks for them", async () => {
+		writeStored(LEGACY_SPACE_URIS_STORAGE_KEY, "true");
+
+		const { fake, source } = await setup((fake) =>
+			fake.on(
+				"com.atproto.space.createRecord",
+				json({ uri: "at://x", cid: "c" }),
+			),
+		);
+
+		await source.sendMessage({ channel: CHANNEL, text: "hi" });
+
+		const body = only(fake.callsTo("com.atproto.space.createRecord"))
+			.body as Record<string, any>;
+
+		expect(body.space).toBe(legacySpaceUri(CHANNEL));
+	});
+
 	it("loads the viewer and GIF favorites up front", async () => {
 		const { source } = await setup();
 		expect(source.viewer().did).toBe(VIEWER);
@@ -983,7 +1025,7 @@ describe("createRemoteSource", () => {
 	});
 
 	const DEV =
-		`at://${COMMUNITY}/space/social.colibri.beta.channel.text/dev` as SpaceRef;
+		`at:space/${COMMUNITY}/social.colibri.beta.channel.text/dev` as SpaceRef;
 	const readSetup = (
 		configure?: (fake: ReturnType<typeof createFakeSession>) => void,
 	) =>
@@ -1035,7 +1077,7 @@ describe("createRemoteSource", () => {
 		expect(record.collection).toBe("social.colibri.beta.channel.read");
 		expect(record.rkey).toBe(COMMUNITY);
 		expect(record.space).toBe(
-			`at://${VIEWER}/space/social.colibri.beta.actor.preferences/self`,
+			`at:space/${VIEWER}/social.colibri.beta.actor.preferences/self`,
 		);
 		expect(record.record.cursors).toHaveLength(2);
 	});
@@ -1130,7 +1172,7 @@ describe("createRemoteSource", () => {
 	it("creates the space only once for concurrent writes", async () => {
 		const OTHER_COMMUNITY = "did:plc:second";
 		const elsewhere =
-			`at://${OTHER_COMMUNITY}/space/social.colibri.beta.channel.text/general` as SpaceRef;
+			`at:space/${OTHER_COMMUNITY}/social.colibri.beta.channel.text/general` as SpaceRef;
 		const { fake, source } = await readSetup((fake) => {
 			fake.on(
 				"com.atproto.space.putRecord",

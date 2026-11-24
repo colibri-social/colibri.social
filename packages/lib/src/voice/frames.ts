@@ -1,7 +1,17 @@
 import { l } from "@atproto/lex";
 import { asSpaceRef, type social } from "@colibri-social/lexicons";
+import {
+	lexSpaceUri,
+	lexSpaceUris,
+	outgoingSpaceUris,
+	safeParseSpaceUris,
+} from "../protocol/legacy-space-uris.js";
 import { colibri } from "../protocol/lexicons.js";
-import { parseSpace } from "../protocol/space-ref.js";
+import {
+	canonicalSpaceUris,
+	isSpaceUri,
+	parseSpace,
+} from "../protocol/space-ref.js";
 
 const defs: typeof colibri.voice.defs = colibri.voice.defs;
 
@@ -150,7 +160,9 @@ export type VoiceFrame = ClientVoiceFrame | ServerVoiceFrame;
 export type VoiceFrameErrorCode = VoiceErrorFrame["error"];
 
 export const joinFrame = (channel: string): JoinFrame =>
-	defs.join.build({ channel: asSpaceRef(channel) });
+	canonicalSpaceUris(
+		defs.join.build({ channel: asSpaceRef(lexSpaceUri(channel)) }),
+	);
 
 export const leaveFrame = (): LeaveFrame => defs.leave.build({});
 
@@ -238,7 +250,7 @@ export const moveNowFrame = (): MoveNowFrame => {
 };
 
 export const encodeVoiceFrame = (frame: VoiceFrame): string =>
-	JSON.stringify(frame);
+	JSON.stringify(outgoingSpaceUris(frame));
 
 type AnyFrameSchema = {
 	$type: string;
@@ -356,10 +368,10 @@ export const decodeVoiceFrame = (raw: string): VoiceFrame | null => {
 	const schema = FRAME_SCHEMA_BY_TYPE.get(type);
 	if (!schema) return null;
 
-	const result = schema.safeParse(parsed);
+	const result = schema.safeParse(lexSpaceUris(parsed));
 	if (!result.success) return null;
 
-	return schema.build(result.value) as VoiceFrame;
+	return canonicalSpaceUris(schema.build(result.value)) as VoiceFrame;
 };
 
 export const voiceFramePermissions = (
@@ -391,7 +403,10 @@ export const movedChannelView = (
 	const view = (frame as { view?: unknown }).view;
 	if (view === undefined) return undefined;
 
-	const parsed = colibri.community.defs.channelView.safeParse(view);
+	const parsed = safeParseSpaceUris<MovedChannelView>(
+		(input) => colibri.community.defs.channelView.safeParse(input),
+		view,
+	);
 	if (!parsed.success) return undefined;
 
 	return sameSpace(parsed.value.space, frame.channel)
@@ -402,7 +417,5 @@ export const movedChannelView = (
 export const movedAfter = (frame: MovedFrame): string | undefined => {
 	const after = (frame as { after?: unknown }).after;
 
-	return typeof after === "string" && l.isSpaceRefString(after)
-		? after
-		: undefined;
+	return typeof after === "string" && isSpaceUri(after) ? after : undefined;
 };

@@ -17,9 +17,8 @@ import {
 } from "./mark-read";
 import { listenForWorkerActivations, type PushWorkers } from "./web";
 
-const CHANNEL =
-	"at://did:plc:hq/space/social.colibri.beta.channel.text/general";
-const THREAD = "at://did:plc:hq/space/social.colibri.beta.channel.thread/plans";
+const CHANNEL = "at:space/did:plc:hq/social.colibri.beta.channel.text/general";
+const THREAD = "at:space/did:plc:hq/social.colibri.beta.channel.thread/plans";
 const MESSAGE = `${CHANNEL}/did:plc:ada/social.colibri.beta.message/m1`;
 const THREAD_MESSAGE = `${THREAD}/did:plc:ada/social.colibri.beta.message/m2`;
 

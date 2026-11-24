@@ -7,6 +7,7 @@ import {
 } from "@colibri-social/lexicons";
 import {
 	ColibriError,
+	canonicalSpaceUri,
 	classifyThrown,
 	colibri,
 	createLogger,
@@ -37,7 +38,9 @@ export const createPreferencesSpace = (
 	transport: Transport,
 	host?: HostModeSignal,
 ) => {
-	const space = asSpaceRef(preferencesSpace(transport.did));
+	const space = canonicalSpaceUri(
+		asSpaceRef(preferencesSpace(transport.did)),
+	) as ReturnType<typeof asSpaceRef>;
 	let ready: Promise<void> | undefined;
 	const create = () => {
 		ready ??= transport

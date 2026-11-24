@@ -1,3 +1,5 @@
+import { spaceAuthority } from "../protocol/space-ref.js";
+
 export type PresenceMember = {
 	did: string;
 	vc?: string | null;
@@ -27,6 +29,8 @@ export type PresenceSyncPlan = {
 };
 
 export const authorityOf = (uri: string): string | null => {
+	const space = spaceAuthority(uri);
+	if (space) return space;
 	if (!uri.startsWith("at://")) return null;
 	return uri.slice("at://".length).split("/")[0] || null;
 };

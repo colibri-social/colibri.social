@@ -17,9 +17,8 @@ import {
 import type { TauriPort } from "./tauri-port";
 import type { OsActivation, OsNotification } from "./types";
 
-const CHANNEL =
-	"at://did:plc:hq/space/social.colibri.beta.channel.text/general";
-const THREAD = "at://did:plc:hq/space/social.colibri.beta.channel.thread/plans";
+const CHANNEL = "at:space/did:plc:hq/social.colibri.beta.channel.text/general";
+const THREAD = "at:space/did:plc:hq/social.colibri.beta.channel.thread/plans";
 
 const notification = (
 	overrides: Partial<OsNotification> = {},

@@ -6,6 +6,7 @@ import {
 	type ResumeEnvironment,
 	watchResume,
 	watchWake,
+	whenVisible,
 } from "./resume";
 
 const fakeEnvironment = () => {
@@ -152,6 +153,61 @@ describe("watchWake", () => {
 		fake.show();
 		expect(woke).toBe(1);
 		stop();
+	});
+});
+
+describe("whenVisible", () => {
+	const settled = async (promise: Promise<void>) => {
+		let state = "pending";
+
+		promise.then(
+			() => {
+				state = "resolved";
+			},
+			() => {
+				state = "rejected";
+			},
+		);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		return state;
+	};
+
+	it("resolves at once while the page is visible", async () => {
+		const fake = fakeEnvironment();
+
+		expect(await settled(whenVisible(fake.environment))).toBe("resolved");
+	});
+
+	it("resolves at once without a page", async () => {
+		expect(await settled(whenVisible(null))).toBe("resolved");
+	});
+
+	it("waits for a hidden page to become visible", async () => {
+		const fake = fakeEnvironment();
+
+		fake.hide();
+
+		const pending = whenVisible(fake.environment);
+
+		expect(await settled(pending)).toBe("pending");
+
+		fake.show();
+
+		expect(await settled(pending)).toBe("resolved");
+	});
+
+	it("rejects with the abort reason when the wait is cancelled", async () => {
+		const fake = fakeEnvironment();
+		const controller = new AbortController();
+
+		fake.hide();
+
+		const pending = whenVisible(fake.environment, controller.signal);
+
+		controller.abort(new Error("cancelled"));
+
+		await expect(pending).rejects.toThrow("cancelled");
 	});
 });
 

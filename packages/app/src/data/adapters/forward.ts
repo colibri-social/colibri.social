@@ -1,4 +1,4 @@
-import { isThreadSpace } from "@colibri-social/lib";
+import { isThreadSpace, spaceAuthority } from "@colibri-social/lib";
 import type { ForwardSource } from "@colibri-social/ui";
 import { skeyOf, spaceKey } from "../ids";
 import type { ChannelView, CommunityView, ForwardView } from "../types";
@@ -29,8 +29,7 @@ const spaceTypeOf = (space: string) => {
 	return parts[parts.length - 2] ?? "";
 };
 
-const authorityOf = (space: string) =>
-	space.slice("at://".length, space.indexOf("/space/"));
+const authorityOf = (space: string) => spaceAuthority(space) ?? "";
 
 const targetOf = (
 	space: string,

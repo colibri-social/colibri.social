@@ -4,13 +4,13 @@ export interface Autolink {
 	uri: string;
 }
 
-const URL_REGEX = /(^|\s|\()((?:https?|at):\/\/\S+)/gi;
+const URL_REGEX = /(^|\s|\()((?:https?:\/\/|at:\/\/|at:space\/)\S+)/gi;
 const TRAILING_PUNCTUATION_REGEX = /[.,;:!?'"‘’“”\]}]$/;
 const TRAILING_POSSESSIVE_REGEX = /['’]s$/i;
 const AT_URI_REGEX =
-	/^at:\/\/(did:[a-z]+:[a-zA-Z0-9._:%-]+|[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+)(\/[a-zA-Z0-9._~:%-]+)*$/;
+	/^at:(?:\/\/|space\/)(did:[a-z]+:[a-zA-Z0-9._:%-]+|[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+)(\/[a-zA-Z0-9._~:%-]+)*$/;
 
-export const AUTOLINK_SCHEME_REGEX = /^(?:https?|at):\/\//i;
+export const AUTOLINK_SCHEME_REGEX = /^(?:https?:\/\/|at:\/\/|at:space\/)/i;
 
 export const isAtUri = (uri: string): boolean => {
 	return AT_URI_REGEX.test(uri);

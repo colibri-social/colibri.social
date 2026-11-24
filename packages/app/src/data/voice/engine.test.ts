@@ -1,4 +1,9 @@
-import { AUTH_SUBPROTOCOL, VOICE_SIGNAL_LXM } from "@colibri-social/lib";
+import {
+	AUTH_SUBPROTOCOL,
+	legacySpaceUri,
+	setLegacySpaceUris,
+	VOICE_SIGNAL_LXM,
+} from "@colibri-social/lib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SCREEN_SHARE } from "../screen-share";
 import { DEFAULT_VOICE_SETTINGS } from "../voice-settings";
@@ -31,9 +36,11 @@ let running: VoiceEngine[] = [];
 
 beforeEach(() => {
 	vi.stubGlobal("MediaStream", FakeStream);
+	setLegacySpaceUris(false);
 });
 
 afterEach(() => {
+	setLegacySpaceUris(true);
 	for (const engine of running) engine.dispose();
 	running = [];
 	vi.unstubAllGlobals();
@@ -82,6 +89,15 @@ describe("voice engine helpers", () => {
 });
 
 describe("voice engine", () => {
+	it("joins with a legacy space URI while the AppView asks for it", async () => {
+		setLegacySpaceUris(true);
+
+		const harness = track(setup());
+		const { socket } = await connect(harness);
+
+		expect(socket.sent[0]).toMatchObject({ channel: legacySpaceUri(CHANNEL) });
+	});
+
 	it("authorizes, joins and finishes the handshake", async () => {
 		const harness = track(setup());
 		const { socket, selfState } = await connect(harness);

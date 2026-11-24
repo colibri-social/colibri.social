@@ -1,3 +1,4 @@
+import { spaceAuthority } from "@colibri-social/lib";
 import {
 	MessageToast,
 	messageToastAnnouncement,
@@ -61,8 +62,7 @@ import type { Navigator } from "./stack";
 const MESSAGE_TOAST_ID = "message-notification";
 const MESSAGE_TOAST_DURATION = 5000;
 
-const communityOfRef = (ref: string) =>
-	ref.slice("at://".length, ref.indexOf("/space/"));
+const communityOfRef = (ref: string) => spaceAuthority(ref) ?? "";
 
 export const NotificationHost = (props: {
 	stack: NotificationStack & Pick<Navigator, "root" | "mounted">;

@@ -21,7 +21,7 @@ const log = createLogger("message-cache");
 
 const CACHE_DB_NAME = "colibri-app-cache";
 const CACHE_DB_VERSION = 2;
-const CACHE_SCHEMA_VERSION = 2;
+const CACHE_SCHEMA_VERSION = 3;
 const META = "meta";
 const MESSAGES = "messages";
 export const SPACES_STORE = "spaces";

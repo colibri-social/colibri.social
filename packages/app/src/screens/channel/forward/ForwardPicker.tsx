@@ -1,4 +1,4 @@
-import { isOffline } from "@colibri-social/lib";
+import { isOffline, spaceAuthority } from "@colibri-social/lib";
 import {
 	Button,
 	CHARACTER_LIMIT,
@@ -145,7 +145,7 @@ export const createForwardPicker = (options: ForwardPickerOptions = {}) => {
 		const home = () => request()?.parent ?? request()?.channel;
 		const fromSpace = () => {
 			const ref = request()?.channel;
-			return ref?.slice("at://".length, ref.indexOf("/space/"));
+			return ref ? spaceAuthority(ref) : undefined;
 		};
 		const wantsThreads = (ref: SpaceRef, space: string) =>
 			ref === home() ||

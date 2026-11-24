@@ -1,6 +1,21 @@
+import {
+	canonicalSpaceUrisInText,
+	legacySpaceUrisInText,
+} from "@colibri-social/lib";
+
+const readItem = (key: string) => {
+	const value = localStorage.getItem(key);
+	if (value !== null) return value;
+
+	const legacyKey = legacySpaceUrisInText(key);
+
+	return legacyKey === key ? null : localStorage.getItem(legacyKey);
+};
+
 export const readStored = (key: string): string | undefined => {
 	try {
-		return localStorage.getItem(key) ?? undefined;
+		const value = readItem(key);
+		return value === null ? undefined : canonicalSpaceUrisInText(value);
 	} catch {
 		return undefined;
 	}

@@ -1,3 +1,4 @@
+import { canonicalSpaceUri, isSpaceUri } from "@colibri-social/lib";
 import type { OsActivation, OsNotification } from "./types";
 
 const PREFIX = "colibri-notification:";
@@ -20,16 +21,18 @@ export const decodeActivation = (
 		const params = new URLSearchParams(key.slice(PREFIX.length));
 		const channel = params.get("channel");
 		if (channel) {
-			const activation: OsActivation = { channel };
+			const activation: OsActivation = {
+				channel: canonicalSpaceUri(channel),
+			};
 			const thread = params.get("thread");
 			const rkey = params.get("rkey");
-			if (thread) activation.thread = thread;
+			if (thread) activation.thread = canonicalSpaceUri(thread);
 			if (rkey) activation.rkey = rkey;
 			return activation;
 		}
 	}
-	return fallbackChannel?.startsWith("at://")
-		? { channel: fallbackChannel }
+	return fallbackChannel && isSpaceUri(fallbackChannel)
+		? { channel: canonicalSpaceUri(fallbackChannel) }
 		: undefined;
 };
 

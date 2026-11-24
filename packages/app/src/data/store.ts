@@ -8,6 +8,7 @@ import {
 	MEMORY_WINDOW_COUNT,
 	nextTid,
 	refreshMessageWindow,
+	spaceAuthority,
 } from "@colibri-social/lib";
 import {
 	type Accessor,
@@ -943,7 +944,7 @@ export const createDataStore = (
 		const spaceNotifications = createSpaceNotificationPrefs(source.preferences);
 
 		const communityOfRef = (ref: SpaceRef) =>
-			ref.slice("at://".length, ref.indexOf("/space/")) as Did;
+			(spaceAuthority(ref) ?? "") as Did;
 
 		const onScreen = (ref: SpaceRef) =>
 			untrack(viewing) === ref && untrack(appVisible);

@@ -58,7 +58,7 @@ describe("buildMessageRecord", () => {
 
 describe("record uris", () => {
 	const space =
-		"at://did:plc:community/space/social.colibri.beta.channel.text/3kchannel";
+		"at:space/did:plc:community/social.colibri.beta.channel.text/3kchannel";
 
 	it("adds the parent uri when the space is known", () => {
 		const record = buildMessageRecord({
