@@ -482,7 +482,9 @@ export const createAuth = (options: AuthOptions = {}): Auth => {
 		oauth.getTokenInfo(true).then(
 			(info) => applyGrant(owner, info.scope),
 			(err: unknown) => {
-				const failure = classifyThrown(err, { method: "oauth.getTokenInfo" });
+				const failure =
+					classifyOAuthError(err) ??
+					classifyThrown(err, { method: "oauth.getTokenInfo" });
 				log.warn("refreshing access failed", { code: failure.code });
 				health.noteAuthFailure(failure.code);
 			},

@@ -177,4 +177,18 @@ describe("session health", () => {
 		expect(health.dead()).toBe(true);
 		expect(health.deadCode()).toBe("ExpiredToken");
 	});
+
+	it("ends the session when the sign-in server refuses a refresh", async () => {
+		const { health, refresh } = setup();
+		const refused = Object.assign(new Error("client_id does not match"), {
+			error: "invalid_client_metadata",
+			status: 400,
+		});
+		await health
+			.observe("/xrpc/test", Promise.reject(refused))
+			.catch(() => undefined);
+		expect(refresh).not.toHaveBeenCalled();
+		expect(health.dead()).toBe(true);
+		expect(health.deadCode()).toBe("ExpiredToken");
+	});
 });
