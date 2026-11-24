@@ -250,7 +250,7 @@ ul.top-level > li > a[aria-current="page"] span {
 	color: var(--sl-color-gray-2);
 }
 
-ul.starlight-sidebar-topics {
+.sidebar-content ul.starlight-sidebar-topics {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 0.25rem;
@@ -261,15 +261,15 @@ ul.starlight-sidebar-topics {
 	border-radius: 0.75rem;
 }
 
-ul.starlight-sidebar-topics::after {
+.sidebar-content ul.starlight-sidebar-topics::after {
 	display: none;
 }
 
-ul.starlight-sidebar-topics li + li {
+.sidebar-content ul.starlight-sidebar-topics li + li {
 	margin-top: 0;
 }
 
-ul.starlight-sidebar-topics li a {
+.sidebar-content ul.starlight-sidebar-topics li a {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -283,18 +283,26 @@ ul.starlight-sidebar-topics li a {
 	color: var(--sl-color-gray-3);
 }
 
-ul.starlight-sidebar-topics li a:is(:hover, :focus-visible) {
+.sidebar-content ul.starlight-sidebar-topics li a:is(:hover, :focus-visible) {
 	color: var(--sl-color-white);
 }
 
-ul.starlight-sidebar-topics li a.starlight-sidebar-topics-current {
+.sidebar-content
+	ul.starlight-sidebar-topics
+	li
+	a.starlight-sidebar-topics-current {
 	background-color: var(--sl-color-gray-6);
 	font-weight: 600;
 	color: var(--sl-color-text-accent);
 }
 
-ul.starlight-sidebar-topics li a .starlight-sidebar-topics-icon,
-ul.starlight-sidebar-topics
+.sidebar-content
+	ul.starlight-sidebar-topics
+	li
+	a
+	.starlight-sidebar-topics-icon,
+.sidebar-content
+	ul.starlight-sidebar-topics
 	li
 	a:is(.starlight-sidebar-topics-current, :hover, :focus-visible)
 	.starlight-sidebar-topics-icon {
@@ -382,6 +390,11 @@ ul.starlight-sidebar-topics
 
 .xrpc-notes {
 	margin-top: 1rem;
+}
+
+.sl-markdown-content img:not(:where(.not-content *)) {
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 8px;
 }
 
 .sl-markdown-content code:not(:where(.not-content *)) {
