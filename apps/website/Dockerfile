@@ -24,6 +24,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 # Declare build args
 ARG SAME_TLD_DID
 ARG MAINTENANCE
+ARG SPACES
 
 ARG SENTRY_DSN
 ARG SENTRY_AUTH_TOKEN
@@ -33,6 +34,7 @@ ARG PUBLIC_VAPID_KEY
 # Make them available to Astro's build step
 ENV SAME_TLD_DID=$SAME_TLD_DID
 ENV MAINTENANCE=${MAINTENANCE:-false}
+ENV SPACES=${SPACES:-false}
 
 ENV SENTRY_DSN=${SENTRY_DSN}
 ENV SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
