@@ -1,5 +1,4 @@
 ---
-eyebrow: "The rules of the nest."
 title: "TERMS OF SERVICE"
 description: "The terms for using the hosted Colibri service: who can use it, the rules for Spaces and content, reporting, liability, and governing law."
 ---

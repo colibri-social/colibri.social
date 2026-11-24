@@ -1,5 +1,4 @@
 ---
-eyebrow: "Who runs this."
 title: "IMPRINT"
 description: "Legal information about the operator of colibri.social, as required by § 5 DDG and § 18 MStV."
 ---

@@ -5,9 +5,8 @@ import { file, glob } from "astro/loaders";
 import { z } from "astro/zod";
 
 const documents = defineCollection({
-	loader: glob({ pattern: "**/*.md", base: "./src/content/documents" }),
+	loader: glob({ pattern: "**/*.{md,mdx}", base: "./src/content/documents" }),
 	schema: z.object({
-		eyebrow: z.string(),
 		title: z.string(),
 		description: z.string(),
 	}),

@@ -1,0 +1,10 @@
+ul[role="tablist"] {
+	border: 0 !important;
+	padding: 0 !important;
+	margin: 0 !important;
+}
+
+ul[role="tablist"] > li > a {
+	color: white !important;
+	text-decoration: none !important;
+}

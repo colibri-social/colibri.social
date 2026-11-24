@@ -1,5 +1,4 @@
 ---
-eyebrow: "Hatching a social platform."
 title: "ABOUT COLIBRI"
 description: "Learn more about what Colibri is, why we built it, and why you should use it."
 ---

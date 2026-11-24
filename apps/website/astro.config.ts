@@ -53,6 +53,9 @@ export default defineConfig({
 				},
 			}),
 		],
+		server: {
+			allowedHosts: ["louis-pc.tail8e83cd.ts.net"],
+		}
 	},
 	integrations: [
 		solidJs(),

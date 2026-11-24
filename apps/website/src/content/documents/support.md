@@ -1,5 +1,4 @@
 ---
-eyebrow: "Need a hand?"
 title: "SUPPORT"
 description: "How to get help with Colibri, report a bug, or reach the people behind it."
 ---
