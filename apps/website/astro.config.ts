@@ -10,9 +10,9 @@ import { vite as vidstack } from "vidstack/plugins";
 import { loadEnv } from "vite";
 import { colibriDark, colibriLight } from "./src/ec-theme.ts";
 import { serverPortIntegration } from "./src/integrations/server-port";
-import { SITE } from "./src/site.ts";
+import { siteFor } from "./src/site.ts";
 
-const { SENTRY_AUTH_TOKEN, SENTRY_RELEASE } = loadEnv(
+const { SENTRY_AUTH_TOKEN, SENTRY_RELEASE, SPACES } = loadEnv(
 	process.env.NODE_ENV!,
 	process.cwd(),
 	"",
@@ -20,7 +20,7 @@ const { SENTRY_AUTH_TOKEN, SENTRY_RELEASE } = loadEnv(
 
 // https://astro.build/config
 export default defineConfig({
-	site: SITE,
+	site: siteFor(SPACES),
 	adapter: node({
 		mode: "standalone",
 	}),
