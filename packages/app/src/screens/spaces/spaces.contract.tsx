@@ -50,8 +50,9 @@ import {
 	Show,
 } from "solid-js";
 import { displayNameOf } from "../../data/adapters/authors";
+import { summaryAuthor } from "../../data/adapters/display-name";
 import { blueskyUrlRewriter } from "../../data/bluesky-client";
-import { summaryParts } from "../../data/channel-summary";
+import { type ChannelSummary, summaryParts } from "../../data/channel-summary";
 import {
 	CHANNEL_ORDER_NOT_SAVED,
 	copyForCode,
@@ -283,10 +284,17 @@ export const spaces = defineContract({
 				.value()
 				?.find((member) => member.roles.includes(ownerRole.rkey))?.actor.handle;
 		};
-		const authorName = (did: Did) => {
-			if (did === data.viewer.did) return displayNameOf(data.viewer);
-			const member = space()?.memberByDid(did);
-			return member ? displayNameOf(member.actor, member) : "Someone";
+		const authorName = (
+			summary: Pick<ChannelSummary, "author" | "authorProfile">,
+		) => {
+			if (summary.author === data.viewer.did) {
+				return displayNameOf(data.viewer);
+			}
+
+			return summaryAuthor(
+				summary.authorProfile,
+				space()?.memberByDid(summary.author),
+			).name;
 		};
 		const joinedVoice = (channel: ChannelView) =>
 			voice.current()?.channel === channel.space;
@@ -901,7 +909,7 @@ export const spaces = defineContract({
 
 							return current
 								? {
-										author: m.authorName(current.author),
+										author: m.authorName(current),
 										text: current.text,
 										parts: summaryParts(
 											current,

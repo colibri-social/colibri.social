@@ -2,7 +2,7 @@ import type {
 	ChannelPreviewEmoji,
 	ThreadLastMessage,
 } from "@colibri-social/ui";
-import { displayNameOf } from "../../data/adapters/display-name";
+import { displayNameOf, summaryAuthor } from "../../data/adapters/display-name";
 import { type ChannelSummary, summaryParts } from "../../data/channel-summary";
 import { threadSummary } from "../../data/thread-summary";
 import type {
@@ -49,13 +49,11 @@ export const threadPreview = (
 	const summary = threadSummary(thread, sources.live(thread));
 	if (!summary) return undefined;
 	const own = summary.author === sources.viewer.did;
-	const member = own ? undefined : sources.member(summary.author);
-	const name = own
-		? displayNameOf(sources.viewer)
-		: member
-			? displayNameOf(member.actor, member)
-			: "Someone";
-	const avatarSrc = own ? sources.viewer.avatar : member?.actor.avatar;
+	const author = own
+		? undefined
+		: summaryAuthor(summary.authorProfile, sources.member(summary.author));
+	const name = author ? author.name : displayNameOf(sources.viewer);
+	const avatarSrc = author ? author.avatarSrc : sources.viewer.avatar;
 
 	if (!own && sources.isBlocked?.(summary.author)) {
 		return { name: "", text: "", blocked: true };

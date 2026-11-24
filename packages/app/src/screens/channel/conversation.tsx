@@ -73,6 +73,7 @@ import type {
 	GifView,
 	MemberView,
 	MessageView,
+	ProfileView,
 	ReactionEmojiRef,
 	RoleView,
 	SpaceRef,
@@ -791,13 +792,26 @@ export const createConversation = (options: ConversationOptions) => {
 		}
 		return names;
 	});
+	const viewedProfiles = createMemo(() => {
+		const profiles = new Map<string, ProfileView>();
+
+		for (const message of feed()?.messages() ?? []) {
+			if (!message.author.bridge && !profiles.has(message.author.did)) {
+				profiles.set(message.author.did, message.author);
+			}
+		}
+
+		return profiles;
+	});
 	const nameOf = (did: string) => {
 		const member = memberMap().get(did);
-		return member
-			? displayNameOf(member.actor, member)
-			: did === data.viewer.did
-				? displayNameOf(data.viewer)
-				: "Someone";
+
+		if (member) return displayNameOf(member.actor, member);
+		if (did === data.viewer.did) return displayNameOf(data.viewer);
+
+		const profile = viewedProfiles().get(did);
+
+		return profile ? displayNameOf(profile) : "Someone";
 	};
 	const nameOfMessage = (message: ChatMessage) => {
 		const profile = message.view?.author;

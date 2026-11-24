@@ -73,6 +73,28 @@ describe("channel summary", () => {
 		});
 	});
 
+	it("keeps a bridged author's profile", () => {
+		const author = {
+			did: "did:plc:hq",
+			handle: "hq.test",
+			displayName: "Alice Elsewhere",
+			bridge: { registration: "3lkbridge", platform: "matrix", remoteId: "a" },
+		};
+
+		expect(
+			summarizeMessage(message({ author } as Partial<MessageView>)),
+		).toMatchObject({ author: "did:plc:hq", authorProfile: author });
+		expect(
+			summarizeMessage(
+				message({ text: GIF_URL, author } as Partial<MessageView>),
+			),
+		).toMatchObject({ text: "Sent a GIF", authorProfile: author });
+	});
+
+	it("leaves out a non-bridged author's profile", () => {
+		expect(summarizeMessage(message())).not.toHaveProperty("authorProfile");
+	});
+
 	it("describes attachment-only messages", () => {
 		const image = { url: "https://x/a.png", mimeType: "image/png" };
 		const file = { url: "https://x/a.pdf", mimeType: "application/pdf" };
@@ -133,6 +155,37 @@ describe("channel summary", () => {
 			{ name: "kek" },
 			" ok",
 		]);
+	});
+
+	it("reads a served author profile and drops a malformed one", () => {
+		const served = {
+			channel: "at://did:plc:hq/space/social.colibri.beta.channel.text/c1",
+			rkey: "r1",
+			author: "did:plc:hq",
+			text: "hi",
+			attachmentCount: 0,
+			forward: false,
+			createdAt: "2026-10-12T10:00:00.000Z",
+		};
+		const authorProfile = {
+			did: "did:plc:hq",
+			handle: "hq.test",
+			displayName: "Alice Elsewhere",
+			bridge: { registration: "3lkbridge", platform: "matrix", remoteId: "a" },
+		};
+
+		expect(
+			summarizeChannel({
+				...served,
+				authorProfile,
+			} as Parameters<typeof summarizeChannel>[0]).authorProfile,
+		).toEqual(authorProfile);
+		expect(
+			summarizeChannel({
+				...served,
+				authorProfile: "Alice",
+			} as unknown as Parameters<typeof summarizeChannel>[0]),
+		).not.toHaveProperty("authorProfile");
 	});
 
 	it("leaves unresolved emoji as their text", () => {

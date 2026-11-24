@@ -1,12 +1,13 @@
 import type { social } from "@colibri-social/lexicons";
 import { isGifSiteUrl } from "./adapters/attachments";
 import { collapseWhitespace, linkUriOf } from "./adapters/facets";
-import type { Did, Facet, MessageView, SpaceRef } from "./types";
+import type { Did, Facet, MessageView, ProfileView, SpaceRef } from "./types";
 
 export type ChannelSummary = {
 	channel: SpaceRef;
 	rkey: string;
 	author: Did;
+	authorProfile?: ProfileView;
 	text: string;
 	facets?: Facet[];
 	attachment?: "image" | "file";
@@ -27,10 +28,16 @@ const fallbackText = (kind: "image" | "file" | undefined, count: number) => {
 	return "";
 };
 
+export type ServedChannelSummary =
+	social.colibri.beta.channel.defs.ChannelSummary & {
+		authorProfile?: ProfileView;
+	};
+
 type SummaryFields = {
 	channel: string;
 	rkey: string;
 	author: string;
+	authorProfile: ProfileView | undefined;
 	text: string;
 	facets: readonly Facet[] | undefined;
 	attachment: "image" | "file" | undefined;
@@ -43,14 +50,24 @@ const isGifText = (text: string) => {
 	return /^\S+$/.test(text) && isGifSiteUrl(text);
 };
 
+const isProfile = (value: unknown): value is ProfileView =>
+	typeof value === "object" &&
+	value !== null &&
+	typeof (value as { did?: unknown }).did === "string" &&
+	typeof (value as { handle?: unknown }).handle === "string";
+
 const summaryOf = (fields: SummaryFields): ChannelSummary => {
 	const body = collapseWhitespace(fields.text, fields.facets);
+	const authorProfile = isProfile(fields.authorProfile)
+		? { authorProfile: fields.authorProfile }
+		: {};
 
 	if (isGifText(body.text)) {
 		return {
 			channel: fields.channel as SpaceRef,
 			rkey: fields.rkey,
 			author: fields.author as Did,
+			...authorProfile,
 			text: "Sent a GIF",
 			attachment: "image",
 			createdAt: fields.createdAt,
@@ -65,6 +82,7 @@ const summaryOf = (fields: SummaryFields): ChannelSummary => {
 		channel: fields.channel as SpaceRef,
 		rkey: fields.rkey,
 		author: fields.author as Did,
+		...authorProfile,
 		text,
 		createdAt: fields.createdAt,
 	};
@@ -78,6 +96,7 @@ export const summarizeMessage = (message: MessageView): ChannelSummary =>
 		channel: message.channel,
 		rkey: message.rkey,
 		author: message.author.did,
+		authorProfile: message.author.bridge ? message.author : undefined,
 		text: message.text,
 		facets: message.facets,
 		attachment: attachmentKind(message.attachments[0]?.mimeType),
@@ -108,6 +127,7 @@ export const summarizePending = (
 		channel: entry.channel,
 		rkey: entry.rkey,
 		author,
+		authorProfile: undefined,
 		text: entry.text,
 		facets: entry.facets,
 		attachment: attachmentKind(mimeTypes[0]),
@@ -117,13 +137,12 @@ export const summarizePending = (
 	});
 };
 
-export const summarizeChannel = (
-	view: social.colibri.beta.channel.defs.ChannelSummary,
-): ChannelSummary =>
+export const summarizeChannel = (view: ServedChannelSummary): ChannelSummary =>
 	summaryOf({
 		channel: view.channel,
 		rkey: view.rkey,
 		author: view.author,
+		authorProfile: view.authorProfile,
 		text: view.text,
 		facets: view.facets,
 		attachment:
