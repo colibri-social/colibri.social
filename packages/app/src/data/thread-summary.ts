@@ -1,15 +1,13 @@
-import type { social } from "@colibri-social/lexicons";
 import { isFutureDated } from "@colibri-social/lib";
 import {
 	type ChannelSummary,
 	newerSummary,
+	type ServedChannelSummary,
 	summarizeChannel,
 } from "./channel-summary";
 import type { ThreadView } from "./types";
 
-type ServedSummary = social.colibri.beta.channel.defs.ChannelSummary;
-
-const isServedSummary = (value: unknown): value is ServedSummary => {
+const isServedSummary = (value: unknown): value is ServedChannelSummary => {
 	if (typeof value !== "object" || value === null) return false;
 	const fields = value as Record<string, unknown>;
 	return (

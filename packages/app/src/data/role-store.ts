@@ -1,3 +1,4 @@
+import { compareRoles, isDefaultRole } from "./role-flags";
 import type { CreateRoleInput, DataSource, UpdateRoleInput } from "./source";
 import type { CommunityView, Did, MemberView, RoleView } from "./types";
 
@@ -17,8 +18,9 @@ type Updatable<T> = {
 	update: (change: (current: T) => T) => void;
 };
 
-const sortRoles = (roles: readonly RoleView[]) =>
-	[...roles].sort((a, b) => b.position - a.position);
+const sortRoles = (roles: readonly RoleView[]) => {
+	return [...roles].sort(compareRoles);
+};
 
 export const upsertRole = (roles: readonly RoleView[], next: RoleView) => {
 	const exists = roles.some((role) => role.rkey === next.rkey);
@@ -62,9 +64,32 @@ export const viewerFrom = (
 export const reorderedPositions = (
 	ordered: readonly RoleView[],
 	ceiling: number,
+	floor = 1,
 ) => {
-	const top = Math.min(ordered.length, ceiling - 1);
+	const top = Math.min(floor + ordered.length - 1, ceiling - 1);
 	return ordered.map((_, index) => top - index);
+};
+
+export type RolePlacement = {
+	position: number;
+	membersPosition?: number;
+};
+
+export const newRolePlacement = (roles: readonly RoleView[]): RolePlacement => {
+	const members = roles.find(isDefaultRole);
+	const others = roles.filter(
+		(role) => !role.protected && !isDefaultRole(role),
+	);
+	const lowest = Math.min(...others.map((role) => role.position));
+
+	if (!members) {
+		return { position: others.length > 0 ? lowest - 1 : 0 };
+	}
+
+	if (others.length === 0) return { position: members.position + 1 };
+	if (lowest - 1 > members.position) return { position: lowest - 1 };
+
+	return { position: lowest - 1, membersPosition: lowest - 2 };
 };
 
 export const countChange = (
@@ -103,7 +128,20 @@ export const createRoleActions = (options: {
 	};
 
 	const createRole = async (draft: RoleDraft) => {
-		const created = await source.createRole({ ...draft, community });
+		const current = roles.value() ?? [];
+		const placement = newRolePlacement(current);
+		const members = current.find(isDefaultRole);
+
+		if (members && placement.membersPosition !== undefined) {
+			await updateRole(members.rkey, { position: placement.membersPosition });
+		}
+
+		const created = await source.createRole({
+			...draft,
+			community,
+			position: draft.position ?? placement.position,
+		});
+
 		return settle(created);
 	};
 
@@ -158,16 +196,22 @@ export const createRoleActions = (options: {
 		const byKey = new Map(previous.map((role) => [role.rkey, role]));
 		const ordered = ids
 			.map((id) => byKey.get(id))
-			.filter((role): role is RoleView => !!role && !role.protected);
+			.filter(
+				(role): role is RoleView =>
+					!!role && !role.protected && !isDefaultRole(role),
+			);
 		const ceiling = previous
 			.filter((role) => role.protected)
 			.reduce(
 				(max, role) => Math.max(max, role.position),
 				Number.NEGATIVE_INFINITY,
 			);
+		const members = previous.find(isDefaultRole);
+		const floor = members ? members.position + 1 : 1;
 		const positions = reorderedPositions(
 			ordered,
-			Number.isFinite(ceiling) ? ceiling : ordered.length + 1,
+			Number.isFinite(ceiling) ? ceiling : floor + ordered.length,
+			floor,
 		);
 		const changes = ordered
 			.map((role, index) => ({ role, position: positions[index] as number }))

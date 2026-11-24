@@ -1,5 +1,4 @@
 ---
-eyebrow: "Your Spaces, your data."
 title: "PRIVACY POLICY"
 description: "Which personal data Colibri processes, where it is stored, who can read it, and the rights you have under the GDPR."
 ---

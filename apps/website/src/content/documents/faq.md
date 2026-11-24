@@ -1,5 +1,4 @@
 ---
-eyebrow: "Questions? We've got answers."
 title: "FREQUENTLY ASKED QUESTIONS"
 description: "Unsure about anything Colibri-related? You'll probably find an answer here."
 ---

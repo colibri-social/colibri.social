@@ -1,6 +1,7 @@
 import {
 	ColibriError,
 	type ColibriErrorCode,
+	classifyOAuthError,
 	classifyThrown,
 	createLogger,
 	needsReauthentication,
@@ -16,6 +17,10 @@ const FAILURES_UNTIL_DEAD = 3;
 export const RESUME_GRACE_MS = 30_000;
 const HARD_CODES = new Set<ColibriErrorCode>(["ExpiredToken", "InvalidToken"]);
 const SOFT_CODES = new Set<ColibriErrorCode>(["AuthRequired"]);
+const REFRESH_REFUSED_CODES = new Set<ColibriErrorCode>([
+	"OAuthConfigRejected",
+	"OAuthGrantExpired",
+]);
 const MINT_LXM = "com.atproto.server.getServiceAuth";
 const DPOP_PROOF_CODES = new Set(["invalid_dpop_proof", "use_dpop_nonce"]);
 
@@ -130,6 +135,12 @@ export const createSessionHealth = (
 			markDead(code);
 			return;
 		}
+
+		if (REFRESH_REFUSED_CODES.has(code)) {
+			markDead("ExpiredToken");
+			return;
+		}
+
 		if (!SOFT_CODES.has(code) || !online()) return;
 		const at = now();
 		if (options.refresh) {
@@ -201,7 +212,10 @@ export const createSessionHealth = (
 					return res;
 				},
 				(err: unknown) => {
-					noteAuthFailure(classifyThrown(err).code, startedIn);
+					const failure = classifyOAuthError(err) ?? classifyThrown(err);
+
+					noteAuthFailure(failure.code, startedIn);
+
 					throw err;
 				},
 			);

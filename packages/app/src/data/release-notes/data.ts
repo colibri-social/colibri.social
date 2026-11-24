@@ -36,7 +36,7 @@ export const RELEASE_NOTES: Array<ClientReleaseNote> = [
 				platforms: ["web", "ios", "android", "macos", "windows", "linux"],
 			},
 			{
-				title: "Synching Settings",
+				title: "Syncing Settings",
 				body: "Read positions, mutes, notification levels and the order of your Spaces now stay in sync across your devices while you use them!",
 				icon: "refresh-circle",
 				kind: "feature",

@@ -154,6 +154,51 @@ describe("threadPreview", () => {
 		).toBe("Someone");
 	});
 
+	it("names a bridged author from the served profile", () => {
+		const preview = threadPreview(
+			thread(
+				served({
+					author: "did:plc:hq",
+					authorProfile: {
+						did: "did:plc:hq",
+						handle: "hq.test",
+						displayName: "Alice Elsewhere",
+						avatar: "https://cdn.test/alice.webp",
+						bridge: {
+							registration: "3lkbridge",
+							platform: "matrix",
+							remoteId: "a",
+						},
+					},
+				}),
+			),
+			sources({ member: () => member }),
+		);
+
+		expect(preview).toMatchObject({
+			name: "Alice Elsewhere",
+			avatarSrc: "https://cdn.test/alice.webp",
+		});
+	});
+
+	it("names a bridged author from a live summary", () => {
+		const authorProfile = {
+			did: "did:plc:hq",
+			handle: "hq.test",
+			displayName: "Alice Elsewhere",
+			bridge: { registration: "3lkbridge", platform: "matrix", remoteId: "a" },
+		} as unknown as ChannelSummary["authorProfile"];
+
+		expect(
+			threadPreview(
+				thread(),
+				sources({
+					live: () => live({ author: "did:plc:hq" as Did, authorProfile }),
+				}),
+			)?.name,
+		).toBe("Alice Elsewhere");
+	});
+
 	it("turns custom emoji into image parts and keeps unresolved ones as text", () => {
 		const preview = threadPreview(
 			thread(

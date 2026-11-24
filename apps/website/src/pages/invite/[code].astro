@@ -33,15 +33,16 @@ import { ogImageFor } from "@/lib/og/url";
 			data-code={code}
 			data-inactive={preview && !preview.active ? "" : undefined}
 		>
-			<div
-				class="invite-banner"
-				style={preview?.banner
-					? `background-image: url(${JSON.stringify(preview.banner)})`
-					: undefined}
-				aria-hidden="true"
-			>
-			</div>
-			<div class="invite-body">
+			{
+				preview?.banner && (
+					<div
+						class="invite-banner"
+						style={`background-image: url(${JSON.stringify(preview.banner)})`}
+						aria-hidden="true"
+					/>
+				)
+			}
+			<div class="invite-body" data-banner={preview?.banner ? "" : undefined}>
 				<div class="space-icon">
 					{
 						preview?.picture ? (
@@ -126,7 +127,7 @@ import { ogImageFor } from "@/lib/og/url";
 
 	.invite-banner {
 		height: 132px;
-		background: radial-gradient(182% 100% at 50% 100%, var(--mw)), #171717;
+		background-color: #171717;
 		background-size: cover;
 		background-position: center;
 	}
@@ -135,19 +136,26 @@ import { ogImageFor } from "@/lib/og/url";
 		display: flex;
 		flex-direction: column;
 		gap: 18px;
-		padding: 0 20px 20px;
+		padding: 20px;
+	}
+
+	.invite-body[data-banner] {
+		padding-top: 0;
 	}
 
 	.space-icon {
 		width: 80px;
 		height: 80px;
-		margin-top: -40px;
 		display: grid;
 		place-items: center;
 		overflow: hidden;
 		border-radius: 20px;
 		background: #1b1430;
 		outline: 5px solid var(--site-card);
+	}
+
+	.invite-body[data-banner] .space-icon {
+		margin-top: -40px;
 	}
 
 	.space-icon img {

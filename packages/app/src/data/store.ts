@@ -3586,7 +3586,7 @@ export const createDataStore = (
 			onProgress: (fraction: number) => void,
 		) => {
 			if (!file) return file;
-			return source.uploadBlob(file, { onProgress });
+			return source.uploadBlob(file, { onProgress, destination: "repo" });
 		};
 
 		const saveProfile = async (

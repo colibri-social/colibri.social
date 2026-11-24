@@ -4,11 +4,29 @@ import {
 	deleteDescription,
 	draftOf,
 	formOf,
+	newRoleForm,
 	roleNameError,
 	rolePatch,
 } from "./role-form";
 
 describe("role form", () => {
+	it("starts a new role with the Members permissions the viewer can grant", () => {
+		const members = {
+			rkey: "members",
+			name: "Members",
+			position: 0,
+			permissions: ["channel.view", "message.send", "voice.connect"],
+			default: true,
+		} as unknown as RoleView;
+		const form = newRoleForm(
+			members,
+			(permission) => permission !== "voice.connect",
+		);
+		expect(form.name).toBe("New Role");
+		expect(form.permissions).toEqual(["channel.view", "message.send"]);
+		expect(newRoleForm(undefined, () => true).permissions).toEqual([]);
+	});
+
 	it("only sends what changed", () => {
 		const base = formOf({
 			rkey: "mods",

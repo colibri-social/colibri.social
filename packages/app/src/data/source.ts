@@ -75,6 +75,7 @@ export type ReactInput = {
 export type UploadOptions = {
 	onProgress?: (fraction: number) => void;
 	signal?: AbortSignal;
+	destination?: "repo";
 };
 
 export type ForwardInput = {

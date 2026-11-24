@@ -1,0 +1,28 @@
+---
+import { getEntry, render } from "astro:content";
+import "@/styles/docs.css";
+import "@/styles/atmosphere.css";
+import ProsePage from "@/components/public/prose/ProsePage.astro";
+import PublicLayout from "@/layouts/PublicLayout.astro";
+
+const data = await getEntry("documents", "atmosphere")!;
+
+const { Content, headings } = await render(data);
+
+import { ogImageFor } from "@/lib/og/url";
+---
+
+<PublicLayout
+	title="Welcome to the Atmosphere"
+	description="How using Colibri instead of traditional platforms benefits you and your community"
+	image={ogImageFor({ kind: "document", id: "atmosphere" }, Astro.site)}
+	starry
+>
+	<ProsePage
+		title={data.data.title}
+		description={data.data.description}
+		headings={headings}
+	>
+		<Content />
+	</ProsePage>
+</PublicLayout>

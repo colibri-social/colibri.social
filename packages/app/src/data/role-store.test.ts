@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	countChange,
+	newRolePlacement,
 	reorderedPositions,
 	stripRole,
 	upsertRole,
@@ -27,6 +28,31 @@ describe("role store helpers", () => {
 		expect(
 			reorderedPositions([role("a", 1), role("b", 2), role("c", 3)], 3),
 		).toEqual([2, 1, 0]);
+	});
+
+	it("keeps reordered roles above the Members role", () => {
+		expect(reorderedPositions([role("a", 1), role("b", 2)], 1000, -3)).toEqual([
+			-2, -3,
+		]);
+	});
+
+	it("places a new role below every other role and above Members", () => {
+		const members = { ...role("members", 0), default: true } as RoleView;
+		const owner = { ...role("owner", 1000), protected: true } as RoleView;
+		expect(newRolePlacement([owner, members])).toEqual({ position: 1 });
+		expect(
+			newRolePlacement([owner, role("mods", 5), role("crew", 3), members]),
+		).toEqual({ position: 2 });
+		expect(
+			newRolePlacement([owner, role("mods", 2), role("crew", 1), members]),
+		).toEqual({ position: 0, membersPosition: -1 });
+		expect(newRolePlacement([owner, role("crew", -2), members])).toEqual({
+			position: -3,
+			membersPosition: -4,
+		});
+		expect(newRolePlacement([owner, role("crew", 2)])).toEqual({
+			position: 1,
+		});
 	});
 
 	it("recomputes the viewer's permissions from the roles they hold", () => {
