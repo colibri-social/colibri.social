@@ -1,5 +1,14 @@
 # @colibri-social/website
 
+## 0.3.3
+
+### Patch Changes
+
+- 2ac8a4d: Send space URIs in the `at:space/` form the current Spaces PDS expects, and keep reading the older `at://{did}/space/...` form
+- Updated dependencies [2ac8a4d]
+  - @colibri-social/app@0.0.3
+  - @colibri-social/lib@0.2.2
+
 ## 0.3.2
 
 ### Patch Changes
