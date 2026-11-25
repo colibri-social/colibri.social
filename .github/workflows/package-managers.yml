@@ -9,6 +9,9 @@ on:
       channel:
         required: true
         type: string
+      scoop:
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -101,6 +104,7 @@ jobs:
           git push origin HEAD:main
 
   scoop:
+    if: ${{ inputs.scoop }}
     runs-on: ubuntu-latest
     steps:
       - name: Mint bucket token

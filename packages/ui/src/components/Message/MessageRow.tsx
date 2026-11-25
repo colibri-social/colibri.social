@@ -482,16 +482,16 @@ export const MessageRow = (props: MessageRowProps) => {
 			const clipTop = clipTopOf(clippers);
 			const lifted = Math.max(rect.top + 1, clipTop + layer.offsetHeight);
 			const anchor = Math.min(lifted, rect.bottom);
-			const end =
-				document.documentElement.clientWidth - rect.right + TOOLBAR_END_INSET;
 			layer.style.top = `max(${anchor}px, calc(var(--overlay-top, 0px) + ${layer.offsetHeight}px))`;
-			layer.style.right = `${end}px`;
+			layer.style.left = `${rect.right - TOOLBAR_END_INSET}px`;
+			layer.style.right = "";
 		};
 		const placeInRow = () => {
 			const rect = row.getBoundingClientRect();
 			const clipTop = clipTopOf(clippers);
 			const offset = Math.max(1, clipTop - rect.top + layer.offsetHeight);
 			layer.style.top = `${Math.min(offset, rect.height)}px`;
+			layer.style.left = "";
 			layer.style.right = "";
 		};
 		const place = topLayer ? placeInTopLayer : placeInRow;
@@ -868,7 +868,7 @@ export const MessageRow = (props: MessageRowProps) => {
 						class={cx(
 							"m-0 block overflow-visible border-0 bg-transparent p-0 pb-px text-foreground select-none",
 							inTopLayer()
-								? "inset-auto -translate-y-3/4"
+								? "inset-auto -translate-x-full -translate-y-3/4"
 								: "absolute inset-auto top-px right-3 z-10 -translate-y-3/4",
 							(!toolbarActive() || mediaCoversPage()) && "hidden",
 							overlayHides() && "pointer-events-none opacity-0",
