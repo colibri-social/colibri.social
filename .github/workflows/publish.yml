@@ -25,6 +25,10 @@ on:
         description: "Only build and upload the Microsoft Store package, skipping every other channel."
         type: boolean
         default: false
+      macos_only:
+        description: "Only rebuild the macOS builds: the notarized DMG and updater assets on the existing release, and the Mac App Store package. Skips every other platform."
+        type: boolean
+        default: false
       appstore_platform:
         description: "Which Apple App Store packages to build."
         type: choice
@@ -51,7 +55,7 @@ on:
         default: false
 
 concurrency:
-  group: publish-${{ inputs.channel }}-${{ inputs.version }}-${{ inputs.appstore_only }}-${{ inputs.msstore_only }}-${{ inputs.appstore_platform }}-${{ inputs.play_track }}
+  group: publish-${{ inputs.channel }}-${{ inputs.version }}-${{ inputs.appstore_only }}-${{ inputs.msstore_only }}-${{ inputs.macos_only }}-${{ inputs.appstore_platform }}-${{ inputs.play_track }}
   cancel-in-progress: false
 
 env:
@@ -62,7 +66,29 @@ jobs:
   channel:
     name: Check release channel
     runs-on: ubuntu-latest
+    outputs:
+      desktop: ${{ steps.desktop.outputs.include }}
     steps:
+      - name: Pick the desktop and Android builds
+        id: desktop
+        env:
+          MACOS_ONLY: ${{ inputs.macos_only }}
+        run: |
+          set -euo pipefail
+          ALL='[
+            {"platform": "macos-latest", "label": "macOS", "args": "--target universal-apple-darwin"},
+            {"platform": "ubuntu-24.04", "label": "Linux x64", "args": "", "sentry-release": true},
+            {"platform": "ubuntu-24.04-arm", "label": "Linux arm64", "args": ""},
+            {"platform": "windows-latest", "label": "Windows", "args": "--bundles nsis"},
+            {"platform": "ubuntu-latest", "label": "Android", "mobile": "android", "is-android": true}
+          ]'
+          if [ "$MACOS_ONLY" = "true" ]; then
+            INCLUDE=$(echo "$ALL" | jq -c '[.[] | select(.label == "macOS")]')
+          else
+            INCLUDE=$(echo "$ALL" | jq -c '.')
+          fi
+          echo "include=$INCLUDE" >> "$GITHUB_OUTPUT"
+
       - name: Match the version to the channel
         env:
           CHANNEL: ${{ inputs.channel }}
@@ -88,25 +114,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: "macos-latest"
-            label: "macOS"
-            args: "--target universal-apple-darwin"
-          - platform: "ubuntu-24.04"
-            label: "Linux x64"
-            args: ""
-            sentry-release: true
-          - platform: "ubuntu-24.04-arm"
-            label: "Linux arm64"
-            args: ""
-          - platform: "windows-latest"
-            label: "Windows"
-            args: "--bundles nsis"
-          # Android configuration targeting ubuntu-latest
-          - platform: "ubuntu-latest"
-            label: "Android"
-            mobile: "android"
-            is-android: true
+        include: ${{ fromJSON(needs.channel.outputs.desktop) }}
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -356,7 +364,7 @@ jobs:
   mas:
     name: Mac App Store
     needs: channel
-    if: ${{ (inputs.appstore || inputs.appstore_only) && inputs.appstore_platform != 'ios' && !inputs.msstore_only }}
+    if: ${{ (inputs.appstore || inputs.appstore_only || inputs.macos_only) && inputs.appstore_platform != 'ios' && !inputs.msstore_only }}
     runs-on: macos-latest
     permissions:
       contents: read
@@ -588,7 +596,7 @@ jobs:
   ios:
     name: iOS App Store
     needs: channel
-    if: ${{ (inputs.appstore || inputs.appstore_only) && inputs.appstore_platform != 'macos' && !inputs.msstore_only }}
+    if: ${{ (inputs.appstore || inputs.appstore_only) && inputs.appstore_platform != 'macos' && !inputs.msstore_only && !inputs.macos_only }}
     runs-on: macos-latest
     permissions:
       contents: read
@@ -826,10 +834,12 @@ jobs:
     with:
       version: ${{ inputs.version }}
       channel: ${{ inputs.channel }}
+      scoop: ${{ !inputs.macos_only }}
     secrets: inherit
 
   play:
     needs: publish-tauri
+    if: ${{ !inputs.macos_only }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -921,7 +931,7 @@ jobs:
 
   msstore-build:
     needs: channel
-    if: ${{ (inputs.msstore_only || !inputs.appstore_only) && (inputs.channel == 'stable' || vars.MSSTORE_SPACES_FLIGHT_ID != '') }}
+    if: ${{ (inputs.msstore_only || !inputs.appstore_only) && !inputs.macos_only && (inputs.channel == 'stable' || vars.MSSTORE_SPACES_FLIGHT_ID != '') }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
