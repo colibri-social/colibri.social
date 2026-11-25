@@ -11,7 +11,7 @@ services:
         - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
         - SENTRY_RELEASE=${SENTRY_RELEASE}
         - PUBLIC_VAPID_KEY=${PUBLIC_VAPID_KEY}
-    container_name: colibri-web-app-alpha
+    container_name: colibri-web-app
     restart: unless-stopped
     environment:
       - SAME_TLD_DID=${SAME_TLD_DID}
