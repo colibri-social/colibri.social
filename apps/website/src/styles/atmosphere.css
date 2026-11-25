@@ -1,3 +1,8 @@
+:root {
+	--font-sans: var(--font-hanken-grotesk);
+	--sl-font: var(--font-hanken-grotesk);
+}
+
 ul[role="tablist"] {
 	border: 0 !important;
 	padding: 0 !important;
