@@ -1,5 +1,11 @@
 # @colibri-social/lib
 
+## 0.2.1
+
+### Patch Changes
+
+- 23ffdef: Read space URIs in both the `at://{did}/space/...` and the `at:space/{did}/...` form, and send the legacy form only while the AppView lists the `legacySpaceUris` feature
+
 ## 0.2.0
 
 ### Minor Changes

@@ -14,6 +14,4 @@ export {
 	isChannelSpaceType,
 	isThreadSpaceType,
 	SPACE_TYPES,
-	spaceUri,
-	threadSpace,
 } from "@colibri-social/lexicons";

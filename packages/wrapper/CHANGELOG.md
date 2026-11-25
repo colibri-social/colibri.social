@@ -1,5 +1,18 @@
 # @colibri-social/wrapper
 
+## 0.7.2
+
+### Patch Changes
+
+- Updated dependencies [afb2445]
+- Updated dependencies [1b63755]
+- Updated dependencies [2d51a20]
+- Updated dependencies [569bc0e]
+- Updated dependencies [1b63755]
+- Updated dependencies [23ffdef]
+- Updated dependencies [1b63755]
+  - @colibri-social/app@0.0.2
+
 ## 0.7.1
 
 ### Patch Changes
