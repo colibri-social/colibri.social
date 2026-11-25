@@ -2,7 +2,7 @@
 	"name": "@colibri-social/ui",
 	"private": true,
 	"type": "module",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "The Colibri Social component library.",
 	"sideEffects": [
 		"*.css"

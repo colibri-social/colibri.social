@@ -2,7 +2,7 @@
 	"name": "@colibri-social/app",
 	"private": true,
 	"type": "module",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "The Colibri Social client, built on the component library.",
 	"license": "MIT",
 	"exports": {
