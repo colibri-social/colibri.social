@@ -1,5 +1,21 @@
 # @colibri-social/website
 
+## 0.3.2
+
+### Patch Changes
+
+- afb2445: Show bridged authors by name in Space and thread previews, and drop the gradient banner on invite pages for Spaces without a banner
+- 1b63755: Add screenshots to the user docs
+- Updated dependencies [afb2445]
+- Updated dependencies [1b63755]
+- Updated dependencies [2d51a20]
+- Updated dependencies [569bc0e]
+- Updated dependencies [1b63755]
+- Updated dependencies [23ffdef]
+- Updated dependencies [1b63755]
+  - @colibri-social/app@0.0.2
+  - @colibri-social/lib@0.2.1
+
 ## 0.3.1
 
 ### Patch Changes
