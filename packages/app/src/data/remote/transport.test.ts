@@ -1,5 +1,5 @@
-import { ColibriError, colibri, setLegacySpaceUris } from "@colibri-social/lib";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { ColibriError, colibri } from "@colibri-social/lib";
+import { describe, expect, it, vi } from "vitest";
 import {
 	progressCallbackFor,
 	UPLOAD_ID_HEADER,
@@ -243,8 +243,6 @@ describe("space URI forms", () => {
 	const LEGACY =
 		"at://did:plc:space/space/social.colibri.beta.channel.text/general";
 
-	afterEach(() => setLegacySpaceUris(true));
-
 	it("hands the app the new form whichever form the server sends", async () => {
 		const { fake, transport } = setup();
 		fake.on(
@@ -257,29 +255,22 @@ describe("space URI forms", () => {
 		).resolves.toEqual({ space: SPACE, byRef: { [SPACE]: 1 } });
 	});
 
-	it("sends params and bodies in the format the AppView asks for", async () => {
+	it("sends params and bodies in the new form", async () => {
 		const { fake, transport } = setup();
 		fake.on("com.atproto.space.listRecords", json({}));
 		fake.on("com.atproto.space.createRecord", json({}));
 
 		await transport.pdsQuery("com.atproto.space.listRecords", {
-			params: { space: SPACE },
+			params: { space: LEGACY },
 		});
 		await transport.pdsProcedure("com.atproto.space.createRecord", {
-			body: { space: SPACE },
-		});
-		setLegacySpaceUris(false);
-		await transport.pdsQuery("com.atproto.space.listRecords", {
-			params: { space: SPACE },
+			body: { space: LEGACY },
 		});
 
-		const lists = fake.callsTo("com.atproto.space.listRecords");
+		const [list] = fake.callsTo("com.atproto.space.listRecords");
 		const [create] = fake.callsTo("com.atproto.space.createRecord");
 
-		expect(lists.map((call) => call.params.get("space"))).toEqual([
-			LEGACY,
-			SPACE,
-		]);
-		expect(create?.body).toEqual({ space: LEGACY });
+		expect(list?.params.get("space")).toBe(SPACE);
+		expect(create?.body).toEqual({ space: SPACE });
 	});
 });

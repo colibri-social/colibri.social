@@ -1,9 +1,5 @@
-import {
-	colibri,
-	LEGACY_SPACE_URIS_STORAGE_KEY,
-	setLegacySpaceUris,
-} from "@colibri-social/lib";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { colibri } from "@colibri-social/lib";
+import { describe, expect, it } from "vitest";
 import type { MessageView, SpaceRef } from "../types";
 import {
 	createFakeLive,
@@ -69,21 +65,6 @@ const bodyOf = (calls: RecordedCall[]) => {
 };
 
 describe("writes on a moved message", () => {
-	beforeEach(() => {
-		vi.stubGlobal("localStorage", {
-			getItem: (key: string) =>
-				key === LEGACY_SPACE_URIS_STORAGE_KEY ? "false" : null,
-			setItem: () => {},
-			removeItem: () => {},
-		});
-		setLegacySpaceUris(false);
-	});
-
-	afterEach(() => {
-		vi.unstubAllGlobals();
-		setLegacySpaceUris(true);
-	});
-
 	it("hides a message viewed in the space it moved to", async () => {
 		const label = { val: "hidden", src: COMMUNITY };
 		const { fake, source } = await setup([moved("8")], (fake) =>

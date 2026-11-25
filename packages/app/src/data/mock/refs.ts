@@ -19,7 +19,7 @@ const VOICE_TYPE = "social.colibri.beta.channel.voice";
 export type ChannelKind = "text" | "voice";
 
 export const spaceRef = (community: Did, kind: ChannelKind, skey: string) =>
-	`at://${community}/space/${kind === "voice" ? VOICE_TYPE : TEXT_TYPE}/${skey}` as SpaceRef;
+	`at:space/${community}/${kind === "voice" ? VOICE_TYPE : TEXT_TYPE}/${skey}` as SpaceRef;
 
 const TID_ALPHABET = "234567abcdefghijklmnopqrstuvwxyz";
 

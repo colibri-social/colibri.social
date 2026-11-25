@@ -1,7 +1,6 @@
 import { l } from "@atproto/lex";
-import { outgoingSpaceUris, safeParseSpaceUris } from "./legacy-space-uris.js";
 import { colibri } from "./lexicons.js";
-import { isSpaceUri } from "./space-ref.js";
+import { canonicalSpaceUris, isSpaceUri } from "./space-ref.js";
 
 const SYNC_DEFS_NSID = "social.colibri.beta.sync.defs";
 const FRAME_TYPE_PREFIX = `${SYNC_DEFS_NSID}#`;
@@ -274,7 +273,7 @@ const frameName = (dollarType: string): ServerFrameName | null => {
 };
 
 export const encodeFrame = (frame: ClientFrame): string =>
-	JSON.stringify(outgoingSpaceUris(frame));
+	JSON.stringify(frame);
 
 export const decodeFrame = (raw: string): ServerFrame | null => {
 	let parsed: unknown;
@@ -293,13 +292,10 @@ export const decodeFrame = (raw: string): ServerFrame | null => {
 	if (name === null) return null;
 
 	const schema = SERVER_FRAME_SCHEMAS[name];
-	const result = safeParseSpaceUris<ServerFrame>(
-		(input) => schema.$safeParse(input),
-		parsed,
-	);
+	const result = schema.$safeParse(canonicalSpaceUris(parsed));
 	if (!result.success) return null;
 
-	return result.value;
+	return result.value as ServerFrame;
 };
 
 export const subscriptionTargets = (

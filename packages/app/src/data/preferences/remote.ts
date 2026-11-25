@@ -1,13 +1,12 @@
 import {
-	asSpaceRef,
 	COLLECTIONS,
 	preferencesSpace,
 	SELF,
 	SPACE_TYPES,
 } from "@colibri-social/lexicons";
 import {
+	asSpaceRef,
 	ColibriError,
-	canonicalSpaceUri,
 	classifyThrown,
 	colibri,
 	createLogger,
@@ -38,9 +37,7 @@ export const createPreferencesSpace = (
 	transport: Transport,
 	host?: HostModeSignal,
 ) => {
-	const space = canonicalSpaceUri(
-		asSpaceRef(preferencesSpace(transport.did)),
-	) as ReturnType<typeof asSpaceRef>;
+	const space = asSpaceRef(preferencesSpace(transport.did));
 	let ready: Promise<void> | undefined;
 	const create = () => {
 		ready ??= transport

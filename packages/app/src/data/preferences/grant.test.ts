@@ -66,7 +66,7 @@ describe("createPreferencesGrant", () => {
 
 		const [call] = fake.callsTo(GRANT);
 		expect(call?.body).toEqual({
-			space: `at://${VIEWER}/space/social.colibri.beta.actor.preferences/self`,
+			space: `at:space/${VIEWER}/social.colibri.beta.actor.preferences/self`,
 			delegationToken: "delegation",
 		});
 		expect(call?.headers.get("atproto-proxy")).toContain(

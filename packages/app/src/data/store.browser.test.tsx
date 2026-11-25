@@ -628,7 +628,7 @@ describe("channel watching", () => {
 		const general = space.channelBySlug("general");
 		if (!general) throw new Error("channel missing");
 		const thread: SpaceRef =
-			"at://did:plc:thread/space/social.colibri.beta.thread/one";
+			"at:space/did:plc:thread/social.colibri.beta.thread/one";
 		const releaseLayer = store.holdChannel(general.space);
 		store.setViewing(general.space);
 		expect(watched).toEqual([general.space]);

@@ -1,13 +1,8 @@
 import { l } from "@atproto/lex";
-import { asSpaceRef, type social } from "@colibri-social/lexicons";
-import {
-	lexSpaceUri,
-	lexSpaceUris,
-	outgoingSpaceUris,
-	safeParseSpaceUris,
-} from "../protocol/legacy-space-uris.js";
+import type { social } from "@colibri-social/lexicons";
 import { colibri } from "../protocol/lexicons.js";
 import {
+	asSpaceRef,
 	canonicalSpaceUris,
 	isSpaceUri,
 	parseSpace,
@@ -160,9 +155,7 @@ export type VoiceFrame = ClientVoiceFrame | ServerVoiceFrame;
 export type VoiceFrameErrorCode = VoiceErrorFrame["error"];
 
 export const joinFrame = (channel: string): JoinFrame =>
-	canonicalSpaceUris(
-		defs.join.build({ channel: asSpaceRef(lexSpaceUri(channel)) }),
-	);
+	defs.join.build({ channel: asSpaceRef(channel) });
 
 export const leaveFrame = (): LeaveFrame => defs.leave.build({});
 
@@ -250,7 +243,7 @@ export const moveNowFrame = (): MoveNowFrame => {
 };
 
 export const encodeVoiceFrame = (frame: VoiceFrame): string =>
-	JSON.stringify(outgoingSpaceUris(frame));
+	JSON.stringify(frame);
 
 type AnyFrameSchema = {
 	$type: string;
@@ -368,10 +361,10 @@ export const decodeVoiceFrame = (raw: string): VoiceFrame | null => {
 	const schema = FRAME_SCHEMA_BY_TYPE.get(type);
 	if (!schema) return null;
 
-	const result = schema.safeParse(lexSpaceUris(parsed));
+	const result = schema.safeParse(canonicalSpaceUris(parsed));
 	if (!result.success) return null;
 
-	return canonicalSpaceUris(schema.build(result.value)) as VoiceFrame;
+	return schema.build(result.value) as VoiceFrame;
 };
 
 export const voiceFramePermissions = (
@@ -403,9 +396,8 @@ export const movedChannelView = (
 	const view = (frame as { view?: unknown }).view;
 	if (view === undefined) return undefined;
 
-	const parsed = safeParseSpaceUris<MovedChannelView>(
-		(input) => colibri.community.defs.channelView.safeParse(input),
-		view,
+	const parsed = colibri.community.defs.channelView.safeParse(
+		canonicalSpaceUris(view),
 	);
 	if (!parsed.success) return undefined;
 

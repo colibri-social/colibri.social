@@ -1,17 +1,10 @@
-import {
-	type ColibriError,
-	colibri,
-	LEGACY_SPACE_URIS_STORAGE_KEY,
-	legacySpaceUri,
-	setLegacySpaceUris,
-} from "@colibri-social/lib";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type ColibriError, colibri } from "@colibri-social/lib";
+import { describe, expect, it, vi } from "vitest";
 import {
 	progressCallbackFor,
 	UPLOAD_ID_HEADER,
 } from "../../auth/upload-progress";
 import { linkMessage } from "../adapters/facets";
-import { writeStored } from "../persist";
 import { DEFAULT_COMPOSER } from "../preferences/types";
 import {
 	type DataSource,
@@ -113,41 +106,6 @@ const only = (calls: RecordedCall[]) => {
 };
 
 describe("createRemoteSource", () => {
-	beforeEach(() => {
-		const values = new Map<string, string>();
-
-		vi.stubGlobal("localStorage", {
-			getItem: (key: string) => values.get(key) ?? null,
-			setItem: (key: string, value: string) => values.set(key, value),
-			removeItem: (key: string) => values.delete(key),
-		});
-		writeStored(LEGACY_SPACE_URIS_STORAGE_KEY, "false");
-		setLegacySpaceUris(false);
-	});
-
-	afterEach(() => {
-		vi.unstubAllGlobals();
-		setLegacySpaceUris(true);
-	});
-
-	it("writes legacy space URIs while the stored format asks for them", async () => {
-		writeStored(LEGACY_SPACE_URIS_STORAGE_KEY, "true");
-
-		const { fake, source } = await setup((fake) =>
-			fake.on(
-				"com.atproto.space.createRecord",
-				json({ uri: "at://x", cid: "c" }),
-			),
-		);
-
-		await source.sendMessage({ channel: CHANNEL, text: "hi" });
-
-		const body = only(fake.callsTo("com.atproto.space.createRecord"))
-			.body as Record<string, any>;
-
-		expect(body.space).toBe(legacySpaceUri(CHANNEL));
-	});
-
 	it("loads the viewer and GIF favorites up front", async () => {
 		const { source } = await setup();
 		expect(source.viewer().did).toBe(VIEWER);

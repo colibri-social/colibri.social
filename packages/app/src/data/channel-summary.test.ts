@@ -52,7 +52,7 @@ const message = (overrides: Partial<MessageView> = {}): MessageView =>
 	({
 		uri: "at://did:plc:a/social.colibri.beta.channel.message/r1",
 		rkey: "r1",
-		channel: "at://did:plc:hq/space/c1",
+		channel: "at:space/did:plc:hq/c1",
 		author: { did: "did:plc:a", handle: "a.test" },
 		text: "Hello\n  there",
 		createdAt: "2026-10-12T10:00:00.000Z",
@@ -65,7 +65,7 @@ const message = (overrides: Partial<MessageView> = {}): MessageView =>
 describe("channel summary", () => {
 	it("collapses whitespace and keeps the author and time", () => {
 		expect(summarizeMessage(message())).toEqual({
-			channel: "at://did:plc:hq/space/c1",
+			channel: "at:space/did:plc:hq/c1",
 			rkey: "r1",
 			author: "did:plc:a",
 			text: "Hello there",
@@ -141,7 +141,7 @@ describe("channel summary", () => {
 
 	it("reads facets from an AppView summary", () => {
 		const summary = summarizeChannel({
-			channel: "at://did:plc:hq/space/social.colibri.beta.channel.text/c1",
+			channel: "at:space/did:plc:hq/social.colibri.beta.channel.text/c1",
 			rkey: "r1",
 			author: "did:plc:a",
 			text: "🦉 :kek: ok",
@@ -159,7 +159,7 @@ describe("channel summary", () => {
 
 	it("reads a served author profile and drops a malformed one", () => {
 		const served = {
-			channel: "at://did:plc:hq/space/social.colibri.beta.channel.text/c1",
+			channel: "at:space/did:plc:hq/social.colibri.beta.channel.text/c1",
 			rkey: "r1",
 			author: "did:plc:hq",
 			text: "hi",
@@ -213,7 +213,7 @@ describe("channel summary", () => {
 
 	it("summarizes a pending message from its uploads", () => {
 		const pending = {
-			channel: "at://did:plc:hq/space/c1" as MessageView["channel"],
+			channel: "at:space/did:plc:hq/c1" as MessageView["channel"],
 			rkey: "r2",
 			text: "",
 			uploads: [
@@ -223,7 +223,7 @@ describe("channel summary", () => {
 			createdAt: "2026-10-12T10:00:00.000Z",
 		};
 		expect(summarizePending(pending, "did:plc:me")).toEqual({
-			channel: "at://did:plc:hq/space/c1",
+			channel: "at:space/did:plc:hq/c1",
 			rkey: "r2",
 			author: "did:plc:me",
 			text: "Sent 2 images",
@@ -237,7 +237,7 @@ describe("channel summary", () => {
 
 	it("describes a GIF message", () => {
 		expect(summarizeMessage(message(linkMessage(GIF_URL)))).toEqual({
-			channel: "at://did:plc:hq/space/c1",
+			channel: "at:space/did:plc:hq/c1",
 			rkey: "r1",
 			author: "did:plc:a",
 			text: "Sent a GIF",
@@ -249,7 +249,7 @@ describe("channel summary", () => {
 	it("describes a pending GIF message", () => {
 		const summary = summarizePending(
 			{
-				channel: "at://did:plc:hq/space/c1" as MessageView["channel"],
+				channel: "at:space/did:plc:hq/c1" as MessageView["channel"],
 				rkey: "r3",
 				...linkMessage(GIF_URL),
 				createdAt: "2026-10-12T10:00:00.000Z",
@@ -263,7 +263,7 @@ describe("channel summary", () => {
 
 	it("describes a GIF in an AppView summary", () => {
 		const summary = summarizeChannel({
-			channel: "at://did:plc:hq/space/social.colibri.beta.channel.text/c1",
+			channel: "at:space/did:plc:hq/social.colibri.beta.channel.text/c1",
 			rkey: "r1",
 			author: "did:plc:a",
 			...linkMessage(GIF_URL),

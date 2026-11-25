@@ -1,3 +1,4 @@
+import { l } from "@atproto/lex";
 import type { ChannelSpaceType } from "./lexicons.js";
 import {
 	CHANNEL_SPACE_TYPES,
@@ -108,6 +109,17 @@ export const mapSpaceUris = (
 
 export const canonicalSpaceUris = <T>(value: T): T => {
 	return mapSpaceUris(value, canonicalSpaceUri) as T;
+};
+
+export const asSpaceRef = (ref: string): l.SpaceRefString => {
+	const canonical = canonicalSpaceUri(ref);
+	if (!l.isSpaceRefString(canonical)) {
+		throw new TypeError(
+			`expected a space reference, got ${JSON.stringify(ref)}`,
+		);
+	}
+
+	return canonical;
 };
 
 export const parseSpace = (ref: string): ParsedSpace | undefined => {

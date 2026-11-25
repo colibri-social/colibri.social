@@ -6,7 +6,7 @@ const channel = (
 	permissions?: string[],
 	type = "social.colibri.beta.channel.voice",
 ): ChannelView => ({
-	space: "at://did:plc:space/space/social.colibri.beta.channel.voice/lounge",
+	space: "at:space/did:plc:space/social.colibri.beta.channel.voice/lounge",
 	type,
 	name: "Lounge",
 	viewer: {

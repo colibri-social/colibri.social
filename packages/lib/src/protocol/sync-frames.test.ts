@@ -1,5 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { setLegacySpaceUris } from "./legacy-space-uris.js";
+import { describe, expect, it } from "vitest";
 import { legacySpaceUri } from "./space-ref.js";
 import {
 	activityFrame,
@@ -23,15 +22,16 @@ const HANDLE = "alice.test";
 const DATETIME = "2026-08-23T12:00:00.000Z";
 
 describe("client frame round-tripping", () => {
-	beforeEach(() => setLegacySpaceUris(false));
-	afterEach(() => setLegacySpaceUris(true));
-
-	it("sends space URIs in the legacy form while the AppView asks for it", () => {
-		setLegacySpaceUris(true);
-
-		expect(JSON.parse(encodeFrame(typingFrame(CHANNEL)))).toMatchObject({
-			channel: legacySpaceUri(CHANNEL),
-		});
+	it("reads a frame that still carries a legacy space URI", () => {
+		expect(
+			decodeFrame(
+				JSON.stringify({
+					$type: "social.colibri.beta.sync.defs#typingEvent",
+					channel: legacySpaceUri(CHANNEL),
+					did: DID,
+				}),
+			),
+		).toMatchObject({ channel: CHANNEL });
 	});
 
 	it("round-trips subscribeFrame", () => {

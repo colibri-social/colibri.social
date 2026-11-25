@@ -9,7 +9,7 @@ import { createHostMode } from "./host-mode";
 
 const VIEWER = "did:plc:viewer";
 const APPVIEW = "did:web:appview.test";
-const SPACE = "at://did:plc:space/space/social.colibri.beta.channel/general";
+const SPACE = "at:space/did:plc:space/social.colibri.beta.channel/general";
 const MESSAGE = "social.colibri.beta.message";
 const CREATE = "com.atproto.space.createRecord";
 const DELEGATE = "com.atproto.space.getDelegationToken";

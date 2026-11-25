@@ -9,7 +9,7 @@ export type ClientReleaseNote = Omit<ReleaseNote, "entries"> & {
 
 export const RELEASE_NOTES: Array<ClientReleaseNote> = [
 	{
-		version: "0.7.2",
+		version: "0.7.3",
 		date: "2026-12-01",
 		title: "Colibri Spaces",
 		heroImage: "/release-notes/0.7.0.webp",

@@ -1,4 +1,4 @@
-import { ColibriError } from "@colibri-social/lib";
+import { ColibriError, spaceAuthority } from "@colibri-social/lib";
 import { mentionedDids } from "../adapters/facets";
 import { summarizeMessage } from "../channel-summary";
 import type { HostingView } from "../hosting";
@@ -298,8 +298,7 @@ export const createMockSource = (
 		};
 	};
 
-	const communityOf = (ref: SpaceRef) =>
-		ref.slice("at://".length, ref.indexOf("/space/")) as Did;
+	const communityOf = (ref: SpaceRef) => (spaceAuthority(ref) ?? "") as Did;
 
 	const manageableThread = (
 		ref: SpaceRef,
@@ -986,7 +985,7 @@ export const createMockSource = (
 				const time = Date.now();
 				const tkey = tidFor(time, world.nextClock());
 				const threadRef =
-					`at://${space.did}/space/social.colibri.beta.channel.thread/${tkey}` as SpaceRef;
+					`at:space/${space.did}/social.colibri.beta.channel.thread/${tkey}` as SpaceRef;
 				const view: ThreadView = {
 					space: threadRef,
 					channel: input.channel,
@@ -1085,7 +1084,7 @@ export const createMockSource = (
 				const name = input.name.trim();
 				if (!name || name.length > 32) throw new Error("Invalid name");
 				const skey = tidFor(Date.now(), world.nextClock());
-				const ref = `at://${space.did}/space/${input.type}/${skey}` as SpaceRef;
+				const ref = `at:space/${space.did}/${input.type}/${skey}` as SpaceRef;
 				const view: ChannelView = {
 					space: ref,
 					type: input.type as ChannelView["type"],
@@ -1538,10 +1537,7 @@ export const createMockSource = (
 								rkey: message.rkey,
 							},
 							sourceName: source?.view.name,
-							sourceCommunity: input.from.slice(
-								"at://".length,
-								input.from.indexOf("/space/"),
-							) as Did,
+							sourceCommunity: (spaceAuthority(input.from) ?? "") as Did,
 							createdAt: message.createdAt,
 							text: message.text,
 							facets: message.facets,

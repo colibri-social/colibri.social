@@ -1,12 +1,12 @@
-import { asSpaceRef, COLLECTIONS } from "@colibri-social/lexicons";
+import { COLLECTIONS } from "@colibri-social/lexicons";
 import {
 	activityFrame,
+	asSpaceRef,
 	type ClientFrame,
 	ColibriError,
 	classifyThrown,
 	colibri,
 	createLogger,
-	lexSpaceUri,
 	setPresenceFrame,
 	spaceAuthority,
 	spaceSkey,
@@ -71,10 +71,6 @@ import {
 } from "./messages";
 import { createReadCursorWriter } from "./read-cursors";
 import { type BlobRef, createRecords } from "./records";
-import {
-	applyStoredSpaceUriFormat,
-	refreshSpaceUriFormat,
-} from "./space-uri-format";
 import { createTransferOwnership } from "./transfer";
 import { createTransport, type RemoteSession } from "./transport";
 
@@ -149,11 +145,9 @@ export const createRemoteSource = async (
 	});
 	const host = createHostMode({ transport, publish: true });
 	const records = createRecords(transport, host, (space) => {
-		options.live.send(wroteToFrame(asSpaceRef(lexSpaceUri(space))));
+		options.live.send(wroteToFrame(asSpaceRef(space)));
 	});
 
-	applyStoredSpaceUriFormat();
-	void refreshSpaceUriFormat(transport);
 	void host.refresh();
 	const index = createMessageIndex();
 	const uploads = createUploads();

@@ -1,3 +1,4 @@
+import { spaceAuthority } from "@colibri-social/lib";
 import {
 	BASELINE_PERMISSIONS,
 	holderCan,
@@ -290,10 +291,7 @@ export const createWorld = (now: number) => {
 						rkey: tidFor(sourceTime, nextClock()),
 					},
 					...(source.hidden ? {} : { sourceName: source.channelName }),
-					sourceCommunity: sourceRef.slice(
-						"at://".length,
-						sourceRef.indexOf("/space/"),
-					) as Did,
+					sourceCommunity: (spaceAuthority(sourceRef) ?? "") as Did,
 					createdAt: asDatetime(sourceTime),
 					text: sourceRich.text,
 					attachments: source.files ?? [],
@@ -561,7 +559,7 @@ export const createWorld = (now: number) => {
 		const anchor = anchors.get(`${thread.channel}:${thread.anchor}`);
 		if (!space || !channel || !anchor) continue;
 		const threadRef =
-			`at://${space.did}/space/social.colibri.beta.channel.thread/${thread.tkey}` as SpaceRef;
+			`at:space/${space.did}/social.colibri.beta.channel.thread/${thread.tkey}` as SpaceRef;
 		const anchorTime = Date.parse(anchor.createdAt);
 		const total = thread.entries.reduce(
 			(sum, entry) => sum + (entry.gap ?? 5),

@@ -9,7 +9,6 @@ import {
 	type Method,
 	notifServiceRef,
 	type Output,
-	outgoingSpaceUris,
 } from "@colibri-social/lib";
 import { registerUpload, UPLOAD_ID_HEADER } from "../../auth/upload-progress";
 
@@ -90,9 +89,9 @@ export const createTransport = (input: {
 			body = init.raw.data;
 		} else if (kind === "procedure" && init.body !== undefined) {
 			headers.set("content-type", "application/json");
-			body = JSON.stringify(outgoingSpaceUris(init.body));
+			body = JSON.stringify(canonicalSpaceUris(init.body));
 		}
-		const path = `/xrpc/${nsid}${encodeParams(outgoingSpaceUris(init.params))}`;
+		const path = `/xrpc/${nsid}${encodeParams(canonicalSpaceUris(init.params))}`;
 		const attempts = init.attempts ?? (kind === "query" ? RETRY_ATTEMPTS : 1);
 		const upload = init.onProgress
 			? registerUpload(init.onProgress)
@@ -141,7 +140,7 @@ export const createTransport = (input: {
 		params: Params,
 		proxy: string | undefined,
 	): Promise<Blob> => {
-		const path = `/xrpc/${nsid}${encodeParams(outgoingSpaceUris(params))}`;
+		const path = `/xrpc/${nsid}${encodeParams(canonicalSpaceUris(params))}`;
 		const headers = new Headers();
 
 		if (proxy) headers.set("atproto-proxy", proxy);

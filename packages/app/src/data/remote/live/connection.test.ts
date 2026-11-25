@@ -2,7 +2,6 @@ import {
 	AUTH_SUBPROTOCOL,
 	type ColibriError,
 	EVENTS_LXM,
-	setLegacySpaceUris,
 } from "@colibri-social/lib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LiveEvent } from "../../source";
@@ -113,7 +112,6 @@ const start = (overrides: Partial<LiveConnectionOptions> = {}) =>
 	});
 
 beforeEach(() => {
-	setLegacySpaceUris(false);
 	vi.useFakeTimers();
 	sockets = [];
 	getServiceAuth = vi.fn<GetServiceAuth>(async () => ({
@@ -122,7 +120,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	setLegacySpaceUris(true);
 	vi.useRealTimers();
 });
 

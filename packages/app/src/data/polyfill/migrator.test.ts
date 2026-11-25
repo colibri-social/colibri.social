@@ -14,8 +14,8 @@ import type { MigrationRecord } from "./migrator";
 import { createMigrator } from "./migrator";
 
 const VIEWER = "did:plc:viewer";
-const CHANNEL = "at://did:plc:space/space/social.colibri.beta.channel/general";
-const PREFERENCES = `at://${VIEWER}/space/social.colibri.beta.actor.preferences/self`;
+const CHANNEL = "at:space/did:plc:space/social.colibri.beta.channel/general";
+const PREFERENCES = `at:space/${VIEWER}/social.colibri.beta.actor.preferences/self`;
 const MESSAGE = "social.colibri.beta.message";
 const SETTINGS = "social.colibri.beta.actor.settings";
 const APPLY = "com.atproto.space.applyWrites";
