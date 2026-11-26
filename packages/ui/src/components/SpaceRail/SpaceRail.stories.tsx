@@ -282,8 +282,11 @@ export const LockedSpacesDesktop: Story = {
 
 const UNREACHABLE_RETRY_DELAY = 700;
 
-const UnreachableRail = (props: { platform?: SpaceRailPlatform }) => {
-	const [active, setActive] = createSignal("flock");
+const UnreachableRail = (props: {
+	platform?: SpaceRailPlatform;
+	initial?: "flock" | "market";
+}) => {
+	const [active, setActive] = createSignal(props.initial ?? "flock");
 	const [reachable, setReachable] = createSignal(false);
 	const retry = () => {
 		return new Promise<void>((resolve) =>
@@ -392,6 +395,30 @@ export const UnreachableSpaceDesktop: Story = {
 	parameters: { viewport: { defaultViewport: "desktop" } },
 	render: () => <UnreachableRail platform="desktop" />,
 	play: async ({ canvasElement }) => expectUnreachableFlow(canvasElement),
+};
+
+const expectUnreachableScreen = async (canvasElement: HTMLElement) => {
+	const canvas = within(canvasElement);
+
+	await expect(
+		canvas.getByRole("heading", {
+			name: "Night Market can't be reached right now",
+		}),
+	).toBeVisible();
+	await expectNoLayoutIssues(
+		canvasElement.querySelector("[data-rail-panel]") as HTMLElement,
+	);
+};
+
+export const UnreachableSpaceScreen: Story = {
+	render: () => <UnreachableRail initial="market" />,
+	play: async ({ canvasElement }) => expectUnreachableScreen(canvasElement),
+};
+
+export const UnreachableSpaceScreenDesktop: Story = {
+	parameters: { viewport: { defaultViewport: "desktop" } },
+	render: () => <UnreachableRail platform="desktop" initial="market" />,
+	play: async ({ canvasElement }) => expectUnreachableScreen(canvasElement),
 };
 
 const measureFigma = async (

@@ -13,7 +13,7 @@ export const SpaceUnavailable = (props: SpaceUnavailableProps) => (
 	<ErrorState
 		variant={props.variant}
 		title={`${props.name} can't be reached right now`}
-		description={`This Space runs on ${props.host}, and that server isn't answering. Messages that were already sent are safe, and Colibri keeps trying in the background.`}
+		description={`${props.name} is hosted by ${props.host}, which is currently not responding. Nothing you've sent is lost, and the Space opens again on its own once they're back.`}
 		onRetry={props.onRetry}
 		retrying={props.retrying}
 		class={props.class}

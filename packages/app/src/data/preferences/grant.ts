@@ -29,8 +29,9 @@ export const createPreferencesGrant = (input: {
 	transport: Transport;
 	space: PreferencesSpace;
 	host?: HostModeSignal;
+	community?: string;
 }) => {
-	const { transport, space, host } = input;
+	const { transport, space, host, community } = input;
 
 	const delegate = () =>
 		transport.pdsQuery<{ token: string }>(
@@ -47,7 +48,13 @@ export const createPreferencesGrant = (input: {
 			});
 			const result = await transport.procedure(
 				colibri.actor.grantSpaceAccess.main,
-				{ body: { space: space.space, delegationToken: delegation.token } },
+				{
+					body: {
+						space: space.space,
+						delegationToken: delegation.token,
+						...(community ? { community } : {}),
+					},
+				},
 			);
 			return result.expiresAt;
 		} catch (error) {

@@ -64,6 +64,7 @@ import type {
 import { fetchBlueskyPost } from "./bluesky";
 import { createDeletion } from "./deletion";
 import { appViewOrigin, createRemoteEmoji, emojiBlobLocator } from "./emoji";
+import { createFederation } from "./federation";
 import {
 	createMessageIndex,
 	createMessageWrites,
@@ -83,6 +84,11 @@ const BLUESKY_PROFILE_COLLECTION = "app.bsky.actor.profile";
 const THREAD_FOLLOW_COLLECTION = "social.colibri.beta.thread.follow";
 
 type ProfileRecordValue = Record<string, unknown> & { syncBluesky?: unknown };
+
+type ListedCommunities = {
+	communities: unknown[];
+	unavailable?: { did: string; managingApp: string }[];
+};
 
 const textOf = (value: unknown) =>
 	typeof value === "string" && value.trim() ? value : undefined;
@@ -244,13 +250,22 @@ export const createRemoteSource = async (
 			(await preferencesGrant.grant()) !== undefined,
 	});
 
+	const federation = createFederation({
+		transport,
+		records,
+		space: preferencesSpace,
+		host,
+	});
+
 	const startHosting = () => {
 		const stopGrant = preferencesGrant.start();
 		const stopMigrator = migrator.start();
+		const stopFederation = federation.start();
 
 		return () => {
 			stopGrant();
 			stopMigrator();
+			stopFederation();
 			host.dispose();
 		};
 	};
@@ -423,9 +438,13 @@ export const createRemoteSource = async (
 		viewer: () => viewer,
 
 		listCommunities: async () => {
-			const communities = (
-				await transport.query(colibri.actor.listCommunities.main)
-			).communities as CommunityView[];
+			const listed = (await transport.query(
+				colibri.actor.listCommunities.main,
+			)) as ListedCommunities;
+			const communities = federation.reconcile(
+				listed.communities as CommunityView[],
+				listed.unavailable,
+			);
 			watchCommunities(communities);
 			return communities;
 		},
@@ -524,6 +543,7 @@ export const createRemoteSource = async (
 		},
 		leaveCommunity: async (input) => {
 			await transport.procedure(colibri.community.leave.main, { body: input });
+			await federation.forget(input.community);
 		},
 		accountHost,
 		accountIssuer: async () => {
@@ -740,10 +760,15 @@ export const createRemoteSource = async (
 			(await transport.query(colibri.community.getInvitation.main, {
 				params: { code, ...(community ? { community } : {}) },
 			})) as InvitationPreview,
-		joinCommunity: async (input) =>
-			(await transport.procedure(colibri.community.join.main, {
+		joinCommunity: async (input) => {
+			const result = (await transport.procedure(colibri.community.join.main, {
 				body: input,
-			})) as JoinResult,
+			})) as JoinResult;
+
+			await federation.joined(input.community);
+
+			return result;
+		},
 
 		listMessages,
 		sendMessage: writes.sendMessage,
