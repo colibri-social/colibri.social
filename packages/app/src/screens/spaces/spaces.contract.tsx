@@ -29,6 +29,7 @@ import {
 	SpaceDrawer,
 	type SpaceMenuActions,
 	SpaceRailItem,
+	SpaceUnavailable,
 	StatusScreen,
 	toast,
 	useHaptics,
@@ -126,7 +127,11 @@ const attentionNotice = (attention: SpaceAttention | undefined) =>
 		: undefined;
 
 export const hasNoSpaces = (data: DataStore) => {
-	return !data.communities.loading() && data.communities.value()?.length === 0;
+	return (
+		!data.communities.loading() &&
+		data.communities.value()?.length === 0 &&
+		data.unavailableSpaces().length === 0
+	);
 };
 
 export const spaces = defineContract({
@@ -145,11 +150,17 @@ export const spaces = defineContract({
 		});
 		const missing = () =>
 			!!args.slug && !data.communities.loading() && !community();
+		const unavailableSpace = createMemo(() =>
+			args.slug
+				? data.unavailableSpaces().find((entry) => entry.did === args.slug)
+				: undefined,
+		);
 		createEffect(() => {
-			const current = community();
-			if (current && !args.slug) {
-				stack.setRoot({ tab: "spaces", space: spaceKey(current) });
-			}
+			if (args.slug) return;
+
+			const current = community() ?? data.unavailableSpaces()[0];
+
+			if (current) stack.setRoot({ tab: "spaces", space: spaceKey(current) });
 		});
 		const space = createMemo<SpaceData | undefined>(() => {
 			const current = community();
@@ -189,7 +200,7 @@ export const spaces = defineContract({
 			cancelPendingSwitch = undefined;
 		};
 		onCleanup(cancelSwitch);
-		const selectSpace = (target: CommunityView) => {
+		const selectSpace = (target: Pick<CommunityView, "did">) => {
 			cancelSwitch();
 			setPendingSpace(target.did);
 			cancelPendingSwitch = afterSpaceRailMotion(() => {
@@ -621,6 +632,7 @@ export const spaces = defineContract({
 			authorName,
 			ownerHandle,
 			missing,
+			unavailableSpace,
 			empty: () => hasNoSpaces(data),
 			inviteDrawer,
 			openCreateSpace: () => stack.push({ kind: "createSpace" }),
@@ -697,21 +709,34 @@ export const spaces = defineContract({
 	},
 	slots: {
 		Missing: slot((m) => (
-			<StatusScreen
-				tone="destructive"
-				icon={<DangerTriangleIcon />}
-				title="This Space isn't available"
-				description="It may have been deleted, or you're no longer a member."
-				actions={
-					<Show when={m.fallbackSpace()}>
-						{(space) => (
-							<Button block onClick={() => m.selectSpace(space())}>
-								{`Go to ${space().name}`}
-							</Button>
-						)}
-					</Show>
+			<Show
+				when={m.unavailableSpace()}
+				fallback={
+					<StatusScreen
+						tone="destructive"
+						icon={<DangerTriangleIcon />}
+						title="This Space isn't available"
+						description="It may have been deleted, or you're no longer a member."
+						actions={
+							<Show when={m.fallbackSpace()}>
+								{(space) => (
+									<Button block onClick={() => m.selectSpace(space())}>
+										{`Go to ${space().name}`}
+									</Button>
+								)}
+							</Show>
+						}
+					/>
 				}
-			/>
+			>
+				{(space) => (
+					<SpaceUnavailable
+						name={space().name ?? "This Space"}
+						host={space().host}
+						onRetry={m.data.retryUnavailable}
+					/>
+				)}
+			</Show>
 		)),
 		NoSpaces: slot((m) => (
 			<StatusScreen
@@ -771,6 +796,17 @@ export const spaces = defineContract({
 								</Show>
 							);
 						}}
+					</For>
+					<For each={m.data.unavailableSpaces()}>
+						{(space) => (
+							<SpaceRailItem
+								name={space.name ?? "This Space"}
+								iconSrc={space.picture}
+								unavailable
+								active={m.railSpace() === space.did}
+								onSelect={() => m.selectSpace(space)}
+							/>
+						)}
 					</For>
 					<For each={m.legacyCommunities()}>
 						{(legacy) => (

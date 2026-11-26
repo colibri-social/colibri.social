@@ -44,6 +44,7 @@ import {
 	type ProfileSeed,
 	type ProfileTheme,
 	type Simulation,
+	type UnavailableCommunity,
 } from "../source";
 import { createSupporterLinkTransport } from "../supporter-link";
 import type {
@@ -250,6 +251,9 @@ export const createRemoteSource = async (
 			(await preferencesGrant.grant()) !== undefined,
 	});
 
+	const [unavailable, setUnavailable] = createSignal<
+		readonly UnavailableCommunity[]
+	>([]);
 	const federation = createFederation({
 		transport,
 		records,
@@ -437,6 +441,7 @@ export const createRemoteSource = async (
 
 		viewer: () => viewer,
 
+		unavailableCommunities: unavailable,
 		listCommunities: async () => {
 			const listed = (await transport.query(
 				colibri.actor.listCommunities.main,
@@ -445,6 +450,7 @@ export const createRemoteSource = async (
 				listed.communities as CommunityView[],
 				listed.unavailable,
 			);
+			setUnavailable((listed.unavailable ?? []) as UnavailableCommunity[]);
 			watchCommunities(communities);
 			return communities;
 		},

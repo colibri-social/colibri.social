@@ -41,6 +41,8 @@ import type {
 
 type Page<T> = { items: T[]; cursor?: string };
 
+export type UnavailableCommunity = { did: Did; managingApp: string };
+
 export type MessagePage = Page<MessageView> & { forwardCursor?: string };
 
 export type ListMessagesParams = {
@@ -524,6 +526,7 @@ export type DataSource = AccessSource &
 		updateBridge: (input: UpdateBridgeInput) => Promise<BridgeRegistrationView>;
 		revokeBridge: (input: BridgeTarget) => Promise<void>;
 		listCommunities: () => Promise<CommunityView[]>;
+		unavailableCommunities: () => readonly UnavailableCommunity[];
 		listCategories: (community: Did) => Promise<CategoryView[]>;
 		listChannels: (community: Did) => Promise<ChannelView[]>;
 		listChannelSummaries: (community: Did) => Promise<ChannelSummary[]>;

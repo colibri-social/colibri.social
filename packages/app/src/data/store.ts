@@ -470,6 +470,22 @@ const reportsActivity = (
 ): source is DataSource & { markActive: () => void } =>
 	typeof (source as { markActive?: unknown }).markActive === "function";
 
+export const UNAVAILABLE_RETRY_MS = 60_000;
+
+export type UnavailableSpace = {
+	did: Did;
+	managingApp: string;
+	host: string;
+	name?: string;
+	picture?: string;
+};
+
+export const appViewHost = (managingApp: string): string => {
+	if (!managingApp.startsWith("did:web:")) return managingApp;
+
+	return decodeURIComponent(managingApp.slice("did:web:".length));
+};
+
 export type DataStoreOptions = {
 	cache?: MessageCache;
 	spaces?: SpaceCache;
@@ -539,9 +555,48 @@ export const createDataStore = (
 			...loadedCommunities,
 			value: orderedCommunities,
 		};
+		const knownCommunities = new Map<string, CommunityView>(
+			(snapshot?.communities ?? []).map((view) => [view.did, view]),
+		);
+		const unavailableSpaces = createMemo<UnavailableSpace[]>(() => {
+			for (const view of loadedCommunities.value() ?? [])
+				knownCommunities.set(view.did, view);
+
+			return source.unavailableCommunities().map((entry) => {
+				const known = knownCommunities.get(entry.did);
+
+				return {
+					did: entry.did,
+					managingApp: entry.managingApp,
+					host: appViewHost(entry.managingApp),
+					name: known?.name,
+					picture: known?.picture,
+				};
+			});
+		});
+		runWithOwner(owner, () =>
+			createEffect(() => {
+				if (unavailableSpaces().length === 0) return;
+
+				const timer = setInterval(
+					() => void communities.refresh(),
+					UNAVAILABLE_RETRY_MS,
+				);
+
+				onCleanup(() => clearInterval(timer));
+			}),
+		);
 		persist(() => {
 			const list = loadedCommunities.value();
-			if (list) spaceCache?.offerCommunities(list);
+			if (!list) return;
+
+			const kept = unavailableSpaces().flatMap((entry) => {
+				const known = knownCommunities.get(entry.did);
+
+				return known ? [known] : [];
+			});
+
+			spaceCache?.offerCommunities([...list, ...kept]);
 		});
 		persist(() => {
 			const profile: Record<string, unknown> = {};
@@ -3873,6 +3928,8 @@ export const createDataStore = (
 			whenSpaceReady,
 			space,
 			channel,
+			unavailableSpaces,
+			retryUnavailable: () => communities.refresh(),
 			spaceByKey: (slug: string) =>
 				communities.value()?.find((entry) => spaceKey(entry) === slug),
 			presenceOf: (did: Did) => presence[did],
