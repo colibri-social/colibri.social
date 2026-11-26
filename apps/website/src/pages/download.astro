@@ -12,7 +12,6 @@ import Store from "@/components/icons/store.svg";
 import Terminal from "@/components/icons/terminal.svg";
 import Windows from "@/components/icons/windows.svg";
 import PublicLayout from "@/layouts/PublicLayout.astro";
-import { latestSpacesRelease } from "@/lib/updater";
 
 const RELEASES =
 	"https://github.com/colibri-social/colibri.social/releases/latest";
@@ -162,11 +161,21 @@ const platforms: Array<Platform> = [
 				icon: "download",
 				href: RELEASES,
 			},
+			// {
+			// 	name: "AUR",
+			// 	desc: "Built from source on Arch",
+			// 	icon: "terminal",
+			// 	command: "yay -S colibri-social",
+			// },
+			// {
+			// 	name: "AUR (binary)",
+			// 	desc: "The prebuilt release on Arch",
+			// 	icon: "terminal",
+			// 	command: "yay -S colibri-social-bin",
+			// },
 		],
 	},
 ];
-
-const spacesRelease = await latestSpacesRelease();
 
 const visiblePlatforms = platforms.filter((pf) => !pf.hidden);
 
@@ -203,23 +212,6 @@ import { ogImageFor } from "@/lib/og/url";
 				Get the Colibri app for your favorite devices and go for a flight.
 			</p>
 		</div>
-
-		{
-			spacesRelease && (
-				<p class="m-0 w-full max-w-2xl rounded-[10px] border border-(--site-line) bg-(--site-muted) px-4 py-3 text-sm text-white/80 text-center">
-					For spaces (private data) support, grab the{" "}
-					<a
-						href={spacesRelease.url}
-						target="_blank"
-						rel="noreferrer"
-						class="text-primary hover:underline"
-					>
-						{spacesRelease.version} pre-release
-					</a>{" "}
-					on GitHub. <b>Please read the release description carefully.</b>
-				</p>
-			)
-		}
 
 		<div
 			id="download-card"

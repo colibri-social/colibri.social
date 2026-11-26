@@ -69,22 +69,6 @@ const findLatestRelease = async (
 	return releases?.find((r) => !r.draft && releaseChannel(r) === channel);
 };
 
-export const latestSpacesRelease = async (): Promise<{
-	version: string;
-	url: string;
-} | null> => {
-	try {
-		const release = await findLatestRelease("spaces");
-		if (!release) return null;
-		return {
-			version: release.tag_name.replace(/^v/, ""),
-			url: release.html_url,
-		};
-	} catch {
-		return null;
-	}
-};
-
 const fetchLatestManifest = async (
 	channel: UpdateChannel,
 ): Promise<Manifest | null> => {

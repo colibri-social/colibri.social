@@ -28,13 +28,13 @@ Proxy requests through the user's own PDS and address the AppView by its service
 reference. The hosted AppView is:
 
 ```
-did:web:spaces-api.colibri.social#colibri_appview
+did:web:api.colibri.social#colibri_appview
 ```
 
 Push registration targets the notification service:
 
 ```
-did:web:spaces-api.colibri.social#colibri_notifs
+did:web:api.colibri.social#colibri_notifs
 ```
 
 Both references resolve to the same endpoint. A self-hosted AppView uses its own
@@ -50,7 +50,7 @@ the method being called. A method carries that mark when its lexicon declares
 the `AuthRequired` error.
 
 Let the PDS mint the token. Send the request to the user's PDS with an
-`atproto-proxy: did:web:spaces-api.colibri.social#colibri_appview` header, and
+`atproto-proxy: did:web:api.colibri.social#colibri_appview` header, and
 the PDS attaches `Authorization: Bearer <jwt>` to the proxied request.
 
 A method marked `no service auth` answers without a token.

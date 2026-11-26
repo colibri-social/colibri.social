@@ -39,7 +39,7 @@ The website serves the client's Vite build at `/app`, and the native shell bundl
 
    | Variable | Purpose |
    | --- | --- |
-   | `VITE_COLIBRI_APPVIEW_URL` | The AppView the client talks to. Unset, the client uses `https://spaces-api.colibri.social`. |
+   | `VITE_COLIBRI_APPVIEW_URL` | The AppView the client talks to. Unset, the client uses `https://api.colibri.social`. |
    | `VITE_COLIBRI_PLC_URL` | The PLC directory the client resolves `did:plc` accounts in. Unset, the client uses `https://plc.directory`. |
    | `VITE_COLIBRI_SIGNUP_PDS_URL` | The PDS the sign-up flow creates accounts on |
    | `VITE_COLIBRI_MOCK` | Set to `1` to run the client on built-in mock data with no sign-in |
@@ -124,7 +124,7 @@ The shell renders the client's **built** output, and its build commands build `p
 
 `packages/wrapper/README.md` documents the build flags. `DISABLE_SENTRY` strips Sentry from both the frontend bundle and the Rust binary. `tauri build` requires `TAURI_SIGNING_PRIVATE_KEY`, because updater artifacts are enabled.
 
-The native app's OAuth client metadata is served from a fixed public origin, `https://spaces.colibri.social`, so native sign-in goes through a hosted metadata document in development too.
+The native app's OAuth client metadata is served from a fixed public origin, `https://colibri.social`, so native sign-in goes through a hosted metadata document in development too.
 
 `dev:tauri:android` and `dev:tauri:ios` fail on an Android emulator and an iOS Simulator. [Testing native builds](/docs/developers/development/native) covers the build-and-install workflow for those.
 

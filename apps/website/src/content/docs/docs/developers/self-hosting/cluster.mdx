@@ -96,6 +96,32 @@ A shutdown drains the node for `--grace`, or for `DRAIN_GRACE_MINUTES` without i
 
 `node remove` deletes the stack and its volumes from a retired node and forgets it. `node recover eu-2` restarts a node's stack.
 
+## Taking the network down
+
+```sh
+colibri-admin network down --grace 15m
+colibri-admin network up
+```
+
+`network down` drains every node for `--grace`, or for `DRAIN_GRACE_MINUTES` without it, and then parks it. No node takes the clients over, so every request gets a `503` until `network up`. The main node keeps the main role while parked, so it still runs `colibri-admin` orders, and it stops Jetstream and its background jobs. A node that restarts while the network is down stays parked.
+
+`network up` restarts the nodes that `network down` parked, the main node last. A node that was already in maintenance before `network down` stays there until `node resume`.
+
+Every node has to run a version with `network down` before you use it. Roll the cluster out to that version first.
+
+### Wiping the AppView data
+
+```sh
+colibri-admin db backup full
+colibri-admin network down
+colibri-admin db wipe
+colibri-admin network up
+```
+
+`db wipe` empties every table in the Postgres database and deletes every object under `polyfill/` in the `POLYFILL_S3_*` bucket. It keeps the cluster setup (`cluster_config`, `cluster_state`, `nodes`, `node_join_tokens`), the telemetry instance in `telemetry_state`, the migrations and the monitoring fingerprint. Jetstream starts from the present on the next start, because the wipe also removes its cursor.
+
+It refuses to run until `network down` is in effect and every node with a recent heartbeat is in maintenance. `--force` skips that check. Blob caches on each node keep their files. Empty `BLOB_DISK_CACHE_DIR` on every node to free that space.
+
 ## Updates
 
 The main node checks the `NODE_IMAGE` tag every `UPDATE_POLL_MINUTES`. When nodes run an older version than the image's `org.opencontainers.image.version` label, it updates them one at a time: sub nodes first, then the failover node, then itself. When the image carries database migrations that are not applied yet, the main node updates first.
@@ -315,9 +341,10 @@ Commands that interrupt clients or delete data are marked in `colibri-admin --he
 
 | Kind | Commands | Question | Flag that skips it |
 | --- | --- | --- | --- |
-| Disruptive | `node shutdown`, `node recover`, `rollout now`, `config unset`, `config import` when it replaces stored values, `db switchover`, `db failback` | Yes or no | `--yes` |
+| Disruptive | `node shutdown`, `node recover`, `network down`, `network up`, `rollout now`, `config unset`, `config import` when it replaces stored values, `db switchover`, `db failback` | Yes or no | `--yes` |
 | Irreversible | `node remove`, `db promote`, any command with `--force` | Type the node ID | `--confirm <node id>` |
 | Irreversible | `db copy --truncate` when the target has rows | Type `truncate` | `--confirm truncate` |
+| Irreversible | `db wipe` | Type `wipe` | `--confirm wipe` |
 
 Without a terminal, both kinds refuse unless you pass the flag.
 
