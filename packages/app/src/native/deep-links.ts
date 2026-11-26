@@ -42,8 +42,15 @@ const schemePath = (url: URL) => {
 		Boolean,
 	);
 	if (head === "invite") {
-		const code = segment(rest[0]);
-		return code && rest.length === 1 ? `/app/invite/${code}` : undefined;
+		if (rest.length === 1) {
+			const code = segment(rest[0]);
+			return code ? `/app/invite/${code}` : undefined;
+		}
+		const community = rest[0] ? decode(rest[0]) : undefined;
+		const code = segment(rest[1]);
+		if (!community?.startsWith("did:") || !code || rest.length !== 2)
+			return undefined;
+		return `/app/invite/${community}/${code}`;
 	}
 	if (head === "emoji") {
 		const did = rest[0] ? decode(rest[0]) : undefined;

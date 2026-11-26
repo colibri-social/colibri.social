@@ -1,3 +1,5 @@
+import { invitePath } from "@/lib/invitation";
+
 export type OgImage =
 	| { kind: "home" }
 	| { kind: "download" }
@@ -5,7 +7,7 @@ export type OgImage =
 	| { kind: "blog" }
 	| { kind: "blog-post"; rkey: string }
 	| { kind: "docs"; slug: string }
-	| { kind: "invite"; code: string }
+	| { kind: "invite"; code: string; community?: string }
 	| { kind: "emoji-pack"; did: string; rkey: string };
 
 const pathFor = (image: OgImage) => {
@@ -23,7 +25,7 @@ const pathFor = (image: OgImage) => {
 		case "docs":
 			return `/og/docs/${image.slug.split("/").map(encodeURIComponent).join("/")}.png`;
 		case "invite":
-			return `/og/invite/${encodeURIComponent(image.code)}.png`;
+			return `/og/invite/${invitePath(image)}.png`;
 		case "emoji-pack":
 			return `/og/emoji/${encodeURIComponent(image.did)}/${encodeURIComponent(image.rkey)}.png`;
 	}

@@ -85,7 +85,7 @@ export type AdminLayer = {
 type CreateSpaceLayer = { kind: "createSpace" };
 type LegacySpaceLayer = { kind: "legacySpace"; did: string };
 type DiscoverLayer = { kind: "discover" };
-type JoinLayer = { kind: "join"; code: string };
+export type JoinLayer = { kind: "join"; code: string; community?: string };
 type PackLayer = { kind: "pack"; did: string; rkey: string };
 
 export type NotFoundLayer = { kind: "notFound"; path: string };
@@ -214,7 +214,11 @@ export const layerPath = (layer: Layer) => {
 	if (layer.kind === "legacySpace")
 		return `${LEGACY_SPACE_PATH}/${segment(layer.did)}`;
 	if (layer.kind === "discover") return DISCOVER_PATH;
-	if (layer.kind === "join") return `/app/invite/${segment(layer.code)}`;
+	if (layer.kind === "join") {
+		return layer.community
+			? `/app/invite/${layer.community}/${segment(layer.code)}`
+			: `/app/invite/${segment(layer.code)}`;
+	}
 	if (layer.kind === "pack") return packPath(layer);
 	if (layer.kind === "notFound") return layer.path;
 	if (layer.kind === "admin") return adminPath(layer);
@@ -311,15 +315,30 @@ const notFoundRoute = (pathname: string): Route => ({
 	layers: [{ kind: "notFound", path: pathname }],
 });
 
+export const joinArgs = (layer: JoinLayer): Record<string, string> => {
+	const { code, community } = layer;
+	return community ? { code, community } : { code };
+};
+
+const joinRoute = (rest: readonly string[]): Route | undefined => {
+	const [first, second] = rest;
+	if (!first || rest.length > 2) return undefined;
+	if (rest.length === 1) {
+		return { root: { tab: "spaces" }, layers: [{ kind: "join", code: first }] };
+	}
+	if (!first.startsWith("did:") || !second) return undefined;
+	return {
+		root: { tab: "spaces" },
+		layers: [{ kind: "join", code: second, community: first }],
+	};
+};
+
 const parseKnownPath = (parts: readonly string[]): Route | undefined => {
 	const [app, head, space, channelType, channel, tail, thread, anchor, rest] =
 		parts;
 	const length = parts.length;
 	if (length === 0) return { root: { tab: "spaces" }, layers: [] };
-	if (app === "invite") {
-		if (!head || length > 2) return undefined;
-		return { root: { tab: "spaces" }, layers: [{ kind: "join", code: head }] };
-	}
+	if (app === "invite") return joinRoute(parts.slice(1));
 	if (app === "emoji") {
 		return length === 3 ? packRoute(head, space) : undefined;
 	}
@@ -346,13 +365,7 @@ const parseKnownPath = (parts: readonly string[]): Route | undefined => {
 	if (DISCOVERY_ENABLED && head === "discover" && length === 2) {
 		return { root: { tab: "spaces" }, layers: [{ kind: "discover" }] };
 	}
-	if (head === "invite") {
-		if (!space || length > 3) return undefined;
-		return {
-			root: { tab: "spaces" },
-			layers: [{ kind: "join", code: space }],
-		};
-	}
+	if (head === "invite") return joinRoute(parts.slice(2));
 	if (head === "settings" && length <= 3) {
 		return {
 			root: { tab: "settings" },

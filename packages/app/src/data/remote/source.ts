@@ -736,9 +736,9 @@ export const createRemoteSource = async (
 				body: input,
 			});
 		},
-		getInvitation: async (code) =>
+		getInvitation: async (code, community) =>
 			(await transport.query(colibri.community.getInvitation.main, {
-				params: { code },
+				params: { code, ...(community ? { community } : {}) },
 			})) as InvitationPreview,
 		joinCommunity: async (input) =>
 			(await transport.procedure(colibri.community.join.main, {

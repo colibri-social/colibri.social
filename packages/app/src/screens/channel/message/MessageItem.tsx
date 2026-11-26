@@ -101,7 +101,7 @@ import {
 	type ImageTarget,
 	imageTargetOf,
 } from "./image-actions";
-import { inviteCodeOf } from "./invite-embed";
+import { inviteOf } from "./invite-embed";
 import { LinkPreviewsDialog } from "./link-previews";
 import {
 	hasAttachmentContent,
@@ -267,12 +267,12 @@ export const MessageItem = (props: MessageItemProps) => {
 		const links: InviteLink[] = [];
 		for (const url of linkUris(message().facets)) {
 			if (spoileredLinks().has(url)) continue;
-			const code = inviteCodeOf(url);
-			if (!code || links.some((link) => link.code === code)) continue;
+			const invite = inviteOf(url);
+			if (!invite || links.some((link) => link.code === invite.code)) continue;
 			const known = previous?.find(
-				(link) => link.url === url && link.code === code,
+				(link) => link.url === url && link.code === invite.code,
 			);
-			links.push(known ?? { url, code });
+			links.push(known ?? { url, ...invite });
 		}
 		return previous &&
 			previous.length === links.length &&

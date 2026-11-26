@@ -59,12 +59,21 @@ export type AccessSource = {
 	listInvitations: (community: Did) => Promise<InvitationView[]>;
 	createInvitation: (input: CreateInvitationInput) => Promise<InvitationView>;
 	deleteInvitation: (input: { community: Did; code: string }) => Promise<void>;
-	getInvitation: (code: string) => Promise<InvitationPreview>;
+	getInvitation: (
+		code: string,
+		community?: string,
+	) => Promise<InvitationPreview>;
 	joinCommunity: (input: {
 		community: Did;
 		invitation?: string;
 	}) => Promise<JoinResult>;
 };
 
-export const inviteUrl = (code: string, origin = clientOrigin()) =>
-	`${origin}/invite/${encodeURIComponent(code)}`;
+export const inviteUrl = (
+	code: string,
+	community?: string,
+	origin = clientOrigin(),
+) =>
+	community
+		? `${origin}/invite/${community}/${encodeURIComponent(code)}`
+		: `${origin}/invite/${encodeURIComponent(code)}`;

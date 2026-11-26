@@ -25,31 +25,40 @@ type Loaded =
 const invitations = new Map<string, Promise<Loaded>>();
 const settled = new Map<string, Loaded>();
 
-const forget = (code: string) => {
-	invitations.delete(code);
-	settled.delete(code);
+type Invite = { code: string; community?: string };
+
+const keyOf = (invite: Invite) =>
+	invite.community ? `${invite.community}/${invite.code}` : invite.code;
+
+const forget = (invite: Invite) => {
+	invitations.delete(keyOf(invite));
+	settled.delete(keyOf(invite));
 };
 
-export const inviteCodeOf = (uri: string): string | undefined => {
+export const inviteOf = (uri: string): Invite | undefined => {
 	const layers = routeFromLink(uri)?.layers ?? [];
 	const [layer] = layers;
-	return layers.length === 1 && layer?.kind === "join" ? layer.code : undefined;
+	if (layers.length !== 1 || layer?.kind !== "join") return undefined;
+	return layer.community
+		? { code: layer.code, community: layer.community }
+		: { code: layer.code };
 };
 
 const loadInvitation = (
-	resolve: (code: string) => Promise<InvitationPreview>,
-	code: string,
+	resolve: (invite: Invite) => Promise<InvitationPreview>,
+	invite: Invite,
 ) => {
-	const cached = invitations.get(code);
+	const key = keyOf(invite);
+	const cached = invitations.get(key);
 	if (cached) return cached;
-	const request = resolve(code).then(
+	const request = resolve(invite).then(
 		(preview): Loaded => {
 			const loaded: Loaded = { kind: "ready", preview };
-			if (invitations.get(code) === request) settled.set(code, loaded);
+			if (invitations.get(key) === request) settled.set(key, loaded);
 			return loaded;
 		},
 		(error): Loaded => {
-			invitations.delete(code);
+			invitations.delete(key);
 			if (error instanceof AccessError) return { kind: "invalid" };
 			log.warn("loading an invite failed", {
 				code: classifyThrown(error, { method: "getInvitation" }).code,
@@ -57,7 +66,7 @@ const loadInvitation = (
 			return { kind: "failed" };
 		},
 	);
-	invitations.set(code, request);
+	invitations.set(key, request);
 	return request;
 };
 
@@ -69,17 +78,22 @@ const problemOf = (preview: InvitationPreview) => {
 export const InviteEmbed = (props: {
 	url: string;
 	code: string;
+	community?: string;
 	onOpenSpace?: (community: CommunityView) => void;
 }) => {
+	const invite = (): Invite => ({
+		code: props.code,
+		community: props.community,
+	});
 	const data = useData();
 	const [attempt, setAttempt] = createSignal(0);
 	const [loaded, setLoaded] = createSignal<Loaded | undefined>(
-		settled.get(props.code),
+		settled.get(keyOf(invite())),
 	);
 	createEffect(() => {
-		const code = props.code;
+		const target = invite();
 		attempt();
-		const known = settled.get(code);
+		const known = settled.get(keyOf(target));
 		if (known) {
 			setLoaded(known);
 			return;
@@ -90,8 +104,8 @@ export const InviteEmbed = (props: {
 			current = false;
 		});
 		void loadInvitation(
-			(value) => data.access.resolveInvitation(value),
-			code,
+			(value) => data.access.resolveInvitation(value.code, value.community),
+			target,
 		).then((result) => {
 			if (current) setLoaded(result);
 		});
@@ -159,7 +173,7 @@ export const InviteEmbed = (props: {
 		setBusy(true);
 		try {
 			const result = await data.access.join(community.did, props.code);
-			forget(props.code);
+			forget(invite());
 			if (result.status === "pending") {
 				setViewerOverride("pending");
 				toast.success(JOIN_COPY.requested(community.name));
@@ -176,7 +190,7 @@ export const InviteEmbed = (props: {
 					return void props.onOpenSpace?.(community);
 				}
 				if (error.code === "InvitationNotFound") {
-					forget(props.code);
+					forget(invite());
 					return void setAttempt((value) => value + 1);
 				}
 			}
