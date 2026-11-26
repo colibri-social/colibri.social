@@ -1,4 +1,5 @@
 import { AddIcon } from "@solar-icons/solid/bold/add";
+import { CloudCrossIcon } from "@solar-icons/solid/bold/cloud-cross";
 import { CompassIcon } from "@solar-icons/solid/bold/compass";
 import { LockKeyholeMinimalisticIcon } from "@solar-icons/solid/bold/lock-keyhole-minimalistic";
 import { RefreshIcon } from "@solar-icons/solid/bold/refresh";
@@ -560,6 +561,7 @@ export type SpaceRailItemProps = {
 	unread?: boolean;
 	mentions?: number;
 	locked?: "waiting" | "moving";
+	unavailable?: boolean;
 	attention?: boolean;
 	onSelect?: () => void;
 	onMenu?: (event: Event) => void;
@@ -575,6 +577,8 @@ const itemLabel = (props: SpaceRailItemProps) => {
 	const parts = [props.name];
 	if (props.locked === "moving") parts.push("moving to Spaces");
 	else if (props.locked) parts.push("not on Spaces yet");
+	else if (props.unavailable) parts.push("can't be reached right now");
+	if (props.unavailable && !props.locked) return parts.join(", ");
 	if (props.attention) parts.push("needs your attention");
 	if (props.mentions && props.mentions > 0)
 		parts.push(
@@ -690,7 +694,7 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 							data-rail-icon=""
 							class={cx(
 								"relative block size-full overflow-hidden rounded-control",
-								props.locked && "opacity-60",
+								(props.locked || props.unavailable) && "opacity-60",
 							)}
 						>
 							<SpaceIcon
@@ -724,7 +728,16 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 								</span>
 							)}
 						</Show>
-						<Show when={props.attention && !props.locked}>
+						<Show when={props.unavailable && !props.locked}>
+							<span
+								aria-hidden="true"
+								data-rail-unavailable=""
+								class="absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground shadow-[0_0_0_3px_var(--background)] [&_svg]:size-3"
+							>
+								<CloudCrossIcon />
+							</span>
+						</Show>
+						<Show when={props.attention && !props.locked && !props.unavailable}>
 							<span
 								aria-hidden="true"
 								data-rail-attention=""
@@ -734,7 +747,12 @@ export const SpaceRailItem = (props: SpaceRailItemProps) => {
 							</span>
 						</Show>
 						<Show
-							when={!props.attention && props.mentions && props.mentions > 0}
+							when={
+								!props.attention &&
+								!props.unavailable &&
+								props.mentions &&
+								props.mentions > 0
+							}
 						>
 							<CountBadge
 								aria-hidden="true"

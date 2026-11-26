@@ -2,9 +2,11 @@ import { InboxIcon } from "@solar-icons/solid/bold/inbox";
 import { createSignal, For, Show } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import { expectNoLayoutIssues } from "../../foundations/layout-test";
 import { CountBadge } from "../Badge/Badge";
 import { storyImages } from "../Banner/story-images";
 import { SpaceRailSkeleton } from "../Channels/ChannelSkeletons";
+import { SpaceUnavailable } from "../Space/SpaceUnavailable";
 import { TOOLTIP_OPEN_DELAY } from "../Tooltip/Tooltip";
 import {
 	SPACE_RAIL_DESKTOP_FADE,
@@ -276,6 +278,120 @@ export const LockedSpacesDesktop: Story = {
 	parameters: { viewport: { defaultViewport: "desktop" } },
 	render: () => <LockedRail platform="desktop" />,
 	play: async ({ canvasElement }) => expectLockBadges(canvasElement),
+};
+
+const UNREACHABLE_RETRY_DELAY = 700;
+
+const UnreachableRail = (props: { platform?: SpaceRailPlatform }) => {
+	const [active, setActive] = createSignal("flock");
+	const [reachable, setReachable] = createSignal(false);
+	const retry = () => {
+		return new Promise<void>((resolve) =>
+			setTimeout(() => {
+				setReachable(true);
+				resolve();
+			}, UNREACHABLE_RETRY_DELAY),
+		);
+	};
+
+	return (
+		<div class="flex h-dvh bg-background">
+			<SpaceRail platform={props.platform}>
+				<SpaceRailItem
+					name="Colibri Social Flock"
+					iconSrc={storyImages.violetIcon()}
+					active={active() === "flock"}
+					onSelect={() => setActive("flock")}
+				/>
+				<SpaceRailItem
+					name="Night Market"
+					iconSrc={storyImages.amberIcon()}
+					unavailable={!reachable()}
+					mentions={2}
+					active={active() === "market"}
+					onSelect={() => setActive("market")}
+				/>
+			</SpaceRail>
+			<div
+				data-rail-panel=""
+				class={`${spaceRailMobilePanelClass} flex min-w-0 flex-1 flex-col`}
+			>
+				<Show
+					when={active() === "market" && !reachable()}
+					fallback={
+						<p
+							data-space-content=""
+							class="m-0 p-4 text-sm text-muted-foreground"
+						>
+							Story mock: channels for{" "}
+							{active() === "market" ? "Night Market" : "Colibri Social Flock"}{" "}
+							load here.
+						</p>
+					}
+				>
+					<SpaceUnavailable
+						name="Night Market"
+						host="market.example.org"
+						onRetry={retry}
+					/>
+				</Show>
+			</div>
+		</div>
+	);
+};
+
+const expectUnreachableFlow = async (canvasElement: HTMLElement) => {
+	const canvas = within(canvasElement);
+	const market = canvas.getByRole("button", {
+		name: "Night Market, can't be reached right now",
+	});
+	const badge = market.querySelector("[data-rail-unavailable]");
+
+	await expect(badge).not.toBeNull();
+	await expect(market.querySelector("[data-rail-mentions]")).toBeNull();
+
+	const icon = rectOf(market.querySelector("[data-rail-icon]"));
+	const mark = rectOf(badge);
+
+	near(mark.right, icon.right + 4);
+	near(mark.bottom, icon.bottom + 4);
+
+	const dimmed = market.querySelector("[data-rail-icon]") as HTMLElement;
+
+	await expect(getComputedStyle(dimmed).opacity).toBe("0.6");
+	await userEvent.click(market);
+	await expect(
+		canvas.getByRole("heading", {
+			name: "Night Market can't be reached right now",
+		}),
+	).toBeVisible();
+	await expect(canvas.getByText(/market\.example\.org/)).toBeVisible();
+	await expectNoLayoutIssues(
+		canvasElement.querySelector("[data-rail-panel]") as HTMLElement,
+	);
+	await userEvent.click(canvas.getByRole("button", { name: "Try again" }));
+
+	const content = await canvas.findByText(
+		/channels for Night Market/,
+		{},
+		{ timeout: 3000 },
+	);
+
+	await expect(content).toBeVisible();
+	await expect(
+		canvas.getByRole("button", { name: /^Night Market, 2 mentions/ }),
+	).toBeVisible();
+};
+
+export const UnreachableSpace: Story = {
+	render: () => <UnreachableRail />,
+	play: async ({ canvasElement }) => expectUnreachableFlow(canvasElement),
+};
+
+export const UnreachableSpaceDesktop: Story = {
+	parameters: { viewport: { defaultViewport: "desktop" } },
+	render: () => <UnreachableRail platform="desktop" />,
+	play: async ({ canvasElement }) => expectUnreachableFlow(canvasElement),
 };
 
 const measureFigma = async (
