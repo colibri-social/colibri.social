@@ -9,42 +9,42 @@
 		},
 		{
 			"name": "@atproto-labs/did-resolver",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto-labs/fetch",
-			"version": "0.4.2",
+			"version": "0.4.3",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto-labs/fetch-node",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto-labs/handle-resolver",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto-labs/handle-resolver-node",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto-labs/identity-resolver",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
@@ -58,203 +58,210 @@
 		},
 		{
 			"name": "@atproto-labs/simple-store",
-			"version": "0.5.1",
+			"version": "0.5.2",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto-labs/simple-store-memory",
-			"version": "0.2.6",
+			"version": "0.2.7",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/api",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/car",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/common-web",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/crypto",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/did",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/jwk",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/jwk-jose",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/jwk-webcrypto",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-builder",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-cbor",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.1.11",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-client",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-data",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.1.11",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-document",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-installer",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-json",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.1.10",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-resolver",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-rpc",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lex-schema",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/lexicon",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/oauth-client",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/oauth-client-browser",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/oauth-resolver",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/oauth-types",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/repo",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/syntax",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
+			"license": "MIT",
+			"href": "https://github.com/bluesky-social/atproto",
+			"ecosystem": "npm"
+		},
+		{
+			"name": "@atproto/ws-client",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
 		},
 		{
 			"name": "@atproto/xrpc",
-			"version": "0.0.0-spaces-alpha-20261112204144",
+			"version": "0.0.0-spaces-alpha-20261124235736",
 			"license": "MIT",
 			"href": "https://github.com/bluesky-social/atproto",
 			"ecosystem": "npm"
@@ -1552,6 +1559,13 @@
 			"version": "9.0.2",
 			"license": "MIT",
 			"href": "https://github.com/chalk/wrap-ansi",
+			"ecosystem": "npm"
+		},
+		{
+			"name": "ws",
+			"version": "8.21.3",
+			"license": "MIT",
+			"href": "https://github.com/websockets/ws",
 			"ecosystem": "npm"
 		},
 		{
