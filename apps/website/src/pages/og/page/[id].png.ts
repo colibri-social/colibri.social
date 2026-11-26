@@ -10,10 +10,6 @@ const PAGES: Record<string, { title: string; path: string }> = {
 	privacy: { title: "Privacy Policy", path: "colibri.social/policy" },
 	tos: { title: "Terms of Service", path: "colibri.social/tos" },
 	imprint: { title: "Imprint", path: "colibri.social/imprint" },
-	atmosphere: {
-		title: "Welcome to the Atmosphere",
-		path: "colibri.social/atmosphere",
-	},
 };
 
 const fallback = () =>
