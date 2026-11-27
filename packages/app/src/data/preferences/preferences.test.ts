@@ -557,19 +557,65 @@ describe("client preferences", () => {
 		expect(store.client().gifLoopLimit).toBeUndefined();
 	});
 
-	it("plays sound effects at full volume unless the synced record lowers it", async () => {
+	it("plays the ping at half volume and other sounds at full volume by default", () => {
+		const store = create(createMemoryPreferenceBackend().backend);
+		expect(store.client().soundVolumes).toEqual({
+			ping: 50,
+			presence: 100,
+			mic: 100,
+			video: 100,
+		});
+	});
+
+	it("saves one sound group without touching the others", async () => {
 		const memory = createMemoryPreferenceBackend();
 		const store = create(memory.backend);
-		expect(store.client().soundVolume).toBe(100);
 
-		await store.setClient({ soundVolume: 35 });
-		expect(store.client().soundVolume).toBe(35);
-		expect(memory.state().client).toEqual({ soundVolume: 35 });
+		await store.setClient({ soundVolumes: { mic: 35 } });
+		await store.setClient({ soundVolumes: { ping: 80 } });
+		expect(store.client().soundVolumes).toEqual({
+			ping: 80,
+			presence: 100,
+			mic: 35,
+			video: 100,
+		});
 
-		store.adopt(prefs({ client: { soundVolume: 140 } }));
-		expect(store.client().soundVolume).toBe(100);
-		store.adopt(prefs({ client: { soundVolume: -5 } }));
-		expect(store.client().soundVolume).toBe(0);
+		expect(memory.state().client).toEqual({
+			soundVolumes: { mic: 35, ping: 80 },
+		});
+	});
+
+	it("seeds call sound groups from the old single volume, never the ping", () => {
+		const store = create(createMemoryPreferenceBackend().backend);
+		store.adopt(
+			prefs({ client: { soundVolume: 30, soundVolumes: { mic: 70 } } }),
+		);
+		expect(store.client().soundVolumes).toEqual({
+			ping: 50,
+			presence: 30,
+			mic: 70,
+			video: 30,
+		});
+	});
+
+	it("clamps sound volumes to 0 through 100", () => {
+		const store = create(createMemoryPreferenceBackend().backend);
+
+		store.adopt(
+			prefs({
+				client: {
+					soundVolume: 140,
+					soundVolumes: { ping: -5, presence: 42.6, video: Number.NaN },
+				},
+			}),
+		);
+
+		expect(store.client().soundVolumes).toEqual({
+			ping: 0,
+			presence: 43,
+			mic: 100,
+			video: 100,
+		});
 	});
 });
 

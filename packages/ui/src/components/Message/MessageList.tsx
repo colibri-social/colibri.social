@@ -63,7 +63,8 @@ const SCROLL_KEYS = new Set([
 	"End",
 	" ",
 ]);
-export const JUMP_BUTTON_SHOW_PX = 200;
+export const JUMP_SHOW_VIEWPORTS = 5;
+export const JUMP_HIDE_VIEWPORTS = 1.5;
 export const PREFETCH_MIN_PX = 400;
 export const OLDER_PREFETCH_VIEWPORTS = 2;
 export const SKELETON_ROWS = 12;
@@ -398,11 +399,21 @@ export const MessageList = <T extends GroupableMessage>(
 		if (margin !== untrack(startMargin)) setStartMargin(margin);
 	};
 
+	const jumpThresholds = () => {
+		const height = untrack(scroller)?.clientHeight ?? 0;
+
+		return {
+			show: height * JUMP_SHOW_VIEWPORTS,
+			hide: Math.max(PIN_THRESHOLD_PX, height * JUMP_HIDE_VIEWPORTS),
+		};
+	};
+
 	const updateJumpVisibility = () => {
 		setJumpVisible((visible) => {
 			if (props.hasNewer) return true;
-			if (distance > JUMP_BUTTON_SHOW_PX) return true;
-			if (distance < PIN_THRESHOLD_PX) return false;
+			const { show, hide } = jumpThresholds();
+			if (distance > show) return true;
+			if (distance < hide) return false;
 			return visible;
 		});
 	};
@@ -1285,7 +1296,7 @@ export const MessageList = <T extends GroupableMessage>(
 				</div>
 			</div>
 			<JumpCard
-				visible={jumpVisible()}
+				visible={jumpVisible() || unseen() > 0}
 				animate={pillsAnimate()}
 				mode={jumpMode()}
 				count={unseen()}

@@ -9,7 +9,10 @@ import {
 import { MediaGrid, type MediaItem } from "../Attachments/MediaGrid";
 import { fixtureImage } from "../Attachments/story-fixtures";
 import { Button } from "../Button/Button";
+import { COMPOSER_TYPING_INSET, Composer } from "../Composer/Composer";
 import {
+	JUMP_HIDE_VIEWPORTS,
+	JUMP_SHOW_VIEWPORTS,
 	KEYBOARD_OFFSET_EVENT,
 	MessageList,
 	type MessageListHandle,
@@ -107,12 +110,13 @@ export const ScrollUpSurvivesResizeBeforeScrollEvent: Story = {
 			"[data-message-feed]",
 		) as HTMLElement;
 		const before = scroller.scrollTop;
-		scroller.scrollTop = before - 800;
+		const up = scroller.clientHeight * (JUMP_SHOW_VIEWPORTS + 0.1);
+		scroller.scrollTop = before - up;
 		feed.style.setProperty("--resize-probe", "1");
 		await Promise.resolve();
-		await expect(scroller.scrollTop).toBeLessThanOrEqual(before - 799);
+		await expect(scroller.scrollTop).toBeLessThanOrEqual(before - up + 1);
 		await frames(3);
-		await expect(distanceOf(scroller)).toBeGreaterThan(700);
+		await expect(distanceOf(scroller)).toBeGreaterThan(up - 100);
 		await waitFor(() =>
 			expect(jumpCardOf(canvasElement)).toHaveAttribute("data-visible"),
 		);
@@ -1390,10 +1394,9 @@ export const OpensAtUnread: Story = {
 				"[data-message-key='m9951']",
 			) as HTMLElement;
 			await expect(first).not.toHaveAttribute("data-highlight");
-			await waitFor(() =>
-				expect(
-					canvas.getByRole("button", { name: "Jump to bottom" }),
-				).toBeVisible(),
+			await frames(6);
+			await expect(jumpCardOf(canvasElement)).not.toHaveAttribute(
+				"data-visible",
 			);
 		});
 
@@ -1492,10 +1495,13 @@ const JumpCardScenario = (props: { platform: "desktop" | "mobile" }) => {
 	const [inset, setInset] = createSignal(0);
 	const [jumps, setJumps] = createSignal(0);
 	let handle: MessageListHandle | undefined;
+	const mobile = props.platform === "mobile";
+
 	return (
 		<div
+			data-jump-scenario=""
 			class="flex flex-col bg-background"
-			style={{ height: props.platform === "mobile" ? "874px" : "760px" }}
+			style={{ height: mobile ? "874px" : "760px" }}
 		>
 			<div class="flex flex-wrap gap-2 p-2">
 				<Button variant="secondary" onClick={() => channel.receive()}>
@@ -1510,7 +1516,7 @@ const JumpCardScenario = (props: { platform: "desktop" | "mobile" }) => {
 				>
 					Open history
 				</Button>
-				<Show when={props.platform === "mobile"}>
+				<Show when={mobile}>
 					<Button variant="secondary" onClick={() => setInset(320)}>
 						Open keyboard
 					</Button>
@@ -1532,7 +1538,14 @@ const JumpCardScenario = (props: { platform: "desktop" | "mobile" }) => {
 							handle = value;
 						},
 						onJump: () => setJumps((count) => count + 1),
+						bottomInset: mobile ? COMPOSER_TYPING_INSET : undefined,
+						jumpLift: mobile ? COMPOSER_TYPING_INSET - 4 : undefined,
 					}}
+					footer={
+						<Show when={mobile}>
+							<Composer platform="mobile" channelName="general" safeBottom />
+						</Show>
+					}
 				/>
 			</div>
 		</div>
@@ -1548,33 +1561,70 @@ const jumpCardOf = (canvas: HTMLElement) =>
 const jumpCardButton = (canvas: HTMLElement) =>
 	within(jumpCardOf(canvas)).getByRole("button");
 
+const expectMobileJumpCardInsets = async (canvas: HTMLElement) => {
+	const list = scrollerOf(canvas).getBoundingClientRect();
+	const card = jumpCardOf(canvas).querySelector(
+		"[data-jump-card]",
+	) as HTMLElement;
+	const composer = canvas.querySelector("[data-composer-box]") as HTMLElement;
+	const surface = card.getBoundingClientRect();
+	const box = composer.getBoundingClientRect();
+	const left = surface.left - list.left;
+	const right = list.right - surface.right;
+	const gap = box.top - surface.bottom;
+	await expect(left).toBeGreaterThan(0);
+	await expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
+	await expect(Math.abs(left - gap)).toBeLessThanOrEqual(1);
+	await expect(Math.abs(surface.left - box.left)).toBeLessThanOrEqual(1);
+	await expect(Math.abs(surface.width - box.width)).toBeLessThanOrEqual(1);
+	const status = card.querySelector("p") as HTMLElement;
+	for (const element of [status, ...status.querySelectorAll("*")]) {
+		await expect(element.scrollWidth).toBeLessThanOrEqual(element.clientWidth);
+		await expect(element.scrollHeight).toBeLessThanOrEqual(
+			element.clientHeight,
+		);
+	}
+	await expect(status.textContent).not.toMatch(/\.\.\.|\u2026/);
+	await expect(status.getClientRects()[0]?.height ?? 0).toBeGreaterThan(0);
+	await expectNoLayoutIssues(
+		canvas.querySelector("[data-jump-scenario]") as HTMLElement,
+	);
+};
+
 const expectJumpCardGeometry = async (
 	canvas: HTMLElement,
-	minimumTarget: number,
+	platform: "desktop" | "mobile",
 ) => {
+	const mobile = platform === "mobile";
+	const minimumTarget = mobile ? 44 : 32;
 	const list = scrollerOf(canvas).getBoundingClientRect();
 	const card = jumpCardOf(canvas).querySelector(
 		"[data-jump-card]",
 	) as HTMLElement;
 	const surface = card.getBoundingClientRect();
-	const left = surface.left - list.left;
-	const right = list.right - surface.right;
 	await expect(surface.top).toBeGreaterThanOrEqual(list.top);
-	await expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
-	await expect(left).toBeGreaterThanOrEqual(16);
-	await expect(surface.width).toBeLessThanOrEqual(448);
-	await expect(Math.round(list.bottom - surface.bottom)).toBe(8);
-	const text = card.querySelector("p") as HTMLElement;
-	await expect(text).not.toHaveAttribute("title");
-	await expect(text.getBoundingClientRect().width).toBeGreaterThan(40);
-	if (minimumTarget < 44) {
+
+	if (mobile) {
+		await expectMobileJumpCardInsets(canvas);
+	} else {
+		const left = surface.left - list.left;
+		const right = list.right - surface.right;
 		const content = Array.from(card.children).reduce(
 			(total, child) => total + child.getBoundingClientRect().width,
 			0,
 		);
+
+		await expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
+		await expect(left).toBeGreaterThanOrEqual(16);
+		await expect(surface.width).toBeLessThanOrEqual(448);
+		await expect(Math.round(list.bottom - surface.bottom)).toBe(8);
 		await expect(surface.width).toBeLessThan(content + 48);
 		await expect(surface.width).toBeLessThan(list.width - 32);
 	}
+
+	const text = card.querySelector("p") as HTMLElement;
+	await expect(text).not.toHaveAttribute("title");
+	await expect(text.getBoundingClientRect().width).toBeGreaterThan(40);
 	const button = jumpCardButton(canvas);
 	const box = button.getBoundingClientRect();
 	await expect(box.height).toBeGreaterThanOrEqual(minimumTarget);
@@ -1583,8 +1633,20 @@ const expectJumpCardGeometry = async (
 	const inner = Number.parseFloat(getComputedStyle(button).borderTopLeftRadius);
 	const padding = Number.parseFloat(getComputedStyle(card).paddingTop);
 	await expect(radius).toBe(inner + padding);
-	await expect(radius).toBe(minimumTarget < 44 ? 12 : 16);
+	await expect(radius).toBe(mobile ? 16 : 12);
 };
+
+const scrollToDistance = (scroller: HTMLElement, distance: number) =>
+	waitFor(
+		async () => {
+			await scrollTo(
+				scroller,
+				scroller.scrollHeight - scroller.clientHeight - distance,
+			);
+			expect(distanceOf(scroller)).toBeGreaterThan(distance - 2);
+		},
+		{ timeout: 3000 },
+	);
 
 const waitJumpCard = (canvas: HTMLElement, mode: string) =>
 	waitFor(
@@ -1607,20 +1669,52 @@ const playJumpCard =
 		step: (name: string, run: () => Promise<void>) => Promise<void> | void;
 	}) => {
 		const canvas = within(canvasElement);
-		const minimum = platform === "mobile" ? 44 : 32;
 		await settled(canvasElement);
 		const scroller = scrollerOf(canvasElement);
 		const control = jumpCardOf(canvasElement);
 		await expect(control).not.toHaveAttribute("data-visible");
 		await expect(control).toHaveAttribute("inert");
 
+		await step("Stays hidden four screens up", async () => {
+			const target = scroller.clientHeight * (JUMP_SHOW_VIEWPORTS - 1);
+			await scrollToDistance(scroller, target);
+			await expect(distanceOf(scroller)).toBeGreaterThan(target - 2);
+			await frames(6);
+			await expect(control).not.toHaveAttribute("data-visible");
+		});
+
 		await step("Jump to bottom when scrolled up", async () => {
-			await scrollTo(scroller, scroller.scrollTop - 800);
+			await scrollToDistance(
+				scroller,
+				scroller.clientHeight * (JUMP_SHOW_VIEWPORTS + 0.1),
+			);
+
 			await waitJumpCard(canvasElement, "bottom");
 			await expect(jumpCardButton(canvasElement)).toHaveAccessibleName(
 				"Jump to bottom",
 			);
-			await expectJumpCardGeometry(canvasElement, minimum);
+			await expectJumpCardGeometry(canvasElement, platform);
+		});
+
+		await step("Stays until close to the bottom", async () => {
+			await scrollToDistance(
+				scroller,
+				scroller.clientHeight * (JUMP_HIDE_VIEWPORTS + 0.5),
+			);
+			await frames(6);
+			await expect(control).toHaveAttribute("data-visible");
+			await scrollToDistance(
+				scroller,
+				scroller.clientHeight * (JUMP_HIDE_VIEWPORTS - 0.2),
+			);
+			await waitFor(() => expect(control).not.toHaveAttribute("data-visible"), {
+				timeout: 3000,
+			});
+			await scrollToDistance(
+				scroller,
+				scroller.clientHeight * (JUMP_SHOW_VIEWPORTS + 0.1),
+			);
+			await waitJumpCard(canvasElement, "bottom");
 		});
 
 		if (platform === "mobile") {
@@ -1630,7 +1724,7 @@ const playJumpCard =
 				);
 				await frames(6);
 				await waitJumpCard(canvasElement, "bottom");
-				await expectJumpCardGeometry(canvasElement, minimum);
+				await expectJumpCardGeometry(canvasElement, platform);
 			});
 		}
 
@@ -1642,7 +1736,7 @@ const playJumpCard =
 			await expect(jumpCardButton(canvasElement)).toHaveAccessibleDescription(
 				"2 new messages",
 			);
-			await expectJumpCardGeometry(canvasElement, minimum);
+			await expectJumpCardGeometry(canvasElement, platform);
 		});
 
 		await step("Keyboard Enter jumps to the bottom", async () => {
@@ -1672,7 +1766,7 @@ const playJumpCard =
 			await expect(button).toHaveAccessibleDescription(
 				"You're viewing older messages",
 			);
-			await expectJumpCardGeometry(canvasElement, minimum);
+			await expectJumpCardGeometry(canvasElement, platform);
 			await userEvent.click(button);
 			await waitFor(
 				() => {
@@ -1696,6 +1790,12 @@ export const JumpCardDesktop: Story = {
 
 export const JumpCardMobile: Story = {
 	parameters: iphone,
+	render: () => <JumpCardScenario platform="mobile" />,
+	play: playJumpCard("mobile"),
+};
+
+export const JumpCardMobileSmall: Story = {
+	parameters: { viewport: { defaultViewport: "android" } },
 	render: () => <JumpCardScenario platform="mobile" />,
 	play: playJumpCard("mobile"),
 };

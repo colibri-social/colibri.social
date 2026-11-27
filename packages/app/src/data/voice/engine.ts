@@ -590,6 +590,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		const audioEls = new Map<string, AudioEntry>();
 		const producers = createProducerRegistry<ProducerOwner>();
 		const consumersByProducer = new Map<string, string | null>();
+		const ownProducers = new Set<string>();
 		const tunedSenders = new Map<string, TunedSender>();
 		const tileViews = new Map<string, TileView>();
 		const sentPreferences = new Map<string, ConsumerPreference>();
@@ -1202,6 +1203,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			audioEls.clear();
 			producers.clear();
 			consumersByProducer.clear();
+			ownProducers.clear();
 			setVideoMap({});
 
 			if (sendWatchdog) clearTimeout(sendWatchdog);
@@ -1379,7 +1381,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			if (!transport || !loaded) return;
 			if (consumersByProducer.has(producerId)) return;
 			const owner = producers.owner(producerId);
-			if (!owner) return;
+			if (!owner || ownProducers.has(producerId)) return;
 			recvWatchdog ??= armIceWatchdog(
 				"recvTransport",
 				transport,
@@ -1548,9 +1550,12 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 						() => sendConnected,
 					);
 					sendAndWait(produceFrame(transport.id, kind, rtpParameters, source))
-						.then((frame) =>
-							callback({ id: expectFrame(frame, "producerInfo").producerId }),
-						)
+						.then((frame) => {
+							const id = expectFrame(frame, "producerInfo").producerId;
+
+							ownProducers.add(id);
+							callback({ id });
+						})
 						.catch((error: unknown) => errback(error as Error));
 				},
 			);
@@ -1683,6 +1688,11 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		};
 
 		const handlePeerProducer = (frame: FrameOf<"producerInfo">) => {
+			if (ownProducers.has(frame.producerId)) {
+				log.debug("skipped an own producer");
+				return;
+			}
+
 			const source =
 				decodeMediaSource(frame.source) ??
 				(frame.kind === "audio" ? "mic" : "cam");
@@ -2272,6 +2282,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				did: viewer,
 				source: "screen",
 				stream: new MediaStream([capture.video]),
+				local: true,
 			});
 			const choice = await chooseScreenCodec(capture.video, quality);
 			if (!live()) return false;
@@ -2444,7 +2455,12 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			}
 			const preview = new MediaStream([track]);
 			track.contentHint = CAMERA_CONTENT_HINT;
-			setVideo("self:cam", { did: viewer, source: "cam", stream: preview });
+			setVideo("self:cam", {
+				did: viewer,
+				source: "cam",
+				stream: preview,
+				local: true,
+			});
 			let producer: types.Producer;
 			let encodings: RTCRtpEncodingParameters[];
 			try {
@@ -2507,6 +2523,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 					did: viewer,
 					source: "cam",
 					stream: new MediaStream([track]),
+					local: true,
 				});
 			} catch (error) {
 				log.warn("could not switch the camera", {

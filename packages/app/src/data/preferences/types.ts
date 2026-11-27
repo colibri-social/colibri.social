@@ -53,14 +53,26 @@ export type InboxPresentation = (typeof INBOX_PRESENTATIONS)[number];
 
 export const GIF_LOOP_LIMITS = [1, 2, 3, 5] as const;
 
-export const DEFAULT_SOUND_VOLUME = 100;
+export const SOUND_GROUPS = ["ping", "presence", "mic", "video"] as const;
+
+export type SoundGroup = (typeof SOUND_GROUPS)[number];
+
+export type SoundVolumes = Record<SoundGroup, number>;
+
+export const DEFAULT_SOUND_VOLUMES: SoundVolumes = {
+	ping: 50,
+	presence: 100,
+	mic: 100,
+	video: 100,
+};
 
 export type ClientPreferences = Omit<
 	ClientPreferencesWire,
-	"$type" | "controls" | "voiceView"
+	"$type" | "controls" | "voiceView" | "soundVolumes"
 > & {
 	controls?: Omit<NonNullable<ClientPreferencesWire["controls"]>, "$type">;
 	voiceView?: Omit<NonNullable<ClientPreferencesWire["voiceView"]>, "$type">;
+	soundVolumes?: Partial<SoundVolumes>;
 };
 
 export type EmojiUse = { count: number; lastUsed: number };

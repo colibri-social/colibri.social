@@ -29,7 +29,7 @@ const RESERVE_SPRING = { duration: 420, mass: 1, stiffness: 380 };
 let rememberedKeyboard = 0;
 
 export const keyboardPanelHeight = () => {
-	if (rememberedKeyboard > 0) return rememberedKeyboard;
+	if (rememberedKeyboard >= MIN_PANEL_HEIGHT) return rememberedKeyboard;
 	const viewport = typeof window === "undefined" ? 800 : window.innerHeight;
 	const max = Math.min(MAX_PANEL_HEIGHT, viewport * MAX_INSET_RATIO);
 	const preferred = viewport * FALLBACK_PANEL_RATIO;
@@ -198,7 +198,7 @@ export const installKeyboardInset = (options: KeyboardInsetOptions) => {
 		keyboard = raw;
 		if (rememberTimer) clearTimeout(rememberTimer);
 		rememberTimer = undefined;
-		if (raw <= 0) return;
+		if (raw < MIN_PANEL_HEIGHT) return;
 		rememberTimer = setTimeout(() => {
 			rememberTimer = undefined;
 			if (keyboard === raw) rememberedKeyboard = raw;

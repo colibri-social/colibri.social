@@ -595,3 +595,58 @@ describe("viewer layer preferences", () => {
 		expect(socket.sent.slice(socket.answered)).toEqual([]);
 	});
 });
+
+describe("own producers", () => {
+	it("keeps the local capture as the preview when its producer is announced back", async () => {
+		const device = new ChromiumDevice();
+		const harness = setup({
+			createDevice: () => device as unknown as types.Device,
+		});
+
+		running.push(harness.engine);
+
+		const { socket } = await connect(harness);
+		const video = new FakeTrack("video");
+
+		const sharing = harness.engine.shareScreen(
+			{
+				video: video as unknown as MediaStreamTrack,
+				audio: null,
+				release() {},
+			},
+			{ resolution: "1080", framerate: 30 },
+		);
+
+		await reply(socket, "produce", {
+			$type: `${DEFS}producerInfo`,
+			producerId: "screen-1",
+			did: VIEWER,
+			kind: "video",
+			source: "screen",
+		});
+		expect(await sharing).toBe(true);
+
+		const announce = {
+			$type: `${DEFS}producerInfo`,
+			producerId: "screen-1",
+			kind: "video",
+			source: "screen",
+		};
+
+		socket.serve({ ...announce, did: PEER });
+		socket.serve({ ...announce, did: VIEWER });
+		await new Promise((resolve) => setTimeout(resolve, 20));
+
+		expect(
+			socket.sent.filter((frame) => frame.$type === `${DEFS}consume`),
+		).toEqual([]);
+
+		const screens = harness.engine
+			.videos()
+			.filter((entry) => entry.source === "screen");
+
+		expect(screens).toHaveLength(1);
+		expect(screens[0]).toMatchObject({ did: VIEWER, local: true });
+		expect(screens[0]?.stream.getVideoTracks()).toEqual([video]);
+	});
+});

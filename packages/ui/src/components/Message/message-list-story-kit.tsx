@@ -208,6 +208,7 @@ export const ChannelView = (props: {
 	toolbar?: (handle: () => MessageListHandle | undefined) => JSX.Element;
 	listProps?: Partial<MessageListProps<ListFixtureMessage>>;
 	height?: string;
+	footer?: JSX.Element;
 }) => {
 	let handle: MessageListHandle | undefined;
 	const platform = () => props.platform ?? "desktop";
@@ -257,6 +258,7 @@ export const ChannelView = (props: {
 					/>
 				)}
 			</MessageList>
+			{props.footer}
 		</div>
 	);
 };

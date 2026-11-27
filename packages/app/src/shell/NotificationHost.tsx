@@ -32,7 +32,7 @@ import { voiceSettings } from "../data/voice-settings";
 import {
 	refreshSoundEffectsSink,
 	setSoundEffectsSink,
-	setSoundEffectsVolume,
+	setSoundEffectsVolumes,
 } from "../data/voice-sounds";
 import {
 	type DeviceNotifications,
@@ -88,7 +88,7 @@ export const NotificationHost = (props: {
 	onCleanup(device.watch());
 
 	createEffect(() =>
-		setSoundEffectsVolume(data.preferences.client().soundVolume),
+		setSoundEffectsVolumes(data.preferences.client().soundVolumes),
 	);
 
 	createEffect(() => setSoundEffectsSink(voiceSettings().settings().speaker));

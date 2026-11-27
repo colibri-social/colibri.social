@@ -33,6 +33,8 @@ export const JumpCard = (props: JumpCardProps) => {
 	const textId = createUniqueId();
 	const mobile = () => props.platform === "mobile";
 	const text = () => statusText(props.mode, props.count);
+	const lift = () => (mobile() ? 0 : (props.lift ?? 0));
+
 	return (
 		<div
 			data-message-list-jump=""
@@ -40,23 +42,27 @@ export const JumpCard = (props: JumpCardProps) => {
 			data-visible={props.visible || undefined}
 			inert={!props.visible || undefined}
 			class={cx(
-				"pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center px-4",
+				"pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center",
+				mobile() ? "px-safe-offset-2" : "px-4",
 				props.animate && motion,
 				props.visible ? "opacity-100" : "translate-y-1 opacity-0",
 			)}
 		>
 			<div
 				data-jump-lift=""
-				class="flex min-w-0 justify-center transition-transform duration-[calc(200ms*var(--motion-scale))] ease-[var(--ease-out-quick)] motion-reduce:transition-none reduced-motion:transition-none"
+				class={cx(
+					"flex min-w-0 justify-center transition-transform duration-[calc(200ms*var(--motion-scale))] ease-[var(--ease-out-quick)] motion-reduce:transition-none reduced-motion:transition-none",
+					mobile() && "w-full",
+				)}
 				style={{
-					transform: props.lift ? `translateY(${-props.lift}px)` : undefined,
+					transform: lift() ? `translateY(${-lift()}px)` : undefined,
 				}}
 			>
 				<div
 					data-jump-card=""
 					class={cx(
-						"pointer-events-auto flex max-w-md min-w-0 items-center gap-3 border border-border bg-popover p-1 pl-3.5 text-foreground shadow-overlay",
-						mobile() ? "rounded-sheet" : "rounded-surface",
+						"pointer-events-auto flex min-w-0 items-center gap-3 border border-border bg-popover p-1 pl-3.5 text-foreground shadow-overlay",
+						mobile() ? "w-full rounded-sheet" : "max-w-md rounded-surface",
 					)}
 				>
 					<Show when={props.mode === "new"}>
@@ -68,11 +74,14 @@ export const JumpCard = (props: JumpCardProps) => {
 					<p
 						id={textId}
 						class={cx(
-							"m-0 min-w-0 truncate text-sm tabular-nums",
+							"m-0 min-w-0 text-sm tabular-nums",
+							mobile() ? "line-clamp-2 flex-1 leading-tight" : "truncate",
 							props.mode === "new" ? "font-semibold" : "text-muted-foreground",
 						)}
 					>
-						<TableText text={text()} />
+						<Show when={!mobile()} fallback={text()}>
+							<TableText text={text()} />
+						</Show>
 					</p>
 					<button
 						type="button"

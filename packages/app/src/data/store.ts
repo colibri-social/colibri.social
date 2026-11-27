@@ -1299,14 +1299,20 @@ export const createDataStore = (
 					if (spaceNotifications.isMuted(community.did)) {
 						return { hasUnread: false, mentions: 0 };
 					}
-					const voiceSlugs = new Set(
-						(layout().channels ?? []).filter(isVoiceChannel).map(channelSlug),
+					const quietSlugs = new Set(
+						(layout().channels ?? [])
+							.filter(
+								(channel) =>
+									isVoiceChannel(channel) ||
+									source.preferences.isMuted(muteSubjectOf(channel.space)),
+							)
+							.map(channelSlug),
 					);
 					const entries = Object.entries(unread[community.did] ?? {});
 
 					return {
 						hasUnread: entries.some(
-							([slug, entry]) => entry.hasUnread && !voiceSlugs.has(slug),
+							([slug, entry]) => entry.hasUnread && !quietSlugs.has(slug),
 						),
 						mentions: entries.reduce(
 							(sum, [, entry]) => sum + entry.mentions,
@@ -1388,14 +1394,20 @@ export const createDataStore = (
 				markChannelUnread(ref, mentions);
 				return;
 			}
-			if (!mentions) return;
 			const community = communityOfRef(ref);
 			const slug = skeyOf(ref);
 			const state = unread[community]?.[slug];
-			setUnread(community, slug, {
-				hasUnread: !!state?.hasUnread,
-				mentions: (state?.mentions ?? 0) + mentions,
-			});
+
+			if (mentions) {
+				setUnread(community, slug, {
+					hasUnread: !!state?.hasUnread,
+					mentions: (state?.mentions ?? 0) + mentions,
+				});
+			}
+
+			if (untrack(appVisible)) {
+				void notifications.markRead([view.id]).catch(() => {});
+			}
 		});
 
 		const threadLoads = new Map<SpaceRef, MutableLoad<ThreadView[]>>();
@@ -3292,16 +3304,25 @@ export const createDataStore = (
 					const current = unread[community]?.[skeyOf(ref)];
 					const thread = untrack(() => findThread(ref));
 					const behind = !!untrack(gap);
-					if (
-						!behind &&
-						(current?.hasUnread || (thread && current?.mentions))
-					) {
+					if (!behind && (current?.hasUnread || current?.mentions)) {
 						setUnread(community, skeyOf(ref), {
 							...current,
 							hasUnread: false,
-							mentions: thread ? 0 : current.mentions,
+							mentions: 0,
 						});
 					}
+
+					if (!thread && !behind) {
+						const ids = untrack(notifications.items)
+							.filter(
+								(entry) =>
+									entry.channel === ref && !entry.thread && !entry.seenAt,
+							)
+							.map((entry) => entry.id);
+
+						if (ids.length) void notifications.markRead(ids).catch(() => {});
+					}
+
 					if (thread) {
 						markThreadSeen(ref);
 						const ids = untrack(notifications.items)
