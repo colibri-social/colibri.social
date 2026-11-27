@@ -31,6 +31,7 @@ export type NodeDirectoryOptions = {
 	fetch?: typeof fetch;
 	now?: () => number;
 	storage?: NodeStorage | null;
+	storageKey?: string;
 };
 
 export type NodeDirectory = {
@@ -116,10 +117,11 @@ export const createNodeDirectory = (
 	const storage =
 		options.storage === undefined ? browserStorage() : options.storage;
 	const main = originOf(options.mainUrl);
+	const storageKey = options.storageKey ?? STORAGE_KEY;
 
 	const load = (): Stored | null => {
 		try {
-			const raw = storage?.getItem(STORAGE_KEY);
+			const raw = storage?.getItem(storageKey);
 			const parsed = raw ? (JSON.parse(raw) as Stored) : null;
 
 			return parsed && parsed.main === main && Array.isArray(parsed.nodes)
@@ -194,7 +196,7 @@ export const createNodeDirectory = (
 
 				try {
 					storage?.setItem(
-						STORAGE_KEY,
+						storageKey,
 						JSON.stringify({
 							at: refreshedAt,
 							main,

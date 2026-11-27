@@ -4,6 +4,7 @@ import {
 	classifyThrown,
 	createLogger,
 	serviceRefFor,
+	spaceAuthority,
 } from "@colibri-social/lib";
 import {
 	type Accessor,
@@ -39,6 +40,7 @@ import {
 import { setMediaOrigins } from "./data/remote/media-origin";
 import {
 	createNodeDirectory,
+	STORAGE_KEY as NODES_STORAGE_KEY,
 	type NodeDirectory,
 	socketOrigin,
 } from "./data/remote/nodes";
@@ -144,16 +146,30 @@ export const createSignedInSession = (
 				fetch: isNativeShell() ? nativeFetch : undefined,
 			});
 
+			const remoteDirectories = new Map<string, NodeDirectory>();
+
+			const remoteNodesFor = (origin: string) => {
+				const known = remoteDirectories.get(origin);
+
+				if (known) return known;
+
+				const directory = createNodeDirectory({
+					mainUrl: origin,
+					fetch: isNativeShell() ? nativeFetch : undefined,
+					storageKey: `${NODES_STORAGE_KEY}:${origin}`,
+				});
+
+				remoteDirectories.set(origin, directory);
+
+				return directory;
+			};
+
 			const connectRemote = (managingApp: string) => {
 				const origin = appViewOrigin(managingApp);
 
 				if (!origin) return undefined;
 
-				const remoteNodes = createNodeDirectory({
-					mainUrl: origin,
-					fetch: isNativeShell() ? nativeFetch : undefined,
-					storage: null,
-				});
+				const remoteNodes = remoteNodesFor(origin);
 
 				const connection = createLiveConnection({
 					agent,
@@ -170,7 +186,7 @@ export const createSignedInSession = (
 					isSessionDead: () => auth.health.dead(),
 				});
 
-				void remoteNodes.refresh().then(() => {
+				void remoteNodes.refreshIfStale().then(() => {
 					const best = remoteNodes.endpointFor("live");
 
 					if (best && betterNode(remoteNodes, connection.host(), best)) {
@@ -307,6 +323,23 @@ export const createSignedInSession = (
 						forceRelay: () =>
 							isExperimentOn(store.preferences, VOICE_RELAY_EXPERIMENT),
 						serviceRef: appViewServiceRef(),
+						serverFor: (channel) => {
+							const app = live.managingApp(spaceAuthority(channel));
+							const origin = appViewOrigin(app);
+
+							if (app === appViewDid() || !origin) return undefined;
+
+							const remoteNodes = remoteNodesFor(origin);
+
+							void remoteNodes.refreshIfStale();
+
+							return {
+								appViewHost: appViewHost("ws", origin),
+								serviceRef: serviceRefFor(app, APPVIEW_FRAGMENT),
+								pickHost: (avoid) => remoteNodes.endpointFor("voice", avoid),
+								describeNode: remoteNodes.nodeAt,
+							};
+						},
 						viewerDid: did,
 					});
 					session = {

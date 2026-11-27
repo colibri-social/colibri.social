@@ -223,6 +223,15 @@ describe("createLiveMesh", () => {
 		expect(mesh.epoch()).toBeUndefined();
 	});
 
+	it("names the server that manages a Space", () => {
+		const { mesh } = setup();
+
+		expect(mesh.managingApp(MARKET_SPACE)).toBe(MARKET);
+		expect(mesh.managingApp(LOCAL_SPACE)).toBe(HOME);
+		expect(mesh.managingApp("did:plc:unknown")).toBe(HOME);
+		expect(mesh.managingApp(undefined)).toBe(HOME);
+	});
+
 	it("falls back to this server when a socket can't be opened", () => {
 		const home = fakeConnection();
 		const mesh = createLiveMesh({

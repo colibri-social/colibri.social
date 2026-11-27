@@ -21,6 +21,7 @@ export type LiveMeshOptions = {
 
 export type LiveMesh = LiveConnection & {
 	assign: (routes: ReadonlyMap<string, string>) => void;
+	managingApp: (community: string | undefined) => string;
 };
 
 type Remote = {
@@ -278,6 +279,7 @@ export const createLiveMesh = (options: LiveMeshOptions): LiveMesh => {
 			listeners.clear();
 			home.close();
 		},
+		managingApp: appFor,
 		assign: (next) => {
 			const changed =
 				next.size !== routes.size ||
