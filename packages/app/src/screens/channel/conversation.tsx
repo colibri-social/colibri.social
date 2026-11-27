@@ -331,10 +331,13 @@ export const createConversation = (options: ConversationOptions) => {
 	const [deletedPing, setDeletedPing] = createSignal(false);
 	const [jumping, setJumping] = createSignal(0);
 	const handledOrphans = new Set<string>();
+	let openedAt = new Date().toISOString();
+
 	createEffect(
 		on(options.target, () => {
 			setDeletedPing(false);
 			handledOrphans.clear();
+			openedAt = new Date().toISOString();
 		}),
 	);
 	const confirmOrphans = async (
@@ -382,7 +385,8 @@ export const createConversation = (options: ConversationOptions) => {
 		const complete = !current.hasOlder();
 		const orphans = data.notifications.items().filter((entry) => {
 			if (!isPingNotification(entry)) return false;
-			if (entry.seenAt || handledOrphans.has(entry.id)) return false;
+			if (handledOrphans.has(entry.id)) return false;
+			if (entry.seenAt && entry.seenAt < openedAt) return false;
 			if ((entry.thread ?? entry.channel) !== ref) return false;
 			const rkey = entry.message?.rkey;
 			if (!rkey) return true;

@@ -141,7 +141,7 @@ describe("reload from the device cache", () => {
 			await until(() => !threads.loading());
 			const thread = threads.value()?.[0];
 			if (!thread) continue;
-			path = `/app/c/${HQ}/${channel.space.split("/").slice(4).join("/")}/t/${skeyOf(thread.space)}/${FULL_THREAD_SEGMENT}`;
+			path = `/app/c/${HQ}/${channel.space.split("/").slice(-2).join("/")}/t/${skeyOf(thread.space)}/${FULL_THREAD_SEGMENT}`;
 		}
 		if (!path) throw new Error("no thread");
 		warm.store.dispose();

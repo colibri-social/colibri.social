@@ -99,10 +99,19 @@ it("matches the composer to the user panel height and edges", async () => {
 });
 
 it("centers the jump card above the composer and clear of the typing row", async () => {
-	await mount();
+	const { store, source } = await mount();
+	const { channel, other } = devOf(store);
 	const list = scroller();
+
 	list.dispatchEvent(new WheelEvent("wheel", { deltaY: -1500, bubbles: true }));
 	list.scrollTop -= 1500;
+	await wait(300);
+	source.simulateMessage({
+		author: other,
+		channel,
+		text: "While you were away",
+	});
+
 	await until(
 		() =>
 			main()
