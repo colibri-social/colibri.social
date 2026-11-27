@@ -28,7 +28,7 @@
 		"@atproto/lexicon": "0.0.0-spaces-alpha-20261124235736",
 		"@colibri-social/app": "workspace:*",
 		"@colibri-social/assets": "workspace:0.0.2",
-		"@colibri-social/lexicons": "^2.46.0",
+		"@colibri-social/lexicons": "^2.46.1",
 		"@colibri-social/lib": "workspace:*",
 		"@colibri-social/standard-renderer": "workspace:0.0.2",
 		"@fontsource-variable/hanken-grotesk": "^5.3.0",

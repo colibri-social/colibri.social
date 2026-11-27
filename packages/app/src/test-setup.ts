@@ -11,6 +11,31 @@ import { WHATS_NEW_SEEN_KEY } from "./data/whats-new";
 
 setLogLevel("error");
 
+type FrameNavigation = {
+	canGoBack: boolean;
+	currentEntry: { index: number } | null;
+};
+
+const frameNavigation = (globalThis as { navigation?: FrameNavigation })
+	.navigation;
+
+if (frameNavigation) {
+	const goBack = history.back.bind(history);
+	const goBy = history.go.bind(history);
+
+	history.back = () => {
+		if (frameNavigation.canGoBack) goBack();
+	};
+
+	history.go = (delta = 0) => {
+		const index = frameNavigation.currentEntry?.index ?? 0;
+
+		if (delta < 0 && index + delta < 0) return;
+
+		goBy(delta);
+	};
+}
+
 const SOLID_OWNERLESS =
 	"computations created outside a `createRoot` or `render`";
 

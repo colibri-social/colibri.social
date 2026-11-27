@@ -65,6 +65,7 @@ minimumReleaseAgeExclude:
   - "@colibri-social/lexicons@2.41.0"
   - "@colibri-social/lexicons@2.42.0"
   - "@colibri-social/lexicons@2.46.0"
+  - "@colibri-social/lexicons@2.46.1"
   - "@atproto-labs/did-resolver@0.0.0-spaces-alpha-20261124235736"
   - "@atproto-labs/fetch-node@0.0.0-spaces-alpha-20261124235736"
   - "@atproto-labs/handle-resolver-node@0.0.0-spaces-alpha-20261124235736"
