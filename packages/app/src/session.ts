@@ -1,7 +1,9 @@
 import {
+	APPVIEW_FRAGMENT,
 	ColibriError,
 	classifyThrown,
 	createLogger,
+	serviceRefFor,
 } from "@colibri-social/lib";
 import {
 	type Accessor,
@@ -29,7 +31,11 @@ import {
 } from "./data/message-cache";
 import { createOutboxQueue } from "./data/outbox/queue";
 import { appViewOrigin, emojiBlobLocator } from "./data/remote/emoji";
-import { createLiveConnection, type LiveConnection } from "./data/remote/live";
+import {
+	createLiveConnection,
+	createLiveMesh,
+	type LiveConnection,
+} from "./data/remote/live";
 import { setMediaOrigins } from "./data/remote/media-origin";
 import {
 	createNodeDirectory,
@@ -137,7 +143,45 @@ export const createSignedInSession = (
 				mainUrl: appViewUrl(),
 				fetch: isNativeShell() ? nativeFetch : undefined,
 			});
-			const live = createLiveConnection({
+
+			const connectRemote = (managingApp: string) => {
+				const origin = appViewOrigin(managingApp);
+
+				if (!origin) return undefined;
+
+				const remoteNodes = createNodeDirectory({
+					mainUrl: origin,
+					fetch: isNativeShell() ? nativeFetch : undefined,
+					storage: null,
+				});
+
+				const connection = createLiveConnection({
+					agent,
+					appViewHost: appViewHost("ws", origin),
+					pickHost: (avoid) => remoteNodes.endpointFor("live", avoid),
+					refreshHosts: () => remoteNodes.refresh(),
+					serviceRef: serviceRefFor(managingApp, APPVIEW_FRAGMENT),
+					emojiBlobUrl: emojiBlobLocator(origin),
+					onAuthFailure: (error) => {
+						log.warn("another server rejected the live socket", {
+							code: error.code,
+						});
+					},
+					isSessionDead: () => auth.health.dead(),
+				});
+
+				void remoteNodes.refresh().then(() => {
+					const best = remoteNodes.endpointFor("live");
+
+					if (best && betterNode(remoteNodes, connection.host(), best)) {
+						connection.moveTo(best);
+					}
+				});
+
+				return connection;
+			};
+
+			const home = createLiveConnection({
 				agent,
 				appViewHost: nodes.endpointFor("live") ?? appViewHost("ws"),
 				pickHost: (avoid) => nodes.endpointFor("live", avoid),
@@ -150,6 +194,13 @@ export const createSignedInSession = (
 				},
 				isSessionDead: () => auth.health.dead(),
 			});
+
+			const live = createLiveMesh({
+				home,
+				homeApp: appViewDid(),
+				connect: connectRemote,
+			});
+
 			const adoptNodes = () => {
 				setMediaOrigins(appViewUrl(), nodes.endpointFor("api"));
 
@@ -157,6 +208,7 @@ export const createSignedInSession = (
 
 				if (best && betterNode(nodes, live.host(), best)) live.moveTo(best);
 			};
+
 			void nodes.refresh().then(adoptNodes);
 			setState({ kind: "loading" });
 			const namespace = cacheNamespace(appViewDid(), did);

@@ -63,7 +63,11 @@ export const createFakeLive = () => {
 	const listeners = new Set<(event: LiveEvent) => void>();
 	const sent: unknown[] = [];
 	const watched: Array<{ target: unknown; released: boolean }> = [];
+	const assigned: Array<ReadonlyMap<string, string>> = [];
 	const live: RemoteLive = {
+		assign: (routes) => {
+			assigned.push(routes);
+		},
 		subscribe: (listener) => {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
@@ -84,6 +88,7 @@ export const createFakeLive = () => {
 		live,
 		sent,
 		watched,
+		assigned,
 		emit: (event: LiveEvent) => {
 			for (const listener of listeners) listener(event);
 		},

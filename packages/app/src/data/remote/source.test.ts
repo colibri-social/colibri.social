@@ -2065,6 +2065,35 @@ describe("createRemoteSource", () => {
 		expect(live.watched[1]?.target).toEqual({ communities: [COMMUNITY] });
 	});
 
+	it("tells the live socket which server manages each Space before watching", async () => {
+		const { live, source } = await setup((fake) =>
+			fake.on(
+				colibri.actor.listCommunities.main.nsid,
+				json({
+					communities: [
+						{
+							did: COMMUNITY,
+							managingApp: "did:web:market.test",
+							viewer: { isMember: true },
+						},
+					],
+					unavailable: [
+						{ did: "did:plc:asleep", managingApp: "did:web:asleep.test" },
+					],
+				}),
+			),
+		);
+
+		await source.listCommunities();
+
+		expect(live.assigned).toEqual([
+			new Map([
+				[COMMUNITY, "did:web:market.test"],
+				["did:plc:asleep", "did:web:asleep.test"],
+			]),
+		]);
+	});
+
 	it("watches a channel separately from telling the server what is in view", async () => {
 		const { live, source } = await setup();
 

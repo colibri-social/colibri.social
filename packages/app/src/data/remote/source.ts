@@ -104,6 +104,7 @@ export type RemoteLive = {
 		communities?: ReadonlyArray<string>;
 		channels?: ReadonlyArray<string>;
 	}) => () => void;
+	assign?: (routes: ReadonlyMap<string, string>) => void;
 };
 
 export type RemoteDataSource = DataSource & {
@@ -425,6 +426,21 @@ export const createRemoteSource = async (
 	});
 	options.live.subscribe(observeEmoji);
 
+	const liveRoutes = (
+		communities: readonly CommunityView[],
+		unreachable: ListedCommunities["unavailable"] = [],
+	) => {
+		const routes = new Map<string, string>();
+
+		for (const view of communities) {
+			if (view.managingApp) routes.set(view.did, view.managingApp);
+		}
+
+		for (const entry of unreachable) routes.set(entry.did, entry.managingApp);
+
+		return routes;
+	};
+
 	let releaseCommunities: (() => void) | undefined;
 	const watchCommunities = (communities: readonly CommunityView[]) => {
 		const release = options.live.watch({
@@ -451,6 +467,7 @@ export const createRemoteSource = async (
 				listed.unavailable,
 			);
 			setUnavailable((listed.unavailable ?? []) as UnavailableCommunity[]);
+			options.live.assign?.(liveRoutes(communities, listed.unavailable));
 			watchCommunities(communities);
 			return communities;
 		},

@@ -30,10 +30,13 @@ const mount = async () => {
 
 	const source = createMockSource({ live: false });
 	const list = source.listCommunities.bind(source);
+
 	const [unavailable, setUnavailable] = createSignal<
 		readonly UnavailableCommunity[]
 	>([]);
+
 	let hidden = new Set<string>();
+
 	const listCommunities = vi.fn(async () => {
 		const views = await list();
 

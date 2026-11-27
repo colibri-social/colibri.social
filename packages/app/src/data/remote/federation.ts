@@ -65,8 +65,9 @@ export const createFederation = (input: {
 	const syncGrants = () => {
 		const wanted = new Map<string, string>();
 
-		for (const [community, managingApp] of remote)
+		for (const [community, managingApp] of remote) {
 			if (!wanted.has(managingApp)) wanted.set(managingApp, community);
+		}
 
 		for (const [managingApp, running] of grants) {
 			if (wanted.has(managingApp)) continue;
@@ -77,8 +78,9 @@ export const createFederation = (input: {
 
 		if (!started) return;
 
-		for (const [managingApp, community] of wanted)
+		for (const [managingApp, community] of wanted) {
 			if (!grants.has(managingApp)) startGrant(managingApp, community);
+		}
 	};
 
 	const declare = async () => {

@@ -555,12 +555,15 @@ export const createDataStore = (
 			...loadedCommunities,
 			value: orderedCommunities,
 		};
+
 		const knownCommunities = new Map<string, CommunityView>(
 			(snapshot?.communities ?? []).map((view) => [view.did, view]),
 		);
+
 		const unavailableSpaces = createMemo<UnavailableSpace[]>(() => {
-			for (const view of loadedCommunities.value() ?? [])
+			for (const view of loadedCommunities.value() ?? []) {
 				knownCommunities.set(view.did, view);
+			}
 
 			return source.unavailableCommunities().map((entry) => {
 				const known = knownCommunities.get(entry.did);

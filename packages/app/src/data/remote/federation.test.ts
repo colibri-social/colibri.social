@@ -30,10 +30,12 @@ const view = (
 
 const setup = () => {
 	const fake = createFakeSession(VIEWER);
+
 	const transport = createTransport({
 		session: fake.session,
 		appViewDid: OURS,
 	});
+
 	const space = createPreferencesSpace(transport);
 	const records = createRecords(transport);
 
