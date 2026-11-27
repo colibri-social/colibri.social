@@ -36,6 +36,22 @@ if (frameNavigation) {
 	};
 }
 
+const mediaDevices = navigator.mediaDevices;
+
+if (mediaDevices) {
+	const listen = mediaDevices.addEventListener.bind(mediaDevices);
+
+	mediaDevices.addEventListener = (
+		type: string,
+		listener: EventListenerOrEventListenerObject | null,
+		options?: boolean | AddEventListenerOptions,
+	) => {
+		if (type === "devicechange" || !listener) return;
+
+		listen(type, listener, options);
+	};
+}
+
 const SOLID_OWNERLESS =
 	"computations created outside a `createRoot` or `render`";
 

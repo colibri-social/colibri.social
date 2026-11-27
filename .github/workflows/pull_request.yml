@@ -95,7 +95,11 @@ jobs:
       - name: Run tests
         run: ${{ matrix.suite.run }}
         env:
-          DEBUG: pw:browser,vitest:browser:*
+          DEBUG: pw:browser
+
+      - name: (Temp) Show kernel messages
+        if: failure()
+        run: sudo dmesg --ctime | tail -50
 
       - name: Typecheck the repository scripts
         if: matrix.suite.name == 'packages'
