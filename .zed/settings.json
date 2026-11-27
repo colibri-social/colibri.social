@@ -1,3 +1,6 @@
 {
-  "format_on_save": "modifications"
+  "format_on_save": "modifications",
+  "formatter": {
+    "language_server": { "name": "biome" }
+  }
 }
