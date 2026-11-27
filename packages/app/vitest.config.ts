@@ -4,7 +4,7 @@ import solid from "vite-plugin-solid";
 import { defineConfig } from "vitest/config";
 
 const CHROMIUM_LOG_ARGS = process.env.CI
-	? ["--enable-logging=stderr", "--log-level=2"]
+	? ["--enable-logging=stderr", "--log-level=0"]
 	: [];
 
 export default defineConfig({
