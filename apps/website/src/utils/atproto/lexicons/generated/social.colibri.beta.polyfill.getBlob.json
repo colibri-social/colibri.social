@@ -15,6 +15,11 @@
 						"type": "string",
 						"format": "cid",
 						"description": "The CID of the record or blob."
+					},
+					"space": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "The space whose repo references the blob. When another AppView manages that space, this AppView forwards the request there."
 					}
 				}
 			},

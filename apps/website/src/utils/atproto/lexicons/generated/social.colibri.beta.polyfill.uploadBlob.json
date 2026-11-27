@@ -45,7 +45,17 @@
 					"name": "BlobStorageUnavailable",
 					"description": "The AppView has no blob storage configured, so it cannot hold attachments right now."
 				}
-			]
+			],
+			"parameters": {
+				"type": "params",
+				"properties": {
+					"space": {
+						"type": "string",
+						"format": "space-ref",
+						"description": "The space the blob is for. When another AppView manages that space, this AppView forwards the upload there, so the blob sits next to the repo that references it."
+					}
+				}
+			}
 		}
 	}
 }

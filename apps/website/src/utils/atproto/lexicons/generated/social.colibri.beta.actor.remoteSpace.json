@@ -1,0 +1,30 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.remoteSpace",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A community the user joined, whichever AppView manages it. Lives in the user's preferences space, so every AppView the user grants access to can list it, including communities they joined while using another AppView. The record key is the community's DID. Deleting the record removes the community from the list.",
+			"key": "any",
+			"record": {
+				"type": "object",
+				"required": [
+					"managingApp",
+					"joinedAt"
+				],
+				"properties": {
+					"managingApp": {
+						"type": "string",
+						"format": "did",
+						"description": "The AppView that managed the community when the user joined. The community's social.colibri.beta.community.host record wins when the two differ."
+					},
+					"joinedAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the user joined."
+					}
+				}
+			}
+		}
+	}
+}

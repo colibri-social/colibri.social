@@ -1,0 +1,54 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.federation.retract",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Tells one of the AppViews a user declared that a message behind one of the user's notifications was deleted or hidden, so it drops the notification and its pushed banner.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"recipient",
+						"message"
+					],
+					"properties": {
+						"recipient": {
+							"type": "string",
+							"format": "did",
+							"description": "The user the call is about. Their social.colibri.beta.actor.appview record must list the receiving AppView."
+						},
+						"message": {
+							"type": "string",
+							"format": "at-uri",
+							"description": "The message whose notifications go away."
+						}
+					}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "NotDeclared",
+					"description": "The recipient's social.colibri.beta.actor.appview record doesn't list the receiving AppView."
+				},
+				{
+					"name": "NotJoined",
+					"description": "The receiving AppView has no record of the recipient joining the community the call is about."
+				},
+				{
+					"name": "NotManagingApp",
+					"description": "The calling AppView doesn't manage the community the call is about."
+				},
+				{
+					"name": "FederationDisabled",
+					"description": "The receiving AppView doesn't federate with other AppViews."
+				}
+			]
+		}
+	}
+}

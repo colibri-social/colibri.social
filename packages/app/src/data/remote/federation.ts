@@ -1,4 +1,4 @@
-import { SELF } from "@colibri-social/lexicons";
+import { COLLECTIONS, SELF } from "@colibri-social/lexicons";
 import { classifyThrown, colibri, createLogger } from "@colibri-social/lib";
 import { readStored, writeStored } from "../persist";
 import type { HostModeSignal } from "../polyfill/host-mode";
@@ -10,8 +10,8 @@ import type { Transport } from "./transport";
 
 const log = createLogger("federation");
 
-export const APPVIEW_COLLECTION = "social.colibri.beta.actor.appview";
-export const REMOTE_SPACE_COLLECTION = "social.colibri.beta.actor.remoteSpace";
+export const APPVIEW_COLLECTION = COLLECTIONS.appview;
+export const REMOTE_SPACE_COLLECTION = COLLECTIONS.remoteSpace;
 export const MAX_DECLARED_APPVIEWS = 8;
 export const DECLARE_CHECK_MS = 24 * 60 * 60_000;
 const FEDERATION_STORAGE_PREFIX = "colibri.federation.";
@@ -64,12 +64,7 @@ export const declaredWith = (current: unknown, appView: string): string[] => {
 };
 
 const preferencesAccessOf = (view: CommunityView): number | undefined => {
-	const until = Date.parse(
-		String(
-			(view.viewer as { preferencesAccessUntil?: unknown } | undefined)
-				?.preferencesAccessUntil ?? "",
-		),
-	);
+	const until = Date.parse(view.viewer?.preferencesAccessUntil ?? "");
 
 	return Number.isFinite(until) ? until : undefined;
 };

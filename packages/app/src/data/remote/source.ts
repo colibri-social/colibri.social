@@ -85,11 +85,6 @@ const THREAD_FOLLOW_COLLECTION = "social.colibri.beta.thread.follow";
 
 type ProfileRecordValue = Record<string, unknown> & { syncBluesky?: unknown };
 
-type ListedCommunities = {
-	communities: unknown[];
-	unavailable?: { did: string; managingApp: string }[];
-};
-
 const textOf = (value: unknown) =>
 	typeof value === "string" && value.trim() ? value : undefined;
 
@@ -427,7 +422,7 @@ export const createRemoteSource = async (
 
 	const liveRoutes = (
 		communities: readonly CommunityView[],
-		unreachable: ListedCommunities["unavailable"] = [],
+		unreachable: readonly { did: string; managingApp: string }[] = [],
 	) => {
 		const routes = new Map<string, string>();
 
@@ -459,15 +454,13 @@ export const createRemoteSource = async (
 		unavailableCommunities: unavailable,
 		listCommunities: async () => {
 			const since = federation.mark();
-			const listed = (await transport.query(
-				colibri.actor.listCommunities.main,
-			)) as ListedCommunities;
+			const listed = await transport.query(colibri.actor.listCommunities.main);
 			const communities = federation.reconcile(
 				listed.communities as CommunityView[],
 				listed.unavailable,
 				since,
 			);
-			setUnavailable((listed.unavailable ?? []) as UnavailableCommunity[]);
+			setUnavailable(listed.unavailable ?? []);
 			options.live.assign?.(liveRoutes(communities, listed.unavailable));
 			watchCommunities(communities);
 			return communities;

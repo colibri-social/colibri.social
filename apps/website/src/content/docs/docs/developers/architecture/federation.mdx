@@ -99,6 +99,8 @@ The home AppView decides per method whether a request concerns a Space, and whic
 
 The home AppView reads the query string first and the JSON body second. A request whose Space
 the home AppView manages, or whose Space has no published managing AppView, runs on the home AppView.
+A space reference to one of the user's own spaces, such as their preferences
+space, also runs on the home AppView, with no lookup.
 
 `social.colibri.beta.actor.grantSpaceAccess` routes by its optional `community`.
 `social.colibri.beta.polyfill.uploadBlob` and `getBlob` route by their optional
@@ -138,10 +140,16 @@ answers at 32 MB, or at the blob size limit for `polyfill.getBlob` (75 MB) and
 `blob.get` (100 MB). It forwards the same request sizes it accepts for its own handlers: JSON bodies up to 1 MB, `polyfill.uploadBlob` bodies up to 75 MB, and other bodies up to 20 MB.
 When the managing AppView doesn't answer, the home AppView responds `502 UpstreamFailure`.
 
+Outside development, the reference implementation refuses endpoints on private,
+loopback and link-local addresses, and answers those requests with
+`502 UpstreamFailure` too.
+
 ## Accepting a forwarded request
 
 The managing AppView treats a request with both `colibri-acting-for` and a bearer token as
-forwarded, and checks it in this order:
+forwarded. It accepts one only for a method the route table sends by Space, plus
+`social.colibri.beta.polyfill.beginMigration`. Any other method answers
+`403 ActingForNotAllowed`. It then checks the request in this order:
 
 <Steps>
 
@@ -233,10 +241,19 @@ rendered for the recipient. `spaceName` and `channelName` label the push banner.
 `through` is the record key of the last message read.
 
 The receiver runs steps 1, 3, 4 and 5 from
-[accepting a forwarded request](#accepting-a-forwarded-request). It then checks that the recipient's
-`actor.appview` record lists the receiver itself (`NotDeclared`) and that the
-caller manages the Space the call is about (`NotManagingApp`). A notification
-it already holds for the same message is ignored.
+[accepting a forwarded request](#accepting-a-forwarded-request). It then checks, in this order:
+
+- The recipient's `actor.appview` record lists one of the receiver's DIDs. Otherwise `403 NotDeclared`.
+- The recipient's `actor.remoteSpace` records include the Space. Otherwise `403 NotJoined`.
+- The caller manages the Space the call is about. Otherwise `400 NotManagingApp`.
+
+For `deliverNotification`, the `channel` and `thread` must belong to the
+notification's Space. When a lookup for these checks fails, the receiver answers
+`502 UpstreamFailure`.
+
+The receiver drops a notification without an error when the recipient blocked
+its author, or muted the author, the Space, the channel or the thread. It ignores
+a notification it already holds for the same message.
 
 ### Delivery queue
 
@@ -244,9 +261,11 @@ The reference implementation queues each delivery and retries it after 30
 seconds, 2 minutes, 10 minutes and 30 minutes, then hourly. A delivery that
 hasn't arrived 24 hours after it was queued is dropped.
 
-A network failure, a `429`, a `5xx`, `AuthRequired` and `RateLimitExceeded`
-count as temporary. Any other refusal drops the delivery right away. Each
-attempt waits up to 10 seconds.
+A network failure, a `429`, a `5xx`, `AuthRequired`, `RateLimitExceeded`,
+`NotDeclared` and `NotJoined` count as temporary. The last two cover a receiver
+whose cached records are behind the sender's. Any other refusal drops the
+delivery right away, and so does an endpoint on a private address. Each attempt
+waits up to 10 seconds.
 
 ## Sockets and voice
 
@@ -279,7 +298,7 @@ With `FEDERATION_ENABLED=false`, the reference implementation:
 
 - leaves `federation` out of the `describeServer` features
 - answers forwarded requests and `federation.*` calls with `403 FederationDisabled`
-- answers a client request about a Space on another AppView with `403 FederationDisabled`
+- decides routing from its own Spaces only, with no outbound lookups. A Space it knows another AppView manages answers `403 FederationDisabled`, and any other request runs locally.
 - lists the user's remote Spaces as `unavailable`
 - sends no notification deliveries
 
@@ -294,12 +313,15 @@ It still writes `community.host` records for the Spaces it manages.
 | `PeerBlocked` | 403 | The answering AppView blocked the caller |
 | `RateLimitExceeded` | 429 | The caller sent too many requests |
 | `NotDeclared` | 403 | The user's `actor.appview` record doesn't list the AppView in question |
+| `NotJoined` | 403 | The recipient's `actor.remoteSpace` records don't include the Space |
+| `ActingForNotAllowed` | 403 | The method doesn't accept requests made for a user |
 | `NotManagingApp` | 400 | The Space is managed elsewhere. `managingApp` names where, when known. |
 | `UpstreamFailure` | 502 | The home AppView couldn't find or reach the managing AppView |
 | `PayloadTooLarge` | 413 | The request body exceeds the forwarding limit |
 
 ## See also
 
+- [AppView specification](/docs/developers/specification/appview#federation): the `social.colibri.beta.federation` methods and their schemas.
 - [ATproto Spaces](/docs/developers/architecture/spaces): service auth, credentials and the managing AppView.
 - [Client](/docs/developers/architecture/client): how the client picks an AppView and opens its sockets.
 - [Hosting](/docs/developers/architecture/hosting): the spaces polyfill.
