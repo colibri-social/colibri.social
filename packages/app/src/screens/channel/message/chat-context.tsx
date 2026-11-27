@@ -43,6 +43,7 @@ import type {
 	ThreadView,
 } from "../../../data/types";
 import { openAppLink } from "../../../native/deep-links";
+import { handlerWhen } from "../../../screen/handler-when";
 import { toListMember } from "../../members/member-adapter";
 import type { MessageSelection } from "../selection/selection";
 import { highlightCode } from "./code-highlight";
@@ -200,7 +201,7 @@ export const createChatRichTextResolvers = (
 				<ChipButton
 					label={`Open ${member.name ?? "member"}'s profile`}
 					onClick={() => chat.onOpenProfile(member.did)}
-					onMenu={menu ? undefined : () => chat.onOpenMemberMenu(member.did)}
+					onMenu={handlerWhen(!menu, () => chat.onOpenMemberMenu(member.did))}
 				>
 					{chip}
 				</ChipButton>

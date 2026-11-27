@@ -90,6 +90,7 @@ import { useData } from "../../../data/store";
 import type { ProfileView } from "../../../data/types";
 import { routeFromLink } from "../../../native/deep-links";
 import { openExternalUrl } from "../../../native/open-external";
+import { handlerWhen } from "../../../screen/handler-when";
 import { PrimaryBadge } from "../../profile/user-badges";
 import { threadPreview } from "../../threads/thread-preview";
 import { mediaSession } from "../composer/media/session";
@@ -983,14 +984,13 @@ export const MessageItem = (props: MessageItemProps) => {
 						full: desktop() && event.shiftKey,
 					});
 			}}
-			onMenu={
-				chat.onThreadMenu && !selecting() && !desktop()
-					? () => {
-							const value = thread();
-							if (value) chat.onThreadMenu?.(value);
-						}
-					: undefined
-			}
+			onMenu={handlerWhen(
+				chat.onThreadMenu && !selecting() && !desktop(),
+				() => {
+					const value = thread();
+					if (value) chat.onThreadMenu?.(value);
+				},
+			)}
 		/>
 	);
 

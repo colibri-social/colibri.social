@@ -74,6 +74,7 @@ import {
 import { voice } from "../../data/voice";
 import { openInRecordExplorer } from "../../native/open-in-explorer";
 import { defineContract, slot } from "../../screen/define";
+import { handlerWhen } from "../../screen/handler-when";
 import { usePlatform } from "../../screen/platform";
 import { lastViewedSpace } from "../../shell/cold-start";
 import { useOptionalDesktopShell } from "../../shell/desktop/context";
@@ -781,7 +782,7 @@ export const spaces = defineContract({
 									mentions={totals().mentions || undefined}
 									attention={!!m.hostAttention(community)}
 									onSelect={() => m.selectSpace(community)}
-									onMenu={desktop() ? undefined : () => m.holdSpace(community)}
+									onMenu={handlerWhen(!desktop(), () => m.holdSpace(community))}
 								/>
 							);
 							return (
@@ -1202,12 +1203,13 @@ export const spaces = defineContract({
 						canReorderCategories={m.can("category.update")}
 						lockUncategorized
 						onReorder={m.saveReorder}
-						onChannelLongPress={
-							desktop() ? undefined : (channel) => m.holdChannel(channel)
-						}
-						onCategoryLongPress={
-							desktop() ? undefined : (rkey) => m.holdCategory(rkey)
-						}
+						onChannelLongPress={handlerWhen(
+							!desktop(),
+							(channel: ChannelView) => m.holdChannel(channel),
+						)}
+						onCategoryLongPress={handlerWhen(!desktop(), (rkey: string) =>
+							m.holdCategory(rkey),
+						)}
 						acceptsParticipants={m.acceptsParticipants}
 						onMoveParticipant={m.moveParticipant}
 						onParticipantLongPress={(id) => m.openParticipantMenu(id)}

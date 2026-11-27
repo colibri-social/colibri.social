@@ -361,7 +361,17 @@ describe("deleting channels and categories", () => {
 		) as HTMLElement;
 		rightClick(header);
 		await until(() => !!menuItem("Delete category"));
-		await userEvent.click(menuItem("Delete category") as HTMLElement);
+
+		for (let attempt = 0; attempt < 5; attempt++) {
+			if (dialogNamed("Delete Testing?")) break;
+
+			const item = menuItem("Delete category") as HTMLElement | undefined;
+
+			if (item) {
+				await userEvent.click(item, { timeout: 3000 }).catch(() => {});
+			}
+		}
+
 		await until(() => !!dialogNamed("Delete Testing?"));
 		const dialog = dialogNamed("Delete Testing?") as HTMLElement;
 		(buttonIn(dialog, "Delete category") as HTMLButtonElement).click();

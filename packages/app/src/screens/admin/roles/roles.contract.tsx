@@ -13,6 +13,7 @@ import { createMemo, createSignal, Match, Show, Switch } from "solid-js";
 import { compareRoles } from "../../../data/role-flags";
 import { isVisibleRole } from "../../../data/roles";
 import { defineContract, slot } from "../../../screen/define";
+import { handlerWhen } from "../../../screen/handler-when";
 import { NEW_ENTRY } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
@@ -161,7 +162,7 @@ export const adminRoles = defineContract({
 					<SpaceRoleList
 						roles={m.listed()}
 						canReorder={m.canReorder()}
-						onReorder={m.canReorder() ? m.reorder : undefined}
+						onReorder={handlerWhen(m.canReorder(), m.reorder)}
 						onOpen={(role) => m.open(role.id)}
 					/>
 				</Match>

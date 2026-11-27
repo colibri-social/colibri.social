@@ -26,6 +26,7 @@ export default defineConfig({
 				test: {
 					name: "storybook",
 					retry: process.env.CI ? 2 : 0,
+					setupFiles: [path.join(dirname, ".storybook/vitest.setup.ts")],
 					browser: {
 						enabled: true,
 						headless: true,
