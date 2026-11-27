@@ -95,7 +95,7 @@ jobs:
       - name: Run tests
         run: ${{ matrix.suite.run }}
         env:
-          DEBUG: pw:browser
+          DEBUG: pw:browser,vitest:browser:*
 
       - name: Typecheck the repository scripts
         if: matrix.suite.name == 'packages'
