@@ -32,6 +32,7 @@ import {
 } from "./data/message-cache";
 import { createOutboxQueue } from "./data/outbox/queue";
 import { appViewOrigin, emojiBlobLocator } from "./data/remote/emoji";
+import { clearFederationCache } from "./data/remote/federation";
 import {
 	createLiveConnection,
 	createLiveMesh,
@@ -378,6 +379,7 @@ export const createSignedInSession = (
 		on(auth.status, (status, previous) => {
 			if (status === "signedOut" && previous && previous !== "signedOut") {
 				void clearDeviceCache();
+				clearFederationCache();
 				void osNotifier().then((notifier) => notifier.clearAll());
 				void teardownLeftoverPush();
 			}

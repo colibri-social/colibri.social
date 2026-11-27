@@ -470,7 +470,13 @@ const reportsActivity = (
 ): source is DataSource & { markActive: () => void } =>
 	typeof (source as { markActive?: unknown }).markActive === "function";
 
-export const UNAVAILABLE_RETRY_MS = 60_000;
+export const UNAVAILABLE_RETRY_MS = [60_000, 120_000, 300_000, 600_000];
+
+export const unavailableRetryDelay = (attempt: number): number => {
+	const last = UNAVAILABLE_RETRY_MS.length - 1;
+
+	return UNAVAILABLE_RETRY_MS[Math.min(attempt, last)] ?? 60_000;
+};
 
 export type UnavailableSpace = {
 	did: Did;
@@ -577,18 +583,40 @@ export const createDataStore = (
 				};
 			});
 		});
-		runWithOwner(owner, () =>
+		const [retryAttempt, setRetryAttempt] = createSignal(0);
+
+		runWithOwner(owner, () => {
+			const waiting = createMemo(() => unavailableSpaces().length > 0);
+
 			createEffect(() => {
-				if (unavailableSpaces().length === 0) return;
+				if (!waiting()) {
+					setRetryAttempt(0);
 
-				const timer = setInterval(
-					() => void communities.refresh(),
-					UNAVAILABLE_RETRY_MS,
-				);
+					return;
+				}
 
-				onCleanup(() => clearInterval(timer));
-			}),
-		);
+				const attempt = retryAttempt();
+
+				const timer = setTimeout(() => {
+					setRetryAttempt(attempt + 1);
+					void communities.refresh();
+				}, unavailableRetryDelay(attempt));
+
+				const restart = () => setRetryAttempt(0);
+
+				if (typeof window !== "undefined") {
+					window.addEventListener("focus", restart);
+				}
+
+				onCleanup(() => {
+					clearTimeout(timer);
+
+					if (typeof window !== "undefined") {
+						window.removeEventListener("focus", restart);
+					}
+				});
+			});
+		});
 		persist(() => {
 			const list = loadedCommunities.value();
 			if (!list) return;
@@ -3932,7 +3960,11 @@ export const createDataStore = (
 			space,
 			channel,
 			unavailableSpaces,
-			retryUnavailable: () => communities.refresh(),
+			retryUnavailable: () => {
+				setRetryAttempt(0);
+
+				return communities.refresh();
+			},
 			spaceByKey: (slug: string) =>
 				communities.value()?.find((entry) => spaceKey(entry) === slug),
 			presenceOf: (did: Did) => presence[did],

@@ -5,7 +5,12 @@ import { afterEach, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { createMockSource, setLatency } from "../../data/mock/source";
 import type { UnavailableCommunity } from "../../data/source";
-import { appViewHost, createDataStore, DataContext } from "../../data/store";
+import {
+	appViewHost,
+	createDataStore,
+	DataContext,
+	unavailableRetryDelay,
+} from "../../data/store";
 import type { CommunityView, Did } from "../../data/types";
 import { Providers } from "../../providers";
 import { DesktopShell } from "../../shell/desktop/DesktopShell";
@@ -128,23 +133,36 @@ it("calls a Space it has never loaded This Space", async () => {
 		.toBeVisible();
 });
 
-it("checks again every minute while a Space can't be reached", async () => {
+it("checks again less often the longer a Space can't be reached", async () => {
 	const { listCommunities, goUnreachable } = await mount();
 
-	await goUnreachable([{ did: NEVER_SEEN, managingApp: REMOTE_APP }]);
-	vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+	vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
 
 	try {
-		await goUnreachable([]);
 		await goUnreachable([{ did: NEVER_SEEN, managingApp: REMOTE_APP }]);
 
-		const calls = listCommunities.mock.calls.length;
+		const calls = () => listCommunities.mock.calls.length;
+		const before = calls();
 
 		vi.advanceTimersByTime(60_000);
-		await expect
-			.poll(() => listCommunities.mock.calls.length)
-			.toBeGreaterThan(calls);
+		await expect.poll(calls).toBe(before + 1);
+
+		vi.advanceTimersByTime(60_000);
+		await expect.poll(calls).toBe(before + 1);
+
+		vi.advanceTimersByTime(60_000);
+		await expect.poll(calls).toBe(before + 2);
+
+		window.dispatchEvent(new Event("focus"));
+		vi.advanceTimersByTime(60_000);
+		await expect.poll(calls).toBe(before + 3);
 	} finally {
 		vi.useRealTimers();
 	}
+});
+
+it("spaces retries from one to ten minutes", () => {
+	expect([0, 1, 2, 3, 4, 9].map(unavailableRetryDelay)).toEqual([
+		60_000, 120_000, 300_000, 600_000, 600_000, 600_000,
+	]);
 });

@@ -1,5 +1,6 @@
 import { SELF } from "@colibri-social/lexicons";
 import { classifyThrown, colibri, createLogger } from "@colibri-social/lib";
+import { readStored, writeStored } from "../persist";
 import type { HostModeSignal } from "../polyfill/host-mode";
 import { createPreferencesGrant } from "../preferences/grant";
 import type { PreferencesSpace } from "../preferences/remote";
@@ -12,10 +13,44 @@ const log = createLogger("federation");
 export const APPVIEW_COLLECTION = "social.colibri.beta.actor.appview";
 export const REMOTE_SPACE_COLLECTION = "social.colibri.beta.actor.remoteSpace";
 export const MAX_DECLARED_APPVIEWS = 8;
+export const DECLARE_CHECK_MS = 24 * 60 * 60_000;
+export const FEDERATION_STORAGE_PREFIX = "colibri.federation.";
 
 type DeclaredRecord = { value?: { appviews?: unknown } };
 
 type Remote = { did: string; managingApp?: string };
+
+export type FederationStorage = {
+	read: (key: string) => string | undefined;
+	write: (key: string, value: string) => void;
+};
+
+const browserStorage: FederationStorage = {
+	read: readStored,
+	write: writeStored,
+};
+
+export const clearFederationCache = (
+	storage:
+		| Pick<Storage, "length" | "key" | "removeItem">
+		| undefined = typeof localStorage === "undefined"
+		? undefined
+		: localStorage,
+) => {
+	if (!storage) return;
+
+	try {
+		const keys: string[] = [];
+
+		for (let index = 0; index < storage.length; index += 1) {
+			const key = storage.key(index);
+
+			if (key?.startsWith(FEDERATION_STORAGE_PREFIX)) keys.push(key);
+		}
+
+		for (const key of keys) storage.removeItem(key);
+	} catch {}
+};
 
 export const declaredWith = (current: unknown, appView: string): string[] => {
 	const listed = Array.isArray(current)
@@ -28,6 +63,19 @@ export const declaredWith = (current: unknown, appView: string): string[] => {
 	return [...listed, appView].slice(-MAX_DECLARED_APPVIEWS);
 };
 
+export const preferencesAccessOf = (
+	view: CommunityView,
+): number | undefined => {
+	const until = Date.parse(
+		String(
+			(view.viewer as { preferencesAccessUntil?: unknown } | undefined)
+				?.preferencesAccessUntil ?? "",
+		),
+	);
+
+	return Number.isFinite(until) ? until : undefined;
+};
+
 export const isMemberOrPending = (view: CommunityView): boolean => {
 	return Boolean(view.viewer?.isMember || view.viewer?.applicationPending);
 };
@@ -37,11 +85,16 @@ export const createFederation = (input: {
 	records: Records;
 	space: PreferencesSpace;
 	host?: HostModeSignal;
+	storage?: FederationStorage;
 }) => {
 	const { transport, records, space, host } = input;
+	const storage = input.storage ?? browserStorage;
 	const self = transport.appViewDid;
+	const declaredKey = `${FEDERATION_STORAGE_PREFIX}declared.v1:${transport.did}:${self}`;
 	const remote = new Map<string, string>();
 	const grants = new Map<string, { community: string; stop: () => void }>();
+	const grantedNow = new Set<string>();
+	const rechecked = new Set<string>();
 	let started = false;
 
 	const isRemote = (view: Remote): view is Required<Remote> => {
@@ -56,8 +109,26 @@ export const createFederation = (input: {
 		};
 	};
 
+	const grantKey = (managingApp: string) => {
+		return `${FEDERATION_STORAGE_PREFIX}grant.v1:${transport.did}:${managingApp}`;
+	};
+
 	const startGrant = (managingApp: string, community: string) => {
-		const grant = createPreferencesGrant({ transport, space, host, community });
+		const key = grantKey(managingApp);
+
+		const grant = createPreferencesGrant({
+			transport,
+			space,
+			host,
+			community,
+			memory: {
+				read: () => storage.read(key),
+				write: (expiresAt) => {
+					grantedNow.add(managingApp);
+					storage.write(key, expiresAt);
+				},
+			},
+		});
 
 		grants.set(managingApp, { community, stop: grant.start() });
 	};
@@ -83,20 +154,30 @@ export const createFederation = (input: {
 		}
 	};
 
+	const declaredRecently = () => {
+		const checkedAt = Number(storage.read(declaredKey));
+
+		return Date.now() - checkedAt < DECLARE_CHECK_MS;
+	};
+
 	const declare = async () => {
+		if (declaredRecently()) return;
+
 		try {
 			const current = (await records.getInRepo(APPVIEW_COLLECTION, SELF)) as
 				| DeclaredRecord
 				| undefined;
 			const listed = current?.value?.appviews;
 
-			if (Array.isArray(listed) && listed.includes(self)) return;
+			if (!Array.isArray(listed) || !listed.includes(self)) {
+				await records.putInRepo(APPVIEW_COLLECTION, SELF, {
+					$type: APPVIEW_COLLECTION,
+					appviews: declaredWith(listed, self),
+					updatedAt: new Date().toISOString(),
+				});
+			}
 
-			await records.putInRepo(APPVIEW_COLLECTION, SELF, {
-				$type: APPVIEW_COLLECTION,
-				appviews: declaredWith(listed, self),
-				updatedAt: new Date().toISOString(),
-			});
+			storage.write(declaredKey, String(Date.now()));
 		} catch (error) {
 			log.warn("could not declare this AppView", {
 				code: classifyThrown(error).code,
@@ -144,6 +225,32 @@ export const createFederation = (input: {
 		}
 	};
 
+	const noteAccess = (view: Required<Remote> & CommunityView) => {
+		const app = view.managingApp;
+		const until = preferencesAccessOf(view);
+		const remembered = Date.parse(storage.read(grantKey(app)) ?? "");
+
+		if (until !== undefined) {
+			if (!(until <= remembered)) {
+				storage.write(grantKey(app), new Date(until).toISOString());
+			}
+
+			return;
+		}
+
+		if (grantedNow.has(app) || rechecked.has(app)) return;
+
+		rechecked.add(app);
+		storage.write(grantKey(app), "");
+
+		const running = grants.get(app);
+
+		if (!running) return;
+
+		running.stop();
+		grants.delete(app);
+	};
+
 	const reconcile = (
 		views: CommunityView[],
 		unavailable: readonly Required<Remote>[] = [],
@@ -153,6 +260,7 @@ export const createFederation = (input: {
 
 			if (isMemberOrPending(view)) {
 				remote.set(view.did, view.managingApp);
+				noteAccess(view);
 
 				return view.viewer?.isMember === true;
 			}

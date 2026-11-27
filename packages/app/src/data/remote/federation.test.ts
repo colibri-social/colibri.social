@@ -5,7 +5,9 @@ import type { CommunityView } from "../types";
 import { createFakeSession, json, xrpcError } from "./fake-session";
 import {
 	APPVIEW_COLLECTION,
+	clearFederationCache,
 	createFederation,
+	DECLARE_CHECK_MS,
 	declaredWith,
 	MAX_DECLARED_APPVIEWS,
 	REMOTE_SPACE_COLLECTION,
@@ -28,7 +30,19 @@ const view = (
 	viewer: CommunityView["viewer"] = { isMember: true },
 ) => ({ did, managingApp, name: did, viewer }) as unknown as CommunityView;
 
-const setup = () => {
+const memoryStorage = () => {
+	const values = new Map<string, string>();
+
+	return {
+		values,
+		read: (key: string) => values.get(key),
+		write: (key: string, value: string) => {
+			values.set(key, value);
+		},
+	};
+};
+
+const setup = (storage = memoryStorage()) => {
 	const fake = createFakeSession(VIEWER);
 
 	const transport = createTransport({
@@ -50,7 +64,8 @@ const setup = () => {
 
 	return {
 		fake,
-		federation: createFederation({ transport, records, space }),
+		storage,
+		federation: createFederation({ transport, records, space, storage }),
 	};
 };
 
@@ -75,6 +90,30 @@ describe("declaredWith", () => {
 		);
 
 		expect(declaredWith(full, OURS)).toEqual([...full.slice(1), OURS]);
+	});
+});
+
+describe("clearFederationCache", () => {
+	it("removes only the federation keys", () => {
+		const values = new Map([
+			["colibri.federation.grant.v1:a:b", "x"],
+			["colibri.federation.declared.v1:a:b", "y"],
+			["colibri.nodes.v1", "z"],
+		]);
+
+		const storage = {
+			get length() {
+				return values.size;
+			},
+			key: (index: number) => [...values.keys()][index] ?? null,
+			removeItem: (key: string) => {
+				values.delete(key);
+			},
+		};
+
+		clearFederationCache(storage);
+
+		expect([...values.keys()]).toEqual(["colibri.nodes.v1"]);
 	});
 });
 
@@ -105,6 +144,129 @@ describe("createFederation", () => {
 		await federation.declare();
 
 		expect(fake.callsTo("com.atproto.repo.putRecord")).toEqual([]);
+	});
+
+	it("skips the declaration check for a day once it has passed", async () => {
+		const storage = memoryStorage();
+		const first = setup(storage);
+
+		first.fake.on(
+			"com.atproto.repo.getRecord",
+			json({ uri: "x", value: { appviews: [OURS] } }),
+		);
+		await first.federation.declare();
+
+		const second = setup(storage);
+
+		await second.federation.declare();
+		expect(second.fake.callsTo("com.atproto.repo.getRecord")).toEqual([]);
+
+		vi.advanceTimersByTime(DECLARE_CHECK_MS);
+
+		const third = setup(storage);
+
+		third.fake.on(
+			"com.atproto.repo.getRecord",
+			json({ uri: "x", value: { appviews: [OURS] } }),
+		);
+		await third.federation.declare();
+		expect(third.fake.callsTo("com.atproto.repo.getRecord")).toHaveLength(1);
+	});
+
+	it("waits for a remembered grant to near its expiry before granting again", async () => {
+		const storage = memoryStorage();
+		const first = setup(storage);
+		const stopFirst = first.federation.start();
+
+		first.federation.reconcile([view(REMOTE, THEIRS)]);
+		await flush();
+		stopFirst();
+		expect(first.fake.callsTo(GRANT)).toHaveLength(1);
+
+		const second = setup(storage);
+		const stopSecond = second.federation.start();
+
+		const confirmed = [...storage.values].find(([key]) =>
+			key.includes(".grant."),
+		)?.[1];
+
+		second.federation.reconcile([
+			view(REMOTE, THEIRS, {
+				isMember: true,
+				preferencesAccessUntil: confirmed,
+			} as CommunityView["viewer"]),
+		]);
+		await flush();
+		expect(second.fake.callsTo(GRANT)).toEqual([]);
+		expect(second.fake.callsTo(DELEGATE)).toEqual([]);
+
+		await vi.advanceTimersByTimeAsync(420_000);
+		expect(second.fake.callsTo(GRANT)).toHaveLength(1);
+
+		stopSecond();
+	});
+
+	it("grants again once when a server reports no access despite a remembered grant", async () => {
+		const storage = memoryStorage();
+		const first = setup(storage);
+		const stopFirst = first.federation.start();
+
+		first.federation.reconcile([view(REMOTE, THEIRS)]);
+		await flush();
+		stopFirst();
+
+		const second = setup(storage);
+		const stopSecond = second.federation.start();
+
+		second.federation.reconcile([view(REMOTE, THEIRS)]);
+		await flush();
+		expect(second.fake.callsTo(GRANT)).toHaveLength(1);
+
+		second.federation.reconcile([view(REMOTE, THEIRS)]);
+		await flush();
+		expect(second.fake.callsTo(GRANT)).toHaveLength(1);
+
+		stopSecond();
+	});
+
+	it("keeps waiting when the server confirms its access", async () => {
+		const storage = memoryStorage();
+		const first = setup(storage);
+		const stopFirst = first.federation.start();
+
+		first.federation.reconcile([view(REMOTE, THEIRS)]);
+		await flush();
+		stopFirst();
+
+		const later = new Date(Date.now() + 3_600_000).toISOString();
+		const second = setup(storage);
+		const stopSecond = second.federation.start();
+
+		second.federation.reconcile([
+			view(REMOTE, THEIRS, {
+				isMember: true,
+				preferencesAccessUntil: later,
+			} as CommunityView["viewer"]),
+		]);
+		await flush();
+		expect(second.fake.callsTo(GRANT)).toEqual([]);
+		expect([...storage.values.values()]).toContain(later);
+
+		stopSecond();
+	});
+
+	it("doesn't grant twice when a server's view predates this session's grant", async () => {
+		const { fake, federation } = setup();
+		const stop = federation.start();
+
+		federation.reconcile([view(REMOTE, THEIRS)]);
+		await flush();
+		federation.reconcile([view(REMOTE, THEIRS)]);
+		await flush();
+
+		expect(fake.callsTo(GRANT)).toHaveLength(1);
+
+		stop();
 	});
 
 	it("remembers a joined Space another AppView manages", async () => {
