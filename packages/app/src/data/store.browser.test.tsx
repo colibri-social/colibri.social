@@ -1397,6 +1397,113 @@ describe("read state", () => {
 		);
 		store.dispose();
 	});
+
+	const mentionIn = async () => {
+		const events = await setupWithEvents();
+		const { store, space, emit } = events;
+		await until(() => store.notifications.status() === "ready");
+		const general = space.channelBySlug("general");
+		if (!general) throw new Error("general missing");
+		const feed = store.channel(general.space);
+		await until(() => feed.ready());
+		const message = feed
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did);
+		if (!message) throw new Error("message missing");
+
+		const mention = (id: string) =>
+			emit({
+				$type: "notificationEvent",
+				notification: {
+					id,
+					kind: "mention",
+					author: message.author,
+					channel: general.space,
+					community: space.community.did,
+					message,
+					indexedAt: new Date().toISOString(),
+				} as never,
+			});
+
+		const seen = (id: string) =>
+			!!store.notifications.items().find((entry) => entry.id === id)?.seenAt;
+
+		return { ...events, general, feed, mention, seen };
+	};
+
+	it("leaves a muted channel out of the Space unread dot and keeps its mentions", async () => {
+		const { store, space, hq, general, mention } = await mentionIn();
+		await store.community.markRead(hq.did);
+		mention("muted-mention");
+		expect(space.unread("general").hasUnread).toBe(true);
+		const mentions = space.totals().mentions;
+		expect(mentions).toBeGreaterThan(0);
+
+		const dots: boolean[] = [];
+
+		const stop = createRoot((dispose) => {
+			createEffect(() => dots.push(space.totals().hasUnread));
+			return dispose;
+		});
+
+		store.setMuted(general.space, true);
+		await store.preferences.settled();
+		expect(space.totals()).toEqual({ hasUnread: false, mentions });
+
+		store.setMuted(general.space, false);
+		await store.preferences.settled();
+		expect(space.totals().hasUnread).toBe(true);
+		expect(dots.filter((dot, index) => dot !== dots[index - 1])).toEqual([
+			true,
+			false,
+			true,
+		]);
+		stop();
+		store.dispose();
+	});
+
+	it("marks a mention seen without counting it when its channel is on screen", async () => {
+		const { store, space, general, mention, seen } = await mentionIn();
+		store.setViewing(general.space);
+		const mentionsBefore = space.unread("general").mentions;
+		const unreadBefore = store.notifications.unreadCount();
+
+		mention("on-screen-mention");
+
+		expect(space.unread("general").mentions).toBe(mentionsBefore);
+		expect(seen("on-screen-mention")).toBe(true);
+		expect(store.notifications.unreadCount()).toBe(unreadBefore);
+
+		setAppActive(false);
+		mention("background-mention");
+		expect(space.unread("general").mentions).toBe(mentionsBefore + 1);
+		expect(seen("background-mention")).toBe(false);
+		setAppActive(true);
+		store.setViewing(undefined);
+		store.dispose();
+	});
+
+	it("clears a channel's mentions and marks its notifications seen on read", async () => {
+		const { store, space, general, feed, mention, seen } = await mentionIn();
+		mention("read-mention");
+		expect(space.unread("general").mentions).toBeGreaterThan(0);
+
+		store.setViewing(general.space);
+		feed.markRead();
+
+		expect(space.unread("general")).toEqual({ hasUnread: false, mentions: 0 });
+		expect(seen("read-mention")).toBe(true);
+		expect(
+			store.notifications
+				.items()
+				.some(
+					(entry) =>
+						entry.channel === general.space && !entry.thread && !entry.seenAt,
+				),
+		).toBe(false);
+		store.setViewing(undefined);
+		store.dispose();
+	});
 });
 
 describe("catch-up on resume", () => {
@@ -1678,6 +1785,48 @@ describe("catch-up on resume", () => {
 		general.markRead();
 		expect(marked.at(-1)).toBeUndefined();
 		base.markRead = markRead;
+		store.setViewing(undefined);
+	});
+
+	it("keeps mentions and their notifications while reading behind a gap", async () => {
+		const { base, store, space, ref } = await setupQuiet();
+		await until(() => store.notifications.status() === "ready");
+		const general = store.channel(ref("general"));
+		await until(() => general.ready());
+		const message = general
+			.messages()
+			.find((entry) => entry.author.did !== store.viewer.did);
+		if (!message) throw new Error("message missing");
+		store.setViewing(ref("general"));
+		flood(base, ref("general"), message.author.did, 300);
+		store.catchUp();
+		await until(() => general.hasNewer());
+		setAppActive(false);
+
+		base.emit({
+			$type: "notificationEvent",
+			notification: {
+				id: "behind-mention",
+				kind: "mention",
+				author: message.author,
+				channel: ref("general"),
+				community: space.community.did,
+				message,
+				indexedAt: new Date().toISOString(),
+			} as never,
+		});
+		const mentions = space.unread("general").mentions;
+		expect(mentions).toBeGreaterThan(0);
+
+		setAppActive(true);
+		expect(general.hasNewer()).toBe(true);
+		general.markRead();
+
+		expect(space.unread("general").mentions).toBe(mentions);
+		expect(
+			store.notifications.items().find((entry) => entry.id === "behind-mention")
+				?.seenAt,
+		).toBeUndefined();
 		store.setViewing(undefined);
 	});
 

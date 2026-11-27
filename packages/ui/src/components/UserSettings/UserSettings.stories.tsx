@@ -6,7 +6,12 @@ import { AccountSettings } from "./AccountSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { ChatSettings } from "./ChatSettings";
 import { DeleteAccount, type DeleteAccountState } from "./DeleteAccount";
-import { NotificationSettings } from "./NotificationSettings";
+import {
+	NOTIFICATION_SETTINGS_COPY,
+	NotificationSettings,
+	SOUND_VOLUME_GROUPS,
+	type SoundVolumeGroupId,
+} from "./NotificationSettings";
 import type {
 	BlueskyClientChoice,
 	NotificationLevel,
@@ -232,7 +237,16 @@ export const Notifications: Story = {
 					level={level()}
 					onLevelChange={setLevel}
 					device={{ enabled: enabled(), onChange: setEnabled }}
-					sounds={{ volume: volume(), onChange: setVolume }}
+					sounds={{
+						groups: [
+							{
+								id: "ping",
+								label: "Notification ping",
+								volume: volume(),
+								onChange: setVolume,
+							},
+						],
+					}}
 				/>
 				<output data-testid="level">{level()}</output>
 				<output data-testid="volume">{volume()}</output>
@@ -249,7 +263,7 @@ export const Notifications: Story = {
 			expect(canvas.getByTestId("level")).toHaveTextContent("nothing"),
 		);
 		const slider = canvas.getByRole("slider", {
-			name: /Sound effects volume/,
+			name: /Notification ping/,
 		});
 		await expect(slider).toHaveAttribute("aria-valuenow", "100");
 		slider.focus();
@@ -263,6 +277,122 @@ export const Notifications: Story = {
 		).not.toBeChecked();
 		await expectNoLayoutIssues(pageRoot(canvasElement));
 	},
+};
+
+const SOUND_STORY_VOLUMES: Record<SoundVolumeGroupId, number> = {
+	ping: 50,
+	presence: 100,
+	mic: 100,
+	video: 100,
+};
+
+const groupSpies = () => {
+	return { onChange: fn(), onChangeEnd: fn(), onPreview: fn() };
+};
+
+const soundSpies = (): Record<
+	SoundVolumeGroupId,
+	ReturnType<typeof groupSpies>
+> => {
+	return {
+		ping: groupSpies(),
+		presence: groupSpies(),
+		mic: groupSpies(),
+		video: groupSpies(),
+	};
+};
+
+let activeSoundSpies = soundSpies();
+
+const SoundsPage = () => {
+	activeSoundSpies = soundSpies();
+
+	const [volumes, setVolumes] = createSignal(SOUND_STORY_VOLUMES);
+
+	const groups = () => {
+		return SOUND_VOLUME_GROUPS.map((group) => {
+			const spies = activeSoundSpies[group.id];
+
+			return {
+				...group,
+				volume: volumes()[group.id],
+				onChange: (volume: number) => {
+					spies.onChange(volume);
+					setVolumes((current) => ({ ...current, [group.id]: volume }));
+				},
+				onChangeEnd: spies.onChangeEnd,
+				onPreview: spies.onPreview,
+			};
+		});
+	};
+
+	return (
+		<Page>
+			<NotificationSettings
+				level="all"
+				onLevelChange={fn()}
+				sounds={{ groups: groups() }}
+			/>
+		</Page>
+	);
+};
+
+const playSounds: Story["play"] = async ({ canvasElement }) => {
+	const canvas = within(canvasElement);
+
+	await expect(
+		canvas.getByText(NOTIFICATION_SETTINGS_COPY.soundVolume),
+	).toBeVisible();
+
+	for (const group of SOUND_VOLUME_GROUPS) {
+		const slider = canvas.getByRole("slider", { name: group.label });
+
+		await expect(slider).toHaveAttribute(
+			"aria-valuenow",
+			String(SOUND_STORY_VOLUMES[group.id]),
+		);
+		await expect(
+			canvas.getByRole("button", {
+				name: NOTIFICATION_SETTINGS_COPY.preview(group.label),
+			}),
+		).toBeVisible();
+	}
+
+	await expect(
+		canvas.getByRole("button", { name: "Preview notification ping" }),
+	).toBeVisible();
+
+	canvas.getByRole("slider", { name: "Mute and deafen" }).focus();
+	await userEvent.keyboard("{ArrowLeft}");
+
+	await waitFor(() =>
+		expect(activeSoundSpies.mic.onChange).toHaveBeenCalledWith(99),
+	);
+
+	for (const id of ["ping", "presence", "video"] as const) {
+		await expect(activeSoundSpies[id].onChange).not.toHaveBeenCalled();
+	}
+
+	await userEvent.click(
+		canvas.getByRole("button", { name: "Preview camera and screen share" }),
+	);
+
+	await waitFor(() =>
+		expect(activeSoundSpies.video.onPreview).toHaveBeenCalledTimes(1),
+	);
+	await expect(activeSoundSpies.ping.onPreview).not.toHaveBeenCalled();
+	await expectNoLayoutIssues(pageRoot(canvasElement));
+};
+
+export const NotificationSounds: Story = {
+	render: () => <SoundsPage />,
+	play: playSounds,
+};
+
+export const NotificationSoundsDesktop: Story = {
+	parameters: { viewport: { defaultViewport: "desktop" } },
+	render: () => <SoundsPage />,
+	play: playSounds,
 };
 
 export const NotificationsBlocked: Story = {

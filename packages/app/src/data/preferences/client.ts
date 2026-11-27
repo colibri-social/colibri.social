@@ -4,12 +4,14 @@ import {
 	BLUESKY_CLIENTS,
 	type BlueskyClient,
 	type ClientPreferences,
-	DEFAULT_SOUND_VOLUME,
+	DEFAULT_SOUND_VOLUMES,
 	GIF_LOOP_LIMITS,
 	INBOX_PRESENTATIONS,
 	type InboxPresentation,
 	RECORD_EXPLORERS,
 	type RecordExplorer,
+	type SoundGroup,
+	type SoundVolumes,
 	THEMES,
 	type Theme,
 } from "./types";
@@ -26,7 +28,7 @@ export type ResolvedClient = {
 	hideModeratedMessages: boolean;
 	inboxPresentation: InboxPresentation;
 	gifLoopLimit: number | undefined;
-	soundVolume: number;
+	soundVolumes: SoundVolumes;
 	controls: {
 		swipeLeftAction: ControlsPreferences["swipeLeftAction"];
 		doubleTapEnabled: boolean;
@@ -51,10 +53,26 @@ const oneOf = <T extends string>(
 		? (value as T)
 		: fallback;
 
-const soundVolumeOf = (value: unknown): number =>
-	typeof value === "number" && Number.isFinite(value)
+const volumeOf = (value: unknown, fallback: number): number => {
+	return typeof value === "number" && Number.isFinite(value)
 		? Math.min(100, Math.max(0, Math.round(value)))
-		: DEFAULT_SOUND_VOLUME;
+		: fallback;
+};
+
+const soundVolumesOf = (client: ClientPreferences): SoundVolumes => {
+	const saved = client.soundVolumes ?? {};
+
+	const legacy = (group: Exclude<SoundGroup, "ping">) => {
+		return volumeOf(client.soundVolume, DEFAULT_SOUND_VOLUMES[group]);
+	};
+
+	return {
+		ping: volumeOf(saved.ping, DEFAULT_SOUND_VOLUMES.ping),
+		presence: volumeOf(saved.presence, legacy("presence")),
+		mic: volumeOf(saved.mic, legacy("mic")),
+		video: volumeOf(saved.video, legacy("video")),
+	};
+};
 
 export const resolveClient = (
 	client: ClientPreferences,
@@ -79,7 +97,7 @@ export const resolveClient = (
 	)
 		? client.gifLoopLimit
 		: undefined,
-	soundVolume: soundVolumeOf(client.soundVolume),
+	soundVolumes: soundVolumesOf(client),
 	controls: {
 		swipeLeftAction: oneOf(
 			["members", "reply"],
@@ -154,5 +172,8 @@ export const mergeClient = (
 		: {}),
 	...(change.voiceView
 		? { voiceView: { ...current.voiceView, ...change.voiceView } }
+		: {}),
+	...(change.soundVolumes
+		? { soundVolumes: { ...current.soundVolumes, ...change.soundVolumes } }
 		: {}),
 });

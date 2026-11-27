@@ -52,6 +52,57 @@ describe("callTiles", () => {
 		expect(tiles).toHaveLength(4);
 	});
 
+	it("prefers the viewer's local camera over a copy from the call", () => {
+		const remote = { did: VIEWER, source: "cam" as const };
+
+		for (const videos of [
+			[
+				{ ...remote, stream: stream("remote") },
+				{ ...remote, stream: stream("local"), local: true },
+			],
+			[
+				{ ...remote, stream: stream("local"), local: true },
+				{ ...remote, stream: stream("remote") },
+			],
+		]) {
+			const tiles = callTiles({
+				participants,
+				videos,
+				viewer: VIEWER,
+				view: everyone,
+			});
+
+			expect(tiles.find((tile) => tile.id === VIEWER)?.stream).toEqual(
+				stream("local"),
+			);
+		}
+	});
+
+	it("shows one screen tile for the viewer, from the local capture", () => {
+		const tiles = callTiles({
+			participants,
+			videos: [
+				{ did: VIEWER, source: "screen", stream: stream("remote") },
+				{ did: PEER, source: "screen", stream: stream("peer") },
+				{
+					did: VIEWER,
+					source: "screen",
+					stream: stream("local"),
+					local: true,
+				},
+			],
+			viewer: VIEWER,
+			view: everyone,
+		});
+
+		const screens = tiles.filter((tile) => tile.kind === "screen");
+
+		expect(screens.map((tile) => [tile.id, tile.stream])).toEqual([
+			[VIEWER, stream("local")],
+			[PEER, stream("peer")],
+		]);
+	});
+
 	it("hides the viewer's camera when they turned that off", () => {
 		const tiles = callTiles({
 			participants,

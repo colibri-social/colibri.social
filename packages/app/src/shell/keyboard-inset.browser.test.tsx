@@ -358,3 +358,55 @@ it("clears the open attribute when a dialog closes before the keyboard", async (
 		false,
 	);
 });
+
+const resizeVisualViewport = (height: number) => {
+	const viewport = window.visualViewport;
+
+	if (!viewport) throw new Error("No visual viewport");
+
+	Object.defineProperty(viewport, "height", {
+		configurable: true,
+		get: () => height,
+	});
+
+	viewport.dispatchEvent(new Event("resize"));
+};
+
+const restoreVisualViewport = () => {
+	const viewport = window.visualViewport;
+
+	if (!viewport) return;
+
+	Reflect.deleteProperty(viewport, "height");
+	viewport.dispatchEvent(new Event("resize"));
+};
+
+it("ignores a small stable visual viewport change on the web", async () => {
+	install();
+
+	try {
+		resizeVisualViewport(window.innerHeight - 56);
+		await frame();
+		await settle();
+		expect(keyboardPanelHeight()).toBeGreaterThanOrEqual(240);
+	} finally {
+		restoreVisualViewport();
+	}
+
+	await frame();
+	await settle();
+	expect(keyboardPanelHeight()).toBeGreaterThanOrEqual(240);
+});
+
+it("ignores a fractional visual viewport height on the web", async () => {
+	install();
+
+	try {
+		resizeVisualViewport(window.innerHeight - 0.4);
+		await frame();
+		await settle();
+		expect(keyboardPanelHeight()).toBeGreaterThanOrEqual(240);
+	} finally {
+		restoreVisualViewport();
+	}
+});

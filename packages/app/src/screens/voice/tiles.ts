@@ -6,6 +6,32 @@ export type CallView = {
 	showOwnCamera: boolean;
 };
 
+const preferred = (
+	videos: readonly VoiceVideo[],
+	viewer: string,
+): VoiceVideo[] => {
+	const kept: VoiceVideo[] = [];
+	const ownSlots = new Map<VoiceVideo["source"], number>();
+
+	for (const video of videos) {
+		if (video.did !== viewer) {
+			kept.push(video);
+			continue;
+		}
+
+		const slot = ownSlots.get(video.source);
+
+		if (slot === undefined) {
+			ownSlots.set(video.source, kept.length);
+			kept.push(video);
+		} else if (video.local && !kept[slot]?.local) {
+			kept[slot] = video;
+		}
+	}
+
+	return kept;
+};
+
 export const callTiles = (input: {
 	participants: readonly VoiceParticipant[];
 	videos: readonly VoiceVideo[];
@@ -15,7 +41,7 @@ export const callTiles = (input: {
 	const cameras = new Map<string, MediaStream>();
 	const screens: VoiceTileData[] = [];
 	const byId = new Map(input.participants.map((person) => [person.id, person]));
-	for (const video of input.videos) {
+	for (const video of preferred(input.videos, input.viewer)) {
 		if (video.source === "cam") {
 			cameras.set(video.did, video.stream);
 			continue;

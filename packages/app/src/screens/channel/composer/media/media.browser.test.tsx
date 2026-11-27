@@ -1,10 +1,15 @@
 import { render } from "solid-js/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page } from "vitest/browser";
 import { expectNoLayoutIssues } from "../../../../../../ui/src/foundations/layout-test";
 import "../../../../app.css";
 import { createMockSource } from "../../../../data/mock/source";
 import { createDataStore, DataContext } from "../../../../data/store";
 import type { GifView } from "../../../../data/types";
+import {
+	installKeyboardInset,
+	SHELL_INSET_VAR,
+} from "../../../../shell/keyboard-inset";
 import { createComposerMedia } from "./composer-media";
 import type { GifData } from "./gif-source";
 import { createReactionPicker } from "./reaction-picker";
@@ -199,6 +204,65 @@ describe("composer media panel", () => {
 		expect(media?.panelOpen()).toBe(false);
 		await until(() => !panel());
 		field.remove();
+	});
+
+	it("opens a usable panel above the bottom edge on mobile web after a small viewport change", async () => {
+		await page.viewport(412, 915);
+
+		const shell = document.createElement("div");
+
+		shell.style.height = `calc(100dvh - var(${SHELL_INSET_VAR}, 0px))`;
+		document.body.append(shell);
+
+		const teardown = installKeyboardInset({ shell: () => shell });
+		const viewport = window.visualViewport;
+
+		try {
+			if (!viewport) throw new Error("No visual viewport");
+
+			Object.defineProperty(viewport, "height", {
+				configurable: true,
+				get: () => window.innerHeight - 56,
+			});
+
+			viewport.dispatchEvent(new Event("resize"));
+			await settle();
+			Reflect.deleteProperty(viewport, "height");
+			viewport.dispatchEvent(new Event("resize"));
+			await settle();
+
+			let media: ReturnType<typeof createComposerMedia> | undefined;
+
+			mount(() => {
+				media = createComposerMedia({
+					gifs: fakeGifs(),
+					onInsertEmoji: vi.fn(),
+					onSendGif: vi.fn(),
+				});
+				return <media.Sheet />;
+			});
+
+			media?.toggleEmoji();
+
+			const sheet = await until(panel);
+
+			await settle();
+
+			const rect = sheet.getBoundingClientRect();
+
+			expect(rect.height).toBeGreaterThanOrEqual(240);
+			expect(Math.round(rect.bottom)).toBe(window.innerHeight);
+			expect(Math.round(shell.getBoundingClientRect().bottom)).toBe(
+				Math.round(rect.top),
+			);
+			expect(
+				sheet.querySelector('input[aria-label="Search emoji"]'),
+			).not.toBeNull();
+		} finally {
+			Reflect.deleteProperty(viewport ?? {}, "height");
+			teardown();
+			shell.remove();
+		}
 	});
 });
 

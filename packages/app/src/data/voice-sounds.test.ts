@@ -10,6 +10,7 @@ class FakeAudioContext {
 	sinkId = "";
 	destination = {};
 	events: string[] = [];
+	gains: number[] = [];
 	setSinkId?: (id: string) => Promise<void>;
 
 	constructor() {
@@ -41,7 +42,13 @@ class FakeAudioContext {
 	}
 
 	createGain() {
-		return { gain: { value: 1 }, connect: () => {}, disconnect: () => {} };
+		const node = {
+			gain: { value: 1 },
+			connect: () => this.gains.push(node.gain.value),
+			disconnect: () => {},
+		};
+
+		return node;
 	}
 }
 
@@ -115,4 +122,33 @@ it("plays without routing where audio contexts cannot pick a speaker", async () 
 	sounds.setSoundEffectsSink("speaker-1");
 	sounds.createVoiceSoundPlayer()("join");
 	await vi.waitFor(() => expect(context().events).toEqual(["start:"]));
+});
+
+it("plays each sound at the volume of its group", async () => {
+	sounds.setSoundEffectsVolumes({ ping: 50, presence: 30, mic: 80, video: 0 });
+	const play = sounds.createVoiceSoundPlayer();
+	play("join");
+	await vi.waitFor(() => expect(context().gains).toHaveLength(1));
+	play("undeafen");
+	await vi.waitFor(() => expect(context().gains).toHaveLength(2));
+	play("screenShared");
+	await new Promise((resolve) => setTimeout(resolve, 50));
+	expect(context().gains).toEqual([0.3, 0.8]);
+});
+
+it("plays the notification ping at half volume by default", async () => {
+	const play = sounds.createSoundPlayer({ ping: "/ping.wav" });
+	play("ping");
+	await vi.waitFor(() => expect(context().gains).toEqual([0.5]));
+});
+
+it("plays a preview at the given volume even when its group is muted", async () => {
+	sounds.setSoundEffectsVolumes({
+		ping: 0,
+		presence: 100,
+		mic: 100,
+		video: 100,
+	});
+	sounds.createSoundPlayer({ ping: "/ping.wav" })("ping", 25);
+	await vi.waitFor(() => expect(context().gains).toEqual([0.25]));
 });

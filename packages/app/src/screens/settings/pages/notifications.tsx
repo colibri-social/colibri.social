@@ -1,6 +1,7 @@
-import { NotificationSettings } from "@colibri-social/ui";
+import { NotificationSettings, SOUND_VOLUME_GROUPS } from "@colibri-social/ui";
 import { createSignal, onCleanup } from "solid-js";
-import { previewSoundEffects } from "../../../data/notification-sounds";
+import { previewSoundGroup } from "../../../data/notification-sounds";
+import type { SoundGroup, SoundVolumes } from "../../../data/preferences/types";
 import { useData } from "../../../data/store";
 import { deviceNotifications } from "../../../native/notifications/device";
 import {
@@ -14,14 +15,35 @@ export default function NotificationsPage() {
 	const [notifier, setNotifier] = createSignal<OsNotifier>();
 	void osNotifier().then(setNotifier);
 	onCleanup(device.watch());
-	const [draftVolume, setDraftVolume] = createSignal<number>();
-	const soundVolume = () =>
-		draftVolume() ?? data.preferences.client().soundVolume;
-	const commitVolume = (volume: number) => {
-		void data.preferences.setClient({ soundVolume: Math.round(volume) });
-		setDraftVolume(undefined);
-		previewSoundEffects();
+	const [drafts, setDrafts] = createSignal<Partial<SoundVolumes>>({});
+
+	const volumeOf = (group: SoundGroup) => {
+		return drafts()[group] ?? data.preferences.client().soundVolumes[group];
 	};
+
+	const draftVolume = (group: SoundGroup, volume: number) => {
+		setDrafts((current) => ({ ...current, [group]: volume }));
+	};
+
+	const commitVolume = (group: SoundGroup, volume: number) => {
+		void data.preferences.setClient({
+			soundVolumes: { [group]: Math.round(volume) },
+		});
+
+		setDrafts(({ [group]: _, ...rest }) => rest);
+	};
+
+	const soundGroups = () => {
+		return SOUND_VOLUME_GROUPS.map(({ id, label }) => ({
+			id,
+			label,
+			volume: volumeOf(id),
+			onChange: (volume: number) => draftVolume(id, volume),
+			onChangeEnd: (volume: number) => commitVolume(id, volume),
+			onPreview: () => previewSoundGroup(id, volumeOf(id)),
+		}));
+	};
+
 	const supported = () => {
 		const kind = notifier()?.kind;
 		return !!kind && kind !== "none";
@@ -32,11 +54,7 @@ export default function NotificationsPage() {
 			onLevelChange={(level) =>
 				void data.preferences.setNotificationLevel(level)
 			}
-			sounds={{
-				volume: soundVolume(),
-				onChange: setDraftVolume,
-				onChangeEnd: commitVolume,
-			}}
+			sounds={{ groups: soundGroups() }}
 			device={
 				supported()
 					? {
