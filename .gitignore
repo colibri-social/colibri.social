@@ -3,9 +3,11 @@ dist/
 *.tsbuildinfo
 # generated types
 .astro/
+result/
 
 # dependencies
 node_modules/
+.direnv/
 
 # logs
 npm-debug.log*
