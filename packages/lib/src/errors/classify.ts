@@ -378,7 +378,9 @@ export const classifyThrown = (
 	const message = err instanceof Error ? err.message : String(err);
 
 	for (const link of causeChain(err).slice(1)) {
-		const causeCode = codeForThrownShape(link);
+		const causeCode = isColibriError(link)
+			? link.code
+			: codeForThrownShape(link);
 		if (causeCode) {
 			return new ColibriError({ ...shared, code: causeCode, message });
 		}

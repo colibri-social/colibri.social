@@ -22,6 +22,11 @@ const REFRESH_REFUSED_CODES = new Set<ColibriErrorCode>([
 	"OAuthGrantExpired",
 ]);
 const MINT_LXM = "com.atproto.server.getServiceAuth";
+
+export const endsSession = (code: ColibriErrorCode): boolean => {
+	return HARD_CODES.has(code) || REFRESH_REFUSED_CODES.has(code);
+};
+
 const DPOP_PROOF_CODES = new Set(["invalid_dpop_proof", "use_dpop_nonce"]);
 
 export type SessionHealth = {

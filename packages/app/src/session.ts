@@ -24,6 +24,7 @@ import {
 	appViewUrl,
 } from "./auth";
 import { withDeadline } from "./auth/deadline";
+import { endsSession } from "./auth/session-health";
 import { isExperimentOn, VOICE_RELAY_EXPERIMENT } from "./data/experiments";
 import {
 	cacheNamespace,
@@ -206,7 +207,10 @@ export const createSignedInSession = (
 				serviceRef: appViewServiceRef(),
 				emojiBlobUrl: emojiBlobLocator(appViewOrigin(appViewDid())),
 				onAuthFailure: (error) => {
-					reportError(error, { stage: "socket" });
+					if (!endsSession(error.code)) {
+						reportError(error, { stage: "socket" });
+					}
+
 					auth.onAuthFailure(error.code);
 				},
 				isSessionDead: () => auth.health.dead(),
