@@ -12,6 +12,7 @@ import {
 } from "../../icons/animated/media";
 import { cx } from "../../utils/cx";
 import { Button } from "../Button/Button";
+import { Spinner } from "../Spinner/Spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../Tooltip/Tooltip";
 import {
 	CallControlButton,
@@ -120,6 +121,14 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 		if (props.state === "disconnected") return "text-destructive";
 		return qualityText[quality()];
 	};
+	const tileTone = () => {
+		return connecting() ? "bg-warning/10 text-warning" : qualityTile[quality()];
+	};
+
+	const tileHover = () => {
+		return connecting() ? "hover:bg-warning/20" : qualityTileHover[quality()];
+	};
+
 	const mic = micControl(props);
 	const deafen = deafenControl(props);
 	const camera = cameraControl(props);
@@ -150,12 +159,14 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 							class={cx(
 								"flex size-8 shrink-0 items-center justify-center rounded-control-sm border-0 p-0 outline-none focus-ring [&_svg]:size-5",
 								props.onQualityClick
-									? cx("cursor-pointer", qualityTileHover[quality()])
+									? cx("cursor-pointer", tileHover())
 									: "cursor-default",
-								qualityTile[quality()],
+								tileTone(),
 							)}
 						>
-							<QualityIcon quality={quality()} />
+							<Show when={!connecting()} fallback={<Spinner />}>
+								<QualityIcon quality={quality()} />
+							</Show>
 						</TooltipTrigger>
 						<TooltipContent class={qualityText[quality()]}>
 							{latencyLabel()}
