@@ -401,6 +401,19 @@ export const createConversation = (options: ConversationOptions) => {
 	let covered = false;
 	let leftForFullThread = false;
 	const [activeFeed, setActiveFeed] = createSignal<ChannelData>();
+	let readWhenShown: ChannelData | undefined;
+
+	createEffect(
+		on(appVisible, (shown) => {
+			const pending = readWhenShown;
+
+			if (!shown || !pending || untrack(activeFeed) !== pending) return;
+
+			readWhenShown = undefined;
+			pending.markRead();
+		}),
+	);
+
 	createEffect(() => {
 		const current = feed();
 		if (!current || !isActive()) return;
@@ -428,7 +441,13 @@ export const createConversation = (options: ConversationOptions) => {
 		if (options.space && options.channel) {
 			data.setLastChannel(options.space, options.channel);
 		}
-		current.markRead();
+		if (untrack(appVisible)) {
+			readWhenShown = undefined;
+			current.markRead();
+		} else {
+			readWhenShown = current;
+		}
+
 		setActiveFeed(current);
 		onCleanup(() => {
 			setActiveFeed(undefined);

@@ -61,6 +61,10 @@ const VOICE_COPY = {
 	callLabel: "Voice call",
 } as const;
 
+const sharedFocus = <T,>(shared: boolean | undefined, value: () => T) => {
+	return shared ? value() : undefined;
+};
+
 export const voiceScreen = defineContract({
 	id: "voice",
 	model: (args: VoiceArgs) => {
@@ -376,8 +380,8 @@ export const voiceScreen = defineContract({
 				<VoiceGrid
 					tiles={m.tiles()}
 					portrait={p.portrait ?? true}
-					focusedKey={p.shareFocus ? voice.focusedKey() : undefined}
-					onFocusChange={p.shareFocus ? voice.setFocusedKey : undefined}
+					focusedKey={sharedFocus(p.shareFocus, voice.focusedKey)}
+					onFocusChange={sharedFocus(p.shareFocus, () => voice.setFocusedKey)}
 					tileMenu={m.tileMenuFor}
 					onTileMenu={
 						m.mobile() ? (tile) => m.openMemberMenu(tile.id) : undefined

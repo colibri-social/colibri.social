@@ -83,7 +83,7 @@ export const defineContract = <
 					},
 				]),
 			) as BoundSlots<M, S>;
-			if (import.meta.env.DEV) {
+			if (import.meta.env.DEV && import.meta.env.MODE !== "test") {
 				onMount(() =>
 					queueMicrotask(() => {
 						const missing = Object.keys(contract.slots).filter(

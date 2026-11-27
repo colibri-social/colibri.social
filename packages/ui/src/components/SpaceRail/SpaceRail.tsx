@@ -469,6 +469,10 @@ const RailFrame = (
 	);
 };
 
+const suppressedOpen = (suppressed: boolean | undefined) => {
+	return suppressed ? false : undefined;
+};
+
 const RailTooltip = (props: {
 	label: string;
 	trigger: JSX.Element;
@@ -477,7 +481,7 @@ const RailTooltip = (props: {
 	<Tooltip
 		placement="right"
 		disabled={props.suppressed}
-		open={props.suppressed ? false : undefined}
+		open={suppressedOpen(props.suppressed)}
 	>
 		{props.trigger}
 		<TooltipContent>{props.label}</TooltipContent>

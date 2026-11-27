@@ -14,7 +14,7 @@ import { depthOf } from "../history-sync";
 const BASE_PATH = `/app/c/${HQ}`;
 const channelPath = (channel: string) => `${BASE_PATH}/${TEXT}/${channel}`;
 const refOf = (channel: string) =>
-	`at://${HQ}/space/${TEXT}/${channel}` as SpaceRef;
+	`at:space/${HQ}/${TEXT}/${channel}` as SpaceRef;
 
 const sidebarButton = (name: string) =>
 	Array.from(

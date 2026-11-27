@@ -18,6 +18,7 @@ import {
 	CallLeaveButton,
 	type CallMediaState,
 	cameraControl,
+	cameraLoading,
 	deafenControl,
 	micControl,
 	screenShareControl,
@@ -234,7 +235,7 @@ export const VoiceStatusPanel = (props: VoiceStatusPanelProps) => {
 					size="lg"
 					stretch
 					disabled={camera.disabled()}
-					loading={!camera.disabled() && props.cameraPending}
+					loading={cameraLoading(camera.disabled(), props.cameraPending)}
 					icon={<AnimatedVideocameraIcon off={!camera.on()} />}
 					onClick={props.onToggleCamera}
 				/>

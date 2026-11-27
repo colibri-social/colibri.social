@@ -17,6 +17,13 @@ import {
 
 export type CallControlTone = "default" | "active" | "off" | "server";
 
+export const cameraLoading = (
+	disabled: boolean,
+	pending: boolean | undefined,
+) => {
+	return !disabled && pending;
+};
+
 const toneClass: Record<CallControlTone, string> = {
 	default: "",
 	active:
@@ -268,7 +275,7 @@ export const CallControls = (props: CallControlsProps) => {
 					tone={camera.tone()}
 					size={props.size}
 					disabled={camera.disabled()}
-					loading={!camera.disabled() && props.cameraPending}
+					loading={cameraLoading(camera.disabled(), props.cameraPending)}
 					icon={<AnimatedVideocameraIcon off={!camera.on()} />}
 					onClick={props.onToggleCamera}
 				/>

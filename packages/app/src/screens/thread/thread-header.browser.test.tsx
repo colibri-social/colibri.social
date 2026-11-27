@@ -9,7 +9,7 @@ import { DEV_PATH, HQ, until } from "../channel/desktop-test-kit";
 
 const THREAD_PATH = `${DEV_PATH}/t/spring-tuning`;
 const SPRING =
-	`at://${HQ}/space/social.colibri.beta.channel.thread/spring-tuning` as SpaceRef;
+	`at:space/${HQ}/social.colibri.beta.channel.thread/spring-tuning` as SpaceRef;
 
 let stop: (() => void) | undefined;
 let host: HTMLDivElement | undefined;

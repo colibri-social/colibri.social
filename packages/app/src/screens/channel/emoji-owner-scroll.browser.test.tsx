@@ -12,7 +12,7 @@ import {
 	wait,
 } from "./desktop-test-kit";
 
-const DEV_REF = `at://${HQ}/space/${TEXT}/dev` as SpaceRef;
+const DEV_REF = `at:space/${HQ}/${TEXT}/dev` as SpaceRef;
 const OWLS = "did:plc:nightowlsartclub3e5f7g9h" as Did;
 
 const scroller = () =>
