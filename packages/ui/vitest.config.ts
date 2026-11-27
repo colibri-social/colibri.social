@@ -6,6 +6,10 @@ import { defineConfig } from "vitest/config";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const CHROMIUM_LOG_ARGS = process.env.CI
+	? ["--enable-logging=stderr", "--log-level=2"]
+	: [];
+
 export default defineConfig({
 	test: {
 		maxWorkers: process.env.CI ? 2 : undefined,
@@ -30,7 +34,9 @@ export default defineConfig({
 					browser: {
 						enabled: true,
 						headless: true,
-						provider: playwright(),
+						provider: playwright({
+							launchOptions: { args: CHROMIUM_LOG_ARGS },
+						}),
 						instances: [{ browser: "chromium" }],
 					},
 				},

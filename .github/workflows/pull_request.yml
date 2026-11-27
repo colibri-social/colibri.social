@@ -57,10 +57,20 @@ jobs:
         run: pnpm knip --reporter github-actions
 
   test:
-    name: Test
+    name: Test (${{ matrix.suite.name }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - name: packages
+            run: pnpm -r --filter '!@colibri-social/app' test
+          - name: app 1/2
+            run: pnpm --filter @colibri-social/app exec vitest run --shard=1/2
+          - name: app 2/2
+            run: pnpm --filter @colibri-social/app exec vitest run --shard=2/2
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -83,9 +93,12 @@ jobs:
         run: pnpm --filter @colibri-social/app exec playwright install --with-deps chromium
 
       - name: Run tests
-        run: pnpm -r test
+        run: ${{ matrix.suite.run }}
+        env:
+          DEBUG: pw:browser
 
       - name: Typecheck the repository scripts
+        if: matrix.suite.name == 'packages'
         run: pnpm typecheck:scripts
 
   whats-new:
