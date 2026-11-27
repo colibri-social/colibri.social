@@ -289,6 +289,7 @@ export const createMessageWrites = (deps: {
 					? records.uploadBlob
 					: records.uploadSpaceBlob;
 			const blob = await upload(file, {
+				space: options?.space,
 				signal: options?.signal,
 				onProgress: progress.report,
 			}).finally(progress.stop);

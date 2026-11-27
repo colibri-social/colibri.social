@@ -78,6 +78,7 @@ export type UploadOptions = {
 	onProgress?: (fraction: number) => void;
 	signal?: AbortSignal;
 	destination?: "repo";
+	space?: SpaceRef;
 };
 
 export type ForwardInput = {

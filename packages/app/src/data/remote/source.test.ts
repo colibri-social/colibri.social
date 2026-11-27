@@ -1406,9 +1406,11 @@ describe("createRemoteSource", () => {
 		expect(fake.callsTo("com.atproto.repo.uploadBlob")).toHaveLength(1);
 		expect(fake.callsTo(colibri.polyfill.uploadBlob.main.nsid)).toHaveLength(0);
 
-		await source.uploadBlob(file);
+		await source.uploadBlob(file, { space: CHANNEL });
 
-		expect(fake.callsTo(colibri.polyfill.uploadBlob.main.nsid)).toHaveLength(1);
+		const [hosted] = fake.callsTo(colibri.polyfill.uploadBlob.main.nsid);
+
+		expect(hosted?.params.get("space")).toBe(CHANNEL);
 	});
 
 	it("reports a missing profile blob as a failed upload", async () => {

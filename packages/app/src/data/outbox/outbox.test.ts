@@ -270,11 +270,15 @@ describe("outbox", () => {
 	});
 
 	it("uploads files before sending and reports progress", async () => {
-		const { outbox, calls, events } = make();
+		const { outbox, calls, events, source } = make();
 		const file = new File(["x"], "cat.png", { type: "image/png" });
 		outbox.enqueue(send("a", "look", [file]));
 		await settle();
 		expect(calls).toEqual(["upload:cat.png", "send:a:look"]);
+		expect(source.uploadBlob).toHaveBeenCalledWith(
+			file,
+			expect.objectContaining({ space: CHANNEL }),
+		);
 		expect(
 			events.some((event) => event.type === "progress" && event.fraction === 1),
 		).toBe(true);

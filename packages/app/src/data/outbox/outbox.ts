@@ -298,6 +298,7 @@ export const createOutbox = (options: OutboxOptions) => {
 				emit({ type: "progress", entry, file: index, fraction: 0 });
 				try {
 					const uploaded = await source.uploadBlob(file.file, {
+						space: op.channel,
 						onProgress: (fraction) =>
 							emit({ type: "progress", entry, file: index, fraction }),
 					});
