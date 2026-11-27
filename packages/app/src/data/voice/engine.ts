@@ -202,7 +202,7 @@ type VoiceMedia = {
 	onDeviceChange?(listener: () => void): () => void;
 };
 
-export type VoiceServer = {
+type VoiceServer = {
 	appViewHost: string;
 	serviceRef: string;
 	pickHost?: (avoid: ReadonlySet<string>) => string | null;

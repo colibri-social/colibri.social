@@ -22,6 +22,11 @@ The polyfill covers a member's own repositories. A Space's account always needs
 a PDS that serves spaces. See
 [when a spaces PDS is required](#when-a-spaces-pds-is-required).
 
+A hosted repository for a Space lives on the AppView that manages that Space.
+For a Space on another AppView, the member's own AppView forwards the
+`polyfill.*` calls there. See
+[Federation](/docs/developers/architecture/federation#hosted-repositories).
+
 ### Detecting support
 
 The AppView probes a member's PDS to learn whether it serves spaces. It first
@@ -143,6 +148,10 @@ its copy verifies.
 
 </Steps>
 
+`beginMigration` on the member's own AppView also starts the migration on every
+AppView that manages a Space in their `social.colibri.beta.actor.remoteSpace`
+records. The returned list includes those spaces.
+
 The AppView accepts writes to a `migrating` repository throughout. The member
 becomes `native` once every one of their repositories is `native`, and
 `getStatus` reports progress as `spacesTotal` and `spacesDone` until then.
@@ -160,7 +169,7 @@ and seeds the same starter layout `create` does.
 
 Wherever its account lives, a Space is served by the AppView named in the
 `managingApp` field of its `social.colibri.beta.community` record. See
-[One AppView per Space](/docs/developers/architecture/spaces#one-appview-per-space).
+[The managing AppView](/docs/developers/architecture/spaces#the-managing-appview).
 
 ### Signing in as the host account
 

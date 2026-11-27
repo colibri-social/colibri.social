@@ -470,7 +470,7 @@ const reportsActivity = (
 ): source is DataSource & { markActive: () => void } =>
 	typeof (source as { markActive?: unknown }).markActive === "function";
 
-export const UNAVAILABLE_RETRY_MS = [60_000, 120_000, 300_000, 600_000];
+const UNAVAILABLE_RETRY_MS = [60_000, 120_000, 300_000, 600_000];
 
 export const unavailableRetryDelay = (attempt: number): number => {
 	const last = UNAVAILABLE_RETRY_MS.length - 1;

@@ -142,15 +142,20 @@ The write path has a consequence of its own. See
 [the writer set](/docs/developers/architecture/sync#the-writer-set).
 :::
 
-## One AppView per Space
+## The managing AppView
 
 A Colibri Space is bound to the AppView that manages it. The Space's record
-names that AppView in its `managingApp` field. Only the managing AppView holds
-the Space's credentials and answers `checkAccess` for it, so every read, write,
-event and voice call for that Space goes through that AppView.
+names that AppView in its `managingApp` field, and the
+`social.colibri.beta.community.host` record in the Space account's public
+repository names it for anyone who isn't a member. Only the managing AppView
+holds the Space's credentials and answers `checkAccess` for it, so every read,
+write, event and voice call for that Space must go through it.
 
-See [Where a Space Is Hosted](/docs/users/spaces/appviews) for what
-that means when you belong to Spaces on more than one.
+A user reaches a Space on another AppView through their own. Their AppView
+forwards each request for that Space to the managing AppView, acting on their
+behalf. The client opens the event socket and voice connection to the
+managing AppView directly. See
+[Federation](/docs/developers/architecture/federation).
 
 ## See also
 
@@ -158,3 +163,4 @@ that means when you belong to Spaces on more than one.
 - [Sync](/docs/developers/architecture/sync): how the AppView keeps a copy of a space current.
 - [Hosting](/docs/developers/architecture/hosting): where space repositories live when a PDS cannot hold them.
 - [Moderation](/docs/developers/architecture/moderation): what a Space can do about a message.
+- [Federation](/docs/developers/architecture/federation): how AppViews serve each other's Spaces.

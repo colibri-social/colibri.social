@@ -60,6 +60,7 @@ const setup = (storage = memoryStorage()) => {
 	);
 	fake.on("com.atproto.space.putRecord", json({ uri: "x", cid: "y" }));
 	fake.on("com.atproto.space.deleteRecord", json({}));
+	fake.on("com.atproto.space.listRecords", json({ records: [] }));
 	fake.on("com.atproto.repo.putRecord", json({ uri: "x", cid: "y" }));
 
 	return {
@@ -284,13 +285,48 @@ describe("createFederation", () => {
 		});
 	});
 
-	it("writes nothing for a Space this AppView manages", async () => {
+	it("records a Space this AppView manages as well", async () => {
 		const { fake, federation } = setup();
 
 		fake.on(GET_COMMUNITY, json({ community: view(LOCAL, OURS) }));
 		await federation.joined(LOCAL);
 
-		expect(fake.callsTo("com.atproto.space.putRecord")).toEqual([]);
+		const [call] = fake.callsTo("com.atproto.space.putRecord");
+
+		expect(call?.body).toMatchObject({
+			rkey: LOCAL,
+			record: { managingApp: OURS },
+		});
+		expect(fake.callsTo(GRANT)).toEqual([]);
+	});
+
+	it("records every joined Space that has no record yet, once", async () => {
+		const { fake, federation } = setup();
+
+		fake.on(
+			"com.atproto.space.listRecords",
+			json({
+				records: [
+					{
+						collection: REMOTE_SPACE_COLLECTION,
+						rkey: LOCAL,
+						cid: "c",
+						value: { managingApp: OURS },
+					},
+				],
+			}),
+		);
+
+		federation.reconcile([view(LOCAL, OURS), view(REMOTE, THEIRS)]);
+		await flush();
+		federation.reconcile([view(LOCAL, OURS), view(REMOTE, THEIRS)]);
+		await flush();
+
+		const written = fake
+			.callsTo("com.atproto.space.putRecord")
+			.map((call) => (call.body as { rkey: string }).rkey);
+
+		expect(written).toEqual([REMOTE]);
 	});
 
 	it("grants each managing AppView once, naming one of its Spaces", async () => {

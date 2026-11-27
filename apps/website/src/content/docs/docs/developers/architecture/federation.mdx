@@ -1,0 +1,305 @@
+---
+title: Federation
+description: How Colibri AppViews serve each other's Spaces, and what another AppView implementation needs to federate with them.
+sidebar:
+  order: 9
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+Every Colibri Space has one [managing AppView](/docs/developers/architecture/spaces#the-managing-appview).
+Federation lets a user whose client talks to a different AppView use that Space
+anyway. This page describes the records, headers and methods involved, for
+anyone building an AppView that federates with the
+[reference implementation](https://github.com/colibri-social/api).
+
+Two roles appear throughout:
+
+- The **home AppView** is the one the user's client talks to.
+- The **managing AppView** is the one named in the Space's `managingApp`.
+
+The home AppView forwards requests about a Space it doesn't manage to the managing AppView, acting for the user.
+The managing AppView delivers the user's notifications back to the home AppView. The client opens its event
+socket and its voice connection to the managing AppView directly.
+
+## Requirements
+
+A federating AppView needs:
+
+- A `did:web` identity. The reference implementation only federates with `did:web` AppViews. `colibri-admin federation block` accepts only `did:web`.
+- A `#colibri_appview` service in its DID document. Other AppViews send requests to that endpoint.
+- Its XRPC API and event socket served at the host of its `did:web`. The client derives the origin of a managing AppView from its DID, without reading the DID document.
+- `federation` in the `features` of `social.colibri.beta.server.describeServer`. The client shows a warning when a server lacks it.
+
+## Records
+
+Three records describe who manages what and who may act for whom.
+
+### `social.colibri.beta.community.host`
+
+Lives in the Space account's public repository with the record key `self`.
+`managingApp` is the DID of the managing AppView without a service fragment,
+and `updatedAt` is when it last changed.
+
+The managing AppView writes it when it creates or adopts a Space. The reference implementation
+also checks it on startup for every Space it holds credentials for, and rewrites
+it when it names a different AppView, as long as the Space is still managed by it.
+
+### `social.colibri.beta.actor.appview`
+
+Lives in the user's public repository with the record key `self`. `appviews`
+lists between one and eight AppView DIDs, without service fragments, in the
+order the user added them.
+
+The record grants two things. The managing AppView accepts a request forwarded for the user only
+from an AppView in the list, and the managing AppView delivers the user's notifications to every
+AppView in the list except itself.
+
+The client adds its home AppView after sign-in when the list lacks it, and
+keeps the eight most recent entries.
+
+### `social.colibri.beta.actor.remoteSpace`
+
+Lives in the user's preferences space, with the Space's DID as the record key.
+`managingApp` is the AppView that managed the Space when the user joined, and
+`joinedAt` is when they joined. Where the two differ, the Space's
+`community.host` record wins.
+
+The client writes one for every Space the user joins, whichever AppView
+manages it, and adds one for any Space the user belongs to that has none, so
+a user who changes AppViews keeps every Space. It deletes the record when the
+user leaves, and when the Space reports the user as neither a member nor an
+applicant. An AppView skips the records of Spaces it manages itself. Every
+AppView with access to the preferences space can read the list.
+
+## Finding the managing AppView
+
+<Steps>
+
+1. Resolve the Space's DID to find its PDS.
+
+2. Read `social.colibri.beta.community.host` with the record key `self` from that PDS.
+
+3. Resolve the DID in `managingApp` and read the endpoint of its `#colibri_appview` service.
+
+</Steps>
+
+A Space the home AppView manages itself never leaves the home AppView. The reference implementation caches an
+answer for 10 minutes, and a missing record or endpoint for one minute.
+
+## Routing a request
+
+The home AppView decides per method whether a request concerns a Space, and which Space:
+
+- A `community` parameter or body field holds the Space's DID.
+- A `channel`, `thread` or `space` parameter or body field holds a space reference. Its authority is the Space's DID.
+- `social.colibri.beta.thread.moveMessages` routes by its `source` field.
+- A method without one of these keys runs on the home AppView (e.g. `notification.*`, `federation.*`, `bridge.*`, `community.create`, and both WebSocket subscriptions).
+
+The home AppView reads the query string first and the JSON body second. A request whose Space
+the home AppView manages, or whose Space has no published managing AppView, runs on the home AppView.
+
+`social.colibri.beta.actor.grantSpaceAccess` routes by its optional `community`.
+`social.colibri.beta.polyfill.uploadBlob` and `getBlob` route by their optional
+`space` parameter, so a blob is stored next to the repository that references it.
+
+The route table of the reference implementation lives in
+`apps/appview/src/federation/route-table.ts`.
+
+## Forwarding
+
+When the request carries a user token, the home AppView verifies it like any other request.
+The home AppView then mints a service auth JWT of its own:
+
+| Claim | Value |
+| --- | --- |
+| `iss` | The home AppView's DID |
+| `aud` | `<managing AppView DID>#colibri_appview` |
+| `lxm` | The NSID of the method |
+| `exp` | 60 seconds after minting |
+
+The home AppView sends the request to the managing AppView's endpoint with the same method, path and body, and these headers:
+
+| Header | Value |
+| --- | --- |
+| `Authorization` | `Bearer <home AppView token>` |
+| `colibri-acting-for` | The user's DID |
+| `colibri-forwarded` | `1` |
+
+The home AppView passes `content-type`, `content-encoding`, `accept` and `accept-language` on
+from the client. A request without a user token, such as an invitation preview,
+goes out with `colibri-forwarded` only and no token.
+
+The home AppView relays the managing AppView's status and body to the client, along with `content-type`,
+`content-encoding`, `cache-control` and the `ratelimit-*` headers. The reference
+implementation waits 30 seconds for an answer, refuses redirects, and caps
+answers at 32 MB, or at the blob size limit for `polyfill.getBlob` (75 MB) and
+`blob.get` (100 MB). It forwards the same request sizes it accepts for its own handlers: JSON bodies up to 1 MB, `polyfill.uploadBlob` bodies up to 75 MB, and other bodies up to 20 MB.
+When the managing AppView doesn't answer, the home AppView responds `502 UpstreamFailure`.
+
+## Accepting a forwarded request
+
+The managing AppView treats a request with both `colibri-acting-for` and a bearer token as
+forwarded, and checks it in this order:
+
+<Steps>
+
+1. Federation is turned on. Otherwise `403 FederationDisabled`.
+
+2. `colibri-acting-for` holds a DID. Otherwise `401 AuthRequired`.
+
+3. The token is valid service auth for the managing AppView and the method. Its `iss` is the calling AppView, called the peer. Otherwise `401 AuthRequired`.
+
+4. The peer is not on the managing AppView's blocklist. Otherwise `403 PeerBlocked`.
+
+5. The peer is within its rate limit. Otherwise `429 RateLimitExceeded`.
+
+6. The user's `social.colibri.beta.actor.appview` record lists the peer. Otherwise `403 NotDeclared`.
+
+</Steps>
+
+The request then runs as the user named in `colibri-acting-for`.
+
+The rate limit is a token bucket per peer. It refills at `FEDERATION_PEER_RATE`
+requests per second, 20 by default, and holds up to `FEDERATION_PEER_BURST`
+requests, 200 by default. The reference implementation caches a user's
+`actor.appview` record for 10 minutes and fetches it again after one minute when
+the peer is missing from it.
+
+### Loop guard
+
+The managing AppView never forwards a forwarded request. When a request with
+`colibri-forwarded` or `colibri-acting-for` concerns a Space the managing AppView doesn't manage,
+the managing AppView answers `400 NotManagingApp` with the AppView it found in a `managingApp`
+field:
+
+```json
+{
+	"error": "NotManagingApp",
+	"message": "another AppView manages this community",
+	"managingApp": "did:web:appview.example.com"
+}
+```
+
+The home AppView then drops its cached answer, looks the managing AppView up again, and retries
+once when the answer changed.
+
+## Listing Spaces
+
+`social.colibri.beta.actor.listCommunities` on the home AppView merges the Spaces the home AppView manages
+with the user's `actor.remoteSpace` records. The home AppView resolves each remote Space with a
+forwarded `social.colibri.beta.community.getCommunity`, in parallel, waiting up
+to 3 seconds. It caches each answer for 30 seconds per user and Space.
+
+A Space whose managing AppView fails or doesn't answer in time appears in
+`unavailable`, with its `did` and `managingApp`. The client keeps it in the list
+and shows that it can't be reached. A Space that answers `CommunityNotFound` is
+left out.
+
+## Preferences access
+
+The managing AppView needs to read the user's preferences space, for example for read cursors and
+notification levels. The client mints a delegation token for the preferences
+space and calls `social.colibri.beta.actor.grantSpaceAccess` on the home AppView with the
+Space's DID in `community`. The home AppView forwards the call to the managing AppView, which exchanges the token.
+
+`viewer.preferencesAccessUntil` in the managing AppView's `getCommunity` answer says when the managing AppView's
+access ends. It is missing when the managing AppView holds no access, and the client grants it
+again.
+
+## Invitations
+
+Invitation codes are unique only within the AppView that issued them, so an
+invite link carries the Space's DID: `/invite/<Space DID>/<code>`. The client
+passes the DID as `community` to `social.colibri.beta.community.getInvitation`,
+and the home AppView routes the call to the managing AppView.
+
+## Notifications
+
+The managing AppView stores and pushes a notification as usual, and also delivers it to every
+AppView in the recipient's `actor.appview` record other than itself. Each
+delivery is a procedure call with service auth minted by the managing AppView, with `aud` set to
+`<receiver's DID>#colibri_appview` and no `colibri-acting-for` header.
+
+| Method | Body | Sent when |
+| --- | --- | --- |
+| `social.colibri.beta.federation.deliverNotification` | `recipient`, `notification`, optional `spaceName` and `channelName` | A mention, reply or message notification is created for the user |
+| `social.colibri.beta.federation.deliverRead` | `recipient`, `channel`, optional `thread`, `through` | The user reads a channel or thread past an unseen notification |
+| `social.colibri.beta.federation.retract` | `recipient`, `message` | A message behind a notification is deleted or hidden |
+
+`notification` is a `social.colibri.beta.notification.defs#notificationView`
+rendered for the recipient. `spaceName` and `channelName` label the push banner.
+`through` is the record key of the last message read.
+
+The receiver runs steps 1, 3, 4 and 5 from
+[accepting a forwarded request](#accepting-a-forwarded-request). It then checks that the recipient's
+`actor.appview` record lists the receiver itself (`NotDeclared`) and that the
+caller manages the Space the call is about (`NotManagingApp`). A notification
+it already holds for the same message is ignored.
+
+### Delivery queue
+
+The reference implementation queues each delivery and retries it after 30
+seconds, 2 minutes, 10 minutes and 30 minutes, then hourly. A delivery that
+hasn't arrived 24 hours after it was queued is dropped.
+
+A network failure, a `429`, a `5xx`, `AuthRequired` and `RateLimitExceeded`
+count as temporary. Any other refusal drops the delivery right away. Each
+attempt waits up to 10 seconds.
+
+## Sockets and voice
+
+The client opens one `social.colibri.beta.sync.subscribeEvents` socket to its
+home AppView and one more to each managing AppView of a Space it watches. It
+authenticates to the managing AppView with a token its own PDS mints for
+`<managing AppView DID>#colibri_appview`, the same way it authenticates to the home AppView.
+
+Voice calls in a Space on the managing AppView connect to the managing AppView's voice nodes through
+`social.colibri.beta.voice.subscribeSignals`. The managing AppView's `social.colibri.beta.server.listNodes`
+tells the client which node to use.
+
+## Hosted repositories
+
+A member whose PDS doesn't serve spaces has their
+[space repositories hosted](/docs/developers/architecture/hosting) by an AppView.
+For a Space managed by another AppView, the managing AppView hosts the member's
+repository for it. The home AppView forwards the `polyfill.*` calls that name
+that Space to the managing AppView.
+
+When the member's PDS gains spaces support,
+`social.colibri.beta.polyfill.beginMigration` on the home AppView also calls `beginMigration`
+on each AppView named in the member's `actor.remoteSpace` records, acting for
+the member, and returns their spaces with its own. The managing AppView doesn't pass a forwarded
+`beginMigration` on to further AppViews.
+
+## Turning federation off
+
+With `FEDERATION_ENABLED=false`, the reference implementation:
+
+- leaves `federation` out of the `describeServer` features
+- answers forwarded requests and `federation.*` calls with `403 FederationDisabled`
+- answers a client request about a Space on another AppView with `403 FederationDisabled`
+- lists the user's remote Spaces as `unavailable`
+- sends no notification deliveries
+
+It still writes `community.host` records for the Spaces it manages.
+
+## Errors
+
+| Error | Status | Meaning |
+| --- | --- | --- |
+| `FederationDisabled` | 403 | The answering AppView doesn't federate |
+| `AuthRequired` | 401 | The service auth or the `colibri-acting-for` header is invalid |
+| `PeerBlocked` | 403 | The answering AppView blocked the caller |
+| `RateLimitExceeded` | 429 | The caller sent too many requests |
+| `NotDeclared` | 403 | The user's `actor.appview` record doesn't list the AppView in question |
+| `NotManagingApp` | 400 | The Space is managed elsewhere. `managingApp` names where, when known. |
+| `UpstreamFailure` | 502 | The home AppView couldn't find or reach the managing AppView |
+| `PayloadTooLarge` | 413 | The request body exceeds the forwarding limit |
+
+## See also
+
+- [ATproto Spaces](/docs/developers/architecture/spaces): service auth, credentials and the managing AppView.
+- [Client](/docs/developers/architecture/client): how the client picks an AppView and opens its sockets.
+- [Hosting](/docs/developers/architecture/hosting): the spaces polyfill.
+- [Self-hosting](/docs/developers/self-hosting/getting-started#federation): configuring federation and blocking AppViews.

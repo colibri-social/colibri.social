@@ -3,7 +3,7 @@ import { classifyThrown, colibri, createLogger } from "@colibri-social/lib";
 import { readStored, writeStored } from "../persist";
 import type { HostModeSignal } from "../polyfill/host-mode";
 import { createPreferencesGrant } from "../preferences/grant";
-import type { PreferencesSpace } from "../preferences/remote";
+import { isMissingSpace, type PreferencesSpace } from "../preferences/remote";
 import type { CommunityView } from "../types";
 import type { Records } from "./records";
 import type { Transport } from "./transport";
@@ -14,7 +14,7 @@ export const APPVIEW_COLLECTION = "social.colibri.beta.actor.appview";
 export const REMOTE_SPACE_COLLECTION = "social.colibri.beta.actor.remoteSpace";
 export const MAX_DECLARED_APPVIEWS = 8;
 export const DECLARE_CHECK_MS = 24 * 60 * 60_000;
-export const FEDERATION_STORAGE_PREFIX = "colibri.federation.";
+const FEDERATION_STORAGE_PREFIX = "colibri.federation.";
 
 type DeclaredRecord = { value?: { appviews?: unknown } };
 
@@ -63,9 +63,7 @@ export const declaredWith = (current: unknown, appView: string): string[] => {
 	return [...listed, appView].slice(-MAX_DECLARED_APPVIEWS);
 };
 
-export const preferencesAccessOf = (
-	view: CommunityView,
-): number | undefined => {
+const preferencesAccessOf = (view: CommunityView): number | undefined => {
 	const until = Date.parse(
 		String(
 			(view.viewer as { preferencesAccessUntil?: unknown } | undefined)
@@ -76,7 +74,7 @@ export const preferencesAccessOf = (
 	return Number.isFinite(until) ? until : undefined;
 };
 
-export const isMemberOrPending = (view: CommunityView): boolean => {
+const isMemberOrPending = (view: CommunityView): boolean => {
 	return Boolean(view.viewer?.isMember || view.viewer?.applicationPending);
 };
 
@@ -92,6 +90,8 @@ export const createFederation = (input: {
 	const self = transport.appViewDid;
 	const declaredKey = `${FEDERATION_STORAGE_PREFIX}declared.v1:${transport.did}:${self}`;
 	const remote = new Map<string, string>();
+	const recorded = new Map<string, string>();
+	let listing: Promise<boolean> | undefined;
 	const grants = new Map<string, { community: string; stop: () => void }>();
 	const grantedNow = new Set<string>();
 	const rechecked = new Set<string>();
@@ -185,15 +185,83 @@ export const createFederation = (input: {
 		}
 	};
 
-	const forget = async (community: string) => {
-		if (!remote.delete(community)) return;
+	const loadRecorded = () => {
+		listing ??= records
+			.listInSpace({ space: space.space, collection: REMOTE_SPACE_COLLECTION })
+			.then((found) => {
+				for (const record of found) {
+					const app = (record.value as { managingApp?: unknown }).managingApp;
 
-		syncGrants();
+					if (typeof app === "string") recorded.set(record.rkey, app);
+				}
+
+				return true;
+			})
+			.catch((error: unknown) => {
+				if (isMissingSpace(error)) return true;
+
+				listing = undefined;
+				log.warn("could not list the joined Space records", {
+					code: classifyThrown(error).code,
+				});
+
+				return false;
+			});
+
+		return listing;
+	};
+
+	const remember = async (community: string, managingApp: string) => {
+		if (recorded.get(community) === managingApp) return;
+
+		await space.write(() =>
+			records.putInSpace(target(community), {
+				$type: REMOTE_SPACE_COLLECTION,
+				managingApp,
+				joinedAt: new Date().toISOString(),
+			}),
+		);
+
+		recorded.set(community, managingApp);
+	};
+
+	const backfill = async (views: readonly CommunityView[]) => {
+		if (!(await loadRecorded())) return;
+
+		for (const view of views) {
+			if (view.viewer?.isMember !== true) continue;
+
+			const app = view.managingApp ?? self;
+
+			if (recorded.get(view.did) === app) continue;
+
+			try {
+				await remember(view.did, app);
+			} catch (error) {
+				log.warn("could not record a joined Space", {
+					code: classifyThrown(error).code,
+				});
+
+				return;
+			}
+		}
+	};
+
+	const forget = async (community: string) => {
+		const wasRemote = remote.delete(community);
+
+		if (wasRemote) syncGrants();
+
+		if (!wasRemote && listing && (await listing) && !recorded.has(community)) {
+			return;
+		}
+
+		recorded.delete(community);
 
 		try {
 			await records.deleteInSpace(target(community));
 		} catch (error) {
-			log.warn("could not delete a remote Space record", {
+			log.warn("could not delete a joined Space record", {
 				code: classifyThrown(error).code,
 			});
 		}
@@ -207,19 +275,14 @@ export const createFederation = (input: {
 				})
 			).community as CommunityView;
 
+			await remember(community, view.managingApp ?? self);
+
 			if (!isRemote(view)) return;
 
-			await space.write(() =>
-				records.putInSpace(target(community), {
-					$type: REMOTE_SPACE_COLLECTION,
-					managingApp: view.managingApp,
-					joinedAt: new Date().toISOString(),
-				}),
-			);
 			remote.set(community, view.managingApp);
 			syncGrants();
 		} catch (error) {
-			log.warn("could not remember a remote Space", {
+			log.warn("could not remember a joined Space", {
 				code: classifyThrown(error).code,
 			});
 		}
@@ -274,6 +337,7 @@ export const createFederation = (input: {
 		for (const entry of unavailable) remote.set(entry.did, entry.managingApp);
 
 		syncGrants();
+		void backfill(kept);
 
 		return kept;
 	};
@@ -294,5 +358,3 @@ export const createFederation = (input: {
 
 	return { declare, joined, forget, reconcile, start };
 };
-
-export type Federation = ReturnType<typeof createFederation>;
