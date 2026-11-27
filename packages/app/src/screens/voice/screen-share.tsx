@@ -620,18 +620,18 @@ export const ScreenShareHost = () => {
 		void shareNative(source, { systemDialog: false, audioApps: screenApps });
 	};
 
+	const pickerMode = () => {
+		if (!native()) return "browser";
+
+		return portal() || browserPicker() ? "system" : "native";
+	};
+
 	return (
 		<>
 			<ScreenSharePicker
 				open={pickerOpen()}
 				onOpenChange={setPickerOpen}
-				mode={
-					native()
-						? portal() || browserPicker()
-							? "system"
-							: "native"
-						: "browser"
-				}
+				mode={pickerMode()}
 				surface={surface()}
 				onSurfaceChange={setSurface}
 				platform={platform()}

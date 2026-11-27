@@ -1,0 +1,35 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.actor.appview",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "The AppViews a user lets act for them. Lives in the user's public repository. An AppView that manages a community accepts a request forwarded on the user's behalf only from an AppView listed here, and sends the user's notifications to the AppViews listed here.",
+			"key": "literal:self",
+			"record": {
+				"type": "object",
+				"required": [
+					"appviews",
+					"updatedAt"
+				],
+				"properties": {
+					"appviews": {
+						"type": "array",
+						"minLength": 1,
+						"maxLength": 8,
+						"description": "The AppViews, named without a service fragment, in the order the user added them.",
+						"items": {
+							"type": "string",
+							"format": "did"
+						}
+					},
+					"updatedAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the list last changed."
+					}
+				}
+			}
+		}
+	}
+}

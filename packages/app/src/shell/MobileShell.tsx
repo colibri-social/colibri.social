@@ -31,7 +31,7 @@ import { installFlingGuard } from "./fling-guard";
 import { HostReturnHost } from "./HostReturnHost";
 import { installKeyboardInset } from "./keyboard-inset";
 import { LayerStack } from "./LayerStack";
-import type { Layer, Tab } from "./layers";
+import { joinArgs, type Layer, type Tab } from "./layers";
 import { LoadErrorState, NotFoundScreen } from "./load-error";
 import { NotificationHost } from "./NotificationHost";
 import { installOverlayBack } from "./overlay-back";
@@ -256,7 +256,7 @@ export const MobileShell = () => {
 					<AppScreen name="discover" args={{}} />
 				</Match>
 				<Match when={layer.kind === "join" && layer}>
-					{(join) => <AppScreen name="join" args={{ code: join().code }} />}
+					{(join) => <AppScreen name="join" args={joinArgs(join())} />}
 				</Match>
 				<Match when={layer.kind === "pack" && layer}>
 					{(pack) => (

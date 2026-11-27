@@ -1,7 +1,10 @@
 import { createSignal } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
+import { AccountActionsContext } from "../../../auth/account-actions";
+import { restartWithAppView } from "../../../auth/appview";
 import { DEVICE_KEYS } from "../../../data/device-prefs";
+import { checkServer } from "../../../data/server-check";
 import { systemWindowControls } from "../../../data/system-window-controls";
 import { type SettingsNav, SettingsNavContext } from "../nav";
 import AdvancedPage from "./advanced";
@@ -26,6 +29,20 @@ vi.mock("../../../native/updater", () => {
 	};
 });
 
+vi.mock("../../../data/server-check", () => ({
+	checkServer: vi.fn(async (url: string) => ({
+		status: "ok",
+		url,
+		host: new URL(url).host,
+		features: { calls: true, otherServers: true },
+	})),
+}));
+
+vi.mock("../../../auth/appview", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../../../auth/appview")>()),
+	restartWithAppView: vi.fn(),
+}));
+
 vi.mock("@tauri-apps/api/app", () => ({
 	getVersion: async () => "0.18.2",
 }));
@@ -39,15 +56,52 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-const mountAdvanced = () => {
+const mountAdvanced = (signOut?: () => Promise<void>) => {
 	const nav: SettingsNav = { open: vi.fn(), back: vi.fn() };
 	const mounted = mountPage(() => (
-		<SettingsNavContext.Provider value={nav}>
-			<AdvancedPage platform="mobile" />
-		</SettingsNavContext.Provider>
+		<AccountActionsContext.Provider value={signOut ? { signOut } : undefined}>
+			<SettingsNavContext.Provider value={nav}>
+				<AdvancedPage platform="mobile" />
+			</SettingsNavContext.Provider>
+		</AccountActionsContext.Provider>
 	));
 	return { nav, mounted };
 };
+
+it("hides the server picker when the app can't sign out", async () => {
+	const { mounted } = mountAdvanced();
+	await mounted;
+	await expect
+		.element(page.getByRole("button", { name: "Change server" }))
+		.not.toBeInTheDocument();
+});
+
+it("checks a new server, signs out, then restarts on it", async () => {
+	const order: string[] = [];
+	const signOut = vi.fn(async () => {
+		order.push("signOut");
+	});
+	vi.mocked(restartWithAppView).mockImplementation(() => {
+		order.push("restart");
+	});
+	const { mounted } = mountAdvanced(signOut);
+	await mounted;
+	await userEvent.click(page.getByRole("button", { name: "Change server" }));
+	await userEvent.fill(
+		page.getByRole("textbox", { name: "Server address" }),
+		"chat.example.com",
+	);
+	await userEvent.click(page.getByRole("button", { name: "Check server" }));
+	await expect
+		.element(page.getByRole("dialog", { name: "Switch to chat.example.com?" }))
+		.toBeVisible();
+	expect(checkServer).toHaveBeenCalledWith("https://chat.example.com");
+	await userEvent.click(
+		page.getByRole("button", { name: "Switch and sign out" }),
+	);
+	await expect.poll(() => order).toEqual(["signOut", "restart"]);
+	expect(restartWithAppView).toHaveBeenCalledWith("https://chat.example.com");
+});
 
 it("syncs developer mode and hides options nothing can act on yet", async () => {
 	const { mounted } = mountAdvanced();

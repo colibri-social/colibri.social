@@ -470,6 +470,28 @@ const reportsActivity = (
 ): source is DataSource & { markActive: () => void } =>
 	typeof (source as { markActive?: unknown }).markActive === "function";
 
+const UNAVAILABLE_RETRY_MS = [60_000, 120_000, 300_000, 600_000];
+
+export const unavailableRetryDelay = (attempt: number): number => {
+	const last = UNAVAILABLE_RETRY_MS.length - 1;
+
+	return UNAVAILABLE_RETRY_MS[Math.min(attempt, last)] ?? 60_000;
+};
+
+export type UnavailableSpace = {
+	did: Did;
+	managingApp: string;
+	host: string;
+	name?: string;
+	picture?: string;
+};
+
+export const appViewHost = (managingApp: string): string => {
+	if (!managingApp.startsWith("did:web:")) return managingApp;
+
+	return decodeURIComponent(managingApp.slice("did:web:".length));
+};
+
 export type DataStoreOptions = {
 	cache?: MessageCache;
 	spaces?: SpaceCache;
@@ -539,9 +561,73 @@ export const createDataStore = (
 			...loadedCommunities,
 			value: orderedCommunities,
 		};
+
+		const knownCommunities = new Map<string, CommunityView>(
+			(snapshot?.communities ?? []).map((view) => [view.did, view]),
+		);
+
+		const unavailableSpaces = createMemo<UnavailableSpace[]>(() => {
+			for (const view of loadedCommunities.value() ?? []) {
+				knownCommunities.set(view.did, view);
+			}
+
+			return source.unavailableCommunities().map((entry) => {
+				const known = knownCommunities.get(entry.did);
+
+				return {
+					did: entry.did,
+					managingApp: entry.managingApp,
+					host: appViewHost(entry.managingApp),
+					name: known?.name,
+					picture: known?.picture,
+				};
+			});
+		});
+		const [retryAttempt, setRetryAttempt] = createSignal(0);
+
+		runWithOwner(owner, () => {
+			const waiting = createMemo(() => unavailableSpaces().length > 0);
+
+			createEffect(() => {
+				if (!waiting()) {
+					setRetryAttempt(0);
+
+					return;
+				}
+
+				const attempt = retryAttempt();
+
+				const timer = setTimeout(() => {
+					setRetryAttempt(attempt + 1);
+					void communities.refresh();
+				}, unavailableRetryDelay(attempt));
+
+				const restart = () => setRetryAttempt(0);
+
+				if (typeof window !== "undefined") {
+					window.addEventListener("focus", restart);
+				}
+
+				onCleanup(() => {
+					clearTimeout(timer);
+
+					if (typeof window !== "undefined") {
+						window.removeEventListener("focus", restart);
+					}
+				});
+			});
+		});
 		persist(() => {
 			const list = loadedCommunities.value();
-			if (list) spaceCache?.offerCommunities(list);
+			if (!list) return;
+
+			const kept = unavailableSpaces().flatMap((entry) => {
+				const known = knownCommunities.get(entry.did);
+
+				return known ? [known] : [];
+			});
+
+			spaceCache?.offerCommunities([...list, ...kept]);
 		});
 		persist(() => {
 			const profile: Record<string, unknown> = {};
@@ -3894,6 +3980,12 @@ export const createDataStore = (
 			whenSpaceReady,
 			space,
 			channel,
+			unavailableSpaces,
+			retryUnavailable: () => {
+				setRetryAttempt(0);
+
+				return communities.refresh();
+			},
 			spaceByKey: (slug: string) =>
 				communities.value()?.find((entry) => spaceKey(entry) === slug),
 			presenceOf: (did: Did) => presence[did],

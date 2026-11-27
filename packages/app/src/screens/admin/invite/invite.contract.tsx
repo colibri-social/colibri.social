@@ -111,7 +111,7 @@ export const invite = defineContract({
 			loadingExisting,
 			url: () => {
 				const current = shown();
-				return current ? inviteUrl(current.code) : "";
+				return current ? inviteUrl(current.code, community()?.did) : "";
 			},
 		};
 	},

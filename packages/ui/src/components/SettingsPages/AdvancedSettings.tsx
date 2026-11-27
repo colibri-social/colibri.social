@@ -27,6 +27,7 @@ import {
 } from "../Select/Select";
 import { TextField } from "../TextField/TextField";
 import { FEEDBACK_URL } from "./links";
+import { type ServerSection, ServerSettingsGroup } from "./ServerSettings";
 import { SettingsEmpty, SettingsPage } from "./shared";
 
 export type UpdateState =
@@ -197,6 +198,7 @@ const CustomExplorerTemplate = (props: {
 
 export type AdvancedSettingsProps = {
 	updates?: UpdatesSection;
+	server?: ServerSection;
 	developerMode: boolean;
 	onDeveloperModeChange?: (enabled: boolean) => void;
 	recordExplorer?: RecordExplorerChoice;
@@ -216,6 +218,9 @@ export const AdvancedSettings = (props: AdvancedSettingsProps) => (
 	<SettingsPage class={props.class}>
 		<Show when={props.updates}>
 			{(updates) => <Updates updates={updates()} />}
+		</Show>
+		<Show when={props.server}>
+			{(server) => <ServerSettingsGroup server={server()} />}
 		</Show>
 		<ListGroup label="Developer">
 			<ToggleRow

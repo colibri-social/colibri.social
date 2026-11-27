@@ -176,6 +176,38 @@ describe("createNodeDirectory", () => {
 		expect(other.nodes()).toEqual([]);
 	});
 
+	it("keeps each server's nodes under its own key and skips a fresh refresh", async () => {
+		const storage = memoryStorage();
+		const network = fakeNetwork({ "hel-1.nodes.colibri.test": 5 });
+		const key = `${STORAGE_KEY}:https://market.test`;
+
+		await createNodeDirectory({
+			mainUrl: MAIN,
+			fetch: network.request,
+			now: network.now,
+			storage,
+			storageKey: key,
+		}).refresh();
+
+		expect(storage.values.has(key)).toBe(true);
+		expect(storage.values.has(STORAGE_KEY)).toBe(false);
+
+		const calls = network.calls.mock.calls.length;
+
+		const next = createNodeDirectory({
+			mainUrl: MAIN,
+			fetch: network.request,
+			now: network.now,
+			storage,
+			storageKey: key,
+		});
+
+		await next.refreshIfStale();
+
+		expect(network.calls.mock.calls.length).toBe(calls);
+		expect(next.endpointFor("live")).toBe("https://hel-1.nodes.colibri.test");
+	});
+
 	it("falls back to nothing on an AppView without nodes", async () => {
 		const directory = createNodeDirectory({
 			mainUrl: MAIN,

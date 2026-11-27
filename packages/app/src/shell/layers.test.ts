@@ -39,7 +39,11 @@ describe("paths", () => {
 	});
 
 	it("round-trips create and invite paths", () => {
-		for (const path of ["/app/new", "/app/invite/abc123"]) {
+		for (const path of [
+			"/app/new",
+			"/app/invite/abc123",
+			`/app/invite/${DID}/abc123`,
+		]) {
 			const route = parsePath(path);
 			expect(route.root.tab).toBe("spaces");
 			expect(pathAt(route, 1)).toBe(path);

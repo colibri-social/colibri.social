@@ -1,3 +1,4 @@
+import { setLogLevel } from "@colibri-social/lib";
 import { describe, expect, it, vi } from "vitest";
 import {
 	createAndroidHaptics,
@@ -36,12 +37,19 @@ describe("createNativeHaptics", () => {
 		const plugin = fakePlugin();
 		plugin.impactFeedback.mockRejectedValue(new Error("no motor"));
 		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-		const haptics = createNativeHaptics(async () => plugin);
-		haptics.impact("light");
-		haptics.impact("light");
-		await flush();
-		expect(warn).toHaveBeenCalledTimes(1);
-		warn.mockRestore();
+
+		setLogLevel("warn");
+
+		try {
+			const haptics = createNativeHaptics(async () => plugin);
+			haptics.impact("light");
+			haptics.impact("light");
+			await flush();
+			expect(warn).toHaveBeenCalledTimes(1);
+		} finally {
+			setLogLevel("error");
+			warn.mockRestore();
+		}
 	});
 });
 

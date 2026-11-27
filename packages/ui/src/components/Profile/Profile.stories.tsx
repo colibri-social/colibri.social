@@ -4,7 +4,7 @@ import { SledgehammerIcon } from "@solar-icons/solid/bold/sledgehammer";
 import { UserBlockIcon } from "@solar-icons/solid/bold/user-block";
 import { UserCheckIcon } from "@solar-icons/solid/bold/user-check";
 import { UserMinusRoundedIcon } from "@solar-icons/solid/bold/user-minus-rounded";
-import { createSignal, For, mergeProps } from "solid-js";
+import { createRoot, createSignal, For, mergeProps } from "solid-js";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import {
@@ -177,7 +177,11 @@ const BlueskyLinkIcon = () => (
 	</svg>
 );
 
-const lou = (overrides: Partial<ProfileData> = {}): ProfileData => ({
+const lou = (overrides: Partial<ProfileData> = {}): ProfileData => {
+	return createRoot(() => louProfile(overrides));
+};
+
+const louProfile = (overrides: Partial<ProfileData>): ProfileData => ({
 	displayName: "Lou",
 	handle: "lou.gg",
 	pronouns: "he/him",

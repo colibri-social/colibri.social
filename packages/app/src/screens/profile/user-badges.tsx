@@ -3,7 +3,7 @@ import {
 	UserBadge,
 	type UserBadgeSize,
 } from "@colibri-social/ui";
-import { For, Show } from "solid-js";
+import { For, getOwner, runWithOwner, Show } from "solid-js";
 import { type BadgeProfile, useBadges } from "../../data/badges";
 
 export const SecondaryBadges = (props: { profile: BadgeProfile }) => {
@@ -49,8 +49,13 @@ export const PrimaryBadge = (props: {
 
 export const usePrimaryBadgeOf = () => {
 	const badges = useBadges();
+	const owner = getOwner();
+
 	return (profile: BadgeProfile, options: { withoutBot?: boolean } = {}) => {
 		const definition = badges.primary(profile, options);
-		return definition ? <UserBadge definition={definition} /> : undefined;
+
+		if (!definition) return undefined;
+
+		return runWithOwner(owner, () => <UserBadge definition={definition} />);
 	};
 };

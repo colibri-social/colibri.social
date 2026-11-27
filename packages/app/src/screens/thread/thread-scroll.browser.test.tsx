@@ -9,7 +9,7 @@ import { Providers } from "../../providers";
 import { DesktopShell } from "../../shell/desktop/DesktopShell";
 import { DEV_PATH, HQ, TEXT, until, wait } from "../channel/desktop-test-kit";
 
-const DEV_REF = `at://${HQ}/space/${TEXT}/dev` as SpaceRef;
+const DEV_REF = `at:space/${HQ}/${TEXT}/dev` as SpaceRef;
 
 let dispose: (() => void) | undefined;
 

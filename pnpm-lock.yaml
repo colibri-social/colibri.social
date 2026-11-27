@@ -275,8 +275,8 @@ importers:
         specifier: workspace:0.0.2
         version: link:../../packages/assets
       '@colibri-social/lexicons':
-        specifier: ^2.42.0
-        version: 2.42.0
+        specifier: ^2.46.1
+        version: 2.46.1
       '@colibri-social/lib':
         specifier: workspace:*
         version: link:../../packages/lib
@@ -415,8 +415,8 @@ importers:
         version: 1.9.15
     devDependencies:
       '@colibri-social/lexicons':
-        specifier: ^2.42.0
-        version: 2.42.0
+        specifier: ^2.46.1
+        version: 2.46.1
       '@sentry/vite-plugin':
         specifier: ^5.3.0
         version: 5.4.0(supports-color@11.0.0)
@@ -470,8 +470,8 @@ importers:
         specifier: 0.0.0-spaces-alpha-20261124235736
         version: 0.0.0-spaces-alpha-20261124235736
       '@colibri-social/lexicons':
-        specifier: ^2.42.0
-        version: 2.42.0
+        specifier: ^2.46.1
+        version: 2.46.1
       mdast-util-from-markdown:
         specifier: ^2.0.2
         version: 2.0.3(supports-color@11.0.0)
@@ -1294,8 +1294,8 @@ packages:
     resolution: {integrity: sha512-tEj8X2No2A1c9NDnZECxiiJ8TP3vmFlN9tLlLeSaMqVW4tUmVG2R4qpv/eP4zymWxnymYLkLcIYVV0VcWj3RCQ==}
     engines: {node: '>= 20.12.0'}
 
-  '@colibri-social/lexicons@2.42.0':
-    resolution: {integrity: sha512-qWi09jayoe3DkzY4PPksUq/xSHl51GroYVdrTUe6MzA2+lB+Vj/xiyHKHafxZn9gYFO4JaRvDxWbUJmrTetn7A==}
+  '@colibri-social/lexicons@2.46.1':
+    resolution: {integrity: sha512-6XZmfSYfDDhYhj4/kalSGBjQM2+HjtnpFeGf0uR//JJhu0AwRQj/e2EJCqbQSr0JgNqckpQkUOrQTGp5dsfd3w==}
 
   '@corvu/dialog@0.2.4':
     resolution: {integrity: sha512-n54vJq+fOy8GVrnYBdJpD6JXNuyx7LOeMrRxwzAvZnYGpW8+AA12tnb/P/2emJj/HjOO5otheGKb0breshdFlA==}
@@ -7205,7 +7205,7 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 2.0.0
 
-  '@colibri-social/lexicons@2.42.0':
+  '@colibri-social/lexicons@2.46.1':
     dependencies:
       '@atproto/lex': 0.0.0-spaces-alpha-20261124235736
       '@atproto/lex-data': 0.1.11

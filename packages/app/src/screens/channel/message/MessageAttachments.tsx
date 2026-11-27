@@ -124,7 +124,7 @@ export type LoadBlueskyPost = (
 
 export type RemoveEmbed = (uri: string, event: MouseEvent) => void;
 
-export type InviteLink = { url: string; code: string };
+export type InviteLink = { url: string; code: string; community?: string };
 
 const sameUris = (previous: readonly string[], next: readonly string[]) =>
 	previous.length === next.length &&
@@ -553,6 +553,7 @@ export const MessageAttachments = (props: {
 					<InviteEmbed
 						url={link.url}
 						code={link.code}
+						community={link.community}
 						onOpenSpace={props.onOpenSpace}
 					/>
 				)}

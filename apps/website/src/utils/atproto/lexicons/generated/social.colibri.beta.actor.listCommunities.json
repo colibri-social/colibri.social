@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "query",
-			"description": "Gets the requesting user's communities, in their preferred order.",
+			"description": "Gets the requesting user's communities, in their preferred order. Communities another AppView manages come from the user's social.colibri.beta.actor.remoteSpace records.",
 			"output": {
 				"encoding": "application/json",
 				"schema": {
@@ -20,6 +20,14 @@
 								"type": "ref",
 								"ref": "social.colibri.beta.community.defs#communityView"
 							}
+						},
+						"unavailable": {
+							"type": "array",
+							"description": "Communities the user joined whose managing AppView didn't answer in time. A client keeps them in the list and shows that they can't be reached.",
+							"items": {
+								"type": "ref",
+								"ref": "#unavailableCommunity"
+							}
 						}
 					}
 				}
@@ -30,6 +38,26 @@
 					"description": "The request has no valid service auth."
 				}
 			]
+		},
+		"unavailableCommunity": {
+			"type": "object",
+			"description": "A community whose managing AppView didn't answer.",
+			"required": [
+				"did",
+				"managingApp"
+			],
+			"properties": {
+				"did": {
+					"type": "string",
+					"format": "did",
+					"description": "The community's DID."
+				},
+				"managingApp": {
+					"type": "string",
+					"format": "did",
+					"description": "The AppView that manages the community."
+				}
+			}
 		}
 	}
 }

@@ -3,6 +3,10 @@ import { playwright } from "@vitest/browser-playwright";
 import solid from "vite-plugin-solid";
 import { defineConfig } from "vitest/config";
 
+const CHROMIUM_LOG_ARGS = process.env.CI
+	? ["--enable-logging=stderr", "--log-level=2"]
+	: [];
+
 export default defineConfig({
 	test: {
 		maxWorkers: process.env.CI ? 2 : undefined,
@@ -12,6 +16,7 @@ export default defineConfig({
 					name: "unit",
 					include: ["src/**/*.test.ts"],
 					environment: "node",
+					setupFiles: ["src/test-setup-unit.ts"],
 				},
 			},
 			{
@@ -26,6 +31,7 @@ export default defineConfig({
 						enabled: true,
 						headless: true,
 						provider: playwright({
+							launchOptions: { args: CHROMIUM_LOG_ARGS },
 							contextOptions: {
 								hasTouch: true,
 								isMobile: true,

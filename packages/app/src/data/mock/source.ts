@@ -763,6 +763,7 @@ export const createMockSource = (
 				}
 				bridges.revoke(input.community, input.registration);
 			}),
+		unavailableCommunities: () => [],
 		listCommunities: () =>
 			withLatency(() => {
 				const joined = world.spaces.filter(

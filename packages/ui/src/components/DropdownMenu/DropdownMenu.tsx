@@ -5,6 +5,7 @@ import {
 	createEffect,
 	createSignal,
 	For,
+	Index,
 	type JSX,
 	Match,
 	on,
@@ -291,14 +292,14 @@ const DesktopEntry = (props: { entry: GroupedEntry }) => (
 export const MenuEntryGroups = (props: { entries: DropdownMenuEntry[] }) => {
 	const groups = () => groupMenuEntries(props.entries);
 	return (
-		<For each={groups()}>
+		<Index each={groups()}>
 			{(group, index) => (
 				<>
-					<Show when={index() > 0}>
+					<Show when={index > 0}>
 						<MenuSeparator />
 					</Show>
 					<Switch>
-						<Match when={group.kind === "radio" && group}>
+						<Match when={group().kind === "radio" && group()}>
 							{(radio) => {
 								const entry = () =>
 									(radio() as { kind: "radio"; entry: DropdownMenuRadioEntry })
@@ -357,7 +358,7 @@ export const MenuEntryGroups = (props: { entries: DropdownMenuEntry[] }) => {
 								);
 							}}
 						</Match>
-						<Match when={group.kind === "group" && group}>
+						<Match when={group().kind === "group" && group()}>
 							{(plain) => {
 								const value = () =>
 									plain() as {
@@ -375,9 +376,9 @@ export const MenuEntryGroups = (props: { entries: DropdownMenuEntry[] }) => {
 												{value().label}
 											</KobalteDropdownMenu.GroupLabel>
 										</Show>
-										<For each={value().entries}>
-											{(entry) => <DesktopEntry entry={entry} />}
-										</For>
+										<Index each={value().entries}>
+											{(entry) => <DesktopEntry entry={entry()} />}
+										</Index>
 									</KobalteDropdownMenu.Group>
 								);
 							}}
@@ -385,7 +386,7 @@ export const MenuEntryGroups = (props: { entries: DropdownMenuEntry[] }) => {
 					</Switch>
 				</>
 			)}
-		</For>
+		</Index>
 	);
 };
 

@@ -1,0 +1,69 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.federation.deliverNotification",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Hands a notification to one of the AppViews a user declared. The managing AppView of the notification's community calls it with service auth as itself. The receiving AppView stores the notification, counts it toward the user's badge and pushes it to the user's devices.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"recipient",
+						"notification"
+					],
+					"properties": {
+						"recipient": {
+							"type": "string",
+							"format": "did",
+							"description": "The user the call is about. Their social.colibri.beta.actor.appview record must list the receiving AppView."
+						},
+						"notification": {
+							"type": "ref",
+							"ref": "social.colibri.beta.notification.defs#notificationView",
+							"description": "The notification, rendered for the recipient by the managing AppView."
+						},
+						"spaceName": {
+							"type": "string",
+							"description": "The display name of the notification's community, for the push banner."
+						},
+						"channelName": {
+							"type": "string",
+							"description": "The display name of the notification's channel, for the push banner."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "NotDeclared",
+					"description": "The recipient's social.colibri.beta.actor.appview record doesn't list the receiving AppView."
+				},
+				{
+					"name": "NotJoined",
+					"description": "The receiving AppView has no record of the recipient joining the community the call is about."
+				},
+				{
+					"name": "NotManagingApp",
+					"description": "The calling AppView doesn't manage the community the call is about."
+				},
+				{
+					"name": "FederationDisabled",
+					"description": "The receiving AppView doesn't federate with other AppViews."
+				}
+			]
+		}
+	}
+}

@@ -10,13 +10,14 @@ const RETIRED_APPVIEW_HOSTS = new Set(["spaces-api.colibri.social"]);
 
 export const normalizeAppViewUrl = (raw: string): string | null => {
 	const trimmed = raw.trim();
-	if (!trimmed) return null;
+	if (!trimmed || /\s/.test(trimmed)) return null;
 
 	try {
 		const url = new URL(
 			trimmed.includes("://") ? trimmed : `https://${trimmed}`,
 		);
 		if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+		if (!/^(\[[0-9a-f:.]+\]|[a-z0-9.-]+)$/i.test(url.hostname)) return null;
 		return url.origin;
 	} catch {
 		return null;

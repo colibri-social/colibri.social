@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "query",
-			"description": "Resolves an invitation code, so a client can show what it leads to before the user accepts. This is readable without membership.",
+			"description": "Resolves an invitation code, so a client can show what it leads to before the user accepts. This is readable without membership. With community set, an AppView that doesn't manage that community forwards the call to the one that does.",
 			"parameters": {
 				"type": "params",
 				"required": [
@@ -14,6 +14,11 @@
 					"code": {
 						"type": "string",
 						"description": "The invitation code to resolve."
+					},
+					"community": {
+						"type": "string",
+						"format": "did",
+						"description": "The community the invitation belongs to, as carried in the invitation link. Invitation codes are only unique within the AppView that issued them."
 					}
 				}
 			},

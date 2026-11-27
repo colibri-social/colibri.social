@@ -164,7 +164,7 @@ export const createMigrator = (deps: MigratorDeps) => {
 		return found;
 	};
 
-	const copyBlobs = async (records: MigrationRecord[]) => {
+	const copyBlobs = async (space: string, records: MigrationRecord[]) => {
 		const blobs = new Map<string, string>();
 
 		for (const record of records) collectBlobs(record.value, blobs);
@@ -175,7 +175,7 @@ export const createMigrator = (deps: MigratorDeps) => {
 
 			const data = await transport.appViewBlob(
 				colibri.polyfill.getBlob.main.nsid,
-				{ cid },
+				{ cid, space },
 			);
 
 			await transport.pdsProcedure(UPLOAD_BLOB, {
@@ -229,7 +229,7 @@ export const createMigrator = (deps: MigratorDeps) => {
 			});
 		}
 
-		await copyBlobs(pending);
+		await copyBlobs(space, pending);
 
 		for (let from = 0; from < writes.length && !stopped; from += BATCH_SIZE) {
 			await transport.pdsProcedure(APPLY_WRITES, {

@@ -269,6 +269,12 @@ describe("polyfill migrator", () => {
 				?.params.get("cid"),
 		).toBe("bafy-attachment");
 
+		expect(
+			world.fake
+				.callsTo(colibri.polyfill.getBlob.main.nsid)[0]
+				?.params.get("space"),
+		).toBe(CHANNEL);
+
 		const [upload] = world.fake.callsTo(UPLOAD);
 
 		expect(upload?.headers.get("content-type")).toBe("image/png");

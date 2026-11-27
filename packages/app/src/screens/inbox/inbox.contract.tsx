@@ -205,11 +205,15 @@ export const inbox = defineContract({
 		};
 
 		const modalOpen = () => stack.top()?.kind === "inbox";
+		const presentation = () => data.preferences.client().inboxPresentation;
 
 		return {
 			store,
-			presentation: () => data.preferences.client().inboxPresentation,
+			presentation,
 			modalOpen,
+			modalOpenState: () => {
+				return presentation() === "modal" ? modalOpen() : undefined;
+			},
 			openModal: () => {
 				if (!modalOpen()) stack.push({ kind: "inbox" });
 			},
@@ -251,7 +255,7 @@ export const inbox = defineContract({
 				notifications={m.notifications()}
 				status={m.status()}
 				presentation={m.presentation()}
-				open={m.presentation() === "modal" ? m.modalOpen() : undefined}
+				open={m.modalOpenState()}
 				onOpenModal={m.openModal}
 				onOpenNotification={m.open}
 				onMarkRead={(id) => m.markRead([id])}

@@ -24,14 +24,37 @@ type GetInvitationResponse = {
 	};
 };
 
-export const getInvitationPreview = async (
-	code: string,
-): Promise<InvitationPreview | null> => {
+export type InviteTarget = { code: string; community?: string };
+
+export const parseInvite = (path: string | undefined): InviteTarget | null => {
+	const parts = (path ?? "").split("/").filter(Boolean);
+
+	if (parts.length === 1 && parts[0]) return { code: parts[0] };
+
+	const [community, code] = parts;
+
+	if (parts.length !== 2 || !community?.startsWith("did:") || !code)
+		return null;
+
+	return { code, community };
+};
+
+export const invitePath = ({ code, community }: InviteTarget): string =>
+	community
+		? `${encodeURIComponent(community)}/${encodeURIComponent(code)}`
+		: encodeURIComponent(code);
+
+export const getInvitationPreview = async ({
+	code,
+	community,
+}: InviteTarget): Promise<InvitationPreview | null> => {
 	const url = new URL(
 		"/xrpc/social.colibri.beta.community.getInvitation",
 		DEFAULT_APPVIEW_URL,
 	);
 	url.searchParams.set("code", code);
+
+	if (community) url.searchParams.set("community", community);
 
 	try {
 		const res = await fetch(url, {

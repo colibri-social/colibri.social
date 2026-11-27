@@ -202,11 +202,17 @@ type VoiceMedia = {
 	onDeviceChange?(listener: () => void): () => void;
 };
 
-export type VoiceEngineOptions = {
-	agent: ServiceAuthAgent;
+type VoiceServer = {
 	appViewHost: string;
 	serviceRef: string;
+	pickHost?: (avoid: ReadonlySet<string>) => string | null;
+	describeNode?: (host: string) => { id: string; region: string } | undefined;
+};
+
+export type VoiceEngineOptions = VoiceServer & {
+	agent: ServiceAuthAgent;
 	viewerDid: string;
+	serverFor?: (channel: string) => VoiceServer | undefined;
 	settings?: () => VoiceSettings;
 	volumes?: () => ParticipantVolumes;
 	createSocket?: (url: string, protocols: string[]) => VoiceSocket;
@@ -221,8 +227,6 @@ export type VoiceEngineOptions = {
 	webRtc?: () => boolean;
 	handlerName?: () => types.BuiltinHandlerName | undefined;
 	probeVideoEncoding?: VideoEncodingProbe;
-	pickHost?: (avoid: ReadonlySet<string>) => string | null;
-	describeNode?: (host: string) => { id: string; region: string } | undefined;
 	probe?: (url: string) => Promise<number | null>;
 	forceRelay?: () => boolean;
 };
@@ -493,6 +497,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		let ws: VoiceSocket | null = null;
 		let hostOverride: string | null = null;
 		let wsHost: string | null = null;
+		let server: VoiceServer = options;
 		let shunnedHost: string | null = null;
 		const failedHosts = new Set<string>();
 		let elsewhereHops = 0;
@@ -503,7 +508,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		const relayOnly = () => options.forceRelay?.() ?? false;
 		const hostKey = (host: string) => socketOrigin(voiceSocketUrl(host));
 		const pickFrom = (avoid: ReadonlySet<string>) =>
-			options.pickHost?.(avoid) ?? null;
+			server.pickHost?.(avoid) ?? null;
 		const resolveHost = (): string | null => {
 			if (hostOverride && !failedHosts.has(hostKey(hostOverride))) {
 				return hostOverride;
@@ -520,9 +525,9 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			if (picked) return picked;
 			if (pickFrom(new Set())) return null;
 
-			return failedHosts.has(hostKey(options.appViewHost))
+			return failedHosts.has(hostKey(server.appViewHost))
 				? null
-				: options.appViewHost;
+				: server.appViewHost;
 		};
 		const shun = (host: string | null) => {
 			if (!host) return;
@@ -1891,7 +1896,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			let token: string;
 			try {
 				const { data } = await options.agent.com.atproto.server.getServiceAuth({
-					aud: options.serviceRef,
+					aud: server.serviceRef,
 					lxm: VOICE_SIGNAL_LXM,
 					exp: Math.floor(Date.now() / 1_000) + TOKEN_TTL_S,
 				});
@@ -2043,6 +2048,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			if (session) stop();
 			sessionId += 1;
 			session = { ...next };
+			server = options.serverFor?.(next.channel) ?? options;
 			hostOverride = null;
 			failedHosts.clear();
 			shunnedHost = null;
@@ -2643,9 +2649,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 
 		const debugSnapshot = async (): Promise<VoiceDebugSnapshot> => {
 			const host = wsHost;
-			const described = host
-				? options.describeNode?.(hostKey(host))
-				: undefined;
+			const described = host ? server.describeNode?.(hostKey(host)) : undefined;
 			const audioJobs: Promise<VoiceDebugAudio | undefined>[] = [];
 			const own: [types.Producer | null, string][] = [
 				[micProducer, "mic"],
@@ -2819,7 +2823,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				moveListeners.add(listener);
 				return () => moveListeners.delete(listener);
 			},
-			host: () => wsHost ?? hostOverride ?? options.appViewHost,
+			host: () => wsHost ?? hostOverride ?? server.appViewHost,
 			debugSnapshot,
 			onScreenShare: (listener) => {
 				screenShareListeners.add(listener);

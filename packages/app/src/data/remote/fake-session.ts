@@ -22,7 +22,12 @@ export const xrpcError = (status: number, error: string, message?: string) =>
 	json({ error, ...(message ? { message } : {}) }, status);
 
 export const createFakeSession = (did = "did:plc:viewer") => {
-	const routes = new Map<string, Reply[]>();
+	const routes = new Map<string, Reply[]>([
+		[
+			"social.colibri.beta.polyfill.getStatus",
+			[json({ mode: "native", pdsSupportsSpaces: true })],
+		],
+	]);
 	const calls: RecordedCall[] = [];
 
 	const session: RemoteSession = {
@@ -63,7 +68,11 @@ export const createFakeLive = () => {
 	const listeners = new Set<(event: LiveEvent) => void>();
 	const sent: unknown[] = [];
 	const watched: Array<{ target: unknown; released: boolean }> = [];
+	const assigned: Array<ReadonlyMap<string, string>> = [];
 	const live: RemoteLive = {
+		assign: (routes) => {
+			assigned.push(routes);
+		},
 		subscribe: (listener) => {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
@@ -84,6 +93,7 @@ export const createFakeLive = () => {
 		live,
 		sent,
 		watched,
+		assigned,
 		emit: (event: LiveEvent) => {
 			for (const listener of listeners) listener(event);
 		},

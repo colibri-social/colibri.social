@@ -1,0 +1,71 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.federation.deliverRead",
+	"defs": {
+		"main": {
+			"type": "procedure",
+			"description": "Tells one of the AppViews a user declared that the user read a channel or thread up to a message, so it clears the matching notifications on every device.",
+			"input": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"required": [
+						"recipient",
+						"channel",
+						"through"
+					],
+					"properties": {
+						"recipient": {
+							"type": "string",
+							"format": "did",
+							"description": "The user the call is about. Their social.colibri.beta.actor.appview record must list the receiving AppView."
+						},
+						"channel": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The channel that was read."
+						},
+						"thread": {
+							"type": "string",
+							"format": "space-ref",
+							"description": "The thread that was read, when the read happened in a thread."
+						},
+						"through": {
+							"type": "string",
+							"description": "The record key of the last message read."
+						}
+					}
+				}
+			},
+			"output": {
+				"encoding": "application/json",
+				"schema": {
+					"type": "object",
+					"properties": {}
+				}
+			},
+			"errors": [
+				{
+					"name": "AuthRequired",
+					"description": "The request has no valid service auth."
+				},
+				{
+					"name": "NotDeclared",
+					"description": "The recipient's social.colibri.beta.actor.appview record doesn't list the receiving AppView."
+				},
+				{
+					"name": "NotJoined",
+					"description": "The receiving AppView has no record of the recipient joining the community the call is about."
+				},
+				{
+					"name": "NotManagingApp",
+					"description": "The calling AppView doesn't manage the community the call is about."
+				},
+				{
+					"name": "FederationDisabled",
+					"description": "The receiving AppView doesn't federate with other AppViews."
+				}
+			]
+		}
+	}
+}

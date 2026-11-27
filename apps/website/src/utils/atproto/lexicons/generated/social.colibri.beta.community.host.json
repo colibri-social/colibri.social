@@ -1,0 +1,30 @@
+{
+	"lexicon": 1,
+	"id": "social.colibri.beta.community.host",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "Names the AppView that manages a community. Lives in the community account's public repository, so any AppView can find where to send requests about the community without being a member. Written by the managing AppView.",
+			"key": "literal:self",
+			"record": {
+				"type": "object",
+				"required": [
+					"managingApp",
+					"updatedAt"
+				],
+				"properties": {
+					"managingApp": {
+						"type": "string",
+						"format": "did",
+						"description": "The managing AppView, named without a service fragment. Its DID document's #colibri_appview service is where requests about the community go."
+					},
+					"updatedAt": {
+						"type": "string",
+						"format": "datetime",
+						"description": "When the managing AppView last changed."
+					}
+				}
+			}
+		}
+	}
+}

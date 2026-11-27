@@ -1,10 +1,18 @@
 import {
 	AdvancedSettings,
 	type RecordExplorerChoice,
+	type ServerSection,
 } from "@colibri-social/ui";
 import { createResource } from "solid-js";
+import { useAccountActions } from "../../../auth/account-actions";
+import {
+	appViewUrl,
+	builtInAppViewUrl,
+	restartWithAppView,
+} from "../../../auth/appview";
 import { customRecordExplorer } from "../../../data/custom-record-explorer";
 import { reportAttribution } from "../../../data/report-attribution";
+import { checkServer } from "../../../data/server-check";
 import { useData } from "../../../data/store";
 import { systemWindowControls } from "../../../data/system-window-controls";
 import {
@@ -31,8 +39,29 @@ const appVersion = async () => {
 	}
 };
 
+const serverSection = (
+	signOut: (() => Promise<void>) | undefined,
+): ServerSection | undefined => {
+	if (!signOut) return undefined;
+
+	const switchTo = async (url: string | undefined) => {
+		await signOut();
+		restartWithAppView(url);
+	};
+
+	return {
+		host: new URL(appViewUrl()).host,
+		defaultHost: new URL(builtInAppViewUrl()).host,
+		onCheck: checkServer,
+		onSwitch: (url) => switchTo(url),
+		onReset: () => switchTo(undefined),
+	};
+};
+
 export default function AdvancedPage(props: { platform: Platform }) {
 	const data = useData();
+	const account = useAccountActions();
+	const server = serverSection(account?.signOut);
 	const nav = useSettingsNav();
 	const [includeAccount, setIncludeAccount] = reportAttribution();
 	const [systemControls, setSystemControls] = systemWindowControls();
@@ -69,6 +98,7 @@ export default function AdvancedPage(props: { platform: Platform }) {
 	return (
 		<AdvancedSettings
 			updates={updates()}
+			server={server}
 			developerMode={data.preferences.client().developerMode}
 			onDeveloperModeChange={(enabled) =>
 				void data.preferences.setClient({ developerMode: enabled })

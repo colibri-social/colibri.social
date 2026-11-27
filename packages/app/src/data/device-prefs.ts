@@ -27,6 +27,7 @@ export const DEVICE_KEYS = {
 	webPushEndpoint: "colibri:webpush:last-endpoint",
 	pendingLink: "colibri:pending-link",
 	customRecordExplorer: "colibri:custom-record-explorer",
+	appView: "colibri:appview",
 } as const;
 
 export const deviceString = (key: string) => {

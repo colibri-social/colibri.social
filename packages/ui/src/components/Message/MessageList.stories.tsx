@@ -1764,7 +1764,7 @@ const playJumpCard =
 			const button = jumpCardButton(canvasElement);
 			await expect(button).toHaveAccessibleName("Jump to present");
 			await expect(button).toHaveAccessibleDescription(
-				"You're viewing older messages",
+				"Viewing older messages",
 			);
 			await expectJumpCardGeometry(canvasElement, platform);
 			await userEvent.click(button);
