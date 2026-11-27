@@ -24,9 +24,9 @@ const newMessagesLabel = (count: number) =>
 	count === 1 ? "1 new message" : `${count} new messages`;
 
 const statusText = (mode: JumpCardMode, count: number) => {
-	if (mode === "present") return "You're viewing older messages";
+	if (mode === "present") return "Viewing older messages";
 	if (mode === "new") return newMessagesLabel(count);
-	return "You're viewing earlier messages";
+	return "Viewing earlier messages";
 };
 
 export const JumpCard = (props: JumpCardProps) => {
