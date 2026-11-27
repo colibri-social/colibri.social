@@ -993,18 +993,21 @@ export const createDataStore = (
 			for (const key of ownReactionOps.keys())
 				if (key.startsWith(prefix)) held.add(key.slice(prefix.length));
 			if (held.size === 0) return incoming;
-			const reactions = incoming.reactions.filter(
-				(reaction) => !held.has(reaction.emoji),
+
+			const kept = new Map(
+				existing.reactions
+					.filter((reaction) => held.has(reaction.emoji))
+					.map((reaction) => [reaction.emoji, reaction]),
 			);
-			for (const reaction of existing.reactions) {
-				if (!held.has(reaction.emoji)) continue;
-				const at = reactions.findIndex(
-					(entry) => entry.emoji.localeCompare(reaction.emoji) > 0,
-				);
-				if (at < 0) reactions.push(reaction);
-				else reactions.splice(at, 0, reaction);
-			}
-			return { ...incoming, reactions };
+
+			const reactions = incoming.reactions.flatMap((reaction) => {
+				if (!held.has(reaction.emoji)) return [reaction];
+				const own = kept.get(reaction.emoji);
+				kept.delete(reaction.emoji);
+				return own ? [own] : [];
+			});
+
+			return { ...incoming, reactions: [...reactions, ...kept.values()] };
 		};
 		const messageListeners = new Map<SpaceRef, (event: LiveEvent) => boolean>();
 		const notifications = createNotificationStore(source, (views, seen) => {

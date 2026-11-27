@@ -2189,6 +2189,42 @@ describe("own reactions", () => {
 		expect(owl()).toMatchObject({ count: 1, viewerReacted: true });
 	});
 
+	it("keeps the server order around an optimistic reaction", async () => {
+		const { channel, target, source, general, store } = await reactionSetup();
+		source.react = async () => {};
+		await channel.react(target.rkey, "🦉", true);
+		await until(() => store.outbox.pendingCount() === 0);
+
+		const order = () =>
+			channel
+				.messages()
+				.find((message) => message.rkey === target.rkey)
+				?.reactions.map((reaction) => reaction.emoji);
+
+		const stale = (emoji: readonly string[]) =>
+			source.emit({
+				$type: "messageEvent",
+				event: "update",
+				channel: general.space,
+				message: {
+					...target,
+					reactions: emoji.map((entry) => ({
+						emoji: entry,
+						count: 1,
+						reactors: ["did:plc:someoneelse"],
+					})),
+				},
+			});
+
+		stale(["🦉", "🐝"]);
+
+		expect(order()).toEqual(["🦉", "🐝"]);
+
+		stale(["🐝"]);
+
+		expect(order()).toEqual(["🐝", "🦉"]);
+	});
+
 	it("restores the emoji record and record key when a removal fails", async () => {
 		const { store, channel, target, owl, source, sent } = await reactionSetup();
 		const customEmoji = {
