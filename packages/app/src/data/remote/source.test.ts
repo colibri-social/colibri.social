@@ -1626,7 +1626,7 @@ describe("createRemoteSource", () => {
 		await expect(source.defaultCommunity()).resolves.toBe(COMMUNITY);
 	});
 
-	it("sets status through the AppView and voice through the socket", async () => {
+	it("sets status through the AppView and keeps voice on the viewer", async () => {
 		const presence = { onlineState: "online", status: { text: "hi" } };
 		const { live, source } = await setup((fake) =>
 			fake.on(colibri.actor.setStatus.main.nsid, json({ presence })),
@@ -1638,13 +1638,7 @@ describe("createRemoteSource", () => {
 
 		expect(voiced.voice).toEqual({ channel: VOICE, muted: true });
 		expect(voiced.status).toEqual({ text: "hi" });
-		expect(live.sent).toEqual([
-			{
-				$type: "social.colibri.beta.sync.defs#setPresence",
-				voice: { channel: VOICE, muted: true },
-			},
-			expect.objectContaining({ channel: CHANNEL }),
-		]);
+		expect(live.sent).toEqual([expect.objectContaining({ channel: CHANNEL })]);
 		expect(source.viewer().presence?.voice?.channel).toBe(VOICE);
 	});
 

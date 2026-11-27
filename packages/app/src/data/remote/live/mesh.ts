@@ -213,7 +213,7 @@ export const createLiveMesh = (options: LiveMeshOptions): LiveMesh => {
 
 		if (name === "activity") active = { frame, at: Date.now() };
 
-		if (name === "activity" || name === "setPresence") {
+		if (name === "activity") {
 			const sent = home.send(frame);
 
 			for (const remote of remotes.values()) remote.connection.send(frame);

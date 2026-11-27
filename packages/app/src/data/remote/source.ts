@@ -7,7 +7,6 @@ import {
 	classifyThrown,
 	colibri,
 	createLogger,
-	setPresenceFrame,
 	spaceAuthority,
 	spaceSkey,
 	typingFrame,
@@ -1026,7 +1025,6 @@ export const createRemoteSource = async (
 			return result.presence;
 		},
 		setVoice: async (voice) => {
-			options.live.send(setPresenceFrame({ voice: voice as never }));
 			const presence = {
 				...(viewer.presence ?? { onlineState: "online" }),
 			};
