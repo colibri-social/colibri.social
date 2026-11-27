@@ -14,7 +14,7 @@ type PreviewSound = keyof typeof PREVIEW_SOUNDS;
 
 export type NotificationSound = keyof typeof NOTIFICATION_SOUNDS;
 
-export const SOUND_GROUP_PREVIEWS = {
+const SOUND_GROUP_PREVIEWS = {
 	ping: "ping",
 	presence: "join",
 	mic: "mute",
