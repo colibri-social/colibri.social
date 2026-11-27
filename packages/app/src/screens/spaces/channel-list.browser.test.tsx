@@ -120,6 +120,37 @@ const rightClick = (element: Element) => {
 	);
 };
 
+const pressMenuItem = (item: HTMLElement) => {
+	const rect = item.getBoundingClientRect();
+
+	const init = {
+		bubbles: true,
+		cancelable: true,
+		pointerId: 1,
+		pointerType: "mouse",
+		isPrimary: true,
+		button: 0,
+		clientX: rect.left + rect.width / 2,
+		clientY: rect.top + rect.height / 2,
+	};
+
+	item.dispatchEvent(new PointerEvent("pointerdown", init));
+	item.dispatchEvent(new PointerEvent("pointerup", init));
+	item.dispatchEvent(new MouseEvent("click", init));
+};
+
+const chooseMenuItem = async (label: string, done: () => boolean) => {
+	await until(() => {
+		if (done()) return true;
+
+		const item = menuItem(label);
+
+		if (item) pressMenuItem(item);
+
+		return done();
+	});
+};
+
 const menuItem = (label: string) =>
 	Array.from(
 		document.querySelectorAll<HTMLElement>(
@@ -339,8 +370,10 @@ describe("deleting channels and categories", () => {
 		await until(() => !!channelRow("design"));
 		rightClick(channelRow("design") as HTMLElement);
 		await until(() => !!menuItem("Delete channel"));
-		await userEvent.click(menuItem("Delete channel") as HTMLElement);
-		await until(() => !!dialogNamed("Delete #design?"));
+		await chooseMenuItem(
+			"Delete channel",
+			() => !!dialogNamed("Delete #design?"),
+		);
 		const dialog = dialogNamed("Delete #design?") as HTMLElement;
 		const confirm = buttonIn(dialog, "Delete channel") as HTMLButtonElement;
 		expect(confirm.disabled).toBe(true);
@@ -362,8 +395,10 @@ describe("deleting channels and categories", () => {
 		rightClick(header);
 		await until(() => !!menuItem("Delete category"));
 
-		await userEvent.click(menuItem("Delete category") as HTMLElement);
-		await until(() => !!dialogNamed("Delete Testing?"));
+		await chooseMenuItem(
+			"Delete category",
+			() => !!dialogNamed("Delete Testing?"),
+		);
 		const dialog = dialogNamed("Delete Testing?") as HTMLElement;
 		(buttonIn(dialog, "Delete category") as HTMLButtonElement).click();
 		await until(() => !categorySection("Testing"));
@@ -424,8 +459,8 @@ describe("muted Spaces", () => {
 		);
 		rightClick(item?.querySelector("button") as HTMLElement);
 		await until(() => !!menuItem("Notification settings"));
-		await userEvent.click(menuItem("Notification settings") as HTMLElement);
-		await until(
+		await chooseMenuItem(
+			"Notification settings",
 			() => !!document.querySelector("[data-space-notification-settings]"),
 		);
 		const panel = document.querySelector(
