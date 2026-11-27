@@ -366,6 +366,58 @@ describe("createFederation", () => {
 		});
 	});
 
+	it("stops granting an AppView once its Spaces leave the listing", async () => {
+		const { fake, federation } = setup();
+		const stop = federation.start();
+
+		federation.reconcile([view(REMOTE, THEIRS)]);
+		await flush();
+		expect(fake.callsTo(GRANT)).toHaveLength(1);
+
+		federation.reconcile([view(LOCAL, OURS)]);
+		await vi.advanceTimersByTimeAsync(600_000);
+		expect(fake.callsTo(GRANT)).toHaveLength(1);
+
+		stop();
+	});
+
+	it("keeps granting a Space joined while the listing was in flight", async () => {
+		const { fake, federation } = setup();
+		const stop = federation.start();
+
+		fake.on(GET_COMMUNITY, json({ community: view(REMOTE, THEIRS) }));
+
+		const since = federation.mark();
+
+		await federation.joined(REMOTE);
+		await flush();
+		expect(fake.callsTo(GRANT)).toHaveLength(1);
+
+		federation.reconcile([view(LOCAL, OURS)], [], since);
+		await vi.advanceTimersByTimeAsync(600_000);
+		expect(fake.callsTo(GRANT).length).toBeGreaterThan(1);
+
+		federation.reconcile([view(LOCAL, OURS)]);
+
+		const granted = fake.callsTo(GRANT).length;
+
+		await vi.advanceTimersByTimeAsync(600_000);
+		expect(fake.callsTo(GRANT)).toHaveLength(granted);
+
+		stop();
+	});
+
+	it("doesn't record a Space that was left while recording", async () => {
+		const { fake, federation } = setup();
+
+		federation.reconcile([view(REMOTE, THEIRS)]);
+		await federation.forget(REMOTE);
+		await flush();
+
+		expect(fake.callsTo("com.atproto.space.putRecord")).toEqual([]);
+		expect(fake.callsTo("com.atproto.space.deleteRecord")).toHaveLength(1);
+	});
+
 	it("keeps granting a Space whose AppView is unreachable, and forgets it on leave", async () => {
 		const { fake, federation } = setup();
 		const stop = federation.start();

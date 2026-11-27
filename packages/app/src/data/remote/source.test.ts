@@ -1318,6 +1318,23 @@ describe("createRemoteSource", () => {
 		});
 	});
 
+	it("finishes joining without waiting for the joined Space record", async () => {
+		const { source } = await setup((fake) => {
+			fake.on(
+				colibri.community.join.main.nsid,
+				json({ status: "joined", member: { actor: profileOf(VIEWER) } }),
+			);
+			fake.on(
+				colibri.community.getCommunity.main.nsid,
+				() => new Promise<Response>(() => {}),
+			);
+		});
+
+		const joined = await source.joinCommunity({ community: COMMUNITY });
+
+		expect(joined.status).toBe("joined");
+	});
+
 	it("uploads Space images as raw bodies", async () => {
 		const { fake, source } = await setup((fake) =>
 			fake.on(

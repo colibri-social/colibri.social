@@ -459,12 +459,14 @@ export const createRemoteSource = async (
 
 		unavailableCommunities: unavailable,
 		listCommunities: async () => {
+			const since = federation.mark();
 			const listed = (await transport.query(
 				colibri.actor.listCommunities.main,
 			)) as ListedCommunities;
 			const communities = federation.reconcile(
 				listed.communities as CommunityView[],
 				listed.unavailable,
+				since,
 			);
 			setUnavailable((listed.unavailable ?? []) as UnavailableCommunity[]);
 			options.live.assign?.(liveRoutes(communities, listed.unavailable));
@@ -788,7 +790,7 @@ export const createRemoteSource = async (
 				body: input,
 			})) as JoinResult;
 
-			await federation.joined(input.community);
+			void federation.joined(input.community);
 
 			return result;
 		},

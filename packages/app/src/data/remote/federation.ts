@@ -95,6 +95,10 @@ export const createFederation = (input: {
 	const grants = new Map<string, { community: string; stop: () => void }>();
 	const grantedNow = new Set<string>();
 	const rechecked = new Set<string>();
+	const joinedAt = new Map<string, number>();
+	const forgottenAt = new Map<string, number>();
+	let joins = 0;
+	let forgets = 0;
 	let started = false;
 
 	const isRemote = (view: Remote): view is Required<Remote> => {
@@ -226,6 +230,8 @@ export const createFederation = (input: {
 	};
 
 	const backfill = async (views: readonly CommunityView[]) => {
+		const since = forgets;
+
 		if (!(await loadRecorded())) return;
 
 		for (const view of views) {
@@ -234,6 +240,8 @@ export const createFederation = (input: {
 			const app = view.managingApp ?? self;
 
 			if (recorded.get(view.did) === app) continue;
+
+			if ((forgottenAt.get(view.did) ?? 0) > since) continue;
 
 			try {
 				await remember(view.did, app);
@@ -249,6 +257,10 @@ export const createFederation = (input: {
 
 	const forget = async (community: string) => {
 		const wasRemote = remote.delete(community);
+
+		forgets += 1;
+		forgottenAt.set(community, forgets);
+		joinedAt.delete(community);
 
 		if (wasRemote) syncGrants();
 
@@ -279,6 +291,8 @@ export const createFederation = (input: {
 
 			if (!isRemote(view)) return;
 
+			joins += 1;
+			joinedAt.set(community, joins);
 			remote.set(community, view.managingApp);
 			syncGrants();
 		} catch (error) {
@@ -314,10 +328,25 @@ export const createFederation = (input: {
 		grants.delete(app);
 	};
 
+	const mark = () => {
+		return joins;
+	};
+
 	const reconcile = (
 		views: CommunityView[],
 		unavailable: readonly Required<Remote>[] = [],
+		since = joins,
 	): CommunityView[] => {
+		const fresh = [...remote].filter(
+			([community]) => (joinedAt.get(community) ?? 0) > since,
+		);
+
+		remote.clear();
+
+		for (const [community, managingApp] of fresh) {
+			remote.set(community, managingApp);
+		}
+
 		const kept = views.filter((view) => {
 			if (!isRemote(view)) return true;
 
@@ -356,5 +385,5 @@ export const createFederation = (input: {
 		};
 	};
 
-	return { declare, joined, forget, reconcile, start };
+	return { declare, joined, forget, mark, reconcile, start };
 };

@@ -7,7 +7,7 @@ import {
 import { createSignal } from "solid-js";
 import { describe, expect, it, vi } from "vitest";
 import type { LiveEvent } from "../../source";
-import type { LiveConnection } from "./connection";
+import { ACTIVITY_RESEND_MS, type LiveConnection } from "./connection";
 import type { SubscriptionTarget } from "./ledger";
 import { createLiveMesh } from "./mesh";
 
@@ -170,6 +170,70 @@ describe("createLiveMesh", () => {
 		expect(remotes.get(MARKET)?.sent).toEqual([
 			viewChannelFrame(MARKET_CHANNEL as never),
 		]);
+	});
+
+	it("sends frames to this server until a watch opens the other socket", () => {
+		const { home, connect, remotes, mesh } = setup();
+
+		mesh.send(viewChannelFrame(MARKET_CHANNEL as never));
+
+		expect(connect).not.toHaveBeenCalled();
+		expect(home.sent).toEqual([viewChannelFrame(MARKET_CHANNEL as never)]);
+
+		mesh.watch({ communities: [MARKET_SPACE] });
+
+		expect(home.sent).toEqual([
+			viewChannelFrame(MARKET_CHANNEL as never),
+			viewChannelFrame(),
+		]);
+		expect(remotes.get(MARKET)?.sent).toEqual([
+			viewChannelFrame(MARKET_CHANNEL as never),
+		]);
+	});
+
+	it("moves the open channel when its Space changes servers", () => {
+		const { remotes, mesh } = setup();
+
+		mesh.watch({ communities: [MARKET_SPACE] });
+		mesh.send(viewChannelFrame(MARKET_CHANNEL as never));
+		mesh.assign(
+			new Map([
+				[LOCAL_SPACE, HOME],
+				[MARKET_SPACE, OTHER],
+			]),
+		);
+
+		expect(remotes.get(MARKET)?.sent).toEqual([
+			viewChannelFrame(MARKET_CHANNEL as never),
+			viewChannelFrame(),
+		]);
+		expect(remotes.get(OTHER)?.sent).toEqual([
+			viewChannelFrame(MARKET_CHANNEL as never),
+		]);
+	});
+
+	it("replays recent activity to a newly opened socket", () => {
+		vi.useFakeTimers();
+
+		try {
+			const { remotes, mesh } = setup();
+
+			mesh.send(activityFrame());
+			mesh.watch({ communities: [MARKET_SPACE] });
+			expect(remotes.get(MARKET)?.sent).toEqual([activityFrame()]);
+
+			mesh.assign(
+				new Map([
+					[LOCAL_SPACE, HOME],
+					[MARKET_SPACE, OTHER],
+				]),
+			);
+			vi.advanceTimersByTime(ACTIVITY_RESEND_MS);
+			mesh.assign(new Map([[MARKET_SPACE, MARKET]]));
+			expect(remotes.get(MARKET)?.sent).toEqual([]);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("passes on events from every server", () => {

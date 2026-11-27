@@ -6,7 +6,7 @@ import {
 } from "@colibri-social/lib";
 import { createSignal } from "solid-js";
 import type { LiveEvent } from "../../source";
-import type { LiveConnection } from "./connection";
+import { ACTIVITY_RESEND_MS, type LiveConnection } from "./connection";
 import type { SubscriptionSets, SubscriptionTarget } from "./ledger";
 
 const log = createLogger("live");
@@ -63,6 +63,8 @@ export const createLiveMesh = (options: LiveMeshOptions): LiveMesh => {
 	let routes: ReadonlyMap<string, string> = new Map();
 	let retired = 0;
 	let viewingOn: LiveConnection | undefined;
+	let viewing: ClientFrame | undefined;
+	let active: { frame: ClientFrame; at: number } | undefined;
 	let closed = false;
 
 	const dispatch = (event: LiveEvent) => {
@@ -84,6 +86,26 @@ export const createLiveMesh = (options: LiveMeshOptions): LiveMesh => {
 		]);
 	};
 
+	const connectionFor = (community: string | undefined): LiveConnection => {
+		const app = appFor(community);
+
+		if (app === homeApp) return home;
+
+		return remotes.get(app)?.connection ?? home;
+	};
+
+	const showView = () => {
+		if (!viewing) return;
+
+		const target = connectionFor(frameSpace(viewing));
+
+		if (target === viewingOn) return;
+
+		viewingOn?.send(viewChannelFrame());
+		viewingOn = target;
+		target.send(viewing);
+	};
+
 	const open = (app: string): Remote | undefined => {
 		const existing = remotes.get(app);
 
@@ -103,6 +125,12 @@ export const createLiveMesh = (options: LiveMeshOptions): LiveMesh => {
 		publish();
 		log.info("opened a live socket to another server", { app });
 
+		if (active && Date.now() - active.at < ACTIVITY_RESEND_MS) {
+			connection.send(active.frame);
+		}
+
+		showView();
+
 		return remote;
 	};
 
@@ -120,14 +148,6 @@ export const createLiveMesh = (options: LiveMeshOptions): LiveMesh => {
 		remote.stop();
 		remote.connection.close();
 		publish();
-	};
-
-	const connectionFor = (community: string | undefined): LiveConnection => {
-		const app = appFor(community);
-
-		if (app === homeApp) return home;
-
-		return remotes.get(app)?.connection ?? open(app)?.connection ?? home;
 	};
 
 	const place = (watch: Watch) => {
@@ -191,6 +211,8 @@ export const createLiveMesh = (options: LiveMeshOptions): LiveMesh => {
 	const send = (frame: ClientFrame): boolean => {
 		const name = frameName(frame);
 
+		if (name === "activity") active = { frame, at: Date.now() };
+
 		if (name === "activity" || name === "setPresence") {
 			const sent = home.send(frame);
 
@@ -204,7 +226,8 @@ export const createLiveMesh = (options: LiveMeshOptions): LiveMesh => {
 
 			if (viewingOn && viewingOn !== target) viewingOn.send(viewChannelFrame());
 
-			viewingOn = frameSpace(frame) ? target : undefined;
+			viewing = frameSpace(frame) ? frame : undefined;
+			viewingOn = viewing ? target : undefined;
 
 			return target.send(frame);
 		}
@@ -296,6 +319,8 @@ export const createLiveMesh = (options: LiveMeshOptions): LiveMesh => {
 
 				for (const release of previous) release();
 			}
+
+			showView();
 		},
 	};
 };

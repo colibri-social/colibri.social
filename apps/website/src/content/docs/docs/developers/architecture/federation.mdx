@@ -30,6 +30,7 @@ A federating AppView needs:
 - A `#colibri_appview` service in its DID document. Other AppViews send requests to that endpoint.
 - Its XRPC API and event socket served at the host of its `did:web`. The client derives the origin of a managing AppView from its DID, without reading the DID document.
 - `federation` in the `features` of `social.colibri.beta.server.describeServer`. The client shows a warning when a server lacks it.
+- CORS headers that allow browser origins on `/.well-known/did.json` and `social.colibri.beta.server.describeServer`. The client's server picker reads both from the browser.
 
 ## Records
 
