@@ -1,17 +1,15 @@
 ---
 title: Where a Space Is Hosted
-description: Who runs the account and the server behind a Colibri Space, and what that means for its owner and its members.
+description: Who runs the account and the server behind a Colibri Space, how Spaces on different servers work together, and how to change your server.
 sidebar:
   order: 8
 ---
 
-import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+import { CardGrid, LinkCard, Steps } from "@astrojs/starlight/components";
 
 A Space consists of an account that holds it, and a Colibri server that delivers it to your app.
 
-If a Space is a house, the account is the plot of land it stands on, and the server is the postal service that carries messages between the house and its members.
-
-For members, none of this needs any setup! This page is relevant to you if you own a Space, or if a Space you joined doesn't show up.
+For members, none of this needs any setup! This page is relevant to you if you own a Space, if you want to use a different server, or if a Space you joined doesn't show up.
 
 ## The account behind a Space
 
@@ -30,20 +28,49 @@ The owner of a Space sees this under **Manage Space** > **Hosting**. The page re
 
 A Colibri server delivers messages to your app, sends notifications and connects voice calls. Colibri is open source, so anyone can run such a server!
 
-A Space is served by one server, which is the server it was created on. The apps from colibri.social connect to the server that Colibri runs.
+Each Space belongs to the server it was created on. Your app connects to a single server too, which does not need to be the same one that holds your Space. The apps from colibri.social connect to the server that Colibri runs, unless you pick another one.
 
-What this means for you:
+Colibri servers work together. From your app, you can join and use a Space that belongs to another server:
 
-- You can use every Space that lives on the server your app connects to.
-- You can sign in to any Colibri server with the same account and the same handle.
-- The server is set by the app you use. There is no switch for it inside the app.
-- To use a Space on a server that someone else runs, open the Colibri app that those people provide and sign in there with your account.
+- Messages, reactions, threads and voice calls work the same way as in a Space on your own server.
+- Members on every server see your online status and when you're typing.
+- Mentions and replies reach you as notifications through your own server.
+- An invite link works no matter which server the Space belongs to. Open it and join as usual.
 
-Online status, typing indicators and voice channels stay within one server. People on another server don't see them.
+You use the same account and the same handle on every Colibri server.
+
+## Change your server
+
+<Steps>
+
+1. Open **Settings** > **Advanced**. The **Server** section shows the server your app connects to.
+
+2. Select **Change server** and enter the address of the server, for example `colibri.example.com`.
+
+3. Select **Check server**. Colibri checks the address and lists what that server does.
+
+4. Select **Switch and sign out**.
+
+5. Sign in again with the same account.
+
+</Steps>
+
+To return to the server your app came with, select **Go back to** followed by its address.
+
+Before you switch, check the list Colibri shows. A server that shows **Only shows Spaces that run on this server** doesn't work together with other servers. While you use it, Spaces you joined on other servers don't appear.
+
+## A Space can't be reached
+
+The server of the Space isn't responding. Colibri shows that the Space can't be reached right now and names the server it belongs to.
+
+Nothing you've sent is lost. The Space opens again on its own once its server is back. To check sooner, select **Try again**.
 
 ## A Space you joined doesn't appear
 
-The Space lives on a different server than the one your app connects to. Ask the person who invited you which Colibri app the Space uses.
+Check these in order:
+
+- **Your server doesn't work together with other servers.** It only lists Spaces that belong to it. Ask the people who run your server, or switch to one that works with other servers.
+- **You left the Space, or were removed from it.** Ask someone in the Space for a new invite link.
 
 ## You can read a Space and can't moderate it
 
@@ -58,9 +85,9 @@ That depends on your roles in the Space, and has nothing to do with hosting. Ask
     href="/docs/users/spaces/create-a-space"
   />
   <LinkCard
-    title="The Move to Private Spaces"
-    description="What changed when communities became Spaces."
-    href="/docs/users/spaces/moving-to-spaces"
+    title="Join a Space"
+    description="Use an invite link to join a Space."
+    href="/docs/users/spaces/join-a-space"
   />
   <LinkCard
     title="Self-Hosting"

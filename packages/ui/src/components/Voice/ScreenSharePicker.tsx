@@ -347,6 +347,9 @@ export const ScreenSharePicker = (props: ScreenSharePickerProps) => {
 		sources().find((source) => source.id === selectedId()),
 	);
 	const native = () => props.mode === "native";
+	const confirmDisabled = () => {
+		return native() && !selected();
+	};
 	const surface = () => props.surface ?? "screen";
 	const audioApps = () =>
 		props.mode === "system" && surface() === "window"
@@ -409,7 +412,7 @@ export const ScreenSharePicker = (props: ScreenSharePickerProps) => {
 						</Button>
 						<Button
 							data-screen-share-confirm=""
-							disabled={native() && !selected()}
+							disabled={confirmDisabled()}
 							onClick={() => share(selected())}
 						>
 							{native()

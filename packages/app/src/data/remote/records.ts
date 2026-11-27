@@ -267,6 +267,7 @@ export const createRecords = (
 			const result = await transport.appViewProcedure<{ blob: BlobRef }>(
 				colibri.polyfill.uploadBlob.main.nsid,
 				{
+					...(options.space ? { params: { space: options.space } } : {}),
 					raw: rawOf(file),
 					signal: options.signal,
 					onProgress: options.onProgress,

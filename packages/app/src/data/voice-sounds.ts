@@ -10,6 +10,12 @@ import screenUnsharedUrl from "../../../assets/files/sounds/screen-unshared.wav"
 import undeafenUrl from "../../../assets/files/sounds/undeafen.wav";
 import unmuteUrl from "../../../assets/files/sounds/unmute.wav";
 import {
+	DEFAULT_SOUND_VOLUMES,
+	SOUND_GROUPS,
+	type SoundGroup,
+	type SoundVolumes,
+} from "./preferences/types";
+import {
 	applyAudioSink,
 	DEFAULT_CONTEXT_SINK_ID,
 	type SinkableOutput,
@@ -34,6 +40,27 @@ export type VoiceSound = keyof typeof VOICE_SOUNDS;
 
 export type VoiceSoundPlayer = (sound: VoiceSound) => void;
 
+export const SOUND_GROUP_OF = {
+	ping: "ping",
+	join: "presence",
+	leave: "presence",
+	mute: "mic",
+	unmute: "mic",
+	deafen: "mic",
+	undeafen: "mic",
+	camOn: "video",
+	camOff: "video",
+	screenShared: "video",
+	screenUnshared: "video",
+} as const satisfies Record<VoiceSound | "ping", SoundGroup>;
+
+export type GroupedSound = keyof typeof SOUND_GROUP_OF;
+
+export type SoundPlayer<Sound extends GroupedSound> = (
+	sound: Sound,
+	volume?: number,
+) => void;
+
 const UNLOCK_EVENTS = ["pointerdown", "keydown", "touchend"] as const;
 
 type NativeSoundBridge = {
@@ -43,15 +70,31 @@ type NativeSoundBridge = {
 	playSoundAt?: (name: string, volume: number) => void;
 };
 
-let effectsGain = 1;
-
-export const setSoundEffectsVolume = (percent: number) => {
-	effectsGain = Number.isFinite(percent)
+const gainOf = (percent: number, fallback: number) => {
+	return Number.isFinite(percent)
 		? Math.min(1, Math.max(0, percent / 100))
-		: 1;
+		: fallback / 100;
 };
 
-export const soundEffectsGain = () => effectsGain;
+const groupGains = Object.fromEntries(
+	SOUND_GROUPS.map((group) => [group, DEFAULT_SOUND_VOLUMES[group] / 100]),
+) as Record<SoundGroup, number>;
+
+export const setSoundEffectsVolumes = (volumes: SoundVolumes) => {
+	for (const group of SOUND_GROUPS) {
+		groupGains[group] = gainOf(volumes[group], DEFAULT_SOUND_VOLUMES[group]);
+	}
+};
+
+export const soundEffectsGain = (sound: GroupedSound) => {
+	return groupGains[SOUND_GROUP_OF[sound]];
+};
+
+const gainFor = (sound: GroupedSound, volume: number | undefined) => {
+	return volume === undefined
+		? soundEffectsGain(sound)
+		: gainOf(volume, DEFAULT_SOUND_VOLUMES[SOUND_GROUP_OF[sound]]);
+};
 
 let effectsSink: string | undefined;
 const sinkListeners = new Set<(force: boolean) => void>();
@@ -94,10 +137,12 @@ const fileName = (url: string) =>
 		?.split("?")[0]
 		?.replace(/\.[^.]+$/, "") ?? url;
 
-export const createNativeSoundPlayer = <Sound extends string = VoiceSound>(
+export const createNativeSoundPlayer = <
+	Sound extends GroupedSound = VoiceSound,
+>(
 	bridge: NativeSoundBridge,
 	sounds: Record<Sound, string> = VOICE_SOUNDS as Record<Sound, string>,
-): ((sound: Sound) => void) => {
+): SoundPlayer<Sound> => {
 	const stored = new Map<Sound, Promise<string | undefined>>();
 	const ensure = (sound: Sound) => {
 		const cached = stored.get(sound);
@@ -121,10 +166,10 @@ export const createNativeSoundPlayer = <Sound extends string = VoiceSound>(
 		stored.set(sound, pending);
 		return pending;
 	};
-	return (sound) => {
-		if (effectsGain <= 0) return;
+	return (sound, volume) => {
+		if (gainFor(sound, volume) <= 0) return;
 		void ensure(sound).then((name) => {
-			const gain = effectsGain;
+			const gain = gainFor(sound, volume);
 			if (!name || gain <= 0) return;
 			if (bridge.playSoundAt) bridge.playSoundAt(name, gain);
 			else bridge.playSound(name);
@@ -132,9 +177,9 @@ export const createNativeSoundPlayer = <Sound extends string = VoiceSound>(
 	};
 };
 
-export const createSoundPlayer = <Sound extends string>(
+export const createSoundPlayer = <Sound extends GroupedSound>(
 	sounds: Record<Sound, string>,
-): ((sound: Sound) => void) => {
+): SoundPlayer<Sound> => {
 	const native = nativeSoundBridge();
 	if (native) return createNativeSoundPlayer(native, sounds);
 	let context: AudioContext | undefined;
@@ -198,8 +243,8 @@ export const createSoundPlayer = <Sound extends string>(
 		return pending;
 	};
 
-	return (sound) => {
-		if (effectsGain <= 0) return;
+	return (sound, volume) => {
+		if (gainFor(sound, volume) <= 0) return;
 		const ctx = ensureContext();
 		if (!ctx) return;
 		bindUnlock(ctx);
@@ -212,15 +257,15 @@ export const createSoundPlayer = <Sound extends string>(
 				));
 			const buffer = await load(ctx, sound);
 			await routing;
-			const gain = effectsGain;
+			const gain = gainFor(sound, volume);
 			if (!buffer || !resumed || gain <= 0) return;
 			const source = ctx.createBufferSource();
 			source.buffer = buffer;
-			const volume = ctx.createGain();
-			volume.gain.value = gain;
-			source.connect(volume);
-			volume.connect(ctx.destination);
-			source.addEventListener("ended", () => volume.disconnect(), {
+			const output = ctx.createGain();
+			output.gain.value = gain;
+			source.connect(output);
+			output.connect(ctx.destination);
+			source.addEventListener("ended", () => output.disconnect(), {
 				once: true,
 			});
 			source.start();

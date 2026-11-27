@@ -78,7 +78,7 @@ const warmUp = async (kv: KvStore) => {
 	await spaces.flush();
 	await cache.flush();
 	const home = list.find((community) =>
-		general.space.startsWith(`at://${community.did}/`),
+		general.space.startsWith(`at:space/${community.did}/`),
 	);
 	if (!home) throw new Error("no Space for general");
 	return {

@@ -1,7 +1,10 @@
 import {
+	APPVIEW_FRAGMENT,
 	ColibriError,
 	classifyThrown,
 	createLogger,
+	serviceRefFor,
+	spaceAuthority,
 } from "@colibri-social/lib";
 import {
 	type Accessor,
@@ -21,6 +24,7 @@ import {
 	appViewUrl,
 } from "./auth";
 import { withDeadline } from "./auth/deadline";
+import { endsSession } from "./auth/session-health";
 import { isExperimentOn, VOICE_RELAY_EXPERIMENT } from "./data/experiments";
 import {
 	cacheNamespace,
@@ -29,10 +33,16 @@ import {
 } from "./data/message-cache";
 import { createOutboxQueue } from "./data/outbox/queue";
 import { appViewOrigin, emojiBlobLocator } from "./data/remote/emoji";
-import { createLiveConnection, type LiveConnection } from "./data/remote/live";
+import { clearFederationCache } from "./data/remote/federation";
+import {
+	createLiveConnection,
+	createLiveMesh,
+	type LiveConnection,
+} from "./data/remote/live";
 import { setMediaOrigins } from "./data/remote/media-origin";
 import {
 	createNodeDirectory,
+	STORAGE_KEY as NODES_STORAGE_KEY,
 	type NodeDirectory,
 	socketOrigin,
 } from "./data/remote/nodes";
@@ -137,7 +147,59 @@ export const createSignedInSession = (
 				mainUrl: appViewUrl(),
 				fetch: isNativeShell() ? nativeFetch : undefined,
 			});
-			const live = createLiveConnection({
+
+			const remoteDirectories = new Map<string, NodeDirectory>();
+
+			const remoteNodesFor = (origin: string) => {
+				const known = remoteDirectories.get(origin);
+
+				if (known) return known;
+
+				const directory = createNodeDirectory({
+					mainUrl: origin,
+					fetch: isNativeShell() ? nativeFetch : undefined,
+					storageKey: `${NODES_STORAGE_KEY}:${origin}`,
+				});
+
+				remoteDirectories.set(origin, directory);
+
+				return directory;
+			};
+
+			const connectRemote = (managingApp: string) => {
+				const origin = appViewOrigin(managingApp);
+
+				if (!origin) return undefined;
+
+				const remoteNodes = remoteNodesFor(origin);
+
+				const connection = createLiveConnection({
+					agent,
+					appViewHost: appViewHost("ws", origin),
+					pickHost: (avoid) => remoteNodes.endpointFor("live", avoid),
+					refreshHosts: () => remoteNodes.refresh(),
+					serviceRef: serviceRefFor(managingApp, APPVIEW_FRAGMENT),
+					emojiBlobUrl: emojiBlobLocator(origin),
+					onAuthFailure: (error) => {
+						log.warn("another server rejected the live socket", {
+							code: error.code,
+						});
+					},
+					isSessionDead: () => auth.health.dead(),
+				});
+
+				void remoteNodes.refreshIfStale().then(() => {
+					const best = remoteNodes.endpointFor("live");
+
+					if (best && betterNode(remoteNodes, connection.host(), best)) {
+						connection.moveTo(best);
+					}
+				});
+
+				return connection;
+			};
+
+			const home = createLiveConnection({
 				agent,
 				appViewHost: nodes.endpointFor("live") ?? appViewHost("ws"),
 				pickHost: (avoid) => nodes.endpointFor("live", avoid),
@@ -145,11 +207,21 @@ export const createSignedInSession = (
 				serviceRef: appViewServiceRef(),
 				emojiBlobUrl: emojiBlobLocator(appViewOrigin(appViewDid())),
 				onAuthFailure: (error) => {
-					reportError(error, { stage: "socket" });
+					if (!endsSession(error.code)) {
+						reportError(error, { stage: "socket" });
+					}
+
 					auth.onAuthFailure(error.code);
 				},
 				isSessionDead: () => auth.health.dead(),
 			});
+
+			const live = createLiveMesh({
+				home,
+				homeApp: appViewDid(),
+				connect: connectRemote,
+			});
+
 			const adoptNodes = () => {
 				setMediaOrigins(appViewUrl(), nodes.endpointFor("api"));
 
@@ -157,6 +229,7 @@ export const createSignedInSession = (
 
 				if (best && betterNode(nodes, live.host(), best)) live.moveTo(best);
 			};
+
 			void nodes.refresh().then(adoptNodes);
 			setState({ kind: "loading" });
 			const namespace = cacheNamespace(appViewDid(), did);
@@ -255,6 +328,23 @@ export const createSignedInSession = (
 						forceRelay: () =>
 							isExperimentOn(store.preferences, VOICE_RELAY_EXPERIMENT),
 						serviceRef: appViewServiceRef(),
+						serverFor: (channel) => {
+							const app = live.managingApp(spaceAuthority(channel));
+							const origin = appViewOrigin(app);
+
+							if (app === appViewDid() || !origin) return undefined;
+
+							const remoteNodes = remoteNodesFor(origin);
+
+							void remoteNodes.refreshIfStale();
+
+							return {
+								appViewHost: appViewHost("ws", origin),
+								serviceRef: serviceRefFor(app, APPVIEW_FRAGMENT),
+								pickHost: (avoid) => remoteNodes.endpointFor("voice", avoid),
+								describeNode: remoteNodes.nodeAt,
+							};
+						},
 						viewerDid: did,
 					});
 					session = {
@@ -293,6 +383,7 @@ export const createSignedInSession = (
 		on(auth.status, (status, previous) => {
 			if (status === "signedOut" && previous && previous !== "signedOut") {
 				void clearDeviceCache();
+				clearFederationCache();
 				void osNotifier().then((notifier) => notifier.clearAll());
 				void teardownLeftoverPush();
 			}

@@ -42,7 +42,12 @@
 						"type": "integer",
 						"minimum": 0,
 						"maximum": 100,
-						"description": "The volume of in-app sound effects such as message pings and call sounds, in percent. Absent means 100."
+						"description": "The volume of in-app sound effects such as message pings and call sounds, in percent. Absent means 100. A client that reads soundVolumes uses this only for the presence, mic and video groups that soundVolumes leaves out."
+					},
+					"soundVolumes": {
+						"type": "ref",
+						"ref": "social.colibri.beta.actor.defs#soundVolumes",
+						"description": "The volume of each group of in-app sound effects."
 					},
 					"warnOnExternalLinks": {
 						"type": "boolean",

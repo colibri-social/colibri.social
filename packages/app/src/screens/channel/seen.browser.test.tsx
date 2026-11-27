@@ -10,7 +10,7 @@ import { MobileShell } from "../../shell/MobileShell";
 
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
 const TEXT = "social.colibri.beta.channel.text";
-const GENERAL = `at://${HQ}/space/${TEXT}/general` as SpaceRef;
+const GENERAL = `at:space/${HQ}/${TEXT}/general` as SpaceRef;
 
 const until = async (check: () => boolean, timeout = 8000) => {
 	const started = performance.now();

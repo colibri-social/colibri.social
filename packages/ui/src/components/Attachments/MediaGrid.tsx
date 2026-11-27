@@ -385,6 +385,15 @@ export const MediaTile = (props: MediaTileProps) => {
 		),
 	);
 	const working = () => status() === "ok";
+	const previewSrc = () => {
+		return props.item.kind === "video" ? heldPoster() : heldSrc();
+	};
+	const gifAnimated = () => {
+		return props.item.kind === "gif" ? true : undefined;
+	};
+	const gifMaxLoops = () => {
+		return props.item.kind === "gif" ? gifLoops() : undefined;
+	};
 	const animates = () =>
 		props.item.kind === "gif" ||
 		(props.item.kind !== "video" && isAnimatedSource(props.item.src));
@@ -540,11 +549,11 @@ export const MediaTile = (props: MediaTileProps) => {
 							}
 						>
 							<AnimatedImage
-								animated={props.item.kind === "gif" ? true : undefined}
-								maxLoops={props.item.kind === "gif" ? gifLoops() : undefined}
+								animated={gifAnimated()}
+								maxLoops={gifMaxLoops()}
 								playOnDemand="none"
 								play={playing()}
-								src={props.item.kind === "video" ? heldPoster() : heldSrc()}
+								src={previewSrc()}
 								alt=""
 								draggable={false}
 								onLoad={(event) => {

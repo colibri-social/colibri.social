@@ -183,8 +183,10 @@ export const createAccessStore = (options: {
 				(items) => items.filter((entry) => entry.code !== code),
 				() => source.deleteInvitation({ community, code }),
 			),
-		resolveInvitation: (code: string): Promise<InvitationPreview> =>
-			source.getInvitation(code),
+		resolveInvitation: (
+			code: string,
+			community?: string,
+		): Promise<InvitationPreview> => source.getInvitation(code, community),
 		join: (community: Did, invitation?: string): Promise<JoinResult> =>
 			source.joinCommunity({ community, invitation }),
 	};

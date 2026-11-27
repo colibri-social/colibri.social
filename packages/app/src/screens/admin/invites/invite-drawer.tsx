@@ -64,7 +64,7 @@ export const createInviteDrawer = () => {
 				<Match when={invitation()}>
 					{(current) => (
 						<InviteLinkPanel
-							url={inviteUrl(current().code)}
+							url={inviteUrl(current().code, target()?.did)}
 							title={INVITE_DRAWER_COPY.share(name())}
 							onCopy={() => toast.success("Invite link copied")}
 						/>

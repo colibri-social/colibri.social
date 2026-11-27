@@ -42,6 +42,7 @@ export const XRPC_PREFIXES = {
 	sync: "social.colibri.beta.sync",
 	bridge: "social.colibri.beta.bridge",
 	polyfill: "social.colibri.beta.polyfill",
+	federation: "social.colibri.beta.federation",
 } as const;
 
 const VERBS = {

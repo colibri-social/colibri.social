@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import type { SpaceRef } from "../../data/types";
 import { HQ, main, mount, TEXT, until, wait } from "./desktop-test-kit";
 
-const DEV_REF = `at://${HQ}/space/${TEXT}/dev` as SpaceRef;
+const DEV_REF = `at:space/${HQ}/${TEXT}/dev` as SpaceRef;
 const INVITE_URL = "https://colibri.social/invite/colibri-hq";
 const INVITE_TEXT = `Come hang out ${INVITE_URL}`;
 

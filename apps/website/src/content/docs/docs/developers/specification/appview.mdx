@@ -129,7 +129,8 @@ write.
 `social.colibri.beta.server.describeServer` identifies a host as a Colibri
 AppView and lists the optional features it has turned on. `features` holds
 `embeds` and `emoji` on every deployment. `voice`, `push`, `gifs` and `nodes`
-appear when the deployment has them configured.
+appear when the deployment has them configured. `federation` appears unless the
+deployment turned federation off.
 
 <XRPCMethods prefix={XRPC_PREFIXES.server} />
 
@@ -376,6 +377,16 @@ and move them to the PDS once it supports spaces. See
 [Hosting](/docs/developers/architecture/hosting).
 
 <XRPCMethods prefix={XRPC_PREFIXES.polyfill} />
+
+## Federation
+
+AppViews call the `social.colibri.beta.federation` methods on each other to keep
+a user's own AppView in step with the AppView that manages a Space:
+notifications, reads and retractions. Each call carries service auth minted by
+the calling AppView. See [Federation](/docs/developers/architecture/federation)
+for routing, forwarding and the checks each method runs.
+
+<XRPCMethods prefix={XRPC_PREFIXES.federation} />
 
 ## Protocol callbacks
 

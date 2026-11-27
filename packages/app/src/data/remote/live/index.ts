@@ -5,3 +5,4 @@ export {
 	type LiveStatus,
 	type WriteMode,
 } from "./connection";
+export { createLiveMesh } from "./mesh";

@@ -22,6 +22,11 @@
 						"delegationToken": {
 							"type": "string",
 							"description": "A delegation token minted by the user's PDS for the space."
+						},
+						"community": {
+							"type": "string",
+							"format": "did",
+							"description": "A community the user joined. The grant goes to the AppView that manages it, so it can read the user's preferences. Without it, the grant goes to the AppView that receives the call."
 						}
 					}
 				}

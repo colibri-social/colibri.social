@@ -2,6 +2,7 @@ import { ColibriError } from "@colibri-social/lib";
 import { describe, expect, it, vi } from "vitest";
 import {
 	createSessionHealth,
+	endsSession,
 	FAILURE_WINDOW_MS,
 	RESUME_GRACE_MS,
 	type SessionHealthOptions,
@@ -190,5 +191,24 @@ describe("session health", () => {
 		expect(refresh).not.toHaveBeenCalled();
 		expect(health.dead()).toBe(true);
 		expect(health.deadCode()).toBe("ExpiredToken");
+	});
+});
+
+describe("endsSession", () => {
+	it.each([
+		"InvalidToken",
+		"ExpiredToken",
+		"OAuthConfigRejected",
+		"OAuthGrantExpired",
+	] as const)("treats %s as a sign-out", (code) => {
+		expect(endsSession(code)).toBe(true);
+	});
+
+	it.each([
+		"AuthRequired",
+		"Unreachable",
+		"Unexpected",
+	] as const)("keeps %s reportable", (code) => {
+		expect(endsSession(code)).toBe(false);
 	});
 });

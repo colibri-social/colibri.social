@@ -11,7 +11,7 @@ import {
 	wait,
 } from "../channel/desktop-test-kit";
 
-const DEV_REF = `at://${HQ}/space/${TEXT}/dev` as SpaceRef;
+const DEV_REF = `at:space/${HQ}/${TEXT}/dev` as SpaceRef;
 
 const paneHost = () =>
 	document.querySelector<HTMLElement>("[data-shell-thread]");

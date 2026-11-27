@@ -15,6 +15,7 @@ import {
 	ungroupedEmoji,
 } from "../../../data/emoji";
 import { defineContract, slot } from "../../../screen/define";
+import { handlerWhen } from "../../../screen/handler-when";
 import { NEW_ENTRY } from "../../../shell/layers";
 import type { AdminArgs } from "../../../shell/registry";
 import { useStack } from "../../../shell/stack";
@@ -149,7 +150,7 @@ export const adminEmoji = defineContract({
 								<EmojiRows
 									admin={m}
 									emojis={m.ungrouped()}
-									onMenu={m.canManage() ? m.options.show : undefined}
+									onMenu={handlerWhen(m.canManage(), m.options.show)}
 								/>
 							</ListGroup>
 						</Show>
@@ -171,7 +172,7 @@ export const adminEmoji = defineContract({
 											<EmojiRows
 												admin={m}
 												emojis={section.emojis}
-												onMenu={m.canManage() ? m.options.show : undefined}
+												onMenu={handlerWhen(m.canManage(), m.options.show)}
 											/>
 										</ListGroup>
 									</Show>

@@ -1318,6 +1318,23 @@ describe("createRemoteSource", () => {
 		});
 	});
 
+	it("finishes joining without waiting for the joined Space record", async () => {
+		const { source } = await setup((fake) => {
+			fake.on(
+				colibri.community.join.main.nsid,
+				json({ status: "joined", member: { actor: profileOf(VIEWER) } }),
+			);
+			fake.on(
+				colibri.community.getCommunity.main.nsid,
+				() => new Promise<Response>(() => {}),
+			);
+		});
+
+		const joined = await source.joinCommunity({ community: COMMUNITY });
+
+		expect(joined.status).toBe("joined");
+	});
+
 	it("uploads Space images as raw bodies", async () => {
 		const { fake, source } = await setup((fake) =>
 			fake.on(
@@ -1406,9 +1423,11 @@ describe("createRemoteSource", () => {
 		expect(fake.callsTo("com.atproto.repo.uploadBlob")).toHaveLength(1);
 		expect(fake.callsTo(colibri.polyfill.uploadBlob.main.nsid)).toHaveLength(0);
 
-		await source.uploadBlob(file);
+		await source.uploadBlob(file, { space: CHANNEL });
 
-		expect(fake.callsTo(colibri.polyfill.uploadBlob.main.nsid)).toHaveLength(1);
+		const [hosted] = fake.callsTo(colibri.polyfill.uploadBlob.main.nsid);
+
+		expect(hosted?.params.get("space")).toBe(CHANNEL);
 	});
 
 	it("reports a missing profile blob as a failed upload", async () => {
@@ -1607,7 +1626,7 @@ describe("createRemoteSource", () => {
 		await expect(source.defaultCommunity()).resolves.toBe(COMMUNITY);
 	});
 
-	it("sets status through the AppView and voice through the socket", async () => {
+	it("sets status through the AppView and keeps voice on the viewer", async () => {
 		const presence = { onlineState: "online", status: { text: "hi" } };
 		const { live, source } = await setup((fake) =>
 			fake.on(colibri.actor.setStatus.main.nsid, json({ presence })),
@@ -1619,13 +1638,7 @@ describe("createRemoteSource", () => {
 
 		expect(voiced.voice).toEqual({ channel: VOICE, muted: true });
 		expect(voiced.status).toEqual({ text: "hi" });
-		expect(live.sent).toEqual([
-			{
-				$type: "social.colibri.beta.sync.defs#setPresence",
-				voice: { channel: VOICE, muted: true },
-			},
-			expect.objectContaining({ channel: CHANNEL }),
-		]);
+		expect(live.sent).toEqual([expect.objectContaining({ channel: CHANNEL })]);
 		expect(source.viewer().presence?.voice?.channel).toBe(VOICE);
 	});
 
@@ -2063,6 +2076,35 @@ describe("createRemoteSource", () => {
 
 		expect(live.watched.map((entry) => entry.released)).toEqual([true, false]);
 		expect(live.watched[1]?.target).toEqual({ communities: [COMMUNITY] });
+	});
+
+	it("tells the live socket which server manages each Space before watching", async () => {
+		const { live, source } = await setup((fake) =>
+			fake.on(
+				colibri.actor.listCommunities.main.nsid,
+				json({
+					communities: [
+						{
+							did: COMMUNITY,
+							managingApp: "did:web:market.test",
+							viewer: { isMember: true },
+						},
+					],
+					unavailable: [
+						{ did: "did:plc:asleep", managingApp: "did:web:asleep.test" },
+					],
+				}),
+			),
+		);
+
+		await source.listCommunities();
+
+		expect(live.assigned).toEqual([
+			new Map([
+				[COMMUNITY, "did:web:market.test"],
+				["did:plc:asleep", "did:web:asleep.test"],
+			]),
+		]);
 	});
 
 	it("watches a channel separately from telling the server what is in view", async () => {

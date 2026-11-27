@@ -254,6 +254,14 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 			},
 		};
 
+		const loadingProfile = () => {
+			return open() && !profile();
+		};
+
+		const popoverOpen = () => {
+			return open() && !!anchor();
+		};
+
 		return (
 			<Show
 				when={platform() === "desktop"}
@@ -263,19 +271,19 @@ export const ProfileSheetProvider = (props: ParentProps) => {
 						onOpenChange={setOpen}
 						profile={profile()}
 						menu={menu}
-						loading={open() && !profile()}
+						loading={loadingProfile()}
 					/>
 				}
 			>
 				<ProfilePopover
-					open={open() && !!anchor()}
+					open={popoverOpen()}
 					onOpenChange={setOpen}
 					anchor={anchor}
 					anchorRect={anchorRect}
 					placement={placement() ?? "left-start"}
 					profile={profile()}
 					menu={menu}
-					loading={open() && !profile()}
+					loading={loadingProfile()}
 				/>
 			</Show>
 		);

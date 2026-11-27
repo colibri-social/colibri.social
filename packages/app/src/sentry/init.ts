@@ -46,6 +46,7 @@ const IGNORED_MESSAGES = [
 	"AbortError: The operation was aborted",
 	"dynamically imported module",
 	"Importing a module script failed",
+	"queue stopped",
 ];
 
 const NOISY_BREADCRUMB_CATEGORIES = ["voice/debug", "ui.click"];

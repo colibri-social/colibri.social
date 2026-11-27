@@ -247,14 +247,15 @@ const pointer = (
 	x: number,
 	y: number,
 	pointerType = "mouse",
+	pointerId = 1,
 ) =>
 	target.dispatchEvent(
 		new PointerEvent(type, {
 			bubbles: true,
 			cancelable: true,
 			pointerType,
-			pointerId: 1,
-			isPrimary: true,
+			pointerId,
+			isPrimary: pointerId === 1,
 			button: 0,
 			buttons: type === "pointerup" ? 0 : 1,
 			clientX: x,
@@ -517,6 +518,101 @@ export const RapidNavigation: Story = {
 		await userEvent.keyboard("{Escape}");
 		await waitFor(() =>
 			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+		);
+	},
+};
+
+const slideOffsetY = (viewer: HTMLElement) => {
+	const slide = viewer.querySelector<HTMLElement>('[data-lightbox-slide="0"]');
+	const match = slide?.style.transform.match(
+		/translate3d\(-?[\d.]+px, (-?[\d.]+)px/,
+	);
+
+	return match ? Number.parseFloat(match[1] as string) : Number.NaN;
+};
+
+const dragStart = (target: Element) => {
+	const event = new DragEvent("dragstart", {
+		bubbles: true,
+		cancelable: true,
+	});
+
+	target.dispatchEvent(event);
+
+	return event;
+};
+
+export const DesktopMouseDrag: Story = {
+	render: () => (
+		<Gallery
+			desktop
+			items={galleryItems}
+			text="Drag a photo with the mouse to drop it into another app."
+		/>
+	),
+	play: async ({ canvasElement }) => {
+		const viewer = await openFirst(canvasElement);
+		const media = viewer.querySelector(
+			"[data-lightbox-slide='0'] img[data-lightbox-media]",
+		) as HTMLImageElement;
+
+		await expect(media.draggable).toBe(true);
+
+		const rect = media.getBoundingClientRect();
+		const x = rect.left + rect.width / 2;
+		const y = rect.top + rect.height / 2;
+
+		pointer("pointerdown", media, x, y);
+
+		for (let step = 1; step <= 10; step++) {
+			await wait(16);
+			pointer("pointermove", media, x - step * 25, y);
+		}
+
+		pointer("pointerup", media, x - 250, y);
+		await expect(viewer).toHaveAttribute("data-index", "0");
+		await expect(slideShift(viewer)).toBe(0);
+		pointer("pointerdown", media, x, y);
+
+		for (let step = 1; step <= 10; step++) {
+			await wait(16);
+			pointer("pointermove", media, x, y + step * 22);
+		}
+
+		pointer("pointerup", media, x, y + 220);
+		await expect(viewer).toHaveAttribute("data-phase", "open");
+		await expect(slideOffsetY(viewer)).toBe(0);
+		pointer("pointerdown", media, x, y, "mouse", 7);
+		pointer("pointermove", media, x + 6, y, "mouse", 7);
+		await expect(dragStart(media).defaultPrevented).toBe(false);
+		pointer("pointerdown", media, x, y);
+		pointer("pointerup", media, x, y);
+		await waitFor(() => expect(viewer).toHaveAttribute("data-zoomed"), {
+			timeout: 3000,
+		});
+		await expect(media.draggable).toBe(false);
+		await expect(dragStart(media).defaultPrevented).toBe(true);
+
+		const before = media.style.transform;
+
+		pointer("pointerdown", media, x, y);
+
+		for (let step = 1; step <= 5; step++) {
+			await wait(16);
+			pointer("pointermove", media, x - step * 20, y);
+		}
+
+		pointer("pointerup", media, x - 100, y);
+		await expect(media.style.transform).not.toBe(before);
+		await expect(viewer).toHaveAttribute("data-index", "0");
+		await userEvent.keyboard("{ArrowRight}");
+		await waitFor(() => expect(viewer).toHaveAttribute("data-index", "1"), {
+			timeout: 3000,
+		});
+		await userEvent.keyboard("{Escape}");
+		await waitFor(
+			() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+			{ timeout: 3000 },
 		);
 	},
 };

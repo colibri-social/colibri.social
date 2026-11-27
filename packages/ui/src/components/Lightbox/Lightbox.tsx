@@ -727,6 +727,7 @@ export const Lightbox = (props: LightboxProps) => {
 			return;
 		}
 		if (current.kind === "pending") {
+			if (event.pointerType === "mouse") return;
 			const dx = event.clientX - current.x;
 			const dy = event.clientY - current.y;
 			if (Math.max(Math.abs(dx), Math.abs(dy)) < AXIS_LOCK_PX) return;
@@ -924,6 +925,23 @@ export const Lightbox = (props: LightboxProps) => {
 		void runSpring(dismissY(), 0, settle, setDismissY, 0, "dismiss");
 	};
 
+	const nativeImageDrag = () => pointerKind() === "mouse" && !zoomed();
+
+	const onDragStart = (event: DragEvent) => {
+		const target = event.target as Element | null;
+		const media = target?.closest('[data-lightbox-slide="0"] img');
+
+		if (!nativeImageDrag() || !media || isVideo(item())) {
+			event.preventDefault();
+			return;
+		}
+
+		pointers.clear();
+		gesture = { kind: "idle" };
+		pressStart = undefined;
+		samples = [];
+	};
+
 	const focusables = () =>
 		[
 			...(root?.querySelectorAll<HTMLElement>(
@@ -1118,6 +1136,7 @@ export const Lightbox = (props: LightboxProps) => {
 							onPointerMove={onPointerMove}
 							onPointerUp={onPointerUp}
 							onPointerCancel={onPointerCancel}
+							onDragStart={onDragStart}
 						>
 							<For each={slides()}>
 								{(offset) => {
@@ -1146,7 +1165,7 @@ export const Lightbox = (props: LightboxProps) => {
 														playOnDemand="none"
 														src={entry()?.src}
 														alt={entry()?.alt ?? ""}
-														draggable={false}
+														draggable={offset === 0 && nativeImageDrag()}
 														onLoad={(event) =>
 															rememberSize(target(), event.currentTarget)
 														}

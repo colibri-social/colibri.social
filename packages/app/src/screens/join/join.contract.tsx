@@ -28,7 +28,7 @@ import { defineContract, slot } from "../../screen/define";
 import { useStack } from "../../shell/stack";
 import { toInviteSummary } from "../admin/access-shared";
 
-export type JoinArgs = { code: string };
+export type JoinArgs = { code: string; community?: string };
 
 export type JoinProblem = "invalid" | "expired" | "used-up" | "banned";
 
@@ -77,10 +77,10 @@ export const join = defineContract({
 		const data = useData();
 		const stack = useStack();
 		const [preview] = createResource(
-			() => args.code,
-			async (code) => {
+			() => ({ code: args.code, community: args.community }),
+			async ({ code, community }) => {
 				try {
-					return await data.access.resolveInvitation(code);
+					return await data.access.resolveInvitation(code, community);
 				} catch (error) {
 					if (!(error instanceof AccessError))
 						toast.error(JOIN_COPY.loadFailed);

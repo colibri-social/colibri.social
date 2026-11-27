@@ -310,6 +310,25 @@ describe("classifyThrown", () => {
 		expect(classifyThrown(err).code).toBe("Unreachable");
 	});
 
+	it("reads an unreachable server several wrappers deep", () => {
+		offline(false);
+
+		const fetchFailure = new Error("Unreachable error", {
+			cause: new ColibriError({ code: "Unreachable" }),
+		});
+
+		const resolverFailure = new Error("Failed to resolve identity", {
+			cause: fetchFailure,
+		});
+
+		const wrapped = Object.assign(
+			new Error("Failed to resolve identity", { cause: resolverFailure }),
+			{ status: 1 },
+		);
+
+		expect(classifyThrown(wrapped).code).toBe("Unreachable");
+	});
+
 	it("names a revoked session", () => {
 		offline(false);
 		const err = new Error("session revoked");

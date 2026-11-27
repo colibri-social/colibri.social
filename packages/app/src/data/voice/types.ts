@@ -42,6 +42,7 @@ export type VoiceVideo = {
 	did: string;
 	source: VoiceVideoSource;
 	stream: MediaStream;
+	local?: boolean;
 };
 
 export type VoiceModeration = {

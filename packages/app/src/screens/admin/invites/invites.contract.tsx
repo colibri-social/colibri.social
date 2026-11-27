@@ -82,7 +82,11 @@ export const invites = defineContract({
 		};
 		const summaries = createMemo(() => {
 			const summaries = (list()?.value() ?? []).map((invitation) =>
-				toInviteSummary(invitation, creatorOf(invitation.createdBy)),
+				toInviteSummary(
+					invitation,
+					creatorOf(invitation.createdBy),
+					community()?.did,
+				),
 			);
 			const active = (summary: InviteSummary) =>
 				inviteState(summary, now()) === "active" ? 0 : 1;

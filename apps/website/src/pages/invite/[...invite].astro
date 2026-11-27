@@ -2,14 +2,19 @@
 import Hummingbird from "@/assets/landing/hummingbird.svg";
 import PageBand from "@/components/public/PageBand.astro";
 import PublicLayout from "@/layouts/PublicLayout.astro";
-import { getInvitationPreview } from "@/lib/invitation";
+import {
+	getInvitationPreview,
+	invitePath,
+	parseInvite,
+} from "@/lib/invitation";
 
-const { code } = Astro.params;
+const target = parseInvite(Astro.params.invite);
 
-if (!code) return Astro.redirect("/");
+if (!target) return Astro.redirect("/");
 
-const preview = await getInvitationPreview(code);
-const webUrl = `/app/invite/${encodeURIComponent(code)}`;
+const preview = await getInvitationPreview(target);
+const path = invitePath(target);
+const webUrl = `/app/invite/${path}`;
 
 const title = preview
 	? `You've been invited to join ${preview.name} on Colibri!`
@@ -20,7 +25,7 @@ import { ogImageFor } from "@/lib/og/url";
 
 <PublicLayout
 	title={title}
-	image={ogImageFor({ kind: "invite", code }, Astro.site)}
+	image={ogImageFor({ kind: "invite", ...target }, Astro.site)}
 	description="Open Colibri to accept your invitation."
 	starry
 >
@@ -30,7 +35,8 @@ import { ogImageFor } from "@/lib/og/url";
 		<div
 			class="invite-card"
 			id="invite-card"
-			data-code={code}
+			data-code={target.code}
+			data-path={path}
 			data-inactive={preview && !preview.active ? "" : undefined}
 		>
 			{
@@ -268,10 +274,10 @@ import { ogImageFor } from "@/lib/og/url";
 		localStorage.setItem(PENDING_INVITE_KEY, code);
 	} catch {}
 
-	const encoded = encodeURIComponent(code);
+	const path = card?.dataset.path ?? encodeURIComponent(code);
 	const scheme = window.location.hostname.split(".").reverse().join(".");
-	const webUrl = `/app/invite/${encoded}`;
-	const nativeUrl = `${scheme}:/invite/${encoded}`;
+	const webUrl = `/app/invite/${path}`;
+	const nativeUrl = `${scheme}:/invite/${path}`;
 
 	const openNative = document.querySelector<HTMLAnchorElement>("#open-native");
 	if (openNative) openNative.href = nativeUrl;

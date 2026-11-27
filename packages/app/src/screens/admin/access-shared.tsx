@@ -38,9 +38,10 @@ export const identityOf = (actor: ProfileView): MemberIdentityData => ({
 export const toInviteSummary = (
 	invitation: InvitationView,
 	creator: InviteSummary["creator"] = { handle: "" },
+	community?: string,
 ): InviteSummary => ({
 	code: invitation.code,
-	url: inviteUrl(invitation.code),
+	url: inviteUrl(invitation.code, community),
 	creator,
 	uses: invitation.uses ?? 0,
 	maxUses: invitation.maxUses,

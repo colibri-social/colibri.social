@@ -82,6 +82,27 @@ describe("voice engine helpers", () => {
 });
 
 describe("voice engine", () => {
+	it("calls into a Space on the server that manages it", async () => {
+		const serverFor = vi.fn((channel: string) => {
+			return channel === CHANNEL
+				? {
+						appViewHost: "wss://market.test",
+						serviceRef: "did:web:market.test#colibri_appview",
+					}
+				: undefined;
+		});
+
+		const harness = track(setup({ serverFor }));
+		const { socket } = await connect(harness);
+
+		expect(serverFor).toHaveBeenCalledWith(CHANNEL);
+		expect(harness.getServiceAuth).toHaveBeenCalledWith(
+			expect.objectContaining({ aud: "did:web:market.test#colibri_appview" }),
+		);
+		expect(socket.url).toBe(`wss://market.test/xrpc/${VOICE_SIGNAL_LXM}`);
+		expect(harness.engine.host()).toBe("wss://market.test");
+	});
+
 	it("authorizes, joins and finishes the handshake", async () => {
 		const harness = track(setup());
 		const { socket, selfState } = await connect(harness);

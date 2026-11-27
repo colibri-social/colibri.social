@@ -31,6 +31,18 @@ describe("appPathFromLink", () => {
 		);
 	});
 
+	it("keeps the Space in an invite link that names it", () => {
+		expect(appPathFromLink("social.colibri:/invite/did:plc:space/abc123")).toBe(
+			"/app/invite/did:plc:space/abc123",
+		);
+		expect(
+			appPathFromLink("https://colibri.social/invite/did:plc:space/abc123"),
+		).toBe("/app/invite/did:plc:space/abc123");
+		expect(appPathFromLink("social.colibri:/invite/space/abc123")).toBe(
+			undefined,
+		);
+	});
+
 	it("reads emoji pack links in both schemes and on the web", () => {
 		expect(appPathFromLink("social.colibri:/emoji/did:plc:abc/3kowls")).toBe(
 			"/app/emoji/did:plc:abc/3kowls",
@@ -88,6 +100,15 @@ describe("routeFromLink", () => {
 		expect(routeFromLink("social.colibri:/invite/abc123")).toEqual({
 			root: { tab: "spaces" },
 			layers: [{ kind: "join", code: "abc123" }],
+		});
+	});
+
+	it("opens the join screen with the Space an invite link names", () => {
+		expect(
+			routeFromLink("https://colibri.social/invite/did:plc:space/abc123"),
+		).toEqual({
+			root: { tab: "spaces" },
+			layers: [{ kind: "join", code: "abc123", community: "did:plc:space" }],
 		});
 	});
 

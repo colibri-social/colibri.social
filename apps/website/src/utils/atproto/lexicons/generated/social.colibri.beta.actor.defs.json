@@ -517,7 +517,12 @@
 					"type": "integer",
 					"minimum": 0,
 					"maximum": 100,
-					"description": "The volume of in-app sound effects such as message pings and call sounds, in percent. Absent means 100."
+					"description": "The volume of in-app sound effects such as message pings and call sounds, in percent. Absent means 100. A client that reads soundVolumes uses this only for the presence, mic and video groups that soundVolumes leaves out."
+				},
+				"soundVolumes": {
+					"type": "ref",
+					"ref": "#soundVolumes",
+					"description": "The volume of each group of in-app sound effects."
 				},
 				"warnOnExternalLinks": {
 					"type": "boolean",
@@ -643,6 +648,36 @@
 				"showOwnCamera": {
 					"type": "boolean",
 					"description": "Whether the call grid shows the user's own camera."
+				}
+			}
+		},
+		"soundVolumes": {
+			"type": "object",
+			"description": "In-app sound effect volumes in percent, one per group. A client applies its own default for an absent group.",
+			"properties": {
+				"ping": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 100,
+					"description": "The notification ping. Absent means 50."
+				},
+				"presence": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 100,
+					"description": "Someone joining or leaving a call. Absent means soundVolume, or 100 without it."
+				},
+				"mic": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 100,
+					"description": "Muting, unmuting, deafening and undeafening. Absent means soundVolume, or 100 without it."
+				},
+				"video": {
+					"type": "integer",
+					"minimum": 0,
+					"maximum": 100,
+					"description": "Cameras and screen shares turning on or off. Absent means soundVolume, or 100 without it."
 				}
 			}
 		},

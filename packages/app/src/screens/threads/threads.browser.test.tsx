@@ -10,6 +10,7 @@ import { MobileShell } from "../../shell/MobileShell";
 const HQ = "did:plc:colibrihqspace2a4b6c8d";
 const TEXT = "social.colibri.beta.channel.text";
 const DEV_THREADS = `/app/c/${HQ}/${TEXT}/dev/threads`;
+const DEV_CHANNEL = `at:space/${HQ}/${TEXT}/dev`;
 
 const until = async (check: () => boolean, timeout = 8000) => {
 	const started = performance.now();
@@ -155,9 +156,7 @@ describe("thread list", () => {
 
 		(threadRow(root, "Spring tuning") as HTMLElement).click();
 		await until(() => /\/dev\/threads\/t\/[^/]+$/.test(location.pathname));
-		const view = store
-			.channel(`at://${HQ}/space/${TEXT}/dev` as never)
-			.threads.value()?.[0];
+		const view = store.channel(DEV_CHANNEL as never).threads.value()?.[0];
 		expect(location.pathname.endsWith(`/t/${skeyOf(view?.space ?? "")}`)).toBe(
 			true,
 		);
@@ -200,7 +199,7 @@ describe("thread list", () => {
 		(drawer.querySelector("form") as HTMLFormElement).requestSubmit();
 		await until(() => !!threadRow(root, "Spring tuning, round two"));
 		await closedDialogs();
-		const ref = `at://${HQ}/space/${TEXT}/dev` as never;
+		const ref = DEV_CHANNEL as never;
 		expect(store.channel(ref).threads.value()?.[0]?.name).toBe(
 			"Spring tuning, round two",
 		);
@@ -214,7 +213,7 @@ describe("thread list", () => {
 		const card = drawer.querySelector("[data-developer-mode]") as HTMLElement;
 		expect(buttonNamed(card, "Copy AT-URI")).toBeDefined();
 		const thread = store
-			.channel(`at://${HQ}/space/${TEXT}/dev` as never)
+			.channel(DEV_CHANNEL as never)
 			.threads.value()
 			?.find((entry) => entry.name === "Spring tuning");
 		expect(card.querySelector("a")?.getAttribute("href")).toBe(
@@ -238,7 +237,7 @@ describe("thread list", () => {
 		);
 		expect(toggle?.checked).toBe(true);
 		toggle?.click();
-		const ref = `at://${HQ}/space/${TEXT}/dev` as never;
+		const ref = DEV_CHANNEL as never;
 		await until(
 			() => store.channel(ref).threads.value()?.[0]?.viewer.following === false,
 		);
@@ -269,7 +268,7 @@ describe("thread list", () => {
 		document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
 		await closedDialogs();
 
-		const ref = `at://${HQ}/space/${TEXT}/dev` as never;
+		const ref = DEV_CHANNEL as never;
 		const thread = store
 			.channel(ref)
 			.threads.value()
@@ -283,7 +282,7 @@ describe("thread list", () => {
 		const { store, root } = await mount(DEV_THREADS);
 		const drawer = await openListMenu(root, "Spring tuning");
 		buttonNamed(drawer, "Lock thread")?.click();
-		const ref = `at://${HQ}/space/${TEXT}/dev` as never;
+		const ref = DEV_CHANNEL as never;
 		const spring = () =>
 			store
 				.channel(ref)

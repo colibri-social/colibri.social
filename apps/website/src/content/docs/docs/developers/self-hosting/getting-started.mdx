@@ -14,7 +14,7 @@ The AppView lives in [colibri-social/api](https://github.com/colibri-social/api)
 Colibri stores the data of a Space in [ATproto spaces](/docs/developers/architecture/spaces), which puts two requirements on an instance:
 
 1. **Your AppView must be reachable from the PDS of every Space it manages.** Apart from the public profile space, the spaces of a Space name your AppView in a `managing-app` policy, so the PDS calls your AppView before it issues a credential. While your AppView is unreachable, its Spaces are unreadable. See [Sync](/docs/developers/architecture/sync).
-2. **A Space lives on the AppView that manages it.** Everyone in a Space uses that instance, because an AppView holding no credential for gated data cannot index it.
+2. **A Space lives on the AppView that manages it.** Only that AppView holds the Space's credentials and indexes it. Users of other AppViews reach the Space through [federation](#federation).
 
 ## What you'll run
 
@@ -198,6 +198,26 @@ Voice runs on a [mediasoup](https://mediasoup.org) SFU inside the AppView proces
 
 Set `VOICE_ENABLED=false` to run an AppView without voice.
 
+## Federation
+
+Your AppView forwards requests about Spaces on other AppViews for its users, and answers requests other AppViews forward for theirs. Clients open their event socket and voice connection to the AppView that manages a Space directly. [Federation](/docs/developers/architecture/federation) describes how it works.
+
+Federation is enabled by default. It needs nothing beyond a reachable `PUBLIC_URL` and the `#colibri_appview` service in your DID document. Set `FEDERATION_ENABLED=false` to turn it off. Spaces your users joined on other AppViews then show as unreachable, and other AppViews get `FederationDisabled` from yours.
+
+Each other AppView can send `FEDERATION_PEER_RATE` requests per second, with bursts up to `FEDERATION_PEER_BURST`. A request over the limit gets `429 RateLimitExceeded`.
+
+### Blocking an AppView
+
+`colibri-admin federation` keeps a list of AppViews your instance refuses. A blocked AppView gets `PeerBlocked` for every request it forwards and every notification it delivers.
+
+```sh
+docker compose exec appview colibri-admin federation block did:web:appview.example.net --note "Spam"
+docker compose exec appview colibri-admin federation list
+docker compose exec appview colibri-admin federation unblock did:web:appview.example.net
+```
+
+In a cluster, run these in the main node's AppView container. `block` takes a `did:web` and an optional `--note`. Every node refuses the blocked AppView within 30 seconds. `list` prints each blocked AppView with the time it was blocked and its note.
+
 ## Connecting a client
 
 The client reads its AppView at build time from `VITE_COLIBRI_APPVIEW_URL`. A build with the variable unset uses `https://api.colibri.social`. **We are actively working to improve this.**
@@ -313,6 +333,14 @@ The AppView reads its configuration from environment variables, parsed in `apps/
 | `SERVICE_AUTH_MAX_LIFETIME_SECONDS` | `300` | Rejects service auth tokens that expire further in the future than this |
 | `APPVIEW_FLAVOR` | `vanilla` | The flavor `describeServer` reports for this build |
 | `DEFAULT_COMMUNITY_DID` | unset | The DID of a Space that `describeServer` reports as `defaultCommunity`. Clients join it after a user creates their profile for the first time. |
+
+### Federation
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `FEDERATION_ENABLED` | `true` | Set to `false` to stop forwarding requests to other AppViews and accepting theirs |
+| `FEDERATION_PEER_RATE` | `20` | Requests per second each other AppView may send |
+| `FEDERATION_PEER_BURST` | `200` | How many requests another AppView may send in a burst |
 
 ### Database
 
@@ -497,6 +525,7 @@ If you run the PDS yourself, its PLC rotation key can update the DID document of
 
 - [AppView Architecture](/docs/developers/architecture/appview): what you are running.
 - [Hosting](/docs/developers/architecture/hosting): member repos on a stock PDS, and Spaces on an account you bring yourself.
+- [Federation](/docs/developers/architecture/federation): how your AppView works with other AppViews.
 - [ATproto Spaces](/docs/developers/architecture/spaces): the credential exchange that makes reachability a requirement.
 - [Sync](/docs/developers/architecture/sync): what the sweep interval controls.
 - [Development](/docs/developers/development/overview): running the stack to work on it.

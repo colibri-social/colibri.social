@@ -39,7 +39,7 @@ when it cannot. See [Hosting](/docs/developers/architecture/hosting).
 
 ## Live events
 
-Alongside the proxied HTTP requests, the client holds a single long-lived
+Alongside the proxied HTTP requests, the client holds a long-lived
 [`subscribeEvents`](/docs/developers/specification/appview#the-events-socket)
 WebSocket open to the AppView. New messages, membership changes, typing
 indicators, and profile updates arrive as events pushed over this socket.
@@ -50,20 +50,32 @@ service auth token from your PDS with `com.atproto.server.getServiceAuth` and
 passes it as a WebSocket subprotocol. The client keeps the connection alive with
 periodic heartbeat frames.
 
+The client opens one more socket for each other AppView that manages a Space it
+watches, addressed to that AppView's `#colibri_appview` service. Presence and
+activity frames go to every open socket. Every other frame goes to the socket of
+the AppView that manages its Space. Voice calls connect to the managing
+AppView's voice nodes the same way. See
+[Federation](/docs/developers/architecture/federation#sockets-and-voice).
+
 ## Choosing an AppView
 
-The AppView a client talks to is set when the client is built. Set
-`VITE_COLIBRI_APPVIEW_URL` to the AppView's origin in `packages/app/.env`
-before building:
+The client reads its built-in AppView from `VITE_COLIBRI_APPVIEW_URL` in
+`packages/app/.env` at build time:
 
 ```sh title="packages/app/.env"
 VITE_COLIBRI_APPVIEW_URL=https://appview.example.com
 ```
 
 When the variable is empty or not a valid URL, the client uses
-`https://api.colibri.social`. The client derives the AppView's
-`did:web` from the host of that URL, so the AppView's `APPVIEW_DID` must match
-it.
+`https://api.colibri.social`.
+
+A user can pick another AppView under **Settings** > **Advanced** > **Server**.
+The client checks the address with `social.colibri.beta.server.describeServer`
+before it switches, stores the choice on the device, signs the user out and
+reloads. A stored choice wins over the built-in AppView.
+
+The client derives the AppView's `did:web` from the host of its URL, so the
+AppView's `APPVIEW_DID` must match it.
 
 ## See also
 

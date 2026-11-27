@@ -13,6 +13,7 @@ import type {
 	DeletionStatus,
 } from "../source";
 import type { CommunityView } from "../types";
+import { APPVIEW_COLLECTION, REMOTE_SPACE_COLLECTION } from "./federation";
 import type { Records } from "./records";
 import type { Transport } from "./transport";
 
@@ -27,6 +28,7 @@ export const PERSONAL_COLLECTIONS = [
 	COLLECTIONS.spaceNotification,
 	COLLECTIONS.channelRead,
 	COLLECTIONS.threadFollow,
+	REMOTE_SPACE_COLLECTION,
 ] as const;
 
 const PROFILE_COLLECTION = COLLECTIONS.profile;
@@ -123,19 +125,17 @@ export const createDeletion = (input: {
 			done += 1;
 			onProgress?.({ step: "records", done, total });
 		}
-		try {
-			await transport.pdsProcedure("com.atproto.repo.deleteRecord", {
-				body: {
-					repo: transport.did,
-					collection: PROFILE_COLLECTION,
-					rkey: SELF,
-				},
-			});
-		} catch (error) {
-			const { code } = classifyThrown(error);
-			if (!MISSING.has(code)) {
-				incomplete = true;
-				log.warn("could not delete the profile record", { code });
+		for (const collection of [PROFILE_COLLECTION, APPVIEW_COLLECTION]) {
+			try {
+				await transport.pdsProcedure("com.atproto.repo.deleteRecord", {
+					body: { repo: transport.did, collection, rkey: SELF },
+				});
+			} catch (error) {
+				const { code } = classifyThrown(error);
+				if (!MISSING.has(code)) {
+					incomplete = true;
+					log.warn("could not delete a public record", { collection, code });
+				}
 			}
 		}
 		onProgress?.({ step: "records", done: total, total });

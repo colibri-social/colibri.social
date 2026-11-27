@@ -10,8 +10,8 @@ const SPACE = "did:plc:space";
 const OTHER = "did:plc:other";
 const TEXT = "social.colibri.beta.channel.text";
 const THREAD = "social.colibri.beta.channel.thread";
-const CHANNEL_REF = `at://${SPACE}/space/${TEXT}/general`;
-const THREAD_REF = `at://${SPACE}/space/${THREAD}/3kthread`;
+const CHANNEL_REF = `at:space/${SPACE}/${TEXT}/general`;
+const THREAD_REF = `at:space/${SPACE}/${THREAD}/3kthread`;
 
 const context: LinkTargetContext = {
 	space: SPACE,

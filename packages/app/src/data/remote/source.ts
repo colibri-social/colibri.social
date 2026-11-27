@@ -7,7 +7,6 @@ import {
 	classifyThrown,
 	colibri,
 	createLogger,
-	setPresenceFrame,
 	spaceAuthority,
 	spaceSkey,
 	typingFrame,
@@ -44,6 +43,7 @@ import {
 	type ProfileSeed,
 	type ProfileTheme,
 	type Simulation,
+	type UnavailableCommunity,
 } from "../source";
 import { createSupporterLinkTransport } from "../supporter-link";
 import type {
@@ -64,6 +64,7 @@ import type {
 import { fetchBlueskyPost } from "./bluesky";
 import { createDeletion } from "./deletion";
 import { appViewOrigin, createRemoteEmoji, emojiBlobLocator } from "./emoji";
+import { createFederation } from "./federation";
 import {
 	createMessageIndex,
 	createMessageWrites,
@@ -97,6 +98,7 @@ export type RemoteLive = {
 		communities?: ReadonlyArray<string>;
 		channels?: ReadonlyArray<string>;
 	}) => () => void;
+	assign?: (routes: ReadonlyMap<string, string>) => void;
 };
 
 export type RemoteDataSource = DataSource & {
@@ -244,13 +246,25 @@ export const createRemoteSource = async (
 			(await preferencesGrant.grant()) !== undefined,
 	});
 
+	const [unavailable, setUnavailable] = createSignal<
+		readonly UnavailableCommunity[]
+	>([]);
+	const federation = createFederation({
+		transport,
+		records,
+		space: preferencesSpace,
+		host,
+	});
+
 	const startHosting = () => {
 		const stopGrant = preferencesGrant.start();
 		const stopMigrator = migrator.start();
+		const stopFederation = federation.start();
 
 		return () => {
 			stopGrant();
 			stopMigrator();
+			stopFederation();
 			host.dispose();
 		};
 	};
@@ -406,6 +420,21 @@ export const createRemoteSource = async (
 	});
 	options.live.subscribe(observeEmoji);
 
+	const liveRoutes = (
+		communities: readonly CommunityView[],
+		unreachable: readonly { did: string; managingApp: string }[] = [],
+	) => {
+		const routes = new Map<string, string>();
+
+		for (const view of communities) {
+			if (view.managingApp) routes.set(view.did, view.managingApp);
+		}
+
+		for (const entry of unreachable) routes.set(entry.did, entry.managingApp);
+
+		return routes;
+	};
+
 	let releaseCommunities: (() => void) | undefined;
 	const watchCommunities = (communities: readonly CommunityView[]) => {
 		const release = options.live.watch({
@@ -422,10 +451,17 @@ export const createRemoteSource = async (
 
 		viewer: () => viewer,
 
+		unavailableCommunities: unavailable,
 		listCommunities: async () => {
-			const communities = (
-				await transport.query(colibri.actor.listCommunities.main)
-			).communities as CommunityView[];
+			const since = federation.mark();
+			const listed = await transport.query(colibri.actor.listCommunities.main);
+			const communities = federation.reconcile(
+				listed.communities as CommunityView[],
+				listed.unavailable,
+				since,
+			);
+			setUnavailable(listed.unavailable ?? []);
+			options.live.assign?.(liveRoutes(communities, listed.unavailable));
 			watchCommunities(communities);
 			return communities;
 		},
@@ -524,6 +560,7 @@ export const createRemoteSource = async (
 		},
 		leaveCommunity: async (input) => {
 			await transport.procedure(colibri.community.leave.main, { body: input });
+			await federation.forget(input.community);
 		},
 		accountHost,
 		accountIssuer: async () => {
@@ -736,14 +773,19 @@ export const createRemoteSource = async (
 				body: input,
 			});
 		},
-		getInvitation: async (code) =>
+		getInvitation: async (code, community) =>
 			(await transport.query(colibri.community.getInvitation.main, {
-				params: { code },
+				params: { code, ...(community ? { community } : {}) },
 			})) as InvitationPreview,
-		joinCommunity: async (input) =>
-			(await transport.procedure(colibri.community.join.main, {
+		joinCommunity: async (input) => {
+			const result = (await transport.procedure(colibri.community.join.main, {
 				body: input,
-			})) as JoinResult,
+			})) as JoinResult;
+
+			void federation.joined(input.community);
+
+			return result;
+		},
 
 		listMessages,
 		sendMessage: writes.sendMessage,
@@ -976,7 +1018,6 @@ export const createRemoteSource = async (
 			return result.presence;
 		},
 		setVoice: async (voice) => {
-			options.live.send(setPresenceFrame({ voice: voice as never }));
 			const presence = {
 				...(viewer.presence ?? { onlineState: "online" }),
 			};

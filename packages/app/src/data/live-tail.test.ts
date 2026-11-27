@@ -146,7 +146,7 @@ describe("live tails", () => {
 		});
 	});
 
-	it("inserts a new reaction where the server sorts it", () => {
+	it("appends a new reaction after the existing ones", () => {
 		const react = (list: readonly MessageView[], emoji: string) =>
 			reactIn(list, {
 				rkey: "a",
@@ -155,11 +155,12 @@ describe("live tails", () => {
 				add: true,
 				viewer: VIEWER,
 			});
-		const sorted = ["c", "a", "b"].reduce(react, [message("a")]);
-		expect(sorted[0]?.reactions.map((entry) => entry.emoji)).toEqual([
+		const ordered = ["c", "a", "b"].reduce(react, [message("a")]);
+
+		expect(ordered[0]?.reactions.map((entry) => entry.emoji)).toEqual([
+			"c",
 			"a",
 			"b",
-			"c",
 		]);
 	});
 });

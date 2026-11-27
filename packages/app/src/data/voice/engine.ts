@@ -202,11 +202,17 @@ type VoiceMedia = {
 	onDeviceChange?(listener: () => void): () => void;
 };
 
-export type VoiceEngineOptions = {
-	agent: ServiceAuthAgent;
+type VoiceServer = {
 	appViewHost: string;
 	serviceRef: string;
+	pickHost?: (avoid: ReadonlySet<string>) => string | null;
+	describeNode?: (host: string) => { id: string; region: string } | undefined;
+};
+
+export type VoiceEngineOptions = VoiceServer & {
+	agent: ServiceAuthAgent;
 	viewerDid: string;
+	serverFor?: (channel: string) => VoiceServer | undefined;
 	settings?: () => VoiceSettings;
 	volumes?: () => ParticipantVolumes;
 	createSocket?: (url: string, protocols: string[]) => VoiceSocket;
@@ -221,8 +227,6 @@ export type VoiceEngineOptions = {
 	webRtc?: () => boolean;
 	handlerName?: () => types.BuiltinHandlerName | undefined;
 	probeVideoEncoding?: VideoEncodingProbe;
-	pickHost?: (avoid: ReadonlySet<string>) => string | null;
-	describeNode?: (host: string) => { id: string; region: string } | undefined;
 	probe?: (url: string) => Promise<number | null>;
 	forceRelay?: () => boolean;
 };
@@ -493,6 +497,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		let ws: VoiceSocket | null = null;
 		let hostOverride: string | null = null;
 		let wsHost: string | null = null;
+		let server: VoiceServer = options;
 		let shunnedHost: string | null = null;
 		const failedHosts = new Set<string>();
 		let elsewhereHops = 0;
@@ -503,7 +508,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		const relayOnly = () => options.forceRelay?.() ?? false;
 		const hostKey = (host: string) => socketOrigin(voiceSocketUrl(host));
 		const pickFrom = (avoid: ReadonlySet<string>) =>
-			options.pickHost?.(avoid) ?? null;
+			server.pickHost?.(avoid) ?? null;
 		const resolveHost = (): string | null => {
 			if (hostOverride && !failedHosts.has(hostKey(hostOverride))) {
 				return hostOverride;
@@ -520,9 +525,9 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			if (picked) return picked;
 			if (pickFrom(new Set())) return null;
 
-			return failedHosts.has(hostKey(options.appViewHost))
+			return failedHosts.has(hostKey(server.appViewHost))
 				? null
-				: options.appViewHost;
+				: server.appViewHost;
 		};
 		const shun = (host: string | null) => {
 			if (!host) return;
@@ -585,6 +590,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		const audioEls = new Map<string, AudioEntry>();
 		const producers = createProducerRegistry<ProducerOwner>();
 		const consumersByProducer = new Map<string, string | null>();
+		const ownProducers = new Set<string>();
 		const tunedSenders = new Map<string, TunedSender>();
 		const tileViews = new Map<string, TileView>();
 		const sentPreferences = new Map<string, ConsumerPreference>();
@@ -1197,6 +1203,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			audioEls.clear();
 			producers.clear();
 			consumersByProducer.clear();
+			ownProducers.clear();
 			setVideoMap({});
 
 			if (sendWatchdog) clearTimeout(sendWatchdog);
@@ -1374,7 +1381,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			if (!transport || !loaded) return;
 			if (consumersByProducer.has(producerId)) return;
 			const owner = producers.owner(producerId);
-			if (!owner) return;
+			if (!owner || ownProducers.has(producerId)) return;
 			recvWatchdog ??= armIceWatchdog(
 				"recvTransport",
 				transport,
@@ -1543,9 +1550,12 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 						() => sendConnected,
 					);
 					sendAndWait(produceFrame(transport.id, kind, rtpParameters, source))
-						.then((frame) =>
-							callback({ id: expectFrame(frame, "producerInfo").producerId }),
-						)
+						.then((frame) => {
+							const id = expectFrame(frame, "producerInfo").producerId;
+
+							ownProducers.add(id);
+							callback({ id });
+						})
 						.catch((error: unknown) => errback(error as Error));
 				},
 			);
@@ -1678,6 +1688,11 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 		};
 
 		const handlePeerProducer = (frame: FrameOf<"producerInfo">) => {
+			if (ownProducers.has(frame.producerId)) {
+				log.debug("skipped an own producer");
+				return;
+			}
+
 			const source =
 				decodeMediaSource(frame.source) ??
 				(frame.kind === "audio" ? "mic" : "cam");
@@ -1881,7 +1896,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			let token: string;
 			try {
 				const { data } = await options.agent.com.atproto.server.getServiceAuth({
-					aud: options.serviceRef,
+					aud: server.serviceRef,
 					lxm: VOICE_SIGNAL_LXM,
 					exp: Math.floor(Date.now() / 1_000) + TOKEN_TTL_S,
 				});
@@ -2033,6 +2048,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			if (session) stop();
 			sessionId += 1;
 			session = { ...next };
+			server = options.serverFor?.(next.channel) ?? options;
 			hostOverride = null;
 			failedHosts.clear();
 			shunnedHost = null;
@@ -2266,6 +2282,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				did: viewer,
 				source: "screen",
 				stream: new MediaStream([capture.video]),
+				local: true,
 			});
 			const choice = await chooseScreenCodec(capture.video, quality);
 			if (!live()) return false;
@@ -2438,7 +2455,12 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			}
 			const preview = new MediaStream([track]);
 			track.contentHint = CAMERA_CONTENT_HINT;
-			setVideo("self:cam", { did: viewer, source: "cam", stream: preview });
+			setVideo("self:cam", {
+				did: viewer,
+				source: "cam",
+				stream: preview,
+				local: true,
+			});
 			let producer: types.Producer;
 			let encodings: RTCRtpEncodingParameters[];
 			try {
@@ -2501,6 +2523,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 					did: viewer,
 					source: "cam",
 					stream: new MediaStream([track]),
+					local: true,
 				});
 			} catch (error) {
 				log.warn("could not switch the camera", {
@@ -2626,9 +2649,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 
 		const debugSnapshot = async (): Promise<VoiceDebugSnapshot> => {
 			const host = wsHost;
-			const described = host
-				? options.describeNode?.(hostKey(host))
-				: undefined;
+			const described = host ? server.describeNode?.(hostKey(host)) : undefined;
 			const audioJobs: Promise<VoiceDebugAudio | undefined>[] = [];
 			const own: [types.Producer | null, string][] = [
 				[micProducer, "mic"],
@@ -2802,7 +2823,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				moveListeners.add(listener);
 				return () => moveListeners.delete(listener);
 			},
-			host: () => wsHost ?? hostOverride ?? options.appViewHost,
+			host: () => wsHost ?? hostOverride ?? server.appViewHost,
 			debugSnapshot,
 			onScreenShare: (listener) => {
 				screenShareListeners.add(listener);

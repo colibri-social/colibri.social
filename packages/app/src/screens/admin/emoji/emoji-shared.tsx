@@ -31,6 +31,7 @@ import {
 import { packTargetOf } from "../../../data/emoji/shared-pack";
 import type { DataStore } from "../../../data/store";
 import type { Did } from "../../../data/types";
+import { handlerWhen } from "../../../screen/handler-when";
 import { usePlatform } from "../../../screen/platform";
 import { afterOverlaysClose } from "../../channel/composer/media/composer-media";
 import { afterClosed, EMOJI_POPOVER_SELECTOR } from "../desktop/after-closed";
@@ -342,9 +343,9 @@ export const EmojiRows = (props: {
 				name={emoji.name}
 				src={emoji.image}
 				uploader={props.admin.uploaderOf(emoji)}
-				onMenu={
-					props.onMenu ? (event) => props.onMenu?.(emoji, event) : undefined
-				}
+				onMenu={handlerWhen(props.onMenu, (event: MouseEvent) =>
+					props.onMenu?.(emoji, event),
+				)}
 				selectable={!!props.selected}
 				selected={props.selected?.has(emoji.id)}
 				onSelectedChange={(next) => props.onSelectedChange?.(emoji, next)}

@@ -470,6 +470,28 @@ const reportsActivity = (
 ): source is DataSource & { markActive: () => void } =>
 	typeof (source as { markActive?: unknown }).markActive === "function";
 
+const UNAVAILABLE_RETRY_MS = [60_000, 120_000, 300_000, 600_000];
+
+export const unavailableRetryDelay = (attempt: number): number => {
+	const last = UNAVAILABLE_RETRY_MS.length - 1;
+
+	return UNAVAILABLE_RETRY_MS[Math.min(attempt, last)] ?? 60_000;
+};
+
+export type UnavailableSpace = {
+	did: Did;
+	managingApp: string;
+	host: string;
+	name?: string;
+	picture?: string;
+};
+
+export const appViewHost = (managingApp: string): string => {
+	if (!managingApp.startsWith("did:web:")) return managingApp;
+
+	return decodeURIComponent(managingApp.slice("did:web:".length));
+};
+
 export type DataStoreOptions = {
 	cache?: MessageCache;
 	spaces?: SpaceCache;
@@ -539,9 +561,73 @@ export const createDataStore = (
 			...loadedCommunities,
 			value: orderedCommunities,
 		};
+
+		const knownCommunities = new Map<string, CommunityView>(
+			(snapshot?.communities ?? []).map((view) => [view.did, view]),
+		);
+
+		const unavailableSpaces = createMemo<UnavailableSpace[]>(() => {
+			for (const view of loadedCommunities.value() ?? []) {
+				knownCommunities.set(view.did, view);
+			}
+
+			return source.unavailableCommunities().map((entry) => {
+				const known = knownCommunities.get(entry.did);
+
+				return {
+					did: entry.did,
+					managingApp: entry.managingApp,
+					host: appViewHost(entry.managingApp),
+					name: known?.name,
+					picture: known?.picture,
+				};
+			});
+		});
+		const [retryAttempt, setRetryAttempt] = createSignal(0);
+
+		runWithOwner(owner, () => {
+			const waiting = createMemo(() => unavailableSpaces().length > 0);
+
+			createEffect(() => {
+				if (!waiting()) {
+					setRetryAttempt(0);
+
+					return;
+				}
+
+				const attempt = retryAttempt();
+
+				const timer = setTimeout(() => {
+					setRetryAttempt(attempt + 1);
+					void communities.refresh();
+				}, unavailableRetryDelay(attempt));
+
+				const restart = () => setRetryAttempt(0);
+
+				if (typeof window !== "undefined") {
+					window.addEventListener("focus", restart);
+				}
+
+				onCleanup(() => {
+					clearTimeout(timer);
+
+					if (typeof window !== "undefined") {
+						window.removeEventListener("focus", restart);
+					}
+				});
+			});
+		});
 		persist(() => {
 			const list = loadedCommunities.value();
-			if (list) spaceCache?.offerCommunities(list);
+			if (!list) return;
+
+			const kept = unavailableSpaces().flatMap((entry) => {
+				const known = knownCommunities.get(entry.did);
+
+				return known ? [known] : [];
+			});
+
+			spaceCache?.offerCommunities([...list, ...kept]);
 		});
 		persist(() => {
 			const profile: Record<string, unknown> = {};
@@ -907,18 +993,21 @@ export const createDataStore = (
 			for (const key of ownReactionOps.keys())
 				if (key.startsWith(prefix)) held.add(key.slice(prefix.length));
 			if (held.size === 0) return incoming;
-			const reactions = incoming.reactions.filter(
-				(reaction) => !held.has(reaction.emoji),
+
+			const kept = new Map(
+				existing.reactions
+					.filter((reaction) => held.has(reaction.emoji))
+					.map((reaction) => [reaction.emoji, reaction]),
 			);
-			for (const reaction of existing.reactions) {
-				if (!held.has(reaction.emoji)) continue;
-				const at = reactions.findIndex(
-					(entry) => entry.emoji.localeCompare(reaction.emoji) > 0,
-				);
-				if (at < 0) reactions.push(reaction);
-				else reactions.splice(at, 0, reaction);
-			}
-			return { ...incoming, reactions };
+
+			const reactions = incoming.reactions.flatMap((reaction) => {
+				if (!held.has(reaction.emoji)) return [reaction];
+				const own = kept.get(reaction.emoji);
+				kept.delete(reaction.emoji);
+				return own ? [own] : [];
+			});
+
+			return { ...incoming, reactions: [...reactions, ...kept.values()] };
 		};
 		const messageListeners = new Map<SpaceRef, (event: LiveEvent) => boolean>();
 		const notifications = createNotificationStore(source, (views, seen) => {
@@ -1213,14 +1302,20 @@ export const createDataStore = (
 					if (spaceNotifications.isMuted(community.did)) {
 						return { hasUnread: false, mentions: 0 };
 					}
-					const voiceSlugs = new Set(
-						(layout().channels ?? []).filter(isVoiceChannel).map(channelSlug),
+					const quietSlugs = new Set(
+						(layout().channels ?? [])
+							.filter(
+								(channel) =>
+									isVoiceChannel(channel) ||
+									source.preferences.isMuted(muteSubjectOf(channel.space)),
+							)
+							.map(channelSlug),
 					);
 					const entries = Object.entries(unread[community.did] ?? {});
 
 					return {
 						hasUnread: entries.some(
-							([slug, entry]) => entry.hasUnread && !voiceSlugs.has(slug),
+							([slug, entry]) => entry.hasUnread && !quietSlugs.has(slug),
 						),
 						mentions: entries.reduce(
 							(sum, [, entry]) => sum + entry.mentions,
@@ -1302,14 +1397,20 @@ export const createDataStore = (
 				markChannelUnread(ref, mentions);
 				return;
 			}
-			if (!mentions) return;
 			const community = communityOfRef(ref);
 			const slug = skeyOf(ref);
 			const state = unread[community]?.[slug];
-			setUnread(community, slug, {
-				hasUnread: !!state?.hasUnread,
-				mentions: (state?.mentions ?? 0) + mentions,
-			});
+
+			if (mentions) {
+				setUnread(community, slug, {
+					hasUnread: !!state?.hasUnread,
+					mentions: (state?.mentions ?? 0) + mentions,
+				});
+			}
+
+			if (untrack(appVisible)) {
+				void notifications.markRead([view.id]).catch(() => {});
+			}
 		});
 
 		const threadLoads = new Map<SpaceRef, MutableLoad<ThreadView[]>>();
@@ -3206,16 +3307,25 @@ export const createDataStore = (
 					const current = unread[community]?.[skeyOf(ref)];
 					const thread = untrack(() => findThread(ref));
 					const behind = !!untrack(gap);
-					if (
-						!behind &&
-						(current?.hasUnread || (thread && current?.mentions))
-					) {
+					if (!behind && (current?.hasUnread || current?.mentions)) {
 						setUnread(community, skeyOf(ref), {
 							...current,
 							hasUnread: false,
-							mentions: thread ? 0 : current.mentions,
+							mentions: 0,
 						});
 					}
+
+					if (!thread && !behind) {
+						const ids = untrack(notifications.items)
+							.filter(
+								(entry) =>
+									entry.channel === ref && !entry.thread && !entry.seenAt,
+							)
+							.map((entry) => entry.id);
+
+						if (ids.length) void notifications.markRead(ids).catch(() => {});
+					}
+
 					if (thread) {
 						markThreadSeen(ref);
 						const ids = untrack(notifications.items)
@@ -3873,6 +3983,12 @@ export const createDataStore = (
 			whenSpaceReady,
 			space,
 			channel,
+			unavailableSpaces,
+			retryUnavailable: () => {
+				setRetryAttempt(0);
+
+				return communities.refresh();
+			},
 			spaceByKey: (slug: string) =>
 				communities.value()?.find((entry) => spaceKey(entry) === slug),
 			presenceOf: (did: Did) => presence[did],

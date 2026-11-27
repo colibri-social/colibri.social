@@ -142,6 +142,11 @@
 						"description": "A permission identifier."
 					},
 					"description": "Effective community-wide permissions."
+				},
+				"preferencesAccessUntil": {
+					"type": "string",
+					"format": "datetime",
+					"description": "When this AppView's access to the user's preferences space ends. Missing when this AppView holds no access."
 				}
 			}
 		},

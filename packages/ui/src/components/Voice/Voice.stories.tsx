@@ -1301,6 +1301,24 @@ export const StatusPanel: Story = {
 				"status",
 			),
 		).toHaveTextContent("Connecting...");
+
+		for (const id of [
+			"status-connecting-unknown",
+			"status-reconnecting-lost",
+		]) {
+			const tile = canvas
+				.getByTestId(id)
+				.querySelector("[data-quality-tile] svg");
+
+			await expect(tile?.getAttribute("class")).toContain("ui-spin");
+		}
+
+		await expect(
+			canvas
+				.getByTestId("status-connected-excellent")
+				.querySelector("[data-quality-tile] svg")
+				?.getAttribute("class") ?? "",
+		).not.toContain("ui-spin");
 		await expect(
 			within(canvas.getByTestId("status-disconnected-lost")).getByRole(
 				"status",

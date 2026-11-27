@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { AccessError, type InvitationPreview } from "../../../data/access";
 import { DataContext, type DataStore } from "../../../data/store";
 import type { CommunityView } from "../../../data/types";
-import { InviteEmbed, inviteCodeOf } from "./invite-embed";
+import { InviteEmbed, inviteOf } from "./invite-embed";
 import { MessageAttachments } from "./MessageAttachments";
 
 const split = { media: [], audio: [], files: [] };
@@ -67,12 +67,20 @@ const until = async (check: () => boolean) => {
 };
 
 it("reads invite codes from app links only", () => {
-	expect(inviteCodeOf("https://colibri.social/invite/flock")).toBe("flock");
-	expect(inviteCodeOf("https://spaces.colibri.social/invite/flock")).toBe(
-		"flock",
-	);
-	expect(inviteCodeOf("https://example.com/invite/flock")).toBeUndefined();
-	expect(inviteCodeOf("https://colibri.social/about")).toBeUndefined();
+	expect(inviteOf("https://colibri.social/invite/flock")).toEqual({
+		code: "flock",
+	});
+	expect(inviteOf("https://spaces.colibri.social/invite/flock")).toEqual({
+		code: "flock",
+	});
+	expect(
+		inviteOf("https://colibri.social/invite/did:plc:flockspace/flock"),
+	).toEqual({ code: "flock", community: "did:plc:flockspace" });
+	expect(
+		inviteOf("https://colibri.social/invite/not-a-did/flock"),
+	).toBeUndefined();
+	expect(inviteOf("https://example.com/invite/flock")).toBeUndefined();
+	expect(inviteOf("https://colibri.social/about")).toBeUndefined();
 });
 
 it("joins from the card and opens the Space right away", async () => {

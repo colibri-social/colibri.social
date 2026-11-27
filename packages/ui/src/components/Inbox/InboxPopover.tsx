@@ -597,12 +597,18 @@ export const InboxPopover = (props: InboxPopoverProps) => {
 	const [open, setOpen] = createOpenState(props);
 	const modal = () => props.presentation === "modal";
 	const content = createInboxContent(props, () => setOpen(false));
+	const popoverOpen = () => {
+		return modal() ? false : open();
+	};
+	const modalExpanded = () => {
+		return modal() ? props.open === true : undefined;
+	};
 
 	return (
 		<InboxPopoverFrame
 			unread={content.unread()}
-			open={modal() ? false : open()}
-			expanded={modal() ? props.open === true : undefined}
+			open={popoverOpen()}
+			expanded={modalExpanded()}
 			onOpenChange={setOpen}
 			onTrigger={modal() ? () => props.onOpenModal?.() : undefined}
 			initialFocus={focusFirstRow}

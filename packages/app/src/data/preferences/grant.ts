@@ -3,6 +3,11 @@ import type { HostModeSignal, HostStatus } from "../polyfill/host-mode";
 import type { Transport } from "../remote/transport";
 import { isMissingSpace, type PreferencesSpace } from "./remote";
 
+export type GrantMemory = {
+	read: () => string | undefined;
+	write: (expiresAt: string) => void;
+};
+
 const log = createLogger("preferences-grant");
 
 const APPVIEW_RENEW_WINDOW_MS = 120_000;
@@ -25,12 +30,24 @@ export const regrantRetryDelay = (failures: number): number => {
 	return capped * (0.8 + Math.random() * 0.4);
 };
 
+const rememberedDelay = (memory: GrantMemory | undefined): number => {
+	const expiresAt = Date.parse(memory?.read() ?? "");
+
+	if (!Number.isFinite(expiresAt)) return 0;
+
+	const lifetime = expiresAt - Date.now();
+
+	return lifetime > REGRANT_MARGIN_MS ? regrantDelay(lifetime) : 0;
+};
+
 export const createPreferencesGrant = (input: {
 	transport: Transport;
 	space: PreferencesSpace;
 	host?: HostModeSignal;
+	community?: string;
+	memory?: GrantMemory;
 }) => {
-	const { transport, space, host } = input;
+	const { transport, space, host, community, memory } = input;
 
 	const delegate = () =>
 		transport.pdsQuery<{ token: string }>(
@@ -47,8 +64,16 @@ export const createPreferencesGrant = (input: {
 			});
 			const result = await transport.procedure(
 				colibri.actor.grantSpaceAccess.main,
-				{ body: { space: space.space, delegationToken: delegation.token } },
+				{
+					body: {
+						space: space.space,
+						delegationToken: delegation.token,
+						...(community ? { community } : {}),
+					},
+				},
 			);
+			memory?.write(result.expiresAt);
+
 			return result.expiresAt;
 		} catch (error) {
 			log.warn("could not grant access to the preferences space", {
@@ -81,7 +106,10 @@ export const createPreferencesGrant = (input: {
 			});
 		};
 
-		run();
+		const remembered = rememberedDelay(memory);
+
+		if (remembered > 0) timer = setTimeout(run, remembered);
+		else run();
 
 		return () => {
 			stopped = true;
