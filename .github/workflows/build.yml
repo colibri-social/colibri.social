@@ -176,3 +176,17 @@ jobs:
       - name: Build app (Android)
         if: matrix.is-android
         run: pnpm --filter @colibri-social/wrapper tauri android build --apk --debug
+
+  tauri-result:
+    name: Build result
+    needs: tauri
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check native builds
+        env:
+          RESULT: ${{ needs.tauri.result }}
+        run: |
+          echo "Native builds: $RESULT"
+          test "$RESULT" = "success" || test "$RESULT" = "skipped"
