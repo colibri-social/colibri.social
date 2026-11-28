@@ -20,9 +20,19 @@ declare module "vitest/browser" {
 
 const setViewport = page.viewport.bind(page);
 
+const nextFrame = () => {
+	return new Promise((resolve) => requestAnimationFrame(resolve));
+};
+
 page.viewport = async (width: number, height: number) => {
 	await setViewport(width, height);
 	await commands.resetPageScale();
+
+	while (window.innerWidth !== width || window.innerHeight !== height) {
+		await nextFrame();
+	}
+
+	await nextFrame();
 };
 
 type FrameNavigation = {
