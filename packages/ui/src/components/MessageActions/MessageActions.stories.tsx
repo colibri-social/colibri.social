@@ -1527,6 +1527,62 @@ export const LongPressCancelsWhenAnotherGestureTakesOver: Story = {
 	},
 };
 
+const rightClick = (target: Element) => {
+	const box = target.getBoundingClientRect();
+	const position = {
+		clientX: box.left + 10,
+		clientY: box.top + 10,
+	};
+
+	target.dispatchEvent(
+		new PointerEvent("pointerdown", {
+			...position,
+			pointerType: "mouse",
+			button: 2,
+			bubbles: true,
+		}),
+	);
+
+	const event = new MouseEvent("contextmenu", {
+		...position,
+		button: 2,
+		bubbles: true,
+		cancelable: true,
+	});
+
+	target.dispatchEvent(event);
+
+	return event;
+};
+
+export const RightClickOpensLongPressMenu: Story = {
+	render: () => {
+		const [count, setCount] = createSignal(0);
+		return (
+			<div class="p-4">
+				<MessageGestures onLongPress={() => setCount((value) => value + 1)}>
+					<div data-testid="row" class="rounded-control bg-card p-4">
+						Right click me
+						<button type="button" data-menu-trigger="" data-testid="ignored">
+							Author
+						</button>
+					</div>
+				</MessageGestures>
+				<output data-testid="calls">{count()}</output>
+			</div>
+		);
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const calls = canvas.getByTestId("calls");
+		const event = rightClick(canvas.getByTestId("row"));
+		await expect(event.defaultPrevented).toBe(true);
+		await expect(calls).toHaveTextContent("1");
+		rightClick(canvas.getByTestId("ignored"));
+		await expect(calls).toHaveTextContent("1");
+	},
+};
+
 const InPlaceDemo = (props: { onReact: (emoji: string) => void }) => {
 	const [open, setOpen] = createSignal(false);
 	return (

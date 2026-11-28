@@ -1,7 +1,7 @@
 import { type JSX, splitProps } from "solid-js";
 import { cx } from "../../utils/cx";
 import { createDoubleTap } from "../../utils/gestures/double-tap";
-import { createLongPress } from "../../utils/gestures/long-press";
+import { createMenuTrigger } from "../../utils/gestures/menu-trigger";
 import { type Haptics, useHaptics } from "../../utils/haptics";
 import { createRipple } from "../../utils/ripple";
 
@@ -9,7 +9,7 @@ export type DoubleTapAction = "react" | "editOrReply";
 
 export type MessageGestureOptions = {
 	longPress?: boolean;
-	onLongPress?: (event: PointerEvent) => void;
+	onLongPress?: (event: Event) => void;
 	doubleTap?: boolean;
 	doubleTapAction?: DoubleTapAction;
 	doubleTapEmoji?: string;
@@ -32,14 +32,14 @@ export const createMessageGestures = (
 	options: () => MessageGestureOptions,
 	haptics?: Haptics,
 ) => {
-	createLongPress(element, {
+	createMenuTrigger(element, {
 		enabled: () => options().longPress ?? true,
 		shouldStart: (event) => {
 			const target = event.target as Element | null;
 			return !target?.closest?.(options().ignoreSelector ?? DEFAULT_IGNORE);
 		},
-		onLongPress: (event) => {
-			haptics?.impact("medium");
+		onMenu: (event) => {
+			if (event.type !== "contextmenu") haptics?.impact("medium");
 			options().onLongPress?.(event);
 		},
 	});
