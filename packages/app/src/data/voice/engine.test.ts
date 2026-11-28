@@ -686,6 +686,7 @@ describe("voice engine", () => {
 		const changes: boolean[] = [];
 		harness.engine.onScreenShare((sharing) => changes.push(sharing));
 		const video = new FakeTrack("video");
+		video.settings = { width: 2560, height: 1440 };
 		const audio = new FakeTrack("audio");
 		const release = vi.fn();
 		const sharing = harness.engine.shareScreen(
@@ -697,6 +698,10 @@ describe("voice engine", () => {
 			{ resolution: "1080", framerate: 15 },
 		);
 		expect(harness.engine.screenSharing()).toBe(true);
+		expect(video.constraints.at(-1)).toMatchObject({
+			width: { ideal: 1920, max: 1920 },
+			height: { ideal: 1080, max: 1080 },
+		});
 		const produced = await reply(socket, "produce", {
 			$type: `${DEFS}producerInfo`,
 			producerId: "screen-1",
@@ -720,6 +725,7 @@ describe("voice engine", () => {
 		harness.engine.applyScreenQuality({ resolution: "720", framerate: 60 });
 		expect(video.contentHint).toBe("motion");
 		expect(video.constraints.at(-1)).toMatchObject({
+			width: { ideal: 1280, max: 1280 },
 			height: { ideal: 720, max: 720 },
 		});
 		video.listeners.get("ended")?.();

@@ -1,7 +1,7 @@
 import { classifyThrown, createLogger } from "@colibri-social/lib";
 import { classifyNativeError, isNativeShell } from "../../auth/native";
 import {
-	resolutionHeight,
+	fitScreenSize,
 	type ScreenShareQuality,
 	screenMaxBitrate,
 } from "../../data/screen-share";
@@ -75,13 +75,14 @@ export const nativeCaptureQuality = (
 ): NativeCaptureQuality => {
 	const safeWidth = Math.max(2, Math.round(sourceWidth) || 1920);
 	const safeHeight = Math.max(2, Math.round(sourceHeight) || 1080);
-	const target = resolutionHeight(quality.resolution);
-	const scale = target === undefined ? 1 : Math.min(1, target / safeHeight);
-	const even = (value: number): number =>
-		Math.max(2, Math.round(value * scale) & ~1);
+	const size = fitScreenSize(quality.resolution, {
+		width: safeWidth,
+		height: safeHeight,
+	});
+
 	return {
-		width: even(safeWidth),
-		height: even(safeHeight),
+		width: size.width,
+		height: size.height,
 		framerate: quality.framerate,
 		maxBitrate: screenMaxBitrate(quality),
 	};

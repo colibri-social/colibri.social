@@ -151,6 +151,17 @@ describe("nativeCaptureQuality", () => {
 		expect(quality.width).toBe(1920);
 	});
 
+	it("caps the width of a portrait source", () => {
+		const quality = nativeCaptureQuality(
+			{ resolution: "1080", framerate: 30 },
+			1440,
+			2560,
+		);
+
+		expect(quality.width).toBe(1080);
+		expect(quality.height).toBe(1920);
+	});
+
 	it("never scales a small window up", () => {
 		const quality = nativeCaptureQuality(
 			{ resolution: "1440", framerate: 30 },

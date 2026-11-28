@@ -613,7 +613,7 @@ it("opens the screen share picker and hands the quality to the browser picker", 
 		await userEvent.click(button(picker, "Continue"));
 		await expect.poll(() => requests.length).toBe(1);
 		expect(requests[0]).toMatchObject({
-			video: { height: { ideal: 1080, max: 1080 } },
+			video: { frameRate: { ideal: 60, max: 60 } },
 			selfBrowserSurface: "exclude",
 		});
 		await expect.poll(() => track.readyState).toBe("ended");
