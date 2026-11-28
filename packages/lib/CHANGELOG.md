@@ -1,5 +1,14 @@
 # @colibri-social/lib
 
+## 0.2.3
+
+### Patch Changes
+
+- 4fb194e: Tests run on Vitest 5.1.2.
+- 2057d47: Moves to `@colibri-social/lexicons` 2.46.0, which publishes the federation lexicons. The app now takes the `actor.appview` and `actor.remoteSpace` NSIDs and the federation fields of `listCommunities` and `getCommunity` from the lexicons. The website's lexicon reference includes the federation methods and records, the AppView specification lists the `social.colibri.beta.federation` methods and the `federation` feature, and the federation page covers `NotJoined`, `ActingForNotAllowed`, the blocks and mutes a receiving AppView applies, and the delivery retry rules.
+- 841a3cf: Signing out because a session ended no longer sends a crash report, and a failed sign-in renewal caused by an unreachable server is reported as unreachable. Voice teardown no longer reports a stopped queue.
+- 3a3f67d: Add a server picker to the Advanced settings page and an unreachable state for Spaces whose server doesn't answer, and reject server addresses with spaces or invalid host names
+
 ## 0.2.2
 
 ### Patch Changes

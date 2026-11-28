@@ -1,5 +1,33 @@
 # @colibri-social/wrapper
 
+## 0.7.4
+
+### Patch Changes
+
+- Updated dependencies [60cfdf0]
+- Updated dependencies [3b7a541]
+- Updated dependencies [4fb194e]
+- Updated dependencies [3a3f67d]
+- Updated dependencies [c2536a8]
+- Updated dependencies [0afa5a7]
+- Updated dependencies [0f406f9]
+- Updated dependencies [2057d47]
+- Updated dependencies [267a725]
+- Updated dependencies [14628ef]
+- Updated dependencies [4586930]
+- Updated dependencies [3aea636]
+- Updated dependencies [ef2be5d]
+- Updated dependencies [4d7eb98]
+- Updated dependencies [a05833e]
+- Updated dependencies [4d7eb98]
+- Updated dependencies [90f3e31]
+- Updated dependencies [1df46ab]
+- Updated dependencies [841a3cf]
+- Updated dependencies [ee3d18c]
+- Updated dependencies [2101679]
+- Updated dependencies [df17b45]
+  - @colibri-social/app@0.1.0
+
 ## 0.7.3
 
 ### Patch Changes
