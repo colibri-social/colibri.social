@@ -98,6 +98,7 @@ import {
 	gifMessage,
 } from "./composer/media";
 import { createMediaSession } from "./composer/media/session";
+import { rankMembers, recentSenders } from "./composer/mention-candidates";
 import { createAttachmentDraft } from "./composer/uploads/attachment-draft";
 import { createForwardPicker } from "./forward/ForwardPicker";
 import {
@@ -143,6 +144,7 @@ const CLOSED_THREAD_COPY =
 const LOCKED_THREAD_COPY =
 	"This thread is locked. Only moderators can post here.";
 const QUICK_REACTION_COUNT = 4;
+const RECENT_SENDER_LIMIT = 5;
 const HIDE_FAILED_COPY = {
 	hide: "Couldn't hide the message",
 	unhide: "Couldn't unhide the message",
@@ -1260,6 +1262,17 @@ export const createConversation = (options: ConversationOptions) => {
 		selection,
 	};
 
+	const memberSuggestionOf = (member: MemberView) => {
+		return {
+			did: member.actor.did,
+			name: displayNameOf(member.actor, member),
+			handle: member.actor.handle,
+			avatarSrc: member.actor.avatar,
+			presence: uiPresence(data.presenceOf(member.actor.did)),
+			...memberIdentity(member, directory()),
+		};
+	};
+
 	const sources: RichEditorSources = {
 		searchCustomEmoji: (query, limit) =>
 			data.emoji.search(community()?.did, query, limit),
@@ -1275,41 +1288,38 @@ export const createConversation = (options: ConversationOptions) => {
 		emojiUsage: () => session.usage(),
 		onEmojiPick: (emoji) => session.recordEmoji(emoji),
 		searchMembers: (query, limit) => {
-			const needle = query.toLowerCase();
-			const roles = directory();
-			const results = [];
-			for (const member of memberMap().values()) {
-				if (data.preferences.isBlocked(member.actor.did)) continue;
-				const name = displayNameOf(member.actor, member);
-				if (
-					name.toLowerCase().includes(needle) ||
-					member.actor.handle.includes(needle)
-				) {
-					results.push({
-						did: member.actor.did,
-						name,
-						handle: member.actor.handle,
-						avatarSrc: member.actor.avatar,
-						presence: uiPresence(data.presenceOf(member.actor.did)),
-						...memberIdentity(member, roles),
-					});
-					if (results.length >= limit) break;
-				}
+			const members = memberMap();
+			const allowed = (did: string) => !data.preferences.isBlocked(did);
+
+			if (!query) {
+				const viewerDid = data.viewer.did;
+
+				const senders = recentSenders(feed()?.messages() ?? [], {
+					limit: Math.min(limit, RECENT_SENDER_LIMIT),
+					include: (did) =>
+						did !== viewerDid && members.has(did) && allowed(did),
+				});
+
+				return senders.flatMap((did) => {
+					const member = members.get(did);
+					return member ? [memberSuggestionOf(member)] : [];
+				});
 			}
-			return results;
+
+			const candidates = [...members.values()].filter((member) =>
+				allowed(member.actor.did),
+			);
+
+			return rankMembers(candidates, query, {
+				name: (member) => displayNameOf(member.actor, member),
+				handle: (member) => member.actor.handle,
+			})
+				.slice(0, limit)
+				.map(memberSuggestionOf);
 		},
 		resolveMember: (did) => {
 			const member = memberMap().get(did);
-			return member
-				? {
-						did,
-						name: displayNameOf(member.actor, member),
-						handle: member.actor.handle,
-						avatarSrc: member.actor.avatar,
-						presence: uiPresence(data.presenceOf(member.actor.did)),
-						...memberIdentity(member, directory()),
-					}
-				: undefined;
+			return member ? memberSuggestionOf(member) : undefined;
 		},
 		roles: () =>
 			[...roleMap().values()]

@@ -22,6 +22,7 @@ import type {
 	MemberView,
 	RoleView,
 } from "../../../data/types";
+import { rankMembers } from "../composer/mention-candidates";
 import { type ForwardTarget, forwardTargetName } from "./forward-targets";
 
 export type NoteSpace = {
@@ -241,21 +242,18 @@ export const createNoteSources = (
 		emojiUsage: () => data.preferences.composer().emojiUsage,
 		onEmojiPick: (emoji) => data.preferences.recordEmoji(emoji),
 		searchMembers: (query, limit) => {
-			const needle = query.toLowerCase();
 			const directory = identityDirectory(only());
-			const results: MemberSuggestion[] = [];
-			for (const member of members()) {
-				if (data.preferences.isBlocked(member.actor.did)) continue;
-				const name = displayNameOf(member.actor, member);
-				if (
-					name.toLowerCase().includes(needle) ||
-					member.actor.handle.includes(needle)
-				) {
-					results.push(memberSuggestion(data, member, directory));
-					if (results.length >= limit) break;
-				}
-			}
-			return results;
+
+			const candidates = members().filter(
+				(member) => !data.preferences.isBlocked(member.actor.did),
+			);
+
+			return rankMembers(candidates, query, {
+				name: (member) => displayNameOf(member.actor, member),
+				handle: (member) => member.actor.handle,
+			})
+				.slice(0, limit)
+				.map((member) => memberSuggestion(data, member, directory));
 		},
 		resolveMember: (did) => {
 			for (const target of context()) {
