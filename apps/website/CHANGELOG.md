@@ -1,5 +1,42 @@
 # @colibri-social/website
 
+## 0.4.0
+
+### Minor Changes
+
+- 14628ef: Invite links now include the Space they belong to, so a Space on another Colibri server can be joined from any server. Older invite links keep working
+
+### Patch Changes
+
+- 4fb194e: Tests run on Vitest 5.1.2.
+- 2057d47: Moves to `@colibri-social/lexicons` 2.46.0, which publishes the federation lexicons. The app now takes the `actor.appview` and `actor.remoteSpace` NSIDs and the federation fields of `listCommunities` and `getCommunity` from the lexicons. The website's lexicon reference includes the federation methods and records, the AppView specification lists the `social.colibri.beta.federation` methods and the `federation` feature, and the federation page covers `NotJoined`, `ActingForNotAllowed`, the blocks and mutes a receiving AppView applies, and the delivery retry rules.
+- ef2be5d: Stop sharing preferences with a server once you leave its last Space, keep your open channel and activity in sync when a Space moves servers, and finish joining a Space without waiting on bookkeeping. The federation docs list the CORS headers an AppView needs for the server picker
+- Updated dependencies [60cfdf0]
+- Updated dependencies [3b7a541]
+- Updated dependencies [4fb194e]
+- Updated dependencies [3a3f67d]
+- Updated dependencies [c2536a8]
+- Updated dependencies [0afa5a7]
+- Updated dependencies [0f406f9]
+- Updated dependencies [2057d47]
+- Updated dependencies [267a725]
+- Updated dependencies [14628ef]
+- Updated dependencies [4586930]
+- Updated dependencies [3aea636]
+- Updated dependencies [ef2be5d]
+- Updated dependencies [4d7eb98]
+- Updated dependencies [a05833e]
+- Updated dependencies [4d7eb98]
+- Updated dependencies [90f3e31]
+- Updated dependencies [1df46ab]
+- Updated dependencies [841a3cf]
+- Updated dependencies [ee3d18c]
+- Updated dependencies [2101679]
+- Updated dependencies [3a3f67d]
+- Updated dependencies [df17b45]
+  - @colibri-social/app@0.1.0
+  - @colibri-social/lib@0.2.3
+
 ## 0.3.3
 
 ### Patch Changes
