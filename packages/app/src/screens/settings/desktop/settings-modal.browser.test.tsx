@@ -393,7 +393,7 @@ describe("own profile popover", () => {
 			.toBe("Watching the canal");
 		await expect
 			.element(page.getByRole("region", { name: "Your account" }))
-			.toHaveTextContent("Watching the canal");
+			.toMatchTextContent("Watching the canal");
 		await expectNoLayoutIssues(popover.element() as HTMLElement);
 	});
 

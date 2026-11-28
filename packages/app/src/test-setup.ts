@@ -1,6 +1,7 @@
 import { setLogLevel } from "@colibri-social/lib";
 import { clearToasts, setAppActive } from "@colibri-social/ui";
 import { beforeEach } from "vitest";
+import { commands, page } from "vitest/browser";
 import { clearAttachmentDrafts } from "./data/persist-drafts";
 import {
 	APP_RELEASE_NOTES,
@@ -10,6 +11,19 @@ import {
 import { WHATS_NEW_SEEN_KEY } from "./data/whats-new";
 
 setLogLevel("error");
+
+declare module "vitest/browser" {
+	interface BrowserCommands {
+		resetPageScale: () => Promise<void>;
+	}
+}
+
+const setViewport = page.viewport.bind(page);
+
+page.viewport = async (width: number, height: number) => {
+	await setViewport(width, height);
+	await commands.resetPageScale();
+};
 
 type FrameNavigation = {
 	canGoBack: boolean;

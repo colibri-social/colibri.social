@@ -207,7 +207,7 @@ describe("sign-in", () => {
 			{ stored: fakeSession(DID) },
 			{ storage: memoryStorage({ sub: DID }) },
 		);
-		await expect.element(page.getByTestId("signed-in")).toHaveTextContent(DID);
+		await expect.element(page.getByTestId("signed-in")).toMatchTextContent(DID);
 		expect(screenOf()).toBeUndefined();
 	});
 
@@ -217,7 +217,7 @@ describe("sign-in", () => {
 			{ restoreError: new ColibriError({ code: "Offline" }) },
 			{ storage: memoryStorage({ sub: DID }) },
 		);
-		await expect.element(page.getByTestId("signed-in")).toHaveTextContent(DID);
+		await expect.element(page.getByTestId("signed-in")).toMatchTextContent(DID);
 		expect(screenOf()).toBeUndefined();
 		expect(location.pathname).toBe("/app/inbox");
 	});
@@ -245,7 +245,7 @@ describe("sign-in", () => {
 			.element(page.getByText("Colibri can't connect right now"))
 			.toBeVisible();
 		await userEvent.click(page.getByRole("button", { name: "Try again" }));
-		await expect.element(page.getByTestId("signed-in")).toHaveTextContent(DID);
+		await expect.element(page.getByTestId("signed-in")).toMatchTextContent(DID);
 	});
 
 	it("sends an expired session back to sign-in and remembers where it was", async () => {
