@@ -30,6 +30,7 @@ export class FakeTrack {
 	stopped = false;
 	contentHint = "";
 	constraints: MediaTrackConstraints[] = [];
+	settings: MediaTrackSettings = {};
 	listeners = new Map<string, () => void>();
 	constructor(readonly kind: string) {}
 	stop() {
@@ -37,6 +38,9 @@ export class FakeTrack {
 	}
 	async applyConstraints(constraints: MediaTrackConstraints) {
 		this.constraints.push(constraints);
+	}
+	getSettings() {
+		return this.settings;
 	}
 	addEventListener(type: string, listener: () => void) {
 		this.listeners.set(type, listener);

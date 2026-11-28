@@ -47,7 +47,7 @@ describe("account storage notice", () => {
 
 		await expect
 			.element(page.getByRole("status"))
-			.toHaveTextContent(STORAGE_NOTICE_COPY.hosted.title);
+			.toMatchTextContent(STORAGE_NOTICE_COPY.hosted.title);
 		expect(page.getByRole("progressbar").query()).toBeNull();
 	});
 
@@ -62,7 +62,7 @@ describe("account storage notice", () => {
 
 		await expect
 			.element(page.getByRole("status"))
-			.toHaveTextContent(STORAGE_NOTICE_COPY.moving.title);
+			.toMatchTextContent(STORAGE_NOTICE_COPY.moving.title);
 		await expect
 			.element(page.getByRole("progressbar"))
 			.toHaveAttribute("aria-valuenow", "25");

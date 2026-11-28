@@ -59,6 +59,7 @@ import {
 	screenDegradationPreference,
 	screenEncodings,
 	screenEncodingTarget,
+	screenSourceSize,
 	screenVideoConstraints,
 } from "../screen-share";
 import { DEFAULT_VOICE_SETTINGS, type VoiceSettings } from "../voice-settings";
@@ -2262,6 +2263,22 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			capture.release();
 		};
 
+		const constrainScreen = (
+			track: MediaStreamTrack,
+			quality: ScreenShareQuality,
+		) => {
+			const constraints = screenVideoConstraints(
+				quality,
+				screenSourceSize(track),
+			);
+
+			void track.applyConstraints(constraints).catch((error: unknown) => {
+				log.debug("screen constraints rejected", {
+					code: classifyThrown(error).code,
+				});
+			});
+		};
+
 		const shareScreen = async (
 			capture: ScreenCapture,
 			quality: ScreenShareQuality,
@@ -2277,6 +2294,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 			screenCapture = capture;
 			screenQuality = quality;
 			setScreenSharing(true);
+			constrainScreen(capture.video, quality);
 			capture.video.contentHint = screenContentHint(quality);
 			setVideo("self:screen", {
 				did: viewer,
@@ -2416,13 +2434,7 @@ export const createVoiceEngine = (options: VoiceEngineOptions): VoiceEngine =>
 				screenContentHint(quality),
 				tunedSenders.get(producer.id)?.scalabilityMode,
 			);
-			void track
-				.applyConstraints(screenVideoConstraints(quality))
-				.catch((error: unknown) => {
-					log.debug("screen constraints rejected", {
-						code: classifyThrown(error).code,
-					});
-				});
+			constrainScreen(track, quality);
 			applyDegradation(producer, quality);
 		};
 

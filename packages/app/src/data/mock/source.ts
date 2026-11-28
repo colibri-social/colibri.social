@@ -100,6 +100,7 @@ export type MockSource = DataSource & {
 	simulateMessage: (input: {
 		author: Did;
 		channel: SpaceRef;
+		rkey?: string;
 		text: string;
 		facets?: Facet[];
 	}) => MessageView;

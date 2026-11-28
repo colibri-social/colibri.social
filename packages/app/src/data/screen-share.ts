@@ -20,6 +20,11 @@ export type DisplayMediaRequest = {
 	surfaceSwitching?: "include" | "exclude";
 };
 
+export type ScreenSize = {
+	width: number;
+	height: number;
+};
+
 export const DEFAULT_SCREEN_SHARE: ScreenShareOptions = {
 	resolution: "1080",
 	framerate: 30,
@@ -48,7 +53,10 @@ const DISPLAY_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 	channelCount: 2,
 };
 
-const RESOLUTION_HEIGHTS: Record<ScreenShareResolution, number | undefined> = {
+const RESOLUTION_SHORT_SIDES: Record<
+	ScreenShareResolution,
+	number | undefined
+> = {
 	"720": 720,
 	"1080": 1080,
 	"1440": 1440,
@@ -65,9 +73,35 @@ const MAX_BITRATES: Record<
 	source: { 15: 4_000_000, 30: 8_000_000, 60: 14_000_000 },
 };
 
-export const resolutionHeight = (
+export const fitScreenSize = (
 	resolution: ScreenShareResolution,
-): number | undefined => RESOLUTION_HEIGHTS[resolution];
+	source: ScreenSize,
+): ScreenSize => {
+	const target = RESOLUTION_SHORT_SIDES[resolution];
+	const shortSide = Math.min(source.width, source.height);
+	const scale = target === undefined ? 1 : Math.min(1, target / shortSide);
+	const even = (value: number) => Math.max(2, Math.round(value * scale) & ~1);
+
+	return { width: even(source.width), height: even(source.height) };
+};
+
+const positive = (value: unknown): number | undefined => {
+	return typeof value === "number" && value > 0 ? value : undefined;
+};
+
+export const screenSourceSize = (
+	track: MediaStreamTrack,
+): ScreenSize | undefined => {
+	const capabilities = track.getCapabilities?.() ?? {};
+	const settings = track.getSettings?.() ?? {};
+	const width = positive(capabilities.width?.max) ?? positive(settings.width);
+	const height =
+		positive(capabilities.height?.max) ?? positive(settings.height);
+
+	if (width === undefined || height === undefined) return undefined;
+
+	return { width, height };
+};
 
 export const isScreenShareOptions = (
 	value: unknown,
@@ -100,14 +134,21 @@ export const screenDegradationPreference = (
 
 export const screenVideoConstraints = (
 	quality: ScreenShareQuality,
+	source?: ScreenSize,
 ): MediaTrackConstraints => {
 	const constraints: MediaTrackConstraints = {
 		frameRate: { ideal: quality.framerate, max: quality.framerate },
 	};
-	const height = RESOLUTION_HEIGHTS[quality.resolution];
-	if (height !== undefined) {
-		constraints.height = { ideal: height, max: height };
+
+	if (!source || RESOLUTION_SHORT_SIDES[quality.resolution] === undefined) {
+		return constraints;
 	}
+
+	const { width, height } = fitScreenSize(quality.resolution, source);
+
+	constraints.width = { ideal: width, max: width };
+	constraints.height = { ideal: height, max: height };
+
 	return constraints;
 };
 
@@ -144,7 +185,7 @@ export const screenEncodingTarget = (
 	settings: { width?: number; height?: number } = {},
 ): { width: number; height: number; framerate: number; bitrate: number } => {
 	const height =
-		settings.height ?? RESOLUTION_HEIGHTS[quality.resolution] ?? 1080;
+		settings.height ?? RESOLUTION_SHORT_SIDES[quality.resolution] ?? 1080;
 	const width = settings.width ?? Math.round((height * 16) / 9);
 	return {
 		width,

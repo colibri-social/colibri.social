@@ -16,7 +16,7 @@ import {
 	ThreadIcon,
 } from "../../icons/custom";
 import { cx } from "../../utils/cx";
-import { createLongPress, createMenuTrigger } from "../../utils/gestures";
+import { createMenuTrigger } from "../../utils/gestures";
 import { KeyedFor } from "../../utils/keyed";
 import { createRipple } from "../../utils/ripple";
 import { HIDDEN_REASON_TEXT } from "../Attachments/HiddenMessage";
@@ -52,7 +52,7 @@ const compactRowHeight = (platform: ChannelPlatform | undefined) =>
 type RowEvents = {
 	onClick?: (event: MouseEvent) => void;
 	onContextMenu?: (event: MouseEvent) => void;
-	onLongPress?: (event: PointerEvent) => void;
+	onLongPress?: (event: Event) => void;
 	onOpenSettings?: () => void;
 	settingsLabel?: string;
 };
@@ -84,8 +84,8 @@ const bindGestures = (
 	return (element: HTMLElement) => {
 		ripple(element);
 		if (events.onLongPress)
-			createLongPress(element, {
-				onLongPress: (event) => events.onLongPress?.(event),
+			createMenuTrigger(element, {
+				onMenu: (event) => events.onLongPress?.(event),
 			});
 	};
 };

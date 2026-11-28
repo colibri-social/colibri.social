@@ -2,10 +2,14 @@ import tailwindcss from "@tailwindcss/vite";
 import { playwright } from "@vitest/browser-playwright";
 import solid from "vite-plugin-solid";
 import { defineConfig } from "vitest/config";
+import type { BrowserCommand } from "vitest/node";
 
-const CHROMIUM_LOG_ARGS = process.env.CI
-	? ["--enable-logging=stderr", "--log-level=0"]
-	: [];
+const resetPageScale: BrowserCommand<[]> = async ({ page }) => {
+	const session = await page.context().newCDPSession(page);
+
+	await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+	await session.detach();
+};
 
 export default defineConfig({
 	test: {
@@ -30,8 +34,8 @@ export default defineConfig({
 					browser: {
 						enabled: true,
 						headless: true,
+						commands: { resetPageScale },
 						provider: playwright({
-							launchOptions: { args: CHROMIUM_LOG_ARGS },
 							contextOptions: {
 								hasTouch: true,
 								isMobile: true,

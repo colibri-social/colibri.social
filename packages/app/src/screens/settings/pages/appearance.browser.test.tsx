@@ -29,7 +29,7 @@ afterEach(() => {
 
 it("hides haptics where nothing can vibrate", async () => {
 	await mountPage(() => <AppearancePage platform="mobile" />);
-	await expect.element(page.getByText("Message previews")).toBeVisible();
+	await expect.element(page.getByText("Show message previews")).toBeVisible();
 	expect(document.body.textContent).not.toContain("Haptics");
 });
 

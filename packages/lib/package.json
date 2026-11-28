@@ -27,6 +27,6 @@
 		"@types/mdast": "^4.0.4",
 		"@types/node": "^25.6.0",
 		"@typescript/native-preview": "7.0.0-dev.20260627.2",
-		"vitest": "^4.1.10"
+		"vitest": "^5.1.2"
 	}
 }

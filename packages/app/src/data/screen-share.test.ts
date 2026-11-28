@@ -8,6 +8,7 @@ import {
 	DEFAULT_SCREEN_SHARE,
 	displayMediaRequest,
 	displayVideoRequest,
+	fitScreenSize,
 	isLinuxApp,
 	isScreenShareOptions,
 	SCREEN_SHARE_FRAMERATES,
@@ -18,6 +19,7 @@ import {
 	screenEncodings,
 	screenEncodingTarget,
 	screenMaxBitrate,
+	screenSourceSize,
 	screenVideoConstraints,
 	supportsDisplayAudio,
 } from "./screen-share";
@@ -34,14 +36,24 @@ const FIREFOX =
 	"Mozilla/5.0 (Macintosh; Intel Mac OS X 14.7; rv:133.0) Gecko/20100101 Firefox/133.0";
 
 describe("screenVideoConstraints", () => {
-	it("caps height for fixed resolutions without constraining width", () => {
+	it("caps the short side of a landscape source and keeps its shape", () => {
+		const constraints = screenVideoConstraints(
+			{ resolution: "1080", framerate: 30 },
+			{ width: 2560, height: 1440 },
+		);
+
+		expect(constraints.width).toEqual({ ideal: 1920, max: 1920 });
+		expect(constraints.height).toEqual({ ideal: 1080, max: 1080 });
+	});
+
+	it("sends no size before the source is known", () => {
 		const constraints = screenVideoConstraints({
 			resolution: "1080",
 			framerate: 30,
 		});
 
-		expect(constraints.height).toEqual({ ideal: 1080, max: 1080 });
 		expect(constraints.width).toBeUndefined();
+		expect(constraints.height).toBeUndefined();
 	});
 
 	it("leaves height unconstrained at source resolution", () => {
@@ -277,6 +289,79 @@ describe("supportsDisplayAudio", () => {
 	});
 });
 
+describe("fitScreenSize", () => {
+	it("scales a 1440p monitor to each preset by its height", () => {
+		const source = { width: 2560, height: 1440 };
+
+		expect(fitScreenSize("720", source)).toEqual({ width: 1280, height: 720 });
+
+		expect(fitScreenSize("1080", source)).toEqual({
+			width: 1920,
+			height: 1080,
+		});
+
+		expect(fitScreenSize("1440", source)).toEqual(source);
+		expect(fitScreenSize("source", source)).toEqual(source);
+	});
+
+	it("caps the width of a portrait source", () => {
+		expect(fitScreenSize("1080", { width: 1440, height: 2560 })).toEqual({
+			width: 1080,
+			height: 1920,
+		});
+	});
+
+	it("keeps an ultrawide source at its own size when it fits", () => {
+		const source = { width: 3440, height: 1440 };
+
+		expect(fitScreenSize("1440", source)).toEqual(source);
+	});
+
+	it("never scales a smaller source up", () => {
+		const source = { width: 800, height: 600 };
+
+		expect(fitScreenSize("1440", source)).toEqual(source);
+	});
+
+	it("rounds both edges down to even numbers", () => {
+		const size = fitScreenSize("720", { width: 1365, height: 767 });
+
+		expect(size.width % 2).toBe(0);
+		expect(size.height % 2).toBe(0);
+	});
+});
+
+describe("screenSourceSize", () => {
+	const fakeTrack = (
+		capabilities: MediaTrackCapabilities,
+		settings: MediaTrackSettings,
+	) => {
+		return {
+			getCapabilities: () => capabilities,
+			getSettings: () => settings,
+		} as unknown as MediaStreamTrack;
+	};
+
+	it("prefers the surface size from the capabilities", () => {
+		const track = fakeTrack(
+			{ width: { max: 2560 }, height: { max: 1440 } },
+			{ width: 1280, height: 720 },
+		);
+
+		expect(screenSourceSize(track)).toEqual({ width: 2560, height: 1440 });
+	});
+
+	it("falls back to the current settings", () => {
+		const track = fakeTrack({}, { width: 1920, height: 1080 });
+
+		expect(screenSourceSize(track)).toEqual({ width: 1920, height: 1080 });
+	});
+
+	it("reports nothing for a track without a size", () => {
+		expect(screenSourceSize(fakeTrack({}, {}))).toBeUndefined();
+	});
+});
+
 describe("displayVideoRequest", () => {
 	it("asks for video only, with the quality constraints of the share", () => {
 		const request = displayVideoRequest({ resolution: "720", framerate: 60 });
@@ -284,7 +369,6 @@ describe("displayVideoRequest", () => {
 		expect(request.systemAudio).toBe("exclude");
 		expect(request.video).toEqual({
 			frameRate: { ideal: 60, max: 60 },
-			height: { ideal: 720, max: 720 },
 		});
 	});
 

@@ -1,6 +1,7 @@
 import { setLogLevel } from "@colibri-social/lib";
 import { clearToasts, setAppActive } from "@colibri-social/ui";
 import { beforeEach } from "vitest";
+import { commands, page } from "vitest/browser";
 import { clearAttachmentDrafts } from "./data/persist-drafts";
 import {
 	APP_RELEASE_NOTES,
@@ -10,6 +11,29 @@ import {
 import { WHATS_NEW_SEEN_KEY } from "./data/whats-new";
 
 setLogLevel("error");
+
+declare module "vitest/browser" {
+	interface BrowserCommands {
+		resetPageScale: () => Promise<void>;
+	}
+}
+
+const setViewport = page.viewport.bind(page);
+
+const nextFrame = () => {
+	return new Promise((resolve) => requestAnimationFrame(resolve));
+};
+
+page.viewport = async (width: number, height: number) => {
+	await setViewport(width, height);
+	await commands.resetPageScale();
+
+	while (window.innerWidth !== width || window.innerHeight !== height) {
+		await nextFrame();
+	}
+
+	await nextFrame();
+};
 
 type FrameNavigation = {
 	canGoBack: boolean;
@@ -33,6 +57,22 @@ if (frameNavigation) {
 		if (delta < 0 && index + delta < 0) return;
 
 		goBy(delta);
+	};
+}
+
+const mediaDevices = navigator.mediaDevices;
+
+if (mediaDevices) {
+	const listen = mediaDevices.addEventListener.bind(mediaDevices);
+
+	mediaDevices.addEventListener = (
+		type: string,
+		listener: EventListenerOrEventListenerObject | null,
+		options?: boolean | AddEventListenerOptions,
+	) => {
+		if (type === "devicechange" || !listener) return;
+
+		listen(type, listener, options);
 	};
 }
 

@@ -28,6 +28,7 @@ import {
 import { createStore, reconcile } from "solid-js/store";
 import { createAccessStore } from "./access-store";
 import { mentionedDids } from "./adapters/facets";
+import { createArrivalOrder, withArrivalOrder } from "./arrival-order";
 import {
 	type GuestChannel,
 	normalizeChannelLayout,
@@ -934,6 +935,7 @@ export const createDataStore = (
 		const typingListeners = new Map<SpaceRef, (did: Did) => void>();
 		const typingStops = new Map<SpaceRef, (did: Did) => void>();
 		const sentNonces = new Map<string, string>();
+		const arrivals = createArrivalOrder();
 		const outbox = createOutbox({
 			source,
 			queue: options.outbox?.queue,
@@ -2179,6 +2181,7 @@ export const createDataStore = (
 				ref,
 				viewer.did,
 			);
+			const shownMessages = withArrivalOrder(messages, arrivals, ref);
 			const [pending, setPending] = createSignal<readonly PendingMessage[]>([]);
 			const [ready, setReady] = createSignal(false);
 			const [confirmed, setConfirmed] = createSignal(false);
@@ -2358,6 +2361,8 @@ export const createDataStore = (
 						(message) =>
 							!knownBefore.has(message.rkey) && !kept.has(message.rkey),
 					);
+
+					for (const message of arrived) arrivals.arrive(ref, message.rkey);
 
 					return arrived.length > 0 ? insertSorted(merged, arrived) : merged;
 				};
@@ -2676,7 +2681,12 @@ export const createDataStore = (
 				if (discardedSends.has(message.rkey)) return;
 				const place = (list: readonly MessageView[]) => {
 					const index = list.findIndex((entry) => entry.rkey === message.rkey);
-					if (index === -1) return insertSorted(list, [message]);
+					if (index === -1) {
+						arrivals.arrive(ref, message.rkey);
+
+						return insertSorted(list, [message]);
+					}
+
 					const next = list.slice();
 					next[index] = keepOwnReactions(ref, list[index] ?? message, message);
 					return next;
@@ -2703,6 +2713,7 @@ export const createDataStore = (
 
 			const settlePending = (nonce: string, message: MessageView) => {
 				const settled = pending().find((entry) => entry.nonce === nonce);
+				arrivals.confirm(ref, message.rkey);
 				batch(() => {
 					if (settled) {
 						setPending((list) => list.filter((entry) => entry.nonce !== nonce));
@@ -2983,7 +2994,7 @@ export const createDataStore = (
 
 			const data: ChannelData = {
 				channel: ref,
-				messages,
+				messages: shownMessages,
 				pending,
 				ready,
 				confirmed,

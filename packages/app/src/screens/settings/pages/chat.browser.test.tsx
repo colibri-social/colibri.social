@@ -28,7 +28,7 @@ it("hides messages that moderators hid when the viewer turns them off", async ()
 it("syncs how many times GIFs play", async () => {
 	const { store } = await mountPage(() => <ChatPage platform="desktop" />);
 	const trigger = page.getByRole("button", { name: /Play GIFs in chat/ });
-	await expect.element(trigger).toHaveTextContent("Keep playing");
+	await expect.element(trigger).toMatchTextContent("Keep playing");
 	await userEvent.click(trigger);
 	await userEvent.click(page.getByRole("option", { name: "Play once" }));
 	await expect.poll(() => store.preferences.client().gifLoopLimit).toBe(1);

@@ -5,6 +5,7 @@ import { createLongPress } from "./long-press";
 export type MenuTriggerOptions = {
 	onMenu: (event: Event) => void;
 	enabled?: () => boolean;
+	shouldStart?: (event: Event) => boolean;
 };
 
 export const createMenuTrigger = (
@@ -26,6 +27,7 @@ export const createMenuTrigger = (
 	const onContextMenu = (event: MouseEvent) => {
 		if (!isEnabled()) return;
 		if (lastPointerType && lastPointerType !== "mouse") return;
+		if (options.shouldStart && !options.shouldStart(event)) return;
 		event.preventDefault();
 		event.stopPropagation();
 		openMenu(event);
@@ -33,6 +35,7 @@ export const createMenuTrigger = (
 
 	createLongPress(element, {
 		enabled: isEnabled,
+		shouldStart: options.shouldStart,
 		onLongPress: openMenu,
 	});
 

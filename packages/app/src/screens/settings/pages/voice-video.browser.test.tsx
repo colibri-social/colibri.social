@@ -136,7 +136,7 @@ it("keeps the microphone test running when the device list refreshes", async () 
 	await mountPage(() => <VoiceVideoPage platform="desktop" />);
 	await expect
 		.element(page.getByRole("button", { name: /Microphone/ }).first())
-		.toHaveTextContent("Headset");
+		.toMatchTextContent("Headset");
 
 	await userEvent.click(page.getByRole("button", { name: "Test microphone" }));
 	await expect

@@ -102,9 +102,9 @@ it("shows a toast for a new message and opens the channel on tap", async () => {
 	});
 	await until(() => toasts().length === 1);
 	const toast = toasts()[0];
-	expect(toast).toHaveTextContent("Ada Toast");
-	expect(toast).toHaveTextContent(`#${first.name}`);
-	expect(toast).toHaveTextContent("Hello number");
+	expect(toast).toMatchTextContent("Ada Toast");
+	expect(toast).toMatchTextContent(`#${first.name}`);
+	expect(toast).toMatchTextContent("Hello number");
 	expect(
 		toast.querySelector("[data-message-toast-location]")?.textContent,
 	).toBe(`#${first.name}`);
